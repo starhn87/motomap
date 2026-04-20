@@ -112,21 +112,21 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview }: Pro
                 borderTopColor: colors.border,
               },
             ]}>
-            <Pressable
+            <TouchableOpacity
               onPress={() => onRoutePreview?.(place)}
-              style={({ pressed }) => [
+              activeOpacity={0.8}
+              style={[
                 styles.routePreviewButton,
                 {
                   backgroundColor:
                     colorScheme === 'dark' ? '#2A2A2A' : '#F3F4F6',
-                  opacity: pressed ? 0.8 : 1,
                 },
               ]}>
               <Text style={[styles.routePreviewText, { color: colors.text }]}>
                 경로 미리보기
               </Text>
-            </Pressable>
-            <Pressable
+            </TouchableOpacity>
+            <TouchableOpacity
               onPress={() =>
                 openNavigation({
                   name: place.name,
@@ -134,12 +134,10 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview }: Pro
                   longitude: place.longitude,
                 })
               }
-              style={({ pressed }) => [
-                styles.navButton,
-                { opacity: pressed ? 0.8 : 1 },
-              ]}>
+              activeOpacity={0.8}
+              style={styles.navButton}>
               <Text style={styles.navButtonText}>네비 시작</Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
         </BottomSheetFooter>
       );
@@ -251,12 +249,12 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview }: Pro
         <View style={styles.nameRow}>
           <Text style={[styles.name, { color: colors.text }]}>{displayPlace.name}</Text>
           <View style={styles.nameActions}>
-            <Pressable onPress={handleFavorite} style={styles.favoriteButton}>
+            <TouchableOpacity onPress={handleFavorite} style={styles.favoriteButton}>
               <Text style={{ fontSize: 22 }}>{isFavorite ? '❤️' : '🤍'}</Text>
-            </Pressable>
-            <Pressable onPress={onClose} style={styles.closeButton}>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
         </View>
 

@@ -252,7 +252,11 @@ export default function MapScreen() {
       {!navigating && (
         <Animated.View
           entering={FadeIn.duration(300)}
-          style={styles.searchAndFilter}>
+          pointerEvents={selectedPlace ? 'none' : 'auto'}
+          style={[
+            styles.searchAndFilter,
+            selectedPlace ? { opacity: 0.3 } : null,
+          ]}>
           <CategoryFilter />
           <SearchBar onSelectPlace={handleSearchSelect} />
         </Animated.View>
