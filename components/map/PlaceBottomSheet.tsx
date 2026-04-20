@@ -16,9 +16,10 @@ import type { Place } from '@/types';
 interface Props {
   place: Place | null;
   onClose: () => void;
+  onRoutePreview?: (place: Place) => void;
 }
 
-export default function PlaceBottomSheet({ place, onClose }: Props) {
+export default function PlaceBottomSheet({ place, onClose, onRoutePreview }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const bottomSheetRef = useRef<BottomSheet>(null);
@@ -169,20 +170,35 @@ export default function PlaceBottomSheet({ place, onClose }: Props) {
           </View>
         )}
 
-        <Pressable
-          onPress={() =>
-            openNavigation({
-              name: place.name,
-              latitude: place.latitude,
-              longitude: place.longitude,
-            })
-          }
-          style={({ pressed }) => [
-            styles.navButton,
-            { opacity: pressed ? 0.8 : 1 },
-          ]}>
-          <Text style={styles.navButtonText}>네비 시작</Text>
-        </Pressable>
+        <View style={styles.buttonRow}>
+          <Pressable
+            onPress={() => onRoutePreview?.(place)}
+            style={({ pressed }) => [
+              styles.routePreviewButton,
+              {
+                backgroundColor: colorScheme === 'dark' ? '#2A2A2A' : '#F3F4F6',
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}>
+            <Text style={[styles.routePreviewText, { color: colors.text }]}>
+              경로 미리보기
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() =>
+              openNavigation({
+                name: place.name,
+                latitude: place.latitude,
+                longitude: place.longitude,
+              })
+            }
+            style={({ pressed }) => [
+              styles.navButton,
+              { opacity: pressed ? 0.8 : 1 },
+            ]}>
+            <Text style={styles.navButtonText}>네비 시작</Text>
+          </Pressable>
+        </View>
 
         {/* 리뷰 섹션 */}
         <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
@@ -297,12 +313,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 8,
+  },
+  routePreviewButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  routePreviewText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
   navButton: {
+    flex: 1,
     backgroundColor: '#F97316',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 8,
   },
   navButtonText: {
     color: '#FFFFFF',
