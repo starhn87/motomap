@@ -168,14 +168,17 @@ export default function ReviewList({ placeId }: Props) {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.editPhotoRow}>
                     {editPhotos.map((url, i) => (
-                      <View key={`${url}-${i}`} style={styles.editPhotoThumb}>
+                      <TouchableOpacity
+                        key={`${url}-${i}`}
+                        onPress={() => {
+                          Alert.alert('사진 삭제', '이 사진을 삭제하시겠습니까?', [
+                            { text: '취소', style: 'cancel' },
+                            { text: '삭제', style: 'destructive', onPress: () => setEditPhotos((prev) => prev.filter((_, idx) => idx !== i)) },
+                          ]);
+                        }}
+                        style={styles.editPhotoThumb}>
                         <RNImage source={{ uri: url }} style={styles.editPhotoImage} />
-                        <TouchableOpacity
-                          onPress={() => setEditPhotos((prev) => prev.filter((_, idx) => idx !== i))}
-                          style={styles.editPhotoRemove}>
-                          <Text style={styles.editPhotoRemoveText}>✕</Text>
-                        </TouchableOpacity>
-                      </View>
+                      </TouchableOpacity>
                     ))}
                     {editPhotos.length < 5 && (
                       <TouchableOpacity
@@ -287,13 +290,8 @@ const styles = StyleSheet.create({
   actionText: { fontSize: 12, fontWeight: '600' },
   editForm: { gap: 10 },
   editPhotoRow: { flexDirection: 'row', gap: 6 },
-  editPhotoThumb: { width: 60, height: 60, borderRadius: 8, overflow: 'hidden' },
-  editPhotoImage: { width: 60, height: 60 },
-  editPhotoRemove: {
-    position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: 9,
-    backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center',
-  },
-  editPhotoRemoveText: { color: '#FFFFFF', fontSize: 9, fontWeight: '700' },
+  editPhotoThumb: { width: 60, height: 60 },
+  editPhotoImage: { width: 60, height: 60, borderRadius: 8 },
   editPhotoAdd: {
     width: 60, height: 60, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed',
     alignItems: 'center', justifyContent: 'center',
