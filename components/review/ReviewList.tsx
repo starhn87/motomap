@@ -67,12 +67,8 @@ export default function ReviewList({ placeId }: Props) {
       return;
     }
     const uri = await pickImage();
-    if (!uri) return;
-    try {
-      const url = await uploadImage(uri, `reviews/${placeId}`);
-      setEditPhotos((prev) => [...prev, url]);
-    } catch (error: any) {
-      Alert.alert('오류', error.message ?? '사진 업로드에 실패했습니다.');
+    if (uri) {
+      setEditPhotos((prev) => [...prev, uri]);
     }
   };
 
@@ -82,7 +78,17 @@ export default function ReviewList({ placeId }: Props) {
       return;
     }
     try {
-      await updateReview({ id, rating: editRating, content: editContent.trim(), photos: editPhotos });
+      // 새로 추가된 로컬 이미지만 업로드
+      const finalPhotos: string[] = [];
+      for (const photo of editPhotos) {
+        if (photo.startsWith('http')) {
+          finalPhotos.push(photo);
+        } else {
+          const url = await uploadImage(photo, `reviews/${placeId}`);
+          finalPhotos.push(url);
+        }
+      }
+      await updateReview({ id, rating: editRating, content: editContent.trim(), photos: finalPhotos });
       handleCancelEdit();
     } catch (error: any) {
       Alert.alert('오류', error.message ?? '수정에 실패했습니다.');
