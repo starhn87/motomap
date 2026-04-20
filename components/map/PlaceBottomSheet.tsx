@@ -1,11 +1,21 @@
-import { View, Text, StyleSheet, Pressable, Alert, Image, ScrollView, Dimensions } from 'react-native';
-import { TouchableOpacity } from 'react-native-gesture-handler';
-import BottomSheet, {
-  BottomSheetScrollView,
-  BottomSheetFooter,
-} from '@gorhom/bottom-sheet';
-import type { BottomSheetFooterProps } from '@gorhom/bottom-sheet';
-import { useCallback, useMemo, useRef, useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Alert,
+  Image,
+  ScrollView,
+  Dimensions,
+} from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
@@ -26,24 +36,62 @@ interface Props {
   place: Place | null;
   onClose: () => void;
   onRoutePreview?: (place: Place) => void;
-  onSnapChange?: (isExpanded: boolean) => void;
 }
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const PHOTO_HEIGHT = Math.round((SCREEN_WIDTH * 9) / 16);
 
-export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSnapChange }: Props) {
+// 스냅 위치 (화면 위에서부터의 거리)
+const SNAP_HIDDEN = SCREEN_HEIGHT;
+const SNAP_SMALL = SCREEN_HEIGHT * 0.62;  // 38% 보임
+const SNAP_MEDIUM = SCREEN_HEIGHT * 0.30; // 70% 보임
+const SNAP_FULL = 0;                      // 100% 보임
+const SNAPS = [SNAP_FULL, SNAP_MEDIUM, SNAP_SMALL];
+
+const SPRING_CONFIG = { damping: 25, stiffness: 300 };
+
+export default function PlaceBottomSheet({ place, onClose, onRoutePreview }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ['28%', '60%', '100%'], []);
-  const [currentIndex, setCurrentIndex] = useState(1);
   const user = useAuthStore((s) => s.user);
   const userLocation = useMapStore((s) => s.userLocation);
   const { data: latestPlace } = usePlace(place?.id ?? null);
   const displayPlace = latestPlace ?? place;
   const isFavorite = useIsFavorite(place?.id ?? '');
   const { mutateAsync: toggleFav } = useToggleFavorite();
+
+  const translateY = useSharedValue(SNAP_HIDDEN);
+  const context = useSharedValue(0);
+  const [currentSnap, setCurrentSnap] = useState(1);
+
+  useEffect(() => {
+    if (place) {
+      translateY.value = withSpring(SNAP_MEDIUM, SPRING_CONFIG);
+      setCurrentSnap(1);
+    } else {
+      translateY.value = withSpring(SNAP_HIDDEN, SPRING_CONFIG);
+    }
+  }, [place, translateY]);
+
+  const handleClose = useCallback(() => {
+    translateY.value = withSpring(SNAP_HIDDEN, SPRING_CONFIG);
+    onClose();
+  }, [onClose, translateY]);
+
+  const snapTo = useCallback(
+    (index: number) => {
+      const target = SNAPS[index];
+      translateY.value = withSpring(target, SPRING_CONFIG);
+      setCurrentSnap(index);
+    },
+    [translateY]
+  );
+
+  const handleExpand = useCallback(() => {
+    if (currentSnap > 0) {
+      snapTo(currentSnap - 1);
+    }
+  }, [currentSnap, snapTo]);
 
   const handleFavorite = useCallback(async () => {
     if (!user) {
@@ -58,97 +106,63 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
     }
   }, [user, place, toggleFav]);
 
-  useEffect(() => {
-    if (place) {
-      bottomSheetRef.current?.snapToIndex(1);
-    } else {
-      bottomSheetRef.current?.close();
-    }
-  }, [place]);
-
-  const handleSheetChanges = useCallback(
-    (index: number) => {
-      setCurrentIndex(index);
-      onSnapChange?.(index === snapPoints.length - 1);
-      if (index === -1) {
-        onSnapChange?.(false);
-        onClose();
+  const findClosestSnap = (y: number): number => {
+    let closest = 0;
+    let minDist = Math.abs(y - SNAPS[0]);
+    for (let i = 1; i < SNAPS.length; i++) {
+      const dist = Math.abs(y - SNAPS[i]);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = i;
       }
-    },
-    [onClose, onSnapChange, snapPoints.length]
-  );
-
-  const handleExpand = useCallback(() => {
-    if (currentIndex < snapPoints.length - 1) {
-      bottomSheetRef.current?.snapToIndex(currentIndex + 1);
     }
-  }, [currentIndex, snapPoints.length]);
+    return closest;
+  };
 
-  const renderHandle = useCallback(() => {
-    const canExpand = currentIndex < snapPoints.length - 1;
-    return (
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={handleExpand}
-        disabled={!canExpand}
-        style={styles.handleContainer}>
-        <View
-          style={[
-            styles.handleIndicator,
-            { backgroundColor: colors.tabIconDefault },
-          ]}
-        />
-      </TouchableOpacity>
-    );
-  }, [handleExpand, currentIndex, snapPoints.length, colors.tabIconDefault]);
+  const onDismiss = () => {
+    handleClose();
+  };
 
-  const renderFooter = useCallback(
-    (props: BottomSheetFooterProps) => {
-      if (!place) return null;
-      return (
-        <BottomSheetFooter {...props} bottomInset={0}>
-          <View
-            style={[
-              styles.footer,
-              {
-                backgroundColor: colors.background,
-                borderTopColor: colors.border,
-              },
-            ]}>
-            <Pressable
-              onPress={() => onRoutePreview?.(place)}
-              style={({ pressed }) => [
-                styles.routePreviewButton,
-                {
-                  backgroundColor:
-                    colorScheme === 'dark' ? '#2A2A2A' : '#F3F4F6',
-                  opacity: pressed ? 0.8 : 1,
-                },
-              ]}>
-              <Text style={[styles.routePreviewText, { color: colors.text }]}>
-                경로 미리보기
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() =>
-                openNavigation({
-                  name: place.name,
-                  latitude: place.latitude,
-                  longitude: place.longitude,
-                })
-              }
-              style={({ pressed }) => [
-                styles.navButton,
-                { opacity: pressed ? 0.8 : 1 },
-              ]}>
-              <Text style={styles.navButtonText}>네비 시작</Text>
-            </Pressable>
-          </View>
-        </BottomSheetFooter>
-      );
-    },
-    [place, onRoutePreview, colors.background, colors.border, colors.text, colorScheme]
-  );
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      context.value = translateY.value;
+    })
+    .onUpdate((e) => {
+      const newY = context.value + e.translationY;
+      translateY.value = Math.max(SNAP_FULL, Math.min(newY, SNAP_HIDDEN));
+    })
+    .onEnd((e) => {
+      const finalY = translateY.value;
+
+      // 아래로 빠르게 스와이프하면 닫기
+      if (e.velocityY > 1500) {
+        runOnJS(onDismiss)();
+        return;
+      }
+
+      // 위로 빠르게 스와이프하면 확장
+      if (e.velocityY < -1500) {
+        const nextSnap = Math.max(0, findClosestSnap(finalY) - 1);
+        translateY.value = withSpring(SNAPS[nextSnap], SPRING_CONFIG);
+        runOnJS(setCurrentSnap)(nextSnap);
+        return;
+      }
+
+      // 닫기 임계값
+      if (finalY > SNAP_SMALL + 80) {
+        runOnJS(onDismiss)();
+        return;
+      }
+
+      // 가장 가까운 스냅으로
+      const closestIdx = findClosestSnap(finalY);
+      translateY.value = withSpring(SNAPS[closestIdx], SPRING_CONFIG);
+      runOnJS(setCurrentSnap)(closestIdx);
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
 
   if (!place || !displayPlace) return null;
 
@@ -185,183 +199,237 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
   ].filter(Boolean) as Array<{ icon: string; label: string; value: string }>;
 
   return (
-    <BottomSheet
-      ref={bottomSheetRef}
-      index={1}
-      snapPoints={snapPoints}
-      onChange={handleSheetChanges}
-      enablePanDownToClose
-      style={styles.sheetContainer}
-      backgroundStyle={{
-        backgroundColor: colors.background,
-        borderRadius: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        elevation: 8,
-      }}
-      handleComponent={renderHandle}
-      footerComponent={renderFooter}>
-      <BottomSheetScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={handleExpand}
-          disabled={currentIndex >= snapPoints.length - 1}>
-        {displayPlace.photos.length > 0 && (
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            style={styles.photoScroll}>
-            {displayPlace.photos.map((url, i) => (
-              <Image
-                key={`${url}-${i}`}
-                source={{ uri: url }}
-                style={styles.photo}
-                resizeMode="cover"
-              />
-            ))}
-          </ScrollView>
-        )}
-
-        <View style={styles.header}>
+    <GestureDetector gesture={panGesture}>
+      <Animated.View
+        style={[
+          styles.sheet,
+          animatedStyle,
+          {
+            backgroundColor: colors.background,
+          },
+        ]}>
+        {/* 핸들 바 */}
+        <Pressable onPress={handleExpand} style={styles.handleContainer}>
           <View
             style={[
-              styles.categoryBadge,
-              { backgroundColor: category.color + '20' },
-            ]}>
-            <Text style={styles.categoryIcon}>{category.icon}</Text>
-            <Text style={[styles.categoryLabel, { color: category.color }]}>
-              {category.label}
-            </Text>
-          </View>
-          {displayPlace.rating > 0 && (
-            <View style={styles.ratingContainer}>
-              <Text style={styles.ratingStar}>★</Text>
-              <Text style={[styles.ratingText, { color: colors.text }]}>
-                {displayPlace.rating}
-              </Text>
-              <Text style={[styles.reviewCount, { color: colors.textSecondary }]}>
-                ({displayPlace.reviewCount})
-              </Text>
-            </View>
-          )}
-        </View>
+              styles.handleIndicator,
+              { backgroundColor: colors.tabIconDefault },
+            ]}
+          />
+        </Pressable>
 
-        <View style={styles.nameRow}>
-          <Text style={[styles.name, { color: colors.text }]}>{displayPlace.name}</Text>
-          <View style={styles.nameActions}>
-            <Pressable onPress={handleFavorite} style={styles.favoriteButton}>
-              <Text style={{ fontSize: 22 }}>{isFavorite ? '❤️' : '🤍'}</Text>
-            </Pressable>
-            <Pressable onPress={onClose} style={styles.closeButton}>
-              <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
-            </Pressable>
-          </View>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={currentSnap === 0}
+          nestedScrollEnabled>
+          <Pressable onPress={handleExpand} disabled={currentSnap === 0}>
+            {/* 사진 */}
+            {displayPlace.photos.length > 0 && (
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                style={styles.photoScroll}>
+                {displayPlace.photos.map((url, i) => (
+                  <Image
+                    key={`${url}-${i}`}
+                    source={{ uri: url }}
+                    style={styles.photo}
+                    resizeMode="cover"
+                  />
+                ))}
+              </ScrollView>
+            )}
 
-        <View style={styles.addressRow}>
-          <Text
-            style={[styles.address, { color: colors.textSecondary }]}
-            numberOfLines={1}>
-            {displayPlace.address}
-          </Text>
-          {distanceMeters !== null && (
-            <Text style={[styles.distance, { color: colors.tint }]}>
-              {formatDistance(distanceMeters)}
-            </Text>
-          )}
-        </View>
-
-        {displayPlace.description ? (
-          <Text style={[styles.description, { color: colors.textSecondary }]}>
-            {displayPlace.description}
-          </Text>
-        ) : null}
-
-        {sortedTags.length > 0 && (
-          <View style={styles.tags}>
-            {sortedTags.map((tag) => {
-              const highlight = HIGHLIGHT_TAGS.has(tag);
-              if (highlight) {
-                return (
-                  <View key={tag} style={styles.highlightTag}>
-                    <Text style={styles.highlightTagText}>{tag}</Text>
-                  </View>
-                );
-              }
-              return (
-                <View
-                  key={tag}
-                  style={[
-                    styles.tag,
-                    {
-                      backgroundColor:
-                        colorScheme === 'dark' ? '#2A2A2A' : '#F3F4F6',
-                    },
-                  ]}>
-                  <Text style={[styles.tagText, { color: colors.text }]}>
-                    #{tag}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        {infoCards.length > 0 && (
-          <View style={styles.infoGrid}>
-            {infoCards.map((card) => (
+            {/* 헤더 */}
+            <View style={styles.header}>
               <View
-                key={card.label}
                 style={[
-                  styles.infoCard,
-                  {
-                    backgroundColor:
-                      colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
-                    borderColor: colors.border,
-                  },
+                  styles.categoryBadge,
+                  { backgroundColor: category.color + '20' },
                 ]}>
-                <Text style={styles.infoCardIcon}>{card.icon}</Text>
-                <Text
-                  style={[styles.infoCardLabel, { color: colors.textSecondary }]}>
-                  {card.label}
-                </Text>
-                <Text
-                  style={[styles.infoCardValue, { color: colors.text }]}
-                  numberOfLines={2}>
-                  {card.value}
+                <Text style={styles.categoryIcon}>{category.icon}</Text>
+                <Text style={[styles.categoryLabel, { color: category.color }]}>
+                  {category.label}
                 </Text>
               </View>
-            ))}
-          </View>
-        )}
+              {displayPlace.rating > 0 && (
+                <View style={styles.ratingContainer}>
+                  <Text style={styles.ratingStar}>★</Text>
+                  <Text style={[styles.ratingText, { color: colors.text }]}>
+                    {displayPlace.rating}
+                  </Text>
+                  <Text style={[styles.reviewCount, { color: colors.textSecondary }]}>
+                    ({displayPlace.reviewCount})
+                  </Text>
+                </View>
+              )}
+            </View>
 
-        <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
-          <Text style={[styles.reviewSectionTitle, { color: colors.text }]}>
-            리뷰
-          </Text>
-          <ReviewForm placeId={place.id} />
-          <View style={styles.reviewDivider} />
-          <ReviewList placeId={place.id} />
-        </View>
-        </TouchableOpacity>
-      </BottomSheetScrollView>
-    </BottomSheet>
+            {/* 이름 + 즐겨찾기 + 닫기 */}
+            <View style={styles.nameRow}>
+              <Text style={[styles.name, { color: colors.text }]}>
+                {displayPlace.name}
+              </Text>
+              <View style={styles.nameActions}>
+                <Pressable onPress={handleFavorite} style={styles.favoriteButton}>
+                  <Text style={{ fontSize: 22 }}>{isFavorite ? '❤️' : '🤍'}</Text>
+                </Pressable>
+                <Pressable onPress={handleClose} style={styles.closeButton}>
+                  <Text style={[styles.closeText, { color: colors.textSecondary }]}>
+                    ✕
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* 주소 + 거리 */}
+            <View style={styles.addressRow}>
+              <Text
+                style={[styles.address, { color: colors.textSecondary }]}
+                numberOfLines={1}>
+                {displayPlace.address}
+              </Text>
+              {distanceMeters !== null && (
+                <Text style={[styles.distance, { color: colors.tint }]}>
+                  {formatDistance(distanceMeters)}
+                </Text>
+              )}
+            </View>
+
+            {/* 설명 */}
+            {displayPlace.description ? (
+              <Text style={[styles.description, { color: colors.textSecondary }]}>
+                {displayPlace.description}
+              </Text>
+            ) : null}
+
+            {/* 태그 */}
+            {sortedTags.length > 0 && (
+              <View style={styles.tags}>
+                {sortedTags.map((tag) => {
+                  const highlight = HIGHLIGHT_TAGS.has(tag);
+                  if (highlight) {
+                    return (
+                      <View key={tag} style={styles.highlightTag}>
+                        <Text style={styles.highlightTagText}>{tag}</Text>
+                      </View>
+                    );
+                  }
+                  return (
+                    <View
+                      key={tag}
+                      style={[
+                        styles.tag,
+                        {
+                          backgroundColor:
+                            colorScheme === 'dark' ? '#2A2A2A' : '#F3F4F6',
+                        },
+                      ]}>
+                      <Text style={[styles.tagText, { color: colors.text }]}>
+                        #{tag}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* 정보 카드 */}
+            {infoCards.length > 0 && (
+              <View style={styles.infoGrid}>
+                {infoCards.map((card) => (
+                  <View
+                    key={card.label}
+                    style={[
+                      styles.infoCard,
+                      {
+                        backgroundColor:
+                          colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+                        borderColor: colors.border,
+                      },
+                    ]}>
+                    <Text style={styles.infoCardIcon}>{card.icon}</Text>
+                    <Text
+                      style={[styles.infoCardLabel, { color: colors.textSecondary }]}>
+                      {card.label}
+                    </Text>
+                    <Text
+                      style={[styles.infoCardValue, { color: colors.text }]}
+                      numberOfLines={2}>
+                      {card.value}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </Pressable>
+
+          {/* 버튼 */}
+          <View style={styles.buttonRow}>
+            {onRoutePreview && (
+              <Pressable
+                onPress={() => onRoutePreview(place)}
+                style={({ pressed }) => [
+                  styles.routePreviewButton,
+                  {
+                    backgroundColor:
+                      colorScheme === 'dark' ? '#2A2A2A' : '#F3F4F6',
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}>
+                <Text style={[styles.routePreviewText, { color: colors.text }]}>
+                  경로 미리보기
+                </Text>
+              </Pressable>
+            )}
+            <Pressable
+              onPress={() =>
+                openNavigation({
+                  name: place.name,
+                  latitude: place.latitude,
+                  longitude: place.longitude,
+                })
+              }
+              style={({ pressed }) => [
+                styles.navButton,
+                { opacity: pressed ? 0.8 : 1 },
+              ]}>
+              <Text style={styles.navButtonText}>네비 시작</Text>
+            </Pressable>
+          </View>
+
+          {/* 리뷰 */}
+          <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
+            <Text style={[styles.reviewSectionTitle, { color: colors.text }]}>
+              리뷰
+            </Text>
+            <ReviewForm placeId={place.id} />
+            <View style={styles.reviewDivider} />
+            <ReviewList placeId={place.id} />
+          </View>
+        </ScrollView>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
 const styles = StyleSheet.create({
-  sheetContainer: {
+  sheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: SCREEN_HEIGHT,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20,
     zIndex: 30,
-    elevation: 30,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 120,
   },
   handleContainer: {
     paddingVertical: 12,
@@ -373,13 +441,9 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
   },
-  footer: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 28,
-    borderTopWidth: 1,
+  content: {
+    padding: 20,
+    paddingBottom: 120,
   },
   photoScroll: {
     marginHorizontal: -20,
@@ -524,6 +588,11 @@ const styles = StyleSheet.create({
   infoCardValue: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 8,
   },
   routePreviewButton: {
     flex: 1,
