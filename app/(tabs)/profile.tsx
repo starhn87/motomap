@@ -2,9 +2,11 @@ import {
   StyleSheet,
   View,
   Text,
+  Image,
   Pressable,
   Alert,
 } from 'react-native';
+import { useState } from 'react';
 import { router } from 'expo-router';
 import Animated, {
   useAnimatedStyle,
@@ -16,6 +18,8 @@ import Animated, {
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { pickImage, uploadImage } from '@/lib/uploadImage';
+import { updateAvatarUrl } from '@/lib/nickname';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -68,11 +72,31 @@ function LoggedInContent() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user)!;
   const signOut = useAuthStore((s) => s.signOut);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(
+    user.user_metadata?.avatar_url ?? null
+  );
+  const [uploading, setUploading] = useState(false);
 
   const displayName = user.user_metadata?.name
     ?? user.user_metadata?.full_name
     ?? user.email
     ?? '라이더';
+
+  const handleChangeAvatar = async () => {
+    const uri = await pickImage();
+    if (!uri) return;
+
+    setUploading(true);
+    try {
+      const url = await uploadImage(uri, `avatars/${user.id}`);
+      await updateAvatarUrl(url);
+      setAvatarUrl(url);
+    } catch (error: any) {
+      Alert.alert('오류', error.message ?? '프로필 사진 변경에 실패했습니다.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSignOut = () => {
     Alert.alert('로그아웃', '정말 로그아웃하시겠습니까?', [
@@ -84,11 +108,20 @@ function LoggedInContent() {
   return (
     <>
       <Animated.View entering={FadeInDown.duration(300)} style={styles.profileHeader}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {displayName.charAt(0).toUpperCase()}
-          </Text>
-        </View>
+        <Pressable onPress={handleChangeAvatar} disabled={uploading}>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {displayName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={styles.avatarBadge}>
+            <Text style={styles.avatarBadgeText}>{uploading ? '...' : '📷'}</Text>
+          </View>
+        </Pressable>
         <Text style={[styles.name, { color: colors.text }]}>
           {displayName}
         </Text>
@@ -178,7 +211,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#F97316',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+  },
+  avatarImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+  },
+  avatarBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: -4,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  avatarBadgeText: {
+    fontSize: 14,
   },
   avatarText: {
     color: '#FFFFFF',

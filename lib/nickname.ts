@@ -55,15 +55,31 @@ export async function createProfile(nickname: string): Promise<void> {
   });
 }
 
-export async function getProfile(): Promise<{ nickname: string } | null> {
+export async function getProfile(): Promise<{ nickname: string; avatar_url: string | null } | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
   const { data } = await supabase
     .from('profiles')
-    .select('nickname')
+    .select('nickname, avatar_url')
     .eq('id', user.id)
     .single();
 
   return data;
+}
+
+export async function updateAvatarUrl(avatarUrl: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('로그인이 필요합니다.');
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ avatar_url: avatarUrl })
+    .eq('id', user.id);
+
+  if (error) throw error;
+
+  await supabase.auth.updateUser({
+    data: { avatar_url: avatarUrl },
+  });
 }

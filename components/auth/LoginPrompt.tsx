@@ -2,6 +2,7 @@ import {
   View,
   Text,
   TextInput,
+  Image,
   Pressable,
   StyleSheet,
   ActivityIndicator,
@@ -21,7 +22,9 @@ import {
   generateRandomNickname,
   checkNicknameAvailable,
   createProfile,
+  updateAvatarUrl,
 } from '@/lib/nickname';
+import { pickImage, uploadImage } from '@/lib/uploadImage';
 
 export default function LoginPrompt({ message }: { message?: string }) {
   const colorScheme = useColorScheme();
@@ -31,6 +34,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
   const [nicknameStatus, setNicknameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
 
   // 회원가입 모드 진입 시 랜덤 닉네임 추천
@@ -91,6 +95,10 @@ export default function LoginPrompt({ message }: { message?: string }) {
       if (isSignUp) {
         await signUpWithEmail(email.trim(), password, nickname.trim());
         await createProfile(nickname.trim());
+        if (avatarUri) {
+          const url = await uploadImage(avatarUri, `avatars/${Date.now()}`);
+          await updateAvatarUrl(url);
+        }
         Alert.alert('가입 완료', '환영합니다!');
       } else {
         await signInWithEmail(email.trim(), password);
@@ -128,6 +136,24 @@ export default function LoginPrompt({ message }: { message?: string }) {
         <View style={styles.buttons}>
           {isSignUp && (
             <>
+              <Pressable
+                onPress={async () => {
+                  const uri = await pickImage();
+                  if (uri) setAvatarUri(uri);
+                }}
+                style={styles.avatarPicker}>
+                {avatarUri ? (
+                  <Image source={{ uri: avatarUri }} style={styles.avatarPreview} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarPlaceholderIcon}>📷</Text>
+                    <Text style={[styles.avatarPlaceholderText, { color: colors.textSecondary }]}>
+                      프로필 사진
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+
               <Text style={[styles.label, { color: colors.text }]}>닉네임 *</Text>
               <View style={styles.nicknameRow}>
                 <TextInput
@@ -237,6 +263,30 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 32,
     gap: 12,
+  },
+  avatarPicker: {
+    alignSelf: 'center',
+    marginBottom: 8,
+  },
+  avatarPreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  avatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarPlaceholderIcon: {
+    fontSize: 24,
+  },
+  avatarPlaceholderText: {
+    fontSize: 10,
+    marginTop: 2,
   },
   label: {
     fontSize: 14,
