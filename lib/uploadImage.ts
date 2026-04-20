@@ -21,14 +21,14 @@ export async function uploadImage(uri: string, folder: string): Promise<string> 
   const blob = await response.blob();
 
   const { error } = await supabase.storage
-    .from('photos')
+    .from('ridemap-media')
     .upload(fileName, blob, {
       contentType: `image/${ext === 'png' ? 'png' : 'jpeg'}`,
     });
 
   if (error) throw error;
 
-  const { data } = supabase.storage.from('photos').getPublicUrl(fileName);
+  const { data } = supabase.storage.from('ridemap-media').getPublicUrl(fileName);
   return data.publicUrl;
 }
 
