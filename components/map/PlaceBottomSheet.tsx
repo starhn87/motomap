@@ -26,12 +26,13 @@ interface Props {
   place: Place | null;
   onClose: () => void;
   onRoutePreview?: (place: Place) => void;
+  onSnapChange?: (isExpanded: boolean) => void;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const PHOTO_HEIGHT = Math.round((SCREEN_WIDTH * 9) / 16);
 
-export default function PlaceBottomSheet({ place, onClose, onRoutePreview }: Props) {
+export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSnapChange }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const bottomSheetRef = useRef<BottomSheet>(null);
@@ -68,11 +69,13 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview }: Pro
   const handleSheetChanges = useCallback(
     (index: number) => {
       setCurrentIndex(index);
+      onSnapChange?.(index === snapPoints.length - 1);
       if (index === -1) {
+        onSnapChange?.(false);
         onClose();
       }
     },
-    [onClose]
+    [onClose, onSnapChange, snapPoints.length]
   );
 
   const handleExpand = useCallback(() => {

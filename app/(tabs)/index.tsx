@@ -42,6 +42,7 @@ export default function MapScreen() {
   } = useMapStore();
 
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [bottomSheetExpanded, setBottomSheetExpanded] = useState(false);
   const [route, setRoute] = useState<Route | null>(null);
   const [routePlace, setRoutePlace] = useState<Place | null>(null);
   const [navigating, setNavigating] = useState(false);
@@ -249,7 +250,7 @@ export default function MapScreen() {
         {route && <RouteLine route={route} />}
       </NaverMapView>
 
-      {!navigating && (
+      {!navigating && !bottomSheetExpanded && (
         <Animated.View
           entering={FadeIn.duration(300)}
           style={styles.searchAndFilter}>
@@ -281,6 +282,7 @@ export default function MapScreen() {
           place={selectedPlace}
           onClose={handleBottomSheetClose}
           onRoutePreview={handleRoutePreview}
+          onSnapChange={setBottomSheetExpanded}
         />
       )}
 
