@@ -42,6 +42,7 @@ export default function MapScreen() {
   } = useMapStore();
 
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [sheetSnapIndex, setSheetSnapIndex] = useState(-1);
   const [route, setRoute] = useState<Route | null>(null);
   const [routePlace, setRoutePlace] = useState<Place | null>(null);
   const [navigating, setNavigating] = useState(false);
@@ -118,6 +119,7 @@ export default function MapScreen() {
   const handleBottomSheetClose = useCallback(() => {
     setSelectedPlaceId(null);
     setSelectedPlace(null);
+    setSheetSnapIndex(-1);
   }, [setSelectedPlaceId]);
 
   const handleRoutePreview = useCallback(
@@ -252,10 +254,22 @@ export default function MapScreen() {
       {!navigating && (
         <Animated.View
           entering={FadeIn.duration(300)}
-          pointerEvents={selectedPlace ? 'none' : 'auto'}
+          pointerEvents={sheetSnapIndex >= 1 ? 'none' : 'auto'}
           style={[
             styles.searchAndFilter,
-            selectedPlace ? { opacity: 0.3 } : null,
+            {
+              transform: [
+                {
+                  translateY:
+                    sheetSnapIndex === 2
+                      ? -200
+                      : sheetSnapIndex === 1
+                        ? -120
+                        : 0,
+                },
+              ],
+              opacity: sheetSnapIndex === 2 ? 0 : sheetSnapIndex === 1 ? 0.4 : 1,
+            },
           ]}>
           <CategoryFilter />
           <SearchBar onSelectPlace={handleSearchSelect} />
@@ -285,6 +299,7 @@ export default function MapScreen() {
           place={selectedPlace}
           onClose={handleBottomSheetClose}
           onRoutePreview={handleRoutePreview}
+          onSnapChange={setSheetSnapIndex}
         />
       )}
 
