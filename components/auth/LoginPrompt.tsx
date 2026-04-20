@@ -141,8 +141,10 @@ export default function LoginPrompt({ message }: { message?: string }) {
                   }}
                   maxLength={15}
                 />
-                <TouchableOpacity onPress={handleRandomNickname} style={styles.diceButton}>
-                  <Text style={styles.diceText}>🎲</Text>
+                <TouchableOpacity
+                  onPress={handleRandomNickname}
+                  style={[styles.randomButton, { backgroundColor: colorScheme === 'dark' ? '#2A2A2A' : '#F3F4F6' }]}>
+                  <Text style={[styles.randomText, { color: colors.text }]}>랜덤</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleCheckNickname}
@@ -248,15 +250,16 @@ const styles = StyleSheet.create({
   nicknameInput: {
     flex: 1,
   },
-  diceButton: {
-    width: 44,
+  randomButton: {
+    paddingHorizontal: 12,
     height: 44,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  diceText: {
-    fontSize: 24,
+  randomText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   checkButton: {
     paddingHorizontal: 16,
