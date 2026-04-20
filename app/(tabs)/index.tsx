@@ -254,21 +254,12 @@ export default function MapScreen() {
       {!navigating && (
         <Animated.View
           entering={FadeIn.duration(300)}
-          pointerEvents={sheetSnapIndex >= 1 ? 'none' : 'auto'}
+          pointerEvents={sheetSnapIndex === 2 ? 'none' : 'auto'}
           style={[
             styles.searchAndFilter,
             {
-              transform: [
-                {
-                  translateY:
-                    sheetSnapIndex === 2
-                      ? -200
-                      : sheetSnapIndex === 1
-                        ? -120
-                        : 0,
-                },
-              ],
-              opacity: sheetSnapIndex === 2 ? 0 : sheetSnapIndex === 1 ? 0.4 : 1,
+              transform: [{ translateY: sheetSnapIndex === 2 ? -200 : 0 }],
+              opacity: sheetSnapIndex === 2 ? 0 : 1,
             },
           ]}>
           <CategoryFilter />
