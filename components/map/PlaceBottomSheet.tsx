@@ -112,32 +112,36 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview }: Pro
                 borderTopColor: colors.border,
               },
             ]}>
-            <TouchableOpacity
-              onPress={() => onRoutePreview?.(place)}
-              activeOpacity={0.8}
-              style={[
-                styles.routePreviewButton,
-                {
-                  backgroundColor:
-                    colorScheme === 'dark' ? '#2A2A2A' : '#F3F4F6',
-                },
-              ]}>
-              <Text style={[styles.routePreviewText, { color: colors.text }]}>
-                경로 미리보기
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() =>
-                openNavigation({
-                  name: place.name,
-                  latitude: place.latitude,
-                  longitude: place.longitude,
-                })
-              }
-              activeOpacity={0.8}
-              style={styles.navButton}>
-              <Text style={styles.navButtonText}>네비 시작</Text>
-            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                onPress={() => onRoutePreview?.(place)}
+                activeOpacity={0.8}
+                style={[
+                  styles.routePreviewButton,
+                  {
+                    backgroundColor:
+                      colorScheme === 'dark' ? '#2A2A2A' : '#F3F4F6',
+                  },
+                ]}>
+                <Text style={[styles.routePreviewText, { color: colors.text }]}>
+                  경로 미리보기
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                onPress={() =>
+                  openNavigation({
+                    name: place.name,
+                    latitude: place.latitude,
+                    longitude: place.longitude,
+                  })
+                }
+                activeOpacity={0.8}
+                style={styles.navButton}>
+                <Text style={styles.navButtonText}>네비 시작</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </BottomSheetFooter>
       );

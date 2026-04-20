@@ -1,4 +1,5 @@
-import { View, Pressable, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 
 interface Props {
   rating: number;
@@ -16,10 +17,11 @@ export default function StarRating({
   return (
     <View style={styles.container}>
       {[1, 2, 3, 4, 5].map((star) => (
-        <Pressable
+        <TouchableOpacity
           key={star}
           onPress={() => !readonly && onRate?.(star)}
-          disabled={readonly}>
+          disabled={readonly}
+          activeOpacity={readonly ? 1 : 0.6}>
           <Text
             style={[
               styles.star,
@@ -27,7 +29,7 @@ export default function StarRating({
             ]}>
             ★
           </Text>
-        </Pressable>
+        </TouchableOpacity>
       ))}
     </View>
   );
