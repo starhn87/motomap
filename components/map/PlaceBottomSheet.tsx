@@ -250,9 +250,14 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview }: Pro
 
         <View style={styles.nameRow}>
           <Text style={[styles.name, { color: colors.text }]}>{displayPlace.name}</Text>
-          <Pressable onPress={handleFavorite} style={styles.favoriteButton}>
-            <Text style={{ fontSize: 22 }}>{isFavorite ? '❤️' : '🤍'}</Text>
-          </Pressable>
+          <View style={styles.nameActions}>
+            <Pressable onPress={handleFavorite} style={styles.favoriteButton}>
+              <Text style={{ fontSize: 22 }}>{isFavorite ? '❤️' : '🤍'}</Text>
+            </Pressable>
+            <Pressable onPress={onClose} style={styles.closeButton}>
+              <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.addressRow}>
@@ -348,7 +353,8 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview }: Pro
 
 const styles = StyleSheet.create({
   sheetContainer: {
-    zIndex: 20,
+    zIndex: 30,
+    elevation: 30,
   },
   content: {
     padding: 20,
@@ -431,9 +437,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flex: 1,
   },
+  nameActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   favoriteButton: {
     padding: 4,
-    marginLeft: 8,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeText: {
+    fontSize: 20,
+    fontWeight: '600',
   },
   addressRow: {
     flexDirection: 'row',

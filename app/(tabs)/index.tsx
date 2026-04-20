@@ -303,7 +303,8 @@ const styles = StyleSheet.create({
     top: 60,
     left: 0,
     right: 0,
-    zIndex: 10,
+    zIndex: 5,
+    elevation: 5,
     gap: 8,
   },
   myLocationButton: {
