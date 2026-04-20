@@ -4,17 +4,18 @@ import type { Review } from '@/types';
 export async function fetchReviews(placeId: string): Promise<Review[]> {
   const { data, error } = await supabase
     .from('reviews')
-    .select('*')
+    .select('*, profiles(nickname, avatar_url)')
     .eq('place_id', placeId)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
 
-  return (data ?? []).map((row) => ({
+  return (data ?? []).map((row: any) => ({
     id: row.id,
     placeId: row.place_id,
     userId: row.user_id,
-    userName: row.user_name,
+    userName: row.profiles?.nickname ?? row.user_name,
+    avatarUrl: row.profiles?.avatar_url ?? null,
     rating: row.rating,
     content: row.content ?? '',
     photos: row.photos ?? [],

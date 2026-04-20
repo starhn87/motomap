@@ -2,7 +2,7 @@ import {
   View,
   Text,
   TextInput,
-  Image,
+  Image as RNImage,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
@@ -105,11 +105,15 @@ export default function ReviewList({ placeId }: Props) {
             ]}>
             <View style={styles.reviewHeader}>
               <View style={styles.reviewUser}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {review.userName.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
+                {review.avatarUrl ? (
+                  <RNImage source={{ uri: review.avatarUrl }} style={styles.avatarImage} />
+                ) : (
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {review.userName.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
                 <Text style={[styles.userName, { color: colors.text }]}>
                   {review.userName}
                 </Text>
@@ -160,7 +164,7 @@ export default function ReviewList({ placeId }: Props) {
                     showsHorizontalScrollIndicator={false}
                     style={styles.reviewPhotos}>
                     {review.photos.map((url, i) => (
-                      <Image
+                      <RNImage
                         key={`${url}-${i}`}
                         source={{ uri: url }}
                         style={styles.reviewPhoto}
@@ -210,6 +214,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F97316',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarImage: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
   },
   avatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
   userName: { fontSize: 13, fontWeight: '600' },

@@ -46,6 +46,7 @@ export interface Review {
   placeId: string;
   userId: string;
   userName: string;
+  avatarUrl: string | null;
   rating: number;
   content: string;
   photos: string[];

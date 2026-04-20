@@ -60,6 +60,7 @@ export async function fetchMyReviews(): Promise<(Review & { placeName: string })
     placeId: row.place_id,
     userId: row.user_id,
     userName: row.user_name,
+    avatarUrl: null,
     rating: row.rating,
     content: row.content ?? '',
     photos: row.photos ?? [],
