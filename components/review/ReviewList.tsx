@@ -170,6 +170,7 @@ export default function ReviewList({ placeId }: Props) {
                     {editPhotos.map((url, i) => (
                       <TouchableOpacity
                         key={`${url}-${i}`}
+                        activeOpacity={0.7}
                         onPress={() => {
                           Alert.alert('사진 삭제', '이 사진을 삭제하시겠습니까?', [
                             { text: '취소', style: 'cancel' },
@@ -178,6 +179,9 @@ export default function ReviewList({ placeId }: Props) {
                         }}
                         style={styles.editPhotoThumb}>
                         <RNImage source={{ uri: url }} style={styles.editPhotoImage} />
+                        <View style={styles.editPhotoOverlay}>
+                          <Text style={styles.editPhotoOverlayText}>✕</Text>
+                        </View>
                       </TouchableOpacity>
                     ))}
                     {editPhotos.length < 5 && (
@@ -290,8 +294,20 @@ const styles = StyleSheet.create({
   actionText: { fontSize: 12, fontWeight: '600' },
   editForm: { gap: 10 },
   editPhotoRow: { flexDirection: 'row', gap: 6 },
-  editPhotoThumb: { width: 60, height: 60 },
+  editPhotoThumb: { width: 60, height: 60, borderRadius: 8 },
   editPhotoImage: { width: 60, height: 60, borderRadius: 8 },
+  editPhotoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editPhotoOverlayText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
   editPhotoAdd: {
     width: 60, height: 60, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed',
     alignItems: 'center', justifyContent: 'center',
