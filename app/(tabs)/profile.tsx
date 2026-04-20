@@ -98,6 +98,7 @@ function LoggedInContent() {
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.menu}>
+        <MenuItem icon="✏️" label="닉네임 변경" onPress={() => router.push('/edit-nickname')} />
         <MenuItem icon="⭐" label="즐겨찾기" onPress={() => router.push('/favorites')} />
         <MenuItem icon="📝" label="내 제보 목록" onPress={() => router.push('/my-submissions')} />
         <MenuItem icon="💬" label="내 리뷰" onPress={() => router.push('/my-reviews')} />
