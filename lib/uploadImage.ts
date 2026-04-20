@@ -1,4 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 import { supabase } from '@/lib/supabase';
 
 export async function pickImage(): Promise<string | null> {
@@ -14,16 +16,18 @@ export async function pickImage(): Promise<string | null> {
 }
 
 export async function uploadImage(uri: string, folder: string): Promise<string> {
-  const ext = uri.split('.').pop() ?? 'jpg';
+  const ext = uri.split('.').pop()?.split('?')[0] ?? 'jpg';
   const fileName = `${folder}/${Date.now()}.${ext}`;
+  const contentType = ext === 'png' ? 'image/png' : 'image/jpeg';
 
-  const response = await fetch(uri);
-  const blob = await response.blob();
+  const base64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: 'base64',
+  });
 
   const { error } = await supabase.storage
     .from('ridemap-media')
-    .upload(fileName, blob, {
-      contentType: `image/${ext === 'png' ? 'png' : 'jpeg'}`,
+    .upload(fileName, decode(base64), {
+      contentType,
     });
 
   if (error) throw error;

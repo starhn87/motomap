@@ -2,13 +2,13 @@ import {
   View,
   Text,
   TextInput,
-  Pressable,
   Image,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState } from 'react';
 
 import Colors from '@/constants/Colors';
@@ -137,14 +137,14 @@ export default function ReviewList({ placeId }: Props) {
                   numberOfLines={2}
                 />
                 <View style={styles.editButtons}>
-                  <Pressable onPress={handleCancelEdit} style={styles.cancelButton}>
+                  <TouchableOpacity onPress={handleCancelEdit} style={styles.cancelButton}>
                     <Text style={[styles.cancelText, { color: colors.textSecondary }]}>취소</Text>
-                  </Pressable>
-                  <Pressable
+                  </TouchableOpacity>
+                  <TouchableOpacity
                     onPress={() => handleSaveEdit(review.id)}
                     style={styles.saveButton}>
                     <Text style={styles.saveText}>저장</Text>
-                  </Pressable>
+                  </TouchableOpacity>
                 </View>
               </View>
             ) : (
@@ -174,12 +174,12 @@ export default function ReviewList({ placeId }: Props) {
                   </Text>
                   {isOwner && (
                     <View style={styles.actions}>
-                      <Pressable onPress={() => handleEdit(review)}>
+                      <TouchableOpacity onPress={() => handleEdit(review)}>
                         <Text style={[styles.actionText, { color: colors.tint }]}>수정</Text>
-                      </Pressable>
-                      <Pressable onPress={() => handleDelete(review.id)}>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleDelete(review.id)}>
                         <Text style={[styles.actionText, { color: '#EF4444' }]}>삭제</Text>
-                      </Pressable>
+                      </TouchableOpacity>
                     </View>
                   )}
                 </View>
