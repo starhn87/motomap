@@ -44,10 +44,13 @@ export async function signInWithEmail(email: string, password: string) {
   if (error) throw error;
 }
 
-export async function signUpWithEmail(email: string, password: string) {
+export async function signUpWithEmail(email: string, password: string, nickname: string) {
   const { error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: { name: nickname },
+    },
   });
   if (error) throw error;
 }

@@ -7,7 +7,8 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
@@ -16,6 +17,11 @@ import {
   signInWithEmail,
   signUpWithEmail,
 } from '@/lib/auth';
+import {
+  generateRandomNickname,
+  checkNicknameAvailable,
+  createProfile,
+} from '@/lib/nickname';
 
 export default function LoginPrompt({ message }: { message?: string }) {
   const colorScheme = useColorScheme();
@@ -23,17 +29,36 @@ export default function LoginPrompt({ message }: { message?: string }) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [nickname, setNickname] = useState('');
+  const [nicknameStatus, setNicknameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const [isSignUp, setIsSignUp] = useState(false);
 
-  const handleLogin = async (loginFn: () => Promise<void>) => {
-    setLoading(true);
-    try {
-      await loginFn();
-    } catch {
-      // 로그인 취소 등
-    } finally {
-      setLoading(false);
+  // 회원가입 모드 진입 시 랜덤 닉네임 추천
+  useEffect(() => {
+    if (isSignUp && !nickname) {
+      setNickname(generateRandomNickname());
     }
+  }, [isSignUp]);
+
+  const handleRandomNickname = () => {
+    const newNick = generateRandomNickname();
+    setNickname(newNick);
+    setNicknameStatus('idle');
+  };
+
+  const handleCheckNickname = async () => {
+    if (!nickname.trim()) {
+      Alert.alert('알림', '닉네임을 입력해주세요.');
+      return;
+    }
+    if (nickname.trim().length < 2 || nickname.trim().length > 15) {
+      Alert.alert('알림', '닉네임은 2~15자여야 합니다.');
+      return;
+    }
+
+    setNicknameStatus('checking');
+    const available = await checkNicknameAvailable(nickname.trim());
+    setNicknameStatus(available ? 'available' : 'taken');
   };
 
   const handleEmailAuth = async () => {
@@ -46,11 +71,27 @@ export default function LoginPrompt({ message }: { message?: string }) {
       return;
     }
 
+    if (isSignUp) {
+      if (!nickname.trim()) {
+        Alert.alert('알림', '닉네임을 입력해주세요.');
+        return;
+      }
+      if (nickname.trim().length < 2 || nickname.trim().length > 15) {
+        Alert.alert('알림', '닉네임은 2~15자여야 합니다.');
+        return;
+      }
+      if (nicknameStatus !== 'available') {
+        Alert.alert('알림', '닉네임 중복 확인을 해주세요.');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       if (isSignUp) {
-        await signUpWithEmail(email.trim(), password);
-        Alert.alert('가입 완료', '인증 이메일을 확인해주세요.');
+        await signUpWithEmail(email.trim(), password, nickname.trim());
+        await createProfile(nickname.trim());
+        Alert.alert('가입 완료', '환영합니다!');
       } else {
         await signInWithEmail(email.trim(), password);
       }
@@ -60,6 +101,15 @@ export default function LoginPrompt({ message }: { message?: string }) {
       setLoading(false);
     }
   };
+
+  const inputStyle = [
+    styles.input,
+    {
+      backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+      color: colors.text,
+      borderColor: colors.border,
+    },
+  ];
 
   return (
     <Animated.View
@@ -76,15 +126,53 @@ export default function LoginPrompt({ message }: { message?: string }) {
         <ActivityIndicator size="large" color={colors.tint} style={{ marginTop: 24 }} />
       ) : (
         <View style={styles.buttons}>
+          {isSignUp && (
+            <>
+              <Text style={[styles.label, { color: colors.text }]}>닉네임 *</Text>
+              <View style={styles.nicknameRow}>
+                <TextInput
+                  style={[...inputStyle, styles.nicknameInput]}
+                  placeholder="닉네임 (2~15자)"
+                  placeholderTextColor={colors.textSecondary}
+                  value={nickname}
+                  onChangeText={(text) => {
+                    setNickname(text);
+                    setNicknameStatus('idle');
+                  }}
+                  maxLength={15}
+                />
+                <TouchableOpacity onPress={handleRandomNickname} style={styles.diceButton}>
+                  <Text style={styles.diceText}>🎲</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleCheckNickname}
+                  style={[
+                    styles.checkButton,
+                    {
+                      backgroundColor:
+                        nicknameStatus === 'available' ? '#22C55E' : colors.tint,
+                    },
+                  ]}>
+                  <Text style={styles.checkText}>
+                    {nicknameStatus === 'checking'
+                      ? '...'
+                      : nicknameStatus === 'available'
+                        ? '✓'
+                        : '확인'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {nicknameStatus === 'available' && (
+                <Text style={styles.statusAvailable}>사용 가능한 닉네임입니다</Text>
+              )}
+              {nicknameStatus === 'taken' && (
+                <Text style={styles.statusTaken}>이미 사용 중인 닉네임입니다</Text>
+              )}
+            </>
+          )}
+
           <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
+            style={inputStyle}
             placeholder="이메일"
             placeholderTextColor={colors.textSecondary}
             value={email}
@@ -93,14 +181,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
             autoCapitalize="none"
           />
           <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
+            style={inputStyle}
             placeholder="비밀번호"
             placeholderTextColor={colors.textSecondary}
             value={password}
@@ -119,7 +200,10 @@ export default function LoginPrompt({ message }: { message?: string }) {
             </Text>
           </Pressable>
 
-          <Pressable onPress={() => setIsSignUp(!isSignUp)}>
+          <Pressable onPress={() => {
+            setIsSignUp(!isSignUp);
+            setNicknameStatus('idle');
+          }}>
             <Text style={[styles.toggleText, { color: colors.tint }]}>
               {isSignUp ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'}
             </Text>
@@ -151,6 +235,52 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 32,
     gap: 12,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  nicknameRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  nicknameInput: {
+    flex: 1,
+  },
+  diceButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  diceText: {
+    fontSize: 24,
+  },
+  checkButton: {
+    paddingHorizontal: 16,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  statusAvailable: {
+    fontSize: 12,
+    color: '#22C55E',
+    fontWeight: '600',
+    marginTop: -6,
+  },
+  statusTaken: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '600',
+    marginTop: -6,
   },
   input: {
     borderWidth: 1,
