@@ -18,12 +18,12 @@ export async function fetchRoute(
   origin: [number, number], // [lng, lat]
   destination: [number, number] // [lng, lat]
 ): Promise<Route> {
-  const url = `https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving?start=${origin[0]},${origin[1]}&goal=${destination[0]},${destination[1]}&option=trafast`;
+  const url = `https://maps.apigw.ntruss.com/map-direction/v1/driving?start=${origin[0]},${origin[1]}&goal=${destination[0]},${destination[1]}&option=trafast`;
 
   const res = await fetch(url, {
     headers: {
-      'X-NCP-APIGW-API-KEY-ID': CLIENT_ID,
-      'X-NCP-APIGW-API-KEY': CLIENT_SECRET,
+      'x-ncp-apigw-api-key-id': CLIENT_ID,
+      'x-ncp-apigw-api-key': CLIENT_SECRET,
     },
   });
 

@@ -1,4 +1,4 @@
-import { StyleSheet, View, Pressable, Text, Keyboard } from 'react-native';
+import { StyleSheet, View, Pressable, Text, Alert, Keyboard } from 'react-native';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   NaverMapView,
@@ -16,13 +16,17 @@ import Animated, {
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { usePlaces } from '@/hooks/usePlaces';
+import { fetchRoute } from '@/lib/api/directions';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryFilter from '@/components/map/CategoryFilter';
 import PlaceMarker from '@/components/map/PlaceMarker';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
+import RouteLine from '@/components/map/RouteLine';
+import RouteInfoCard from '@/components/map/RouteInfoCard';
 import SearchBar from '@/components/search/SearchBar';
 import type { Place } from '@/types';
+import type { Route } from '@/lib/api/directions';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -38,6 +42,9 @@ export default function MapScreen() {
   } = useMapStore();
 
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [route, setRoute] = useState<Route | null>(null);
+  const [routePlace, setRoutePlace] = useState<Place | null>(null);
+  const [navigating, setNavigating] = useState(false);
   const [heading, setHeading] = useState<number>(0);
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; zoom: number } | null>(null);
   const mapRef = useRef<NaverMapViewRef>(null);
@@ -87,10 +94,11 @@ export default function MapScreen() {
 
   const handleMarkerPress = useCallback(
     (place: Place) => {
+      if (navigating) return;
       setSelectedPlaceId(place.id);
       setSelectedPlace(place);
     },
-    [setSelectedPlaceId]
+    [setSelectedPlaceId, navigating]
   );
 
   const handleSearchSelect = useCallback(
@@ -111,6 +119,49 @@ export default function MapScreen() {
     setSelectedPlaceId(null);
     setSelectedPlace(null);
   }, [setSelectedPlaceId]);
+
+  const handleRoutePreview = useCallback(
+    async (place: Place) => {
+      if (!userLocation) {
+        Alert.alert('알림', '현재 위치를 확인할 수 없습니다.');
+        return;
+      }
+
+      try {
+        const result = await fetchRoute(
+          [userLocation.longitude, userLocation.latitude],
+          [place.longitude, place.latitude]
+        );
+
+        setRoute(result);
+        setRoutePlace(place);
+        setNavigating(true);
+        setSelectedPlace(null);
+        setSelectedPlaceId(null);
+
+        if (result.geometry.length > 0) {
+          const lngs = result.geometry.map((c) => c[0]);
+          const lats = result.geometry.map((c) => c[1]);
+
+          mapRef.current?.animateCameraTo({
+            latitude: (Math.max(...lats) + Math.min(...lats)) / 2,
+            longitude: (Math.max(...lngs) + Math.min(...lngs)) / 2,
+            zoom: 10,
+            duration: 1000,
+          });
+        }
+      } catch (error: any) {
+        Alert.alert('경로 오류', error.message ?? '경로를 찾을 수 없습니다.');
+      }
+    },
+    [userLocation, setSelectedPlaceId]
+  );
+
+  const handleRouteClose = useCallback(() => {
+    setRoute(null);
+    setRoutePlace(null);
+    setNavigating(false);
+  }, []);
 
   const myLocationScale = useSharedValue(1);
   const myLocationStyle = useAnimatedStyle(() => ({
@@ -194,14 +245,18 @@ export default function MapScreen() {
             onPress={() => handleMarkerPress(place)}
           />
         ))}
+
+        {route && <RouteLine route={route} />}
       </NaverMapView>
 
-      <Animated.View
-        entering={FadeIn.duration(300)}
-        style={styles.searchAndFilter}>
-        <CategoryFilter />
-        <SearchBar onSelectPlace={handleSearchSelect} />
-      </Animated.View>
+      {!navigating && (
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={styles.searchAndFilter}>
+          <CategoryFilter />
+          <SearchBar onSelectPlace={handleSearchSelect} />
+        </Animated.View>
+      )}
 
       <AnimatedPressable
         onPress={handleMyLocation}
@@ -211,7 +266,7 @@ export default function MapScreen() {
           {
             backgroundColor: colors.background,
             shadowColor: '#000',
-            bottom: 120,
+            bottom: navigating ? 200 : selectedPlace ? 260 : 120,
           },
         ]}>
         <View style={styles.myLocationIconContainer}>
@@ -221,10 +276,17 @@ export default function MapScreen() {
         </View>
       </AnimatedPressable>
 
-      <PlaceBottomSheet
-        place={selectedPlace}
-        onClose={handleBottomSheetClose}
-      />
+      {!navigating && (
+        <PlaceBottomSheet
+          place={selectedPlace}
+          onClose={handleBottomSheetClose}
+          onRoutePreview={handleRoutePreview}
+        />
+      )}
+
+      {navigating && route && routePlace && (
+        <RouteInfoCard route={route} place={routePlace} onClose={handleRouteClose} />
+      )}
     </View>
   );
 }
