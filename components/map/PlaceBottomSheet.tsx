@@ -192,6 +192,9 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
       index={1}
       snapPoints={snapPoints}
       onChange={handleSheetChanges}
+      onAnimate={(_fromIndex, toIndex) => {
+        onSnapChange?.(toIndex);
+      }}
       enablePanDownToClose
       style={styles.sheetContainer}
       backgroundStyle={{
