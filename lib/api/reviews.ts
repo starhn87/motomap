@@ -48,10 +48,16 @@ export async function updateReview(params: {
   id: string;
   rating: number;
   content: string;
+  photos?: string[];
 }): Promise<void> {
+  const update: any = { rating: params.rating, content: params.content };
+  if (params.photos !== undefined) {
+    update.photos = params.photos;
+  }
+
   const { error } = await supabase
     .from('reviews')
-    .update({ rating: params.rating, content: params.content })
+    .update(update)
     .eq('id', params.id);
 
   if (error) throw error;

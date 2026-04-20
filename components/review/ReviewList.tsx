@@ -15,6 +15,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useReviews, useUpdateReview, useDeleteReview } from '@/hooks/useReviews';
+import { pickImage, uploadImage } from '@/lib/uploadImage';
 import StarRating from './StarRating';
 
 interface Props {
@@ -32,6 +33,7 @@ export default function ReviewList({ placeId }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editRating, setEditRating] = useState(0);
   const [editContent, setEditContent] = useState('');
+  const [editPhotos, setEditPhotos] = useState<string[]>([]);
 
   if (isLoading) {
     return <ActivityIndicator size="small" color={colors.tint} style={{ marginVertical: 16 }} />;
@@ -49,12 +51,29 @@ export default function ReviewList({ placeId }: Props) {
     setEditingId(review.id);
     setEditRating(review.rating);
     setEditContent(review.content);
+    setEditPhotos(review.photos ?? []);
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditRating(0);
     setEditContent('');
+    setEditPhotos([]);
+  };
+
+  const handleAddEditPhoto = async () => {
+    if (editPhotos.length >= 5) {
+      Alert.alert('알림', '사진은 최대 5장까지입니다.');
+      return;
+    }
+    const uri = await pickImage();
+    if (!uri) return;
+    try {
+      const url = await uploadImage(uri, `reviews/${placeId}`);
+      setEditPhotos((prev) => [...prev, url]);
+    } catch (error: any) {
+      Alert.alert('오류', error.message ?? '사진 업로드에 실패했습니다.');
+    }
   };
 
   const handleSaveEdit = async (id: string) => {
@@ -63,7 +82,7 @@ export default function ReviewList({ placeId }: Props) {
       return;
     }
     try {
-      await updateReview({ id, rating: editRating, content: editContent.trim() });
+      await updateReview({ id, rating: editRating, content: editContent.trim(), photos: editPhotos });
       handleCancelEdit();
     } catch (error: any) {
       Alert.alert('오류', error.message ?? '수정에 실패했습니다.');
@@ -140,6 +159,33 @@ export default function ReviewList({ placeId }: Props) {
                   multiline
                   numberOfLines={2}
                 />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.editPhotoRow}>
+                    {editPhotos.map((url, i) => (
+                      <View key={`${url}-${i}`} style={styles.editPhotoThumb}>
+                        <RNImage source={{ uri: url }} style={styles.editPhotoImage} />
+                        <TouchableOpacity
+                          onPress={() => setEditPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+                          style={styles.editPhotoRemove}>
+                          <Text style={styles.editPhotoRemoveText}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    {editPhotos.length < 5 && (
+                      <TouchableOpacity
+                        onPress={handleAddEditPhoto}
+                        style={[
+                          styles.editPhotoAdd,
+                          {
+                            backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F3F4F6',
+                            borderColor: colors.border,
+                          },
+                        ]}>
+                        <Text style={[styles.editPhotoAddText, { color: colors.textSecondary }]}>+</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </ScrollView>
                 <View style={styles.editButtons}>
                   <TouchableOpacity onPress={handleCancelEdit} style={styles.cancelButton}>
                     <Text style={[styles.cancelText, { color: colors.textSecondary }]}>취소</Text>
@@ -234,6 +280,19 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 12 },
   actionText: { fontSize: 12, fontWeight: '600' },
   editForm: { gap: 10 },
+  editPhotoRow: { flexDirection: 'row', gap: 6 },
+  editPhotoThumb: { width: 60, height: 60, borderRadius: 8, overflow: 'hidden' },
+  editPhotoImage: { width: 60, height: 60 },
+  editPhotoRemove: {
+    position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: 9,
+    backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center',
+  },
+  editPhotoRemoveText: { color: '#FFFFFF', fontSize: 9, fontWeight: '700' },
+  editPhotoAdd: {
+    width: 60, height: 60, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  editPhotoAddText: { fontSize: 20, fontWeight: '300' },
   editInput: {
     borderWidth: 1,
     borderRadius: 10,
