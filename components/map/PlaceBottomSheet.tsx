@@ -20,6 +20,8 @@ import { useMapStore } from '@/stores/useMapStore';
 import { usePlace } from '@/hooks/usePlace';
 import ReviewList from '@/components/review/ReviewList';
 import ReviewForm from '@/components/review/ReviewForm';
+import PhotoGrid from '@/components/map/PhotoGrid';
+import { useReviews } from '@/hooks/useReviews';
 import type { Place } from '@/types';
 
 interface Props {
@@ -41,8 +43,15 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
   const user = useAuthStore((s) => s.user);
   const userLocation = useMapStore((s) => s.userLocation);
   const { data: latestPlace } = usePlace(place?.id ?? null);
+  const { data: reviews } = useReviews(place?.id ?? null);
   const displayPlace = latestPlace ?? place;
   const isFavorite = useIsFavorite(place?.id ?? '');
+
+  // 장소 자체 사진 + 리뷰 사진을 모두 모음
+  const allPhotos = [
+    ...(displayPlace?.photos ?? []),
+    ...(reviews ?? []).flatMap((r) => r.photos),
+  ];
   const { mutateAsync: toggleFav } = useToggleFavorite();
 
   const handleFavorite = useCallback(async () => {
@@ -215,22 +224,7 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
           activeOpacity={1}
           onPress={handleExpand}
           disabled={currentIndex >= snapPoints.length - 1}>
-        {displayPlace.photos.length > 0 && (
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            style={styles.photoScroll}>
-            {displayPlace.photos.map((url, i) => (
-              <Image
-                key={`${url}-${i}`}
-                source={{ uri: url }}
-                style={styles.photo}
-                resizeMode="cover"
-              />
-            ))}
-          </ScrollView>
-        )}
+        <PhotoGrid photos={allPhotos} />
 
         <View style={styles.header}>
           <View

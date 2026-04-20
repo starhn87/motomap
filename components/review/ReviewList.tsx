@@ -3,6 +3,8 @@ import {
   Text,
   TextInput,
   Pressable,
+  Image,
+  ScrollView,
   StyleSheet,
   ActivityIndicator,
   Alert,
@@ -152,6 +154,20 @@ export default function ReviewList({ placeId }: Props) {
                     {review.content}
                   </Text>
                 ) : null}
+                {review.photos.length > 0 && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.reviewPhotos}>
+                    {review.photos.map((url, i) => (
+                      <Image
+                        key={`${url}-${i}`}
+                        source={{ uri: url }}
+                        style={styles.reviewPhoto}
+                      />
+                    ))}
+                  </ScrollView>
+                )}
                 <View style={styles.reviewFooter}>
                   <Text style={[styles.reviewDate, { color: colors.textSecondary }]}>
                     {new Date(review.createdAt).toLocaleDateString('ko-KR')}
@@ -198,6 +214,8 @@ const styles = StyleSheet.create({
   avatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
   userName: { fontSize: 13, fontWeight: '600' },
   reviewContent: { fontSize: 13, lineHeight: 19, marginBottom: 6 },
+  reviewPhotos: { marginBottom: 8 },
+  reviewPhoto: { width: 80, height: 80, borderRadius: 8, marginRight: 6 },
   reviewFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
