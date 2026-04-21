@@ -108,9 +108,9 @@ export default function CourseDetailScreen() {
             <NaverMapPathOverlay
               coords={coords}
               width={5}
-              color="#18181B"
+              color={colors.tint}
               outlineWidth={2}
-              outlineColor="#FFFFFF"
+              outlineColor={colors.background}
             />
           </NaverMapView>
         </View>
@@ -173,9 +173,9 @@ export default function CourseDetailScreen() {
             }
             style={({ pressed }) => [
               styles.navButton,
-              { opacity: pressed ? 0.8 : 1 },
+              { backgroundColor: colors.tint, opacity: pressed ? 0.8 : 1 },
             ]}>
-            <Text style={styles.navButtonText}>이 코스로 네비 시작</Text>
+            <Text style={[styles.navButtonText, { color: colors.background }]}>이 코스로 네비 시작</Text>
           </Pressable>
         )}
 
@@ -210,9 +210,9 @@ export default function CourseDetailScreen() {
                 disabled={isPending}
                 style={({ pressed }) => [
                   styles.reviewSubmitButton,
-                  { opacity: isPending || pressed ? 0.6 : 1 },
+                  { backgroundColor: colors.tint, opacity: isPending || pressed ? 0.6 : 1 },
                 ]}>
-                <Text style={styles.reviewSubmitText}>
+                <Text style={[styles.reviewSubmitText, { color: colors.background }]}>
                   {isPending ? '등록 중...' : '리뷰 등록'}
                 </Text>
               </Pressable>
@@ -245,8 +245,8 @@ export default function CourseDetailScreen() {
                     ]}>
                     <View style={styles.reviewHeader}>
                       <View style={styles.reviewUser}>
-                        <View style={styles.reviewAvatar}>
-                          <Text style={styles.reviewAvatarText}>
+                        <View style={[styles.reviewAvatar, { backgroundColor: colors.tint }]}>
+                          <Text style={[styles.reviewAvatarText, { color: colors.background }]}>
                             {review.userName.charAt(0).toUpperCase()}
                           </Text>
                         </View>
@@ -288,8 +288,8 @@ export default function CourseDetailScreen() {
                                 setEditingId(null);
                               } catch (e: any) { Alert.alert('오류', e.message ?? '수정 실패'); }
                             }}
-                            style={styles.saveEditButton}>
-                            <Text style={styles.saveEditText}>저장</Text>
+                            style={[styles.saveEditButton, { backgroundColor: colors.tint }]}>
+                            <Text style={[styles.saveEditText, { color: colors.background }]}>저장</Text>
                           </Pressable>
                         </View>
                       </View>
@@ -421,13 +421,11 @@ const styles = StyleSheet.create({
     height: 32,
   },
   navButton: {
-    backgroundColor: '#18181B',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
   navButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -459,13 +457,11 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   reviewSubmitButton: {
-    backgroundColor: '#18181B',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
   },
   reviewSubmitText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -503,12 +499,10 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#18181B',
     alignItems: 'center',
     justifyContent: 'center',
   },
   reviewAvatarText: {
-    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -567,10 +561,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#18181B',
   },
   saveEditText: {
-    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
   },

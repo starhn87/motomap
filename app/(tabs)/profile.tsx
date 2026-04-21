@@ -112,8 +112,8 @@ function LoggedInContent() {
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
           ) : (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
+            <View style={[styles.avatar, { backgroundColor: colors.tint }]}>
+              <Text style={[styles.avatarText, { color: colors.background }]}>
                 {displayName.charAt(0).toUpperCase()}
               </Text>
             </View>
@@ -208,7 +208,6 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#18181B',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -237,7 +236,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   avatarText: {
-    color: '#FFFFFF',
     fontSize: 28,
     fontWeight: '700',
   },

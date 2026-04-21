@@ -233,7 +233,7 @@ export default function MapScreen() {
             <View collapsable={false} style={styles.userLocationContainer}>
               <View style={styles.userLocationArrow} />
               <View style={styles.userLocationMarker}>
-                <View style={styles.userLocationDot} />
+                <View style={[styles.userLocationDot, { backgroundColor: colors.tint, borderColor: colors.background, shadowColor: colors.tint }]} />
               </View>
             </View>
           </NaverMapMarkerOverlay>
@@ -378,10 +378,7 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#18181B',
     borderWidth: 2.5,
-    borderColor: '#FFFFFF',
-    shadowColor: '#18181B',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 4,

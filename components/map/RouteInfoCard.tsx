@@ -71,9 +71,9 @@ export default function RouteInfoCard({ route, place, onClose }: Props) {
           }
           style={({ pressed }) => [
             styles.startButton,
-            { opacity: pressed ? 0.8 : 1 },
+            { backgroundColor: colors.tint, opacity: pressed ? 0.8 : 1 },
           ]}>
-          <Text style={styles.startText}>네비 시작</Text>
+          <Text style={[styles.startText, { color: colors.background }]}>네비 시작</Text>
         </Pressable>
       </View>
     </Animated.View>
@@ -132,13 +132,11 @@ const styles = StyleSheet.create({
   },
   startButton: {
     flex: 2,
-    backgroundColor: '#18181B',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
   },
   startText: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
   },

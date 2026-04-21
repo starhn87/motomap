@@ -150,8 +150,8 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
                   })
                 }
                 activeOpacity={0.8}
-                style={styles.navButton}>
-                <Text style={styles.navButtonText}>네비 시작</Text>
+                style={[styles.navButton, { backgroundColor: colors.tint }]}>
+                <Text style={[styles.navButtonText, { color: colors.background }]}>네비 시작</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -287,8 +287,8 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
               const highlight = HIGHLIGHT_TAGS.has(tag);
               if (highlight) {
                 return (
-                  <View key={tag} style={styles.highlightTag}>
-                    <Text style={styles.highlightTagText}>{tag}</Text>
+                  <View key={tag} style={[styles.highlightTag, { backgroundColor: colors.tint }]}>
+                    <Text style={[styles.highlightTagText, { color: colors.background }]}>{tag}</Text>
                   </View>
                 );
               }
@@ -488,13 +488,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   highlightTag: {
-    backgroundColor: '#18181B',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
   },
   highlightTagText: {
-    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -535,13 +533,11 @@ const styles = StyleSheet.create({
   },
   navButton: {
     flex: 1,
-    backgroundColor: '#18181B',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
   },
   navButtonText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
   },

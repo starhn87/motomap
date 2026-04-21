@@ -56,14 +56,14 @@ function SubmitTypeTab({
       style={[
         styles.tab,
         {
-          backgroundColor: isActive ? '#18181B' : 'transparent',
-          borderColor: isActive ? '#18181B' : colors.border,
+          backgroundColor: isActive ? colors.tint : 'transparent',
+          borderColor: isActive ? colors.tint : colors.border,
         },
       ]}>
       <Text
         style={[
           styles.tabLabel,
-          { color: isActive ? '#FFFFFF' : colors.textSecondary },
+          { color: isActive ? colors.background : colors.textSecondary },
         ]}>
         {label}
       </Text>
@@ -183,7 +183,7 @@ function SubmitPlace() {
                 },
               ]}>
               <Text style={styles.categoryIcon}>{cat.icon}</Text>
-              <Text style={[styles.categoryLabel, { color: category === cat.key ? '#FFFFFF' : colors.text }]}>
+              <Text style={[styles.categoryLabel, { color: category === cat.key ? colors.background : colors.text }]}>
                 {cat.label}
               </Text>
             </Pressable>
@@ -212,14 +212,14 @@ function SubmitPlace() {
         <TextInput style={inputStyle} placeholder="바이크 전용 주차 20대" placeholderTextColor={colors.textSecondary} value={parkingInfo} onChangeText={setParkingInfo} />
 
         <Pressable onPress={() => setUseCurrentLocation(!useCurrentLocation)} style={styles.checkboxRow}>
-          <View style={[styles.checkbox, { backgroundColor: useCurrentLocation ? '#18181B' : 'transparent', borderColor: useCurrentLocation ? '#18181B' : colors.border }]}>
-            {useCurrentLocation && <Text style={styles.checkmark}>✓</Text>}
+          <View style={[styles.checkbox, { backgroundColor: useCurrentLocation ? colors.tint : 'transparent', borderColor: useCurrentLocation ? colors.tint : colors.border }]}>
+            {useCurrentLocation && <Text style={[styles.checkmark, { color: colors.background }]}>✓</Text>}
           </View>
           <Text style={[styles.checkboxLabel, { color: colors.text }]}>현재 위치 사용</Text>
         </Pressable>
 
-        <AnimatedPressable onPress={handleSubmit} disabled={submitting} style={[styles.submitButton, submitStyle, { opacity: submitting ? 0.6 : 1 }]}>
-          <Text style={styles.submitText}>{submitting ? '제보 중...' : '장소 제보하기'}</Text>
+        <AnimatedPressable onPress={handleSubmit} disabled={submitting} style={[styles.submitButton, submitStyle, { backgroundColor: colors.tint, opacity: submitting ? 0.6 : 1 }]}>
+          <Text style={[styles.submitText, { color: colors.background }]}>{submitting ? '제보 중...' : '장소 제보하기'}</Text>
         </AnimatedPressable>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -285,8 +285,8 @@ const styles = StyleSheet.create({
   multiline: { minHeight: 80, textAlignVertical: 'top' },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20, gap: 10 },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  checkmark: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  checkmark: { fontSize: 14, fontWeight: '700' },
   checkboxLabel: { fontSize: 14, fontWeight: '500' },
-  submitButton: { backgroundColor: '#18181B', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
-  submitText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  submitButton: { paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
+  submitText: { fontSize: 16, fontWeight: '700' },
 });

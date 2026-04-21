@@ -133,8 +133,8 @@ export default function ReviewList({ placeId }: Props) {
                 {review.avatarUrl ? (
                   <RNImage source={{ uri: review.avatarUrl }} style={styles.avatarImage} />
                 ) : (
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
+                  <View style={[styles.avatar, { backgroundColor: colors.tint }]}>
+                    <Text style={[styles.avatarText, { color: colors.background }]}>
                       {review.userName.charAt(0).toUpperCase()}
                     </Text>
                   </View>
@@ -205,8 +205,8 @@ export default function ReviewList({ placeId }: Props) {
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => handleSaveEdit(review.id)}
-                    style={styles.saveButton}>
-                    <Text style={styles.saveText}>저장</Text>
+                    style={[styles.saveButton, { backgroundColor: colors.tint }]}>
+                    <Text style={[styles.saveText, { color: colors.background }]}>저장</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -270,7 +270,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#18181B',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -279,7 +278,7 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
   },
-  avatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  avatarText: { fontSize: 12, fontWeight: '700' },
   userName: { fontSize: 13, fontWeight: '600' },
   reviewContent: { fontSize: 13, lineHeight: 19, marginBottom: 6 },
   reviewPhotos: { marginBottom: 8 },
@@ -329,7 +328,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#18181B',
   },
-  saveText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
+  saveText: { fontSize: 13, fontWeight: '600' },
 });

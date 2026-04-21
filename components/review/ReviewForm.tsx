@@ -140,11 +140,11 @@ export default function ReviewForm({ placeId }: Props) {
         onPress={handleSubmit}
         disabled={isPending}
         activeOpacity={0.8}
-        style={[styles.submitButton, { opacity: isPending ? 0.6 : 1 }]}>
+        style={[styles.submitButton, { backgroundColor: colors.tint, opacity: isPending ? 0.6 : 1 }]}>
         {isPending ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
+          <ActivityIndicator size="small" color={colors.background} />
         ) : (
-          <Text style={styles.submitText}>리뷰 등록</Text>
+          <Text style={[styles.submitText, { color: colors.background }]}>리뷰 등록</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -221,13 +221,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   submitButton: {
-    backgroundColor: '#18181B',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
   },
   submitText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
   },

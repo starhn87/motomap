@@ -149,7 +149,7 @@ export default function EditNicknameScreen() {
             styles.checkButton,
             { backgroundColor: status === 'available' ? '#22C55E' : colors.tint },
           ]}>
-          <Text style={styles.checkText}>
+          <Text style={[styles.checkText, { color: colors.background }]}>
             {status === 'checking' ? '...' : status === 'available' ? '✓' : '확인'}
           </Text>
         </TouchableOpacity>
@@ -166,11 +166,11 @@ export default function EditNicknameScreen() {
         onPress={handleSave}
         disabled={saving}
         activeOpacity={0.8}
-        style={[styles.saveButton, { opacity: saving ? 0.6 : 1 }]}>
+        style={[styles.saveButton, { backgroundColor: colors.tint, opacity: saving ? 0.6 : 1 }]}>
         {saving ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
+          <ActivityIndicator size="small" color={colors.background} />
         ) : (
-          <Text style={styles.saveText}>저장</Text>
+          <Text style={[styles.saveText, { color: colors.background }]}>저장</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -219,7 +219,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -236,14 +235,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   saveButton: {
-    backgroundColor: '#18181B',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 24,
   },
   saveText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },

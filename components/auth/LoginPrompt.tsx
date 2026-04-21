@@ -181,7 +181,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
                         nicknameStatus === 'available' ? '#22C55E' : colors.tint,
                     },
                   ]}>
-                  <Text style={styles.checkText}>
+                  <Text style={[styles.checkText, { color: colors.background }]}>
                     {nicknameStatus === 'checking'
                       ? '...'
                       : nicknameStatus === 'available'
@@ -221,9 +221,9 @@ export default function LoginPrompt({ message }: { message?: string }) {
             onPress={handleEmailAuth}
             style={({ pressed }) => [
               styles.emailButton,
-              { opacity: pressed ? 0.8 : 1 },
+              { backgroundColor: colors.tint, opacity: pressed ? 0.8 : 1 },
             ]}>
-            <Text style={styles.emailButtonText}>
+            <Text style={[styles.emailButtonText, { color: colors.background }]}>
               {isSignUp ? '회원가입' : '이메일로 로그인'}
             </Text>
           </Pressable>
@@ -319,7 +319,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -343,13 +342,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   emailButton: {
-    backgroundColor: '#18181B',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
   emailButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },

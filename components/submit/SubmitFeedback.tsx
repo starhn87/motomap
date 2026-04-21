@@ -87,18 +87,18 @@ export default function SubmitFeedback() {
                 {
                   backgroundColor:
                     type === ft.key
-                      ? '#18181B'
+                      ? colors.tint
                       : colorScheme === 'dark'
                         ? '#1A1A1A'
                         : '#F3F4F6',
-                  borderColor: type === ft.key ? '#18181B' : colors.border,
+                  borderColor: type === ft.key ? colors.tint : colors.border,
                 },
               ]}>
               <Text style={styles.typeIcon}>{ft.icon}</Text>
               <Text
                 style={[
                   styles.typeLabel,
-                  { color: type === ft.key ? '#FFFFFF' : colors.text },
+                  { color: type === ft.key ? colors.background : colors.text },
                 ]}>
                 {ft.label}
               </Text>
@@ -131,9 +131,9 @@ export default function SubmitFeedback() {
           style={[
             styles.submitButton,
             submitStyle,
-            { opacity: submitting ? 0.6 : 1 },
+            { backgroundColor: colors.tint, opacity: submitting ? 0.6 : 1 },
           ]}>
-          <Text style={styles.submitText}>
+          <Text style={[styles.submitText, { color: colors.background }]}>
             {submitting ? '제출 중...' : '의견 보내기'}
           </Text>
         </AnimatedPressable>
@@ -167,11 +167,10 @@ const styles = StyleSheet.create({
     minHeight: 150,
   },
   submitButton: {
-    backgroundColor: '#18181B',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 24,
   },
-  submitText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  submitText: { fontSize: 16, fontWeight: '700' },
 });

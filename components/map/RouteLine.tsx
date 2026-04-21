@@ -1,7 +1,12 @@
 import { NaverMapPathOverlay } from '@mj-studio/react-native-naver-map';
 import type { Route } from '@/lib/api/directions';
+import Colors from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
 
 export default function RouteLine({ route }: { route: Route }) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+
   const coords = route.geometry.map(([lng, lat]) => ({
     latitude: lat,
     longitude: lng,
@@ -13,9 +18,9 @@ export default function RouteLine({ route }: { route: Route }) {
     <NaverMapPathOverlay
       coords={coords}
       width={6}
-      color="#18181B"
+      color={colors.tint}
       outlineWidth={2}
-      outlineColor="#FFFFFF"
+      outlineColor={colors.background}
       passedColor="#A1A1AA"
     />
   );

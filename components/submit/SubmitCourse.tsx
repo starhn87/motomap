@@ -290,9 +290,9 @@ export default function SubmitCourse() {
           style={[
             styles.submitButton,
             submitStyle,
-            { opacity: submitting ? 0.6 : 1 },
+            { backgroundColor: colors.tint, opacity: submitting ? 0.6 : 1 },
           ]}>
-          <Text style={styles.submitText}>
+          <Text style={[styles.submitText, { color: colors.background }]}>
             {submitting ? '제보 중...' : '코스 제보하기'}
           </Text>
         </AnimatedPressable>
@@ -355,11 +355,10 @@ const styles = StyleSheet.create({
   },
   addWaypointText: { fontSize: 14, fontWeight: '600' },
   submitButton: {
-    backgroundColor: '#18181B',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 24,
   },
-  submitText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  submitText: { fontSize: 16, fontWeight: '700' },
 });

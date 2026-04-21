@@ -48,7 +48,7 @@ function ThemeOption({
       <Text
         style={[
           styles.themeLabel,
-          { color: isActive ? '#FFFFFF' : colors.text },
+          { color: isActive ? colors.background : colors.text },
         ]}>
         {label}
       </Text>
@@ -89,7 +89,7 @@ function NavAppRow({
       <Text
         style={[
           styles.navAppLabel,
-          { color: selected ? '#FFFFFF' : colors.text },
+          { color: selected ? colors.background : colors.text },
         ]}>
         {label}
       </Text>
@@ -98,7 +98,7 @@ function NavAppRow({
           미설치
         </Text>
       ) : selected ? (
-        <Text style={styles.navAppCheck}>✓</Text>
+        <Text style={[styles.navAppCheck, { color: colors.background }]}>✓</Text>
       ) : null}
     </Pressable>
   );
@@ -235,7 +235,6 @@ const styles = StyleSheet.create({
   navAppCheck: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   navAppBadge: {
     fontSize: 12,
