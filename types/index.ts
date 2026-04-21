@@ -32,7 +32,6 @@ export interface RidingCourse {
   description: string;
   distance: number; // km
   duration: number; // minutes
-  difficulty: 'easy' | 'medium' | 'hard';
   coordinates: [number, number][];
   waypoints: Place[];
   createdBy: string;

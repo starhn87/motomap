@@ -52,7 +52,6 @@ export async function searchAll(query: string): Promise<SearchResults> {
       description: row.description ?? '',
       distance: Number(row.distance),
       duration: row.duration,
-      difficulty: row.difficulty,
       coordinates: row.coordinates ?? [],
       waypoints: [],
       createdBy: row.created_by,

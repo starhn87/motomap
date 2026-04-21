@@ -18,7 +18,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useCourse } from '@/hooks/useCourses';
 import { useCourseReviews, useCreateCourseReview, useUpdateCourseReview, useDeleteCourseReview } from '@/hooks/useCourseReviews';
 import { openNavigation } from '@/lib/navigation';
-import { DIFFICULTY_CONFIG, formatDistance, formatDuration } from '@/constants/course';
+import { formatDistance, formatDuration } from '@/constants/course';
 import StarRating from '@/components/review/StarRating';
 
 export default function CourseDetailScreen() {
@@ -69,7 +69,6 @@ export default function CourseDetailScreen() {
     );
   }
 
-  const diff = DIFFICULTY_CONFIG[course.difficulty];
   const coords = (course.coordinates as [number, number][]).map(([lng, lat]) => ({
     latitude: lat,
     longitude: lng,
@@ -118,11 +117,8 @@ export default function CourseDetailScreen() {
 
       {/* 코스 정보 */}
       <View style={styles.info}>
-        <View style={styles.header}>
-          <View style={[styles.diffBadge, { backgroundColor: diff.color + '20' }]}>
-            <Text style={[styles.diffText, { color: diff.color }]}>{diff.label}</Text>
-          </View>
-          {course.rating > 0 && (
+        {course.rating > 0 && (
+          <View style={styles.header}>
             <View style={styles.ratingRow}>
               <Text style={styles.ratingStar}>★</Text>
               <Text style={[styles.ratingText, { color: colors.text }]}>
@@ -132,8 +128,8 @@ export default function CourseDetailScreen() {
                 ({course.reviewCount})
               </Text>
             </View>
-          )}
-        </View>
+          </View>
+        )}
 
         <Text style={[styles.name, { color: colors.text }]}>{course.name}</Text>
         {course.description ? (
@@ -356,18 +352,9 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginBottom: 12,
-  },
-  diffBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  diffText: {
-    fontSize: 13,
-    fontWeight: '700',
   },
   ratingRow: {
     flexDirection: 'row',

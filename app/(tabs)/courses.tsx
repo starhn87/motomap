@@ -5,43 +5,19 @@ import {
   Pressable,
   FlatList,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
-import { useState } from 'react';
 import { router } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useCourses } from '@/hooks/useCourses';
-import { DIFFICULTY_CONFIG, formatDistance, formatDuration } from '@/constants/course';
+import { formatDistance, formatDuration } from '@/constants/course';
 import type { RidingCourse } from '@/types';
-
-const FILTER_OPTIONS = [
-  { key: null, label: '전체' },
-  { key: 'easy', label: '초급', color: '#22C55E' },
-  { key: 'medium', label: '중급', color: '#F59E0B' },
-  { key: 'hard', label: '상급', color: '#EF4444' },
-] as const;
-
-function DifficultyBadge({
-  difficulty,
-}: {
-  difficulty: 'easy' | 'medium' | 'hard';
-}) {
-  const { label, color } = DIFFICULTY_CONFIG[difficulty];
-
-  return (
-    <View style={[styles.difficultyBadge, { backgroundColor: color + '20' }]}>
-      <Text style={[styles.difficultyText, { color }]}>{label}</Text>
-    </View>
-  );
-}
 
 export default function CoursesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const [difficulty, setDifficulty] = useState<string | null>(null);
-  const { data: courses, isLoading } = useCourses(difficulty);
+  const { data: courses, isLoading } = useCourses();
 
   const renderCourse = ({ item }: { item: RidingCourse }) => (
     <Pressable
@@ -54,17 +30,16 @@ export default function CoursesScreen() {
         },
       ]}
       onPress={() => router.push(`/course/${item.id}`)}>
-      <View style={styles.cardHeader}>
-        <DifficultyBadge difficulty={item.difficulty} />
-        {item.rating > 0 && (
+      {item.rating > 0 && (
+        <View style={styles.cardHeader}>
           <View style={styles.ratingContainer}>
             <Text style={styles.ratingStar}>★</Text>
             <Text style={[styles.ratingText, { color: colors.text }]}>
               {item.rating}
             </Text>
           </View>
-        )}
-      </View>
+        </View>
+      )}
 
       <Text style={[styles.courseName, { color: colors.text }]}>
         {item.name}
@@ -101,47 +76,6 @@ export default function CoursesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.filterContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}>
-          {FILTER_OPTIONS.map((opt) => (
-          <Pressable
-            key={opt.label}
-            onPress={() => setDifficulty(opt.key)}
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor:
-                  difficulty === opt.key
-                    ? opt.key
-                      ? (opt as any).color
-                      : colors.tint
-                    : colorScheme === 'dark'
-                      ? '#1A1A1A'
-                      : '#F3F4F6',
-                borderColor:
-                  difficulty === opt.key
-                    ? 'transparent'
-                    : colors.border,
-              },
-            ]}>
-            <Text
-              style={[
-                styles.filterLabel,
-                {
-                  color:
-                    difficulty === opt.key ? '#FFFFFF' : colors.text,
-                },
-              ]}>
-              {opt.label}
-            </Text>
-          </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-
       {isLoading ? (
         <ActivityIndicator
           size="large"
@@ -174,25 +108,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  filterContainer: {
-    height: 52,
-  },
-  filterRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  filterChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginRight: 8,
-  },
-  filterLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
   list: {
     padding: 16,
     gap: 12,
@@ -204,18 +119,9 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginBottom: 10,
-  },
-  difficultyBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  difficultyText: {
-    fontSize: 12,
-    fontWeight: '700',
   },
   ratingContainer: {
     flexDirection: 'row',

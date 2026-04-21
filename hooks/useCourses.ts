@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 
 import { fetchCourses, fetchCourseById } from '@/lib/api/courses';
 
-export function useCourses(difficulty?: string | null) {
+export function useCourses() {
   return useQuery({
-    queryKey: ['courses', difficulty],
-    queryFn: () => fetchCourses(difficulty),
+    queryKey: ['courses'],
+    queryFn: () => fetchCourses(),
   });
 }
 

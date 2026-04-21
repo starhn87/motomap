@@ -16,7 +16,7 @@ import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
 import { searchAll } from '@/lib/api/search';
-import { DIFFICULTY_CONFIG } from '@/constants/course';
+import { formatDistance } from '@/constants/course';
 import type { Place } from '@/types';
 
 interface Props {
@@ -138,7 +138,6 @@ export default function SearchBar({ onSelectPlace, onDismiss }: Props) {
                   );
                 } else {
                   const course = item.data;
-                  const diff = DIFFICULTY_CONFIG[course.difficulty as keyof typeof DIFFICULTY_CONFIG];
                   return (
                     <Pressable
                       onPress={() => handleSelectCourse(course.id)}
@@ -155,9 +154,11 @@ export default function SearchBar({ onSelectPlace, onDismiss }: Props) {
                           {course.description}
                         </Text>
                       </View>
-                      <Text style={[styles.resultBadge, { color: diff.color }]}>
-                        {diff.label}
-                      </Text>
+                      {course.distance > 0 && (
+                        <Text style={[styles.resultBadge, { color: colors.textSecondary }]}>
+                          {formatDistance(course.distance)}
+                        </Text>
+                      )}
                     </Pressable>
                   );
                 }

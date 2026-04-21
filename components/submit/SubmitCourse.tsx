@@ -20,7 +20,6 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { submitCourse } from '@/lib/api/courses';
 import { geocodeAddress } from '@/lib/geocode';
-import { DIFFICULTY_OPTIONS } from '@/constants/course';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -36,7 +35,6 @@ export default function SubmitCourse() {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard' | null>(null);
   const [distance, setDistance] = useState('');
   const [duration, setDuration] = useState('');
   const [tags, setTags] = useState('');
@@ -77,10 +75,6 @@ export default function SubmitCourse() {
       Alert.alert('알림', '코스명을 입력해주세요.');
       return;
     }
-    if (!difficulty) {
-      Alert.alert('알림', '난이도를 선택해주세요.');
-      return;
-    }
     const filledWaypoints = waypoints.filter((w) => w.address.trim());
     if (filledWaypoints.length < 2) {
       Alert.alert('알림', '출발지와 도착지를 입력해주세요.');
@@ -107,7 +101,6 @@ export default function SubmitCourse() {
         description: description.trim(),
         distance: distance.trim() ? Number(distance) : 0,
         duration: duration.trim() ? Number(duration) : 0,
-        difficulty,
         coordinates,
         tags: tags
           .split(',')
@@ -120,7 +113,6 @@ export default function SubmitCourse() {
       // 폼 초기화
       setName('');
       setDescription('');
-      setDifficulty(null);
       setDistance('');
       setDuration('');
       setTags('');
@@ -153,37 +145,6 @@ export default function SubmitCourse() {
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled">
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          난이도 *
-        </Text>
-        <View style={styles.difficultyRow}>
-          {DIFFICULTY_OPTIONS.map((opt) => (
-            <Pressable
-              key={opt.key}
-              onPress={() => setDifficulty(opt.key)}
-              style={[
-                styles.difficultyChip,
-                {
-                  backgroundColor:
-                    difficulty === opt.key
-                      ? opt.color
-                      : colorScheme === 'dark'
-                        ? '#1A1A1A'
-                        : '#F3F4F6',
-                  borderColor: difficulty === opt.key ? opt.color : colors.border,
-                },
-              ]}>
-              <Text
-                style={[
-                  styles.difficultyLabel,
-                  { color: difficulty === opt.key ? '#FFFFFF' : colors.text },
-                ]}>
-                {opt.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           코스명 *
         </Text>
@@ -305,15 +266,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
   sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: 16, marginBottom: 8 },
-  difficultyRow: { flexDirection: 'row', gap: 8 },
-  difficultyChip: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  difficultyLabel: { fontSize: 14, fontWeight: '700' },
   input: {
     borderWidth: 1,
     borderRadius: 12,
