@@ -7,7 +7,7 @@ interface CategoryInfo {
 }
 
 export const CATEGORIES: Record<PlaceCategory, CategoryInfo> = {
-  cafe: { label: '카페', icon: '☕', color: '#F97316' },
+  cafe: { label: '카페', icon: '☕', color: '#A16207' },
   restaurant: { label: '맛집', icon: '🍽️', color: '#EF4444' },
   rest_stop: { label: '휴게소', icon: '🅿️', color: '#3B82F6' },
   gas_station: { label: '주유소', icon: '⛽', color: '#22C55E' },

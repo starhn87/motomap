@@ -108,7 +108,7 @@ export default function CourseDetailScreen() {
             <NaverMapPathOverlay
               coords={coords}
               width={5}
-              color="#F97316"
+              color="#18181B"
               outlineWidth={2}
               outlineColor="#FFFFFF"
             />
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     height: 32,
   },
   navButton: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#18181B',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   reviewSubmitButton: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#18181B',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#F97316',
+    backgroundColor: '#18181B',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#F97316',
+    backgroundColor: '#18181B',
   },
   saveEditText: {
     color: '#FFFFFF',

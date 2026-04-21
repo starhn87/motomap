@@ -219,7 +219,7 @@ export default function MapScreen() {
               longitude: e.longitude,
               zoom: e.zoom ?? 12,
             });
-          }, 500);
+          }, 200);
         }}>
         {userLocation && (
           <NaverMapMarkerOverlay
@@ -363,14 +363,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 10,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderBottomColor: 'rgba(247, 115, 22, 0.5)',
+    borderBottomColor: 'rgba(24, 24, 27, 0.5)',
     marginBottom: -3,
   },
   userLocationMarker: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(247, 115, 22, 0.15)',
+    backgroundColor: 'rgba(24, 24, 27, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -378,10 +378,10 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#F97316',
+    backgroundColor: '#18181B',
     borderWidth: 2.5,
     borderColor: '#FFFFFF',
-    shadowColor: '#F97316',
+    shadowColor: '#18181B',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 4,

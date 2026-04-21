@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   emailButton: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#18181B',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

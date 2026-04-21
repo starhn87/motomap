@@ -56,8 +56,8 @@ function SubmitTypeTab({
       style={[
         styles.tab,
         {
-          backgroundColor: isActive ? '#F97316' : 'transparent',
-          borderColor: isActive ? '#F97316' : colors.border,
+          backgroundColor: isActive ? '#18181B' : 'transparent',
+          borderColor: isActive ? '#18181B' : colors.border,
         },
       ]}>
       <Text
@@ -212,7 +212,7 @@ function SubmitPlace() {
         <TextInput style={inputStyle} placeholder="바이크 전용 주차 20대" placeholderTextColor={colors.textSecondary} value={parkingInfo} onChangeText={setParkingInfo} />
 
         <Pressable onPress={() => setUseCurrentLocation(!useCurrentLocation)} style={styles.checkboxRow}>
-          <View style={[styles.checkbox, { backgroundColor: useCurrentLocation ? '#F97316' : 'transparent', borderColor: useCurrentLocation ? '#F97316' : colors.border }]}>
+          <View style={[styles.checkbox, { backgroundColor: useCurrentLocation ? '#18181B' : 'transparent', borderColor: useCurrentLocation ? '#18181B' : colors.border }]}>
             {useCurrentLocation && <Text style={styles.checkmark}>✓</Text>}
           </View>
           <Text style={[styles.checkboxLabel, { color: colors.text }]}>현재 위치 사용</Text>
@@ -287,6 +287,6 @@ const styles = StyleSheet.create({
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   checkmark: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   checkboxLabel: { fontSize: 14, fontWeight: '500' },
-  submitButton: { backgroundColor: '#F97316', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
+  submitButton: { backgroundColor: '#18181B', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
   submitText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 });

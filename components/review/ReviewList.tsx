@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#F97316',
+    backgroundColor: '#18181B',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#F97316',
+    backgroundColor: '#18181B',
   },
   saveText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
 });

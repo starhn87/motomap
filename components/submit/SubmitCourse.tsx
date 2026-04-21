@@ -241,7 +241,7 @@ export default function SubmitCourse() {
         {waypoints.map((wp, index) => (
           <View key={wp.id} style={styles.waypointRow}>
             <View style={[styles.waypointDot, {
-              backgroundColor: index === 0 ? '#22C55E' : index === waypoints.length - 1 ? '#EF4444' : '#F97316',
+              backgroundColor: index === 0 ? '#22C55E' : index === waypoints.length - 1 ? '#EF4444' : '#71717A',
             }]}>
               <Text style={styles.waypointDotText}>{index + 1}</Text>
             </View>
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   },
   addWaypointText: { fontSize: 14, fontWeight: '600' },
   submitButton: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#18181B',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

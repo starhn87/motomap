@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   highlightTag: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#18181B',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   },
   navButton: {
     flex: 1,
-    backgroundColor: '#F97316',
+    backgroundColor: '#18181B',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',

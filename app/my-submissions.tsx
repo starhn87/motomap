@@ -43,12 +43,12 @@ export default function MySubmissionsScreen() {
           <View
             style={[
               styles.statusBadge,
-              { backgroundColor: item.approved ? '#22C55E20' : '#F9731620' },
+              { backgroundColor: item.approved ? '#22C55E20' : '#71717A20' },
             ]}>
             <Text
               style={[
                 styles.statusText,
-                { color: item.approved ? '#22C55E' : '#F97316' },
+                { color: item.approved ? '#22C55E' : '#71717A' },
               ]}>
               {item.approved ? '승인됨' : '대기중'}
             </Text>

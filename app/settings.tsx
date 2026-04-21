@@ -38,11 +38,11 @@ function ThemeOption({
         styles.themeOption,
         {
           backgroundColor: isActive
-            ? '#F97316'
+            ? colors.tint
             : colorScheme === 'dark'
               ? '#1A1A1A'
               : '#F3F4F6',
-          borderColor: isActive ? '#F97316' : colors.border,
+          borderColor: isActive ? colors.tint : colors.border,
         },
       ]}>
       <Text
@@ -78,11 +78,11 @@ function NavAppRow({
         styles.navAppRow,
         {
           backgroundColor: selected
-            ? '#F97316'
+            ? colors.tint
             : colorScheme === 'dark'
               ? '#1A1A1A'
               : '#F9FAFB',
-          borderColor: selected ? '#F97316' : colors.border,
+          borderColor: selected ? colors.tint : colors.border,
           opacity: disabled ? 0.4 : 1,
         },
       ]}>

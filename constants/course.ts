@@ -1,6 +1,6 @@
 export const DIFFICULTY_OPTIONS = [
   { key: 'easy' as const, label: '초급', color: '#22C55E' },
-  { key: 'medium' as const, label: '중급', color: '#F97316' },
+  { key: 'medium' as const, label: '중급', color: '#F59E0B' },
   { key: 'hard' as const, label: '상급', color: '#EF4444' },
 ];
 
@@ -9,7 +9,7 @@ export const DIFFICULTY_CONFIG: Record<
   { label: string; color: string }
 > = {
   easy: { label: '초급', color: '#22C55E' },
-  medium: { label: '중급', color: '#F97316' },
+  medium: { label: '중급', color: '#F59E0B' },
   hard: { label: '상급', color: '#EF4444' },
 };
 

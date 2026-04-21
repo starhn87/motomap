@@ -19,7 +19,7 @@ import type { RidingCourse } from '@/types';
 const FILTER_OPTIONS = [
   { key: null, label: '전체' },
   { key: 'easy', label: '초급', color: '#22C55E' },
-  { key: 'medium', label: '중급', color: '#F97316' },
+  { key: 'medium', label: '중급', color: '#F59E0B' },
   { key: 'hard', label: '상급', color: '#EF4444' },
 ] as const;
 

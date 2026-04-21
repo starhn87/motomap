@@ -87,11 +87,11 @@ export default function SubmitFeedback() {
                 {
                   backgroundColor:
                     type === ft.key
-                      ? '#F97316'
+                      ? '#18181B'
                       : colorScheme === 'dark'
                         ? '#1A1A1A'
                         : '#F3F4F6',
-                  borderColor: type === ft.key ? '#F97316' : colors.border,
+                  borderColor: type === ft.key ? '#18181B' : colors.border,
                 },
               ]}>
               <Text style={styles.typeIcon}>{ft.icon}</Text>
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     minHeight: 150,
   },
   submitButton: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#18181B',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

@@ -13,10 +13,10 @@ export default function RouteLine({ route }: { route: Route }) {
     <NaverMapPathOverlay
       coords={coords}
       width={6}
-      color="#F97316"
+      color="#18181B"
       outlineWidth={2}
       outlineColor="#FFFFFF"
-      passedColor="#FDBA74"
+      passedColor="#A1A1AA"
     />
   );
 }
