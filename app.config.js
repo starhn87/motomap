@@ -22,6 +22,7 @@ export default {
       bundleIdentifier: 'com.ridemap.app',
     },
     android: {
+      package: 'com.ridemap.app',
       adaptiveIcon: {
         foregroundImage: './assets/images/adaptive-icon.png',
         backgroundColor: '#ffffff',
@@ -45,6 +46,21 @@ export default {
         },
       ],
       [
+        '@react-native-kakao/core',
+        {
+          nativeAppKey: process.env.KAKAO_NATIVE_APP_KEY,
+          android: {
+            authCodeHandlerActivity: false,
+            forwardKakaoLinkIntentFilterToMainActivity: false,
+            followChannelHandlerActivity: false,
+          },
+          ios: {
+            handleKakaoOpenUrl: false,
+            naviApplicationQuerySchemes: true,
+          },
+        },
+      ],
+      [
         'expo-build-properties',
         {
           android: {
@@ -55,6 +71,9 @@ export default {
         },
       ],
     ],
+    extra: {
+      kakaoNativeAppKey: process.env.KAKAO_NATIVE_APP_KEY,
+    },
     experiments: {
       typedRoutes: true,
     },

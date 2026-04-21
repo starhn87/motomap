@@ -1,6 +1,8 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { initializeKakaoSDK } from '@react-native-kakao/core';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -10,6 +12,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useNavPrefStore } from '@/stores/useNavPrefStore';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -32,10 +35,20 @@ export default function RootLayout() {
   }, [error]);
 
   const initialize = useAuthStore((s) => s.initialize);
+  const loadDefaultApp = useNavPrefStore((s) => s.loadDefaultApp);
 
   useEffect(() => {
     initialize();
-  }, [initialize]);
+    loadDefaultApp();
+    const appKey = Constants.expoConfig?.extra?.kakaoNativeAppKey as
+      | string
+      | undefined;
+    if (appKey) {
+      initializeKakaoSDK(appKey).catch((err) => {
+        console.warn('Failed to initialize Kakao SDK', err);
+      });
+    }
+  }, [initialize, loadDefaultApp]);
 
   useEffect(() => {
     if (loaded) {
