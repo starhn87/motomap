@@ -17,9 +17,11 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCourse } from '@/hooks/useCourses';
 import { useCourseReviews, useCreateCourseReview, useUpdateCourseReview, useDeleteCourseReview } from '@/hooks/useCourseReviews';
+import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
 import { openNavigation } from '@/lib/navigation';
 import { formatDistance, formatDuration } from '@/constants/course';
 import StarRating from '@/components/review/StarRating';
+import ReportSheet from '@/components/report/ReportSheet';
 
 export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,11 +33,14 @@ export default function CourseDetailScreen() {
   const { mutateAsync: submitReview, isPending } = useCreateCourseReview();
   const { mutateAsync: updateReview } = useUpdateCourseReview(id ?? '');
   const { mutateAsync: removeReview } = useDeleteCourseReview(id ?? '');
+  const blockedIds = useBlockedIds();
+  const { mutateAsync: blockUserFn } = useBlockUser();
   const [rating, setRating] = useState(0);
   const [content, setContent] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editRating, setEditRating] = useState(0);
   const [editContent, setEditContent] = useState('');
+  const [reportingId, setReportingId] = useState<string | null>(null);
 
   const handleSubmitReview = async () => {
     if (!id) return;
@@ -84,6 +89,7 @@ export default function CourseDetailScreen() {
   const destination = coords[coords.length - 1];
 
   return (
+    <>
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}>
@@ -219,13 +225,13 @@ export default function CourseDetailScreen() {
             </Text>
           )}
 
-          {!reviews?.length ? (
+          {!(reviews ?? []).filter((r) => !blockedIds.has(r.userId)).length ? (
             <Text style={[styles.emptyReview, { color: colors.textSecondary }]}>
               아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
             </Text>
           ) : (
             <View style={styles.reviewList}>
-              {reviews.map((review) => {
+              {reviews!.filter((r) => !blockedIds.has(r.userId)).map((review) => {
                 const isOwner = user?.id === review.userId;
                 const isEditing = editingId === review.id;
 
@@ -300,7 +306,7 @@ export default function CourseDetailScreen() {
                           <Text style={[styles.reviewDate, { color: colors.textSecondary }]}>
                             {new Date(review.createdAt).toLocaleDateString('ko-KR')}
                           </Text>
-                          {isOwner && (
+                          {isOwner ? (
                             <View style={styles.reviewActions}>
                               <Pressable onPress={() => { setEditingId(review.id); setEditRating(review.rating); setEditContent(review.content); }}>
                                 <Text style={[styles.actionText, { color: colors.tint }]}>수정</Text>
@@ -314,7 +320,32 @@ export default function CourseDetailScreen() {
                                 <Text style={[styles.actionText, { color: '#EF4444' }]}>삭제</Text>
                               </Pressable>
                             </View>
-                          )}
+                          ) : user ? (
+                            <View style={styles.reviewActions}>
+                              <Pressable onPress={() => setReportingId(review.id)}>
+                                <Text style={[styles.actionText, { color: colors.textSecondary }]}>신고</Text>
+                              </Pressable>
+                              <Pressable onPress={() => {
+                                Alert.alert(
+                                  `${review.userName} 차단`,
+                                  '이 사용자의 리뷰가 더 이상 표시되지 않습니다.',
+                                  [
+                                    { text: '취소', style: 'cancel' },
+                                    {
+                                      text: '차단',
+                                      style: 'destructive',
+                                      onPress: async () => {
+                                        try { await blockUserFn(review.userId); }
+                                        catch (e: any) { Alert.alert('오류', e.message ?? '차단 실패'); }
+                                      },
+                                    },
+                                  ]
+                                );
+                              }}>
+                                <Text style={[styles.actionText, { color: colors.textSecondary }]}>차단</Text>
+                              </Pressable>
+                            </View>
+                          ) : null}
                         </View>
                       </>
                     )}
@@ -326,6 +357,13 @@ export default function CourseDetailScreen() {
         </View>
       </View>
     </ScrollView>
+    <ReportSheet
+      visible={!!reportingId}
+      onClose={() => setReportingId(null)}
+      targetType="course_review"
+      targetId={reportingId ?? ''}
+    />
+    </>
   );
 }
 

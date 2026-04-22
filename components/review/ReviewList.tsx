@@ -15,7 +15,9 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useReviews, useUpdateReview, useDeleteReview } from '@/hooks/useReviews';
+import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
+import ReportSheet from '@/components/report/ReportSheet';
 import StarRating from './StarRating';
 
 interface Props {
@@ -29,23 +31,49 @@ export default function ReviewList({ placeId }: Props) {
   const { data: reviews, isLoading } = useReviews(placeId);
   const { mutateAsync: updateReview } = useUpdateReview(placeId);
   const { mutateAsync: removeReview } = useDeleteReview(placeId);
+  const blockedIds = useBlockedIds();
+  const { mutateAsync: blockUserFn } = useBlockUser();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editRating, setEditRating] = useState(0);
   const [editContent, setEditContent] = useState('');
   const [editPhotos, setEditPhotos] = useState<string[]>([]);
+  const [reportingId, setReportingId] = useState<string | null>(null);
+
+  const visibleReviews = reviews?.filter((r) => !blockedIds.has(r.userId));
 
   if (isLoading) {
     return <ActivityIndicator size="small" color={colors.tint} style={{ marginVertical: 16 }} />;
   }
 
-  if (!reviews?.length) {
+  if (!visibleReviews?.length) {
     return (
       <Text style={[styles.empty, { color: colors.textSecondary }]}>
         아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
       </Text>
     );
   }
+
+  const handleBlock = (userId: string, userName: string) => {
+    Alert.alert(
+      `${userName} 차단`,
+      '이 사용자의 리뷰가 더 이상 표시되지 않습니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '차단',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await blockUserFn(userId);
+            } catch (error: any) {
+              Alert.alert('오류', error.message ?? '차단에 실패했습니다.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleEdit = (review: any) => {
     setEditingId(review.id);
@@ -114,7 +142,7 @@ export default function ReviewList({ placeId }: Props) {
 
   return (
     <View style={styles.container}>
-      {reviews.map((review) => {
+      {visibleReviews.map((review) => {
         const isOwner = user?.id === review.userId;
         const isEditing = editingId === review.id;
 
@@ -235,7 +263,7 @@ export default function ReviewList({ placeId }: Props) {
                   <Text style={[styles.reviewDate, { color: colors.textSecondary }]}>
                     {new Date(review.createdAt).toLocaleDateString('ko-KR')}
                   </Text>
-                  {isOwner && (
+                  {isOwner ? (
                     <View style={styles.actions}>
                       <TouchableOpacity onPress={() => handleEdit(review)}>
                         <Text style={[styles.actionText, { color: colors.tint }]}>수정</Text>
@@ -244,13 +272,28 @@ export default function ReviewList({ placeId }: Props) {
                         <Text style={[styles.actionText, { color: '#EF4444' }]}>삭제</Text>
                       </TouchableOpacity>
                     </View>
-                  )}
+                  ) : user ? (
+                    <View style={styles.actions}>
+                      <TouchableOpacity onPress={() => setReportingId(review.id)}>
+                        <Text style={[styles.actionText, { color: colors.textSecondary }]}>신고</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleBlock(review.userId, review.userName)}>
+                        <Text style={[styles.actionText, { color: colors.textSecondary }]}>차단</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
                 </View>
               </>
             )}
           </View>
         );
       })}
+      <ReportSheet
+        visible={!!reportingId}
+        onClose={() => setReportingId(null)}
+        targetType="review"
+        targetId={reportingId ?? ''}
+      />
     </View>
   );
 }
