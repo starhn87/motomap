@@ -18,6 +18,9 @@ export default {
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           '라이딩 중 현재 위치를 표시하고 주변 장소를 찾기 위해 위치 정보가 필요합니다.',
+        NSPhotoLibraryUsageDescription:
+          '리뷰에 사진을 첨부하기 위해 사진 라이브러리 접근 권한이 필요합니다.',
+        ITSAppUsesNonExemptEncryption: false,
       },
       bundleIdentifier: 'com.ridemap.app',
     },
@@ -39,6 +42,19 @@ export default {
     plugins: [
       'expo-router',
       './plugins/withQuerySchemes',
+      [
+        'expo-image-picker',
+        {
+          photosPermission: '리뷰에 사진을 첨부하기 위해 사진 라이브러리 접근 권한이 필요합니다.',
+        },
+      ],
+      [
+        'expo-location',
+        {
+          locationWhenInUsePermission:
+            '라이딩 중 현재 위치를 표시하고 주변 장소를 찾기 위해 위치 정보가 필요합니다.',
+        },
+      ],
       [
         '@mj-studio/react-native-naver-map',
         {
