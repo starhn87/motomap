@@ -89,7 +89,11 @@ export default {
     ],
     extra: {
       kakaoNativeAppKey: process.env.KAKAO_NATIVE_APP_KEY,
+      eas: {
+        projectId: '46277971-d460-4e19-82eb-df05f18ff9f7',
+      },
     },
+    owner: 'ridemapper',
     experiments: {
       typedRoutes: true,
     },
