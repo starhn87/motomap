@@ -51,7 +51,7 @@ function MenuItem({
         styles.menuItem,
         animatedStyle,
         {
-          backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+          backgroundColor: colors.surface,
           borderColor: colors.border,
         },
       ]}>
@@ -159,7 +159,7 @@ export default function ProfileScreen() {
         style={[
           styles.settingsButton,
           {
-            backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+            backgroundColor: colors.surface,
             borderColor: colors.border,
           },
         ]}>

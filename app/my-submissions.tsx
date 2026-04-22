@@ -29,7 +29,7 @@ export default function MySubmissionsScreen() {
         style={[
           styles.card,
           {
-            backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#FFFFFF',
+            backgroundColor: colors.surfaceElevated,
             borderColor: colors.border,
           },
         ]}>

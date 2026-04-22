@@ -25,7 +25,7 @@ export default function MyReviewsScreen() {
       style={[
         styles.card,
         {
-          backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#FFFFFF',
+          backgroundColor: colors.surfaceElevated,
           borderColor: colors.border,
         },
       ]}>

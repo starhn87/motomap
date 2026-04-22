@@ -195,7 +195,7 @@ export default function CourseDetailScreen() {
                 style={[
                   styles.reviewInput,
                   {
-                    backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+                    backgroundColor: colors.surface,
                     color: colors.text,
                     borderColor: colors.border,
                   },
@@ -241,7 +241,7 @@ export default function CourseDetailScreen() {
                     style={[
                       styles.reviewItem,
                       {
-                        backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+                        backgroundColor: colors.surface,
                         borderColor: colors.border,
                       },
                     ]}>
@@ -266,7 +266,7 @@ export default function CourseDetailScreen() {
                           style={[
                             styles.editInput,
                             {
-                              backgroundColor: colorScheme === 'dark' ? '#0F0F0F' : '#FFFFFF',
+                              backgroundColor: colors.surfaceElevated,
                               color: colors.text,
                               borderColor: colors.border,
                             },

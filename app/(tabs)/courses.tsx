@@ -24,7 +24,7 @@ export default function CoursesScreen() {
       style={({ pressed }) => [
         styles.card,
         {
-          backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#FFFFFF',
+          backgroundColor: colors.surfaceElevated,
           borderColor: colors.border,
           opacity: pressed ? 0.8 : 1,
         },

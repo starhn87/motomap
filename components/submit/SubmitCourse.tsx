@@ -131,7 +131,7 @@ export default function SubmitCourse() {
   const inputStyle = [
     styles.input,
     {
-      backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+      backgroundColor: colors.surface,
       color: colors.text,
       borderColor: colors.border,
     },
@@ -228,7 +228,7 @@ export default function SubmitCourse() {
             styles.addWaypointButton,
             {
               borderColor: colors.border,
-              backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+              backgroundColor: colors.surface,
             },
           ]}>
           <Text style={[styles.addWaypointText, { color: colors.tint }]}>

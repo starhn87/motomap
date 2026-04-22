@@ -72,7 +72,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
           style={[
             styles.sheet,
             {
-              backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#FFFFFF',
+              backgroundColor: colors.surfaceElevated,
               borderColor: colors.border,
             },
           ]}>
@@ -92,11 +92,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
                   style={({ pressed }) => [
                     styles.reasonItem,
                     {
-                      backgroundColor: selected
-                        ? colors.tint
-                        : colorScheme === 'dark'
-                          ? '#0F0F0F'
-                          : '#F9FAFB',
+                      backgroundColor: selected ? colors.tint : colors.surface,
                       borderColor: selected ? colors.tint : colors.border,
                       opacity: pressed ? 0.8 : 1,
                     },
@@ -117,7 +113,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
             style={[
               styles.input,
               {
-                backgroundColor: colorScheme === 'dark' ? '#0F0F0F' : '#F9FAFB',
+                backgroundColor: colors.surface,
                 color: colors.text,
                 borderColor: colors.border,
               },

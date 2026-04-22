@@ -132,7 +132,7 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
                   styles.routePreviewButton,
                   {
                     backgroundColor:
-                      colorScheme === 'dark' ? '#2A2A2A' : '#F3F4F6',
+                      colors.surfaceMuted,
                   },
                 ]}>
                 <Text style={[styles.routePreviewText, { color: colors.text }]}>
@@ -299,7 +299,7 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
                     styles.tag,
                     {
                       backgroundColor:
-                        colorScheme === 'dark' ? '#2A2A2A' : '#F3F4F6',
+                        colors.surfaceMuted,
                     },
                   ]}>
                   <Text style={[styles.tagText, { color: colors.text }]}>
@@ -320,7 +320,7 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
                   styles.infoCard,
                   {
                     backgroundColor:
-                      colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+                      colors.surface,
                     borderColor: colors.border,
                   },
                 ]}>

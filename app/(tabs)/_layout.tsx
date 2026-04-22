@@ -22,11 +22,11 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.tint,
         tabBarInactiveTintColor: colors.tabIconDefault,
         tabBarStyle: {
-          backgroundColor: colorScheme === 'dark' ? '#0F0F0F' : '#FFFFFF',
+          backgroundColor: colors.surfaceElevated,
           borderTopColor: colors.border,
         },
         headerStyle: {
-          backgroundColor: colorScheme === 'dark' ? '#0F0F0F' : '#FFFFFF',
+          backgroundColor: colors.surfaceElevated,
         },
         headerTintColor: colors.text,
       }}>

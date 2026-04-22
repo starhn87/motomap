@@ -111,7 +111,7 @@ export default function SubmitFeedback() {
           style={[
             styles.input,
             {
-              backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+              backgroundColor: colors.surface,
               color: colors.text,
               borderColor: colors.border,
             },

@@ -66,7 +66,7 @@ export default function SearchBar({ onSelectPlace, onDismiss }: Props) {
         style={[
           styles.inputContainer,
           {
-            backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#FFFFFF',
+            backgroundColor: colors.surfaceElevated,
             borderColor: isFocused ? colors.tint : colors.border,
           },
         ]}>
@@ -92,7 +92,7 @@ export default function SearchBar({ onSelectPlace, onDismiss }: Props) {
           style={[
             styles.results,
             {
-              backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#FFFFFF',
+              backgroundColor: colors.surfaceElevated,
               borderColor: colors.border,
             },
           ]}>

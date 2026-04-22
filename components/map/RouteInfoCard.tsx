@@ -55,7 +55,7 @@ export default function RouteInfoCard({ route, place, onClose }: Props) {
           style={({ pressed }) => [
             styles.cancelButton,
             {
-              backgroundColor: colorScheme === 'dark' ? '#2A2A2A' : '#F3F4F6',
+              backgroundColor: colors.surfaceMuted,
               opacity: pressed ? 0.8 : 1,
             },
           ]}>

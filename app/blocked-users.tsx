@@ -45,7 +45,7 @@ export default function BlockedUsersScreen() {
       style={[
         styles.row,
         {
-          backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+          backgroundColor: colors.surface,
           borderColor: colors.border,
         },
       ]}>

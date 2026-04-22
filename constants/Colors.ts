@@ -22,6 +22,9 @@ export default {
     tint: '#18181B',
     tabIconDefault: '#A1A1AA',
     tabIconSelected: '#18181B',
+    surface: '#F9FAFB',
+    surfaceElevated: '#FFFFFF',
+    surfaceMuted: '#F3F4F6',
   },
   dark: {
     text: '#FAFAFA',
@@ -32,5 +35,8 @@ export default {
     tint: '#FAFAFA',
     tabIconDefault: '#52525B',
     tabIconSelected: '#FAFAFA',
+    surface: '#1A1A1A',
+    surfaceElevated: '#1A1A1A',
+    surfaceMuted: '#2A2A2A',
   },
 };

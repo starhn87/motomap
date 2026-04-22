@@ -196,7 +196,7 @@ export default function SettingsScreen() {
         style={[
           styles.infoCard,
           {
-            backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+            backgroundColor: colors.surface,
             borderColor: colors.border,
           },
         ]}>
@@ -212,7 +212,7 @@ export default function SettingsScreen() {
           style={[
             styles.linkButton,
             {
-              backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+              backgroundColor: colors.surface,
               borderColor: colors.border,
             },
           ]}>
@@ -229,7 +229,7 @@ export default function SettingsScreen() {
         style={[
           styles.linkButton,
           {
-            backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+            backgroundColor: colors.surface,
             borderColor: colors.border,
           },
         ]}>
@@ -241,7 +241,7 @@ export default function SettingsScreen() {
         style={[
           styles.linkButton,
           {
-            backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+            backgroundColor: colors.surface,
             borderColor: colors.border,
           },
         ]}>
@@ -253,7 +253,7 @@ export default function SettingsScreen() {
         style={[
           styles.linkButton,
           {
-            backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+            backgroundColor: colors.surface,
             borderColor: colors.border,
           },
         ]}>
@@ -271,7 +271,7 @@ export default function SettingsScreen() {
             style={[
               styles.linkButton,
               {
-                backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+                backgroundColor: colors.surface,
                 borderColor: colors.border,
               },
             ]}>

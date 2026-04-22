@@ -124,7 +124,7 @@ export default function EditNicknameScreen() {
           style={[
             styles.input,
             {
-              backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+              backgroundColor: colors.surface,
               color: colors.text,
               borderColor: colors.border,
             },
@@ -140,7 +140,7 @@ export default function EditNicknameScreen() {
         />
         <TouchableOpacity
           onPress={handleRandom}
-          style={[styles.randomButton, { backgroundColor: colorScheme === 'dark' ? '#2A2A2A' : '#F3F4F6' }]}>
+          style={[styles.randomButton, { backgroundColor: colors.surfaceMuted }]}>
           <Text style={[styles.randomText, { color: colors.text }]}>랜덤</Text>
         </TouchableOpacity>
         <TouchableOpacity

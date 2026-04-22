@@ -155,7 +155,7 @@ function SubmitPlace() {
   const inputStyle = [
     styles.input,
     {
-      backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+      backgroundColor: colors.surface,
       color: colors.text,
       borderColor: colors.border,
     },
@@ -178,7 +178,7 @@ function SubmitPlace() {
               style={[
                 styles.categoryChip,
                 {
-                  backgroundColor: category === cat.key ? cat.color : colorScheme === 'dark' ? '#1A1A1A' : '#F3F4F6',
+                  backgroundColor: category === cat.key ? cat.color : colors.surfaceMuted,
                   borderColor: category === cat.key ? cat.color : colors.border,
                 },
               ]}>

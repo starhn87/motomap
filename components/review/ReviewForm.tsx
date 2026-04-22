@@ -91,7 +91,7 @@ export default function ReviewForm({ placeId }: Props) {
         style={[
           styles.input,
           {
-            backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+            backgroundColor: colors.surface,
             color: colors.text,
             borderColor: colors.border,
           },
@@ -123,7 +123,7 @@ export default function ReviewForm({ placeId }: Props) {
               style={[
                 styles.photoAdd,
                 {
-                  backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F3F4F6',
+                  backgroundColor: colors.surfaceMuted,
                   borderColor: colors.border,
                 },
               ]}>
