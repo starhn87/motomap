@@ -13,6 +13,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useNavPrefStore } from '@/stores/useNavPrefStore';
+import { useThemeStore } from '@/stores/useThemeStore';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -36,10 +37,12 @@ export default function RootLayout() {
 
   const initialize = useAuthStore((s) => s.initialize);
   const loadDefaultApp = useNavPrefStore((s) => s.loadDefaultApp);
+  const loadMode = useThemeStore((s) => s.loadMode);
 
   useEffect(() => {
     initialize();
     loadDefaultApp();
+    loadMode();
     const appKey = Constants.expoConfig?.extra?.kakaoNativeAppKey as
       | string
       | undefined;
@@ -48,7 +51,7 @@ export default function RootLayout() {
         console.warn('Failed to initialize Kakao SDK', err);
       });
     }
-  }, [initialize, loadDefaultApp]);
+  }, [initialize, loadDefaultApp, loadMode]);
 
   useEffect(() => {
     if (loaded) {
@@ -77,6 +80,8 @@ function RootLayoutNav() {
             <Stack.Screen name="favorites" options={{ title: '즐겨찾기', headerBackTitle: '뒤로' }} />
             <Stack.Screen name="my-submissions" options={{ title: '내 제보 목록', headerBackTitle: '뒤로' }} />
             <Stack.Screen name="my-reviews" options={{ title: '내 리뷰', headerBackTitle: '뒤로' }} />
+            <Stack.Screen name="blocked-users" options={{ title: '차단 관리', headerBackTitle: '뒤로' }} />
+            <Stack.Screen name="legal/[type]" options={{ headerBackTitle: '뒤로' }} />
             <Stack.Screen name="course/[id]" options={{ title: '코스 상세', headerBackTitle: '뒤로' }} />
           </Stack>
         </ThemeProvider>

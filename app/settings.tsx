@@ -4,15 +4,18 @@ import {
   View,
   Text,
   Pressable,
-  Linking,
   ScrollView,
+  Alert,
 } from 'react-native';
+import { router } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { useThemeStore } from '@/stores/useThemeStore';
 import { useNavPrefStore, type NavAppId } from '@/stores/useNavPrefStore';
 import { NAV_APPS, getAvailableNavApps } from '@/lib/navigation';
+import { deleteAccount } from '@/lib/api/account';
 
 type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -107,6 +110,7 @@ function NavAppRow({
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const user = useAuthStore((s) => s.user);
   const { mode, setMode } = useThemeStore();
   const { defaultApp, setDefaultApp } = useNavPrefStore();
   const [availableIds, setAvailableIds] = useState<Set<NavAppId>>(new Set());
@@ -116,6 +120,41 @@ export default function SettingsScreen() {
       setAvailableIds(new Set(apps.map((a) => a.id)));
     });
   }, []);
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      '회원 탈퇴',
+      '탈퇴 시 계정 정보가 익명 처리되며, 프로필 사진과 닉네임이 제거됩니다.\n\n작성하신 리뷰와 제보는 유지될 수 있습니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '탈퇴하기',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              '정말 탈퇴하시겠습니까?',
+              '이 작업은 되돌릴 수 없습니다.',
+              [
+                { text: '취소', style: 'cancel' },
+                {
+                  text: '탈퇴',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await deleteAccount();
+                      router.replace('/');
+                    } catch (e: any) {
+                      Alert.alert('오류', e?.message ?? '탈퇴 처리에 실패했습니다.');
+                    }
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <ScrollView
@@ -167,8 +206,26 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {user && (
+        <Pressable
+          onPress={() => router.push('/blocked-users' as any)}
+          style={[
+            styles.linkButton,
+            {
+              backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+              borderColor: colors.border,
+            },
+          ]}>
+          <Text style={[styles.linkText, { color: colors.text }]}>차단 관리</Text>
+          <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
+        </Pressable>
+      )}
+
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 20 }]}>
+        약관 및 정책
+      </Text>
       <Pressable
-        onPress={() => Linking.openURL('https://realman.notion.site/RideMap-34520de7c8198070909bf4ab9813ee98')}
+        onPress={() => router.push('/legal/terms' as any)}
         style={[
           styles.linkButton,
           {
@@ -176,9 +233,53 @@ export default function SettingsScreen() {
             borderColor: colors.border,
           },
         ]}>
-        <Text style={[styles.linkText, { color: colors.text }]}>개인정보처리방침</Text>
+        <Text style={[styles.linkText, { color: colors.text }]}>서비스 이용약관</Text>
         <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
       </Pressable>
+      <Pressable
+        onPress={() => router.push('/legal/privacy' as any)}
+        style={[
+          styles.linkButton,
+          {
+            backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+            borderColor: colors.border,
+          },
+        ]}>
+        <Text style={[styles.linkText, { color: colors.text }]}>개인정보 처리방침</Text>
+        <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => router.push('/legal/location' as any)}
+        style={[
+          styles.linkButton,
+          {
+            backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+            borderColor: colors.border,
+          },
+        ]}>
+        <Text style={[styles.linkText, { color: colors.text }]}>위치기반 서비스 이용약관</Text>
+        <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
+      </Pressable>
+
+      {user && (
+        <>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 20 }]}>
+            계정
+          </Text>
+          <Pressable
+            onPress={handleDeleteAccount}
+            style={[
+              styles.linkButton,
+              {
+                backgroundColor: colorScheme === 'dark' ? '#1A1A1A' : '#F9FAFB',
+                borderColor: colors.border,
+              },
+            ]}>
+            <Text style={[styles.linkText, { color: '#EF4444' }]}>회원 탈퇴</Text>
+            <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
+          </Pressable>
+        </>
+      )}
     </ScrollView>
   );
 }
