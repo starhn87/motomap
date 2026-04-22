@@ -11,6 +11,7 @@ import {
 import { useState, useEffect } from 'react';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { router } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -26,6 +27,42 @@ import {
 } from '@/lib/nickname';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
 
+function AgreementRow({
+  checked,
+  onToggle,
+  label,
+  onView,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  label: string;
+  onView: () => void;
+}) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+
+  return (
+    <View style={styles.agreementRow}>
+      <Pressable onPress={onToggle} style={styles.agreementCheckArea}>
+        <View
+          style={[
+            styles.checkbox,
+            {
+              borderColor: colors.border,
+              backgroundColor: checked ? colors.tint : 'transparent',
+            },
+          ]}>
+          {checked && <Text style={[styles.checkmark, { color: colors.background }]}>✓</Text>}
+        </View>
+        <Text style={[styles.agreementText, { color: colors.text }]}>{label}</Text>
+      </Pressable>
+      <Pressable onPress={onView}>
+        <Text style={[styles.agreementView, { color: colors.textSecondary }]}>보기 ›</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function LoginPrompt({ message }: { message?: string }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -36,6 +73,9 @@ export default function LoginPrompt({ message }: { message?: string }) {
   const [nicknameStatus, setNicknameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [agreedPrivacy, setAgreedPrivacy] = useState(false);
+  const [agreedLocation, setAgreedLocation] = useState(false);
 
   // 회원가입 모드 진입 시 랜덤 닉네임 추천
   useEffect(() => {
@@ -86,6 +126,10 @@ export default function LoginPrompt({ message }: { message?: string }) {
       }
       if (nicknameStatus !== 'available') {
         Alert.alert('알림', '닉네임 중복 확인을 해주세요.');
+        return;
+      }
+      if (!agreedTerms || !agreedPrivacy || !agreedLocation) {
+        Alert.alert('알림', '모든 필수 약관에 동의해주세요.');
         return;
       }
     }
@@ -216,6 +260,50 @@ export default function LoginPrompt({ message }: { message?: string }) {
             onChangeText={setPassword}
             secureTextEntry
           />
+
+          {isSignUp && (
+            <View style={styles.agreements}>
+              <Pressable
+                onPress={() => {
+                  const all = !(agreedTerms && agreedPrivacy && agreedLocation);
+                  setAgreedTerms(all); setAgreedPrivacy(all); setAgreedLocation(all);
+                }}
+                style={styles.agreementRow}>
+                <View style={[
+                  styles.checkbox,
+                  { borderColor: colors.border, backgroundColor: (agreedTerms && agreedPrivacy && agreedLocation) ? colors.tint : 'transparent' },
+                ]}>
+                  {(agreedTerms && agreedPrivacy && agreedLocation) && (
+                    <Text style={[styles.checkmark, { color: colors.background }]}>✓</Text>
+                  )}
+                </View>
+                <Text style={[styles.agreementTextAll, { color: colors.text }]}>
+                  모든 약관에 동의
+                </Text>
+              </Pressable>
+
+              <View style={[styles.agreementDivider, { backgroundColor: colors.border }]} />
+
+              <AgreementRow
+                checked={agreedTerms}
+                onToggle={() => setAgreedTerms((v) => !v)}
+                label="서비스 이용약관 (필수)"
+                onView={() => router.push('/legal/terms' as any)}
+              />
+              <AgreementRow
+                checked={agreedPrivacy}
+                onToggle={() => setAgreedPrivacy((v) => !v)}
+                label="개인정보 처리방침 (필수)"
+                onView={() => router.push('/legal/privacy' as any)}
+              />
+              <AgreementRow
+                checked={agreedLocation}
+                onToggle={() => setAgreedLocation((v) => !v)}
+                label="위치기반 서비스 이용약관 (필수)"
+                onView={() => router.push('/legal/location' as any)}
+              />
+            </View>
+          )}
 
           <Pressable
             onPress={handleEmailAuth}
@@ -354,5 +442,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     fontWeight: '600',
+  },
+  agreements: {
+    gap: 10,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  agreementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  agreementCheckArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkmark: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  agreementText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  agreementTextAll: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  agreementView: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  agreementDivider: {
+    height: 1,
+    marginVertical: 2,
   },
 });
