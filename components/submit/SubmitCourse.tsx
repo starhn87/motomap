@@ -5,7 +5,6 @@ import {
   TextInput,
   Pressable,
   ScrollView,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -20,6 +19,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { submitCourse } from '@/lib/api/courses';
 import { geocodeAddress } from '@/lib/geocode';
+import { toast } from '@/lib/toast';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -72,12 +72,12 @@ export default function SubmitCourse() {
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      Alert.alert('알림', '코스명을 입력해주세요.');
+      toast.info('코스명을 입력해주세요.');
       return;
     }
     const filledWaypoints = waypoints.filter((w) => w.address.trim());
     if (filledWaypoints.length < 2) {
-      Alert.alert('알림', '출발지와 도착지를 입력해주세요.');
+      toast.info('출발지와 도착지를 입력해주세요.');
       return;
     }
 
@@ -85,12 +85,11 @@ export default function SubmitCourse() {
     submitScale.value = withSpring(0.95);
 
     try {
-      // 주소 → 좌표 변환
       const coordinates: [number, number][] = [];
       for (const wp of filledWaypoints) {
         const result = await geocodeAddress(wp.address.trim());
         if (!result) {
-          Alert.alert('오류', `"${wp.address}" 주소를 찾을 수 없습니다.`);
+          toast.error(`"${wp.address}" 주소를 찾을 수 없습니다.`);
           return;
         }
         coordinates.push([result.longitude, result.latitude]);
@@ -108,9 +107,8 @@ export default function SubmitCourse() {
           .filter(Boolean),
       });
 
-      Alert.alert('제보 완료', '코스가 등록되었습니다!');
+      toast.success('코스가 등록되었습니다.');
 
-      // 폼 초기화
       setName('');
       setDescription('');
       setDistance('');
@@ -121,7 +119,7 @@ export default function SubmitCourse() {
         { id: '2', address: '', label: '도착지' },
       ]);
     } catch (error: any) {
-      Alert.alert('오류', error.message ?? '코스 제보에 실패했습니다.');
+      toast.error('코스 제보에 실패했습니다.', error.message);
     } finally {
       setSubmitting(false);
       submitScale.value = withSpring(1);

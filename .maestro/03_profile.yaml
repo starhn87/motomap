@@ -1,0 +1,12 @@
+appId: com.ridemap.app
+name: 마이 탭
+---
+- launchApp:
+    clearState: true
+    permissions:
+      location: allow
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "마이"
+- waitForAnimationToEnd
+- takeScreenshot: 06_profile

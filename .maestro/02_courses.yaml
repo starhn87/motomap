@@ -1,0 +1,20 @@
+appId: com.ridemap.app
+name: 코스 목록 + 상세
+---
+- launchApp:
+    clearState: true
+    permissions:
+      location: allow
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn: "코스"
+- waitForAnimationToEnd
+- takeScreenshot: 04_courses
+
+# 첫 코스 카드 탭
+- tapOn:
+    index: 0
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 05_course_detail

@@ -2,12 +2,11 @@ import {
   View,
   Text,
   TextInput,
-  Image,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState } from 'react';
 
@@ -16,6 +15,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCreateReview } from '@/hooks/useReviews';
 import { pickImage, uploadMultipleImages } from '@/lib/uploadImage';
+import { toast } from '@/lib/toast';
 import StarRating from './StarRating';
 
 interface Props {
@@ -42,7 +42,7 @@ export default function ReviewForm({ placeId }: Props) {
 
   const handleAddPhoto = async () => {
     if (imageUris.length >= 5) {
-      Alert.alert('알림', '사진은 최대 5장까지 추가할 수 있습니다.');
+      toast.info('사진은 최대 5장까지 추가할 수 있습니다.');
       return;
     }
     const uri = await pickImage();
@@ -57,7 +57,7 @@ export default function ReviewForm({ placeId }: Props) {
 
   const handleSubmit = async () => {
     if (rating === 0) {
-      Alert.alert('알림', '별점을 선택해주세요.');
+      toast.info('별점을 선택해주세요.');
       return;
     }
 
@@ -76,9 +76,9 @@ export default function ReviewForm({ placeId }: Props) {
       setRating(0);
       setContent('');
       setImageUris([]);
-      Alert.alert('완료', '리뷰가 등록되었습니다.');
+      toast.success('리뷰가 등록되었습니다.');
     } catch (error: any) {
-      Alert.alert('오류', error.message ?? '리뷰 등록에 실패했습니다.');
+      toast.error('리뷰 등록에 실패했습니다.', error.message);
     }
   };
 

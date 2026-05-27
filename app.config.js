@@ -86,6 +86,13 @@ export default {
           },
         },
       ],
+      [
+        '@sentry/react-native',
+        {
+          organization: process.env.SENTRY_ORG,
+          project: process.env.SENTRY_PROJECT,
+        },
+      ],
     ],
     extra: {
       kakaoNativeAppKey: process.env.KAKAO_NATIVE_APP_KEY,

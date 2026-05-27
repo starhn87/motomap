@@ -2,12 +2,12 @@ import {
   View,
   Text,
   TextInput,
-  Image as RNImage,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Image as RNImage } from 'expo-image';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState } from 'react';
 
@@ -17,6 +17,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useReviews, useUpdateReview, useDeleteReview } from '@/hooks/useReviews';
 import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
+import { toast } from '@/lib/toast';
 import ReportSheet from '@/components/report/ReportSheet';
 import StarRating from './StarRating';
 
@@ -67,7 +68,7 @@ export default function ReviewList({ placeId }: Props) {
             try {
               await blockUserFn(userId);
             } catch (error: any) {
-              Alert.alert('오류', error.message ?? '차단에 실패했습니다.');
+              toast.error('차단에 실패했습니다.', error.message);
             }
           },
         },
@@ -91,7 +92,7 @@ export default function ReviewList({ placeId }: Props) {
 
   const handleAddEditPhoto = async () => {
     if (editPhotos.length >= 5) {
-      Alert.alert('알림', '사진은 최대 5장까지입니다.');
+      toast.info('사진은 최대 5장까지입니다.');
       return;
     }
     const uri = await pickImage();
@@ -102,11 +103,10 @@ export default function ReviewList({ placeId }: Props) {
 
   const handleSaveEdit = async (id: string) => {
     if (editRating === 0) {
-      Alert.alert('알림', '별점을 선택해주세요.');
+      toast.info('별점을 선택해주세요.');
       return;
     }
     try {
-      // 새로 추가된 로컬 이미지만 업로드
       const finalPhotos: string[] = [];
       for (const photo of editPhotos) {
         if (photo.startsWith('http')) {
@@ -119,7 +119,7 @@ export default function ReviewList({ placeId }: Props) {
       await updateReview({ id, rating: editRating, content: editContent.trim(), photos: finalPhotos });
       handleCancelEdit();
     } catch (error: any) {
-      Alert.alert('오류', error.message ?? '수정에 실패했습니다.');
+      toast.error('수정에 실패했습니다.', error.message);
     }
   };
 
@@ -133,7 +133,7 @@ export default function ReviewList({ placeId }: Props) {
           try {
             await removeReview(id);
           } catch (error: any) {
-            Alert.alert('오류', error.message ?? '삭제에 실패했습니다.');
+            toast.error('삭제에 실패했습니다.', error.message);
           }
         },
       },

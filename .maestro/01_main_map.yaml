@@ -1,0 +1,10 @@
+appId: com.ridemap.app
+name: 메인 지도 화면
+---
+- launchApp:
+    clearState: true
+    permissions:
+      location: allow
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: 01_main_map

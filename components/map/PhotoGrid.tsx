@@ -1,4 +1,5 @@
-import { View, Image, StyleSheet, Dimensions, Text, Pressable } from 'react-native';
+import { View, StyleSheet, Dimensions, Text, Pressable } from 'react-native';
+import { Image } from 'expo-image';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 

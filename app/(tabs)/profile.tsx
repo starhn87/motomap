@@ -2,10 +2,10 @@ import {
   StyleSheet,
   View,
   Text,
-  Image,
   Pressable,
   Alert,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import Animated, {
@@ -20,6 +20,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { updateAvatarUrl } from '@/lib/nickname';
+import { toast } from '@/lib/toast';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -92,7 +93,7 @@ function LoggedInContent() {
       await updateAvatarUrl(url);
       setAvatarUrl(url);
     } catch (error: any) {
-      Alert.alert('오류', error.message ?? '프로필 사진 변경에 실패했습니다.');
+      toast.error('프로필 사진 변경에 실패했습니다.', error.message);
     } finally {
       setUploading(false);
     }

@@ -4,20 +4,36 @@ import {
   Text,
   Pressable,
   FlatList,
-  Image as RNImage,
-  ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
+import { Image as RNImage } from 'expo-image';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useBlockedUsers, useUnblockUser } from '@/hooks/useBlocks';
+import { toast } from '@/lib/toast';
+import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import type { BlockedUser } from '@/lib/api/blocks';
+
+function BlockedSkeletonList() {
+  return (
+    <View style={styles.list}>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <SkeletonContainer key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
+          <Skeleton width={40} height={40} radius={20} />
+          <Skeleton width="40%" height={16} style={{ flex: 1 }} />
+          <Skeleton width={60} height={32} radius={8} />
+        </SkeletonContainer>
+      ))}
+    </View>
+  );
+}
 
 export default function BlockedUsersScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { data: blocked, isLoading } = useBlockedUsers();
+  const { data: blocked, isLoading, refetch, isRefetching } = useBlockedUsers();
   const { mutateAsync: unblock } = useUnblockUser();
 
   const handleUnblock = (user: BlockedUser) => {
@@ -32,7 +48,7 @@ export default function BlockedUsersScreen() {
             try {
               await unblock(user.userId);
             } catch (error: any) {
-              Alert.alert('오류', error.message ?? '해제에 실패했습니다.');
+              toast.error('해제에 실패했습니다.', error.message);
             }
           },
         },
@@ -73,7 +89,7 @@ export default function BlockedUsersScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {isLoading ? (
-        <ActivityIndicator size="large" color={colors.tint} style={{ marginTop: 40 }} />
+        <BlockedSkeletonList />
       ) : !blocked?.length ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -86,6 +102,13 @@ export default function BlockedUsersScreen() {
           keyExtractor={(item) => item.userId}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={colors.tint}
+            />
+          }
         />
       )}
     </View>

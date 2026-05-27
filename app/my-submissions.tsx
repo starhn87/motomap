@@ -3,7 +3,7 @@ import {
   View,
   Text,
   FlatList,
-  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 
@@ -11,12 +11,31 @@ import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fetchMySubmissions } from '@/lib/api/mydata';
+import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import type { Place } from '@/types';
+
+function SubmissionSkeletonList() {
+  return (
+    <View style={styles.list}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <SkeletonContainer key={i}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Skeleton width={70} height={18} radius={10} />
+            <Skeleton width={50} height={18} radius={10} />
+          </View>
+          <Skeleton width="80%" height={18} />
+          <Skeleton width="65%" height={14} style={{ marginTop: 6 }} />
+          <Skeleton width={80} height={12} style={{ marginTop: 6 }} />
+        </SkeletonContainer>
+      ))}
+    </View>
+  );
+}
 
 export default function MySubmissionsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { data: places, isLoading } = useQuery({
+  const { data: places, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['my-submissions'],
     queryFn: fetchMySubmissions,
   });
@@ -68,7 +87,7 @@ export default function MySubmissionsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {isLoading ? (
-        <ActivityIndicator size="large" color={colors.tint} style={{ marginTop: 40 }} />
+        <SubmissionSkeletonList />
       ) : !places?.length ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -85,6 +104,13 @@ export default function MySubmissionsScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={colors.tint}
+            />
+          }
         />
       )}
     </View>

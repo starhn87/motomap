@@ -1,4 +1,3 @@
-import { Image, StyleSheet } from 'react-native';
 import { NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 
 import type { Place, PlaceCategory } from '@/types';

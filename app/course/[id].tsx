@@ -20,6 +20,7 @@ import { useCourseReviews, useCreateCourseReview, useUpdateCourseReview, useDele
 import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
 import { openNavigation } from '@/lib/navigation';
 import { formatDistance, formatDuration } from '@/constants/course';
+import { toast } from '@/lib/toast';
 import StarRating from '@/components/review/StarRating';
 import ReportSheet from '@/components/report/ReportSheet';
 
@@ -45,16 +46,16 @@ export default function CourseDetailScreen() {
   const handleSubmitReview = async () => {
     if (!id) return;
     if (rating === 0) {
-      Alert.alert('알림', '별점을 선택해주세요.');
+      toast.info('별점을 선택해주세요.');
       return;
     }
     try {
       await submitReview({ courseId: id, rating, content: content.trim() });
       setRating(0);
       setContent('');
-      Alert.alert('완료', '리뷰가 등록되었습니다.');
+      toast.success('리뷰가 등록되었습니다.');
     } catch (error: any) {
-      Alert.alert('오류', error.message ?? '리뷰 등록에 실패했습니다.');
+      toast.error('리뷰 등록에 실패했습니다.', error.message);
     }
   };
 
@@ -284,11 +285,11 @@ export default function CourseDetailScreen() {
                           </Pressable>
                           <Pressable
                             onPress={async () => {
-                              if (editRating === 0) { Alert.alert('알림', '별점을 선택해주세요.'); return; }
+                              if (editRating === 0) { toast.info('별점을 선택해주세요.'); return; }
                               try {
                                 await updateReview({ id: review.id, rating: editRating, content: editContent.trim() });
                                 setEditingId(null);
-                              } catch (e: any) { Alert.alert('오류', e.message ?? '수정 실패'); }
+                              } catch (e: any) { toast.error('수정에 실패했습니다.', e.message); }
                             }}
                             style={[styles.saveEditButton, { backgroundColor: colors.tint }]}>
                             <Text style={[styles.saveEditText, { color: colors.background }]}>저장</Text>
@@ -336,7 +337,7 @@ export default function CourseDetailScreen() {
                                       style: 'destructive',
                                       onPress: async () => {
                                         try { await blockUserFn(review.userId); }
-                                        catch (e: any) { Alert.alert('오류', e.message ?? '차단 실패'); }
+                                        catch (e: any) { toast.error('차단에 실패했습니다.', e.message); }
                                       },
                                     },
                                   ]

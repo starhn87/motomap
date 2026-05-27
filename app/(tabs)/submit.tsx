@@ -5,7 +5,6 @@ import {
   TextInput,
   Pressable,
   ScrollView,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -22,6 +21,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { CATEGORY_LIST } from '@/constants/categories';
 import { submitPlace } from '@/lib/api/places';
+import { toast } from '@/lib/toast';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import SubmitCourse from '@/components/submit/SubmitCourse';
 import SubmitFeedback from '@/components/submit/SubmitFeedback';
@@ -93,15 +93,15 @@ function SubmitPlace() {
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      Alert.alert('알림', '장소명을 입력해주세요.');
+      toast.info('장소명을 입력해주세요.');
       return;
     }
     if (!category) {
-      Alert.alert('알림', '카테고리를 선택해주세요.');
+      toast.info('카테고리를 선택해주세요.');
       return;
     }
     if (!address.trim()) {
-      Alert.alert('알림', '주소를 입력해주세요.');
+      toast.info('주소를 입력해주세요.');
       return;
     }
 
@@ -134,7 +134,7 @@ function SubmitPlace() {
         parkingInfo: parkingInfo.trim() || undefined,
       });
 
-      Alert.alert('제보 완료', '관리자 승인 후 지도에 표시됩니다.');
+      toast.success('제보가 접수되었습니다.', '관리자 승인 후 지도에 표시됩니다.');
 
       setName('');
       setDescription('');
@@ -145,7 +145,7 @@ function SubmitPlace() {
       setOpeningHours('');
       setParkingInfo('');
     } catch (error: any) {
-      Alert.alert('오류', error.message ?? '제보에 실패했습니다.');
+      toast.error('제보에 실패했습니다.', error.message);
     } finally {
       setSubmitting(false);
       submitScale.value = withSpring(1);

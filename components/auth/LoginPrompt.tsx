@@ -2,12 +2,11 @@ import {
   View,
   Text,
   TextInput,
-  Image,
   Pressable,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useState, useEffect } from 'react';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -26,6 +25,7 @@ import {
   updateAvatarUrl,
 } from '@/lib/nickname';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
+import { toast } from '@/lib/toast';
 
 function AgreementRow({
   checked,
@@ -92,11 +92,11 @@ export default function LoginPrompt({ message }: { message?: string }) {
 
   const handleCheckNickname = async () => {
     if (!nickname.trim()) {
-      Alert.alert('알림', '닉네임을 입력해주세요.');
+      toast.info('닉네임을 입력해주세요.');
       return;
     }
     if (nickname.trim().length < 2 || nickname.trim().length > 15) {
-      Alert.alert('알림', '닉네임은 2~15자여야 합니다.');
+      toast.info('닉네임은 2~15자여야 합니다.');
       return;
     }
 
@@ -107,29 +107,29 @@ export default function LoginPrompt({ message }: { message?: string }) {
 
   const handleEmailAuth = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('알림', '이메일과 비밀번호를 입력해주세요.');
+      toast.info('이메일과 비밀번호를 입력해주세요.');
       return;
     }
     if (password.length < 6) {
-      Alert.alert('알림', '비밀번호는 6자 이상이어야 합니다.');
+      toast.info('비밀번호는 6자 이상이어야 합니다.');
       return;
     }
 
     if (isSignUp) {
       if (!nickname.trim()) {
-        Alert.alert('알림', '닉네임을 입력해주세요.');
+        toast.info('닉네임을 입력해주세요.');
         return;
       }
       if (nickname.trim().length < 2 || nickname.trim().length > 15) {
-        Alert.alert('알림', '닉네임은 2~15자여야 합니다.');
+        toast.info('닉네임은 2~15자여야 합니다.');
         return;
       }
       if (nicknameStatus !== 'available') {
-        Alert.alert('알림', '닉네임 중복 확인을 해주세요.');
+        toast.info('닉네임 중복 확인을 해주세요.');
         return;
       }
       if (!agreedTerms || !agreedPrivacy || !agreedLocation) {
-        Alert.alert('알림', '모든 필수 약관에 동의해주세요.');
+        toast.info('모든 필수 약관에 동의해주세요.');
         return;
       }
     }
@@ -143,12 +143,12 @@ export default function LoginPrompt({ message }: { message?: string }) {
           const url = await uploadImage(avatarUri, `avatars/${Date.now()}`);
           await updateAvatarUrl(url);
         }
-        Alert.alert('가입 완료', '환영합니다!');
+        toast.success('환영합니다!');
       } else {
         await signInWithEmail(email.trim(), password);
       }
     } catch (error: any) {
-      Alert.alert('오류', error.message ?? '로그인에 실패했습니다.');
+      toast.error('로그인에 실패했습니다.', error.message);
     } finally {
       setLoading(false);
     }

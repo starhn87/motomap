@@ -1,4 +1,4 @@
-import { StyleSheet, View, Pressable, Text, Alert, Keyboard } from 'react-native';
+import { StyleSheet, View, Pressable, Text, Keyboard } from 'react-native';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   NaverMapView,
@@ -25,6 +25,7 @@ import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
 import RouteLine from '@/components/map/RouteLine';
 import RouteInfoCard from '@/components/map/RouteInfoCard';
 import SearchBar from '@/components/search/SearchBar';
+import { toast } from '@/lib/toast';
 import type { Place } from '@/types';
 import type { Route } from '@/lib/api/directions';
 
@@ -125,7 +126,7 @@ export default function MapScreen() {
   const handleRoutePreview = useCallback(
     async (place: Place) => {
       if (!userLocation) {
-        Alert.alert('알림', '현재 위치를 확인할 수 없습니다.');
+        toast.info('현재 위치를 확인할 수 없습니다.');
         return;
       }
 
@@ -153,7 +154,7 @@ export default function MapScreen() {
           });
         }
       } catch (error: any) {
-        Alert.alert('경로 오류', error.message ?? '경로를 찾을 수 없습니다.');
+        toast.error('경로를 찾을 수 없습니다.', error.message);
       }
     },
     [userLocation, setSelectedPlaceId]

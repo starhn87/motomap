@@ -4,7 +4,7 @@ import {
   Text,
   Pressable,
   FlatList,
-  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
 
@@ -12,12 +12,30 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useCourses } from '@/hooks/useCourses';
 import { formatDistance, formatDuration } from '@/constants/course';
+import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import type { RidingCourse } from '@/types';
+
+function CourseSkeletonList() {
+  return (
+    <View style={styles.list}>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <SkeletonContainer key={i}>
+          <Skeleton width="60%" height={20} />
+          <Skeleton width="90%" height={14} style={{ marginTop: 8 }} />
+          <View style={{ flexDirection: 'row', marginTop: 16, gap: 24 }}>
+            <Skeleton width={60} height={28} />
+            <Skeleton width={60} height={28} />
+          </View>
+        </SkeletonContainer>
+      ))}
+    </View>
+  );
+}
 
 export default function CoursesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { data: courses, isLoading } = useCourses();
+  const { data: courses, isLoading, refetch, isRefetching } = useCourses();
 
   const renderCourse = ({ item }: { item: RidingCourse }) => (
     <Pressable
@@ -77,11 +95,7 @@ export default function CoursesScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {isLoading ? (
-        <ActivityIndicator
-          size="large"
-          color={colors.tint}
-          style={{ marginTop: 40 }}
-        />
+        <CourseSkeletonList />
       ) : !courses?.length ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -98,6 +112,13 @@ export default function CoursesScreen() {
           renderItem={renderCourse}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={colors.tint}
+            />
+          }
         />
       )}
     </View>

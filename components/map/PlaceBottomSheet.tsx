@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, Pressable, Alert, Image, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
+import { Image } from 'expo-image';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import BottomSheet, {
   BottomSheetScrollView,
@@ -22,6 +23,7 @@ import ReviewList from '@/components/review/ReviewList';
 import ReviewForm from '@/components/review/ReviewForm';
 import PhotoGrid from '@/components/map/PhotoGrid';
 import { useReviews } from '@/hooks/useReviews';
+import { toast } from '@/lib/toast';
 import type { Place } from '@/types';
 
 interface Props {
@@ -56,14 +58,14 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
 
   const handleFavorite = useCallback(async () => {
     if (!user) {
-      Alert.alert('알림', '로그인이 필요합니다.');
+      toast.info('로그인이 필요합니다.');
       return;
     }
     if (!place) return;
     try {
       await toggleFav(place.id);
     } catch (error: any) {
-      Alert.alert('오류', error.message ?? '즐겨찾기 처리에 실패했습니다.');
+      toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }
   }, [user, place, toggleFav]);
 

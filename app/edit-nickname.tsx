@@ -3,7 +3,6 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
@@ -18,6 +17,7 @@ import {
   getProfile,
 } from '@/lib/nickname';
 import { supabase } from '@/lib/supabase';
+import { toast } from '@/lib/toast';
 
 export default function EditNicknameScreen() {
   const colorScheme = useColorScheme();
@@ -47,11 +47,11 @@ export default function EditNicknameScreen() {
 
   const handleCheck = async () => {
     if (!nickname.trim()) {
-      Alert.alert('알림', '닉네임을 입력해주세요.');
+      toast.info('닉네임을 입력해주세요.');
       return;
     }
     if (nickname.trim().length < 2 || nickname.trim().length > 15) {
-      Alert.alert('알림', '닉네임은 2~15자여야 합니다.');
+      toast.info('닉네임은 2~15자여야 합니다.');
       return;
     }
     if (nickname.trim() === currentNickname) {
@@ -66,7 +66,7 @@ export default function EditNicknameScreen() {
 
   const handleSave = async () => {
     if (!nickname.trim() || nickname.trim().length < 2 || nickname.trim().length > 15) {
-      Alert.alert('알림', '닉네임은 2~15자여야 합니다.');
+      toast.info('닉네임은 2~15자여야 합니다.');
       return;
     }
     if (nickname.trim() === currentNickname) {
@@ -74,7 +74,7 @@ export default function EditNicknameScreen() {
       return;
     }
     if (status !== 'available') {
-      Alert.alert('알림', '닉네임 중복 확인을 해주세요.');
+      toast.info('닉네임 중복 확인을 해주세요.');
       return;
     }
 
@@ -89,7 +89,7 @@ export default function EditNicknameScreen() {
 
       if (error) {
         if (error.code === '23505') {
-          Alert.alert('오류', '이미 사용 중인 닉네임입니다.');
+          toast.error('이미 사용 중인 닉네임입니다.');
           return;
         }
         throw error;
@@ -97,11 +97,10 @@ export default function EditNicknameScreen() {
 
       await supabase.auth.updateUser({ data: { name: nickname.trim() } });
 
-      Alert.alert('완료', '닉네임이 변경되었습니다.', [
-        { text: '확인', onPress: () => router.back() },
-      ]);
+      toast.success('닉네임이 변경되었습니다.');
+      router.back();
     } catch (error: any) {
-      Alert.alert('오류', error.message ?? '닉네임 변경에 실패했습니다.');
+      toast.error('닉네임 변경에 실패했습니다.', error.message);
     } finally {
       setSaving(false);
     }

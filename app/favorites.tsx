@@ -4,23 +4,40 @@ import {
   Text,
   Pressable,
   FlatList,
-  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
 import { openNavigation } from '@/lib/navigation';
+import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import type { Place } from '@/types';
+
+function PlaceSkeletonList() {
+  return (
+    <View style={styles.list}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <SkeletonContainer key={i}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Skeleton width={70} height={18} radius={10} />
+            <Skeleton width={40} height={16} />
+          </View>
+          <Skeleton width="80%" height={18} />
+          <Skeleton width="60%" height={14} style={{ marginTop: 6 }} />
+        </SkeletonContainer>
+      ))}
+    </View>
+  );
+}
 
 export default function FavoritesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  const { data: places, isLoading } = useQuery({
+  const { data: places, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['favorites', 'places'],
     queryFn: fetchFavoritePlaces,
   });
@@ -78,11 +95,7 @@ export default function FavoritesScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {isLoading ? (
-        <ActivityIndicator
-          size="large"
-          color={colors.tint}
-          style={{ marginTop: 40 }}
-        />
+        <PlaceSkeletonList />
       ) : !places?.length ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -99,6 +112,13 @@ export default function FavoritesScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={colors.tint}
+            />
+          }
         />
       )}
     </View>

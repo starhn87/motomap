@@ -5,7 +5,6 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -19,6 +18,7 @@ import {
   type ReportReason,
   type ReportTargetType,
 } from '@/lib/api/reports';
+import { toast } from '@/lib/toast';
 
 interface Props {
   visible: boolean;
@@ -43,16 +43,16 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
 
   const handleSubmit = async () => {
     if (!reason) {
-      Alert.alert('알림', '신고 사유를 선택해주세요.');
+      toast.info('신고 사유를 선택해주세요.');
       return;
     }
     setSubmitting(true);
     try {
       await submitReport({ targetType, targetId, reason, description });
-      Alert.alert('신고 완료', '신고가 접수되었습니다. 검토 후 조치됩니다.');
+      toast.success('신고가 접수되었습니다.', '검토 후 조치됩니다.');
       handleClose();
     } catch (error: any) {
-      Alert.alert('오류', error.message ?? '신고에 실패했습니다.');
+      toast.error('신고에 실패했습니다.', error.message);
     } finally {
       setSubmitting(false);
     }

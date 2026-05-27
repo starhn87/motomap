@@ -1,0 +1,4 @@
+appId: com.ridemap.app
+---
+# RideMap 스크린샷 자동화 - 공통 설정
+# 실행: maestro test .maestro/main.yaml --debug-output ./screenshots

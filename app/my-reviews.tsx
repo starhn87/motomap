@@ -3,19 +3,38 @@ import {
   View,
   Text,
   FlatList,
-  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fetchMyReviews } from '@/lib/api/mydata';
+import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import StarRating from '@/components/review/StarRating';
+
+function ReviewSkeletonList() {
+  return (
+    <View style={styles.list}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <SkeletonContainer key={i}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Skeleton width="50%" height={16} />
+            <Skeleton width={60} height={14} />
+          </View>
+          <Skeleton width="95%" height={14} style={{ marginTop: 4 }} />
+          <Skeleton width="70%" height={14} style={{ marginTop: 4 }} />
+          <Skeleton width={80} height={12} style={{ marginTop: 8 }} />
+        </SkeletonContainer>
+      ))}
+    </View>
+  );
+}
 
 export default function MyReviewsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { data: reviews, isLoading } = useQuery({
+  const { data: reviews, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['my-reviews'],
     queryFn: fetchMyReviews,
   });
@@ -49,7 +68,7 @@ export default function MyReviewsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {isLoading ? (
-        <ActivityIndicator size="large" color={colors.tint} style={{ marginTop: 40 }} />
+        <ReviewSkeletonList />
       ) : !reviews?.length ? (
         <View style={styles.empty}>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -66,6 +85,13 @@ export default function MyReviewsScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={colors.tint}
+            />
+          }
         />
       )}
     </View>

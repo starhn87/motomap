@@ -2,6 +2,7 @@ import { Alert, Linking } from 'react-native';
 import KakaoNavi from '@react-native-kakao/navi';
 
 import { useNavPrefStore, type NavAppId } from '@/stores/useNavPrefStore';
+import { toast } from '@/lib/toast';
 
 export interface NavTarget {
   name: string;
@@ -82,7 +83,7 @@ export async function openNavigation(target: NavTarget) {
   const available = await getAvailableNavApps();
 
   if (available.length === 0) {
-    Alert.alert('알림', '설치된 네비게이션 앱이 없습니다.');
+    toast.info('설치된 네비게이션 앱이 없습니다.');
     return;
   }
 

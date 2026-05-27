@@ -1,0 +1,59 @@
+appId: com.ridemap.app
+name: RideMap 전체 스크린샷 캡처
+---
+# 위치 권한 다이얼로그가 뜨면 허용 (시뮬레이터에서 자동 처리되도록)
+- launchApp:
+    clearState: true
+    permissions:
+      location: allow
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# 1. 메인 지도
+- takeScreenshot: 01_main_map
+- waitForAnimationToEnd
+
+# 2. 검색
+- tapOn:
+    text: "장소 검색"
+    optional: true
+- waitForAnimationToEnd
+- inputText: "강남"
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 02_search
+
+# 검색 결과 첫 항목 탭 → 장소 상세 (Bottom Sheet)
+- tapOn:
+    index: 0
+    childOf:
+      id: "search-results"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: 03_place_detail
+
+# 3. 코스 탭
+- tapOn: "코스"
+- waitForAnimationToEnd
+- takeScreenshot: 04_courses
+
+# 4. 코스 상세 (첫 카드 탭)
+- tapOn:
+    index: 0
+    childOf:
+      id: "course-list"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 05_course_detail
+- back
+
+# 5. 마이 탭
+- tapOn: "마이"
+- waitForAnimationToEnd
+- takeScreenshot: 06_profile
+
+# 6. 제보 탭 (선택)
+- tapOn: "제보"
+- waitForAnimationToEnd
+- takeScreenshot: 07_submit

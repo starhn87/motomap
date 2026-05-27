@@ -16,6 +16,7 @@ import { useThemeStore } from '@/stores/useThemeStore';
 import { useNavPrefStore, type NavAppId } from '@/stores/useNavPrefStore';
 import { NAV_APPS, getAvailableNavApps } from '@/lib/navigation';
 import { deleteAccount } from '@/lib/api/account';
+import { toast } from '@/lib/toast';
 
 type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -144,7 +145,7 @@ export default function SettingsScreen() {
                       await deleteAccount();
                       router.replace('/');
                     } catch (e: any) {
-                      Alert.alert('오류', e?.message ?? '탈퇴 처리에 실패했습니다.');
+                      toast.error('탈퇴 처리에 실패했습니다.', e?.message);
                     }
                   },
                 },

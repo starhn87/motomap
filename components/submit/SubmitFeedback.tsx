@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   Pressable,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,6 +18,7 @@ import Animated, {
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { submitFeedback } from '@/lib/api/feedback';
+import { toast } from '@/lib/toast';
 import type { FeedbackType } from '@/lib/api/feedback';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -44,11 +44,11 @@ export default function SubmitFeedback() {
 
   const handleSubmit = async () => {
     if (!type) {
-      Alert.alert('알림', '유형을 선택해주세요.');
+      toast.info('유형을 선택해주세요.');
       return;
     }
     if (!content.trim()) {
-      Alert.alert('알림', '내용을 입력해주세요.');
+      toast.info('내용을 입력해주세요.');
       return;
     }
 
@@ -57,11 +57,11 @@ export default function SubmitFeedback() {
 
     try {
       await submitFeedback({ type, content: content.trim() });
-      Alert.alert('감사합니다', '소중한 의견이 접수되었습니다.');
+      toast.success('소중한 의견이 접수되었습니다.');
       setType(null);
       setContent('');
     } catch (error: any) {
-      Alert.alert('오류', error.message ?? '제출에 실패했습니다.');
+      toast.error('제출에 실패했습니다.', error.message);
     } finally {
       setSubmitting(false);
       submitScale.value = withSpring(1);
