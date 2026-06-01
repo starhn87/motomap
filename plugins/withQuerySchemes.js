@@ -7,6 +7,7 @@ module.exports = function withQuerySchemes(config) {
       'kakaomap',
       'tmap',
       'nmap',
+      'maps',
     ];
     return config;
   });
