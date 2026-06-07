@@ -1,0 +1,13 @@
+appId: com.ridemap.app
+name: RideMap 장소 상세 캡처
+---
+- launchApp
+- waitForAnimationToEnd:
+    timeout: 8000
+
+# 지도의 마커 탭 (오토바이 아이콘이 화면 중앙쯤)
+- tapOn:
+    point: "50%,42%"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: ascshot_06_place_detail
