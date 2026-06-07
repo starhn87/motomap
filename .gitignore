@@ -42,3 +42,10 @@ yarn-error.*
 /android
 
 .env.local
+
+# App Store screenshots & Maestro capture output (regenerable large binaries)
+/ascshot_*.png
+/screenshots/
+/app-store-screenshots/
+/app-store-screenshots-6.5/
+/app-store-screenshots-ipad/
