@@ -1,11 +1,9 @@
 appId: com.ridemap.app
 name: RideMap 전체 스크린샷 캡처
 ---
-# 위치 권한 다이얼로그가 뜨면 허용 (시뮬레이터에서 자동 처리되도록)
+# 위치 권한은 simctl로 사전 부여
 - launchApp:
     clearState: true
-    permissions:
-      location: allow
 - waitForAnimationToEnd:
     timeout: 5000
 
