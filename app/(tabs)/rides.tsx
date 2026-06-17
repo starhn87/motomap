@@ -18,18 +18,11 @@ import {
   formatDistance,
   formatRideDuration,
   formatSpeed,
+  formatRideDate,
 } from '@/constants/course';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import type { Ride } from '@/types';
-
-function formatRideDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
 
 function RideSkeletonList() {
   return (

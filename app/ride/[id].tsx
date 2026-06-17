@@ -22,17 +22,9 @@ import {
   formatDistance,
   formatRideDuration,
   formatSpeed,
+  formatRideDate,
 } from '@/constants/course';
 import { toast } from '@/lib/toast';
-
-function formatRideDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'short',
-  });
-}
 
 export default function RideDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -173,7 +165,7 @@ export default function RideDetailScreen() {
         ) : (
           <View style={styles.titleRow}>
             <Text style={[styles.title, { color: colors.text }]}>
-              {ride.title || formatRideDate(ride.createdAt)}
+              {ride.title || formatRideDate(ride.createdAt, true)}
             </Text>
             <Pressable
               onPress={() => {
@@ -185,7 +177,7 @@ export default function RideDetailScreen() {
           </View>
         )}
         <Text style={[styles.date, { color: colors.textSecondary }]}>
-          {formatRideDate(ride.startedAt ?? ride.createdAt)}
+          {formatRideDate(ride.startedAt ?? ride.createdAt, true)}
         </Text>
 
         <View style={styles.statsGrid}>

@@ -28,3 +28,13 @@ export function formatSpeed(kmh: number): string {
   if (kmh <= 0) return '-';
   return `${kmh.toFixed(1)}km/h`;
 }
+
+// 주행 날짜 표시 (예: "2026년 6월 17일", withWeekday 시 요일 포함)
+export function formatRideDate(iso: string, withWeekday = false): string {
+  return new Date(iso).toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    ...(withWeekday ? { weekday: 'short' as const } : {}),
+  });
+}

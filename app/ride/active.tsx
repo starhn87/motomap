@@ -26,19 +26,14 @@ import {
   formatDistance,
   formatRideDuration,
   formatSpeed,
+  formatRideDate,
 } from '@/constants/course';
 import { toast } from '@/lib/toast';
 
 const FALLBACK_CENTER = { latitude: 37.5665, longitude: 126.978 };
 
 function defaultRideTitle(): string {
-  return (
-    new Date().toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }) + ' 주행'
-  );
+  return formatRideDate(new Date().toISOString()) + ' 주행';
 }
 
 export default function ActiveRideScreen() {
