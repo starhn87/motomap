@@ -13,9 +13,9 @@
 
 | 지도 · 장소 탐색 | 라이딩 코스 | 코스 상세 |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/01-map.png" width="240"/> | <img src="docs/screenshots/02-courses.png" width="240"/> | <img src="docs/screenshots/03-course-detail.png" width="240"/> |
+| <img src="https://raw.githubusercontent.com/starhn87/ridemap/main/docs/screenshots/01-map.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/ridemap/main/docs/screenshots/02-courses.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/ridemap/main/docs/screenshots/03-course-detail.png" width="240"/> |
 | **장소 상세** | **장소 검색** | **마이 페이지** |
-| <img src="docs/screenshots/04-place-detail.png" width="240"/> | <img src="docs/screenshots/05-search.png" width="240"/> | <img src="docs/screenshots/06-profile.png" width="240"/> |
+| <img src="https://raw.githubusercontent.com/starhn87/ridemap/main/docs/screenshots/04-place-detail.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/ridemap/main/docs/screenshots/05-search.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/ridemap/main/docs/screenshots/06-profile.png" width="240"/> |
 
 ## ✨ 주요 기능
 
