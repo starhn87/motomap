@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { AppState, type AppStateStatus } from 'react-native';
 import * as Location from 'expo-location';
+import * as TaskManager from 'expo-task-manager';
 
 import { haversine } from '@/lib/distance';
 import { toast } from '@/lib/toast';
@@ -36,18 +36,17 @@ interface RideStore {
   reset: () => void;
 }
 
-// 모듈 스코프 핸들/누적값 — 직렬화 대상이 아니고 리렌더와 무관.
+export const RIDE_LOCATION_TASK = 'ride-location-tracking';
+
+// 모듈 스코프 누적값/핸들 — 직렬화 대상이 아니고, 백그라운드 태스크 콜백에서도 접근한다.
 // store state 에는 화면이 구독할 직렬화 가능한 값만 둔다.
-let watchSub: Location.LocationSubscription | null = null;
 let tickInterval: ReturnType<typeof setInterval> | null = null;
-let appStateSub: { remove: () => void } | null = null;
 let prevCoord: Coord | null = null;
 let prevFixMs = 0;
 let segmentStartedMs = 0;
 let accumulatedMs = 0;
 let startedAtMs = 0;
 let skipNextDistance = false;
-let bgToastShown = false;
 
 const ACCURACY_MAX_M = 50; // 이보다 부정확한 fix 는 통째로 버림
 const JUMP_MIN_M = 100; // 점프 판정 최소 거리
@@ -55,24 +54,8 @@ const JUMP_SPEED_MPS = 55.5; // ~200km/h 초과 이동 = GPS 스파이크
 const STILL_MIN_M = 3; // 이보다 작은 이동은 정지로 간주(거리 누적 안 함)
 const MAX_SPEED_CAP_KMH = 299; // 비현실적 최고속도 상한
 
-function clearHandles() {
-  watchSub?.remove();
-  watchSub = null;
-  if (tickInterval) {
-    clearInterval(tickInterval);
-    tickInterval = null;
-  }
-  appStateSub?.remove();
-  appStateSub = null;
-}
-
-function onTick() {
-  if (useRideStore.getState().status !== 'tracking') return;
-  const elapsed = accumulatedMs + (Date.now() - segmentStartedMs);
-  useRideStore.setState({ durationSec: Math.floor(elapsed / 1000) });
-}
-
-function onLocation(loc: Location.LocationObject) {
+// 위치 1건 처리 — 포어그라운드/백그라운드 태스크 콜백 양쪽에서 호출된다.
+function processLocation(loc: Location.LocationObject) {
   if (useRideStore.getState().status !== 'tracking') return;
 
   const { latitude, longitude, accuracy, speed } = loc.coords;
@@ -124,17 +107,35 @@ function onLocation(loc: Location.LocationObject) {
   }));
 }
 
-function onAppStateChange(next: AppStateStatus) {
-  if (
-    next === 'background' &&
-    useRideStore.getState().status === 'tracking' &&
-    !bgToastShown
-  ) {
-    bgToastShown = true;
-    toast.info(
-      '주행 중에는 화면을 켜두세요.',
-      '백그라운드에서는 경로가 기록되지 않을 수 있습니다.'
-    );
+// 백그라운드 위치 태스크 — 모듈 평가 시점에 등록한다.
+// 앱이 종료된 상태에서 OS 가 깨워도 호출되려면 진입점(app/_layout.tsx)에서
+// 이 모듈이 import 되어야 한다.
+TaskManager.defineTask(RIDE_LOCATION_TASK, async ({ data, error }) => {
+  if (error) return;
+  const locations = (data as { locations?: Location.LocationObject[] })?.locations;
+  if (!locations) return;
+  for (const loc of locations) processLocation(loc);
+});
+
+function onTick() {
+  if (useRideStore.getState().status !== 'tracking') return;
+  const elapsed = accumulatedMs + (Date.now() - segmentStartedMs);
+  useRideStore.setState({ durationSec: Math.floor(elapsed / 1000) });
+}
+
+function clearTimers() {
+  if (tickInterval) {
+    clearInterval(tickInterval);
+    tickInterval = null;
+  }
+}
+
+async function stopLocationTask() {
+  try {
+    const started = await Location.hasStartedLocationUpdatesAsync(RIDE_LOCATION_TASK);
+    if (started) await Location.stopLocationUpdatesAsync(RIDE_LOCATION_TASK);
+  } catch {
+    // 태스크가 시작 전이거나 이미 정리된 경우 무시
   }
 }
 
@@ -149,10 +150,18 @@ export const useRideStore = create<RideStore>((set, get) => ({
   start: async () => {
     if (get().status !== 'idle') return false;
 
-    const { status: perm } = await Location.requestForegroundPermissionsAsync();
-    if (perm !== 'granted') {
+    const fg = await Location.requestForegroundPermissionsAsync();
+    if (fg.status !== 'granted') {
       toast.error('위치 권한이 필요합니다.', '설정에서 위치 권한을 허용해주세요.');
       return false;
+    }
+    // 백그라운드 권한은 거부돼도 포어그라운드로는 동작하므로 진행하되 안내.
+    const bg = await Location.requestBackgroundPermissionsAsync();
+    if (bg.status !== 'granted') {
+      toast.info(
+        '백그라운드 위치 권한이 없습니다.',
+        '화면을 끄거나 다른 앱으로 전환하면 기록이 멈출 수 있어요. 설정에서 "항상 허용"을 권장합니다.'
+      );
     }
 
     prevCoord = null;
@@ -161,7 +170,6 @@ export const useRideStore = create<RideStore>((set, get) => ({
     segmentStartedMs = Date.now();
     startedAtMs = Date.now();
     skipNextDistance = false;
-    bgToastShown = false;
     set({
       status: 'tracking',
       coordinates: [],
@@ -171,18 +179,30 @@ export const useRideStore = create<RideStore>((set, get) => ({
       maxSpeed: 0,
     });
 
-    watchSub = await Location.watchPositionAsync(
-      {
+    await stopLocationTask(); // 잔여 태스크 정리
+    try {
+      await Location.startLocationUpdatesAsync(RIDE_LOCATION_TASK, {
         accuracy: Location.Accuracy.BestForNavigation,
         distanceInterval: 5,
         timeInterval: 1000,
-      },
-      onLocation
-    );
+        pausesUpdatesAutomatically: false,
+        showsBackgroundLocationIndicator: true, // iOS: 백그라운드 추적 표시줄
+        activityType: Location.ActivityType.AutomotiveNavigation, // iOS
+        foregroundService: {
+          // Android: 백그라운드 추적 시 상시 알림 (필수)
+          notificationTitle: 'RideMap 주행 기록 중',
+          notificationBody: '주행 경로를 기록하고 있습니다.',
+          notificationColor: '#22C55E',
+        },
+      });
+    } catch (e: any) {
+      toast.error('주행 기록을 시작할 수 없습니다.', e?.message);
+      clearTimers();
+      set({ status: 'idle' });
+      return false;
+    }
 
     tickInterval = setInterval(onTick, 1000);
-    appStateSub = AppState.addEventListener('change', onAppStateChange);
-
     return true;
   },
 
@@ -205,7 +225,8 @@ export const useRideStore = create<RideStore>((set, get) => ({
     if (s.status === 'tracking') {
       accumulatedMs += Date.now() - segmentStartedMs;
     }
-    clearHandles();
+    clearTimers();
+    void stopLocationTask();
 
     const durationSec = Math.floor(accumulatedMs / 1000);
     const distanceKm = s.distanceM / 1000;
@@ -227,14 +248,14 @@ export const useRideStore = create<RideStore>((set, get) => ({
   },
 
   reset: () => {
-    clearHandles();
+    clearTimers();
+    void stopLocationTask();
     prevCoord = null;
     prevFixMs = 0;
     accumulatedMs = 0;
     segmentStartedMs = 0;
     startedAtMs = 0;
     skipNextDistance = false;
-    bgToastShown = false;
     set({
       status: 'idle',
       coordinates: [],
