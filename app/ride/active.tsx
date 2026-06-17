@@ -1,12 +1,4 @@
-import {
-  StyleSheet,
-  View,
-  Text,
-  Pressable,
-  Modal,
-  TextInput,
-  Alert,
-} from 'react-native';
+import { StyleSheet, View, Text, Pressable, Alert } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import {
@@ -25,10 +17,10 @@ import { useSaveRide } from '@/hooks/useRides';
 import {
   formatDistance,
   formatRideDuration,
-  formatSpeed,
   formatRideDate,
 } from '@/constants/course';
 import { toast } from '@/lib/toast';
+import RideSummaryModal from '@/components/ride/RideSummaryModal';
 
 const FALLBACK_CENTER = { latitude: 37.5665, longitude: 126.978 };
 
@@ -247,98 +239,14 @@ export default function ActiveRideScreen() {
         </View>
       </View>
 
-      {/* 종료 요약 모달 */}
-      <Modal
-        visible={!!summary}
-        transparent
-        animationType="slide"
-        onRequestClose={discardSummary}>
-        <View style={styles.modalOverlay}>
-          <View
-            style={[styles.modalCard, { backgroundColor: colors.surfaceElevated }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              주행 완료
-            </Text>
-
-            {summary && (
-              <View style={styles.summaryGrid}>
-                <View style={styles.summaryCell}>
-                  <Text style={[styles.summaryValue, { color: colors.text }]}>
-                    {formatDistance(summary.distanceKm)}
-                  </Text>
-                  <Text
-                    style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                    거리
-                  </Text>
-                </View>
-                <View style={styles.summaryCell}>
-                  <Text style={[styles.summaryValue, { color: colors.text }]}>
-                    {formatRideDuration(summary.durationSec)}
-                  </Text>
-                  <Text
-                    style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                    시간
-                  </Text>
-                </View>
-                <View style={styles.summaryCell}>
-                  <Text style={[styles.summaryValue, { color: colors.text }]}>
-                    {formatSpeed(summary.avgSpeed)}
-                  </Text>
-                  <Text
-                    style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                    평균
-                  </Text>
-                </View>
-                <View style={styles.summaryCell}>
-                  <Text style={[styles.summaryValue, { color: colors.text }]}>
-                    {formatSpeed(summary.maxSpeed)}
-                  </Text>
-                  <Text
-                    style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                    최고
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            <TextInput
-              style={[
-                styles.titleInput,
-                {
-                  backgroundColor: colors.surface,
-                  color: colors.text,
-                  borderColor: colors.border,
-                },
-              ]}
-              value={title}
-              onChangeText={setTitle}
-              placeholder="주행 제목"
-              placeholderTextColor={colors.textSecondary}
-            />
-
-            <View style={styles.modalButtons}>
-              <Pressable
-                onPress={discardSummary}
-                style={[styles.modalBtn, { backgroundColor: colors.surfaceMuted }]}>
-                <Text style={[styles.modalBtnText, { color: colors.text }]}>
-                  삭제
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={handleSave}
-                disabled={isPending}
-                style={[
-                  styles.modalBtn,
-                  { backgroundColor: colors.tint, opacity: isPending ? 0.6 : 1 },
-                ]}>
-                <Text style={[styles.modalBtnText, { color: colors.background }]}>
-                  {isPending ? '저장 중...' : '저장'}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <RideSummaryModal
+        summary={summary}
+        title={title}
+        onChangeTitle={setTitle}
+        onSave={handleSave}
+        onDiscard={discardSummary}
+        saving={isPending}
+      />
     </View>
   );
 }
@@ -386,45 +294,4 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   controlText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalCard: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 20,
-  },
-  summaryCell: { width: '50%', alignItems: 'center', paddingVertical: 10 },
-  summaryValue: { fontSize: 22, fontWeight: '800', marginBottom: 2 },
-  summaryLabel: { fontSize: 12 },
-  titleInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    marginBottom: 16,
-  },
-  modalButtons: { flexDirection: 'row', gap: 12 },
-  modalBtn: {
-    flex: 1,
-    paddingVertical: 15,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  modalBtnText: { fontSize: 16, fontWeight: '700' },
 });
