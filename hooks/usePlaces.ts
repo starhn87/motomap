@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchNearbyPlaces, fetchAllPlaces } from '@/lib/api/places';
-import type { PlaceCategory } from '@/types';
+import type { Place, PlaceCategory } from '@/types';
 
 interface MapCenter {
   latitude: number;
@@ -31,5 +31,27 @@ export function usePlaces(category?: PlaceCategory | null, center?: MapCenter | 
           })
         : fetchAllPlaces(category),
     placeholderData: (prev) => prev,
+  });
+}
+
+export interface RecommendedPlaces {
+  recent: Place[];
+  topRated: Place[];
+}
+
+// 추천 목적지 — 기존 장소 DB를 재사용 (새로 등록된 곳 + 고평점)
+export function useRecommendedPlaces() {
+  return useQuery({
+    queryKey: ['places', 'recommended'],
+    queryFn: () => fetchAllPlaces(null),
+    select: (places: Place[]): RecommendedPlaces => ({
+      recent: [...places]
+        .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+        .slice(0, 8),
+      topRated: [...places]
+        .filter((p) => p.reviewCount > 0)
+        .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount)
+        .slice(0, 8),
+    }),
   });
 }
