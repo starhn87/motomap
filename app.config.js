@@ -16,8 +16,11 @@ export default {
     ios: {
       supportsTablet: false,
       infoPlist: {
+        UIBackgroundModes: ['location'],
         NSLocationWhenInUseUsageDescription:
           '라이딩 중 현재 위치를 표시하고 주변 장소를 찾기 위해 위치 정보가 필요합니다.',
+        NSLocationAlwaysAndWhenInUseUsageDescription:
+          '주행 기록 중 화면이 꺼지거나 내비 등 다른 앱을 사용할 때도 경로를 기록하기 위해 위치 정보가 필요합니다.',
         NSPhotoLibraryUsageDescription:
           '리뷰에 사진을 첨부하기 위해 사진 라이브러리 접근 권한이 필요합니다.',
         ITSAppUsesNonExemptEncryption: false,
@@ -32,7 +35,13 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
+      permissions: [
+        'ACCESS_FINE_LOCATION',
+        'ACCESS_COARSE_LOCATION',
+        'ACCESS_BACKGROUND_LOCATION',
+        'FOREGROUND_SERVICE',
+        'FOREGROUND_SERVICE_LOCATION',
+      ],
     },
     web: {
       bundler: 'metro',
@@ -53,6 +62,10 @@ export default {
         {
           locationWhenInUsePermission:
             '라이딩 중 현재 위치를 표시하고 주변 장소를 찾기 위해 위치 정보가 필요합니다.',
+          locationAlwaysAndWhenInUsePermission:
+            '주행 기록 중 화면이 꺼지거나 내비 등 다른 앱을 사용할 때도 경로를 기록하기 위해 위치 정보가 필요합니다.',
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true,
         },
       ],
       [
