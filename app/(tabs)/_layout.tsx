@@ -41,8 +41,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="courses"
         options={{
-          title: '코스',
-          tabBarIcon: ({ color }) => <TabBarIcon name="road" color={color} />,
+          title: '탐색',
+          tabBarIcon: ({ color }) => <TabBarIcon name="compass" color={color} />,
         }}
       />
       <Tabs.Screen

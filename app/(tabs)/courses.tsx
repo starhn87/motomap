@@ -6,6 +6,7 @@ import {
   FlatList,
   RefreshControl,
 } from 'react-native';
+import { useState } from 'react';
 import { router } from 'expo-router';
 
 import Colors from '@/constants/Colors';
@@ -13,7 +14,10 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useCourses } from '@/hooks/useCourses';
 import { formatDistance, formatDuration } from '@/constants/course';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
+import RecommendedPlaces from '@/components/explore/RecommendedPlaces';
 import type { RidingCourse } from '@/types';
+
+type Segment = 'courses' | 'places';
 
 function CourseSkeletonList() {
   return (
@@ -32,9 +36,10 @@ function CourseSkeletonList() {
   );
 }
 
-export default function CoursesScreen() {
+export default function ExploreScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const [segment, setSegment] = useState<Segment>('courses');
   const { data: courses, isLoading, refetch, isRefetching } = useCourses();
 
   const renderCourse = ({ item }: { item: RidingCourse }) => (
@@ -94,32 +99,63 @@ export default function CoursesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {isLoading ? (
-        <CourseSkeletonList />
-      ) : !courses?.length ? (
-        <View style={styles.empty}>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            등록된 코스가 없습니다.
-          </Text>
-          <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
-            곧 라이더들의 추천 코스가 추가됩니다!
-          </Text>
-        </View>
+      <View style={styles.segmentRow}>
+        {(['courses', 'places'] as Segment[]).map((seg) => {
+          const active = segment === seg;
+          const label = seg === 'courses' ? '코스' : '추천 목적지';
+          return (
+            <Pressable
+              key={seg}
+              onPress={() => setSegment(seg)}
+              style={[
+                styles.segment,
+                {
+                  backgroundColor: active ? colors.tint : 'transparent',
+                  borderColor: active ? colors.tint : colors.border,
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.segmentLabel,
+                  { color: active ? colors.background : colors.textSecondary },
+                ]}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {segment === 'courses' ? (
+        isLoading ? (
+          <CourseSkeletonList />
+        ) : !courses?.length ? (
+          <View style={styles.empty}>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              등록된 코스가 없습니다.
+            </Text>
+            <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
+              곧 라이더들의 추천 코스가 추가됩니다!
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={courses}
+            keyExtractor={(item) => item.id}
+            renderItem={renderCourse}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefetching}
+                onRefresh={refetch}
+                tintColor={colors.tint}
+              />
+            }
+          />
+        )
       ) : (
-        <FlatList
-          data={courses}
-          keyExtractor={(item) => item.id}
-          renderItem={renderCourse}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={refetch}
-              tintColor={colors.tint}
-            />
-          }
-        />
+        <RecommendedPlaces />
       )}
     </View>
   );
@@ -129,6 +165,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  segmentRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  segmentLabel: { fontSize: 14, fontWeight: '700' },
   list: {
     padding: 16,
     gap: 12,
