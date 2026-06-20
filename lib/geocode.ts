@@ -8,7 +8,7 @@ interface GeoResult {
 }
 
 export async function geocodeAddress(address: string): Promise<GeoResult | null> {
-  const url = `https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(address)}`;
+  const url = `https://maps.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(address)}`;
 
   const res = await fetch(url, {
     headers: {
