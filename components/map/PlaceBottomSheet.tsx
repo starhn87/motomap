@@ -8,7 +8,6 @@ import type { BottomSheetFooterProps } from '@gorhom/bottom-sheet';
 import { useRef, useEffect, useState } from 'react';
 
 import Colors from '@/constants/Colors';
-import { CATEGORIES } from '@/constants/categories';
 import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
 import { useColorScheme } from '@/components/useColorScheme';
 import { openNavigation } from '@/lib/navigation';
@@ -29,7 +28,6 @@ interface Props {
   place: Place | null;
   onClose: () => void;
   onRoutePreview?: (place: Place) => void;
-  onSnapChange?: (index: number) => void;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -40,7 +38,6 @@ export default function PlaceBottomSheet({
   place,
   onClose,
   onRoutePreview,
-  onSnapChange,
 }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -83,22 +80,19 @@ export default function PlaceBottomSheet({
 
   const handleSheetChanges = (index: number) => {
     setCurrentIndex(index);
-    onSnapChange?.(index);
     if (index === -1) onClose();
   };
 
-  const handleExpand = () => {
-    if (currentIndex < SNAP_POINTS.length - 1) {
-      bottomSheetRef.current?.snapToIndex(currentIndex + 1);
-    }
-  };
+  const isExpanded = currentIndex === SNAP_POINTS.length - 1;
 
   const renderHandle = () => {
     const canExpand = currentIndex < SNAP_POINTS.length - 1;
     return (
       <TouchableOpacity
         activeOpacity={1}
-        onPress={handleExpand}
+        onPress={() => {
+          if (canExpand) bottomSheetRef.current?.snapToIndex(currentIndex + 1);
+        }}
         disabled={!canExpand}
         style={styles.handleContainer}>
         <View
@@ -159,7 +153,6 @@ export default function PlaceBottomSheet({
 
   if (!place || !displayPlace) return null;
 
-  const category = CATEGORIES[displayPlace.category];
   const distanceMeters = userLocation
     ? haversine(userLocation, {
         latitude: displayPlace.latitude,
@@ -215,41 +208,33 @@ export default function PlaceBottomSheet({
         showsVerticalScrollIndicator={false}>
         <PhotoGrid photos={allPhotos} />
 
-        <View style={styles.header}>
-          <View
-            style={[
-              styles.categoryBadge,
-              { backgroundColor: category.color + '20' },
-            ]}>
-            <Text style={styles.categoryIcon}>{category.icon}</Text>
-            <Text style={[styles.categoryLabel, { color: category.color }]}>
-              {category.label}
-            </Text>
+        {(isExpanded || displayPlace.rating > 0) && (
+          <View style={styles.header}>
+            {isExpanded ? (
+              <TouchableOpacity
+                onPress={() => bottomSheetRef.current?.snapToIndex(1)}
+                style={styles.iconButton}>
+                <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
+              </TouchableOpacity>
+            ) : (
+              <View />
+            )}
+            {displayPlace.rating > 0 && (
+              <View style={styles.ratingContainer}>
+                <Text style={styles.ratingStar}>★</Text>
+                <Text style={[styles.ratingText, { color: colors.text }]}>
+                  {displayPlace.rating}
+                </Text>
+                <Text style={[styles.reviewCount, { color: colors.textSecondary }]}>
+                  ({displayPlace.reviewCount})
+                </Text>
+              </View>
+            )}
           </View>
-          {displayPlace.rating > 0 && (
-            <View style={styles.ratingContainer}>
-              <Text style={styles.ratingStar}>★</Text>
-              <Text style={[styles.ratingText, { color: colors.text }]}>
-                {displayPlace.rating}
-              </Text>
-              <Text style={[styles.reviewCount, { color: colors.textSecondary }]}>
-                ({displayPlace.reviewCount})
-              </Text>
-            </View>
-          )}
-        </View>
+        )}
 
         <View style={styles.nameRow}>
-          {currentIndex === SNAP_POINTS.length - 1 && (
-            <TouchableOpacity
-              onPress={() => bottomSheetRef.current?.snapToIndex(1)}
-              style={styles.iconButton}>
-              <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
-            </TouchableOpacity>
-          )}
-          <Text
-            style={[styles.name, { color: colors.text }]}
-            numberOfLines={1}>
+          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {displayPlace.name}
           </Text>
           <View style={styles.nameActions}>
@@ -372,36 +357,11 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     borderTopWidth: 1,
   },
-  photoScroll: {
-    marginHorizontal: -20,
-    marginTop: -20,
-    marginBottom: 16,
-    height: PHOTO_HEIGHT,
-  },
-  photo: {
-    width: SCREEN_WIDTH,
-    height: PHOTO_HEIGHT,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
-  },
-  categoryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  categoryIcon: {
-    fontSize: 12,
-    marginRight: 4,
-  },
-  categoryLabel: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   ratingContainer: {
     flexDirection: 'row',
