@@ -366,14 +366,12 @@ export default function PlaceBottomSheet({
       {isExpanded && (
         <Animated.View
           entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(150)}
           onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
           style={[
             styles.pageHeader,
             {
               paddingTop: insets.top,
               backgroundColor: colors.background,
-              borderBottomColor: colors.border,
             },
           ]}>
           <TouchableOpacity
@@ -427,7 +425,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 12,
-    borderBottomWidth: 1,
   },
   footer: {
     flexDirection: 'row',
