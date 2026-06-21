@@ -35,6 +35,8 @@ interface Props {
 const SNAP_POINTS = ['28%', '60%', '100%'];
 // 헤더 바 높이 실측 전 사용할 fallback (실제 높이는 onLayout으로 측정)
 const PAGE_HEADER_HEIGHT = 56;
+// 드래그 핸들 영역 높이 (paddingVertical 12*2 + 인디케이터 4)
+const HANDLE_HEIGHT = 28;
 
 export default function PlaceBottomSheet({
   place,
@@ -105,9 +107,10 @@ export default function PlaceBottomSheet({
     </>
   );
 
-  // 비확장 시에만 드래그 핸들 표시. 확장(페이지) 시엔 핸들 없이 별도 헤더 바만.
+  // 핸들 영역은 항상 같은 높이로 렌더(인디케이터 색만 토글). handleComponent를
+  // null로 바꾸면 시트 구조 높이가 변해 확장 직후 재snap(축소)이 발생하기 때문.
+  // 확장 시엔 별도 헤더 바가 이 영역 위를 덮으므로 인디케이터는 투명 처리한다.
   const renderHandle = () => {
-    if (isExpanded) return null;
     const canExpand = currentIndex < SNAP_POINTS.length - 1;
     return (
       <TouchableOpacity
@@ -120,7 +123,11 @@ export default function PlaceBottomSheet({
         <View
           style={[
             styles.handleIndicator,
-            { backgroundColor: colors.tabIconDefault },
+            {
+              backgroundColor: isExpanded
+                ? 'transparent'
+                : colors.tabIconDefault,
+            },
           ]}
         />
       </TouchableOpacity>
@@ -232,7 +239,9 @@ export default function PlaceBottomSheet({
             styles.content,
             isExpanded && {
               paddingTop:
-                (headerHeight || insets.top + PAGE_HEADER_HEIGHT) + 20,
+                (headerHeight || insets.top + PAGE_HEADER_HEIGHT) +
+                20 -
+                HANDLE_HEIGHT,
             },
           ]}
           showsVerticalScrollIndicator={false}>
