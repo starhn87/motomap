@@ -1,12 +1,11 @@
-import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
-import { Image } from 'expo-image';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import BottomSheet, {
   BottomSheetScrollView,
   BottomSheetFooter,
 } from '@gorhom/bottom-sheet';
 import type { BottomSheetFooterProps } from '@gorhom/bottom-sheet';
-import { useCallback, useMemo, useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 
 import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
@@ -35,12 +34,17 @@ interface Props {
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const PHOTO_HEIGHT = Math.round((SCREEN_WIDTH * 9) / 16);
+const SNAP_POINTS = ['28%', '60%', '100%'];
 
-export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSnapChange }: Props) {
+export default function PlaceBottomSheet({
+  place,
+  onClose,
+  onRoutePreview,
+  onSnapChange,
+}: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ['28%', '60%', '100%'], []);
   const [currentIndex, setCurrentIndex] = useState(1);
   const user = useAuthStore((s) => s.user);
   const userLocation = useMapStore((s) => s.userLocation);
@@ -56,7 +60,7 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
   ];
   const { mutateAsync: toggleFav } = useToggleFavorite();
 
-  const handleFavorite = useCallback(async () => {
+  const handleFavorite = async () => {
     if (!user) {
       toast.info('로그인이 필요합니다.');
       return;
@@ -67,7 +71,7 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }
-  }, [user, place, toggleFav]);
+  };
 
   useEffect(() => {
     if (place) {
@@ -77,26 +81,20 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
     }
   }, [place]);
 
-  const handleSheetChanges = useCallback(
-    (index: number) => {
-      setCurrentIndex(index);
-      onSnapChange?.(index);
-      if (index === -1) {
-        onSnapChange?.(-1);
-        onClose();
-      }
-    },
-    [onClose, onSnapChange]
-  );
+  const handleSheetChanges = (index: number) => {
+    setCurrentIndex(index);
+    onSnapChange?.(index);
+    if (index === -1) onClose();
+  };
 
-  const handleExpand = useCallback(() => {
-    if (currentIndex < snapPoints.length - 1) {
+  const handleExpand = () => {
+    if (currentIndex < SNAP_POINTS.length - 1) {
       bottomSheetRef.current?.snapToIndex(currentIndex + 1);
     }
-  }, [currentIndex, snapPoints.length]);
+  };
 
-  const renderHandle = useCallback(() => {
-    const canExpand = currentIndex < snapPoints.length - 1;
+  const renderHandle = () => {
+    const canExpand = currentIndex < SNAP_POINTS.length - 1;
     return (
       <TouchableOpacity
         activeOpacity={1}
@@ -111,57 +109,53 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
         />
       </TouchableOpacity>
     );
-  }, [handleExpand, currentIndex, snapPoints.length, colors.tabIconDefault]);
+  };
 
-  const renderFooter = useCallback(
-    (props: BottomSheetFooterProps) => {
-      if (!place) return null;
-      return (
-        <BottomSheetFooter {...props} bottomInset={0}>
-          <View
-            style={[
-              styles.footer,
-              {
-                backgroundColor: colors.background,
-                borderTopColor: colors.border,
-              },
-            ]}>
-            <View style={{ flex: 1 }}>
-              <TouchableOpacity
-                onPress={() => onRoutePreview?.(place)}
-                activeOpacity={0.8}
-                style={[
-                  styles.routePreviewButton,
-                  {
-                    backgroundColor:
-                      colors.surfaceMuted,
-                  },
-                ]}>
-                <Text style={[styles.routePreviewText, { color: colors.text }]}>
-                  경로 미리보기
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <View style={{ flex: 1 }}>
-              <TouchableOpacity
-                onPress={() =>
-                  openNavigation({
-                    name: place.name,
-                    latitude: place.latitude,
-                    longitude: place.longitude,
-                  })
-                }
-                activeOpacity={0.8}
-                style={[styles.navButton, { backgroundColor: colors.tint }]}>
-                <Text style={[styles.navButtonText, { color: colors.background }]}>네비 시작</Text>
-              </TouchableOpacity>
-            </View>
+  const renderFooter = (props: BottomSheetFooterProps) => {
+    if (!place) return null;
+    return (
+      <BottomSheetFooter {...props} bottomInset={0}>
+        <View
+          style={[
+            styles.footer,
+            {
+              backgroundColor: colors.background,
+              borderTopColor: colors.border,
+            },
+          ]}>
+          <View style={{ flex: 1 }}>
+            <TouchableOpacity
+              onPress={() => onRoutePreview?.(place)}
+              activeOpacity={0.8}
+              style={[
+                styles.routePreviewButton,
+                { backgroundColor: colors.surfaceMuted },
+              ]}>
+              <Text style={[styles.routePreviewText, { color: colors.text }]}>
+                경로 미리보기
+              </Text>
+            </TouchableOpacity>
           </View>
-        </BottomSheetFooter>
-      );
-    },
-    [place, onRoutePreview, colors.background, colors.border, colors.text, colorScheme]
-  );
+          <View style={{ flex: 1 }}>
+            <TouchableOpacity
+              onPress={() =>
+                openNavigation({
+                  name: place.name,
+                  latitude: place.latitude,
+                  longitude: place.longitude,
+                })
+              }
+              activeOpacity={0.8}
+              style={[styles.navButton, { backgroundColor: colors.tint }]}>
+              <Text style={[styles.navButtonText, { color: colors.background }]}>
+                네비 시작
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </BottomSheetFooter>
+    );
+  };
 
   if (!place || !displayPlace) return null;
 
@@ -201,11 +195,8 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
     <BottomSheet
       ref={bottomSheetRef}
       index={1}
-      snapPoints={snapPoints}
+      snapPoints={SNAP_POINTS}
       onChange={handleSheetChanges}
-      onAnimate={(_fromIndex, toIndex) => {
-        onSnapChange?.(toIndex);
-      }}
       enablePanDownToClose
       style={styles.sheetContainer}
       backgroundStyle={{
@@ -222,10 +213,6 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
       <BottomSheetScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={handleExpand}
-          disabled={currentIndex >= snapPoints.length - 1}>
         <PhotoGrid photos={allPhotos} />
 
         <View style={styles.header}>
@@ -253,7 +240,9 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
         </View>
 
         <View style={styles.nameRow}>
-          <Text style={[styles.name, { color: colors.text }]}>{displayPlace.name}</Text>
+          <Text style={[styles.name, { color: colors.text }]}>
+            {displayPlace.name}
+          </Text>
           <View style={styles.nameActions}>
             <TouchableOpacity onPress={handleFavorite} style={styles.favoriteButton}>
               <Text style={{ fontSize: 22 }}>{isFavorite ? '❤️' : '🤍'}</Text>
@@ -289,21 +278,20 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
               const highlight = HIGHLIGHT_TAGS.has(tag);
               if (highlight) {
                 return (
-                  <View key={tag} style={[styles.highlightTag, { backgroundColor: colors.tint }]}>
-                    <Text style={[styles.highlightTagText, { color: colors.background }]}>{tag}</Text>
+                  <View
+                    key={tag}
+                    style={[styles.highlightTag, { backgroundColor: colors.tint }]}>
+                    <Text
+                      style={[styles.highlightTagText, { color: colors.background }]}>
+                      {tag}
+                    </Text>
                   </View>
                 );
               }
               return (
                 <View
                   key={tag}
-                  style={[
-                    styles.tag,
-                    {
-                      backgroundColor:
-                        colors.surfaceMuted,
-                    },
-                  ]}>
+                  style={[styles.tag, { backgroundColor: colors.surfaceMuted }]}>
                   <Text style={[styles.tagText, { color: colors.text }]}>
                     #{tag}
                   </Text>
@@ -320,15 +308,10 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
                 key={card.label}
                 style={[
                   styles.infoCard,
-                  {
-                    backgroundColor:
-                      colors.surface,
-                    borderColor: colors.border,
-                  },
+                  { backgroundColor: colors.surface, borderColor: colors.border },
                 ]}>
                 <Text style={styles.infoCardIcon}>{card.icon}</Text>
-                <Text
-                  style={[styles.infoCardLabel, { color: colors.textSecondary }]}>
+                <Text style={[styles.infoCardLabel, { color: colors.textSecondary }]}>
                   {card.label}
                 </Text>
                 <Text
@@ -349,7 +332,6 @@ export default function PlaceBottomSheet({ place, onClose, onRoutePreview, onSna
           <View style={styles.reviewDivider} />
           <ReviewList placeId={place.id} />
         </View>
-        </TouchableOpacity>
       </BottomSheetScrollView>
     </BottomSheet>
   );
