@@ -219,47 +219,36 @@ export default function PlaceBottomSheet({
         showsVerticalScrollIndicator={false}>
         <PhotoGrid photos={allPhotos} />
 
-        {isExpanded ? (
-          <View style={styles.header}>
+        {isExpanded && (
+          <View style={styles.backRow}>
             <TouchableOpacity
               onPress={() => bottomSheetRef.current?.close()}
               style={styles.iconButton}>
               <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
             </TouchableOpacity>
-            <View style={styles.nameActions}>
-              {displayPlace.rating > 0 && (
-                <View style={styles.ratingContainer}>
-                  <Text style={styles.ratingStar}>★</Text>
-                  <Text style={[styles.ratingText, { color: colors.text }]}>
-                    {displayPlace.rating}
-                  </Text>
-                </View>
-              )}
-              {actions}
+          </View>
+        )}
+
+        {displayPlace.rating > 0 && (
+          <View style={styles.header}>
+            <View />
+            <View style={styles.ratingContainer}>
+              <Text style={styles.ratingStar}>★</Text>
+              <Text style={[styles.ratingText, { color: colors.text }]}>
+                {displayPlace.rating}
+              </Text>
+              <Text style={[styles.reviewCount, { color: colors.textSecondary }]}>
+                ({displayPlace.reviewCount})
+              </Text>
             </View>
           </View>
-        ) : (
-          displayPlace.rating > 0 && (
-            <View style={styles.header}>
-              <View />
-              <View style={styles.ratingContainer}>
-                <Text style={styles.ratingStar}>★</Text>
-                <Text style={[styles.ratingText, { color: colors.text }]}>
-                  {displayPlace.rating}
-                </Text>
-                <Text style={[styles.reviewCount, { color: colors.textSecondary }]}>
-                  ({displayPlace.reviewCount})
-                </Text>
-              </View>
-            </View>
-          )
         )}
 
         <View style={styles.nameRow}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {displayPlace.name}
           </Text>
-          {!isExpanded && <View style={styles.nameActions}>{actions}</View>}
+          <View style={styles.nameActions}>{actions}</View>
         </View>
 
         <View style={styles.addressRow}>
@@ -371,6 +360,11 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 28,
     borderTopWidth: 1,
+  },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   header: {
     flexDirection: 'row',
