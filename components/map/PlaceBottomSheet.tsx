@@ -33,8 +33,8 @@ interface Props {
 }
 
 const SNAP_POINTS = ['28%', '60%', '100%'];
-// 확장(페이지) 시 콘텐츠가 고정 헤더 바에 가리지 않도록 확보할 상단 여백
-const PAGE_HEADER_HEIGHT = 52;
+// 헤더 바 높이 실측 전 사용할 fallback (실제 높이는 onLayout으로 측정)
+const PAGE_HEADER_HEIGHT = 56;
 
 export default function PlaceBottomSheet({
   place,
@@ -46,6 +46,7 @@ export default function PlaceBottomSheet({
   const insets = useSafeAreaInsets();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const [currentIndex, setCurrentIndex] = useState(1);
+  const [headerHeight, setHeaderHeight] = useState(0);
   const user = useAuthStore((s) => s.user);
   const userLocation = useMapStore((s) => s.userLocation);
   const { data: latestPlace } = usePlace(place?.id ?? null);
@@ -80,6 +81,11 @@ export default function PlaceBottomSheet({
       bottomSheetRef.current?.close();
     }
   }, [place]);
+
+  // 애니메이션 시작 시점에 목표 인덱스로 즉시 갱신 → 헤더 바/콘텐츠가 시트 움직임에 바로 반응
+  const handleSheetAnimate = (_fromIndex: number, toIndex: number) => {
+    setCurrentIndex(toIndex);
+  };
 
   const handleSheetChanges = (index: number) => {
     setCurrentIndex(index);
@@ -207,6 +213,7 @@ export default function PlaceBottomSheet({
         index={1}
         snapPoints={SNAP_POINTS}
         onChange={handleSheetChanges}
+        onAnimate={handleSheetAnimate}
         enablePanDownToClose
         containerStyle={styles.sheetContainer}
         backgroundStyle={{
@@ -223,7 +230,9 @@ export default function PlaceBottomSheet({
         <BottomSheetScrollView
           contentContainerStyle={[
             styles.content,
-            isExpanded && { paddingTop: insets.top + PAGE_HEADER_HEIGHT },
+            isExpanded && {
+              paddingTop: headerHeight || insets.top + PAGE_HEADER_HEIGHT,
+            },
           ]}
           showsVerticalScrollIndicator={false}>
           <PhotoGrid photos={allPhotos} />
@@ -348,6 +357,7 @@ export default function PlaceBottomSheet({
         <Animated.View
           entering={FadeIn.duration(200)}
           exiting={FadeOut.duration(150)}
+          onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
           style={[
             styles.pageHeader,
             {
