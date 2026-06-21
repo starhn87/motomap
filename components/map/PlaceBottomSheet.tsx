@@ -86,23 +86,61 @@ export default function PlaceBottomSheet({
 
   const isExpanded = currentIndex === SNAP_POINTS.length - 1;
 
+  const actions = (
+    <>
+      <TouchableOpacity onPress={handleFavorite} style={styles.iconButton}>
+        <Text style={{ fontSize: 26 }}>{isFavorite ? '❤️' : '🤍'}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onClose} style={styles.iconButton}>
+        <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
+      </TouchableOpacity>
+    </>
+  );
+
+  // 핸들 영역(고정) = 드래그 인디케이터 + (확장 시) 헤더 바.
+  // 스크롤 콘텐츠와 별개 영역이라, 콘텐츠를 스크롤해도 헤더 바는 고정된다.
   const renderHandle = () => {
     const canExpand = currentIndex < SNAP_POINTS.length - 1;
     return (
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={() => {
-          if (canExpand) bottomSheetRef.current?.snapToIndex(currentIndex + 1);
-        }}
-        disabled={!canExpand}
-        style={styles.handleContainer}>
-        <View
-          style={[
-            styles.handleIndicator,
-            { backgroundColor: colors.tabIconDefault },
-          ]}
-        />
-      </TouchableOpacity>
+      <View>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => {
+            if (canExpand) bottomSheetRef.current?.snapToIndex(currentIndex + 1);
+          }}
+          disabled={!canExpand}
+          style={styles.handleContainer}>
+          <View
+            style={[
+              styles.handleIndicator,
+              { backgroundColor: colors.tabIconDefault },
+            ]}
+          />
+        </TouchableOpacity>
+        {isExpanded && displayPlace && (
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(150)}
+            style={[styles.headerBar, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity
+              onPress={() => bottomSheetRef.current?.close()}
+              style={styles.iconButton}>
+              <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
+            </TouchableOpacity>
+            <View style={styles.nameActions}>
+              {displayPlace.rating > 0 && (
+                <View style={styles.ratingContainer}>
+                  <Text style={styles.ratingStar}>★</Text>
+                  <Text style={[styles.ratingText, { color: colors.text }]}>
+                    {displayPlace.rating}
+                  </Text>
+                </View>
+              )}
+              {actions}
+            </View>
+          </Animated.View>
+        )}
+      </View>
     );
   };
 
@@ -185,17 +223,6 @@ export default function PlaceBottomSheet({
     },
   ].filter(Boolean) as Array<{ icon: string; label: string; value: string }>;
 
-  const actions = (
-    <>
-      <TouchableOpacity onPress={handleFavorite} style={styles.iconButton}>
-        <Text style={{ fontSize: 26 }}>{isFavorite ? '❤️' : '🤍'}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-        <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
-      </TouchableOpacity>
-    </>
-  );
-
   return (
     <BottomSheet
       ref={bottomSheetRef}
@@ -220,43 +247,19 @@ export default function PlaceBottomSheet({
         showsVerticalScrollIndicator={false}>
         <PhotoGrid photos={allPhotos} />
 
-        {isExpanded ? (
-          <Animated.View
-            entering={FadeIn.duration(200)}
-            exiting={FadeOut.duration(150)}
-            style={styles.header}>
-            <TouchableOpacity
-              onPress={() => bottomSheetRef.current?.close()}
-              style={styles.iconButton}>
-              <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
-            </TouchableOpacity>
-            <View style={styles.nameActions}>
-              {displayPlace.rating > 0 && (
-                <View style={styles.ratingContainer}>
-                  <Text style={styles.ratingStar}>★</Text>
-                  <Text style={[styles.ratingText, { color: colors.text }]}>
-                    {displayPlace.rating}
-                  </Text>
-                </View>
-              )}
-              {actions}
+        {!isExpanded && displayPlace.rating > 0 && (
+          <View style={styles.header}>
+            <View />
+            <View style={styles.ratingContainer}>
+              <Text style={styles.ratingStar}>★</Text>
+              <Text style={[styles.ratingText, { color: colors.text }]}>
+                {displayPlace.rating}
+              </Text>
+              <Text style={[styles.reviewCount, { color: colors.textSecondary }]}>
+                ({displayPlace.reviewCount})
+              </Text>
             </View>
-          </Animated.View>
-        ) : (
-          displayPlace.rating > 0 && (
-            <View style={styles.header}>
-              <View />
-              <View style={styles.ratingContainer}>
-                <Text style={styles.ratingStar}>★</Text>
-                <Text style={[styles.ratingText, { color: colors.text }]}>
-                  {displayPlace.rating}
-                </Text>
-                <Text style={[styles.reviewCount, { color: colors.textSecondary }]}>
-                  ({displayPlace.reviewCount})
-                </Text>
-              </View>
-            </View>
-          )
+          </View>
         )}
 
         <View style={styles.nameRow}>
@@ -374,6 +377,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
+  },
+  headerBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
   },
   footer: {
     flexDirection: 'row',
