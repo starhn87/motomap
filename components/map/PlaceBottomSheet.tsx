@@ -198,7 +198,7 @@ export default function PlaceBottomSheet({
       snapPoints={SNAP_POINTS}
       onChange={handleSheetChanges}
       enablePanDownToClose
-      style={styles.sheetContainer}
+      containerStyle={styles.sheetContainer}
       backgroundStyle={{
         backgroundColor: colors.background,
         borderRadius: 24,
@@ -240,14 +240,23 @@ export default function PlaceBottomSheet({
         </View>
 
         <View style={styles.nameRow}>
-          <Text style={[styles.name, { color: colors.text }]}>
+          {currentIndex === SNAP_POINTS.length - 1 && (
+            <TouchableOpacity
+              onPress={() => bottomSheetRef.current?.snapToIndex(1)}
+              style={styles.iconButton}>
+              <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
+            </TouchableOpacity>
+          )}
+          <Text
+            style={[styles.name, { color: colors.text }]}
+            numberOfLines={1}>
             {displayPlace.name}
           </Text>
           <View style={styles.nameActions}>
-            <TouchableOpacity onPress={handleFavorite} style={styles.favoriteButton}>
-              <Text style={{ fontSize: 22 }}>{isFavorite ? '❤️' : '🤍'}</Text>
+            <TouchableOpacity onPress={handleFavorite} style={styles.iconButton}>
+              <Text style={{ fontSize: 26 }}>{isFavorite ? '❤️' : '🤍'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity onPress={onClose} style={styles.iconButton}>
               <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -425,17 +434,18 @@ const styles = StyleSheet.create({
   nameActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 12,
   },
-  favoriteButton: {
-    padding: 4,
-  },
-  closeButton: {
-    padding: 4,
+  iconButton: {
+    padding: 8,
   },
   closeText: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '600',
+  },
+  backIcon: {
+    fontSize: 26,
+    fontWeight: '700',
   },
   addressRow: {
     flexDirection: 'row',
