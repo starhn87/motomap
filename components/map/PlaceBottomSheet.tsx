@@ -184,6 +184,17 @@ export default function PlaceBottomSheet({
     },
   ].filter(Boolean) as Array<{ icon: string; label: string; value: string }>;
 
+  const actions = (
+    <>
+      <TouchableOpacity onPress={handleFavorite} style={styles.iconButton}>
+        <Text style={{ fontSize: 26 }}>{isFavorite ? '❤️' : '🤍'}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onClose} style={styles.iconButton}>
+        <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
+      </TouchableOpacity>
+    </>
+  );
+
   return (
     <BottomSheet
       ref={bottomSheetRef}
@@ -208,18 +219,29 @@ export default function PlaceBottomSheet({
         showsVerticalScrollIndicator={false}>
         <PhotoGrid photos={allPhotos} />
 
-        {(isExpanded || displayPlace.rating > 0) && (
+        {isExpanded ? (
           <View style={styles.header}>
-            {isExpanded ? (
-              <TouchableOpacity
-                onPress={() => bottomSheetRef.current?.snapToIndex(1)}
-                style={styles.iconButton}>
-                <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
-              </TouchableOpacity>
-            ) : (
+            <TouchableOpacity
+              onPress={() => bottomSheetRef.current?.close()}
+              style={styles.iconButton}>
+              <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
+            </TouchableOpacity>
+            <View style={styles.nameActions}>
+              {displayPlace.rating > 0 && (
+                <View style={styles.ratingContainer}>
+                  <Text style={styles.ratingStar}>★</Text>
+                  <Text style={[styles.ratingText, { color: colors.text }]}>
+                    {displayPlace.rating}
+                  </Text>
+                </View>
+              )}
+              {actions}
+            </View>
+          </View>
+        ) : (
+          displayPlace.rating > 0 && (
+            <View style={styles.header}>
               <View />
-            )}
-            {displayPlace.rating > 0 && (
               <View style={styles.ratingContainer}>
                 <Text style={styles.ratingStar}>★</Text>
                 <Text style={[styles.ratingText, { color: colors.text }]}>
@@ -229,22 +251,15 @@ export default function PlaceBottomSheet({
                   ({displayPlace.reviewCount})
                 </Text>
               </View>
-            )}
-          </View>
+            </View>
+          )
         )}
 
         <View style={styles.nameRow}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {displayPlace.name}
           </Text>
-          <View style={styles.nameActions}>
-            <TouchableOpacity onPress={handleFavorite} style={styles.iconButton}>
-              <Text style={{ fontSize: 26 }}>{isFavorite ? '❤️' : '🤍'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-              <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          {!isExpanded && <View style={styles.nameActions}>{actions}</View>}
         </View>
 
         <View style={styles.addressRow}>
