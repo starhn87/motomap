@@ -1,5 +1,11 @@
 import { View, Text, StyleSheet } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useSharedValue,
+  useAnimatedReaction,
+  runOnJS,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import BottomSheet, {
@@ -49,6 +55,19 @@ export default function PlaceBottomSheet({
   const bottomSheetRef = useRef<BottomSheet>(null);
   const [currentIndex, setCurrentIndex] = useState(1);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const animatedIndex = useSharedValue(1);
+
+  // 시트의 실제 위치(animatedIndex)를 신뢰 소스로 currentIndex를 동기화한다.
+  // onAnimate/onChange(이벤트)는 드래그로 직접 끌었을 때 누락/지연되어
+  // 헤더 상태가 어긋나거나(100%인데 헤더 없음) 재확장이 안 되는 버그가 있었다.
+  useAnimatedReaction(
+    () => Math.round(animatedIndex.value),
+    (rounded, previous) => {
+      if (rounded !== previous) {
+        runOnJS(setCurrentIndex)(rounded);
+      }
+    }
+  );
   const user = useAuthStore((s) => s.user);
   const userLocation = useMapStore((s) => s.userLocation);
   const { data: latestPlace } = usePlace(place?.id ?? null);
@@ -84,13 +103,7 @@ export default function PlaceBottomSheet({
     }
   }, [place]);
 
-  // 애니메이션 시작 시점에 목표 인덱스로 즉시 갱신 → 헤더 바/콘텐츠가 시트 움직임에 바로 반응
-  const handleSheetAnimate = (_fromIndex: number, toIndex: number) => {
-    setCurrentIndex(toIndex);
-  };
-
   const handleSheetChanges = (index: number) => {
-    setCurrentIndex(index);
     if (index === -1) onClose();
   };
 
@@ -219,8 +232,8 @@ export default function PlaceBottomSheet({
         ref={bottomSheetRef}
         index={1}
         snapPoints={SNAP_POINTS}
+        animatedIndex={animatedIndex}
         onChange={handleSheetChanges}
-        onAnimate={handleSheetAnimate}
         enablePanDownToClose
         containerStyle={styles.sheetContainer}
         backgroundStyle={{
