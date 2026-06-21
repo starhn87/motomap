@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import BottomSheet, {
   BottomSheetScrollView,
@@ -219,36 +220,57 @@ export default function PlaceBottomSheet({
         showsVerticalScrollIndicator={false}>
         <PhotoGrid photos={allPhotos} />
 
-        {isExpanded && (
-          <View style={styles.backRow}>
+        {isExpanded ? (
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(150)}
+            style={styles.header}>
             <TouchableOpacity
               onPress={() => bottomSheetRef.current?.close()}
               style={styles.iconButton}>
               <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
             </TouchableOpacity>
-          </View>
-        )}
-
-        {displayPlace.rating > 0 && (
-          <View style={styles.header}>
-            <View />
-            <View style={styles.ratingContainer}>
-              <Text style={styles.ratingStar}>★</Text>
-              <Text style={[styles.ratingText, { color: colors.text }]}>
-                {displayPlace.rating}
-              </Text>
-              <Text style={[styles.reviewCount, { color: colors.textSecondary }]}>
-                ({displayPlace.reviewCount})
-              </Text>
+            <View style={styles.nameActions}>
+              {displayPlace.rating > 0 && (
+                <View style={styles.ratingContainer}>
+                  <Text style={styles.ratingStar}>★</Text>
+                  <Text style={[styles.ratingText, { color: colors.text }]}>
+                    {displayPlace.rating}
+                  </Text>
+                </View>
+              )}
+              {actions}
             </View>
-          </View>
+          </Animated.View>
+        ) : (
+          displayPlace.rating > 0 && (
+            <View style={styles.header}>
+              <View />
+              <View style={styles.ratingContainer}>
+                <Text style={styles.ratingStar}>★</Text>
+                <Text style={[styles.ratingText, { color: colors.text }]}>
+                  {displayPlace.rating}
+                </Text>
+                <Text style={[styles.reviewCount, { color: colors.textSecondary }]}>
+                  ({displayPlace.reviewCount})
+                </Text>
+              </View>
+            </View>
+          )
         )}
 
         <View style={styles.nameRow}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {displayPlace.name}
           </Text>
-          <View style={styles.nameActions}>{actions}</View>
+          {!isExpanded && (
+            <Animated.View
+              entering={FadeIn.duration(200)}
+              exiting={FadeOut.duration(150)}
+              style={styles.nameActions}>
+              {actions}
+            </Animated.View>
+          )}
         </View>
 
         <View style={styles.addressRow}>
@@ -360,11 +382,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 28,
     borderTopWidth: 1,
-  },
-  backRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
   },
   header: {
     flexDirection: 'row',
