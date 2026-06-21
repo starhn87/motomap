@@ -1,17 +1,7 @@
 import { NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 
-import type { Place, PlaceCategory } from '@/types';
-
-const MARKER_IMAGES: Record<PlaceCategory, any> = {
-  cafe: require('@/assets/images/markers/cafe.png'),
-  restaurant: require('@/assets/images/markers/restaurant.png'),
-  rest_stop: require('@/assets/images/markers/rest_stop.png'),
-  gas_station: require('@/assets/images/markers/gas_station.png'),
-  repair_shop: require('@/assets/images/markers/repair_shop.png'),
-  viewpoint: require('@/assets/images/markers/viewpoint.png'),
-  // 용품점 전용 마커 전까지 임시로 바이크사(정비소) 마커 재사용
-  gear_shop: require('@/assets/images/markers/repair_shop.png'),
-};
+import type { Place } from '@/types';
+import { MARKER_IMAGES } from '@/constants/markerImages';
 
 interface Props {
   place: Place;

@@ -1,5 +1,5 @@
 import { StyleSheet, View, Pressable, Text, Keyboard } from 'react-native';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   NaverMapView,
   NaverMapMarkerOverlay,
@@ -20,7 +20,7 @@ import { fetchRoute } from '@/lib/api/directions';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryFilter from '@/components/map/CategoryFilter';
-import PlaceMarker from '@/components/map/PlaceMarker';
+import { MARKER_IMAGES } from '@/constants/markerImages';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
 import RouteLine from '@/components/map/RouteLine';
 import RouteInfoCard from '@/components/map/RouteInfoCard';
@@ -191,6 +191,19 @@ export default function MapScreen() {
     zoom: DEFAULT_ZOOM,
   };
 
+  const clusterMarkers = useMemo(
+    () =>
+      places.map((place) => ({
+        identifier: place.id,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        image: MARKER_IMAGES[place.category],
+        width: selectedPlaceId === place.id ? 52 : 40,
+        height: selectedPlaceId === place.id ? 52 : 40,
+      })),
+    [places, selectedPlaceId]
+  );
+
   return (
     <View style={styles.container}>
       <NaverMapView
@@ -221,6 +234,19 @@ export default function MapScreen() {
               zoom: e.zoom ?? 12,
             });
           }, 200);
+        }}
+        clusters={[
+          {
+            markers: clusterMarkers,
+            screenDistance: 70,
+            minZoom: 1,
+            maxZoom: 16,
+            animate: true,
+          },
+        ]}
+        onTapClusterLeaf={({ markerIdentifier }) => {
+          const place = places.find((p) => p.id === markerIdentifier);
+          if (place) handleMarkerPress(place);
         }}>
         {userLocation && (
           <NaverMapMarkerOverlay
@@ -239,15 +265,6 @@ export default function MapScreen() {
             </View>
           </NaverMapMarkerOverlay>
         )}
-
-        {places.map((place) => (
-          <PlaceMarker
-            key={place.id}
-            place={place}
-            isSelected={selectedPlaceId === place.id}
-            onPress={() => handleMarkerPress(place)}
-          />
-        ))}
 
         {route && <RouteLine route={route} />}
       </NaverMapView>
