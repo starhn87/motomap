@@ -4,6 +4,9 @@ import Animated, {
   FadeOut,
   useSharedValue,
   useAnimatedReaction,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolation,
   runOnJS,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,6 +46,10 @@ const SNAP_POINTS = ['28%', '60%', '100%'];
 const PAGE_HEADER_HEIGHT = 56;
 // 드래그 핸들 영역 높이 (paddingVertical 12*2 + 인디케이터 4)
 const HANDLE_HEIGHT = 28;
+// 확장 시 헤더 바와 콘텐츠 사이 간격
+const HEADER_CONTENT_GAP = 12;
+// styles.content 의 상단 패딩 (spacer 높이 계산에 사용)
+const CONTENT_PADDING = 20;
 
 export default function PlaceBottomSheet({
   place,
@@ -108,6 +115,26 @@ export default function PlaceBottomSheet({
   };
 
   const isExpanded = currentIndex === SNAP_POINTS.length - 1;
+
+  // 확장 정도(animatedIndex 1→2)에 비례해 콘텐츠 상단 여백을 연속으로 늘린다.
+  // isExpanded 토글로 paddingTop을 한 번에 바꾸면 콘텐츠가 뚝 끊겨 보이기 때문.
+  const spacerStyle = useAnimatedStyle(() => ({
+    height: interpolate(
+      animatedIndex.value,
+      [1, 2],
+      [
+        0,
+        Math.max(
+          (headerHeight || insets.top + PAGE_HEADER_HEIGHT) +
+            HEADER_CONTENT_GAP -
+            HANDLE_HEIGHT -
+            CONTENT_PADDING,
+          0
+        ),
+      ],
+      Extrapolation.CLAMP
+    ),
+  }));
 
   const actions = (
     <>
@@ -248,16 +275,9 @@ export default function PlaceBottomSheet({
         handleComponent={renderHandle}
         footerComponent={renderFooter}>
         <BottomSheetScrollView
-          contentContainerStyle={[
-            styles.content,
-            isExpanded && {
-              paddingTop:
-                (headerHeight || insets.top + PAGE_HEADER_HEIGHT) +
-                20 -
-                HANDLE_HEIGHT,
-            },
-          ]}
+          contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}>
+          <Animated.View style={spacerStyle} />
           <PhotoGrid photos={allPhotos} />
 
           {!isExpanded && displayPlace.rating > 0 && (
