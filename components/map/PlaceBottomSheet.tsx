@@ -7,6 +7,7 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 import type { BottomSheetFooterProps } from '@gorhom/bottom-sheet';
 import { useRef, useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/Colors';
 import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
@@ -42,6 +43,7 @@ export default function PlaceBottomSheet({
 }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const [currentIndex, setCurrentIndex] = useState(1);
   const user = useAuthStore((s) => s.user);
@@ -230,6 +232,7 @@ export default function PlaceBottomSheet({
       snapPoints={SNAP_POINTS}
       onChange={handleSheetChanges}
       enablePanDownToClose
+      topInset={insets.top}
       containerStyle={styles.sheetContainer}
       backgroundStyle={{
         backgroundColor: colors.background,
