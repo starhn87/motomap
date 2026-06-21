@@ -105,25 +105,30 @@ export default function PlaceBottomSheet({
     const canExpand = currentIndex < SNAP_POINTS.length - 1;
     return (
       <View>
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => {
-            if (canExpand) bottomSheetRef.current?.snapToIndex(currentIndex + 1);
-          }}
-          disabled={!canExpand}
-          style={styles.handleContainer}>
-          <View
-            style={[
-              styles.handleIndicator,
-              { backgroundColor: colors.tabIconDefault },
-            ]}
-          />
-        </TouchableOpacity>
+        {!isExpanded && (
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => {
+              if (canExpand) bottomSheetRef.current?.snapToIndex(currentIndex + 1);
+            }}
+            disabled={!canExpand}
+            style={styles.handleContainer}>
+            <View
+              style={[
+                styles.handleIndicator,
+                { backgroundColor: colors.tabIconDefault },
+              ]}
+            />
+          </TouchableOpacity>
+        )}
         {isExpanded && displayPlace && (
           <Animated.View
             entering={FadeIn.duration(200)}
             exiting={FadeOut.duration(150)}
-            style={[styles.headerBar, { borderBottomColor: colors.border }]}>
+            style={[
+              styles.headerBar,
+              { borderBottomColor: colors.border, paddingTop: insets.top + 8 },
+            ]}>
             <TouchableOpacity
               onPress={() => bottomSheetRef.current?.close()}
               style={styles.iconButton}>
@@ -232,11 +237,10 @@ export default function PlaceBottomSheet({
       snapPoints={SNAP_POINTS}
       onChange={handleSheetChanges}
       enablePanDownToClose
-      topInset={insets.top}
       containerStyle={styles.sheetContainer}
       backgroundStyle={{
         backgroundColor: colors.background,
-        borderRadius: 24,
+        borderRadius: isExpanded ? 0 : 24,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.15,
@@ -386,7 +390,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 8,
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
