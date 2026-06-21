@@ -1,5 +1,6 @@
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import BottomSheet, {
   BottomSheetScrollView,
@@ -7,7 +8,6 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 import type { BottomSheetFooterProps } from '@gorhom/bottom-sheet';
 import { useRef, useEffect, useState } from 'react';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/Colors';
 import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
@@ -32,9 +32,9 @@ interface Props {
   onRoutePreview?: (place: Place) => void;
 }
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const PHOTO_HEIGHT = Math.round((SCREEN_WIDTH * 9) / 16);
 const SNAP_POINTS = ['28%', '60%', '100%'];
+// 확장(페이지) 시 콘텐츠가 고정 헤더 바에 가리지 않도록 확보할 상단 여백
+const PAGE_HEADER_HEIGHT = 52;
 
 export default function PlaceBottomSheet({
   place,
@@ -99,55 +99,25 @@ export default function PlaceBottomSheet({
     </>
   );
 
-  // 핸들 영역(고정) = 드래그 인디케이터 + (확장 시) 헤더 바.
-  // 스크롤 콘텐츠와 별개 영역이라, 콘텐츠를 스크롤해도 헤더 바는 고정된다.
+  // 비확장 시에만 드래그 핸들 표시. 확장(페이지) 시엔 핸들 없이 별도 헤더 바만.
   const renderHandle = () => {
+    if (isExpanded) return null;
     const canExpand = currentIndex < SNAP_POINTS.length - 1;
     return (
-      <View>
-        {!isExpanded && (
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={() => {
-              if (canExpand) bottomSheetRef.current?.snapToIndex(currentIndex + 1);
-            }}
-            disabled={!canExpand}
-            style={styles.handleContainer}>
-            <View
-              style={[
-                styles.handleIndicator,
-                { backgroundColor: colors.tabIconDefault },
-              ]}
-            />
-          </TouchableOpacity>
-        )}
-        {isExpanded && displayPlace && (
-          <Animated.View
-            entering={FadeIn.duration(200)}
-            exiting={FadeOut.duration(150)}
-            style={[
-              styles.headerBar,
-              { borderBottomColor: colors.border, paddingTop: insets.top + 8 },
-            ]}>
-            <TouchableOpacity
-              onPress={() => bottomSheetRef.current?.close()}
-              style={styles.iconButton}>
-              <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
-            </TouchableOpacity>
-            <View style={styles.nameActions}>
-              {displayPlace.rating > 0 && (
-                <View style={styles.ratingContainer}>
-                  <Text style={styles.ratingStar}>★</Text>
-                  <Text style={[styles.ratingText, { color: colors.text }]}>
-                    {displayPlace.rating}
-                  </Text>
-                </View>
-              )}
-              {actions}
-            </View>
-          </Animated.View>
-        )}
-      </View>
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={() => {
+          if (canExpand) bottomSheetRef.current?.snapToIndex(currentIndex + 1);
+        }}
+        disabled={!canExpand}
+        style={styles.handleContainer}>
+        <View
+          style={[
+            styles.handleIndicator,
+            { backgroundColor: colors.tabIconDefault },
+          ]}
+        />
+      </TouchableOpacity>
     );
   };
 
@@ -231,139 +201,180 @@ export default function PlaceBottomSheet({
   ].filter(Boolean) as Array<{ icon: string; label: string; value: string }>;
 
   return (
-    <BottomSheet
-      ref={bottomSheetRef}
-      index={1}
-      snapPoints={SNAP_POINTS}
-      onChange={handleSheetChanges}
-      enablePanDownToClose
-      containerStyle={styles.sheetContainer}
-      backgroundStyle={{
-        backgroundColor: colors.background,
-        borderRadius: isExpanded ? 0 : 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        elevation: 8,
-      }}
-      handleComponent={renderHandle}
-      footerComponent={renderFooter}>
-      <BottomSheetScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
-        <PhotoGrid photos={allPhotos} />
+    <>
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={1}
+        snapPoints={SNAP_POINTS}
+        onChange={handleSheetChanges}
+        enablePanDownToClose
+        containerStyle={styles.sheetContainer}
+        backgroundStyle={{
+          backgroundColor: colors.background,
+          borderRadius: isExpanded ? 0 : 24,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 8,
+        }}
+        handleComponent={renderHandle}
+        footerComponent={renderFooter}>
+        <BottomSheetScrollView
+          contentContainerStyle={[
+            styles.content,
+            isExpanded && { paddingTop: insets.top + PAGE_HEADER_HEIGHT },
+          ]}
+          showsVerticalScrollIndicator={false}>
+          <PhotoGrid photos={allPhotos} />
 
-        {!isExpanded && displayPlace.rating > 0 && (
-          <View style={styles.header}>
-            <View />
-            <View style={styles.ratingContainer}>
-              <Text style={styles.ratingStar}>★</Text>
-              <Text style={[styles.ratingText, { color: colors.text }]}>
-                {displayPlace.rating}
-              </Text>
-              <Text style={[styles.reviewCount, { color: colors.textSecondary }]}>
-                ({displayPlace.reviewCount})
-              </Text>
+          {!isExpanded && displayPlace.rating > 0 && (
+            <View style={styles.ratingRow}>
+              <View style={styles.ratingContainer}>
+                <Text style={styles.ratingStar}>★</Text>
+                <Text style={[styles.ratingText, { color: colors.text }]}>
+                  {displayPlace.rating}
+                </Text>
+                <Text
+                  style={[styles.reviewCount, { color: colors.textSecondary }]}>
+                  ({displayPlace.reviewCount})
+                </Text>
+              </View>
             </View>
-          </View>
-        )}
-
-        <View style={styles.nameRow}>
-          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-            {displayPlace.name}
-          </Text>
-          {!isExpanded && (
-            <Animated.View
-              entering={FadeIn.duration(200)}
-              exiting={FadeOut.duration(150)}
-              style={styles.nameActions}>
-              {actions}
-            </Animated.View>
           )}
-        </View>
 
-        <View style={styles.addressRow}>
-          <Text
-            style={[styles.address, { color: colors.textSecondary }]}
-            numberOfLines={1}>
-            {displayPlace.address}
-          </Text>
-          {distanceMeters !== null && (
-            <Text style={[styles.distance, { color: colors.tint }]}>
-              {formatDistance(distanceMeters)}
+          <View style={styles.nameRow}>
+            <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+              {displayPlace.name}
             </Text>
-          )}
-        </View>
+            {!isExpanded && (
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                exiting={FadeOut.duration(150)}
+                style={styles.nameActions}>
+                {actions}
+              </Animated.View>
+            )}
+          </View>
 
-        {displayPlace.description ? (
-          <Text style={[styles.description, { color: colors.textSecondary }]}>
-            {displayPlace.description}
-          </Text>
-        ) : null}
+          <View style={styles.addressRow}>
+            <Text
+              style={[styles.address, { color: colors.textSecondary }]}
+              numberOfLines={1}>
+              {displayPlace.address}
+            </Text>
+            {distanceMeters !== null && (
+              <Text style={[styles.distance, { color: colors.tint }]}>
+                {formatDistance(distanceMeters)}
+              </Text>
+            )}
+          </View>
 
-        {sortedTags.length > 0 && (
-          <View style={styles.tags}>
-            {sortedTags.map((tag) => {
-              const highlight = HIGHLIGHT_TAGS.has(tag);
-              if (highlight) {
+          {displayPlace.description ? (
+            <Text style={[styles.description, { color: colors.textSecondary }]}>
+              {displayPlace.description}
+            </Text>
+          ) : null}
+
+          {sortedTags.length > 0 && (
+            <View style={styles.tags}>
+              {sortedTags.map((tag) => {
+                const highlight = HIGHLIGHT_TAGS.has(tag);
+                if (highlight) {
+                  return (
+                    <View
+                      key={tag}
+                      style={[styles.highlightTag, { backgroundColor: colors.tint }]}>
+                      <Text
+                        style={[
+                          styles.highlightTagText,
+                          { color: colors.background },
+                        ]}>
+                        {tag}
+                      </Text>
+                    </View>
+                  );
+                }
                 return (
                   <View
                     key={tag}
-                    style={[styles.highlightTag, { backgroundColor: colors.tint }]}>
-                    <Text
-                      style={[styles.highlightTagText, { color: colors.background }]}>
-                      {tag}
+                    style={[styles.tag, { backgroundColor: colors.surfaceMuted }]}>
+                    <Text style={[styles.tagText, { color: colors.text }]}>
+                      #{tag}
                     </Text>
                   </View>
                 );
-              }
-              return (
+              })}
+            </View>
+          )}
+
+          {infoCards.length > 0 && (
+            <View style={styles.infoGrid}>
+              {infoCards.map((card) => (
                 <View
-                  key={tag}
-                  style={[styles.tag, { backgroundColor: colors.surfaceMuted }]}>
-                  <Text style={[styles.tagText, { color: colors.text }]}>
-                    #{tag}
+                  key={card.label}
+                  style={[
+                    styles.infoCard,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                  ]}>
+                  <Text style={styles.infoCardIcon}>{card.icon}</Text>
+                  <Text
+                    style={[styles.infoCardLabel, { color: colors.textSecondary }]}>
+                    {card.label}
+                  </Text>
+                  <Text
+                    style={[styles.infoCardValue, { color: colors.text }]}
+                    numberOfLines={2}>
+                    {card.value}
                   </Text>
                 </View>
-              );
-            })}
-          </View>
-        )}
+              ))}
+            </View>
+          )}
 
-        {infoCards.length > 0 && (
-          <View style={styles.infoGrid}>
-            {infoCards.map((card) => (
-              <View
-                key={card.label}
-                style={[
-                  styles.infoCard,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}>
-                <Text style={styles.infoCardIcon}>{card.icon}</Text>
-                <Text style={[styles.infoCardLabel, { color: colors.textSecondary }]}>
-                  {card.label}
-                </Text>
-                <Text
-                  style={[styles.infoCardValue, { color: colors.text }]}
-                  numberOfLines={2}>
-                  {card.value}
+          <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
+            <Text style={[styles.reviewSectionTitle, { color: colors.text }]}>
+              리뷰
+            </Text>
+            <ReviewForm placeId={place.id} />
+            <View style={styles.reviewDivider} />
+            <ReviewList placeId={place.id} />
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheet>
+
+      {/* 헤더 바: 바텀시트와 별개의 레이어. 확장(페이지) 시에만 화면 상단에 고정 표시 */}
+      {isExpanded && (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
+          style={[
+            styles.pageHeader,
+            {
+              paddingTop: insets.top,
+              backgroundColor: colors.background,
+              borderBottomColor: colors.border,
+            },
+          ]}>
+          <TouchableOpacity
+            onPress={() => bottomSheetRef.current?.close()}
+            style={styles.iconButton}>
+            <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.nameActions}>
+            {displayPlace.rating > 0 && (
+              <View style={styles.ratingContainer}>
+                <Text style={styles.ratingStar}>★</Text>
+                <Text style={[styles.ratingText, { color: colors.text }]}>
+                  {displayPlace.rating}
                 </Text>
               </View>
-            ))}
+            )}
+            {actions}
           </View>
-        )}
-
-        <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
-          <Text style={[styles.reviewSectionTitle, { color: colors.text }]}>
-            리뷰
-          </Text>
-          <ReviewForm placeId={place.id} />
-          <View style={styles.reviewDivider} />
-          <ReviewList placeId={place.id} />
-        </View>
-      </BottomSheetScrollView>
-    </BottomSheet>
+        </Animated.View>
+      )}
+    </>
   );
 }
 
@@ -385,7 +396,12 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
   },
-  headerBar: {
+  pageHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 30,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -401,9 +417,9 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     borderTopWidth: 1,
   },
-  header: {
+  ratingRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginBottom: 12,
   },
