@@ -231,7 +231,8 @@ export default function PlaceBottomSheet({
           contentContainerStyle={[
             styles.content,
             isExpanded && {
-              paddingTop: headerHeight || insets.top + PAGE_HEADER_HEIGHT,
+              paddingTop:
+                (headerHeight || insets.top + PAGE_HEADER_HEIGHT) + 20,
             },
           ]}
           showsVerticalScrollIndicator={false}>
