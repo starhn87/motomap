@@ -50,6 +50,8 @@ export default function MapScreen() {
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; zoom: number } | null>(null);
   const mapRef = useRef<NaverMapViewRef>(null);
   const cameraTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const didCenterOnUserRef = useRef(false);
 
   const { data: supabasePlaces } = usePlaces(activeFilter, mapCenter);
 
@@ -60,6 +62,15 @@ export default function MapScreen() {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
+
+      // 캐시된 마지막 위치를 먼저 반영해 초기 지도 위치를 빠르게 내 위치로 맞춘다
+      const lastKnown = await Location.getLastKnownPositionAsync();
+      if (lastKnown) {
+        setUserLocation({
+          latitude: lastKnown.coords.latitude,
+          longitude: lastKnown.coords.longitude,
+        });
+      }
 
       const location = await Location.getCurrentPositionAsync({});
       setUserLocation({
@@ -90,6 +101,18 @@ export default function MapScreen() {
       headingSub?.remove();
     };
   }, [setUserLocation]);
+
+  // 최초 1회: 지도가 준비되고 내 위치를 확보하면 카메라를 내 위치로 이동
+  useEffect(() => {
+    if (!mapReady || !userLocation || didCenterOnUserRef.current) return;
+    didCenterOnUserRef.current = true;
+    mapRef.current?.animateCameraTo({
+      latitude: userLocation.latitude,
+      longitude: userLocation.longitude,
+      zoom: DEFAULT_ZOOM,
+      duration: 0,
+    });
+  }, [mapReady, userLocation]);
 
   const places = supabasePlaces ?? [];
 
@@ -207,6 +230,7 @@ export default function MapScreen() {
       <NaverMapView
         ref={mapRef}
         style={styles.map}
+        onInitialized={() => setMapReady(true)}
         mapType="Basic"
         isNightModeEnabled={colorScheme === 'dark'}
         isShowLocationButton={false}
