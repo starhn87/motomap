@@ -49,3 +49,6 @@ yarn-error.*
 /app-store-screenshots/
 /app-store-screenshots-6.5/
 /app-store-screenshots-ipad/
+
+# Claude Code 로컬 권한 (커밋 제외)
+.claude/settings.local.json
