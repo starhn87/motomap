@@ -1,4 +1,11 @@
-import { StyleSheet, View, Pressable, Text, Keyboard } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Pressable,
+  Text,
+  Keyboard,
+  useWindowDimensions,
+} from 'react-native';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   NaverMapView,
@@ -9,10 +16,12 @@ import * as Location from 'expo-location';
 import Animated, {
   useAnimatedStyle,
   withSpring,
+  withTiming,
+  withDelay,
   useSharedValue,
+  runOnJS,
   FadeIn,
 } from 'react-native-reanimated';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
@@ -32,6 +41,82 @@ import type { Route } from '@/lib/api/directions';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// 내 위치 마커 색상 (네이버 블루 기반, 테마 tint와 무관하게 고정)
+const USER_LOCATION_BLUE = '#2D8CFF';
+const USER_LOCATION_HALO = 'rgba(45, 140, 255, 0.18)';
+const USER_LOCATION_PULSE = 'rgba(45, 140, 255, 0.55)';
+const PULSE_SIZE = 40;
+const PULSE_COUNT = 3;
+const PULSE_DURATION = 1600;
+const PULSE_STAGGER = 1300;
+
+// 한 개의 퍼지는 링. delay만큼 늦게 시작한다.
+function PulseRing({
+  x,
+  y,
+  delay,
+  onDone,
+}: {
+  x: number;
+  y: number;
+  delay: number;
+  onDone?: () => void;
+}) {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = withDelay(
+      delay,
+      withTiming(1, { duration: PULSE_DURATION }, (finished) => {
+        if (finished && onDone) runOnJS(onDone)();
+      })
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    // 링 안쪽 가장자리가 점 외경(지름 18) 바로 바깥에서 시작해 화살표 끝/halo(지름 40)까지 퍼진다
+    transform: [{ scale: 0.55 + progress.value * 0.45 }],
+    opacity: progress.value === 0 ? 0 : 1 - progress.value,
+  }));
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.userLocationPulse,
+        { left: x - PULSE_SIZE / 2, top: y - PULSE_SIZE / 2 },
+        animatedStyle,
+      ]}
+    />
+  );
+}
+
+// 내 위치 탭 시 PULSE_COUNT개의 링이 순차로 퍼진다. 마커는 정적 비트맵으로
+// 캡처되므로 마커 밖(지도 위 화면 좌표)에서 RN 뷰로 애니메이션한다.
+function LocationPulse({
+  x,
+  y,
+  onDone,
+}: {
+  x: number;
+  y: number;
+  onDone: () => void;
+}) {
+  return (
+    <>
+      {Array.from({ length: PULSE_COUNT }, (_, i) => (
+        <PulseRing
+          key={i}
+          x={x}
+          y={y}
+          delay={i * PULSE_STAGGER}
+          onDone={i === PULSE_COUNT - 1 ? onDone : undefined}
+        />
+      ))}
+    </>
+  );
+}
+
 export default function MapScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -48,6 +133,9 @@ export default function MapScreen() {
   const [routePlace, setRoutePlace] = useState<Place | null>(null);
   const [navigating, setNavigating] = useState(false);
   const [heading, setHeading] = useState<number>(0);
+  const [pulse, setPulse] = useState<{ x: number; y: number; id: number } | null>(null);
+  const pulseIdRef = useRef(0);
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; zoom: number } | null>(null);
   const mapRef = useRef<NaverMapViewRef>(null);
   const cameraTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -189,23 +277,35 @@ export default function MapScreen() {
     setNavigating(false);
   }, []);
 
+  const handleMapTap = () => {
+    Keyboard.dismiss();
+    if (selectedPlace) {
+      setSelectedPlaceId(null);
+      setSelectedPlace(null);
+    }
+  };
+
   const myLocationScale = useSharedValue(1);
   const myLocationStyle = useAnimatedStyle(() => ({
     transform: [{ scale: myLocationScale.value }],
   }));
 
-  const handleMyLocation = () => {
+  const handleMyLocation = async () => {
     myLocationScale.value = withSpring(0.85, {}, () => {
       myLocationScale.value = withSpring(1);
     });
-    if (userLocation) {
-      mapRef.current?.animateCameraTo({
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        zoom: 14,
-        duration: 800,
-      });
-    }
+    if (!userLocation || !mapRef.current) return;
+    // 줌·중심을 건드리지 않고, 내 위치 마커의 현재 화면 좌표에서 펄스 3회 재생
+    const res = await mapRef.current.coordinateToScreen({
+      latitude: userLocation.latitude,
+      longitude: userLocation.longitude,
+    });
+    pulseIdRef.current += 1;
+    setPulse(
+      res.isValid
+        ? { x: res.screenX, y: res.screenY, id: pulseIdRef.current }
+        : { x: screenWidth / 2, y: screenHeight / 2, id: pulseIdRef.current }
+    );
   };
 
   const initialCamera = {
@@ -242,13 +342,7 @@ export default function MapScreen() {
         initialCamera={initialCamera}
         locale="ko"
         isExtentBoundedInKorea
-        onTapMap={() => {
-          Keyboard.dismiss();
-          if (selectedPlace) {
-            setSelectedPlaceId(null);
-            setSelectedPlace(null);
-          }
-        }}
+        onTapMap={handleMapTap}
         onCameraChanged={(e) => {
           if (cameraTimerRef.current) clearTimeout(cameraTimerRef.current);
           cameraTimerRef.current = setTimeout(() => {
@@ -277,29 +371,30 @@ export default function MapScreen() {
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
             anchor={{ x: 0.5, y: 0.5 }}
-            width={44}
-            height={44}
+            width={80}
+            height={80}
             angle={heading}
             isFlatEnabled>
             <View collapsable={false} style={styles.userLocationContainer}>
-              <MaterialIcons
-                name="navigation"
-                size={38}
-                color={colors.background}
-                style={styles.userLocationConeOutline}
-              />
-              <MaterialIcons
-                name="navigation"
-                size={28}
-                color={colors.tint}
-                style={styles.userLocationConeInner}
-              />
+              <View style={styles.userLocationHalo} />
+              <View style={styles.userLocationArrowOutline} />
+              <View style={styles.userLocationArrowInner} />
+              <View style={styles.userLocationDot} />
             </View>
           </NaverMapMarkerOverlay>
         )}
 
         {route && <RouteLine route={route} />}
       </NaverMapView>
+
+      {pulse && (
+        <LocationPulse
+          key={pulse.id}
+          x={pulse.x}
+          y={pulse.y}
+          onDone={() => setPulse((cur) => (cur?.id === pulse.id ? null : cur))}
+        />
+      )}
 
       {!navigating && (
         <Animated.View
@@ -392,26 +487,66 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   userLocationContainer: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 80,
+    height: 80,
   },
-  userLocationConeOutline: {
+  userLocationHalo: {
     position: 'absolute',
-    width: 44,
-    height: 44,
-    textAlign: 'center',
-    lineHeight: 44,
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    top: 20,
+    left: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: USER_LOCATION_HALO,
   },
-  userLocationConeInner: {
+  userLocationArrowOutline: {
     position: 'absolute',
-    width: 44,
-    height: 44,
-    textAlign: 'center',
-    lineHeight: 44,
+    top: 20,
+    left: 33,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 7,
+    borderRightWidth: 7,
+    borderBottomWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#FFFFFF',
+  },
+  userLocationArrowInner: {
+    position: 'absolute',
+    top: 22,
+    left: 36,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 4,
+    borderRightWidth: 4,
+    borderBottomWidth: 6,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: USER_LOCATION_BLUE,
+  },
+  userLocationDot: {
+    position: 'absolute',
+    top: 31,
+    left: 31,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: USER_LOCATION_BLUE,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  userLocationPulse: {
+    position: 'absolute',
+    width: PULSE_SIZE,
+    height: PULSE_SIZE,
+    borderRadius: PULSE_SIZE / 2,
+    borderWidth: 3,
+    borderColor: USER_LOCATION_PULSE,
   },
 });
