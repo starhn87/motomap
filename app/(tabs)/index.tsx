@@ -413,7 +413,7 @@ export default function MapScreen() {
           {
             backgroundColor: colors.background,
             shadowColor: '#000',
-            bottom: navigating ? 200 : selectedPlace ? 260 : 120,
+            bottom: navigating ? 200 : selectedPlace ? 260 : 80,
           },
         ]}>
         <View style={styles.myLocationIconContainer}>
