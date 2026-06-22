@@ -3,6 +3,12 @@ export default {
     name: 'RideMap',
     slug: 'ridemap',
     version: '1.1.0',
+    runtimeVersion: {
+      policy: 'appVersion',
+    },
+    updates: {
+      url: 'https://u.expo.dev/46277971-d460-4e19-82eb-df05f18ff9f7',
+    },
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     scheme: 'ridemap',
