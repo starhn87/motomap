@@ -2,30 +2,23 @@ import {
   StyleSheet,
   View,
   Pressable,
-  Text,
   Keyboard,
   useWindowDimensions,
 } from 'react-native';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import {
-  NaverMapView,
-  NaverMapMarkerOverlay,
-} from '@mj-studio/react-native-naver-map';
+import { NaverMapView } from '@mj-studio/react-native-naver-map';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
-import * as Location from 'expo-location';
 import Animated, {
   useAnimatedStyle,
   withSpring,
-  withTiming,
-  withDelay,
   useSharedValue,
-  runOnJS,
   FadeIn,
 } from 'react-native-reanimated';
 
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { usePlaces } from '@/hooks/usePlaces';
+import { useUserLocation } from '@/hooks/useUserLocation';
 import { fetchRoute } from '@/lib/api/directions';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -35,104 +28,25 @@ import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
 import RouteLine from '@/components/map/RouteLine';
 import RouteInfoCard from '@/components/map/RouteInfoCard';
 import SearchBar from '@/components/search/SearchBar';
+import { UserLocationMarker } from '@/components/map/UserLocationMarker';
+import { LocationPulse } from '@/components/map/LocationPulse';
 import { toast } from '@/lib/toast';
 import type { Place } from '@/types';
 import type { Route } from '@/lib/api/directions';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// 내 위치 마커 색상 (네이버 블루 기반, 테마 tint와 무관하게 고정)
-const USER_LOCATION_BLUE = '#2D8CFF';
-const USER_LOCATION_HALO = 'rgba(45, 140, 255, 0.18)';
-const USER_LOCATION_PULSE = 'rgba(45, 140, 255, 0.55)';
-const PULSE_SIZE = 40;
-const PULSE_COUNT = 3;
-const PULSE_DURATION = 1600;
-const PULSE_STAGGER = 1300;
-
-// 한 개의 퍼지는 링. delay만큼 늦게 시작한다.
-function PulseRing({
-  x,
-  y,
-  delay,
-  onDone,
-}: {
-  x: number;
-  y: number;
-  delay: number;
-  onDone?: () => void;
-}) {
-  const progress = useSharedValue(0);
-
-  useEffect(() => {
-    progress.value = withDelay(
-      delay,
-      withTiming(1, { duration: PULSE_DURATION }, (finished) => {
-        if (finished && onDone) runOnJS(onDone)();
-      })
-    );
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    // 링 안쪽 가장자리가 점 외경(지름 18) 바로 바깥에서 시작해 화살표 끝/halo(지름 40)까지 퍼진다
-    transform: [{ scale: 0.55 + progress.value * 0.45 }],
-    opacity: progress.value === 0 ? 0 : 1 - progress.value,
-  }));
-
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        styles.userLocationPulse,
-        { left: x - PULSE_SIZE / 2, top: y - PULSE_SIZE / 2 },
-        animatedStyle,
-      ]}
-    />
-  );
-}
-
-// 내 위치 탭 시 PULSE_COUNT개의 링이 순차로 퍼진다. 마커는 정적 비트맵으로
-// 캡처되므로 마커 밖(지도 위 화면 좌표)에서 RN 뷰로 애니메이션한다.
-function LocationPulse({
-  x,
-  y,
-  onDone,
-}: {
-  x: number;
-  y: number;
-  onDone: () => void;
-}) {
-  return (
-    <>
-      {Array.from({ length: PULSE_COUNT }, (_, i) => (
-        <PulseRing
-          key={i}
-          x={x}
-          y={y}
-          delay={i * PULSE_STAGGER}
-          onDone={i === PULSE_COUNT - 1 ? onDone : undefined}
-        />
-      ))}
-    </>
-  );
-}
-
 export default function MapScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const {
-    userLocation,
-    selectedPlaceId,
-    activeFilter,
-    setUserLocation,
-    setSelectedPlaceId,
-  } = useMapStore();
+  const { userLocation, selectedPlaceId, activeFilter, setSelectedPlaceId } =
+    useMapStore();
+  const { heading } = useUserLocation();
 
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [route, setRoute] = useState<Route | null>(null);
   const [routePlace, setRoutePlace] = useState<Place | null>(null);
   const [navigating, setNavigating] = useState(false);
-  const [heading, setHeading] = useState<number>(0);
   const [pulse, setPulse] = useState<{ x: number; y: number; id: number } | null>(null);
   const pulseIdRef = useRef(0);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
@@ -143,54 +57,6 @@ export default function MapScreen() {
   const didCenterOnUserRef = useRef(false);
 
   const { data: supabasePlaces } = usePlaces(activeFilter, mapCenter);
-
-  useEffect(() => {
-    let locationSub: Location.LocationSubscription | null = null;
-    let headingSub: Location.LocationSubscription | null = null;
-
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-
-      // 캐시된 마지막 위치를 먼저 반영해 초기 지도 위치를 빠르게 내 위치로 맞춘다
-      const lastKnown = await Location.getLastKnownPositionAsync();
-      if (lastKnown) {
-        setUserLocation({
-          latitude: lastKnown.coords.latitude,
-          longitude: lastKnown.coords.longitude,
-        });
-      }
-
-      const location = await Location.getCurrentPositionAsync({});
-      setUserLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
-
-      locationSub = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 10,
-        },
-        (loc) => {
-          setUserLocation({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-          });
-        }
-      );
-
-      headingSub = await Location.watchHeadingAsync((h) => {
-        // 진북을 구할 수 없으면 trueHeading이 -1이므로 자북 기준값으로 폴백
-        setHeading(h.trueHeading >= 0 ? h.trueHeading : h.magHeading);
-      });
-    })();
-
-    return () => {
-      locationSub?.remove();
-      headingSub?.remove();
-    };
-  }, [setUserLocation]);
 
   // 최초 1회: 지도가 준비되고 내 위치를 확보하면 카메라를 내 위치로 이동
   useEffect(() => {
@@ -367,21 +233,11 @@ export default function MapScreen() {
           if (place) handleMarkerPress(place);
         }}>
         {userLocation && (
-          <NaverMapMarkerOverlay
+          <UserLocationMarker
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
-            anchor={{ x: 0.5, y: 0.5 }}
-            width={80}
-            height={80}
-            angle={heading}
-            isFlatEnabled>
-            <View collapsable={false} style={styles.userLocationContainer}>
-              <View style={styles.userLocationHalo} />
-              <View style={styles.userLocationArrowOutline} />
-              <View style={styles.userLocationArrowInner} />
-              <View style={styles.userLocationDot} />
-            </View>
-          </NaverMapMarkerOverlay>
+            heading={heading}
+          />
         )}
 
         {route && <RouteLine route={route} />}
@@ -485,68 +341,5 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  userLocationContainer: {
-    width: 80,
-    height: 80,
-  },
-  userLocationHalo: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: USER_LOCATION_HALO,
-  },
-  userLocationArrowOutline: {
-    position: 'absolute',
-    top: 18,
-    left: 33,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 7,
-    borderRightWidth: 7,
-    borderBottomWidth: 12,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: '#FFFFFF',
-  },
-  userLocationArrowInner: {
-    position: 'absolute',
-    top: 21,
-    left: 36,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 4,
-    borderRightWidth: 4,
-    borderBottomWidth: 7,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: USER_LOCATION_BLUE,
-  },
-  userLocationDot: {
-    position: 'absolute',
-    top: 31,
-    left: 31,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: USER_LOCATION_BLUE,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-  userLocationPulse: {
-    position: 'absolute',
-    width: PULSE_SIZE,
-    height: PULSE_SIZE,
-    borderRadius: PULSE_SIZE / 2,
-    borderWidth: 3,
-    borderColor: USER_LOCATION_PULSE,
   },
 });
