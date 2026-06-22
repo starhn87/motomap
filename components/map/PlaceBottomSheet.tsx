@@ -16,7 +16,7 @@ import BottomSheet, {
   BottomSheetFooter,
 } from '@gorhom/bottom-sheet';
 import type { BottomSheetFooterProps } from '@gorhom/bottom-sheet';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback, memo } from 'react';
 
 import Colors from '@/constants/Colors';
 import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
@@ -51,7 +51,7 @@ const HEADER_CONTENT_GAP = 12;
 // styles.content 의 상단 패딩 (spacer 높이 계산에 사용)
 const CONTENT_PADDING = 20;
 
-export default function PlaceBottomSheet({
+function PlaceBottomSheet({
   place,
   onClose,
   onRoutePreview,
@@ -63,6 +63,13 @@ export default function PlaceBottomSheet({
   const [currentIndex, setCurrentIndex] = useState(1);
   const [headerHeight, setHeaderHeight] = useState(0);
   const animatedIndex = useSharedValue(1);
+  const currentIndexRef = useRef(1);
+
+  // currentIndex를 state와 ref 양쪽에 반영(ref는 핸들 onPress에서 최신값 참조용).
+  const syncIndex = useCallback((i: number) => {
+    currentIndexRef.current = i;
+    setCurrentIndex(i);
+  }, []);
 
   // 시트의 실제 위치(animatedIndex)를 신뢰 소스로 currentIndex를 동기화한다.
   // onAnimate/onChange(이벤트)는 드래그로 직접 끌었을 때 누락/지연되어
@@ -71,7 +78,7 @@ export default function PlaceBottomSheet({
     () => Math.round(animatedIndex.value),
     (rounded, previous) => {
       if (rounded !== previous) {
-        runOnJS(setCurrentIndex)(rounded);
+        runOnJS(syncIndex)(rounded);
       }
     }
   );
@@ -102,19 +109,52 @@ export default function PlaceBottomSheet({
     }
   };
 
+  const didInitRef = useRef(false);
+  // place(장소)가 바뀔 때만 시트 위치를 리셋한다.
+  // - 의존성을 [place] 참조로 두면 드래그 확장 중 참조 변경마다 snapToIndex(1)이
+  //   호출돼 확장이 취소되므로 [place?.id]로 둔다.
+  // - 첫 마운트는 index={1}이 초기 위치를 잡으므로 snapToIndex를 생략한다. 마운트 때
+  //   index와 effect가 둘 다 애니메이션을 걸면 열림 도중 드래그가 꼬이기 때문.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    if (!didInitRef.current) {
+      didInitRef.current = true;
+      return;
+    }
     if (place) {
       bottomSheetRef.current?.snapToIndex(1);
     } else {
       bottomSheetRef.current?.close();
     }
-  }, [place]);
+  }, [place?.id]);
 
   const handleSheetChanges = (index: number) => {
     if (index === -1) onClose();
   };
 
   const isExpanded = currentIndex === SNAP_POINTS.length - 1;
+
+  // 드래그로 확장(스와이프)이 끝나는 순간 헤더 바가 손가락 위치에 나타나면서
+  // 손가락 떼는 동작이 헤더 버튼(✕/뒤로) 탭으로 처리돼 시트가 닫히는 문제가 있었다.
+  // 헤더가 나타난 뒤 잠깐 동안 터치를 비활성화해 우발적 탭을 막는다.
+  const [headerReady, setHeaderReady] = useState(false);
+  useEffect(() => {
+    if (!isExpanded) {
+      setHeaderReady(false);
+      return;
+    }
+    const t = setTimeout(() => setHeaderReady(true), 300);
+    return () => clearTimeout(t);
+  }, [isExpanded]);
+
+  // 핸들 인디케이터 색: 확장(페이지) 상태에 가까워지면 투명 처리.
+  // currentIndex(state) 대신 animatedIndex로 계산해 renderHandle을 안정 참조로 유지한다.
+  const handleIndicatorStyle = useAnimatedStyle(() => ({
+    backgroundColor:
+      animatedIndex.value >= SNAP_POINTS.length - 1.5
+        ? 'transparent'
+        : colors.tabIconDefault,
+  }));
 
   // 확장 정도(animatedIndex 1→2)에 비례해 콘텐츠 상단 여백을 연속으로 늘린다.
   // isExpanded 토글로 paddingTop을 한 번에 바꾸면 콘텐츠가 뚝 끊겨 보이기 때문.
@@ -150,31 +190,27 @@ export default function PlaceBottomSheet({
   // 핸들 영역은 항상 같은 높이로 렌더(인디케이터 색만 토글). handleComponent를
   // null로 바꾸면 시트 구조 높이가 변해 확장 직후 재snap(축소)이 발생하기 때문.
   // 확장 시엔 별도 헤더 바가 이 영역 위를 덮으므로 인디케이터는 투명 처리한다.
-  const renderHandle = () => {
-    const canExpand = currentIndex < SNAP_POINTS.length - 1;
-    return (
+  const renderHandle = useCallback(
+    () => (
       <TouchableOpacity
         activeOpacity={1}
         onPress={() => {
-          if (canExpand) bottomSheetRef.current?.snapToIndex(currentIndex + 1);
+          const ci = currentIndexRef.current;
+          if (ci < SNAP_POINTS.length - 1) {
+            bottomSheetRef.current?.snapToIndex(ci + 1);
+          }
         }}
-        disabled={!canExpand}
         style={styles.handleContainer}>
-        <View
-          style={[
-            styles.handleIndicator,
-            {
-              backgroundColor: isExpanded
-                ? 'transparent'
-                : colors.tabIconDefault,
-            },
-          ]}
+        <Animated.View
+          style={[styles.handleIndicator, handleIndicatorStyle]}
         />
       </TouchableOpacity>
-    );
-  };
+    ),
+    [handleIndicatorStyle]
+  );
 
-  const renderFooter = (props: BottomSheetFooterProps) => {
+  const renderFooter = useCallback(
+    (props: BottomSheetFooterProps) => {
     if (!place) return null;
     return (
       <BottomSheetFooter {...props} bottomInset={0}>
@@ -218,7 +254,9 @@ export default function PlaceBottomSheet({
         </View>
       </BottomSheetFooter>
     );
-  };
+    },
+    [place, onRoutePreview, colors]
+  );
 
   if (!place || !displayPlace) return null;
 
@@ -259,6 +297,7 @@ export default function PlaceBottomSheet({
         ref={bottomSheetRef}
         index={1}
         snapPoints={SNAP_POINTS}
+        enableDynamicSizing={false}
         animatedIndex={animatedIndex}
         onChange={handleSheetChanges}
         enablePanDownToClose
@@ -398,6 +437,7 @@ export default function PlaceBottomSheet({
       {/* 헤더 바: 바텀시트와 별개의 레이어. 확장(페이지) 시에만 화면 상단에 고정 표시 */}
       {isExpanded && (
         <Animated.View
+          pointerEvents={headerReady ? 'auto' : 'box-only'}
           entering={FadeIn.duration(200)}
           onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
           style={[
@@ -619,3 +659,5 @@ const styles = StyleSheet.create({
     height: 16,
   },
 });
+
+export default memo(PlaceBottomSheet);
