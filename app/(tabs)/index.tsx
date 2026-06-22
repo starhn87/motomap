@@ -53,6 +53,7 @@ export default function MapScreen() {
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; zoom: number } | null>(null);
   const mapRef = useRef<NaverMapViewRef>(null);
   const cameraTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const didCenterOnUserRef = useRef(false);
 
@@ -69,6 +70,14 @@ export default function MapScreen() {
       duration: 0,
     });
   }, [mapReady, userLocation]);
+
+  // 언마운트 시 카메라/펄스 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (cameraTimerRef.current) clearTimeout(cameraTimerRef.current);
+      if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
+    };
+  }, []);
 
   const places = supabasePlaces ?? [];
 
@@ -156,22 +165,32 @@ export default function MapScreen() {
     transform: [{ scale: myLocationScale.value }],
   }));
 
-  const handleMyLocation = async () => {
+  const handleMyLocation = () => {
     myLocationScale.value = withSpring(0.85, {}, () => {
       myLocationScale.value = withSpring(1);
     });
     if (!userLocation || !mapRef.current) return;
-    // 줌·중심을 건드리지 않고, 내 위치 마커의 현재 화면 좌표에서 펄스 3회 재생
-    const res = await mapRef.current.coordinateToScreen({
+    // 내 위치를 지도 중앙으로 이동(현재 줌 유지)
+    mapRef.current.animateCameraTo({
       latitude: userLocation.latitude,
       longitude: userLocation.longitude,
+      zoom: mapCenter?.zoom ?? DEFAULT_ZOOM,
+      duration: 600,
     });
-    pulseIdRef.current += 1;
-    setPulse(
-      res.isValid
-        ? { x: res.screenX, y: res.screenY, id: pulseIdRef.current }
-        : { x: screenWidth / 2, y: screenHeight / 2, id: pulseIdRef.current }
-    );
+    // 카메라 이동이 끝난 뒤 마커의 실제 화면 좌표에서 펄스 재생(중앙과 어긋나지 않게)
+    if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
+    pulseTimerRef.current = setTimeout(async () => {
+      const res = await mapRef.current?.coordinateToScreen({
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+      });
+      pulseIdRef.current += 1;
+      setPulse(
+        res?.isValid
+          ? { x: res.screenX, y: res.screenY, id: pulseIdRef.current }
+          : { x: screenWidth / 2, y: screenHeight / 2, id: pulseIdRef.current }
+      );
+    }, 650);
   };
 
   const initialCamera = {
