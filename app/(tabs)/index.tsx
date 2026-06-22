@@ -400,8 +400,8 @@ export default function MapScreen() {
         <Animated.View
           entering={FadeIn.duration(300)}
           style={styles.searchAndFilter}>
-          <CategoryFilter />
           <SearchBar onSelectPlace={handleSearchSelect} />
+          <CategoryFilter />
         </Animated.View>
       )}
 
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 5,
     elevation: 5,
-    gap: 8,
+    gap: 0,
   },
   myLocationButton: {
     position: 'absolute',

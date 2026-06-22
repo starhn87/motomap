@@ -1,14 +1,14 @@
-import { ScrollView, Pressable, Text, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import Animated, {
   useAnimatedStyle,
-  withSpring,
   useSharedValue,
+  withSpring,
 } from 'react-native-reanimated';
 
-import { CATEGORY_LIST } from '@/constants/categories';
-import { useMapStore } from '@/stores/useMapStore';
-import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import { CATEGORY_LIST } from '@/constants/categories';
+import Colors from '@/constants/Colors';
+import { useMapStore } from '@/stores/useMapStore';
 import type { PlaceCategory } from '@/types';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -100,17 +100,16 @@ export default function CategoryFilter() {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
+    paddingVertical: 4,
+    gap: 4,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 12,
     borderWidth: 1,
-    marginRight: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
