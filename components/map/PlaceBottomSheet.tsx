@@ -61,7 +61,6 @@ function PlaceBottomSheet({
   const insets = useSafeAreaInsets();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const [currentIndex, setCurrentIndex] = useState(1);
-  const [headerHeight, setHeaderHeight] = useState(0);
   const animatedIndex = useSharedValue(1);
   const currentIndexRef = useRef(1);
 
@@ -165,7 +164,8 @@ function PlaceBottomSheet({
       [
         0,
         Math.max(
-          (headerHeight || insets.top + PAGE_HEADER_HEIGHT) +
+          insets.top +
+            PAGE_HEADER_HEIGHT +
             HEADER_CONTENT_GAP -
             HANDLE_HEIGHT -
             CONTENT_PADDING,
@@ -296,6 +296,7 @@ function PlaceBottomSheet({
       <BottomSheet
         ref={bottomSheetRef}
         index={1}
+        animateOnMount={false}
         snapPoints={SNAP_POINTS}
         enableDynamicSizing={false}
         animatedIndex={animatedIndex}
@@ -439,7 +440,6 @@ function PlaceBottomSheet({
         <Animated.View
           pointerEvents={headerReady ? 'auto' : 'box-only'}
           entering={FadeIn.duration(200)}
-          onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
           style={[
             styles.pageHeader,
             {
@@ -534,6 +534,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    minHeight: 48,
     marginBottom: 4,
   },
   name: {
