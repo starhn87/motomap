@@ -42,12 +42,12 @@ interface Props {
 }
 
 const SNAP_POINTS = ['28%', '60%', '100%'];
-// 헤더 바 높이 실측 전 사용할 fallback (실제 높이는 onLayout으로 측정)
+// 헤더 바(safe-area 제외) 높이. spacer 계산에 쓰는 고정값.
 const PAGE_HEADER_HEIGHT = 56;
 // 드래그 핸들 영역 높이 (paddingVertical 12*2 + 인디케이터 4)
 const HANDLE_HEIGHT = 28;
 // 확장 시 헤더 바와 콘텐츠 사이 간격
-const HEADER_CONTENT_GAP = 12;
+const HEADER_CONTENT_GAP = 6;
 // styles.content 의 상단 패딩 (spacer 높이 계산에 사용)
 const CONTENT_PADDING = 20;
 
