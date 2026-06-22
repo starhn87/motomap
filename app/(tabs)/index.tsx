@@ -12,6 +12,7 @@ import Animated, {
   useSharedValue,
   FadeIn,
 } from 'react-native-reanimated';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
@@ -92,7 +93,8 @@ export default function MapScreen() {
       );
 
       headingSub = await Location.watchHeadingAsync((h) => {
-        setHeading(h.trueHeading);
+        // 진북을 구할 수 없으면 trueHeading이 -1이므로 자북 기준값으로 폴백
+        setHeading(h.trueHeading >= 0 ? h.trueHeading : h.magHeading);
       });
     })();
 
@@ -280,10 +282,18 @@ export default function MapScreen() {
             angle={heading}
             isFlatEnabled>
             <View collapsable={false} style={styles.userLocationContainer}>
-              <View style={styles.userLocationArrow} />
-              <View style={styles.userLocationMarker}>
-                <View style={[styles.userLocationDot, { backgroundColor: colors.tint, borderColor: colors.background, shadowColor: colors.tint }]} />
-              </View>
+              <MaterialIcons
+                name="navigation"
+                size={38}
+                color={colors.background}
+                style={styles.userLocationConeOutline}
+              />
+              <MaterialIcons
+                name="navigation"
+                size={28}
+                color={colors.tint}
+                style={styles.userLocationConeInner}
+              />
             </View>
           </NaverMapMarkerOverlay>
         )}
@@ -387,33 +397,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  userLocationArrow: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-    borderBottomWidth: 10,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: 'rgba(24, 24, 27, 0.5)',
-    marginBottom: -3,
+  userLocationConeOutline: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    textAlign: 'center',
+    lineHeight: 44,
+    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  userLocationMarker: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(24, 24, 27, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userLocationDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2.5,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 4,
+  userLocationConeInner: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    textAlign: 'center',
+    lineHeight: 44,
   },
 });
