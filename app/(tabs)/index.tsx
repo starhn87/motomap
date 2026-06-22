@@ -229,6 +229,9 @@ export default function MapScreen() {
         isExtentBoundedInKorea
         onTapMap={handleMapTap}
         onCameraChanged={(e) => {
+          // 사용자가 직접 지도를 움직이면(Gesture) 펄스가 마커와 어긋나므로 중단
+          // (내 위치 버튼이 일으킨 이동은 'Developer'라 펄스를 유지)
+          if (e.reason === 'Gesture') setPulse(null);
           if (cameraTimerRef.current) clearTimeout(cameraTimerRef.current);
           cameraTimerRef.current = setTimeout(() => {
             setMapCenter({
