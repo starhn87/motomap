@@ -7,12 +7,13 @@ import {
   RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useRides } from '@/hooks/useRides';
+import { useRides, useSaveRide } from '@/hooks/useRides';
 import { useRideStore } from '@/stores/useRideStore';
 import {
   formatDistance,
@@ -22,6 +23,13 @@ import {
 } from '@/constants/course';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import LoginPrompt from '@/components/auth/LoginPrompt';
+import RecoveredRideBanner from '@/components/ride/RecoveredRideBanner';
+import {
+  loadRideSnapshot,
+  clearRideSnapshot,
+  type RideSnapshot,
+} from '@/lib/ridePersist';
+import { toast } from '@/lib/toast';
 import type { Ride } from '@/types';
 
 function RideSkeletonList() {
@@ -48,6 +56,44 @@ export default function RidesScreen() {
   const user = useAuthStore((s) => s.user);
   const status = useRideStore((s) => s.status);
   const { data: rides, isLoading, refetch, isRefetching } = useRides();
+  const { mutateAsync: saveRide, isPending: recovering } = useSaveRide();
+  const [recovered, setRecovered] = useState<RideSnapshot | null>(null);
+
+  // 강제 종료/크래시로 남은 주행 스냅샷이 있으면(현재 진행 중이 아닐 때) 복구 배너를 띄운다.
+  useEffect(() => {
+    if (useRideStore.getState().status !== 'idle') return;
+    loadRideSnapshot().then((snap) => snap && setRecovered(snap));
+  }, []);
+
+  const handleRecoverSave = async () => {
+    if (!recovered) return;
+    const distanceKm = recovered.distanceM / 1000;
+    const sec = recovered.durationSec;
+    try {
+      await saveRide({
+        title:
+          formatRideDate(new Date(recovered.startedAtMs).toISOString()) + ' 주행',
+        coordinates: recovered.coordinates.map((c) => [c.longitude, c.latitude]),
+        distance: distanceKm,
+        duration: sec,
+        avgSpeed: sec > 0 ? distanceKm / (sec / 3600) : 0,
+        maxSpeed: recovered.maxSpeed,
+        startedAt: new Date(recovered.startedAtMs).toISOString(),
+        endedAt: new Date(recovered.updatedAtMs).toISOString(),
+      });
+      await clearRideSnapshot();
+      setRecovered(null);
+      toast.success('중단된 주행을 저장했습니다.');
+      refetch();
+    } catch (e: any) {
+      toast.error('저장에 실패했습니다.', e.message);
+    }
+  };
+
+  const handleRecoverDiscard = async () => {
+    await clearRideSnapshot();
+    setRecovered(null);
+  };
 
   if (!user) {
     return <LoginPrompt message="주행을 기록하려면 로그인이 필요합니다." />;
@@ -106,6 +152,14 @@ export default function RidesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {recovered && (
+        <RecoveredRideBanner
+          snapshot={recovered}
+          onSave={handleRecoverSave}
+          onDiscard={handleRecoverDiscard}
+          saving={recovering}
+        />
+      )}
       <Pressable
         onPress={() => router.push('/ride/active')}
         style={({ pressed }) => [

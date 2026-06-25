@@ -4,6 +4,11 @@ import * as TaskManager from 'expo-task-manager';
 
 import { haversine } from '@/lib/distance';
 import { toast } from '@/lib/toast';
+import {
+  saveRideSnapshot,
+  clearRideSnapshot,
+  type RideSnapshot,
+} from '@/lib/ridePersist';
 
 interface Coord {
   latitude: number;
@@ -47,6 +52,28 @@ let segmentStartedMs = 0;
 let accumulatedMs = 0;
 let startedAtMs = 0;
 let skipNextDistance = false;
+let lastSnapshotMs = 0;
+
+// 진행 중 주행을 스냅샷으로 저장(강제 종료/크래시 대비). 5초 throttle — 좌표가
+// 많아져도 매 tick 직렬화하지 않도록 한다. pause 같은 중요한 전환에서는
+// force=true 로 즉시 저장한다.
+function persistSnapshot(force = false) {
+  const now = Date.now();
+  if (!force && now - lastSnapshotMs < 5000) return;
+  const s = useRideStore.getState();
+  if (s.status === 'idle') return;
+  lastSnapshotMs = now;
+  const snapshot: RideSnapshot = {
+    status: s.status,
+    coordinates: s.coordinates,
+    distanceM: s.distanceM,
+    durationSec: s.durationSec,
+    maxSpeed: s.maxSpeed,
+    startedAtMs,
+    updatedAtMs: now,
+  };
+  void saveRideSnapshot(snapshot);
+}
 
 const ACCURACY_MAX_M = 50; // 이보다 부정확한 fix 는 통째로 버림
 const JUMP_MIN_M = 100; // 점프 판정 최소 거리
@@ -121,6 +148,7 @@ function onTick() {
   if (useRideStore.getState().status !== 'tracking') return;
   const elapsed = accumulatedMs + (Date.now() - segmentStartedMs);
   useRideStore.setState({ durationSec: Math.floor(elapsed / 1000) });
+  persistSnapshot();
 }
 
 function clearTimers() {
@@ -170,6 +198,7 @@ export const useRideStore = create<RideStore>((set, get) => ({
     segmentStartedMs = Date.now();
     startedAtMs = Date.now();
     skipNextDistance = false;
+    lastSnapshotMs = 0;
     set({
       status: 'tracking',
       coordinates: [],
@@ -210,6 +239,7 @@ export const useRideStore = create<RideStore>((set, get) => ({
     if (get().status !== 'tracking') return;
     accumulatedMs += Date.now() - segmentStartedMs;
     set({ status: 'paused', currentSpeed: 0 });
+    persistSnapshot(true);
   },
 
   resume: () => {
@@ -244,18 +274,21 @@ export const useRideStore = create<RideStore>((set, get) => ({
     };
 
     set({ status: 'idle' });
+    void clearRideSnapshot();
     return summary;
   },
 
   reset: () => {
     clearTimers();
     void stopLocationTask();
+    void clearRideSnapshot();
     prevCoord = null;
     prevFixMs = 0;
     accumulatedMs = 0;
     segmentStartedMs = 0;
     startedAtMs = 0;
     skipNextDistance = false;
+    lastSnapshotMs = 0;
     set({
       status: 'idle',
       coordinates: [],
