@@ -7,7 +7,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 import Colors from '@/constants/Colors';
@@ -24,6 +24,8 @@ import {
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import RecoveredRideBanner from '@/components/ride/RecoveredRideBanner';
+import RideStatsSummary from '@/components/ride/RideStatsSummary';
+import { computeRideStats } from '@/lib/rideStats';
 import {
   loadRideSnapshot,
   clearRideSnapshot,
@@ -58,6 +60,10 @@ export default function RidesScreen() {
   const { data: rides, isLoading, refetch, isRefetching } = useRides();
   const { mutateAsync: saveRide, isPending: recovering } = useSaveRide();
   const [recovered, setRecovered] = useState<RideSnapshot | null>(null);
+  const stats = useMemo(
+    () => (rides && rides.length ? computeRideStats(rides) : null),
+    [rides]
+  );
 
   // 강제 종료/크래시로 남은 주행 스냅샷이 있으면(현재 진행 중이 아닐 때) 복구 배너를 띄운다.
   useEffect(() => {
@@ -199,6 +205,9 @@ export default function RidesScreen() {
           data={rides}
           keyExtractor={(item) => item.id}
           renderItem={renderRide}
+          ListHeaderComponent={
+            stats ? <RideStatsSummary stats={stats} /> : null
+          }
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={
