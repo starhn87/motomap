@@ -8,6 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { router } from 'expo-router';
+import Constants from 'expo-constants';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -203,7 +204,9 @@ export default function SettingsScreen() {
         ]}>
         <View style={styles.infoRow}>
           <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>버전</Text>
-          <Text style={[styles.infoValue, { color: colors.text }]}>1.0.0</Text>
+          <Text style={[styles.infoValue, { color: colors.text }]}>
+            {Constants.expoConfig?.version ?? '1.0.0'}
+          </Text>
         </View>
       </View>
 
