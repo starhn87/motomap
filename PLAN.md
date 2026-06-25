@@ -12,10 +12,12 @@
 - **UI/UX**: Reanimated, Gesture Handler, Bottom Sheet
 - **CI/CD**: EAS Build + EAS Update (OTA), GitHub Actions
 
+> 코드 레벨 구조는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 참조.
+
 ## MVP (v1.0)
 
 - [x] 지도 뷰 + 바이커 POI 표시 (네이버지도)
-- [x] 카테고리 필터 (카페, 맛집, 휴게소, 주유소, 정비소, 뷰포인트)
+- [x] 카테고리 필터 (카페, 맛집, 휴게소, 주유소, 정비소, 뷰포인트, 용품점)
 - [x] 장소 상세 (바텀시트)
 - [x] Supabase 연동 (DB + PostGIS)
 - [x] 소셜 로그인 UI (카카오, 네이버, 구글, 애플)
@@ -27,7 +29,7 @@
 
 - [x] 장소 리뷰/평점
 - [x] 즐겨찾기 (장소 저장, 프로필에서 확인)
-- [ ] 라이딩 추천 코스 목록 + 미리보기
+- [x] 라이딩 추천 코스 목록 + 미리보기
 
 ## 런칭 전 필수
 
@@ -39,6 +41,13 @@
   - 애플: developer.apple.com → Services ID + Secret Key
 - [ ] 네이버 Directions API 활성화 확인 (현재 Permission Denied)
 - [ ] 경로 미리보기 동작 확인
+
+## 출시 후 추가 — 주행 기록 (Phase 2)
+
+- [x] GPS 주행 기록 (실시간 경로·거리·시간·속도)
+- [x] 백그라운드 추적 (화면 꺼짐·앱 전환에도 기록 유지)
+- [x] 강제 종료/크래시 복구 (진행 중 주행 스냅샷 → 재실행 시 저장/폐기)
+- [x] 주간/월간 통계 대시보드
 
 ## v1.2+
 
