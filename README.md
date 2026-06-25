@@ -59,6 +59,8 @@ constants/            Colors, categories, 문서
 supabase/migrations/  스키마 마이그레이션 (001 신고·차단 · 002 탈퇴 · 003 주행기록)
 ```
 
+> 🧭 **코드 레벨 아키텍처**(레이어·데이터 흐름·주행 파이프라인·DB 스키마)는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 참조.
+
 ## 🚀 개발 환경 설정
 
 ```bash
