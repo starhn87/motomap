@@ -1,5 +1,7 @@
-const CLIENT_ID = process.env.EXPO_PUBLIC_NAVER_CLIENT_ID!;
-const CLIENT_SECRET = process.env.EXPO_PUBLIC_NAVER_CLIENT_SECRET!;
+import { requireEnv } from '@/lib/env';
+
+const CLIENT_ID = requireEnv(process.env.EXPO_PUBLIC_NAVER_CLIENT_ID, 'EXPO_PUBLIC_NAVER_CLIENT_ID');
+const CLIENT_SECRET = requireEnv(process.env.EXPO_PUBLIC_NAVER_CLIENT_SECRET, 'EXPO_PUBLIC_NAVER_CLIENT_SECRET');
 
 export interface RouteStep {
   instruction: string;
