@@ -325,6 +325,6 @@ GPS로 라이딩을 기록하는 핵심 기능. 구현은 `stores/useRideStore.t
 - `cleanup-places.mjs`(중복 삭제·태그 정규화) · `list-places.mjs`(카테고리별 감사) · `verify-place-coords.mjs`(`all_places` RPC로 좌표 누락 점검).
 - `generate-marker-images.swift`(카테고리 마커 PNG 생성) · `invert-theme.js`(라이트 아이콘→다크 변환, sharp).
 
-**`constants/`**: `Colors`(테마) · `categories`(라벨·아이콘·색) · `course`(거리/시간/속도/날짜 포맷터) · `legal`(약관 본문) · `mapStyle`(기본 중심·줌) · `markerImages`(마커 경로) · `mockPlaces`(데모 6곳) · `riderTags`(하이라이트 태그).
+**`constants/`**: `Colors`(테마) · `categories`(라벨·아이콘·색) · `course`(거리/시간/속도/날짜 포맷터) · `legal`(약관 본문) · `mapStyle`(기본 중심·줌) · `markerImages`(마커 경로) · `riderTags`(하이라이트 태그).
 
 **`.maestro/`**: 메인 지도·코스·마이 플로우를 자동 실행해 App Store용 스크린샷을 캡처(`appId=com.ridemap.app`).
