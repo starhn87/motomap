@@ -62,21 +62,25 @@ export async function toggleFavorite(placeId: string): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('로그인이 필요합니다.');
 
-  const { data: existing } = await supabase
+  const { data: existing, error: selectError } = await supabase
     .from('favorites')
     .select('id')
     .eq('user_id', user.id)
     .eq('place_id', placeId)
-    .single();
+    .maybeSingle();
+
+  if (selectError) throw selectError;
 
   if (existing) {
-    await supabase.from('favorites').delete().eq('id', existing.id);
+    const { error } = await supabase.from('favorites').delete().eq('id', existing.id);
+    if (error) throw error;
     return false;
   } else {
-    await supabase.from('favorites').insert({
+    const { error } = await supabase.from('favorites').insert({
       user_id: user.id,
       place_id: placeId,
     });
+    if (error) throw error;
     return true;
   }
 }

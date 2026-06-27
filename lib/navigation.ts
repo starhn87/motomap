@@ -72,7 +72,7 @@ export const NAV_APPS: NavApp[] = [
 export async function getAvailableNavApps(): Promise<NavApp[]> {
   const results = await Promise.all(
     NAV_APPS.map(async (app) => {
-      const canOpen = await Linking.canOpenURL(app.scheme);
+      const canOpen = await Linking.canOpenURL(app.scheme).catch(() => false);
       return canOpen ? app : null;
     }),
   );

@@ -24,12 +24,13 @@ export function generateRandomNickname(): string {
 }
 
 export async function checkNicknameAvailable(nickname: string): Promise<boolean> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .select('id')
     .eq('nickname', nickname)
-    .single();
+    .maybeSingle();
 
+  if (error) throw error;
   return !data;
 }
 

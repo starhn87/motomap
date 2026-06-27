@@ -29,6 +29,10 @@ export async function fetchRoute(
     },
   });
 
+  if (!res.ok) {
+    throw new Error(`경로 요청 실패 (HTTP ${res.status})`);
+  }
+
   const data = await res.json();
 
   if (data.code !== 0 || !data.route?.trafast?.length) {
