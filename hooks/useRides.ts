@@ -12,7 +12,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 export function useRides() {
   const user = useAuthStore((s) => s.user);
   return useQuery({
-    queryKey: ['rides'],
+    queryKey: ['rides', user?.id],
     queryFn: () => fetchRides(),
     enabled: !!user,
   });

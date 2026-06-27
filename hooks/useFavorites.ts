@@ -7,7 +7,7 @@ export function useFavorites() {
   const user = useAuthStore((s) => s.user);
 
   return useQuery({
-    queryKey: ['favorites'],
+    queryKey: ['favorites', user?.id],
     queryFn: fetchFavorites,
     enabled: !!user,
   });

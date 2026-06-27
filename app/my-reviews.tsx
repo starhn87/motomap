@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fetchMyReviews } from '@/lib/api/mydata';
+import { useAuthStore } from '@/stores/useAuthStore';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import StarRating from '@/components/review/StarRating';
 
@@ -34,8 +35,9 @@ function ReviewSkeletonList() {
 export default function MyReviewsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const user = useAuthStore((s) => s.user);
   const { data: reviews, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['my-reviews'],
+    queryKey: ['my-reviews', user?.id],
     queryFn: fetchMyReviews,
   });
 

@@ -11,6 +11,7 @@ import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fetchMySubmissions } from '@/lib/api/mydata';
+import { useAuthStore } from '@/stores/useAuthStore';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import type { Place } from '@/types';
 
@@ -35,8 +36,9 @@ function SubmissionSkeletonList() {
 export default function MySubmissionsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const user = useAuthStore((s) => s.user);
   const { data: places, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['my-submissions'],
+    queryKey: ['my-submissions', user?.id],
     queryFn: fetchMySubmissions,
   });
 

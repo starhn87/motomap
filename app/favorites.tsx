@@ -12,6 +12,7 @@ import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { openNavigation } from '@/lib/navigation';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import type { Place } from '@/types';
@@ -36,9 +37,10 @@ function PlaceSkeletonList() {
 export default function FavoritesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const user = useAuthStore((s) => s.user);
 
   const { data: places, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['favorites', 'places'],
+    queryKey: ['favorites', 'places', user?.id],
     queryFn: fetchFavoritePlaces,
   });
 
