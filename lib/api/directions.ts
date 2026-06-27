@@ -56,12 +56,12 @@ export async function fetchRoute(
   };
 }
 
-export function formatDistance(meters: number): string {
+export function formatMeters(meters: number): string {
   if (meters < 1000) return `${Math.round(meters)}m`;
   return `${(meters / 1000).toFixed(1)}km`;
 }
 
-export function formatDuration(seconds: number): string {
+export function formatSeconds(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.round((seconds % 3600) / 60);
   if (hours > 0) return `${hours}시간 ${minutes}분`;

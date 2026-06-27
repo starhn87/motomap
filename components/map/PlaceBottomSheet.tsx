@@ -23,7 +23,7 @@ import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
 import { useColorScheme } from '@/components/useColorScheme';
 import { openNavigation } from '@/lib/navigation';
 import { haversine } from '@/lib/distance';
-import { formatDistance } from '@/lib/api/directions';
+import { formatMeters } from '@/lib/api/directions';
 import { useIsFavorite, useToggleFavorite } from '@/hooks/useFavorites';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useMapStore } from '@/stores/useMapStore';
@@ -357,7 +357,7 @@ function PlaceBottomSheet({
             </Text>
             {distanceMeters !== null && (
               <Text style={[styles.distance, { color: colors.tint }]}>
-                {formatDistance(distanceMeters)}
+                {formatMeters(distanceMeters)}
               </Text>
             )}
           </View>

@@ -3,7 +3,7 @@ import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { formatDistance, formatDuration } from '@/lib/api/directions';
+import { formatMeters, formatSeconds } from '@/lib/api/directions';
 import { openNavigation } from '@/lib/navigation';
 import type { Route } from '@/lib/api/directions';
 import type { Place } from '@/types';
@@ -32,7 +32,7 @@ export default function RouteInfoCard({ route, place, onClose }: Props) {
       <View style={styles.infoRow}>
         <View style={styles.infoItem}>
           <Text style={[styles.infoValue, { color: colors.text }]}>
-            {formatDistance(route.distance)}
+            {formatMeters(route.distance)}
           </Text>
           <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
             거리
@@ -41,7 +41,7 @@ export default function RouteInfoCard({ route, place, onClose }: Props) {
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <View style={styles.infoItem}>
           <Text style={[styles.infoValue, { color: colors.text }]}>
-            {formatDuration(route.duration)}
+            {formatSeconds(route.duration)}
           </Text>
           <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
             예상 시간
