@@ -102,6 +102,7 @@ function processLocation(loc: Location.LocationObject) {
       coordinates: [...st.coordinates, cur],
       currentSpeed: 0,
     }));
+    syncDurationAndPersist();
     return;
   }
 
@@ -132,6 +133,9 @@ function processLocation(loc: Location.LocationObject) {
     currentSpeed: kmh,
     maxSpeed: kmh > st.maxSpeed && kmh < MAX_SPEED_CAP_KMH ? kmh : st.maxSpeed,
   }));
+
+  // 백그라운드에서도 위치 콜백마다 시간·스냅샷을 최신화(JS 타이머가 멈추므로)
+  syncDurationAndPersist();
 }
 
 // 백그라운드 위치 태스크 — 모듈 평가 시점에 등록한다.
@@ -144,11 +148,18 @@ TaskManager.defineTask(RIDE_LOCATION_TASK, async ({ data, error }) => {
   for (const loc of locations) processLocation(loc);
 });
 
-function onTick() {
+// duration 갱신 + 스냅샷 저장. 포어그라운드에선 1초 타이머(onTick)가,
+// 백그라운드에선 위치 콜백(processLocation)이 호출한다 — iOS 가 백그라운드에서
+// JS 타이머를 멈춰도 위치 콜백은 살아있어 스냅샷이 최신으로 유지된다.
+function syncDurationAndPersist() {
   if (useRideStore.getState().status !== 'tracking') return;
   const elapsed = accumulatedMs + (Date.now() - segmentStartedMs);
   useRideStore.setState({ durationSec: Math.floor(elapsed / 1000) });
   persistSnapshot();
+}
+
+function onTick() {
+  syncDurationAndPersist();
 }
 
 function clearTimers() {

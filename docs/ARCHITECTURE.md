@@ -257,9 +257,11 @@ GPS로 라이딩을 기록하는 핵심 기능. 구현은 `stores/useRideStore.t
             · 이동 < 3m  정지로 간주, 거리 누적 안 함 (STILL_MIN_M)
             · 정상  거리 += haversine, currentSpeed(센서 우선·이상치 폴백), maxSpeed 갱신, 좌표 append
 
-4. 영속   onTick(1s)마다 durationSec 갱신 + persistSnapshot()
-            · 5초 throttle (좌표 많아져도 매 tick 직렬화 안 함)
-            · pause 등 중요한 전환은 force=true 즉시 저장
+4. 영속   syncDurationAndPersist() — durationSec 갱신 + persistSnapshot()
+            · 포어그라운드는 onTick(1s 타이머)가, 백그라운드는 위치 콜백
+              (processLocation)이 호출 — iOS 가 JS 타이머를 멈춰도 스냅샷이
+              최신 유지(백그라운드 크래시 데이터 보호)
+            · 5초 throttle, pause 등 전환은 force=true 즉시 저장
             · AsyncStorage 'ride-in-progress' (lib/ridePersist.ts)
 
 5. 복구   앱 강제종료/크래시 후 재실행 → rides.tsx 가 스냅샷 탐지
