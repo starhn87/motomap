@@ -87,17 +87,28 @@ export async function openNavigation(target: NavTarget) {
     return;
   }
 
+  // 딥링크 실행 실패(앱 구버전·미로그인·스킴 처리 실패 등 — canOpenURL 은 통과해도
+  // 실제 실행은 실패할 수 있다)를 삼키지 않고 안내한다. 잡지 않으면 unhandled
+  // promise rejection 으로 새어 나가 Sentry 에 노이즈가 쌓인다.
+  const launch = async (app: NavApp) => {
+    try {
+      await app.launch(target);
+    } catch {
+      toast.error('네비게이션 앱을 열 수 없습니다.', `${app.label} 실행에 실패했습니다.`);
+    }
+  };
+
   const { defaultApp } = useNavPrefStore.getState();
   if (defaultApp) {
     const preferred = available.find((app) => app.id === defaultApp);
     if (preferred) {
-      await preferred.launch(target);
+      await launch(preferred);
       return;
     }
   }
 
   if (available.length === 1) {
-    await available[0].launch(target);
+    await launch(available[0]);
     return;
   }
 
@@ -105,7 +116,7 @@ export async function openNavigation(target: NavTarget) {
     ...available.map((app) => ({
       text: app.label,
       onPress: () => {
-        app.launch(target).catch(() => {});
+        void launch(app);
       },
     })),
     { text: '취소', style: 'cancel' as const },
