@@ -2,7 +2,7 @@ export default {
   expo: {
     name: 'RideMap',
     slug: 'ridemap',
-    version: '1.1.0',
+    version: '1.1.1',
     runtimeVersion: {
       policy: 'appVersion',
     },
