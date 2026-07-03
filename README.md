@@ -7,7 +7,7 @@
 ![Expo SDK](https://img.shields.io/badge/Expo_SDK-54-000020?style=flat-square&logo=expo&logoColor=white)
 ![React Native](https://img.shields.io/badge/React_Native-0.81-61DAFB?style=flat-square&logo=react&logoColor=black)
 
-라이딩 맛집·카페·뷰포인트·주유소·정비소를 지도에서 찾고, 내 주행을 GPS로 기록하며, 리뷰·평점·코스 공유로 라이더끼리 정보를 나눕니다. **App Store 정식 출시.**
+라이딩 맛집·카페·뷰포인트·주유소·정비소를 지도에서 찾고, 리뷰·평점·코스 공유로 라이더끼리 정보를 나눕니다. **App Store 정식 출시.**
 
 ## 📱 스크린샷
 
@@ -19,8 +19,7 @@
 
 ## ✨ 주요 기능
 
-- 🗺️ **지도 + POI** — 네이버지도 기반 바이커 장소 탐색 (카페, 맛집, 휴게소, 주유소, 정비소, 뷰포인트)
-- 🏍️ **주행 기록 (Ride Tracking)** — GPS로 라이딩 경로·거리·시간·속도를 기록. **백그라운드 추적**을 지원해 화면을 끄거나 내비 앱을 함께 써도 끊김 없이 기록되며, 종료 후 요약·기록 목록·상세를 제공
+- 🗺️ **지도 + POI** — 네이버지도 기반 바이커 장소 탐색 (카페, 맛집, 휴게소, 주유소, 정비소, 뷰포인트, 용품점)
 - 📍 **장소 제보** — 크라우드소싱으로 장소 추가 (사진 포함, 관리자 승인)
 - ⭐ **리뷰·평점** — 장소/코스 리뷰, 사진 첨부, 수정·삭제
 - 🛣️ **라이딩 코스** — 추천 코스 목록 + 경로 미리보기 + 상세
@@ -34,7 +33,7 @@
 | 앱 | React Native 0.81 / Expo SDK 54 / TypeScript |
 | 라우팅 | expo-router (typed routes) |
 | 지도 | @mj-studio/react-native-naver-map |
-| 위치·추적 | expo-location, expo-task-manager (백그라운드 GPS), expo-keep-awake |
+| 위치 | expo-location (현재 위치 표시) |
 | 인증·DB·스토리지 | Supabase (Postgres + PostGIS + RLS) |
 | 상태/데이터 | Zustand, @tanstack/react-query |
 | 소셜 | @react-native-kakao/core, navi |
@@ -45,21 +44,20 @@
 
 ```
 app/                  expo-router 파일 기반 라우팅
-  (tabs)/             탭 (index 지도 · courses 코스 · rides 주행 · submit 제보 · profile 마이)
-  ride/               주행 기록 (active 실시간 추적 + 요약, [id] 상세)
+  (tabs)/             탭 (index 지도 · courses 탐색 · submit 제보 · profile 마이)
   course/[id].tsx     코스 상세
   legal/[type].tsx    약관·정책 뷰어
   settings.tsx        설정
-components/            재사용 UI (map, review, ride, auth, ...)
+components/            재사용 UI (map, review, submit, auth, ...)
 lib/                  Supabase 클라이언트 · API 래퍼 · 유틸
-  api/                places, courses, reviews, rides, reports, blocks, ...
-hooks/                React Query 훅 (useCourses, useRides, useBlocks, ...)
-stores/               Zustand (auth, theme, navPref, ride)
+  api/                places, courses, reviews, reports, blocks, ...
+hooks/                React Query 훅 (useCourses, useFavorites, useBlocks, ...)
+stores/               Zustand (auth, theme, navPref, map)
 constants/            Colors, categories, 문서
-supabase/migrations/  스키마 마이그레이션 (001 신고·차단 · 002 탈퇴 · 003 주행기록)
+supabase/migrations/  스키마 마이그레이션 (001 신고·차단 · 002 탈퇴 · 004 용품점 카테고리)
 ```
 
-> 🧭 **코드 레벨 아키텍처**(레이어·데이터 흐름·주행 파이프라인·DB 스키마)는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 참조.
+> 🧭 **코드 레벨 아키텍처**(레이어·데이터 흐름·상태·DB 스키마)는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 참조.
 
 ## 🚀 개발 환경 설정
 
@@ -79,7 +77,7 @@ npm run ios
 npm run android
 ```
 
-> ⚠️ 네이버 지도·카카오·백그라운드 위치 등 네이티브 모듈을 사용하므로 **Expo Go로는 실행되지 않습니다.** `npm run ios`/`android`(로컬 dev client) 또는 EAS development 빌드를 사용하세요.
+> ⚠️ 네이버 지도·카카오 등 네이티브 모듈을 사용하므로 **Expo Go로는 실행되지 않습니다.** `npm run ios`/`android`(로컬 dev client) 또는 EAS development 빌드를 사용하세요.
 
 ## 🔑 환경 변수
 
