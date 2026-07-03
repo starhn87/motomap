@@ -93,6 +93,9 @@ export default {
           android: {
             extraMavenRepos: [
               'https://repository.map.naver.com/archive/maven',
+              // 카카오 SDK(com.kakao.sdk:*)는 Maven Central 이 아니라 카카오 전용
+              // 저장소에만 있다. @react-native-kakao 는 mavenCentral 만 선언하므로 필수.
+              'https://devrepo.kakao.com/nexus/content/groups/public/',
             ],
           },
         },
