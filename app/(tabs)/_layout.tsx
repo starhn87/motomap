@@ -46,13 +46,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="rides"
-        options={{
-          title: '주행',
-          tabBarIcon: ({ color }) => <TabBarIcon name="location-arrow" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="submit"
         options={{
           title: '제보',

@@ -52,17 +52,3 @@ export interface Review {
   photos: string[];
   createdAt: string;
 }
-
-export interface Ride {
-  id: string;
-  userId: string;
-  title: string;
-  coordinates: [number, number][]; // [lng, lat]
-  distance: number; // km
-  duration: number; // 초
-  avgSpeed: number; // km/h
-  maxSpeed: number; // km/h
-  startedAt: string | null;
-  endedAt: string | null;
-  createdAt: string;
-}

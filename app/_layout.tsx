@@ -17,8 +17,6 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useNavPrefStore } from '@/stores/useNavPrefStore';
 import { useThemeStore } from '@/stores/useThemeStore';
-// 백그라운드 위치 태스크(ride-location-tracking) 등록을 앱 진입 시 보장
-import '@/stores/useRideStore';
 
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 if (sentryDsn) {
@@ -96,8 +94,6 @@ function RootLayoutNav() {
             <Stack.Screen name="blocked-users" options={{ title: '차단 관리', headerBackTitle: '뒤로' }} />
             <Stack.Screen name="legal/[type]" options={{ headerBackTitle: '뒤로' }} />
             <Stack.Screen name="course/[id]" options={{ title: '코스 상세', headerBackTitle: '뒤로' }} />
-            <Stack.Screen name="ride/active" options={{ headerShown: false, gestureEnabled: false }} />
-            <Stack.Screen name="ride/[id]" options={{ title: '주행 기록', headerBackTitle: '뒤로' }} />
           </Stack>
         </ThemeProvider>
       </QueryClientProvider>
