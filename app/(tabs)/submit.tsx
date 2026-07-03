@@ -80,6 +80,7 @@ function SubmitPlace() {
   const [category, setCategory] = useState<PlaceCategory | null>(null);
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [addressDetail, setAddressDetail] = useState('');
   const [phone, setPhone] = useState('');
   const [tags, setTags] = useState('');
   const [openingHours, setOpeningHours] = useState('');
@@ -116,7 +117,7 @@ function SubmitPlace() {
         category,
         latitude: coords.latitude,
         longitude: coords.longitude,
-        address: address.trim(),
+        address: [address.trim(), addressDetail.trim()].filter(Boolean).join(' '),
         phone: phone.trim() || undefined,
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
         openingHours: openingHours.trim() || undefined,
@@ -130,6 +131,7 @@ function SubmitPlace() {
       setCategory(null);
       setAddress('');
       setCoords(null);
+      setAddressDetail('');
       setPhone('');
       setTags('');
       setOpeningHours('');
@@ -189,6 +191,15 @@ function SubmitPlace() {
             {address || '탭해서 상호·주소 검색'}
           </Text>
         </Pressable>
+        {address ? (
+          <TextInput
+            style={[inputStyle, { marginTop: 8 }]}
+            placeholder="상세 주소 (동·호수·층 등, 선택)"
+            placeholderTextColor={colors.textSecondary}
+            value={addressDetail}
+            onChangeText={setAddressDetail}
+          />
+        ) : null}
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>설명</Text>
         <TextInput style={[...inputStyle, styles.multiline]} placeholder="이 장소에 대해 알려주세요" placeholderTextColor={colors.textSecondary} value={description} onChangeText={setDescription} multiline numberOfLines={3} />
