@@ -20,6 +20,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { submitCourse } from '@/lib/api/courses';
 import { geocodeAddress } from '@/lib/geocode';
 import { toast } from '@/lib/toast';
+import AddressSearchModal from '@/components/submit/AddressSearchModal';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -27,6 +28,8 @@ interface Waypoint {
   id: string;
   address: string;
   label: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export default function SubmitCourse() {
@@ -42,6 +45,7 @@ export default function SubmitCourse() {
     { id: '1', address: '', label: '출발지' },
     { id: '2', address: '', label: '도착지' },
   ]);
+  const [searchingId, setSearchingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const submitScale = useSharedValue(1);
@@ -64,12 +68,6 @@ export default function SubmitCourse() {
     setWaypoints(waypoints.filter((w) => w.id !== id));
   };
 
-  const updateWaypointAddress = (id: string, address: string) => {
-    setWaypoints(
-      waypoints.map((w) => (w.id === id ? { ...w, address } : w))
-    );
-  };
-
   const handleSubmit = async () => {
     if (!name.trim()) {
       toast.info('코스명을 입력해주세요.');
@@ -87,6 +85,11 @@ export default function SubmitCourse() {
     try {
       const coordinates: [number, number][] = [];
       for (const wp of filledWaypoints) {
+        // 검색으로 좌표를 이미 확보했으면 그대로, 아니면(수동 입력) 지오코딩 fallback
+        if (wp.latitude != null && wp.longitude != null) {
+          coordinates.push([wp.longitude, wp.latitude]);
+          continue;
+        }
         const result = await geocodeAddress(wp.address.trim());
         if (!result) {
           toast.error(`"${wp.address}" 주소를 찾을 수 없습니다.`);
@@ -204,13 +207,13 @@ export default function SubmitCourse() {
             }]}>
               <Text style={styles.waypointDotText}>{index + 1}</Text>
             </View>
-            <TextInput
-              style={[...inputStyle, { flex: 1 }]}
-              placeholder={wp.label + ' 주소'}
-              placeholderTextColor={colors.textSecondary}
-              value={wp.address}
-              onChangeText={(text) => updateWaypointAddress(wp.id, text)}
-            />
+            <Pressable
+              onPress={() => setSearchingId(wp.id)}
+              style={[...inputStyle, { flex: 1, justifyContent: 'center' }]}>
+              <Text style={{ color: wp.address ? colors.text : colors.textSecondary, fontSize: 15 }}>
+                {wp.address || wp.label + ' 검색'}
+              </Text>
+            </Pressable>
             {index > 0 && index < waypoints.length - 1 && (
               <Pressable
                 onPress={() => removeWaypoint(wp.id)}
@@ -256,6 +259,19 @@ export default function SubmitCourse() {
           </Text>
         </AnimatedPressable>
       </ScrollView>
+      <AddressSearchModal
+        visible={searchingId !== null}
+        onClose={() => setSearchingId(null)}
+        onSelect={(r) => {
+          setWaypoints((prev) =>
+            prev.map((w) =>
+              w.id === searchingId
+                ? { ...w, address: r.roadAddress || r.address, latitude: r.latitude, longitude: r.longitude }
+                : w
+            )
+          );
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }

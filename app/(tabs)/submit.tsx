@@ -9,7 +9,6 @@ import {
   Platform,
 } from 'react-native';
 import { useState } from 'react';
-import * as Location from 'expo-location';
 import Animated, {
   useAnimatedStyle,
   withSpring,
@@ -25,6 +24,7 @@ import { toast } from '@/lib/toast';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import SubmitCourse from '@/components/submit/SubmitCourse';
 import SubmitFeedback from '@/components/submit/SubmitFeedback';
+import AddressSearchModal from '@/components/submit/AddressSearchModal';
 import type { PlaceCategory } from '@/types';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -79,11 +79,12 @@ function SubmitPlace() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<PlaceCategory | null>(null);
   const [address, setAddress] = useState('');
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [phone, setPhone] = useState('');
   const [tags, setTags] = useState('');
   const [openingHours, setOpeningHours] = useState('');
   const [parkingInfo, setParkingInfo] = useState('');
-  const [useCurrentLocation, setUseCurrentLocation] = useState(true);
+  const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const submitScale = useSharedValue(1);
@@ -100,8 +101,8 @@ function SubmitPlace() {
       toast.info('카테고리를 선택해주세요.');
       return;
     }
-    if (!address.trim()) {
-      toast.info('주소를 입력해주세요.');
+    if (!address.trim() || !coords) {
+      toast.info('주소를 검색해서 선택해주세요.');
       return;
     }
 
@@ -109,24 +110,12 @@ function SubmitPlace() {
     submitScale.value = withSpring(0.95);
 
     try {
-      let latitude = 37.5665;
-      let longitude = 126.978;
-
-      if (useCurrentLocation) {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const loc = await Location.getCurrentPositionAsync({});
-          latitude = loc.coords.latitude;
-          longitude = loc.coords.longitude;
-        }
-      }
-
       await submitPlace({
         name: name.trim(),
         description: description.trim(),
         category,
-        latitude,
-        longitude,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
         address: address.trim(),
         phone: phone.trim() || undefined,
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
@@ -140,6 +129,7 @@ function SubmitPlace() {
       setDescription('');
       setCategory(null);
       setAddress('');
+      setCoords(null);
       setPhone('');
       setTags('');
       setOpeningHours('');
@@ -194,7 +184,11 @@ function SubmitPlace() {
         <TextInput style={inputStyle} placeholder="예: 라이더스 카페" placeholderTextColor={colors.textSecondary} value={name} onChangeText={setName} />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>주소 *</Text>
-        <TextInput style={inputStyle} placeholder="예: 서울 성동구 성수동 123" placeholderTextColor={colors.textSecondary} value={address} onChangeText={setAddress} />
+        <Pressable onPress={() => setAddressModalVisible(true)} style={inputStyle}>
+          <Text style={{ color: address ? colors.text : colors.textSecondary, fontSize: 15 }}>
+            {address || '탭해서 상호·주소 검색'}
+          </Text>
+        </Pressable>
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>설명</Text>
         <TextInput style={[...inputStyle, styles.multiline]} placeholder="이 장소에 대해 알려주세요" placeholderTextColor={colors.textSecondary} value={description} onChangeText={setDescription} multiline numberOfLines={3} />
@@ -211,17 +205,19 @@ function SubmitPlace() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>주차 정보</Text>
         <TextInput style={inputStyle} placeholder="바이크 전용 주차 20대" placeholderTextColor={colors.textSecondary} value={parkingInfo} onChangeText={setParkingInfo} />
 
-        <Pressable onPress={() => setUseCurrentLocation(!useCurrentLocation)} style={styles.checkboxRow}>
-          <View style={[styles.checkbox, { backgroundColor: useCurrentLocation ? colors.tint : 'transparent', borderColor: useCurrentLocation ? colors.tint : colors.border }]}>
-            {useCurrentLocation && <Text style={[styles.checkmark, { color: colors.background }]}>✓</Text>}
-          </View>
-          <Text style={[styles.checkboxLabel, { color: colors.text }]}>현재 위치 사용</Text>
-        </Pressable>
-
         <AnimatedPressable onPress={handleSubmit} disabled={submitting} style={[styles.submitButton, submitStyle, { backgroundColor: colors.tint, opacity: submitting ? 0.6 : 1 }]}>
           <Text style={[styles.submitText, { color: colors.background }]}>{submitting ? '제보 중...' : '장소 제보하기'}</Text>
         </AnimatedPressable>
       </ScrollView>
+      <AddressSearchModal
+        visible={addressModalVisible}
+        onClose={() => setAddressModalVisible(false)}
+        onSelect={(r) => {
+          setAddress(r.roadAddress || r.address);
+          setCoords({ latitude: r.latitude, longitude: r.longitude });
+          if (!name.trim()) setName(r.placeName);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
