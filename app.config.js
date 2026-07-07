@@ -1,6 +1,6 @@
 export default {
   expo: {
-    name: 'RideMap',
+    name: '모토맵',
     slug: 'ridemap',
     version: '1.1.1',
     runtimeVersion: {
