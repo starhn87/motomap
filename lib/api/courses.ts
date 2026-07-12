@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { RidingCourse } from '@/types';
+import { requireUser } from '@/lib/auth';
 
 function rowToCourse(row: any): RidingCourse {
   return {
@@ -48,8 +49,7 @@ export async function submitCourse(params: {
   coordinates: [number, number][];
   tags?: string[];
 }): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('로그인이 필요합니다.');
+  const user = await requireUser();
 
   const { error } = await supabase.from('courses').insert({
     name: params.name,

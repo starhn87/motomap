@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { requireUser, getCurrentUser } from '@/lib/auth';
 
 export interface BlockedUser {
   userId: string;
@@ -8,7 +9,7 @@ export interface BlockedUser {
 }
 
 export async function fetchBlockedUsers(): Promise<BlockedUser[]> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return [];
 
   const { data, error } = await supabase
@@ -28,7 +29,7 @@ export async function fetchBlockedUsers(): Promise<BlockedUser[]> {
 }
 
 export async function fetchBlockedIds(): Promise<string[]> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return [];
 
   const { data, error } = await supabase
@@ -42,8 +43,7 @@ export async function fetchBlockedIds(): Promise<string[]> {
 }
 
 export async function blockUser(blockedId: string): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('로그인이 필요합니다.');
+  const user = await requireUser();
   if (user.id === blockedId) throw new Error('자신을 차단할 수 없습니다.');
 
   const { error } = await supabase.from('blocks').insert({
@@ -58,8 +58,7 @@ export async function blockUser(blockedId: string): Promise<void> {
 }
 
 export async function unblockUser(blockedId: string): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('로그인이 필요합니다.');
+  const user = await requireUser();
 
   const { error } = await supabase
     .from('blocks')

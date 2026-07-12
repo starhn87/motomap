@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { requireUser } from '@/lib/auth';
 
 export type ReportTargetType = 'review' | 'course_review' | 'place' | 'course' | 'user';
 export type ReportReason = 'spam' | 'inappropriate' | 'fake' | 'abuse' | 'copyright' | 'other';
@@ -18,8 +19,7 @@ export async function submitReport(params: {
   reason: ReportReason;
   description?: string;
 }): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('로그인이 필요합니다.');
+  const user = await requireUser();
 
   const { error } = await supabase.from('reports').insert({
     reporter_id: user.id,

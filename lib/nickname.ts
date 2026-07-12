@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { requireUser, getCurrentUser } from '@/lib/auth';
 
 const ADJECTIVES = [
   '달리는', '질주하는', '멋진', '용감한', '자유로운',
@@ -35,8 +36,7 @@ export async function checkNicknameAvailable(nickname: string): Promise<boolean>
 }
 
 export async function createProfile(nickname: string): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('로그인이 필요합니다.');
+  const user = await requireUser();
 
   const { error } = await supabase.from('profiles').insert({
     id: user.id,
@@ -57,7 +57,7 @@ export async function createProfile(nickname: string): Promise<void> {
 }
 
 export async function getProfile(): Promise<{ nickname: string; avatar_url: string | null } | null> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
 
   const { data } = await supabase
@@ -70,8 +70,7 @@ export async function getProfile(): Promise<{ nickname: string; avatar_url: stri
 }
 
 export async function updateAvatarUrl(avatarUrl: string): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('로그인이 필요합니다.');
+  const user = await requireUser();
 
   const { error } = await supabase
     .from('profiles')

@@ -1,9 +1,10 @@
 import { supabase } from '@/lib/supabase';
 import type { Place, Review } from '@/types';
 import { rowToPlace } from '@/lib/api/places';
+import { getCurrentUser } from '@/lib/auth';
 
 export async function fetchMySubmissions(): Promise<Place[]> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return [];
 
   const { data, error } = await supabase
@@ -27,7 +28,7 @@ export async function fetchMySubmissions(): Promise<Place[]> {
 }
 
 export async function fetchMyReviews(): Promise<(Review & { placeName: string })[]> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return [];
 
   const { data, error } = await supabase

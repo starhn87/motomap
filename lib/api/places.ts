@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { Place, PlaceCategory } from '@/types';
+import { requireUser } from '@/lib/auth';
 
 // nearby_places / all_places RPC 가 반환하는 행 (PostGIS location 을 lat/lng 로 풀어서 준다)
 export interface PlaceRow {
@@ -95,8 +96,7 @@ export async function fetchAllPlaces(
 }
 
 export async function submitPlace(params: SubmitPlaceParams): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('로그인이 필요합니다.');
+  const user = await requireUser();
 
   const { error } = await supabase.from('places').insert({
     name: params.name,

@@ -1,9 +1,10 @@
 import { supabase } from '@/lib/supabase';
 import type { Place } from '@/types';
 import { rowToPlace, type PlaceRow } from '@/lib/api/places';
+import { requireUser, getCurrentUser } from '@/lib/auth';
 
 export async function fetchFavorites(): Promise<string[]> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return [];
 
   const { data, error } = await supabase
@@ -17,7 +18,7 @@ export async function fetchFavorites(): Promise<string[]> {
 }
 
 export async function fetchFavoritePlaces(): Promise<Place[]> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return [];
 
   const { data: favData, error: favError } = await supabase
@@ -42,8 +43,7 @@ export async function fetchFavoritePlaces(): Promise<Place[]> {
 }
 
 export async function toggleFavorite(placeId: string): Promise<boolean> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('로그인이 필요합니다.');
+  const user = await requireUser();
 
   const { data: existing, error: selectError } = await supabase
     .from('favorites')

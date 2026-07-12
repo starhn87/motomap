@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { Review } from '@/types';
+import { requireUser } from '@/lib/auth';
 
 export async function fetchReviews(placeId: string): Promise<Review[]> {
   const { data, error } = await supabase
@@ -29,8 +30,7 @@ export async function createReview(params: {
   content: string;
   photos?: string[];
 }): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('로그인이 필요합니다.');
+  const user = await requireUser();
 
   const { error } = await supabase.from('reviews').insert({
     place_id: params.placeId,
