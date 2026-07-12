@@ -15,7 +15,7 @@ import Animated, {
   FadeInDown,
 } from 'react-native-reanimated';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
@@ -60,7 +60,7 @@ function MenuItem({
       <Text
         style={[
           styles.menuLabel,
-          { color: danger ? '#EF4444' : colors.text },
+          { color: danger ? semantic.danger : colors.text },
         ]}>
         {label}
       </Text>

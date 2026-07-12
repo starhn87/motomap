@@ -1,5 +1,6 @@
 import { View, StyleSheet, Text } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
+import { semantic } from '@/constants/Colors';
 
 interface Props {
   rating: number;
@@ -25,7 +26,7 @@ export default function StarRating({
           <Text
             style={[
               styles.star,
-              { fontSize: size, color: star <= rating ? '#FBBF24' : '#D1D5DB' },
+              { fontSize: size, color: star <= rating ? semantic.star : '#D1D5DB' },
             ]}>
             ★
           </Text>

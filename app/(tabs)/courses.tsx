@@ -9,7 +9,7 @@ import {
 import { useState } from 'react';
 import { router } from 'expo-router';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useCourses } from '@/hooks/useCourses';
 import { formatDistance, formatDuration } from '@/constants/course';
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   },
   ratingStar: {
     fontSize: 13,
-    color: '#FBBF24',
+    color: semantic.star,
     marginRight: 2,
   },
   ratingText: {

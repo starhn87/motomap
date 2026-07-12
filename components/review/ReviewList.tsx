@@ -11,7 +11,7 @@ import { Image as RNImage } from 'expo-image';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState } from 'react';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useReviews, useUpdateReview, useDeleteReview } from '@/hooks/useReviews';
@@ -269,7 +269,7 @@ export default function ReviewList({ placeId }: Props) {
                         <Text style={[styles.actionText, { color: colors.tint }]}>수정</Text>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => handleDelete(review.id)}>
-                        <Text style={[styles.actionText, { color: '#EF4444' }]}>삭제</Text>
+                        <Text style={[styles.actionText, { color: semantic.danger }]}>삭제</Text>
                       </TouchableOpacity>
                     </View>
                   ) : user ? (

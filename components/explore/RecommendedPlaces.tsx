@@ -7,7 +7,7 @@ import {
   RefreshControl,
 } from 'react-native';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
 import { CATEGORIES } from '@/constants/categories';
@@ -176,14 +176,14 @@ const styles = StyleSheet.create({
   catLabel: { fontSize: 12, fontWeight: '700' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   newBadge: {
-    backgroundColor: '#22C55E',
+    backgroundColor: semantic.success,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
   },
   newText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
   rating: { flexDirection: 'row', alignItems: 'center' },
-  star: { fontSize: 13, color: '#FBBF24', marginRight: 2 },
+  star: { fontSize: 13, color: semantic.star, marginRight: 2 },
   ratingText: { fontSize: 13, fontWeight: '700' },
   name: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
   address: { fontSize: 13, marginBottom: 14 },

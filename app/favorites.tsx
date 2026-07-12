@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   },
   ratingStar: {
     fontSize: 13,
-    color: '#FBBF24',
+    color: semantic.star,
     marginRight: 2,
   },
   ratingText: {

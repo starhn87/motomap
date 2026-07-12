@@ -18,7 +18,7 @@ import BottomSheet, {
 import type { BottomSheetFooterProps } from '@gorhom/bottom-sheet';
 import { useRef, useEffect, useState, useCallback, memo } from 'react';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
 import { useColorScheme } from '@/components/useColorScheme';
 import { openNavigation } from '@/lib/navigation';
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
   },
   ratingStar: {
     fontSize: 14,
-    color: '#FBBF24',
+    color: semantic.star,
     marginRight: 2,
   },
   ratingText: {

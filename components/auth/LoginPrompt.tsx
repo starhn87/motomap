@@ -12,7 +12,7 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { router } from 'expo-router';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import {
   signInWithEmail,
@@ -222,7 +222,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
                     styles.checkButton,
                     {
                       backgroundColor:
-                        nicknameStatus === 'available' ? '#22C55E' : colors.tint,
+                        nicknameStatus === 'available' ? semantic.success : colors.tint,
                     },
                   ]}>
                   <Text style={[styles.checkText, { color: colors.background }]}>
@@ -412,13 +412,13 @@ const styles = StyleSheet.create({
   },
   statusAvailable: {
     fontSize: 12,
-    color: '#22C55E',
+    color: semantic.success,
     fontWeight: '600',
     marginTop: -6,
   },
   statusTaken: {
     fontSize: 12,
-    color: '#EF4444',
+    color: semantic.danger,
     fontWeight: '600',
     marginTop: -6,
   },

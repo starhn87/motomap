@@ -1,3 +1,10 @@
+// 테마 무관 세만틱 컬러 (별점/성공/위험). StyleSheet·인라인 양쪽에서 쓴다.
+export const semantic = {
+  star: '#FBBF24',
+  success: '#22C55E',
+  danger: '#EF4444',
+};
+
 export default {
   light: {
     text: '#18181B',

@@ -9,7 +9,7 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import {
   generateRandomNickname,
@@ -146,7 +146,7 @@ export default function EditNicknameScreen() {
           onPress={handleCheck}
           style={[
             styles.checkButton,
-            { backgroundColor: status === 'available' ? '#22C55E' : colors.tint },
+            { backgroundColor: status === 'available' ? semantic.success : colors.tint },
           ]}>
           <Text style={[styles.checkText, { color: colors.background }]}>
             {status === 'checking' ? '...' : status === 'available' ? '✓' : '확인'}
@@ -223,13 +223,13 @@ const styles = StyleSheet.create({
   },
   statusAvailable: {
     fontSize: 12,
-    color: '#22C55E',
+    color: semantic.success,
     fontWeight: '600',
     marginTop: 6,
   },
   statusTaken: {
     fontSize: 12,
-    color: '#EF4444',
+    color: semantic.danger,
     fontWeight: '600',
     marginTop: 6,
   },

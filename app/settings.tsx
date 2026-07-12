@@ -10,7 +10,7 @@ import {
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useThemeStore } from '@/stores/useThemeStore';
@@ -279,7 +279,7 @@ export default function SettingsScreen() {
                 borderColor: colors.border,
               },
             ]}>
-            <Text style={[styles.linkText, { color: '#EF4444' }]}>회원 탈퇴</Text>
+            <Text style={[styles.linkText, { color: semantic.danger }]}>회원 탈퇴</Text>
             <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
           </Pressable>
         </>

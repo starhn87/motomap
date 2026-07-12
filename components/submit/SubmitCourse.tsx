@@ -15,7 +15,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { submitCourse } from '@/lib/api/courses';
 import { geocodeAddress } from '@/lib/geocode';
@@ -203,7 +203,7 @@ export default function SubmitCourse() {
         {waypoints.map((wp, index) => (
           <View key={wp.id} style={styles.waypointRow}>
             <View style={[styles.waypointDot, {
-              backgroundColor: index === 0 ? '#22C55E' : index === waypoints.length - 1 ? '#EF4444' : '#71717A',
+              backgroundColor: index === 0 ? semantic.success : index === waypoints.length - 1 ? semantic.danger : '#71717A',
             }]}>
               <Text style={styles.waypointDotText}>{index + 1}</Text>
             </View>
@@ -307,11 +307,11 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#EF444420',
+    backgroundColor: `${semantic.danger}20`,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  removeText: { color: '#EF4444', fontSize: 14, fontWeight: '700' },
+  removeText: { color: semantic.danger, fontSize: 14, fontWeight: '700' },
   addWaypointButton: {
     paddingVertical: 12,
     borderRadius: 12,

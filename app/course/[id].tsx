@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { NaverMapView, NaverMapPathOverlay } from '@mj-studio/react-native-naver-map';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCourse } from '@/hooks/useCourses';
@@ -318,7 +318,7 @@ export default function CourseDetailScreen() {
                                   { text: '삭제', style: 'destructive', onPress: () => removeReview(review.id) },
                                 ]);
                               }}>
-                                <Text style={[styles.actionText, { color: '#EF4444' }]}>삭제</Text>
+                                <Text style={[styles.actionText, { color: semantic.danger }]}>삭제</Text>
                               </Pressable>
                             </View>
                           ) : user ? (
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   },
   ratingStar: {
     fontSize: 14,
-    color: '#FBBF24',
+    color: semantic.star,
     marginRight: 2,
   },
   ratingText: {

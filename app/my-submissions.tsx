@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fetchMySubmissions } from '@/lib/api/mydata';
@@ -64,12 +64,12 @@ export default function MySubmissionsScreen() {
           <View
             style={[
               styles.statusBadge,
-              { backgroundColor: item.approved ? '#22C55E20' : '#71717A20' },
+              { backgroundColor: item.approved ? `${semantic.success}20` : '#71717A20' },
             ]}>
             <Text
               style={[
                 styles.statusText,
-                { color: item.approved ? '#22C55E' : '#71717A' },
+                { color: item.approved ? semantic.success : '#71717A' },
               ]}>
               {item.approved ? '승인됨' : '대기중'}
             </Text>
