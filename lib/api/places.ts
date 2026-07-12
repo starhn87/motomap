@@ -1,6 +1,27 @@
 import { supabase } from '@/lib/supabase';
 import type { Place, PlaceCategory } from '@/types';
 
+// nearby_places / all_places RPC 가 반환하는 행 (PostGIS location 을 lat/lng 로 풀어서 준다)
+export interface PlaceRow {
+  id: string;
+  name: string;
+  description: string | null;
+  category: PlaceCategory;
+  latitude: number;
+  longitude: number;
+  address: string;
+  phone: string | null;
+  photos: string[] | null;
+  rating: number | string | null;
+  review_count: number | null;
+  tags: string[] | null;
+  opening_hours: string | null;
+  parking_info: string | null;
+  submitted_by: string;
+  approved: boolean;
+  created_at: string;
+}
+
 interface NearbyParams {
   latitude: number;
   longitude: number;
@@ -21,7 +42,7 @@ interface SubmitPlaceParams {
   parkingInfo?: string;
 }
 
-function rowToPlace(row: any): Place {
+export function rowToPlace(row: PlaceRow): Place {
   return {
     id: row.id,
     name: row.name,
@@ -30,13 +51,13 @@ function rowToPlace(row: any): Place {
     latitude: row.latitude,
     longitude: row.longitude,
     address: row.address,
-    phone: row.phone,
+    phone: row.phone ?? undefined,
     photos: row.photos ?? [],
     rating: Number(row.rating) || 0,
     reviewCount: row.review_count ?? 0,
     tags: row.tags ?? [],
-    openingHours: row.opening_hours,
-    parkingInfo: row.parking_info,
+    openingHours: row.opening_hours ?? undefined,
+    parkingInfo: row.parking_info ?? undefined,
     submittedBy: row.submitted_by,
     approved: row.approved,
     createdAt: row.created_at,

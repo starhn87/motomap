@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { Place } from '@/types';
+import { rowToPlace, type PlaceRow } from '@/lib/api/places';
 
 export async function fetchFavorites(): Promise<string[]> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -36,26 +37,8 @@ export async function fetchFavoritePlaces(): Promise<Place[]> {
   if (error) throw error;
 
   return (data ?? [])
-    .filter((row: any) => placeIds.includes(row.id))
-    .map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      description: row.description ?? '',
-      category: row.category,
-      latitude: row.latitude,
-      longitude: row.longitude,
-      address: row.address,
-      phone: row.phone,
-      photos: row.photos ?? [],
-      rating: Number(row.rating) || 0,
-      reviewCount: row.review_count ?? 0,
-      tags: row.tags ?? [],
-      openingHours: row.opening_hours,
-      parkingInfo: row.parking_info,
-      submittedBy: row.submitted_by,
-      approved: row.approved,
-      createdAt: row.created_at,
-    }));
+    .filter((row: PlaceRow) => placeIds.includes(row.id))
+    .map(rowToPlace);
 }
 
 export async function toggleFavorite(placeId: string): Promise<boolean> {

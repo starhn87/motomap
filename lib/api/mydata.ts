@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { Place, Review } from '@/types';
+import { rowToPlace } from '@/lib/api/places';
 
 export async function fetchMySubmissions(): Promise<Place[]> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -14,32 +15,14 @@ export async function fetchMySubmissions(): Promise<Place[]> {
   if (error) throw error;
 
   return (data ?? []).map((row: any) => {
-    let lat = 0;
-    let lng = 0;
+    // places 테이블 직접 조회는 PostGIS location 을 주므로 좌표를 풀어서 rowToPlace 에 넘긴다
+    let latitude = 0;
+    let longitude = 0;
     if (row.location && typeof row.location === 'object') {
-      lng = row.location.coordinates?.[0] ?? 0;
-      lat = row.location.coordinates?.[1] ?? 0;
+      longitude = row.location.coordinates?.[0] ?? 0;
+      latitude = row.location.coordinates?.[1] ?? 0;
     }
-
-    return {
-      id: row.id,
-      name: row.name,
-      description: row.description ?? '',
-      category: row.category,
-      latitude: lat,
-      longitude: lng,
-      address: row.address,
-      phone: row.phone,
-      photos: row.photos ?? [],
-      rating: Number(row.rating) || 0,
-      reviewCount: row.review_count ?? 0,
-      tags: row.tags ?? [],
-      openingHours: row.opening_hours,
-      parkingInfo: row.parking_info,
-      submittedBy: row.submitted_by,
-      approved: row.approved,
-      createdAt: row.created_at,
-    };
+    return rowToPlace({ ...row, latitude, longitude });
   });
 }
 
