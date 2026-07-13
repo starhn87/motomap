@@ -215,6 +215,7 @@ Sentry.wrap(
 | `002_account_deletion.sql` | `profiles.deleted_at` + `delete_my_account()` RPC |
 | `003_rides.sql` | `rides` 테이블 — **주행 기능 제거로 현재 미사용** |
 | `004_add_gear_shop_category.sql` | `places_category_check`에 `gear_shop` 추가 |
+| `005_submission_notifications.sql` | 제보·건의 INSERT 시 디스코드 웹훅 알림 (pg_net 트리거, URL은 Vault) |
 
 ---
 
