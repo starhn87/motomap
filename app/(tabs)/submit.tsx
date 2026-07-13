@@ -182,10 +182,7 @@ function SubmitPlace() {
           ))}
         </View>
 
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>장소명 *</Text>
-        <TextInput style={inputStyle} placeholder="예: 라이더스 카페" placeholderTextColor={colors.textSecondary} value={name} onChangeText={setName} />
-
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>주소 *</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>장소 검색 *</Text>
         <Pressable onPress={() => setAddressModalVisible(true)} style={inputStyle}>
           <Text style={{ color: address ? colors.text : colors.textSecondary, fontSize: 15 }}>
             {address || '탭해서 상호·주소 검색'}
@@ -200,6 +197,9 @@ function SubmitPlace() {
             onChangeText={setAddressDetail}
           />
         ) : null}
+
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>장소명 *</Text>
+        <TextInput style={inputStyle} placeholder="장소를 검색하면 자동 입력됩니다" placeholderTextColor={colors.textSecondary} value={name} onChangeText={setName} />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>설명</Text>
         <TextInput style={[...inputStyle, styles.multiline]} placeholder="이 장소에 대해 알려주세요" placeholderTextColor={colors.textSecondary} value={description} onChangeText={setDescription} multiline numberOfLines={3} />
@@ -226,7 +226,9 @@ function SubmitPlace() {
         onSelect={(r) => {
           setAddress(r.roadAddress || r.address);
           setCoords({ latitude: r.latitude, longitude: r.longitude });
-          if (!name.trim()) setName(r.placeName);
+          // 장소명은 검색 결과가 정한다(다시 선택하면 갱신). 카카오에 없는
+          // 장소(뷰포인트 등)를 위해 필드 자체는 수정 가능하게 둔다.
+          if (r.placeName) setName(r.placeName);
         }}
       />
     </KeyboardAvoidingView>
