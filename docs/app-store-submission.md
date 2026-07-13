@@ -238,7 +238,7 @@ User-Generated Content 모더레이션:
 - 권한 거부 시에도 모든 기능 정상 작동 (기본 위치: 서울)
 
 [EN]
-MotorMap (모토맵) is a map app for Korean motorcycle riders, helping them find biker cafes, rest stops, viewpoints, and riding courses that are hard to find on standard maps.
+MotoMap (모토맵) is a map app for Korean motorcycle riders, helping them find biker cafes, rest stops, viewpoints, and riding courses that are hard to find on standard maps.
 
 How to test:
 1. Main screen (map) — Browse all places/courses without login
