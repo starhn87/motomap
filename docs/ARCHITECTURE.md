@@ -109,7 +109,7 @@ Sentry.wrap(
 )
 ```
 
-- **부팅 초기화**(useEffect): `useAuthStore.initialize()` · `useNavPrefStore.loadDefaultApp()` · `useThemeStore.loadMode()` · Kakao SDK 초기화. 폰트 로드 완료 후 스플래시 해제.
+- **부팅 초기화**(useEffect): `useAuthStore.initialize()` · `useNavPrefStore.loadDefaultApp()` · `useThemeStore.loadMode()` · 푸시 토큰 조용한 갱신(`registerPushToken(false)` — 권한 요청은 제보 직후에만) · Kakao SDK 초기화. 폰트 로드 완료 후 스플래시 해제.
 - Sentry는 DSN이 있을 때만 init, 앱 전체를 `Sentry.wrap`.
 
 ### 탭 (`app/(tabs)/`)
@@ -216,6 +216,7 @@ Sentry.wrap(
 | `003_rides.sql` | `rides` 테이블 — **주행 기능 제거로 현재 미사용** |
 | `004_add_gear_shop_category.sql` | `places_category_check`에 `gear_shop` 추가 |
 | `005_submission_notifications.sql` | 제보·건의 INSERT 시 디스코드 웹훅 알림 (pg_net 트리거, URL은 Vault) |
+| `006_push_tokens_approval_push.sql` | `push_tokens` 테이블 + 제보 승인(approved false→true) 시 제보자 Expo 푸시 |
 
 ---
 
@@ -229,6 +230,7 @@ Sentry.wrap(
 | 카카오 로컬 검색 | `lib/api/kakaoLocal.ts` (`EXPO_PUBLIC_KAKAO_REST_API_KEY`) | 제보 주소 검색 (상호+주소→좌표) |
 | 외부 내비 딥링크 | `lib/navigation.ts` + `plugins/withQuerySchemes.js` | 카카오내비(이륜차)·T맵·카카오맵·네이버지도·Apple 지도. `LSApplicationQueriesSchemes`로 설치 감지, 기본 앱은 `useNavPrefStore` |
 | Supabase Storage | `lib/uploadImage.ts` | 리뷰·제보 사진 (`ridemap-media` 버킷, base64 업로드) |
+| Expo Push | `lib/push.ts` + migration 006 | 제보 승인 푸시 — 토큰은 `push_tokens`, 발송은 DB 트리거(pg_net→Expo Push API). 권한 요청은 제보 직후에만 |
 | Sentry | `app/_layout.tsx`, `metro.config.js` | 에러·세션 추적 |
 
 ---

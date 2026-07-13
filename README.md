@@ -34,6 +34,7 @@
 | 라우팅 | expo-router (typed routes) |
 | 지도 | @mj-studio/react-native-naver-map |
 | 위치 | expo-location (현재 위치 표시) |
+| 푸시 | expo-notifications + Expo Push (제보 승인 알림) |
 | 인증·DB·스토리지 | Supabase (Postgres + PostGIS + RLS) |
 | 상태/데이터 | Zustand, @tanstack/react-query |
 | 소셜 | @react-native-kakao/core, navi |

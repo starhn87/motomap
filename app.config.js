@@ -2,7 +2,9 @@ export default {
   expo: {
     name: '모토맵',
     slug: 'ridemap',
-    version: '1.1.1',
+    // 1.1.2: expo-notifications(네이티브) 추가 — runtime 분리로 1.1.1 빌드가
+    // 이 모듈을 참조하는 OTA를 받지 않게 한다
+    version: '1.1.2',
     runtimeVersion: {
       policy: 'appVersion',
     },
@@ -98,6 +100,12 @@ export default {
               'https://devrepo.kakao.com/nexus/content/groups/public/',
             ],
           },
+        },
+      ],
+      [
+        'expo-notifications',
+        {
+          color: '#22C55E',
         },
       ],
       [
