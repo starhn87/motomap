@@ -110,7 +110,3 @@ npx eas submit --profile production --platform ios --latest
 ```
 
 > ⚠️ 이미 App Store에 출시된 버전 위에 새 빌드를 올릴 때는 **`app.config.js`의 `version`을 반드시 상향**해야 합니다 (동일 버전은 `ITMS-90186` train closed 로 거부). 빌드 번호는 production 프로파일의 `autoIncrement`가 처리합니다.
-
-## 📄 라이선스
-
-App Store에 출시된 개인 프로젝트입니다. 소스 코드는 비공개로 운영합니다.
