@@ -1,5 +1,5 @@
 appId: com.ridemap.app
-name: RideMap 전체 스크린샷 캡처
+name: 모토맵 전체 스크린샷 캡처
 ---
 # 위치 권한은 simctl로 사전 부여
 - launchApp:

@@ -1,6 +1,6 @@
 # App Store Connect 제출용 메타데이터
 
-ASC 각 섹션에 그대로 복붙할 수 있도록 정리. 빌드 업로드 후 ASC > My Apps > RideMap > 1.0.0 에서 입력.
+ASC 각 섹션에 그대로 복붙할 수 있도록 정리. 빌드 업로드 후 ASC > My Apps > 모토맵 > 1.0.0 에서 입력.
 
 ---
 
@@ -8,7 +8,7 @@ ASC 각 섹션에 그대로 복붙할 수 있도록 정리. 빌드 업로드 후
 
 ### App Name
 ```
-RideMap
+모토맵
 ```
 > 30자 제한. 한국 App Store는 영문/한글 혼용 가능. 검색 노출 최적화를 위해 부제는 따로.
 
@@ -118,7 +118,7 @@ ridemap-ios-001
 
 ### Description (4000자 제한)
 ```
-바이커를 위한 지도 앱, RideMap.
+바이커를 위한 지도 앱, 모토맵.
 
 일반 지도에서는 찾기 어려운 바이커 카페, 만남의 광장, 라이딩 코스를 한눈에 확인하고 바로 네비게이션할 수 있습니다.
 
@@ -145,7 +145,7 @@ ridemap-ios-001
 · 다크 모드
 야간 라이딩에 최적화된 다크 테마.
 
-라이더가 직접 만들어가는 지도, RideMap과 함께 달리세요.
+라이더가 직접 만들어가는 지도, 모토맵과 함께 달리세요.
 
 ---
 문의: starhn87@gmail.com
@@ -171,16 +171,16 @@ https://github.com/starhn87/ridemap/issues
 ```
 https://realman.notion.site/RideMap-개인정보처리방침
 ```
-> ⚠️ 실제 Notion 공개 URL로 교체 필요.
+> ⚠️ 실제 Notion 공개 URL로 교체 필요. (URL은 노션 문서 주소 그대로 — 문서 제목을 모토맵으로 바꾸면 URL도 확인)
 
 ### Copyright
 ```
-© 2026 RideMap
+© 2026 모토맵
 ```
 
 ### What's New (4000자 제한, 신규 출시이므로 간단히)
 ```
-RideMap을 출시합니다.
+모토맵을 출시합니다.
 
 라이더가 직접 만들어가는 바이커 전용 지도. 바이커 카페·휴게소·뷰포인트·라이딩 코스를 한 곳에서 탐색하고 카카오맵·T맵·네이버지도·Apple 지도로 바로 출발하세요.
 
@@ -212,7 +212,7 @@ RideMap을 출시합니다.
 ### Notes for Reviewer
 ```
 [KO]
-RideMap은 한국 라이더(오토바이 사용자)를 위한 지도 앱입니다.
+모토맵은 한국 라이더(오토바이 사용자)를 위한 지도 앱입니다.
 주요 기능 안내:
 
 1. 메인 화면(지도) — 비로그인 상태로 모든 장소/코스 탐색 가능
@@ -238,7 +238,7 @@ User-Generated Content 모더레이션:
 - 권한 거부 시에도 모든 기능 정상 작동 (기본 위치: 서울)
 
 [EN]
-RideMap is a map app for Korean motorcycle riders, helping them find biker cafes, rest stops, viewpoints, and riding courses that are hard to find on standard maps.
+MotoMap (모토맵) is a map app for Korean motorcycle riders, helping them find biker cafes, rest stops, viewpoints, and riding courses that are hard to find on standard maps.
 
 How to test:
 1. Main screen (map) — Browse all places/courses without login

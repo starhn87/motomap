@@ -17,7 +17,7 @@
 - [ ] **My Apps → +** 클릭
 - [ ] 정보 입력:
   - Platform: iOS
-  - Name: **RideMap**
+  - Name: **모토맵**
   - Primary Language: Korean
   - Bundle ID: **com.ridemap.app** (드롭다운에서 선택)
   - SKU: **ridemap-ios-001**
@@ -179,7 +179,7 @@ ASC > App Privacy > **Get Started**
 - [ ] **Keywords** (100자)
 - [ ] Support URL: GitHub Issues
 - [ ] Marketing URL: (비워둠)
-- [ ] Copyright: `© 2026 RideMap`
+- [ ] Copyright: `© 2026 모토맵`
 - [ ] **What's New**: 출시 안내
 - [ ] **Screenshots**: 6.9" Display에 드래그앤드롭
 

@@ -1,4 +1,4 @@
-# RideMap 안드로이드 출시 가이드
+# 모토맵 안드로이드 출시 가이드
 
 iOS는 출시 완료. 이 문서는 **안드로이드(Google Play) 출시** 절차를 단계별로 정리한다.
 코드·설정은 [app.config.js](../app.config.js)·[eas.json](../eas.json)에 이미 안드로이드 대응(`android.package`,
@@ -67,7 +67,7 @@ preview apk를 안드로이드 기기에 설치 후:
 
 ## 6. Google Play Console — 앱 생성 + 등록정보
 
-- play.google.com/console > 앱 만들기 (RideMap, 무료)
+- play.google.com/console > 앱 만들기 (모토맵, 무료)
 - **스토어 등록정보**: 짧은/긴 설명([app-store-listing.md](app-store-listing.md) 재활용),
   폰 스크린샷(iOS와 비율이 다르면 재캡처 — `.maestro` 플로우 활용 가능), 아이콘(512×512),
   피처 그래픽(1024×500)

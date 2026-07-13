@@ -1,5 +1,5 @@
 appId: com.ridemap.app
-name: RideMap 장소 상세 캡처
+name: 모토맵 장소 상세 캡처
 ---
 - launchApp
 - waitForAnimationToEnd:

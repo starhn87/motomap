@@ -98,14 +98,14 @@ maestro studio
 
 ## ASC 업로드
 
-1. ASC > My Apps > RideMap > 1.0.0 > iOS App > Screenshots
+1. ASC > My Apps > 모토맵 > 1.0.0 > iOS App > Screenshots
 2. **6.9" Display** 섹션에 PNG 드래그앤드롭 (최대 10장)
 3. 6.5" Display는 자동으로 동일 이미지 사용됨 (별도 업로드 불필요)
 
 ## 트러블슈팅
 
 ### `appId not found`
-- 시뮬레이터에 RideMap 앱이 설치되어 있는지 확인
+- 시뮬레이터에 모토맵 앱이 설치되어 있는지 확인
 - `xcrun simctl listapps booted | grep ridemap`
 
 ### `Element not found`
