@@ -316,7 +316,9 @@ function PlaceBottomSheet({
         footerComponent={renderFooter}>
         <BottomSheetScrollView
           contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
           <Animated.View style={spacerStyle} />
           <PhotoGrid photos={allPhotos} />
 

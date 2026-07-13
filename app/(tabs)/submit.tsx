@@ -163,7 +163,8 @@ function SubmitPlace() {
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled">
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
         <Text style={[styles.sectionTitle, { color: colors.text }]}>카테고리 *</Text>
         <View style={styles.categories}>
           {CATEGORY_LIST.map((cat) => (

@@ -4,6 +4,8 @@ import {
   TextInput,
   StyleSheet,
   ActivityIndicator,
+  Keyboard,
+  Pressable,
 } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState, useEffect } from 'react';
@@ -115,7 +117,11 @@ export default function EditNicknameScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    // 빈 영역 탭 시 키보드 닫기 (스크롤 없는 화면이라 컨테이너에서 처리)
+    <Pressable
+      onPress={Keyboard.dismiss}
+      accessible={false}
+      style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.label, { color: colors.text }]}>닉네임</Text>
 
       <View style={styles.nicknameRow}>
@@ -172,7 +178,7 @@ export default function EditNicknameScreen() {
           <Text style={[styles.saveText, { color: colors.background }]}>저장</Text>
         )}
       </TouchableOpacity>
-    </View>
+    </Pressable>
   );
 }
 

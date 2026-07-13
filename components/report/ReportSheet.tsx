@@ -7,6 +7,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { useState } from 'react';
 
@@ -68,7 +69,10 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={handleClose} />
-        <View
+        {/* 시트 빈 영역 탭 시 키보드 닫기 */}
+        <Pressable
+          onPress={Keyboard.dismiss}
+          accessible={false}
           style={[
             styles.sheet,
             {
@@ -151,7 +155,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
               </Text>
             </Pressable>
           </View>
-        </View>
+        </Pressable>
       </KeyboardAvoidingView>
     </Modal>
   );

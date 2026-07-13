@@ -5,6 +5,7 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useState, useEffect } from 'react';
@@ -26,6 +27,8 @@ import {
 } from '@/lib/nickname';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 function AgreementRow({
   checked,
@@ -164,8 +167,11 @@ export default function LoginPrompt({ message }: { message?: string }) {
   ];
 
   return (
-    <Animated.View
+    // 빈 영역 탭 시 키보드 닫기 (스크롤 없는 화면이라 컨테이너에서 처리)
+    <AnimatedPressable
       entering={FadeInDown.duration(400)}
+      onPress={Keyboard.dismiss}
+      accessible={false}
       style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.text }]}>
         {isSignUp ? '회원가입' : '로그인이 필요합니다'}
@@ -326,7 +332,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
           </Pressable>
         </View>
       )}
-    </Animated.View>
+    </AnimatedPressable>
   );
 }
 

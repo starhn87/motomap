@@ -110,6 +110,7 @@ export default function SearchBar({ onSelectPlace, onDismiss }: Props) {
               ]}
               keyExtractor={(item) => `${item.type}-${item.data.id}`}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               style={styles.resultList}
               renderItem={({ item }) => {
                 if (item.type === 'place') {

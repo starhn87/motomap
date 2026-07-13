@@ -93,7 +93,9 @@ export default function CourseDetailScreen() {
     <>
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}>
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag">
       {/* 지도 미리보기 */}
       {coords.length >= 2 && (
         <View style={styles.mapContainer}>

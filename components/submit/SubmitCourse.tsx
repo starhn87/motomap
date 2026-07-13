@@ -145,7 +145,8 @@ export default function SubmitCourse() {
       <ScrollView
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled">
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           코스명 *
         </Text>
