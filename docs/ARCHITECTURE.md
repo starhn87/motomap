@@ -178,7 +178,7 @@ Sentry.wrap(
 
 ### 타입 (`types/index.ts`)
 
-- **`PlaceCategory`** = `cafe` · `restaurant` · `rest_stop` · `gas_station` · `repair_shop` · `viewpoint` · `gear_shop` (7종, DB `places_category_check`와 일치)
+- **`PlaceCategory`** = `cafe` · `restaurant` · `rest_stop` · `gas_station` · `repair_shop` · `viewpoint` · `gear_shop` · `camping` (8종, DB `places_category_check`와 일치)
 - **`Place`** — 좌표(lat/lng)·주소·전화·영업시간·주차정보·사진[]·태그[]·평점·리뷰수·`submittedBy`·`approved`
 - **`RidingCourse`** — 거리(km)·소요(분)·`coordinates [lng,lat][]`·`waypoints: Place[]`·평점
 - **`Review`** — `placeId`·`userId`·`userName`·`avatarUrl`·평점·내용·사진[]
@@ -189,7 +189,7 @@ Sentry.wrap(
 
 | 테이블 | 출처 | 비고 |
 |---|---|---|
-| `places` | 원격(마이그레이션 외) | `location` PostGIS `POINT(lng lat)`, `places_category_check`(7종, 004에서 `gear_shop` 추가) |
+| `places` | 원격(마이그레이션 외) | `location` PostGIS `POINT(lng lat)`, `places_category_check`(8종, 004 `gear_shop` · 011 `camping` 추가) |
 | `courses` | 원격 | `coordinates` jsonb |
 | `reviews` · `course_reviews` | 원격 | `profiles` 조인(닉네임·아바타) |
 | `favorites` | 원격 | (user_id, place_id) |
@@ -221,6 +221,7 @@ Sentry.wrap(
 | `008_course_approval_ai_judge.sql` | 코스 `approved`/`deleted_at`(승인 플로우 도입, 시드 백필) + 코스 알림·승인 푸시 + 제보 AI 판정 EF 호출 트리거 |
 | `009_push_copy_and_deeplink.sql` | 승인 푸시 문구 정리(을/를 조사 함수) + `data`(placeId/courseId) — 알림 탭 시 앱이 해당 장소·코스로 이동 |
 | `010_duplicate_check_rpc.sql` | 중복 제보 방지 RPC (`place_exists_at_address`/`course_exists_with_name`, definer — RLS 숨김 무관하게 존재 여부만 반환) |
+| `011_add_camping_category.sql` | `places_category_check`에 `camping` 추가 (모토캠핑) |
 
 ---
 

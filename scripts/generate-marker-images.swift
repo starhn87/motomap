@@ -30,6 +30,7 @@ let markers = [
   Marker(name: "repair_shop", emoji: "\u{1F3CD}\u{FE0F}", hex: "8B5CF6"), // 🏍️
   Marker(name: "viewpoint", emoji: "\u{1F4F8}", hex: "EC4899"),    // 📸
   Marker(name: "gear_shop", emoji: "\u{1F9E4}", hex: "0EA5E9"),    // 🧤
+  Marker(name: "camping", emoji: "\u{26FA}", hex: "F97316"),       // ⛺
 ]
 
 let outDir = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : FileManager.default.currentDirectoryPath

@@ -9,4 +9,5 @@ export const MARKER_IMAGES: Record<PlaceCategory, any> = {
   repair_shop: require('@/assets/images/markers/repair_shop.png'),
   viewpoint: require('@/assets/images/markers/viewpoint.png'),
   gear_shop: require('@/assets/images/markers/gear_shop.png'),
+  camping: require('@/assets/images/markers/camping.png'),
 };

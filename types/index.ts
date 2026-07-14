@@ -5,7 +5,8 @@ export type PlaceCategory =
   | 'gas_station'
   | 'repair_shop'
   | 'viewpoint'
-  | 'gear_shop';
+  | 'gear_shop'
+  | 'camping';
 
 export interface Place {
   id: string;
