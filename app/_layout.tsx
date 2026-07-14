@@ -13,6 +13,7 @@ import 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 
 import { queryClient } from '@/lib/queryClient';
+import { toastConfig } from '@/components/ui/toastConfig';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useNavPrefStore } from '@/stores/useNavPrefStore';
@@ -104,7 +105,7 @@ function RootLayoutNav() {
           </Stack>
         </ThemeProvider>
       </QueryClientProvider>
-      <Toast />
+      <Toast config={toastConfig} />
     </GestureHandlerRootView>
   );
 }
