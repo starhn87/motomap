@@ -12,13 +12,9 @@ export default function SearchEntry() {
   return (
     <Pressable
       onPress={() => router.push('/search')}
-      style={({ pressed }) => [
+      style={[
         styles.container,
-        {
-          backgroundColor: colors.surfaceElevated,
-          borderColor: colors.border,
-          opacity: pressed ? 0.85 : 1,
-        },
+        { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
       ]}>
       <Text style={styles.searchIcon}>🔍</Text>
       <Text style={[styles.placeholder, { color: colors.textSecondary }]}>장소, 코스 검색</Text>
