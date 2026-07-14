@@ -94,6 +94,7 @@ function RootLayoutNav() {
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="search" options={{ headerShown: false, animation: 'fade' }} />
             <Stack.Screen name="settings" options={{ title: '설정', headerBackTitle: '뒤로' }} />
             <Stack.Screen name="edit-nickname" options={{ title: '닉네임 변경', headerBackTitle: '뒤로' }} />
             <Stack.Screen name="favorites" options={{ title: '즐겨찾기', headerBackTitle: '뒤로' }} />

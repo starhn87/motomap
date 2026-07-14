@@ -12,8 +12,10 @@ import { NaverMapView, NaverMapMarkerOverlay } from '@mj-studio/react-native-nav
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 import Animated, {
   useAnimatedStyle,
-  withSpring,
   useSharedValue,
+  withTiming,
+  withSequence,
+  Easing,
   FadeIn,
 } from 'react-native-reanimated';
 
@@ -33,7 +35,7 @@ import GasStationMarker from '@/components/map/GasStationMarker';
 import GasStationCard from '@/components/map/GasStationCard';
 import RouteLine from '@/components/map/RouteLine';
 import RouteInfoCard from '@/components/map/RouteInfoCard';
-import SearchBar from '@/components/search/SearchBar';
+import SearchEntry from '@/components/search/SearchEntry';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { LocationPulse } from '@/components/map/LocationPulse';
 import { toast } from '@/lib/toast';
@@ -168,13 +170,18 @@ export default function MapScreen() {
     [setSelectedPlaceId, screenHeight]
   );
 
-  // 승인 푸시 탭 → focusPlaceId 파라미터로 진입 시 해당 장소를 선택·포커스
-  const { focusPlaceId } = useLocalSearchParams<{ focusPlaceId?: string }>();
+  // 승인 푸시 탭·검색 화면 선택 → focusPlaceId 파라미터로 진입 시 해당 장소를 선택·포커스.
+  // 같은 장소를 연속 선택해도 반응하도록 focusTs(검색 화면이 넣어줌)까지 포함해 중복 판정한다.
+  const { focusPlaceId, focusTs } = useLocalSearchParams<{
+    focusPlaceId?: string;
+    focusTs?: string;
+  }>();
   const handledFocusIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!focusPlaceId || !mapReady) return;
-    if (handledFocusIdRef.current === focusPlaceId) return;
-    handledFocusIdRef.current = focusPlaceId;
+    const focusKey = `${focusPlaceId}-${focusTs ?? ''}`;
+    if (handledFocusIdRef.current === focusKey) return;
+    handledFocusIdRef.current = focusKey;
     let cancelled = false;
     (async () => {
       const place = await fetchPlaceById(focusPlaceId);
@@ -183,7 +190,7 @@ export default function MapScreen() {
     return () => {
       cancelled = true;
     };
-  }, [focusPlaceId, mapReady, handleSearchSelect]);
+  }, [focusPlaceId, focusTs, mapReady, handleSearchSelect]);
 
   const handleBottomSheetClose = useCallback(() => {
     setSelectedPlaceId(null);
@@ -242,15 +249,22 @@ export default function MapScreen() {
     if (selectedStation) setSelectedStation(null);
   };
 
+  // 탭바와 같은 프레스 감각 — 누르는 동안 움츠리고 떼면 한 번만 튕기며 복귀
   const myLocationScale = useSharedValue(1);
   const myLocationStyle = useAnimatedStyle(() => ({
     transform: [{ scale: myLocationScale.value }],
   }));
+  const handleMyLocationPressIn = () => {
+    myLocationScale.value = withTiming(0.85, { duration: 90 });
+  };
+  const handleMyLocationPressOut = () => {
+    myLocationScale.value = withSequence(
+      withTiming(1.05, { duration: 100, easing: Easing.out(Easing.quad) }),
+      withTiming(1, { duration: 90, easing: Easing.inOut(Easing.quad) }),
+    );
+  };
 
   const handleMyLocation = () => {
-    myLocationScale.value = withSpring(0.85, {}, () => {
-      myLocationScale.value = withSpring(1);
-    });
     if (!userLocation || !mapRef.current) return;
     // 내 위치를 지도 중앙으로 이동(현재 줌 유지)
     mapRef.current.animateCameraTo({
@@ -387,7 +401,7 @@ export default function MapScreen() {
         <Animated.View
           entering={FadeIn.duration(300)}
           style={styles.searchAndFilter}>
-          <SearchBar onSelectPlace={handleSearchSelect} />
+          <SearchEntry />
           <CategoryFilter />
         </Animated.View>
       )}
@@ -423,6 +437,8 @@ export default function MapScreen() {
 
       <AnimatedPressable
         onPress={handleMyLocation}
+        onPressIn={handleMyLocationPressIn}
+        onPressOut={handleMyLocationPressOut}
         style={[
           styles.myLocationButton,
           myLocationStyle,
