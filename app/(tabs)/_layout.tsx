@@ -6,8 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
+  withSequence,
   withTiming,
+  Easing,
   type SharedValue,
 } from 'react-native-reanimated';
 import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
@@ -15,9 +16,10 @@ import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 
-// 누르는 동안 움츠리고(pressIn) 떼는 순간 스프링으로 복귀(pressOut).
+// 누르는 동안 움츠리고(pressIn) 떼는 순간 한 번만 튕기며 복귀(pressOut).
 // tabPress 는 손을 뗀 뒤에야 발생해 이 구분이 불가능하므로 tabBarButton 을 커스텀해
-// pressIn/pressOut 을 직접 잡는다. damping 을 높여 오버슛은 한 번만 튕기고 정착한다.
+// pressIn/pressOut 을 직접 잡는다. 스프링 물리식은 잔진동이 여러 번 남아서,
+// 오버슛 1회가 보장되는 timing 시퀀스(0.82 → 1.06 → 1, 총 210ms)로 만든다.
 function useTabPressScale() {
   const scale = useSharedValue(1);
   return {
@@ -26,7 +28,10 @@ function useTabPressScale() {
       scale.value = withTiming(0.82, { duration: 90 });
     },
     pressOut: () => {
-      scale.value = withSpring(1, { damping: 15, stiffness: 350 });
+      scale.value = withSequence(
+        withTiming(1.06, { duration: 110, easing: Easing.out(Easing.quad) }),
+        withTiming(1, { duration: 100, easing: Easing.inOut(Easing.quad) }),
+      );
     },
   };
 }
