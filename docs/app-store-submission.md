@@ -158,7 +158,7 @@ ridemap-ios-001
 
 ### Support URL
 ```
-https://github.com/starhn87/ridemap/issues
+https://github.com/starhn87/motomap/issues
 ```
 > GitHub Issues 페이지. 별도 지원 페이지 없으면 이걸로 충분.
 
