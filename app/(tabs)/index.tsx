@@ -99,8 +99,12 @@ export default function MapScreen() {
 
   const places = gasMode ? [] : (supabasePlaces ?? []);
   const stations = gasMode && gasZoomOk ? (gasStations ?? []) : [];
-  // sort=1(가격순) 응답이라 첫 항목이 뷰 내 최저가
-  const cheapestPrice = stations[0]?.price;
+  // 최저가 표시는 딱 하나 — 가격순(sort=1) 응답에서 최저가와 동가인 것 중 가장 가까운 곳
+  const cheapestId = stations.length
+    ? stations
+        .filter((s) => s.price === stations[0].price)
+        .reduce((a, b) => (a.distance <= b.distance ? a : b)).id
+    : null;
 
   const handleMarkerPress = useCallback(
     (place: Place) => {
@@ -301,12 +305,12 @@ export default function MapScreen() {
           />
         )}
 
-        {/* 유가 마커 — 가격이 바뀌면 key 로 재캡처 */}
+        {/* 유가 마커 — 캡처된 비트맵이 재사용되므로 표시 내용(가격·최저)이 바뀌면 key 로 재캡처 */}
         {stations.map((station) => (
           <GasStationMarker
-            key={`${station.id}-${station.price}`}
+            key={`${station.id}-${station.price}-${station.id === cheapestId}`}
             station={station}
-            isCheapest={station.price === cheapestPrice}
+            isCheapest={station.id === cheapestId}
             onTap={setSelectedStation}
           />
         ))}
