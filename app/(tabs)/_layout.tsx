@@ -55,7 +55,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: '마이',
+          title: '내 정보',
           tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
         }}
       />

@@ -1,5 +1,5 @@
 appId: com.ridemap.app
-name: 마이 탭
+name: 내 정보 탭
 ---
 - launchApp:
     clearState: true
@@ -7,6 +7,6 @@ name: 마이 탭
       location: allow
 - waitForAnimationToEnd:
     timeout: 5000
-- tapOn: "마이"
+- tapOn: "내 정보"
 - waitForAnimationToEnd
 - takeScreenshot: 06_profile

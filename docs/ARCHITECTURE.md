@@ -75,7 +75,7 @@ ReviewForm → useCreateReview() → createReview() → INSERT reviews
 ```
 app/                    expo-router 파일 기반 라우팅 (화면)
   _layout.tsx           루트: providers·초기화·Stack 정의
-  (tabs)/               하단 탭 4개 (지도·탐색·제보·마이)
+  (tabs)/               하단 탭 4개 (지도·탐색·제보·내 정보)
   course/[id].tsx       코스 상세 + 리뷰
   legal/[type].tsx      약관·정책 뷰어
   settings·favorites·my-reviews·my-submissions·blocked-users·edit-nickname
@@ -119,24 +119,24 @@ Sentry.wrap(
 | 지도 | `/` | `index.tsx` | 지도+POI 탐색, 카테고리 필터, 검색, 마커 탭→상세, 경로 미리보기 |
 | 탐색 | `/courses` | `courses.tsx` | 추천 코스 목록 ↔ "추천 목적지"(RecommendedPlaces) 토글 |
 | 제보 | `/submit` | `submit.tsx` | 장소·코스·건의 3종 제보 폼 |
-| 마이 | `/profile` | `profile.tsx` | 프로필·메뉴(설정·즐겨찾기·내 리뷰·내 제보·로그아웃) |
+| 내 정보 | `/profile` | `profile.tsx` | 프로필·메뉴(설정·즐겨찾기·내 리뷰·내 제보·로그아웃) |
 
 ### 스택 / 모달 라우트 (루트 `Stack`에 등록)
 
 | 라우트 | 진입점 | 화면 |
 |---|---|---|
-| `/settings` | 마이 | 테마·기본 내비 앱·계정 탈퇴 |
-| `/edit-nickname` | 마이 | 닉네임 변경(중복 확인·랜덤 생성) |
-| `/favorites` | 마이 | 즐겨찾기 장소 → 탭 시 외부 내비 |
-| `/my-submissions` | 마이 | 내 제보 + 승인 상태 |
-| `/my-reviews` | 마이 | 내가 쓴 리뷰 |
-| `/blocked-users` | 마이 | 차단 관리(해제) |
+| `/settings` | 내 정보 | 테마·기본 내비 앱·계정 탈퇴 |
+| `/edit-nickname` | 내 정보 | 닉네임 변경(중복 확인·랜덤 생성) |
+| `/favorites` | 내 정보 | 즐겨찾기 장소 → 탭 시 외부 내비 |
+| `/my-submissions` | 내 정보 | 내 제보 + 승인 상태 |
+| `/my-reviews` | 내 정보 | 내가 쓴 리뷰 |
+| `/blocked-users` | 내 정보 | 차단 관리(해제) |
 | `/legal/[type]` | 설정 | 약관·개인정보·위치 문서 (`type` 동적) |
 | `/course/[id]` | 코스 목록·검색 | 코스 상세 + 리뷰 + 경로 미리보기 |
 
 ### 인증 게이팅
 
-제보·마이 탭은 로그인이 필요하다. 비로그인 시 라우트 이동이 아니라 `components/auth/LoginPrompt`를 조건부 렌더한다. 세션은 `useAuthStore`(Supabase Auth)가 들고 있다.
+제보·내 정보 탭은 로그인이 필요하다. 비로그인 시 라우트 이동이 아니라 `components/auth/LoginPrompt`를 조건부 렌더한다. 세션은 `useAuthStore`(Supabase Auth)가 들고 있다.
 
 ### 화면 구성 하이라이트
 
@@ -270,4 +270,4 @@ Sentry.wrap(
 
 **`constants/`**: `Colors`(테마) · `categories`(라벨·아이콘·색) · `course`(거리/시간 포맷터) · `legal`(약관 본문) · `mapStyle`(기본 중심·줌) · `markerImages`(마커 경로) · `riderTags`(하이라이트 태그).
 
-**`.maestro/`**: 메인 지도·코스·마이 플로우를 자동 실행해 App Store용 스크린샷을 캡처(`appId=com.ridemap.app`).
+**`.maestro/`**: 메인 지도·코스·내 정보 플로우를 자동 실행해 App Store용 스크린샷을 캡처(`appId=com.ridemap.app`).

@@ -46,8 +46,8 @@ name: 모토맵 전체 스크린샷 캡처
 - takeScreenshot: 05_course_detail
 - back
 
-# 5. 마이 탭
-- tapOn: "마이"
+# 5. 내 정보 탭
+- tapOn: "내 정보"
 - waitForAnimationToEnd
 - takeScreenshot: 06_profile
 

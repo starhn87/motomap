@@ -14,7 +14,7 @@
 | 지도 · 장소 탐색 | 라이딩 코스 | 코스 상세 |
 |:---:|:---:|:---:|
 | <img src="https://raw.githubusercontent.com/starhn87/ridemap/main/docs/screenshots/01-map.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/ridemap/main/docs/screenshots/02-courses.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/ridemap/main/docs/screenshots/03-course-detail.png" width="240"/> |
-| **장소 상세** | **장소 검색** | **마이 페이지** |
+| **장소 상세** | **장소 검색** | **내 정보** |
 | <img src="https://raw.githubusercontent.com/starhn87/ridemap/main/docs/screenshots/04-place-detail.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/ridemap/main/docs/screenshots/05-search.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/ridemap/main/docs/screenshots/06-profile.png" width="240"/> |
 
 ## ✨ 주요 기능
@@ -45,7 +45,7 @@
 
 ```
 app/                  expo-router 파일 기반 라우팅
-  (tabs)/             탭 (index 지도 · courses 탐색 · submit 제보 · profile 마이)
+  (tabs)/             탭 (index 지도 · courses 탐색 · submit 제보 · profile 내 정보)
   course/[id].tsx     코스 상세
   legal/[type].tsx    약관·정책 뷰어
   settings.tsx        설정

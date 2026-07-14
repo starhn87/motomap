@@ -123,5 +123,5 @@ maestro studio
 | `main.yaml` | 전체 스크린샷 (7개) 한 번에 |
 | `01_main_map.yaml` | 메인 지도만 |
 | `02_courses.yaml` | 코스 목록 + 상세 |
-| `03_profile.yaml` | 마이 탭만 |
+| `03_profile.yaml` | 내 정보 탭만 |
 | `config.yaml` | 공통 설정 (현재 placeholder) |
