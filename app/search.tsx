@@ -190,11 +190,30 @@ export default function SearchScreen() {
           />
         )
       ) : (
-        // 입력 전 — 최근 검색 · 즐겨찾기 · 추천 목적지
+        // 입력 전 — AI 추천 · 최근 검색 · 즐겨찾기 · 추천 목적지
         <ScrollView
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           contentContainerStyle={styles.listContent}>
+          <Pressable
+            onPress={() => {
+              Keyboard.dismiss();
+              router.push('/chat');
+            }}
+            style={({ pressed }) => [
+              styles.aiBanner,
+              { backgroundColor: colors.surface, borderColor: colors.tint, opacity: pressed ? 0.85 : 1 },
+            ]}>
+            <Text style={styles.aiBannerIcon}>🤖</Text>
+            <View style={styles.rowInfo}>
+              <Text style={[styles.rowName, { color: colors.text }]}>AI에게 추천받기</Text>
+              <Text style={[styles.rowSub, { color: colors.textSecondary }]}>
+                코스, 장소를 대화로 골라보세요
+              </Text>
+            </View>
+            <Text style={[styles.aiBannerArrow, { color: colors.tint }]}>→</Text>
+          </Pressable>
+
           {recent.length > 0 && (
             <>
               {sectionTitle(
@@ -368,5 +387,23 @@ const styles = StyleSheet.create({
   },
   removeText: {
     fontSize: 13,
+  },
+  aiBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 6,
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  aiBannerIcon: {
+    fontSize: 22,
+    marginRight: 12,
+  },
+  aiBannerArrow: {
+    fontSize: 18,
+    fontWeight: '700',
   },
 });

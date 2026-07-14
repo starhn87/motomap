@@ -95,6 +95,7 @@ function RootLayoutNav() {
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="search" options={{ headerShown: false, animation: 'none' }} />
+            <Stack.Screen name="chat" options={{ headerShown: false }} />
             <Stack.Screen name="settings" options={{ title: '설정', headerBackTitle: '뒤로' }} />
             <Stack.Screen name="edit-nickname" options={{ title: '닉네임 변경', headerBackTitle: '뒤로' }} />
             <Stack.Screen name="favorites" options={{ title: '즐겨찾기', headerBackTitle: '뒤로' }} />
