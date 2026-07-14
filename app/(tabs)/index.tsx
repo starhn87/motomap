@@ -1,6 +1,7 @@
 import {
   StyleSheet,
   View,
+  Text,
   Pressable,
   Keyboard,
   useWindowDimensions,
@@ -19,6 +20,7 @@ import Animated, {
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { usePlaces } from '@/hooks/usePlaces';
+import { useGasStations, GAS_MIN_ZOOM } from '@/hooks/useGasStations';
 import { fetchPlaceById } from '@/hooks/usePlace';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { fetchRoute } from '@/lib/api/directions';
@@ -27,6 +29,8 @@ import { useColorScheme } from '@/components/useColorScheme';
 import CategoryFilter from '@/components/map/CategoryFilter';
 import { MARKER_IMAGES } from '@/constants/markerImages';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
+import GasStationMarker from '@/components/map/GasStationMarker';
+import GasStationCard from '@/components/map/GasStationCard';
 import RouteLine from '@/components/map/RouteLine';
 import RouteInfoCard from '@/components/map/RouteInfoCard';
 import SearchBar from '@/components/search/SearchBar';
@@ -35,6 +39,7 @@ import { LocationPulse } from '@/components/map/LocationPulse';
 import { toast } from '@/lib/toast';
 import type { Place } from '@/types';
 import type { Route } from '@/lib/api/directions';
+import type { GasStation } from '@/lib/api/gasStations';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -59,7 +64,18 @@ export default function MapScreen() {
   const [mapReady, setMapReady] = useState(false);
   const didCenterOnUserRef = useRef(false);
 
-  const { data: supabasePlaces } = usePlaces(activeFilter, mapCenter);
+  // 주유소 필터는 DB 대신 오피넷 실시간 유가 레이어를 켠다 (반경 5km 제한 → 줌 게이트)
+  const gasMode = activeFilter === 'gas_station';
+  const gasZoomOk = (mapCenter?.zoom ?? DEFAULT_ZOOM) >= GAS_MIN_ZOOM;
+  const [selectedStation, setSelectedStation] = useState<GasStation | null>(null);
+
+  const { data: supabasePlaces } = usePlaces(activeFilter, mapCenter, !gasMode);
+  const { data: gasStations } = useGasStations(mapCenter, gasMode && gasZoomOk && mapReady);
+
+  // 주유소 필터를 벗어나면 선택된 주유소 카드를 닫는다
+  useEffect(() => {
+    if (!gasMode) setSelectedStation(null);
+  }, [gasMode]);
 
   // 최초 1회: 지도가 준비되고 내 위치를 확보하면 카메라를 내 위치로 이동
   useEffect(() => {
@@ -81,7 +97,10 @@ export default function MapScreen() {
     };
   }, []);
 
-  const places = supabasePlaces ?? [];
+  const places = gasMode ? [] : (supabasePlaces ?? []);
+  const stations = gasMode && gasZoomOk ? (gasStations ?? []) : [];
+  // sort=1(가격순) 응답이라 첫 항목이 뷰 내 최저가
+  const cheapestPrice = stations[0]?.price;
 
   const handleMarkerPress = useCallback(
     (place: Place) => {
@@ -177,6 +196,7 @@ export default function MapScreen() {
       setSelectedPlaceId(null);
       setSelectedPlace(null);
     }
+    if (selectedStation) setSelectedStation(null);
   };
 
   const myLocationScale = useSharedValue(1);
@@ -281,6 +301,16 @@ export default function MapScreen() {
           />
         )}
 
+        {/* 유가 마커 — 가격이 바뀌면 key 로 재캡처 */}
+        {stations.map((station) => (
+          <GasStationMarker
+            key={`${station.id}-${station.price}`}
+            station={station}
+            isCheapest={station.price === cheapestPrice}
+            onTap={setSelectedStation}
+          />
+        ))}
+
         {route && <RouteLine route={route} />}
       </NaverMapView>
 
@@ -302,6 +332,16 @@ export default function MapScreen() {
         </Animated.View>
       )}
 
+      {gasMode && !gasZoomOk && (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          style={[styles.zoomHint, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <Text style={[styles.zoomHintText, { color: colors.text }]}>
+            지도를 확대하면 주변 주유소 유가가 보여요
+          </Text>
+        </Animated.View>
+      )}
+
       <AnimatedPressable
         onPress={handleMyLocation}
         style={[
@@ -310,7 +350,7 @@ export default function MapScreen() {
           {
             backgroundColor: colors.background,
             shadowColor: '#000',
-            bottom: navigating ? 200 : selectedPlace ? 260 : 80,
+            bottom: navigating ? 200 : selectedPlace ? 260 : selectedStation ? 280 : 80,
           },
         ]}>
         <View style={styles.myLocationIconContainer}>
@@ -331,6 +371,13 @@ export default function MapScreen() {
       {navigating && route && routePlace && (
         <RouteInfoCard route={route} place={routePlace} onClose={handleRouteClose} />
       )}
+
+      {selectedStation && (
+        <GasStationCard
+          station={selectedStation}
+          onClose={() => setSelectedStation(null)}
+        />
+      )}
     </View>
   );
 }
@@ -350,6 +397,24 @@ const styles = StyleSheet.create({
     zIndex: 5,
     elevation: 5,
     gap: 0,
+  },
+  zoomHint: {
+    position: 'absolute',
+    top: 170,
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  zoomHintText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   myLocationButton: {
     position: 'absolute',

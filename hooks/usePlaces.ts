@@ -16,7 +16,11 @@ function zoomToRadius(zoom: number): number {
   return Math.round(40000000 / Math.pow(2, zoom));
 }
 
-export function usePlaces(category?: PlaceCategory | null, center?: MapCenter | null) {
+export function usePlaces(
+  category?: PlaceCategory | null,
+  center?: MapCenter | null,
+  enabled = true,
+) {
   const radius = center ? zoomToRadius(center.zoom) : 100000;
 
   return useQuery({
@@ -31,6 +35,7 @@ export function usePlaces(category?: PlaceCategory | null, center?: MapCenter | 
           })
         : fetchAllPlaces(category),
     placeholderData: (prev) => prev,
+    enabled,
   });
 }
 
