@@ -70,8 +70,12 @@ function TypingDots({ color }: { color: string }) {
   );
 }
 
-// 어시스턴트 응답 — 글자 수를 rAF 로 점진 확장(남은 길이에 비례해 감속)하고,
-// 새로 나타나는 단어만 페이드인한다. 위치 기반 key 라 이미 나온 단어는 다시 페이드되지 않는다.
+// 어시스턴트 응답 — 단어 단위로 등장시키고(55ms 틱, 남은 양에 비례해 감속) 새 단어만
+// 페이드인한다. 매 프레임 setState(rAF)는 RN JS 스레드에서 프레임 드랍으로 뚝뚝 끊기므로
+// 틱 간격을 벌리고, 페이드가 끝난 앞부분은 일반 문자열로 합쳐 애니메이션 노드를
+// 꼬리 몇 개로만 유지한다 (리렌더 비용 최소화).
+const FADE_TAIL_TOKENS = 12;
+
 function AssistantText({
   content,
   animate,
@@ -83,42 +87,49 @@ function AssistantText({
   textColor: string;
   onDone: () => void;
 }) {
-  const [shown, setShown] = useState(animate ? 0 : content.length);
+  // 공백도 토큰으로 보존해 원문 그대로 이어 붙인다
+  const tokens = content.split(/(\s+)/);
+  const [count, setCount] = useState(animate ? 0 : tokens.length);
 
   useEffect(() => {
     if (!animate) return;
-    let raf = 0;
-    let displayed = 0;
-    const pump = () => {
-      if (displayed < content.length) {
-        const remaining = content.length - displayed;
-        displayed += Math.max(1, Math.ceil(remaining / 40));
-        setShown(Math.min(displayed, content.length));
-        raf = requestAnimationFrame(pump);
-      } else {
-        onDone();
+    let shown = 0;
+    const iv = setInterval(() => {
+      const remaining = tokens.length - shown;
+      if (remaining <= 0) {
+        clearInterval(iv);
+        // 마지막 단어의 페이드가 끝난 뒤 카드로 전환
+        setTimeout(onDone, 260);
+        return;
       }
-    };
-    raf = requestAnimationFrame(pump);
-    return () => cancelAnimationFrame(raf);
+      shown = Math.min(tokens.length, shown + Math.max(2, Math.ceil(remaining / 15)));
+      setCount(shown);
+    }, 55);
+    return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const visible = content.slice(0, shown);
   if (!animate) {
     return <Text style={[styles.bubbleText, { color: textColor }]}>{content}</Text>;
   }
+
+  const settledEnd = Math.max(0, count - FADE_TAIL_TOKENS);
+  const settled = tokens.slice(0, settledEnd).join('');
+  const fading = tokens.slice(settledEnd, count);
+
   return (
     <Text style={[styles.bubbleText, { color: textColor }]}>
-      {visible.split(/(\s+)/).map((part, i) =>
-        part.trim() === '' ? (
+      {settled}
+      {fading.map((part, i) => {
+        const key = settledEnd + i;
+        return part.trim() === '' ? (
           part
         ) : (
-          <Animated.Text key={i} entering={FadeIn.duration(280)}>
+          <Animated.Text key={key} entering={FadeIn.duration(240)}>
             {part}
           </Animated.Text>
-        ),
-      )}
+        );
+      })}
     </Text>
   );
 }
@@ -334,7 +345,8 @@ export default function ChatScreen() {
             renderItem={renderMessage}
             contentContainerStyle={styles.messageList}
             keyboardDismissMode="on-drag"
-            onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+            // animated 스크롤은 점진 표시와 매 틱 경합해 덜컥거린다 — 즉시 점프로 따라간다
+            onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
             ListFooterComponent={
               sending ? (
                 <Animated.View
