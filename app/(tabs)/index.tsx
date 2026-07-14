@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { NaverMapView } from '@mj-studio/react-native-naver-map';
+import { NaverMapView, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 import Animated, {
   useAnimatedStyle,
@@ -265,6 +265,8 @@ export default function MapScreen() {
     zoom: DEFAULT_ZOOM,
   };
 
+  // 선택 강조는 별도 오버레이 마커가 맡는다 — selectedPlaceId 를 의존성에서 빼서
+  // 마커 탭마다 클러스터 전체가 네이티브로 재전송·재계산되는 것을 막는다
   const clusterMarkers = useMemo(
     () =>
       places.map((place) => ({
@@ -272,10 +274,10 @@ export default function MapScreen() {
         latitude: place.latitude,
         longitude: place.longitude,
         image: MARKER_IMAGES[place.category],
-        width: selectedPlaceId === place.id ? 52 : 40,
-        height: selectedPlaceId === place.id ? 52 : 40,
+        width: 40,
+        height: 40,
       })),
-    [places, selectedPlaceId]
+    [places]
   );
 
   return (
@@ -325,6 +327,19 @@ export default function MapScreen() {
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
             heading={heading}
+          />
+        )}
+
+        {/* 선택된 장소 강조 — 클러스터 마커 위에 같은 이미지를 크게 얹는다 */}
+        {selectedPlace && (
+          <NaverMapMarkerOverlay
+            latitude={selectedPlace.latitude}
+            longitude={selectedPlace.longitude}
+            image={MARKER_IMAGES[selectedPlace.category]}
+            width={52}
+            height={52}
+            anchor={{ x: 0.5, y: 1 }}
+            zIndex={100}
           />
         )}
 
