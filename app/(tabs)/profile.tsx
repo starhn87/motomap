@@ -22,6 +22,7 @@ import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { updateAvatarUrl } from '@/lib/nickname';
 import { toast } from '@/lib/toast';
 import LoginPrompt from '@/components/auth/LoginPrompt';
+import ImageViewer from '@/components/ui/ImageViewer';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -77,6 +78,7 @@ function LoggedInContent() {
     user.user_metadata?.avatar_url ?? null
   );
   const [uploading, setUploading] = useState(false);
+  const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
 
   const displayName = user.user_metadata?.name
     ?? user.user_metadata?.full_name
@@ -109,7 +111,10 @@ function LoggedInContent() {
   return (
     <>
       <Animated.View entering={FadeInDown.duration(300)} style={styles.profileHeader}>
-        <Pressable onPress={handleChangeAvatar} disabled={uploading}>
+        {/* 사진이 있으면 본체 탭은 확대 보기, 변경은 📷 뱃지로 분리 */}
+        <Pressable
+          onPress={avatarUrl ? () => setAvatarViewerOpen(true) : handleChangeAvatar}
+          disabled={uploading}>
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
           ) : (
@@ -119,9 +124,13 @@ function LoggedInContent() {
               </Text>
             </View>
           )}
-          <View style={styles.avatarBadge}>
+          <Pressable
+            onPress={handleChangeAvatar}
+            disabled={uploading}
+            hitSlop={6}
+            style={styles.avatarBadge}>
             <Text style={styles.avatarBadgeText}>{uploading ? '...' : '📷'}</Text>
-          </View>
+          </Pressable>
         </Pressable>
         <Text style={[styles.name, { color: colors.text }]}>
           {displayName}
@@ -143,6 +152,14 @@ function LoggedInContent() {
           danger
         />
       </Animated.View>
+
+      {avatarUrl && (
+        <ImageViewer
+          visible={avatarViewerOpen}
+          photos={[avatarUrl]}
+          onClose={() => setAvatarViewerOpen(false)}
+        />
+      )}
     </>
   );
 }

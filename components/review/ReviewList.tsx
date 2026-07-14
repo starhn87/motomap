@@ -19,6 +19,7 @@ import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
 import ReportSheet from '@/components/report/ReportSheet';
+import ImageViewer from '@/components/ui/ImageViewer';
 import StarRating from './StarRating';
 
 interface Props {
@@ -40,6 +41,7 @@ export default function ReviewList({ placeId }: Props) {
   const [editContent, setEditContent] = useState('');
   const [editPhotos, setEditPhotos] = useState<string[]>([]);
   const [reportingId, setReportingId] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
 
   const visibleReviews = reviews?.filter((r) => !blockedIds.has(r.userId));
 
@@ -251,11 +253,12 @@ export default function ReviewList({ placeId }: Props) {
                     showsHorizontalScrollIndicator={false}
                     style={styles.reviewPhotos}>
                     {review.photos.map((url, i) => (
-                      <RNImage
+                      <TouchableOpacity
                         key={`${url}-${i}`}
-                        source={{ uri: url }}
-                        style={styles.reviewPhoto}
-                      />
+                        activeOpacity={0.85}
+                        onPress={() => setViewer({ photos: review.photos, index: i })}>
+                        <RNImage source={{ uri: url }} style={styles.reviewPhoto} />
+                      </TouchableOpacity>
                     ))}
                   </ScrollView>
                 )}
@@ -293,6 +296,12 @@ export default function ReviewList({ placeId }: Props) {
         onClose={() => setReportingId(null)}
         targetType="review"
         targetId={reportingId ?? ''}
+      />
+      <ImageViewer
+        visible={!!viewer}
+        photos={viewer?.photos ?? []}
+        initialIndex={viewer?.index ?? 0}
+        onClose={() => setViewer(null)}
       />
     </View>
   );
