@@ -161,7 +161,11 @@ export default function ReviewList({ placeId }: Props) {
             <View style={styles.reviewHeader}>
               <View style={styles.reviewUser}>
                 {review.avatarUrl ? (
-                  <RNImage source={{ uri: review.avatarUrl }} style={styles.avatarImage} />
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => setViewer({ photos: [review.avatarUrl!], index: 0 })}>
+                    <RNImage source={{ uri: review.avatarUrl }} style={styles.avatarImage} />
+                  </TouchableOpacity>
                 ) : (
                   <View style={[styles.avatar, { backgroundColor: colors.tint }]}>
                     <Text style={[styles.avatarText, { color: colors.background }]}>
