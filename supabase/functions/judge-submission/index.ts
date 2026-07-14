@@ -1,17 +1,24 @@
 // 제보(장소·코스) AI 판정 — DB 트리거(notify_ai_judge)가 호출하는 Edge Function.
-// 장소는 카카오 로컬로 실장소를 교차검증한 뒤 Claude 가 바이크 특화 여부를 판정하고,
-// 결과(승인 추천/반려 추천/판단 유보 + 근거)를 디스코드로 보낸다.
+// 1) 카카오 로컬 교차검증 + 웹 검색으로 라이더 근거 조사 → 2) 구조화 판정 →
+// 3) 결과(승인 추천/반려 추천/판단 유보 + 근거)를 디스코드로 발송.
 // 판정은 "추천"일 뿐 — 승인/반려 결정은 관리자가 한다 (Phase A).
+//
+// 요청은 즉시 200을 반환하고 판정은 백그라운드(EdgeRuntime.waitUntil)에서 진행 —
+// 호출자(pg_net)의 짧은 타임아웃이 판정을 중단시키지 않도록.
 //
 // 필요한 secrets (Edge Functions > Secrets):
 //   ANTHROPIC_API_KEY, KAKAO_REST_API_KEY, DISCORD_WEBHOOK_URL, JUDGE_WEBHOOK_SECRET
 // 배포 시 "Enforce JWT verification" 은 끈다 — 인증은 x-judge-secret 헤더로 한다.
 import Anthropic from 'npm:@anthropic-ai/sdk';
 
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
+
 const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
 const KAKAO_KEY = Deno.env.get('KAKAO_REST_API_KEY');
 const DISCORD_URL = Deno.env.get('DISCORD_WEBHOOK_URL');
 const SECRET = Deno.env.get('JUDGE_WEBHOOK_SECRET');
+
+const MODEL = 'claude-opus-4-8';
 
 interface Verdict {
   verdict: 'approve' | 'reject' | 'uncertain';
@@ -33,14 +40,16 @@ const VERDICT_SCHEMA = {
 const SYSTEM = `너는 "모토맵"(한국 오토바이 라이더용 지도 앱)의 제보 심사 보조자다.
 지도에는 라이더에게 실질 가치가 있는 장소만 올린다.
 
-승인 기준 (엄격):
-- 바이커 카페(라이더 집결지), 오토바이 정비소, 바이크 용품점, 라이딩 뷰포인트,
-  라이더가 실제로 애용하는 휴게소·주유소처럼 "라이더 특화" 정체성이 분명한 곳만 승인.
-- 일반 카페·맛집은 "바이크 주차 가능", "라이더가 가기 좋음" 정도로는 부족 → 반려.
-  (실제 사례: 설명에 "바이크 주차 문제없고 맛있다"고 적힌 일반 맛집도 관리자가 반려했다)
-- 카카오 검색 결과와 제보 내용이 심하게 어긋나면(존재 불명·카테고리 불일치) 유보 또는 반려.
-- 코스는 실제 라이딩 코스로서 말이 되는지(경로·거리·설명의 정합성), 장난/스팸 여부를 본다.
-- 확신이 없으면 uncertain — 무리하게 승인하지 않는다.`;
+판정 기준:
+- 승인: 바이커 카페(라이더 집결지), 오토바이 정비소, 바이크 용품점, 라이딩 뷰포인트,
+  라이더가 실제로 애용하는 휴게소·주유소처럼 "라이더 특화" 정체성의 근거가 있는 곳.
+  제보 설명이 비어 있어도 웹 조사에서 라이더 커뮤니티·블로그가 라이딩 목적지로
+  다루는 근거가 확인되면 승인해도 된다.
+- 반려: "일반 장소"라는 적극적 근거가 있을 때 — 예: 조사 결과 평범한 카페/맛집이고
+  라이더 관련 언급이 전혀 없음. "바이크 주차 가능", "라이더가 가기 좋음" 정도의
+  설명만으로는 승인 근거가 되지 않는다(실제로 그런 일반 맛집을 관리자가 반려했다).
+- 유보(uncertain): 근거가 없거나 상충할 때. 근거 부재는 반려가 아니라 유보다.
+- 코스: 실제 라이딩 코스로서 정합성(경로·거리·설명), 장난/스팸 여부를 본다.`;
 
 async function kakaoLookup(name: string, address: string) {
   if (!KAKAO_KEY) return null;
@@ -64,39 +73,78 @@ async function kakaoLookup(name: string, address: string) {
   }
 }
 
+// 웹 검색으로 라이더 근거 조사 (서버 도구 — pause_turn 시 이어서 재요청)
+async function webResearch(prompt: string): Promise<string> {
+  let messages: Anthropic.MessageParam[] = [{ role: 'user', content: prompt }];
+  let resp = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 6000,
+    tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 4 }],
+    messages,
+  });
+  let guard = 0;
+  while (resp.stop_reason === 'pause_turn' && guard++ < 3) {
+    messages = [...messages, { role: 'assistant', content: resp.content }];
+    resp = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 6000,
+      tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 4 }],
+      messages,
+    });
+  }
+  return resp.content
+    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+    .map((b) => b.text)
+    .join('\n')
+    .trim();
+}
+
 async function judge(table: string, record: Record<string, unknown>): Promise<{ v: Verdict; evidence: string }> {
-  let evidence = '';
-  let task = '';
+  let evidenceParts: string[] = [];
+  let submitted = '';
 
   if (table === 'places') {
-    const kakao = await kakaoLookup(String(record.name ?? ''), String(record.address ?? ''));
-    evidence = kakao === null
-      ? '(카카오 조회 실패 — 제보 내용만으로 판단)'
-      : kakao.length === 0
-        ? '카카오에 등록되지 않은 이름 (비상호 장소이거나 존재 불명)'
-        : JSON.stringify(kakao);
-    task = `장소 제보를 심사하라.
-제보 내용: ${JSON.stringify({
+    submitted = JSON.stringify({
       name: record.name, category: record.category, address: record.address,
       description: record.description, tags: record.tags, phone: record.phone,
-    })}
-카카오 로컬 검색 결과(교차검증용): ${evidence}`;
+    });
+
+    const kakao = await kakaoLookup(String(record.name ?? ''), String(record.address ?? ''));
+    evidenceParts.push(
+      '카카오 로컬: ' + (kakao === null
+        ? '(조회 실패)'
+        : kakao.length === 0
+          ? '미등록 (비상호 장소이거나 존재 불명)'
+          : JSON.stringify(kakao)),
+    );
+
+    // 웹 조사 — 제보 텍스트에 근거가 없어도 유명 라이더 스팟은 여기서 드러난다
+    const web = await webResearch(
+      `한국의 장소 "${record.name}" (주소: ${record.address ?? '?'}) 이(가) 오토바이 라이더들에게 ` +
+      `알려진 곳인지 웹에서 조사하라. "${record.name} 바이크", "${record.name} 오토바이", "${record.name} 라이더" 등으로 검색해 ` +
+      `라이더 커뮤니티·블로그·후기의 언급 여부를 확인하고, 발견한 근거를 한국어 3~5문장으로 요약하라. ` +
+      `근거가 없으면 "라이더 관련 언급을 찾지 못함"이라고 명시하라.`,
+    ).catch((e) => `(웹 조사 실패: ${String(e).slice(0, 120)})`);
+    evidenceParts.push('웹 조사: ' + web);
   } else {
     const coordCount = Array.isArray(record.coordinates) ? record.coordinates.length : 0;
-    task = `라이딩 코스 제보를 심사하라.
-제보 내용: ${JSON.stringify({
+    submitted = JSON.stringify({
       name: record.name, description: record.description, tags: record.tags,
       distance_km: record.distance, duration_min: record.duration, waypoint_count: coordCount,
-    })}`;
-    evidence = `경유지 ${coordCount}개`;
+    });
+    evidenceParts.push(`경유지 ${coordCount}개`);
   }
 
+  const evidence = evidenceParts.join('\n');
   const response = await anthropic.messages.create({
-    model: 'claude-opus-4-8',
+    model: MODEL,
     max_tokens: 2048,
     system: SYSTEM,
     output_config: { format: { type: 'json_schema', schema: VERDICT_SCHEMA } },
-    messages: [{ role: 'user', content: task }],
+    messages: [{
+      role: 'user',
+      content: `${table === 'places' ? '장소' : '라이딩 코스'} 제보를 심사하라.\n제보 내용: ${submitted}\n\n교차검증 자료:\n${evidence}`,
+    }],
   });
 
   const text = response.content.find((b) => b.type === 'text')?.text ?? '{}';
@@ -108,7 +156,7 @@ async function postDiscord(content: string) {
   await fetch(DISCORD_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content: content.slice(0, 1900) }),
   });
 }
 
@@ -121,26 +169,28 @@ const CONFIDENCE_LABEL: Record<Verdict['confidence'], string> = {
   high: '확신 높음', medium: '보통', low: '낮음',
 };
 
-Deno.serve(async (req) => {
-  if (req.headers.get('x-judge-secret') !== SECRET) {
-    return new Response('unauthorized', { status: 401 });
-  }
-
-  const { table, record } = await req.json();
+async function judgeAndPost(table: string, record: Record<string, unknown>) {
   const icon = table === 'places' ? '📍' : '🛣️';
-
   try {
     const { v, evidence } = await judge(table, record);
     await postDiscord(
       `🤖 AI 판정 — ${icon} ${record.name}\n` +
       `**${VERDICT_LABEL[v.verdict]}** (${CONFIDENCE_LABEL[v.confidence]})\n` +
       `근거: ${v.reason}\n` +
-      `-# 교차검증: ${evidence.slice(0, 500)}`,
+      `-# ${evidence.replaceAll('\n', ' · ').slice(0, 600)}`,
     );
   } catch (e) {
     // 기본 제보 알림은 별도 트리거로 이미 발송됨 — 판정 실패만 알린다
     await postDiscord(`🤖 AI 판정 실패 — ${icon} ${record?.name ?? '?'}\n${String(e).slice(0, 300)}`);
   }
+}
 
+Deno.serve(async (req) => {
+  if (req.headers.get('x-judge-secret') !== SECRET) {
+    return new Response('unauthorized', { status: 401 });
+  }
+  const { table, record } = await req.json();
+  // 즉시 200 — 판정(웹 검색 포함, 수십 초)은 백그라운드에서
+  EdgeRuntime.waitUntil(judgeAndPost(table, record));
   return Response.json({ ok: true });
 });
