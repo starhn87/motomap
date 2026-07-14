@@ -265,6 +265,7 @@ Sentry.wrap(
 
 **`scripts/`** (모두 Node, `.env` 직접 로드):
 - `seed-bike-cafes.mjs`(15) · `seed-repair-shops.mjs`(2) · `seed-gear-shops.mjs`(4) — 주소를 네이버 지오코딩으로 좌표 변환 후 `places`에 삽입(`approved=true`).
+- `seed-national-expansion.mjs`(장소 19 + 코스 8) — 전국 확장(강원·충청·전라·경상·제주). 장소는 카카오 로컬로 사전 검증한 좌표를 인라인, 코스 경유지는 실행 시 카카오 키워드 검색으로 해석해 `courses.coordinates`에 저장.
 - `cleanup-places.mjs`(중복 삭제·태그 정규화) · `list-places.mjs`(카테고리별 감사) · `verify-place-coords.mjs`(`all_places` RPC로 좌표 누락 점검).
 - `generate-marker-images.swift`(카테고리 마커 PNG 생성) · `invert-theme.js`(라이트 아이콘→다크 변환, sharp).
 
