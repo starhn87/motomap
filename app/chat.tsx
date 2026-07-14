@@ -7,11 +7,21 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
 } from 'react-native';
-import { useState, useRef, useCallback } from 'react';
+// eslint 참고: TypingDots 의 훅은 고정 3개 점에만 쓰여 순서가 안정적이다
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  withDelay,
+} from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
@@ -27,6 +37,90 @@ interface ChatMessage {
   content: string;
   places?: ChatPlaceCard[];
   courses?: ChatCourseCard[];
+  /** 최초 도착 시에만 점진 표시 — FlatList 재마운트로 다시 타이핑되지 않게 완료 후 false */
+  animate?: boolean;
+}
+
+// 타이핑 인디케이터 — 점 3개가 번갈아 튀어오른다
+function TypingDots({ color }: { color: string }) {
+  const dots = [useSharedValue(0), useSharedValue(0), useSharedValue(0)];
+  useEffect(() => {
+    dots.forEach((v, i) => {
+      v.value = withDelay(
+        i * 140,
+        withRepeat(
+          withSequence(withTiming(-4, { duration: 260 }), withTiming(0, { duration: 260 })),
+          -1,
+        ),
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <View style={styles.typingDots}>
+      {dots.map((v, i) => {
+        // 점 3개 고정이라 훅 순서는 안정적
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        const style = useAnimatedStyle(() => ({ transform: [{ translateY: v.value }] }));
+        return (
+          <Animated.View key={i} style={[styles.typingDot, { backgroundColor: color }, style]} />
+        );
+      })}
+    </View>
+  );
+}
+
+// 어시스턴트 응답 — 글자 수를 rAF 로 점진 확장(남은 길이에 비례해 감속)하고,
+// 새로 나타나는 단어만 페이드인한다. 위치 기반 key 라 이미 나온 단어는 다시 페이드되지 않는다.
+function AssistantText({
+  content,
+  animate,
+  textColor,
+  onDone,
+}: {
+  content: string;
+  animate: boolean;
+  textColor: string;
+  onDone: () => void;
+}) {
+  const [shown, setShown] = useState(animate ? 0 : content.length);
+
+  useEffect(() => {
+    if (!animate) return;
+    let raf = 0;
+    let displayed = 0;
+    const pump = () => {
+      if (displayed < content.length) {
+        const remaining = content.length - displayed;
+        displayed += Math.max(1, Math.ceil(remaining / 40));
+        setShown(Math.min(displayed, content.length));
+        raf = requestAnimationFrame(pump);
+      } else {
+        onDone();
+      }
+    };
+    raf = requestAnimationFrame(pump);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const visible = content.slice(0, shown);
+  if (!animate) {
+    return <Text style={[styles.bubbleText, { color: textColor }]}>{content}</Text>;
+  }
+  return (
+    <Text style={[styles.bubbleText, { color: textColor }]}>
+      {visible.split(/(\s+)/).map((part, i) =>
+        part.trim() === '' ? (
+          part
+        ) : (
+          <Animated.Text key={i} entering={FadeIn.duration(280)}>
+            {part}
+          </Animated.Text>
+        ),
+      )}
+    </Text>
+  );
 }
 
 const SUGGESTIONS = [
@@ -70,6 +164,7 @@ export default function ChatScreen() {
             content: res.reply,
             places: res.places,
             courses: res.courses,
+            animate: true,
           },
         ]);
       } catch (e: any) {
@@ -79,6 +174,7 @@ export default function ChatScreen() {
             id: `m${++idRef.current}`,
             role: 'assistant',
             content: e.message ?? '추천을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+            animate: true,
           },
         ]);
       } finally {
@@ -96,10 +192,17 @@ export default function ChatScreen() {
     });
   };
 
+  // 점진 표시가 끝나면 animate 를 내려 재마운트 시 다시 타이핑되지 않게 한다
+  const markAnimated = useCallback((id: string) => {
+    setMessages((cur) => cur.map((m) => (m.id === id ? { ...m, animate: false } : m)));
+  }, []);
+
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isUser = item.role === 'user';
     return (
-      <View style={[styles.messageRow, isUser ? styles.userRow : styles.assistantRow]}>
+      <Animated.View
+        entering={FadeInDown.duration(250)}
+        style={[styles.messageRow, isUser ? styles.userRow : styles.assistantRow]}>
         <View
           style={[
             styles.bubble,
@@ -107,13 +210,20 @@ export default function ChatScreen() {
               ? { backgroundColor: colors.tint }
               : { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
           ]}>
-          <Text style={[styles.bubbleText, { color: isUser ? colors.background : colors.text }]}>
-            {item.content}
-          </Text>
+          {isUser ? (
+            <Text style={[styles.bubbleText, { color: colors.background }]}>{item.content}</Text>
+          ) : (
+            <AssistantText
+              content={item.content}
+              animate={!!item.animate}
+              textColor={colors.text}
+              onDone={() => markAnimated(item.id)}
+            />
+          )}
         </View>
 
-        {!isUser && (item.places?.length || item.courses?.length) ? (
-          <View style={styles.cards}>
+        {!isUser && !item.animate && (item.places?.length || item.courses?.length) ? (
+          <Animated.View entering={FadeInDown.duration(300)} style={styles.cards}>
             {item.places?.map((p) => {
               const cat = CATEGORIES[p.category as PlaceCategory];
               return (
@@ -167,9 +277,9 @@ export default function ChatScreen() {
                 <Text style={[styles.cardBadge, { color: colors.tint }]}>코스</Text>
               </Pressable>
             ))}
-          </View>
+          </Animated.View>
         ) : null}
-      </View>
+      </Animated.View>
     );
   };
 
@@ -227,15 +337,17 @@ export default function ChatScreen() {
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
             ListFooterComponent={
               sending ? (
-                <View style={[styles.messageRow, styles.assistantRow]}>
+                <Animated.View
+                  entering={FadeInDown.duration(250)}
+                  style={[styles.messageRow, styles.assistantRow]}>
                   <View
                     style={[
                       styles.bubble,
                       { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
                     ]}>
-                    <ActivityIndicator size="small" color={colors.tint} />
+                    <TypingDots color={colors.textSecondary} />
                   </View>
-                </View>
+                </Animated.View>
               ) : null
             }
           />
@@ -433,5 +545,17 @@ const styles = StyleSheet.create({
   sendText: {
     fontSize: 18,
     fontWeight: '700',
+  },
+  typingDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+  },
+  typingDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
 });
