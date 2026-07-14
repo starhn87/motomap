@@ -112,10 +112,8 @@ function AssistantText({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!animate) {
-    return <Text style={[styles.bubbleText, { color: textColor }]}>{content}</Text>;
-  }
-
+  // 완료 후에도 동일한 단어 배치(flexWrap·간격)를 유지한다 — 일반 Text 로 바꾸면
+  // 공백 폭·줄바꿈 규칙이 달라져 완료 순간 글자들이 미세하게 재배치되기 때문
   let wordIndex = 0;
   return (
     <View>
@@ -127,7 +125,13 @@ function AssistantText({
             {words.map((w) => {
               const delay = wordIndex * WORD_DELAY_MS;
               wordIndex += 1;
-              return <FadeWord key={wordIndex} word={w} delay={delay} textColor={textColor} />;
+              return animate ? (
+                <FadeWord key={wordIndex} word={w} delay={delay} textColor={textColor} />
+              ) : (
+                <Text key={wordIndex} style={[styles.bubbleText, { color: textColor }]}>
+                  {w}
+                </Text>
+              );
             })}
           </View>
         ),
