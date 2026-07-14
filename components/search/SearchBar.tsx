@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 
@@ -17,6 +17,14 @@ import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
 import { searchAll } from '@/lib/api/search';
 import { formatDistance } from '@/constants/course';
+import {
+  loadRecentSearches,
+  addRecentSearch,
+  removeRecentSearch,
+  clearRecentSearches,
+  recentKey,
+  type RecentSearch,
+} from '@/lib/recentSearches';
 import type { Place } from '@/types';
 
 interface Props {
@@ -29,6 +37,11 @@ export default function SearchBar({ onSelectPlace, onDismiss }: Props) {
   const colors = Colors[colorScheme ?? 'light'];
   const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [recent, setRecent] = useState<RecentSearch[]>([]);
+
+  useEffect(() => {
+    loadRecentSearches().then(setRecent);
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ['search', query],
@@ -42,15 +55,17 @@ export default function SearchBar({ onSelectPlace, onDismiss }: Props) {
       setIsFocused(false);
       Keyboard.dismiss();
       onSelectPlace(place);
+      addRecentSearch({ type: 'place', place }).then(setRecent);
     },
     [onSelectPlace]
   );
 
-  const handleSelectCourse = useCallback((courseId: string) => {
+  const handleSelectCourse = useCallback((courseId: string, courseName: string) => {
     setQuery('');
     setIsFocused(false);
     Keyboard.dismiss();
     router.push(`/course/${courseId}`);
+    addRecentSearch({ type: 'course', id: courseId, name: courseName }).then(setRecent);
   }, []);
 
   const handleClear = () => {
@@ -59,6 +74,7 @@ export default function SearchBar({ onSelectPlace, onDismiss }: Props) {
 
   const showResults = isFocused && query.trim().length >= 2;
   const hasResults = (data?.places.length ?? 0) + (data?.courses.length ?? 0) > 0;
+  const showRecent = isFocused && query.trim().length < 2 && recent.length > 0;
 
   return (
     <View style={styles.container}>
@@ -78,6 +94,7 @@ export default function SearchBar({ onSelectPlace, onDismiss }: Props) {
           value={query}
           onChangeText={setQuery}
           onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           returnKeyType="search"
         />
         {query.length > 0 && (
@@ -86,6 +103,56 @@ export default function SearchBar({ onSelectPlace, onDismiss }: Props) {
           </Pressable>
         )}
       </View>
+
+      {showRecent && (
+        <View
+          style={[
+            styles.results,
+            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+          ]}>
+          <View style={[styles.recentHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.recentTitle, { color: colors.textSecondary }]}>최근 검색</Text>
+            <Pressable
+              hitSlop={8}
+              onPress={() => {
+                setRecent([]);
+                clearRecentSearches();
+              }}>
+              <Text style={[styles.recentClear, { color: colors.textSecondary }]}>지우기</Text>
+            </Pressable>
+          </View>
+          {recent.map((entry) => {
+            const key = recentKey(entry);
+            const isPlace = entry.type === 'place';
+            const icon = isPlace ? CATEGORIES[entry.place.category].icon : '🛣️';
+            const name = isPlace ? entry.place.name : entry.name;
+            return (
+              <Pressable
+                key={key}
+                onPress={() =>
+                  isPlace ? handleSelectPlace(entry.place) : handleSelectCourse(entry.id, entry.name)
+                }
+                style={({ pressed }) => [
+                  styles.resultItem,
+                  { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                ]}>
+                <Text style={styles.resultIcon}>{icon}</Text>
+                <View style={styles.resultInfo}>
+                  <Text style={[styles.resultName, { color: colors.text }]} numberOfLines={1}>
+                    {name}
+                  </Text>
+                </View>
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => removeRecentSearch(key).then(setRecent)}
+                  style={styles.recentRemove}>
+                  <Text style={[styles.recentRemoveText, { color: colors.textSecondary }]}>✕</Text>
+                </Pressable>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
 
       {showResults && (
         <View
@@ -141,7 +208,7 @@ export default function SearchBar({ onSelectPlace, onDismiss }: Props) {
                   const course = item.data;
                   return (
                     <Pressable
-                      onPress={() => handleSelectCourse(course.id)}
+                      onPress={() => handleSelectCourse(course.id, course.name)}
                       style={({ pressed }) => [
                         styles.resultItem,
                         { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
@@ -250,5 +317,27 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     marginLeft: 8,
+  },
+  recentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  recentTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  recentClear: {
+    fontSize: 12,
+  },
+  recentRemove: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  recentRemoveText: {
+    fontSize: 13,
   },
 });
