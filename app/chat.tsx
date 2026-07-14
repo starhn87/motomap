@@ -13,7 +13,6 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
-  FadeIn,
   FadeInDown,
   useSharedValue,
   useAnimatedStyle,
@@ -70,11 +69,25 @@ function TypingDots({ color }: { color: string }) {
   );
 }
 
-// 어시스턴트 응답 — 단어 단위로 등장시키고(55ms 틱, 남은 양에 비례해 감속) 새 단어만
-// 페이드인한다. 매 프레임 setState(rAF)는 RN JS 스레드에서 프레임 드랍으로 뚝뚝 끊기므로
-// 틱 간격을 벌리고, 페이드가 끝난 앞부분은 일반 문자열로 합쳐 애니메이션 노드를
-// 꼬리 몇 개로만 유지한다 (리렌더 비용 최소화).
-const FADE_TAIL_TOKENS = 12;
+// 어시스턴트 응답 — 모든 단어를 처음부터 투명하게 배치해 버블 크기를 즉시 확정하고
+// (리플로우·스크롤 점프 없음), 각 단어의 opacity 만 UI 스레드에서 순차 페이드한다.
+// setState 틱이 전혀 없어 JS 스레드가 바빠도 60fps 가 유지된다.
+const WORD_DELAY_MS = 40;
+const WORD_FADE_MS = 260;
+
+function FadeWord({ word, delay, textColor }: { word: string; delay: number; textColor: string }) {
+  const opacity = useSharedValue(0);
+  useEffect(() => {
+    opacity.value = withDelay(delay, withTiming(1, { duration: WORD_FADE_MS }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return (
+    <Animated.View style={style}>
+      <Text style={[styles.bubbleText, { color: textColor }]}>{word}</Text>
+    </Animated.View>
+  );
+}
 
 function AssistantText({
   content,
@@ -87,25 +100,15 @@ function AssistantText({
   textColor: string;
   onDone: () => void;
 }) {
-  // 공백도 토큰으로 보존해 원문 그대로 이어 붙인다
-  const tokens = content.split(/(\s+)/);
-  const [count, setCount] = useState(animate ? 0 : tokens.length);
+  // 줄 단위로 나눠 개행을 보존하고, 각 줄 안에서 단어를 flexWrap 으로 흘린다
+  const lines = content.split('\n').map((line) => line.split(/\s+/).filter(Boolean));
+  const totalWords = lines.reduce((sum, l) => sum + l.length, 0);
 
   useEffect(() => {
     if (!animate) return;
-    let shown = 0;
-    const iv = setInterval(() => {
-      const remaining = tokens.length - shown;
-      if (remaining <= 0) {
-        clearInterval(iv);
-        // 마지막 단어의 페이드가 끝난 뒤 카드로 전환
-        setTimeout(onDone, 260);
-        return;
-      }
-      shown = Math.min(tokens.length, shown + Math.max(2, Math.ceil(remaining / 15)));
-      setCount(shown);
-    }, 55);
-    return () => clearInterval(iv);
+    const total = Math.max(0, totalWords - 1) * WORD_DELAY_MS + WORD_FADE_MS + 120;
+    const t = setTimeout(onDone, total);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -113,24 +116,23 @@ function AssistantText({
     return <Text style={[styles.bubbleText, { color: textColor }]}>{content}</Text>;
   }
 
-  const settledEnd = Math.max(0, count - FADE_TAIL_TOKENS);
-  const settled = tokens.slice(0, settledEnd).join('');
-  const fading = tokens.slice(settledEnd, count);
-
+  let wordIndex = 0;
   return (
-    <Text style={[styles.bubbleText, { color: textColor }]}>
-      {settled}
-      {fading.map((part, i) => {
-        const key = settledEnd + i;
-        return part.trim() === '' ? (
-          part
+    <View>
+      {lines.map((words, li) =>
+        words.length === 0 ? (
+          <View key={`br-${li}`} style={styles.lineBreak} />
         ) : (
-          <Animated.Text key={key} entering={FadeIn.duration(240)}>
-            {part}
-          </Animated.Text>
-        );
-      })}
-    </Text>
+          <View key={`line-${li}`} style={styles.wordWrap}>
+            {words.map((w) => {
+              const delay = wordIndex * WORD_DELAY_MS;
+              wordIndex += 1;
+              return <FadeWord key={wordIndex} word={w} delay={delay} textColor={textColor} />;
+            })}
+          </View>
+        ),
+      )}
+    </View>
   );
 }
 
@@ -569,5 +571,13 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 3.5,
+  },
+  wordWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: 4,
+  },
+  lineBreak: {
+    height: 8,
   },
 });
