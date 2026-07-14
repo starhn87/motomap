@@ -48,6 +48,14 @@ function approxMeters(a: SearchPoint, b: SearchPoint): number {
   return Math.hypot((a.latitude - b.latitude) * 111000, (a.longitude - b.longitude) * 88000);
 }
 
+// 장소 선택 시 하단 시트(첫 스냅 28%)가 마커를 가리지 않도록 카메라 중심을 남쪽으로
+// 내려 마커가 시트 위 영역 중앙쯤에 오게 한다. 웹 머카토르 근사: 화면 높이 비율 → 위도.
+function sheetLatOffset(zoom: number, screenHeightDp: number, lat: number): number {
+  const latSpan =
+    (screenHeightDp / (256 * Math.pow(2, zoom))) * 360 * Math.cos((lat * Math.PI) / 180);
+  return latSpan * 0.14;
+}
+
 export default function MapScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -134,8 +142,16 @@ export default function MapScreen() {
       if (navigating) return;
       setSelectedPlaceId(place.id);
       setSelectedPlace(place);
+      // 현재 줌을 유지한 채 마커가 시트에 가리지 않는 위치로 카메라만 보정
+      const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
+      mapRef.current?.animateCameraTo({
+        latitude: place.latitude - sheetLatOffset(zoom, screenHeight, place.latitude),
+        longitude: place.longitude,
+        zoom,
+        duration: 400,
+      });
     },
-    [setSelectedPlaceId, navigating]
+    [setSelectedPlaceId, navigating, mapCenter, screenHeight]
   );
 
   const handleSearchSelect = useCallback(
@@ -143,13 +159,13 @@ export default function MapScreen() {
       setSelectedPlaceId(place.id);
       setSelectedPlace(place);
       mapRef.current?.animateCameraTo({
-        latitude: place.latitude,
+        latitude: place.latitude - sheetLatOffset(15, screenHeight, place.latitude),
         longitude: place.longitude,
         zoom: 15,
         duration: 800,
       });
     },
-    [setSelectedPlaceId]
+    [setSelectedPlaceId, screenHeight]
   );
 
   // 승인 푸시 탭 → focusPlaceId 파라미터로 진입 시 해당 장소를 선택·포커스
