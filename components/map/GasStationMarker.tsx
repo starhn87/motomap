@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 
-import type { GasStation } from '@/lib/api/gasStations';
+import { BRAND_BADGES, type GasStation } from '@/lib/api/gasStations';
 
 interface Props {
   station: GasStation;
@@ -9,13 +9,14 @@ interface Props {
   onTap: (station: GasStation) => void;
 }
 
+// 캡슐 자연 폭이 얼마든 잘리지 않도록 마커 캔버스를 넉넉히 잡는다 (여백은 투명으로 캡처됨)
 const HEIGHT = 40;
 
-// 유가 라벨 마커 — children 은 정적 비트맵으로 한 번 캡처되므로 순수 View/Text 로만 그리고,
-// 표시 내용(가격·최저 여부)이 바뀌면 상위에서 key 를 바꿔 재캡처시킨다.
+// 유가 라벨 마커 — [브랜드 칩][가격] 캡슐. children 은 정적 비트맵으로 한 번 캡처되므로
+// 순수 View/Text 로만 그리고, 표시 내용(가격·최저)이 바뀌면 상위에서 key 를 바꿔 재캡처시킨다.
 export default function GasStationMarker({ station, isCheapest, onTap }: Props) {
-  // "최저 " 접두가 붙으면 캡슐이 길어진다 — 내부 자연 폭이 마커 폭을 넘으면 잘리므로 함께 계산
-  const width = isCheapest ? 104 : 76;
+  const badge = BRAND_BADGES[station.brand];
+  const width = isCheapest ? 150 : 120;
 
   return (
     <NaverMapMarkerOverlay
@@ -26,11 +27,20 @@ export default function GasStationMarker({ station, isCheapest, onTap }: Props) 
       height={HEIGHT}
       onTap={() => onTap(station)}>
       <View collapsable={false} style={[styles.wrap, { width, height: HEIGHT }]}>
-        <View style={[styles.capsule, isCheapest && styles.cheapest]}>
-          <Text numberOfLines={1} style={styles.price}>
-            {isCheapest ? '최저 ' : ''}
-            {station.price.toLocaleString()}
-          </Text>
+        <View style={styles.capsule}>
+          {badge && (
+            <View style={[styles.brandChip, { backgroundColor: badge.color }]}>
+              <Text numberOfLines={1} style={[styles.brandText, badge.textColor ? { color: badge.textColor } : null]}>
+                {badge.label}
+              </Text>
+            </View>
+          )}
+          <View style={[styles.priceChip, isCheapest && styles.priceChipCheapest]}>
+            <Text numberOfLines={1} style={styles.price}>
+              {isCheapest ? '최저 ' : ''}
+              {station.price.toLocaleString()}
+            </Text>
+          </View>
         </View>
         <View style={[styles.pointer, isCheapest && styles.pointerCheapest]} />
       </View>
@@ -44,14 +54,29 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   capsule: {
-    backgroundColor: '#1F2937',
+    flexDirection: 'row',
     borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
+    overflow: 'hidden',
   },
-  cheapest: {
+  brandChip: {
+    paddingLeft: 9,
+    paddingRight: 7,
+    justifyContent: 'center',
+  },
+  brandText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  priceChip: {
+    backgroundColor: '#1F2937',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    justifyContent: 'center',
+  },
+  priceChipCheapest: {
     backgroundColor: '#16A34A',
   },
   price: {

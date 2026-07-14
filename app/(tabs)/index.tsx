@@ -20,7 +20,7 @@ import Animated, {
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { usePlaces } from '@/hooks/usePlaces';
-import { useGasStations, GAS_MIN_ZOOM } from '@/hooks/useGasStations';
+import { useGasStations, GAS_MIN_ZOOM, type SearchPoint } from '@/hooks/useGasStations';
 import { fetchPlaceById } from '@/hooks/usePlace';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { fetchRoute } from '@/lib/api/directions';
@@ -43,6 +43,11 @@ import type { GasStation } from '@/lib/api/gasStations';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// 짧은 거리 근사(m) — 재검색 버튼 노출 판정용 (한국 위도대 경도 1도 ≈ 88km)
+function approxMeters(a: SearchPoint, b: SearchPoint): number {
+  return Math.hypot((a.latitude - b.latitude) * 111000, (a.longitude - b.longitude) * 88000);
+}
+
 export default function MapScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -64,18 +69,31 @@ export default function MapScreen() {
   const [mapReady, setMapReady] = useState(false);
   const didCenterOnUserRef = useRef(false);
 
-  // 주유소 필터는 DB 대신 오피넷 실시간 유가 레이어를 켠다 (반경 5km 제한 → 줌 게이트)
+  // 주유소 필터는 DB 대신 오피넷 실시간 유가 레이어를 켠다.
+  // 지도 이동에 연동하지 않는 수동 갱신 모델 — 필터 진입 시 1회 검색하고, 이후에는
+  // "현 지도에서 재검색" 버튼으로만 기준점을 옮긴다 (최저가 표시 고정 + 호출 절약).
   const gasMode = activeFilter === 'gas_station';
   const gasZoomOk = (mapCenter?.zoom ?? DEFAULT_ZOOM) >= GAS_MIN_ZOOM;
   const [selectedStation, setSelectedStation] = useState<GasStation | null>(null);
+  const [gasSearchPoint, setGasSearchPoint] = useState<SearchPoint | null>(null);
 
   const { data: supabasePlaces } = usePlaces(activeFilter, mapCenter, !gasMode);
-  const { data: gasStations } = useGasStations(mapCenter, gasMode && gasZoomOk && mapReady);
+  const { data: gasStations, isFetching: gasFetching } = useGasStations(
+    gasSearchPoint,
+    gasMode && mapReady,
+  );
 
-  // 주유소 필터를 벗어나면 선택된 주유소 카드를 닫는다
+  // 필터 진입 시 현재 지도 중심으로 최초 1회 검색, 필터를 벗어나면 초기화
   useEffect(() => {
-    if (!gasMode) setSelectedStation(null);
-  }, [gasMode]);
+    if (!gasMode) {
+      setSelectedStation(null);
+      setGasSearchPoint(null);
+      return;
+    }
+    if (!gasSearchPoint && mapCenter && gasZoomOk) {
+      setGasSearchPoint({ latitude: mapCenter.latitude, longitude: mapCenter.longitude });
+    }
+  }, [gasMode, gasSearchPoint, mapCenter, gasZoomOk]);
 
   // 최초 1회: 지도가 준비되고 내 위치를 확보하면 카메라를 내 위치로 이동
   useEffect(() => {
@@ -98,13 +116,18 @@ export default function MapScreen() {
   }, []);
 
   const places = gasMode ? [] : (supabasePlaces ?? []);
-  const stations = gasMode && gasZoomOk ? (gasStations ?? []) : [];
+  // 검색된 마커는 줌아웃해도 유지한다 — 기준점(gasSearchPoint)이 바뀔 때만 갱신
+  const stations = gasMode ? (gasStations ?? []) : [];
   // 최저가 표시는 딱 하나 — 가격순(sort=1) 응답에서 최저가와 동가인 것 중 가장 가까운 곳
   const cheapestId = stations.length
     ? stations
         .filter((s) => s.price === stations[0].price)
         .reduce((a, b) => (a.distance <= b.distance ? a : b)).id
     : null;
+  // 기준점에서 지도를 충분히 움직였을 때만 재검색 버튼 노출
+  const gasMoved =
+    gasMode && gasSearchPoint && mapCenter ? approxMeters(mapCenter, gasSearchPoint) > 300 : false;
+  const showGasRefresh = gasMode && gasZoomOk && !!gasSearchPoint && (gasMoved || gasFetching);
 
   const handleMarkerPress = useCallback(
     (place: Place) => {
@@ -336,7 +359,7 @@ export default function MapScreen() {
         </Animated.View>
       )}
 
-      {gasMode && !gasZoomOk && (
+      {gasMode && !gasZoomOk && stations.length === 0 && (
         <Animated.View
           entering={FadeIn.duration(200)}
           style={[styles.zoomHint, { backgroundColor: colors.background, borderColor: colors.border }]}>
@@ -344,6 +367,25 @@ export default function MapScreen() {
             지도를 확대하면 주변 주유소 유가가 보여요
           </Text>
         </Animated.View>
+      )}
+
+      {showGasRefresh && (
+        <AnimatedPressable
+          entering={FadeIn.duration(200)}
+          disabled={gasFetching}
+          onPress={() => {
+            if (!mapCenter) return;
+            setSelectedStation(null);
+            setGasSearchPoint({ latitude: mapCenter.latitude, longitude: mapCenter.longitude });
+          }}
+          style={[
+            styles.zoomHint,
+            { backgroundColor: colors.background, borderColor: colors.border },
+          ]}>
+          <Text style={[styles.zoomHintText, { color: colors.tint }]}>
+            {gasFetching ? '검색 중...' : '↻ 현 지도에서 재검색'}
+          </Text>
+        </AnimatedPressable>
       )}
 
       <AnimatedPressable
