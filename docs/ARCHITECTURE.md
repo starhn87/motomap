@@ -217,6 +217,7 @@ Sentry.wrap(
 | `004_add_gear_shop_category.sql` | `places_category_check`에 `gear_shop` 추가 |
 | `005_submission_notifications.sql` | 제보·건의 INSERT 시 디스코드 웹훅 알림 (pg_net 트리거, URL은 Vault) |
 | `006_push_tokens_approval_push.sql` | `push_tokens` 테이블 + 제보 승인(approved false→true) 시 제보자 Expo 푸시 |
+| `007_places_soft_delete.sql` | `places.deleted_at` — 제보 반려는 hard delete 대신 soft delete (승인은 `deleted_at is null`인 행만) |
 
 ---
 

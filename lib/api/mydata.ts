@@ -11,6 +11,7 @@ export async function fetchMySubmissions(): Promise<Place[]> {
     .from('places')
     .select('*')
     .eq('submitted_by', user.id)
+    .is('deleted_at', null) // 반려(soft delete)된 제보는 목록에서 제외
     .order('created_at', { ascending: false });
 
   if (error) throw error;
