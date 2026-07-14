@@ -328,12 +328,14 @@ export default function MapScreen() {
           />
         )}
 
-        {/* 유가 마커 — 캡처된 비트맵이 재사용되므로 표시 내용(가격·최저)이 바뀌면 key 로 재캡처 */}
-        {stations.map((station) => (
+        {/* 유가 마커 — 캡처된 비트맵이 재사용되므로 표시 내용(가격·최저)이 바뀌면 key 로 재캡처.
+            stations 는 가격순이라 index 가 곧 겹침 생존 우선순위다 */}
+        {stations.map((station, index) => (
           <GasStationMarker
             key={`${station.id}-${station.price}-${station.id === cheapestId}`}
             station={station}
             isCheapest={station.id === cheapestId}
+            rank={index}
             onTap={setSelectedStation}
           />
         ))}

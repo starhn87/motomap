@@ -6,6 +6,8 @@ import { BRAND_BADGES, type GasStation } from '@/lib/api/gasStations';
 interface Props {
   station: GasStation;
   isCheapest: boolean;
+  /** 가격순 순위(0=최저) — 겹침 시 싼 마커가 살아남도록 zIndex 에 반영 */
+  rank: number;
   onTap: (station: GasStation) => void;
 }
 
@@ -14,7 +16,8 @@ const HEIGHT = 40;
 
 // 유가 라벨 마커 — [브랜드 칩][가격] 캡슐. children 은 정적 비트맵으로 한 번 캡처되므로
 // 순수 View/Text 로만 그리고, 표시 내용(가격·최저)이 바뀌면 상위에서 key 를 바꿔 재캡처시킨다.
-export default function GasStationMarker({ station, isCheapest, onTap }: Props) {
+// 클러스터링 대신 SDK 의 겹침 숨김을 쓴다 — 겹치면 비싼 마커부터 숨고 최저가는 항상 표시.
+export default function GasStationMarker({ station, isCheapest, rank, onTap }: Props) {
   const badge = BRAND_BADGES[station.brand];
   const width = isCheapest ? 150 : 120;
 
@@ -25,6 +28,9 @@ export default function GasStationMarker({ station, isCheapest, onTap }: Props) 
       anchor={{ x: 0.5, y: 1 }}
       width={width}
       height={HEIGHT}
+      zIndex={1000 - rank}
+      isHideCollidedMarkers
+      isForceShowIcon={isCheapest}
       onTap={() => onTap(station)}>
       <View collapsable={false} style={[styles.wrap, { width, height: HEIGHT }]}>
         <View style={styles.capsule}>
