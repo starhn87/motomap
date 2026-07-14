@@ -1,4 +1,5 @@
 import React from 'react';
+import { Pressable } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,22 +7,51 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
+import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 
-// 탭바는 아이콘을 활성/비활성 두 벌로 겹쳐 렌더해 focused prop 이 인스턴스별로 고정이다.
-// 그래서 focused 변화 감지 대신 tabPress 이벤트로 스프링을 트리거한다 — 사용자가
-// 실제로 눌렀을 때만 동작하고, 앱 시작 시 초기 탭에서는 아무 효과도 없다.
+// 누르는 동안 움츠리고(pressIn) 떼는 순간 스프링으로 복귀(pressOut).
+// tabPress 는 손을 뗀 뒤에야 발생해 이 구분이 불가능하므로 tabBarButton 을 커스텀해
+// pressIn/pressOut 을 직접 잡는다. damping 을 높여 오버슛은 한 번만 튕기고 정착한다.
 function useTabPressScale() {
   const scale = useSharedValue(1);
-  const trigger = () => {
-    scale.value = 0.8;
-    scale.value = withSpring(1, { damping: 11, stiffness: 320 });
+  return {
+    scale,
+    pressIn: () => {
+      scale.value = withTiming(0.82, { duration: 90 });
+    },
+    pressOut: () => {
+      scale.value = withSpring(1, { damping: 15, stiffness: 350 });
+    },
   };
-  return { scale, trigger };
+}
+
+type TabScale = ReturnType<typeof useTabPressScale>;
+
+// 탭 버튼 — 시각 효과는 아이콘의 Animated.View 가 sharedValue 를 구독해 처리하고,
+// 여기서는 제스처 시점만 sharedValue 에 흘려보낸다
+function TabButton({ tab, props }: { tab: TabScale; props: BottomTabBarButtonProps }) {
+  const { children, style, onPress, onLongPress, accessibilityState, accessibilityLabel, testID } =
+    props;
+  return (
+    <Pressable
+      style={style}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      onPressIn={tab.pressIn}
+      onPressOut={tab.pressOut}
+      accessibilityRole="button"
+      accessibilityState={accessibilityState}
+      accessibilityLabel={accessibilityLabel}
+      testID={testID}>
+      {children}
+    </Pressable>
+  );
 }
 
 function TabBarIcon({
@@ -82,8 +112,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="map" color={color} scale={mapTab.scale} />
           ),
+          tabBarButton: (props) => <TabButton tab={mapTab} props={props} />,
         }}
-        listeners={{ tabPress: mapTab.trigger }}
       />
       <Tabs.Screen
         name="courses"
@@ -92,8 +122,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="compass" color={color} scale={coursesTab.scale} />
           ),
+          tabBarButton: (props) => <TabButton tab={coursesTab} props={props} />,
         }}
-        listeners={{ tabPress: coursesTab.trigger }}
       />
       <Tabs.Screen
         name="submit"
@@ -102,8 +132,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="plus-circle" color={color} scale={submitTab.scale} />
           ),
+          tabBarButton: (props) => <TabButton tab={submitTab} props={props} />,
         }}
-        listeners={{ tabPress: submitTab.trigger }}
       />
       <Tabs.Screen
         name="profile"
@@ -112,8 +142,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="user" color={color} scale={profileTab.scale} />
           ),
+          tabBarButton: (props) => <TabButton tab={profileTab} props={props} />,
         }}
-        listeners={{ tabPress: profileTab.trigger }}
       />
     </Tabs>
   );
