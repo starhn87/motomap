@@ -125,9 +125,12 @@ function SubmitPlace() {
         parkingInfo: parkingInfo.trim() || undefined,
       });
 
+      // 권한 요청(모달)이 완료 토스트·폼 리셋을 가리면 "제보가 안 됐다"고 오해해
+      // 중복 제보하게 되므로, 권한 흐름을 먼저 끝낸 뒤 완료 처리를 한다.
+      // (registerPushToken 은 내부에서 실패를 삼키므로 await 가 안전)
+      await registerPushToken(true);
+
       toast.success('제보가 접수되었습니다.', '승인되면 알림으로 알려드릴게요.');
-      // 승인 푸시를 받을 수 있게 이 시점(맥락 있음)에 권한 요청 + 토큰 등록
-      void registerPushToken(true);
 
       setName('');
       setDescription('');

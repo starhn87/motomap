@@ -6,6 +6,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { NaverMapView } from '@mj-studio/react-native-naver-map';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 import Animated, {
@@ -18,6 +19,7 @@ import Animated, {
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { usePlaces } from '@/hooks/usePlaces';
+import { fetchPlaceById } from '@/hooks/usePlace';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { fetchRoute } from '@/lib/api/directions';
 import Colors from '@/constants/Colors';
@@ -103,6 +105,23 @@ export default function MapScreen() {
     },
     [setSelectedPlaceId]
   );
+
+  // 승인 푸시 탭 → focusPlaceId 파라미터로 진입 시 해당 장소를 선택·포커스
+  const { focusPlaceId } = useLocalSearchParams<{ focusPlaceId?: string }>();
+  const handledFocusIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusPlaceId || !mapReady) return;
+    if (handledFocusIdRef.current === focusPlaceId) return;
+    handledFocusIdRef.current = focusPlaceId;
+    let cancelled = false;
+    (async () => {
+      const place = await fetchPlaceById(focusPlaceId);
+      if (place && !cancelled) handleSearchSelect(place);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [focusPlaceId, mapReady, handleSearchSelect]);
 
   const handleBottomSheetClose = useCallback(() => {
     setSelectedPlaceId(null);

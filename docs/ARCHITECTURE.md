@@ -219,6 +219,7 @@ Sentry.wrap(
 | `006_push_tokens_approval_push.sql` | `push_tokens` 테이블 + 제보 승인(approved false→true) 시 제보자 Expo 푸시 |
 | `007_places_soft_delete.sql` | `places.deleted_at` — 제보 반려는 hard delete 대신 soft delete (승인은 `deleted_at is null`인 행만) |
 | `008_course_approval_ai_judge.sql` | 코스 `approved`/`deleted_at`(승인 플로우 도입, 시드 백필) + 코스 알림·승인 푸시 + 제보 AI 판정 EF 호출 트리거 |
+| `009_push_copy_and_deeplink.sql` | 승인 푸시 문구 정리(을/를 조사 함수) + `data`(placeId/courseId) — 알림 탭 시 앱이 해당 장소·코스로 이동 |
 
 ---
 

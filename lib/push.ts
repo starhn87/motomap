@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { router } from 'expo-router';
 
 import { supabase } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
@@ -14,6 +15,35 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+// 승인 푸시의 data 페이로드(트리거가 심음)에 따라 해당 화면으로 이동
+function routeFromNotification(data: Record<string, unknown> | undefined) {
+  try {
+    if (!data) return;
+    if (data.type === 'place_approved' && typeof data.placeId === 'string') {
+      router.push({ pathname: '/', params: { focusPlaceId: data.placeId } });
+    } else if (data.type === 'course_approved' && typeof data.courseId === 'string') {
+      router.push(`/course/${data.courseId}`);
+    }
+  } catch {
+    // 내비게이션 준비 전 등 — 이동 실패는 치명적이지 않음
+  }
+}
+
+/** 알림 탭 처리 등록 — cold start(알림으로 앱 실행)와 실행 중 탭 모두 커버 */
+export function setupNotificationTapHandling(): () => void {
+  void Notifications.getLastNotificationResponseAsync().then((resp) => {
+    routeFromNotification(
+      resp?.notification.request.content.data as Record<string, unknown> | undefined,
+    );
+  });
+  const sub = Notifications.addNotificationResponseReceivedListener((resp) => {
+    routeFromNotification(
+      resp.notification.request.content.data as Record<string, unknown>,
+    );
+  });
+  return () => sub.remove();
+}
 
 /**
  * Expo 푸시 토큰을 발급받아 push_tokens 테이블에 upsert한다.

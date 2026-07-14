@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { Place } from '@/types';
 import { rowToPlace, type PlaceRow } from '@/lib/api/places';
 
-async function fetchPlaceById(id: string): Promise<Place | null> {
+export async function fetchPlaceById(id: string): Promise<Place | null> {
   const { data, error } = await supabase.rpc('all_places', {
     category_filter: null,
   });

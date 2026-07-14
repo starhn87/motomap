@@ -17,7 +17,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useNavPrefStore } from '@/stores/useNavPrefStore';
 import { useThemeStore } from '@/stores/useThemeStore';
-import { registerPushToken } from '@/lib/push';
+import { registerPushToken, setupNotificationTapHandling } from '@/lib/push';
 
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 if (sentryDsn) {
@@ -83,6 +83,9 @@ function RootLayout() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+
+  // 알림 탭 → 해당 장소/코스로 이동 (Stack 마운트 이후 등록해야 내비게이션이 안전)
+  useEffect(() => setupNotificationTapHandling(), []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
