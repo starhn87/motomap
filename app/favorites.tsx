@@ -7,6 +7,8 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
+import EmptyState from '@/components/ui/EmptyState';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
@@ -99,14 +101,13 @@ export default function FavoritesScreen() {
       {isLoading ? (
         <PlaceSkeletonList />
       ) : !places?.length ? (
-        <View style={styles.empty}>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            즐겨찾기한 장소가 없습니다.
-          </Text>
-          <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
-            지도에서 장소를 탭하고 ❤️ 버튼을 눌러보세요.
-          </Text>
-        </View>
+        <EmptyState
+          icon="⭐"
+          title="즐겨찾기한 장소가 없습니다"
+          hint="지도에서 장소를 탭하고 ❤️ 버튼을 눌러보세요."
+          actionLabel="지도에서 찾아보기"
+          onAction={() => router.navigate('/')}
+        />
       ) : (
         <FlatList
           data={places}

@@ -15,6 +15,7 @@ import { useBlockedUsers, useUnblockUser } from '@/hooks/useBlocks';
 import { toast } from '@/lib/toast';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import type { BlockedUser } from '@/lib/api/blocks';
+import EmptyState from '@/components/ui/EmptyState';
 
 function BlockedSkeletonList() {
   return (
@@ -91,11 +92,7 @@ export default function BlockedUsersScreen() {
       {isLoading ? (
         <BlockedSkeletonList />
       ) : !blocked?.length ? (
-        <View style={styles.empty}>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            차단한 사용자가 없습니다.
-          </Text>
-        </View>
+        <EmptyState icon="🛡️" title="차단한 사용자가 없습니다" />
       ) : (
         <FlatList
           data={blocked}

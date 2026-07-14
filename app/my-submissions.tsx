@@ -6,6 +6,8 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
+import EmptyState from '@/components/ui/EmptyState';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
@@ -91,14 +93,13 @@ export default function MySubmissionsScreen() {
       {isLoading ? (
         <SubmissionSkeletonList />
       ) : !places?.length ? (
-        <View style={styles.empty}>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            제보한 장소가 없습니다.
-          </Text>
-          <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
-            제보 탭에서 바이커 장소를 제보해보세요!
-          </Text>
-        </View>
+        <EmptyState
+          icon="📍"
+          title="제보한 장소가 없습니다"
+          hint="라이더들과 나누고 싶은 장소를 알려주세요!"
+          actionLabel="제보하러 가기"
+          onAction={() => router.navigate('/submit')}
+        />
       ) : (
         <FlatList
           data={places}

@@ -6,6 +6,8 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
+import EmptyState from '@/components/ui/EmptyState';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -72,14 +74,13 @@ export default function MyReviewsScreen() {
       {isLoading ? (
         <ReviewSkeletonList />
       ) : !reviews?.length ? (
-        <View style={styles.empty}>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            작성한 리뷰가 없습니다.
-          </Text>
-          <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
-            장소를 방문하고 리뷰를 남겨보세요!
-          </Text>
-        </View>
+        <EmptyState
+          icon="💬"
+          title="작성한 리뷰가 없습니다"
+          hint="장소를 방문하고 리뷰를 남겨보세요!"
+          actionLabel="지도에서 장소 찾아보기"
+          onAction={() => router.navigate('/')}
+        />
       ) : (
         <FlatList
           data={reviews}

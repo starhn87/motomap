@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { router } from 'expo-router';
+import EmptyState from '@/components/ui/EmptyState';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -130,14 +131,13 @@ export default function ExploreScreen() {
         isLoading ? (
           <CourseSkeletonList />
         ) : !courses?.length ? (
-          <View style={styles.empty}>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              등록된 코스가 없습니다.
-            </Text>
-            <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
-              곧 라이더들의 추천 코스가 추가됩니다!
-            </Text>
-          </View>
+          <EmptyState
+            icon="🛣️"
+            title="등록된 코스가 없습니다"
+            hint="달려본 코스가 있다면 라이더들과 나눠보세요!"
+            actionLabel="코스 제보하러 가기"
+            onAction={() => router.navigate('/submit')}
+          />
         ) : (
           <FlatList
             data={courses}
