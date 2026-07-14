@@ -10,11 +10,30 @@ export interface NavTarget {
   longitude: number;
 }
 
+/** 코스 내비 대상 — points 는 코스 순서(출발지 → 경유지들 → 도착지) */
+export interface NavCourse {
+  name: string;
+  points: { latitude: number; longitude: number }[];
+}
+
 export interface NavApp {
   id: NavAppId;
   label: string;
   scheme: string;
   launch: (target: NavTarget) => Promise<void>;
+  /** 경유지 지원 앱만 구현 — 없으면 코스 출발지로 안내(fallback) */
+  launchCourse?: (course: NavCourse) => Promise<void>;
+}
+
+// 경유지 상한(앱별)에 맞춰 추림 — 코스 출발지(첫 점)는 보존하고 나머지를 고르게 선택
+function sampleWaypoints<T>(points: T[], max: number): T[] {
+  if (points.length <= max) return points;
+  const [first, ...rest] = points;
+  const picked = [first];
+  for (let i = 0; i < max - 1; i++) {
+    picked.push(rest[Math.round(((i + 1) * rest.length) / (max - 1)) - 1]);
+  }
+  return picked;
 }
 
 export const NAV_APPS: NavApp[] = [
@@ -25,6 +44,20 @@ export const NAV_APPS: NavApp[] = [
     launch: async ({ name, latitude, longitude }) => {
       await KakaoNavi.navigateTo({
         destination: { name, x: longitude, y: latitude },
+        option: { coordType: 'WGS84', vehicleType: 'TwoWheel' },
+      });
+    },
+    // 출발지는 현재 위치(SDK 기본), 경유지 최대 3개
+    launchCourse: async ({ name, points }) => {
+      const dest = points[points.length - 1];
+      const vias = sampleWaypoints(points.slice(0, -1), 3);
+      await KakaoNavi.navigateTo({
+        destination: { name: `${name} 도착지`, x: dest.longitude, y: dest.latitude },
+        viaList: vias.map((p, i) => ({
+          name: i === 0 ? '코스 출발지' : `경유지 ${i}`,
+          x: p.longitude,
+          y: p.latitude,
+        })),
         option: { coordType: 'WGS84', vehicleType: 'TwoWheel' },
       });
     },
@@ -58,6 +91,22 @@ export const NAV_APPS: NavApp[] = [
         `nmap://route/car?dlat=${latitude}&dlng=${longitude}&dname=${encodeURIComponent(name)}&appname=com.ridemap.app`,
       );
     },
+    // 출발지는 현재 위치(파라미터 생략 시 기본), 경유지 v1~v5 최대 5개
+    launchCourse: async ({ name, points }) => {
+      const dest = points[points.length - 1];
+      const vias = sampleWaypoints(points.slice(0, -1), 5);
+      const viaParams = vias
+        .map(
+          (p, i) =>
+            `&v${i + 1}lat=${p.latitude}&v${i + 1}lng=${p.longitude}&v${i + 1}name=${encodeURIComponent(
+              i === 0 ? '코스 출발지' : `경유지 ${i}`,
+            )}`,
+        )
+        .join('');
+      await Linking.openURL(
+        `nmap://route/car?dlat=${dest.latitude}&dlng=${dest.longitude}&dname=${encodeURIComponent(`${name} 도착지`)}${viaParams}&appname=com.ridemap.app`,
+      );
+    },
   },
   {
     id: 'apple',
@@ -79,7 +128,11 @@ export async function getAvailableNavApps(): Promise<NavApp[]> {
   return results.filter((app): app is NavApp => app !== null);
 }
 
-export async function openNavigation(target: NavTarget) {
+// 앱 선택 흐름(기본앱 → 단일 → 선택 Alert) 공통화.
+// 딥링크 실행 실패(앱 구버전·미로그인·스킴 처리 실패 등 — canOpenURL 은 통과해도
+// 실제 실행은 실패할 수 있다)를 삼키지 않고 안내한다. 잡지 않으면 unhandled
+// promise rejection 으로 새어 나가 Sentry 에 노이즈가 쌓인다.
+async function withNavApp(run: (app: NavApp) => Promise<void>) {
   const available = await getAvailableNavApps();
 
   if (available.length === 0) {
@@ -87,12 +140,9 @@ export async function openNavigation(target: NavTarget) {
     return;
   }
 
-  // 딥링크 실행 실패(앱 구버전·미로그인·스킴 처리 실패 등 — canOpenURL 은 통과해도
-  // 실제 실행은 실패할 수 있다)를 삼키지 않고 안내한다. 잡지 않으면 unhandled
-  // promise rejection 으로 새어 나가 Sentry 에 노이즈가 쌓인다.
-  const launch = async (app: NavApp) => {
+  const tryRun = async (app: NavApp) => {
     try {
-      await app.launch(target);
+      await run(app);
     } catch {
       toast.error('네비게이션 앱을 열 수 없습니다.', `${app.label} 실행에 실패했습니다.`);
     }
@@ -102,13 +152,13 @@ export async function openNavigation(target: NavTarget) {
   if (defaultApp) {
     const preferred = available.find((app) => app.id === defaultApp);
     if (preferred) {
-      await launch(preferred);
+      await tryRun(preferred);
       return;
     }
   }
 
   if (available.length === 1) {
-    await launch(available[0]);
+    await tryRun(available[0]);
     return;
   }
 
@@ -116,9 +166,33 @@ export async function openNavigation(target: NavTarget) {
     ...available.map((app) => ({
       text: app.label,
       onPress: () => {
-        void launch(app);
+        void tryRun(app);
       },
     })),
     { text: '취소', style: 'cancel' as const },
   ]);
+}
+
+export async function openNavigation(target: NavTarget) {
+  await withNavApp((app) => app.launch(target));
+}
+
+/**
+ * 코스 전체 안내 — 출발지는 현재 위치(각 앱 기본), 경유지 지원 앱(카카오내비·네이버지도)은
+ * 코스 출발지~중간 지점을 경유지로 넣고 코스 끝을 목적지로 안내한다.
+ * 경유지 미지원 앱(T맵·카카오맵·Apple)은 코스 출발지로 안내 — 거기부터는 코스를 직접 탄다.
+ */
+export async function openCourseNavigation(course: NavCourse) {
+  if (course.points.length === 0) return;
+  await withNavApp((app) => {
+    if (app.launchCourse && course.points.length >= 2) {
+      return app.launchCourse(course);
+    }
+    const start = course.points[0];
+    return app.launch({
+      name: `${course.name} 출발지`,
+      latitude: start.latitude,
+      longitude: start.longitude,
+    });
+  });
 }

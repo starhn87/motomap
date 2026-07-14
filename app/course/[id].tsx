@@ -18,7 +18,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useCourse } from '@/hooks/useCourses';
 import { useCourseReviews, useCreateCourseReview, useUpdateCourseReview, useDeleteCourseReview } from '@/hooks/useCourseReviews';
 import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
-import { openNavigation } from '@/lib/navigation';
+import { openCourseNavigation } from '@/lib/navigation';
 import { formatDistance, formatDuration } from '@/constants/course';
 import { toast } from '@/lib/toast';
 import StarRating from '@/components/review/StarRating';
@@ -170,11 +170,8 @@ export default function CourseDetailScreen() {
         {destination && (
           <Pressable
             onPress={() =>
-              openNavigation({
-                name: course.name,
-                latitude: destination.latitude,
-                longitude: destination.longitude,
-              })
+              // 현재 위치 → 코스 출발지(경유) → … → 코스 도착지 순으로 안내
+              openCourseNavigation({ name: course.name, points: coords })
             }
             style={({ pressed }) => [
               styles.navButton,
