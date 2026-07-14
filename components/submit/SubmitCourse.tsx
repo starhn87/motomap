@@ -19,6 +19,7 @@ import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { submitCourse } from '@/lib/api/courses';
 import { geocodeAddress } from '@/lib/geocode';
+import { registerPushToken } from '@/lib/push';
 import { toast } from '@/lib/toast';
 import AddressSearchModal from '@/components/submit/AddressSearchModal';
 
@@ -110,7 +111,9 @@ export default function SubmitCourse() {
           .filter(Boolean),
       });
 
-      toast.success('코스가 등록되었습니다.');
+      toast.success('제보가 접수되었습니다.', '승인되면 알림으로 알려드릴게요.');
+      // 승인 푸시를 받을 수 있게 이 시점(맥락 있음)에 권한 요청 + 토큰 등록
+      void registerPushToken(true);
 
       setName('');
       setDescription('');

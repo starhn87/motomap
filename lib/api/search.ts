@@ -10,7 +10,12 @@ export interface SearchResults {
 export async function searchAll(query: string): Promise<SearchResults> {
   const [placesRes, coursesRes] = await Promise.all([
     supabase.rpc('all_places', { category_filter: null }),
-    supabase.from('courses').select('*').order('created_at', { ascending: false }),
+    supabase
+      .from('courses')
+      .select('*')
+      .eq('approved', true)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false }),
   ]);
 
   const places = (placesRes.data ?? [])

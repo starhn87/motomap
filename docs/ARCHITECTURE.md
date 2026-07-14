@@ -218,6 +218,7 @@ Sentry.wrap(
 | `005_submission_notifications.sql` | 제보·건의 INSERT 시 디스코드 웹훅 알림 (pg_net 트리거, URL은 Vault) |
 | `006_push_tokens_approval_push.sql` | `push_tokens` 테이블 + 제보 승인(approved false→true) 시 제보자 Expo 푸시 |
 | `007_places_soft_delete.sql` | `places.deleted_at` — 제보 반려는 hard delete 대신 soft delete (승인은 `deleted_at is null`인 행만) |
+| `008_course_approval_ai_judge.sql` | 코스 `approved`/`deleted_at`(승인 플로우 도입, 시드 백필) + 코스 알림·승인 푸시 + 제보 AI 판정 EF 호출 트리거 |
 
 ---
 
@@ -231,7 +232,8 @@ Sentry.wrap(
 | 카카오 로컬 검색 | `lib/api/kakaoLocal.ts` (`EXPO_PUBLIC_KAKAO_REST_API_KEY`) | 제보 주소 검색 (상호+주소→좌표) |
 | 외부 내비 딥링크 | `lib/navigation.ts` + `plugins/withQuerySchemes.js` | 카카오내비(이륜차)·T맵·카카오맵·네이버지도·Apple 지도. `LSApplicationQueriesSchemes`로 설치 감지, 기본 앱은 `useNavPrefStore` |
 | Supabase Storage | `lib/uploadImage.ts` | 리뷰·제보 사진 (`ridemap-media` 버킷, base64 업로드) |
-| Expo Push | `lib/push.ts` + migration 006 | 제보 승인 푸시 — 토큰은 `push_tokens`, 발송은 DB 트리거(pg_net→Expo Push API). 권한 요청은 제보 직후에만 |
+| Expo Push | `lib/push.ts` + migration 006/008 | 제보(장소·코스) 승인 푸시 — 토큰은 `push_tokens`, 발송은 DB 트리거(pg_net→Expo Push API). 권한 요청은 제보 직후에만 |
+| Claude API | `supabase/functions/judge-submission` | 제보 AI 판정(Phase A: 추천만) — 트리거가 EF 호출 → 카카오 교차검증 → `claude-opus-4-8` 판정 → 디스코드. 결정은 관리자 |
 | Sentry | `app/_layout.tsx`, `metro.config.js` | 에러·세션 추적 |
 
 ---

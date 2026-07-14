@@ -22,6 +22,8 @@ export async function fetchCourses(): Promise<RidingCourse[]> {
   const { data, error } = await supabase
     .from('courses')
     .select('*')
+    .eq('approved', true)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
