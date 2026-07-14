@@ -21,7 +21,7 @@ function formatTradeAt(tradeAt: string): string {
 export default function GasStationCard({ station, onClose }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { data: detail } = useGasStationDetail(station.id);
+  const { data: detail, isLoading } = useGasStationDetail(station.id);
 
   const prices = detail?.prices ?? [];
   const tradeAt = prices[0] ? formatTradeAt(prices[0].tradeAt) : '';
@@ -57,26 +57,38 @@ export default function GasStationCard({ station, onClose }: Props) {
         </Pressable>
       </View>
 
+      {/* 상세 로딩 중에도 3줄 높이를 예약해 카드가 늘어나며 밀리지 않게 한다 */}
       <View style={styles.priceRows}>
-        {(prices.length > 0
-          ? prices.filter((p) => p.prod in FUEL_LABELS)
-          : [{ prod: 'B027', price: station.price, tradeAt: '' }]
-        ).map((p) => (
-          <View key={p.prod} style={styles.priceRow}>
-            <Text style={[styles.fuelLabel, { color: colors.textSecondary }]}>
-              {FUEL_LABELS[p.prod as keyof typeof FUEL_LABELS] ?? p.prod}
-            </Text>
-            <Text style={[styles.fuelPrice, { color: colors.text }]}>
-              {p.price.toLocaleString()}원
-            </Text>
-          </View>
-        ))}
+        {isLoading
+          ? [0, 1, 2].map((i) => (
+              <View key={i} style={styles.priceRow}>
+                <View style={[styles.skeleton, { width: 64, backgroundColor: colors.surfaceMuted }]} />
+                <View style={[styles.skeleton, { width: 88, backgroundColor: colors.surfaceMuted }]} />
+              </View>
+            ))
+          : (prices.length > 0
+              ? prices.filter((p) => p.prod in FUEL_LABELS)
+              : [{ prod: 'B027', price: station.price, tradeAt: '' }]
+            ).map((p) => (
+              <View key={p.prod} style={styles.priceRow}>
+                <Text style={[styles.fuelLabel, { color: colors.textSecondary }]}>
+                  {FUEL_LABELS[p.prod as keyof typeof FUEL_LABELS] ?? p.prod}
+                </Text>
+                <Text style={[styles.fuelPrice, { color: colors.text }]}>
+                  {p.price.toLocaleString()}원
+                </Text>
+              </View>
+            ))}
       </View>
 
       <View style={styles.footer}>
-        <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
-          {[detail?.address, tradeAt].filter(Boolean).join(' · ')}
-        </Text>
+        {isLoading ? (
+          <View style={[styles.skeleton, styles.metaSkeleton, { backgroundColor: colors.surfaceMuted }]} />
+        ) : (
+          <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
+            {[detail?.address, tradeAt].filter(Boolean).join(' · ')}
+          </Text>
+        )}
         <Pressable
           onPress={() =>
             openNavigation({
@@ -98,8 +110,9 @@ export default function GasStationCard({ station, onClose }: Props) {
 
 const styles = StyleSheet.create({
   card: {
+    // 내 위치 버튼(bottom 24, 높이 48) 바로 위에 뜬다
     position: 'absolute',
-    bottom: 100,
+    bottom: 84,
     left: 16,
     right: 16,
     borderRadius: 16,
@@ -150,11 +163,21 @@ const styles = StyleSheet.create({
   priceRows: {
     gap: 6,
     marginBottom: 12,
+    minHeight: 66,
   },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    minHeight: 18,
+  },
+  skeleton: {
+    height: 14,
+    borderRadius: 7,
+  },
+  metaSkeleton: {
+    flex: 1,
+    marginRight: 40,
   },
   fuelLabel: {
     fontSize: 14,

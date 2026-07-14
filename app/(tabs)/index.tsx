@@ -381,10 +381,10 @@ export default function MapScreen() {
             setGasSearchPoint({ latitude: mapCenter.latitude, longitude: mapCenter.longitude });
           }}
           style={[
-            styles.zoomHint,
+            styles.gasRefreshButton,
             { backgroundColor: colors.background, borderColor: colors.border },
           ]}>
-          <Text style={[styles.zoomHintText, { color: colors.tint }]}>
+          <Text style={[styles.gasRefreshText, { color: colors.tint }]}>
             {gasFetching ? '검색 중...' : '↻ 현 지도에서 재검색'}
           </Text>
         </AnimatedPressable>
@@ -398,7 +398,7 @@ export default function MapScreen() {
           {
             backgroundColor: colors.background,
             shadowColor: '#000',
-            bottom: navigating ? 200 : selectedPlace ? 260 : selectedStation ? 280 : 80,
+            bottom: navigating ? 200 : selectedPlace ? 260 : 24,
           },
         ]}>
         <View style={styles.myLocationIconContainer}>
@@ -463,6 +463,24 @@ const styles = StyleSheet.create({
   zoomHintText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  gasRefreshButton: {
+    position: 'absolute',
+    top: 150,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  gasRefreshText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
   myLocationButton: {
     position: 'absolute',
