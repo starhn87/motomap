@@ -17,7 +17,7 @@ import Animated, {
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { submitCourse } from '@/lib/api/courses';
+import { submitCourse, checkCourseNameDuplicate } from '@/lib/api/courses';
 import { geocodeAddress } from '@/lib/geocode';
 import { registerPushToken } from '@/lib/push';
 import { toast } from '@/lib/toast';
@@ -84,6 +84,16 @@ export default function SubmitCourse() {
     submitScale.value = withSpring(0.95);
 
     try {
+      // 같은 이름의 기존 코스/제보가 있으면 중복 제출을 막는다
+      const dup = await checkCourseNameDuplicate(name.trim());
+      if (dup) {
+        toast.info(
+          dup === 'approved' ? '이미 있는 코스 이름이에요.' : '같은 이름의 코스가 검토 중이에요.',
+          '다른 이름으로 제보해주세요.'
+        );
+        return;
+      }
+
       const coordinates: [number, number][] = [];
       for (const wp of filledWaypoints) {
         // 검색으로 좌표를 이미 확보했으면 그대로, 아니면(수동 입력) 지오코딩 fallback

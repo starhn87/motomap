@@ -19,7 +19,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { CATEGORY_LIST } from '@/constants/categories';
-import { submitPlace } from '@/lib/api/places';
+import { submitPlace, checkPlaceDuplicate } from '@/lib/api/places';
 import { registerPushToken } from '@/lib/push';
 import { toast } from '@/lib/toast';
 import LoginPrompt from '@/components/auth/LoginPrompt';
@@ -112,6 +112,18 @@ function SubmitPlace() {
     submitScale.value = withSpring(0.95);
 
     try {
+      // 같은 주소의 기존 장소/제보가 있으면 중복 제출을 막는다
+      const dup = await checkPlaceDuplicate(address.trim());
+      if (dup) {
+        toast.info(
+          dup === 'approved' ? '이미 등록된 장소예요.' : '이미 제보된 장소예요.',
+          dup === 'approved'
+            ? '모토맵 지도에서 확인할 수 있어요.'
+            : '검토 중이니 조금만 기다려주세요.'
+        );
+        return;
+      }
+
       await submitPlace({
         name: name.trim(),
         description: description.trim(),

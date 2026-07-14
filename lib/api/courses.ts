@@ -43,6 +43,17 @@ export async function fetchCourseById(id: string): Promise<RidingCourse> {
   return rowToCourse(data);
 }
 
+/** 같은 이름의 살아있는 코스가 있는지 확인 — 'approved' | 'pending' | null (없음) */
+export async function checkCourseNameDuplicate(
+  name: string,
+): Promise<'approved' | 'pending' | null> {
+  const { data, error } = await supabase.rpc('course_exists_with_name', {
+    p_name: name,
+  });
+  if (error) return null; // 체크 실패 시 제출을 막지 않는다(fail-open)
+  return (data as 'approved' | 'pending' | null) ?? null;
+}
+
 export async function submitCourse(params: {
   name: string;
   description: string;

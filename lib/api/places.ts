@@ -95,6 +95,21 @@ export async function fetchAllPlaces(
   return (data ?? []).map(rowToPlace);
 }
 
+/**
+ * 같은 주소의 살아있는 제보/장소가 있는지 확인 (RLS 우회 RPC — 존재 여부만 반환).
+ * 'approved' 이미 등록됨 | 'pending' 검토 중 | null 없음.
+ * 체크 실패(네트워크 등) 시엔 제출을 막지 않도록 null 을 반환한다(fail-open).
+ */
+export async function checkPlaceDuplicate(
+  address: string,
+): Promise<'approved' | 'pending' | null> {
+  const { data, error } = await supabase.rpc('place_exists_at_address', {
+    p_address: address,
+  });
+  if (error) return null;
+  return (data as 'approved' | 'pending' | null) ?? null;
+}
+
 export async function submitPlace(params: SubmitPlaceParams): Promise<void> {
   const user = await requireUser();
 
