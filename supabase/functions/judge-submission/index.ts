@@ -172,12 +172,12 @@ const CONFIDENCE_LABEL: Record<Verdict['confidence'], string> = {
 async function judgeAndPost(table: string, record: Record<string, unknown>) {
   const icon = table === 'places' ? '📍' : '🛣️';
   try {
-    const { v, evidence } = await judge(table, record);
+    const { v } = await judge(table, record);
+    // 교차검증 원자료(evidence)는 판정 입력으로만 쓰고 노출하지 않는다 — reason 에 요약됨
     await postDiscord(
       `🤖 AI 판정 — ${icon} ${record.name}\n` +
       `**${VERDICT_LABEL[v.verdict]}** (${CONFIDENCE_LABEL[v.confidence]})\n` +
-      `근거: ${v.reason}\n` +
-      `-# ${evidence.replaceAll('\n', ' · ').slice(0, 600)}`,
+      `근거: ${v.reason}`,
     );
   } catch (e) {
     // 기본 제보 알림은 별도 트리거로 이미 발송됨 — 판정 실패만 알린다
