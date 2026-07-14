@@ -1,6 +1,7 @@
 import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -15,6 +16,7 @@ function TabBarIcon(props: {
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -24,6 +26,9 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: colors.surfaceElevated,
           borderTopColor: colors.border,
+          // 상단 여백을 주는 만큼 높이도 늘려야 라벨이 잘리지 않는다
+          paddingTop: 6,
+          height: 56 + insets.bottom,
         },
         tabBarLabelStyle: {
           marginTop: 4,
