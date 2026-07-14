@@ -2,6 +2,8 @@
 -- 규칙:
 --   · 반려/정리: deleted_at = now() (approved 는 false 유지)
 --   · 지도/검색(all_places·nearby_places RPC)은 approved=true 만 반환하므로 영향 없음
+--     ⚠️ 이 가정은 승인 전 반려에만 유효 — 승인된 행을 나중에 soft delete 하는 경우는
+--     012 에서 RPC 에 deleted_at IS NULL 을 추가해 해결했다
 --   · '내 제보 목록'(직접 테이블 조회)은 클라이언트에서 deleted_at is null 필터
 --   · ⚠️ 승인 시엔 deleted_at 이 null 인 행만 승인할 것 (deleted_at 있는 행을
 --     approved=true 로 만들면 RPC 를 통해 지도에 노출된다)

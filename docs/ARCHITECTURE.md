@@ -222,6 +222,7 @@ Sentry.wrap(
 | `009_push_copy_and_deeplink.sql` | 승인 푸시 문구 정리(을/를 조사 함수) + `data`(placeId/courseId) — 알림 탭 시 앱이 해당 장소·코스로 이동 |
 | `010_duplicate_check_rpc.sql` | 중복 제보 방지 RPC (`place_exists_at_address`/`course_exists_with_name`, definer — RLS 숨김 무관하게 존재 여부만 반환) |
 | `011_add_camping_category.sql` | `places_category_check`에 `camping` 추가 (모토캠핑) |
+| `012_rpc_exclude_soft_deleted.sql` | `all_places`/`nearby_places`에 `deleted_at IS NULL` 추가 — 승인 후 soft delete 된 행이 지도·검색·AI 챗에 노출되던 버그 수정 |
 
 ---
 
