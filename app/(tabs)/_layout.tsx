@@ -1,16 +1,44 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 
-function TabBarIcon(props: {
+function TabBarIcon({
+  name,
+  color,
+  focused,
+}: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
   color: string;
+  focused: boolean;
 }) {
-  return <FontAwesome size={24} {...props} />;
+  const scale = useSharedValue(1);
+
+  // 탭이 선택되는 순간 살짝 움츠렸다가 스프링으로 돌아온다
+  useEffect(() => {
+    if (focused) {
+      scale.value = 0.8;
+      scale.value = withSpring(1, { damping: 11, stiffness: 320 });
+    }
+  }, [focused, scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <FontAwesome size={24} name={name} color={color} />
+    </Animated.View>
+  );
 }
 
 export default function TabLayout() {
@@ -43,28 +71,36 @@ export default function TabLayout() {
         options={{
           title: '지도',
           headerShown: false,
-          tabBarIcon: ({ color }) => <TabBarIcon name="map" color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="map" color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="courses"
         options={{
           title: '탐색',
-          tabBarIcon: ({ color }) => <TabBarIcon name="compass" color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="compass" color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="submit"
         options={{
           title: '제보',
-          tabBarIcon: ({ color }) => <TabBarIcon name="plus-circle" color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="plus-circle" color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: '내 정보',
-          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="user" color={color} focused={focused} />
+          ),
         }}
       />
     </Tabs>
