@@ -322,21 +322,6 @@ function PlaceBottomSheet({
           <Animated.View style={spacerStyle} />
           <PhotoGrid photos={allPhotos} />
 
-          {!isExpanded && displayPlace.rating > 0 && (
-            <View style={styles.ratingRow}>
-              <View style={styles.ratingContainer}>
-                <Text style={styles.ratingStar}>★</Text>
-                <Text style={[styles.ratingText, { color: colors.text }]}>
-                  {displayPlace.rating}
-                </Text>
-                <Text
-                  style={[styles.reviewCount, { color: colors.textSecondary }]}>
-                  ({displayPlace.reviewCount})
-                </Text>
-              </View>
-            </View>
-          )}
-
           <View style={styles.nameRow}>
             <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
               {displayPlace.name}
@@ -427,9 +412,23 @@ function PlaceBottomSheet({
           )}
 
           <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
-            <Text style={[styles.reviewSectionTitle, { color: colors.text }]}>
-              리뷰
-            </Text>
+            <View style={styles.reviewSectionHeader}>
+              <Text style={[styles.reviewSectionTitle, { color: colors.text }]}>
+                리뷰
+              </Text>
+              {displayPlace.rating > 0 && (
+                <View style={styles.ratingContainer}>
+                  <Text style={styles.ratingStar}>★</Text>
+                  <Text style={[styles.ratingText, { color: colors.text }]}>
+                    {displayPlace.rating}
+                  </Text>
+                  <Text
+                    style={[styles.reviewCount, { color: colors.textSecondary }]}>
+                    ({displayPlace.reviewCount})
+                  </Text>
+                </View>
+              )}
+            </View>
             <ReviewForm placeId={place.id} />
             <View style={styles.reviewDivider} />
             <ReviewList placeId={place.id} />
@@ -454,17 +453,7 @@ function PlaceBottomSheet({
             style={styles.iconButton}>
             <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
           </TouchableOpacity>
-          <View style={styles.nameActions}>
-            {displayPlace.rating > 0 && (
-              <View style={styles.ratingContainer}>
-                <Text style={styles.ratingStar}>★</Text>
-                <Text style={[styles.ratingText, { color: colors.text }]}>
-                  {displayPlace.rating}
-                </Text>
-              </View>
-            )}
-            {actions}
-          </View>
+          <View style={styles.nameActions}>{actions}</View>
         </Animated.View>
       )}
     </>
@@ -508,12 +497,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 28,
     borderTopWidth: 1,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 12,
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -653,10 +636,15 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     marginTop: 12,
   },
+  reviewSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
   reviewSectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 16,
   },
   reviewDivider: {
     height: 16,
