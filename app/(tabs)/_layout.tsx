@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,30 +6,33 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  type SharedValue,
 } from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 
+// 탭바는 아이콘을 활성/비활성 두 벌로 겹쳐 렌더해 focused prop 이 인스턴스별로 고정이다.
+// 그래서 focused 변화 감지 대신 tabPress 이벤트로 스프링을 트리거한다 — 사용자가
+// 실제로 눌렀을 때만 동작하고, 앱 시작 시 초기 탭에서는 아무 효과도 없다.
+function useTabPressScale() {
+  const scale = useSharedValue(1);
+  const trigger = () => {
+    scale.value = 0.8;
+    scale.value = withSpring(1, { damping: 11, stiffness: 320 });
+  };
+  return { scale, trigger };
+}
+
 function TabBarIcon({
   name,
   color,
-  focused,
+  scale,
 }: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
   color: string;
-  focused: boolean;
+  scale: SharedValue<number>;
 }) {
-  const scale = useSharedValue(1);
-
-  // 탭이 선택되는 순간 살짝 움츠렸다가 스프링으로 돌아온다
-  useEffect(() => {
-    if (focused) {
-      scale.value = 0.8;
-      scale.value = withSpring(1, { damping: 11, stiffness: 320 });
-    }
-  }, [focused, scale]);
-
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
@@ -45,6 +48,11 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+
+  const mapTab = useTabPressScale();
+  const coursesTab = useTabPressScale();
+  const submitTab = useTabPressScale();
+  const profileTab = useTabPressScale();
 
   return (
     <Tabs
@@ -71,37 +79,41 @@ export default function TabLayout() {
         options={{
           title: '지도',
           headerShown: false,
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name="map" color={color} focused={focused} />
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="map" color={color} scale={mapTab.scale} />
           ),
         }}
+        listeners={{ tabPress: mapTab.trigger }}
       />
       <Tabs.Screen
         name="courses"
         options={{
           title: '탐색',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name="compass" color={color} focused={focused} />
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="compass" color={color} scale={coursesTab.scale} />
           ),
         }}
+        listeners={{ tabPress: coursesTab.trigger }}
       />
       <Tabs.Screen
         name="submit"
         options={{
           title: '제보',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name="plus-circle" color={color} focused={focused} />
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="plus-circle" color={color} scale={submitTab.scale} />
           ),
         }}
+        listeners={{ tabPress: submitTab.trigger }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: '내 정보',
-          tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name="user" color={color} focused={focused} />
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="user" color={color} scale={profileTab.scale} />
           ),
         }}
+        listeners={{ tabPress: profileTab.trigger }}
       />
     </Tabs>
   );
