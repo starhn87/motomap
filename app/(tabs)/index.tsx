@@ -25,6 +25,7 @@ import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { usePlaces } from '@/hooks/usePlaces';
 import { useGasStations, GAS_MIN_ZOOM, type SearchPoint } from '@/hooks/useGasStations';
+import { useWeather } from '@/hooks/useWeather';
 import { fetchPlaceById } from '@/hooks/usePlace';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { fetchRoute } from '@/lib/api/directions';
@@ -35,6 +36,8 @@ import { MARKER_IMAGES } from '@/constants/markerImages';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
 import GasStationMarker from '@/components/map/GasStationMarker';
 import GasStationCard from '@/components/map/GasStationCard';
+import WeatherFab from '@/components/map/WeatherFab';
+import WeatherSheet from '@/components/map/WeatherSheet';
 import RouteLine from '@/components/map/RouteLine';
 import RouteInfoCard from '@/components/map/RouteInfoCard';
 import SearchEntry from '@/components/search/SearchEntry';
@@ -94,6 +97,12 @@ export default function MapScreen() {
     gasSearchPoint,
     gasMode && mapReady,
   );
+
+  // 라이딩 날씨 — 내 위치 우선, 없으면 지도 중심 기준
+  const weatherLat = userLocation?.latitude ?? mapCenter?.latitude;
+  const weatherLng = userLocation?.longitude ?? mapCenter?.longitude;
+  const { data: weather } = useWeather(weatherLat, weatherLng);
+  const [weatherOpen, setWeatherOpen] = useState(false);
 
   // 필터 진입 시 현재 지도 중심으로 최초 1회 검색, 필터를 벗어나면 초기화
   useEffect(() => {
@@ -433,6 +442,10 @@ export default function MapScreen() {
         </Animated.View>
       )}
 
+      {!navigating && weather && (
+        <WeatherFab weather={weather} onPress={() => setWeatherOpen(true)} />
+      )}
+
       {gasMode && !gasZoomOk && stations.length === 0 && (
         <Animated.View
           entering={FadeIn.duration(200)}
@@ -497,6 +510,10 @@ export default function MapScreen() {
           station={selectedStation}
           onClose={() => setSelectedStation(null)}
         />
+      )}
+
+      {weatherOpen && weather && (
+        <WeatherSheet weather={weather} onClose={() => setWeatherOpen(false)} />
       )}
     </View>
   );
