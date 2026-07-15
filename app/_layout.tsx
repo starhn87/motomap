@@ -98,6 +98,7 @@ function RootLayoutNav() {
             <Stack.Screen name="chat" options={{ headerShown: false }} />
             <Stack.Screen name="settings" options={{ title: '설정', headerBackTitle: '뒤로' }} />
             <Stack.Screen name="edit-nickname" options={{ title: '닉네임 변경', headerBackTitle: '뒤로' }} />
+            <Stack.Screen name="edit-bike" options={{ title: '내 바이크', headerBackTitle: '뒤로' }} />
             <Stack.Screen name="favorites" options={{ title: '즐겨찾기', headerBackTitle: '뒤로' }} />
             <Stack.Screen name="my-submissions" options={{ title: '내 제보 목록', headerBackTitle: '뒤로' }} />
             <Stack.Screen name="my-reviews" options={{ title: '내 리뷰', headerBackTitle: '뒤로' }} />

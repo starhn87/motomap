@@ -263,9 +263,16 @@ export default function CourseDetailScreen() {
                             {review.userName.charAt(0).toUpperCase()}
                           </Text>
                         </View>
-                        <Text style={[styles.reviewUserName, { color: colors.text }]}>
-                          {review.userName}
-                        </Text>
+                        <View>
+                          <Text style={[styles.reviewUserName, { color: colors.text }]}>
+                            {review.userName}
+                          </Text>
+                          {review.bikeModel ? (
+                            <Text style={[styles.bikeBadge, { color: colors.tint }]}>
+                              🏍 {review.bikeModel}
+                            </Text>
+                          ) : null}
+                        </View>
                       </View>
                       {!isEditing && <StarRating rating={review.rating} size={14} readonly />}
                     </View>
@@ -546,6 +553,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  bikeBadge: { fontSize: 11, fontWeight: '600', marginTop: 1 },
   reviewContent: {
     fontSize: 13,
     lineHeight: 19,

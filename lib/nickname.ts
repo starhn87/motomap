@@ -56,17 +56,31 @@ export async function createProfile(nickname: string): Promise<void> {
   });
 }
 
-export async function getProfile(): Promise<{ nickname: string; avatar_url: string | null } | null> {
+export async function getProfile(): Promise<{
+  nickname: string;
+  avatar_url: string | null;
+  bike_model: string | null;
+} | null> {
   const user = await getCurrentUser();
   if (!user) return null;
 
   const { data } = await supabase
     .from('profiles')
-    .select('nickname, avatar_url')
+    .select('nickname, avatar_url, bike_model')
     .eq('id', user.id)
     .single();
 
   return data;
+}
+
+// 마이 바이크 기종 저장 (빈 문자열이면 해제)
+export async function updateBikeModel(model: string): Promise<void> {
+  const user = await requireUser();
+  const { error } = await supabase
+    .from('profiles')
+    .update({ bike_model: model.trim() || null })
+    .eq('id', user.id);
+  if (error) throw error;
 }
 
 export async function updateAvatarUrl(avatarUrl: string): Promise<void> {

@@ -181,9 +181,16 @@ export default function ReviewList({ placeId }: Props) {
                     </Text>
                   </View>
                 )}
-                <Text style={[styles.userName, { color: colors.text }]}>
-                  {review.userName}
-                </Text>
+                <View>
+                  <Text style={[styles.userName, { color: colors.text }]}>
+                    {review.userName}
+                  </Text>
+                  {review.bikeModel ? (
+                    <Text style={[styles.bikeBadge, { color: colors.tint }]}>
+                      🏍 {review.bikeModel}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
               {!isEditing && (
                 <StarRating rating={review.rating} size={14} readonly />
@@ -333,6 +340,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reviewDate: { fontSize: 11 },
+  bikeBadge: { fontSize: 11, fontWeight: '600', marginTop: 1 },
   actions: { flexDirection: 'row', gap: 12 },
   actionText: { fontSize: 12, fontWeight: '600' },
   editForm: { gap: 10 },

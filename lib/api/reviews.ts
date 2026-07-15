@@ -5,7 +5,7 @@ import { requireUser } from '@/lib/auth';
 export async function fetchReviews(placeId: string): Promise<Review[]> {
   const { data, error } = await supabase
     .from('reviews')
-    .select('*, profiles(nickname, avatar_url)')
+    .select('*, profiles(nickname, avatar_url, bike_model)')
     .eq('place_id', placeId)
     .order('created_at', { ascending: false });
 
@@ -17,6 +17,7 @@ export async function fetchReviews(placeId: string): Promise<Review[]> {
     userId: row.user_id,
     userName: row.profiles?.nickname ?? row.user_name,
     avatarUrl: row.profiles?.avatar_url ?? null,
+    bikeModel: row.profiles?.bike_model ?? null,
     rating: row.rating,
     content: row.content ?? '',
     photos: row.photos ?? [],
