@@ -40,3 +40,20 @@ export async function searchKakaoLocal(query: string): Promise<KakaoLocalResult[
     return [];
   }
 }
+
+// 역지오코딩 — 좌표를 실제 주소(도로명 우선, 없으면 지번)로 바꾼다.
+// 코스 내비 경유지 이름 등 표시에 쓰이므로 실패는 조용히 null (호출부가 라벨 fallback).
+export async function coordToAddress(latitude: number, longitude: number): Promise<string | null> {
+  if (!REST_KEY) return null;
+  const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${longitude}&y=${latitude}`;
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `KakaoAK ${REST_KEY}` },
+    });
+    if (!res.ok) return null;
+    const doc = (await res.json()).documents?.[0];
+    return doc?.road_address?.address_name ?? doc?.address?.address_name ?? null;
+  } catch {
+    return null;
+  }
+}

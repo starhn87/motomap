@@ -2,6 +2,7 @@ import { Alert, Linking } from 'react-native';
 import KakaoNavi from '@react-native-kakao/navi';
 
 import { useNavPrefStore, type NavAppId } from '@/stores/useNavPrefStore';
+import { coordToAddress } from '@/lib/api/kakaoLocal';
 import { toast } from '@/lib/toast';
 
 export interface NavTarget {
@@ -13,7 +14,7 @@ export interface NavTarget {
 /** 코스 내비 대상 — points 는 코스 순서(출발지 → 경유지들 → 도착지) */
 export interface NavCourse {
   name: string;
-  points: { latitude: number; longitude: number }[];
+  points: { latitude: number; longitude: number; name?: string }[];
 }
 
 export interface NavApp {
@@ -52,9 +53,13 @@ export const NAV_APPS: NavApp[] = [
       const dest = points[points.length - 1];
       const vias = sampleWaypoints(points.slice(0, -1), 3);
       await KakaoNavi.navigateTo({
-        destination: { name: `${name} 도착지`, x: dest.longitude, y: dest.latitude },
+        destination: {
+          name: dest.name ?? `${name} 도착지`,
+          x: dest.longitude,
+          y: dest.latitude,
+        },
         viaList: vias.map((p, i) => ({
-          name: i === 0 ? '코스 출발지' : `경유지 ${i}`,
+          name: p.name ?? (i === 0 ? '코스 출발지' : `경유지 ${i}`),
           x: p.longitude,
           y: p.latitude,
         })),
@@ -99,12 +104,12 @@ export const NAV_APPS: NavApp[] = [
         .map(
           (p, i) =>
             `&v${i + 1}lat=${p.latitude}&v${i + 1}lng=${p.longitude}&v${i + 1}name=${encodeURIComponent(
-              i === 0 ? '코스 출발지' : `경유지 ${i}`,
+              p.name ?? (i === 0 ? '코스 출발지' : `경유지 ${i}`),
             )}`,
         )
         .join('');
       await Linking.openURL(
-        `nmap://route/car?dlat=${dest.latitude}&dlng=${dest.longitude}&dname=${encodeURIComponent(`${name} 도착지`)}${viaParams}&appname=com.ridemap.app`,
+        `nmap://route/car?dlat=${dest.latitude}&dlng=${dest.longitude}&dname=${encodeURIComponent(dest.name ?? `${name} 도착지`)}${viaParams}&appname=com.ridemap.app`,
       );
     },
   },
@@ -177,6 +182,19 @@ export async function openNavigation(target: NavTarget) {
   await withNavApp((app) => app.launch(target));
 }
 
+// 각 지점의 실제 주소를 역지오코딩으로 채운다 — 내비 화면에 "경유지 1" 같은
+// 제네릭 라벨 대신 주소가 표시되게. 실패한 지점은 name 없이 두어 라벨 fallback.
+async function resolvePointNames(course: NavCourse): Promise<NavCourse> {
+  const named = await Promise.all(
+    course.points.map(async (p) => {
+      if (p.name) return p;
+      const address = await coordToAddress(p.latitude, p.longitude);
+      return address ? { ...p, name: address } : p;
+    }),
+  );
+  return { ...course, points: named };
+}
+
 /**
  * 코스 전체 안내 — 출발지는 현재 위치(각 앱 기본), 경유지 지원 앱(카카오내비·네이버지도)은
  * 코스 출발지~중간 지점을 경유지로 넣고 코스 끝을 목적지로 안내한다.
@@ -184,13 +202,14 @@ export async function openNavigation(target: NavTarget) {
  */
 export async function openCourseNavigation(course: NavCourse) {
   if (course.points.length === 0) return;
-  await withNavApp((app) => {
+  await withNavApp(async (app) => {
     if (app.launchCourse && course.points.length >= 2) {
-      return app.launchCourse(course);
+      return app.launchCourse(await resolvePointNames(course));
     }
     const start = course.points[0];
+    const address = await coordToAddress(start.latitude, start.longitude);
     return app.launch({
-      name: `${course.name} 출발지`,
+      name: address ?? `${course.name} 출발지`,
       latitude: start.latitude,
       longitude: start.longitude,
     });
