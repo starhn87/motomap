@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Share } from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TouchableOpacity } from 'react-native-gesture-handler';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import BottomSheet, {
   BottomSheetScrollView,
   BottomSheetFooter,
@@ -179,6 +180,17 @@ function PlaceBottomSheet({
       Extrapolation.CLAMP
     ),
   }));
+
+  const handleShare = async () => {
+    if (!displayPlace) return;
+    try {
+      await Share.share({
+        message: `${displayPlace.name}\n${displayPlace.address}\n\n모토맵 - 라이더를 위한 지도\nhttps://apps.apple.com/kr/app/id6773636183`,
+      });
+    } catch {
+      // 공유 시트를 닫은 경우 등 — 무시
+    }
+  };
 
   const actions = (
     <>
@@ -352,6 +364,9 @@ function PlaceBottomSheet({
                 {formatMeters(distanceMeters)}
               </Text>
             )}
+            <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareButton}>
+              <FontAwesome name="share-alt" size={15} color={colors.tint} />
+            </TouchableOpacity>
           </View>
 
           {displayPlace.description ? (
@@ -561,6 +576,9 @@ const styles = StyleSheet.create({
   distance: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  shareButton: {
+    paddingLeft: 2,
   },
   description: {
     fontSize: 14,
