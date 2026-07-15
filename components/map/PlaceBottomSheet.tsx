@@ -12,7 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TouchableOpacity } from 'react-native-gesture-handler';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import Feather from '@expo/vector-icons/Feather';
 import BottomSheet, {
   BottomSheetScrollView,
   BottomSheetFooter,
@@ -365,7 +365,7 @@ function PlaceBottomSheet({
               </Text>
             )}
             <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareButton}>
-              <FontAwesome name="share-alt" size={15} color={colors.tint} />
+              <Feather name="share-2" size={19} color={colors.tint} />
             </TouchableOpacity>
           </View>
 
