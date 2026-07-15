@@ -11,6 +11,7 @@ function rowToCourse(row: any): RidingCourse {
     duration: row.duration,
     coordinates: row.coordinates ?? [],
     waypoints: [],
+    tags: row.tags ?? [],
     createdBy: row.created_by,
     rating: Number(row.rating) || 0,
     reviewCount: row.review_count ?? 0,

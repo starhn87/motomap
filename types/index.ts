@@ -36,6 +36,7 @@ export interface RidingCourse {
   duration: number; // minutes
   coordinates: [number, number][];
   waypoints: Place[];
+  tags: string[];
   createdBy: string;
   rating: number;
   reviewCount: number;
@@ -48,6 +49,7 @@ export interface Review {
   userId: string;
   userName: string;
   avatarUrl: string | null;
+  bikeModel: string | null;
   rating: number;
   content: string;
   photos: string[];

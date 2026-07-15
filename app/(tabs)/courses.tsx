@@ -13,7 +13,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useCourses } from '@/hooks/useCourses';
-import { formatDistance, formatDuration } from '@/constants/course';
+import { formatDistance, formatDuration, seasonalBadge } from '@/constants/course';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import RecommendedPlaces from '@/components/explore/RecommendedPlaces';
 import type { RidingCourse } from '@/types';
@@ -65,6 +65,13 @@ export default function ExploreScreen() {
         </View>
       )}
 
+      {seasonalBadge(item.tags) && (
+        <View style={[styles.seasonBadge, { backgroundColor: colors.surfaceMuted }]}>
+          <Text style={[styles.seasonBadgeText, { color: colors.text }]}>
+            {seasonalBadge(item.tags)}
+          </Text>
+        </View>
+      )}
       <Text style={[styles.courseName, { color: colors.text }]}>
         {item.name}
       </Text>
@@ -217,6 +224,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     marginBottom: 12,
+  },
+  seasonBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 6,
+  },
+  seasonBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   statsRow: {
     flexDirection: 'row',
