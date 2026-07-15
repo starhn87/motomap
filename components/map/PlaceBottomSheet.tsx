@@ -66,6 +66,8 @@ function PlaceBottomSheet({
   const insets = useSafeAreaInsets();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const [currentIndex, setCurrentIndex] = useState(1);
+  // 사진 스트립을 만지는 동안 시트의 콘텐츠 팬을 꺼서 가로 스와이프 간섭을 막는다
+  const [photoStripActive, setPhotoStripActive] = useState(false);
   const animatedIndex = useSharedValue(1);
   const currentIndexRef = useRef(1);
 
@@ -315,6 +317,7 @@ function PlaceBottomSheet({
         animateOnMount={false}
         snapPoints={SNAP_POINTS}
         enableDynamicSizing={false}
+        enableContentPanningGesture={!photoStripActive}
         animatedIndex={animatedIndex}
         animatedPosition={animatedPosition}
         onChange={handleSheetChanges}
@@ -435,7 +438,7 @@ function PlaceBottomSheet({
               <Text style={[styles.photoSectionTitle, { color: colors.text }]}>
                 사진 {photoItems.length}
               </Text>
-              <PhotoStrip items={photoItems} />
+              <PhotoStrip items={photoItems} onTouchActive={setPhotoStripActive} />
             </View>
           )}
 
