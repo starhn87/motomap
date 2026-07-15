@@ -7,6 +7,7 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 // eslint 참고: TypingDots 의 훅은 고정 3개 점에만 쓰여 순서가 안정적이다
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -26,19 +27,10 @@ import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useMapStore } from '@/stores/useMapStore';
-import { sendChat, type ChatPlaceCard, type ChatCourseCard, type ChatTurn } from '@/lib/api/chat';
+import { useChatStore, type ChatMessage } from '@/stores/useChatStore';
+import { sendChat, type ChatPlaceCard, type ChatTurn } from '@/lib/api/chat';
 import { formatDistance, formatDuration } from '@/constants/course';
 import type { PlaceCategory } from '@/types';
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  places?: ChatPlaceCard[];
-  courses?: ChatCourseCard[];
-  /** 최초 도착 시에만 점진 표시 — FlatList 재마운트로 다시 타이핑되지 않게 완료 후 false */
-  animate?: boolean;
-}
 
 // 타이핑 인디케이터 — 점 3개가 번갈아 튀어오른다
 function TypingDots({ color }: { color: string }) {
@@ -153,53 +145,45 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const userLocation = useMapStore((s) => s.userLocation);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // 대화는 전역 스토어에 산다 — 화면을 나가거나 앱이 백그라운드에 가도 유지되고,
+  // 전송 중에 나가도 응답이 스토어에 도착해 재진입 시 이어 볼 수 있다.
+  const { messages, sending, append, markAnimated, setSending, clear } = useChatStore();
   const [input, setInput] = useState('');
-  const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList>(null);
-  const idRef = useRef(0);
 
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || sending) return;
 
-      const userMsg: ChatMessage = { id: `m${++idRef.current}`, role: 'user', content: trimmed };
-      const nextMessages = [...messages, userMsg];
-      setMessages(nextMessages);
+      append({ role: 'user', content: trimmed });
       setInput('');
       setSending(true);
 
       try {
-        const history: ChatTurn[] = nextMessages.map((m) => ({ role: m.role, content: m.content }));
+        const history: ChatTurn[] = useChatStore
+          .getState()
+          .messages.map((m) => ({ role: m.role, content: m.content }));
         const res = await sendChat(history, userLocation);
-        setMessages((cur) => [
-          ...cur,
-          {
-            id: `m${++idRef.current}`,
-            role: 'assistant',
-            content: res.reply,
-            places: res.places,
-            courses: res.courses,
-            animate: true,
-          },
-        ]);
+        append({
+          role: 'assistant',
+          content: res.reply,
+          places: res.places,
+          courses: res.courses,
+          animate: true,
+        });
       } catch (e: any) {
-        setMessages((cur) => [
-          ...cur,
-          {
-            id: `m${++idRef.current}`,
-            role: 'assistant',
-            content: e.message ?? '추천을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
-            animate: true,
-          },
-        ]);
+        append({
+          role: 'assistant',
+          content: e.message ?? '추천을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+          animate: true,
+        });
       } finally {
         setSending(false);
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
       }
     },
-    [messages, sending, userLocation],
+    [sending, userLocation, append, setSending],
   );
 
   const goToPlace = (card: ChatPlaceCard) => {
@@ -209,10 +193,12 @@ export default function ChatScreen() {
     });
   };
 
-  // 점진 표시가 끝나면 animate 를 내려 재마운트 시 다시 타이핑되지 않게 한다
-  const markAnimated = useCallback((id: string) => {
-    setMessages((cur) => cur.map((m) => (m.id === id ? { ...m, animate: false } : m)));
-  }, []);
+  const handleNewChat = () => {
+    Alert.alert('새 대화', '지금까지의 대화를 지우고 새로 시작할까요?', [
+      { text: '취소', style: 'cancel' },
+      { text: '새로 시작', style: 'destructive', onPress: clear },
+    ]);
+  };
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isUser = item.role === 'user';
@@ -308,7 +294,13 @@ export default function ChatScreen() {
           <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.text }]}>AI 추천</Text>
-        <View style={styles.backButton} />
+        {messages.length > 0 ? (
+          <Pressable onPress={handleNewChat} hitSlop={10} style={styles.newChatButton}>
+            <Text style={[styles.newChatText, { color: colors.tint }]}>새 대화</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.newChatButton} />
+        )}
       </View>
 
       <KeyboardAvoidingView
@@ -436,6 +428,15 @@ const styles = StyleSheet.create({
   backButton: {
     width: 36,
     padding: 6,
+  },
+  newChatButton: {
+    minWidth: 52,
+    alignItems: 'flex-end',
+    padding: 6,
+  },
+  newChatText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   backIcon: {
     fontSize: 22,
