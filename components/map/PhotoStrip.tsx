@@ -36,29 +36,16 @@ function ReviewOverlay({ review }: { review: Review }) {
 }
 
 // 장소 상세의 사진 스트립 — 가로 스와이프로 훑고, 탭하면 확대 모달에서
-// 해당 사진이 달린 리뷰를 하단에 함께 보여준다.
-// onTouchActive: 스트립을 만지는 동안 바텀시트의 세로 팬을 끄기 위한 신호 —
-// 가로 스와이프 중 시트 높이가 흔들리는 제스처 간섭을 막는다.
-export default function PhotoStrip({
-  items,
-  onTouchActive,
-}: {
-  items: PhotoStripItem[];
-  onTouchActive?: (active: boolean) => void;
-}) {
+// 해당 사진이 달린 리뷰를 하단에 함께 보여준다. 시트와의 제스처 방향 잠금은
+// PlaceBottomSheet 의 activeOffsetY/failOffsetX 가 담당한다.
+export default function PhotoStrip({ items }: { items: PhotoStripItem[] }) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   if (items.length === 0) return null;
 
   return (
     <>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        onTouchStart={() => onTouchActive?.(true)}
-        onTouchEnd={() => onTouchActive?.(false)}
-        onTouchCancel={() => onTouchActive?.(false)}
-        onScrollEndDrag={() => onTouchActive?.(false)}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.row}>
           {items.map((item, i) => (
             <Pressable key={`${item.url}-${i}`} onPress={() => setViewerIndex(i)}>
