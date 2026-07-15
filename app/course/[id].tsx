@@ -19,6 +19,7 @@ import { useCourse } from '@/hooks/useCourses';
 import { useCourseReviews, useCreateCourseReview, useUpdateCourseReview, useDeleteCourseReview } from '@/hooks/useCourseReviews';
 import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
 import { openCourseNavigation } from '@/lib/navigation';
+import { useCourseRoute } from '@/hooks/useCourseRoute';
 import { formatDistance, formatDuration } from '@/constants/course';
 import { toast } from '@/lib/toast';
 import StarRating from '@/components/review/StarRating';
@@ -30,6 +31,11 @@ export default function CourseDetailScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const { data: course, isLoading } = useCourse(id ?? null);
+  // waypoint 직선 연결 대신 실제 주행 도로 경로 (실패·로딩 중엔 직선 fallback)
+  const { data: roadRoute } = useCourseRoute(
+    id ?? null,
+    course?.coordinates as [number, number][] | undefined,
+  );
   const { data: reviews } = useCourseReviews(id ?? null);
   const { mutateAsync: submitReview, isPending } = useCreateCourseReview();
   const { mutateAsync: updateReview } = useUpdateCourseReview(id ?? '');
@@ -80,6 +86,11 @@ export default function CourseDetailScreen() {
     longitude: lng,
   }));
 
+  // 지도에 그릴 경로 — 실도로 경로가 준비되면 그것을, 아니면 waypoint 직선
+  const pathCoords = roadRoute
+    ? roadRoute.geometry.map(([lng, lat]) => ({ latitude: lat, longitude: lng }))
+    : coords;
+
   // 지도 카메라 중심 계산
   const lats = coords.map((c) => c.latitude);
   const lngs = coords.map((c) => c.longitude);
@@ -114,7 +125,7 @@ export default function CourseDetailScreen() {
               zoom: 9,
             }}>
             <NaverMapPathOverlay
-              coords={coords}
+              coords={pathCoords}
               width={5}
               color={colors.tint}
               outlineWidth={2}

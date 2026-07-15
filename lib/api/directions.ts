@@ -18,9 +18,16 @@ export interface Route {
 
 export async function fetchRoute(
   origin: [number, number], // [lng, lat]
-  destination: [number, number] // [lng, lat]
+  destination: [number, number], // [lng, lat]
+  waypoints?: [number, number][] // 경유지 [lng, lat][] — 네이버 Directions 제한 최대 5개
 ): Promise<Route> {
-  const url = `https://maps.apigw.ntruss.com/map-direction/v1/driving?start=${origin[0]},${origin[1]}&goal=${destination[0]},${destination[1]}&option=trafast`;
+  const via = waypoints?.length
+    ? `&waypoints=${waypoints
+        .slice(0, 5)
+        .map(([lng, lat]) => `${lng},${lat}`)
+        .join('|')}`
+    : '';
+  const url = `https://maps.apigw.ntruss.com/map-direction/v1/driving?start=${origin[0]},${origin[1]}&goal=${destination[0]},${destination[1]}&option=trafast${via}`;
 
   const res = await fetch(url, {
     headers: {
