@@ -197,6 +197,11 @@ export default function MapScreen() {
   const handleBottomSheetClose = useCallback(() => {
     setSelectedPlaceId(null);
     setSelectedPlace(null);
+    // ✕/뒤로가기는 시트를 닫힘 애니메이션 없이 언마운트시켜 position 이 확장 값에
+    // 동결된다(버튼 실종) — 닫힘 위치로 부드럽게 복귀시킨다. 스와이프 닫기처럼 이미
+    // 닫힘 값에 도달한 경우엔 사실상 no-op 이다.
+    sheetPosition.value = withTiming(containerHeight.value + 100, { duration: 250 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setSelectedPlaceId]);
 
   const handleRoutePreview = useCallback(
@@ -217,8 +222,8 @@ export default function MapScreen() {
         setNavigating(true);
         setSelectedPlace(null);
         setSelectedPlaceId(null);
-        // 시트가 언마운트되며 위치 값이 중간에 남지 않도록 리셋 (버튼이 붕 뜨는 것 방지)
-        sheetPosition.value = 999999;
+        // 시트가 언마운트되며 위치 값이 중간에 남지 않도록 닫힘 위치로 부드럽게 복귀
+        sheetPosition.value = withTiming(containerHeight.value + 100, { duration: 250 });
 
         if (result.geometry.length > 0) {
           const lngs = result.geometry.map((c) => c[0]);
@@ -246,10 +251,7 @@ export default function MapScreen() {
 
   const handleMapTap = () => {
     Keyboard.dismiss();
-    if (selectedPlace) {
-      setSelectedPlaceId(null);
-      setSelectedPlace(null);
-    }
+    if (selectedPlace) handleBottomSheetClose();
     if (selectedStation) setSelectedStation(null);
   };
 
