@@ -41,6 +41,8 @@ export default function ReviewList({ placeId }: Props) {
   const [editRating, setEditRating] = useState(0);
   const [editContent, setEditContent] = useState('');
   const [editPhotos, setEditPhotos] = useState<string[]>([]);
+  // 사진 업로드 포함 저장 전 과정을 잠가 연타 중복 저장을 막는다
+  const [savingEdit, setSavingEdit] = useState(false);
   const [reportingId, setReportingId] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
 
@@ -106,10 +108,12 @@ export default function ReviewList({ placeId }: Props) {
   };
 
   const handleSaveEdit = async (id: string) => {
+    if (savingEdit) return;
     if (editRating === 0) {
       toast.info('별점을 선택해주세요.');
       return;
     }
+    setSavingEdit(true);
     try {
       const finalPhotos: string[] = [];
       for (const photo of editPhotos) {
@@ -124,6 +128,8 @@ export default function ReviewList({ placeId }: Props) {
       handleCancelEdit();
     } catch (error: any) {
       toast.error('수정에 실패했습니다.', error.message);
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -213,8 +219,16 @@ export default function ReviewList({ placeId }: Props) {
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => handleSaveEdit(review.id)}
-                    style={[styles.saveButton, { backgroundColor: colors.tint }]}>
-                    <Text style={[styles.saveText, { color: colors.background }]}>저장</Text>
+                    disabled={savingEdit}
+                    style={[
+                      styles.saveButton,
+                      { backgroundColor: colors.tint, opacity: savingEdit ? 0.6 : 1 },
+                    ]}>
+                    {savingEdit ? (
+                      <ActivityIndicator size="small" color={colors.background} />
+                    ) : (
+                      <Text style={[styles.saveText, { color: colors.background }]}>저장</Text>
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>

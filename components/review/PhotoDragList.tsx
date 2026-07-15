@@ -7,7 +7,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   runOnJS,
-  LinearTransition,
+  type SharedValue,
 } from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
@@ -21,47 +21,98 @@ interface ThumbProps {
   uri: string;
   index: number;
   count: number;
+  activeIndex: SharedValue<number>;
+  targetIndex: SharedValue<number>;
   onMove: (from: number, to: number) => void;
   onRemove: (index: number) => void;
   setDragging: (v: boolean) => void;
 }
 
-// 길게 누르면 드래그가 활성화되고, 놓는 위치의 칸으로 이동한다.
-// 나머지 썸네일은 LinearTransition 이 자리를 비켜주듯 부드럽게 재배치한다.
-function Thumb({ uri, index, count, onMove, onRemove, setDragging }: ThumbProps) {
+// 길게 누르면 드래그가 시작되고, 끌고 있는 동안 삽입 위치(targetIndex)를 실시간 계산해
+// 나머지 썸네일이 그 자리로 즉시 비켜난다. 놓으면 배열을 재정렬하고, 활성 썸네일의
+// 이동분을 tx 에서 빼서 새 레이아웃 위치로 잔여 오차만 부드럽게 정착시킨다.
+function Thumb({
+  uri,
+  index,
+  count,
+  activeIndex,
+  targetIndex,
+  onMove,
+  onRemove,
+  setDragging,
+}: ThumbProps) {
   const tx = useSharedValue(0);
-  const active = useSharedValue(0);
+  const isActive = useSharedValue(0);
 
   const pan = Gesture.Pan()
     .activateAfterLongPress(180)
     .onStart(() => {
-      active.value = 1;
+      isActive.value = 1;
+      activeIndex.value = index;
+      targetIndex.value = index;
       runOnJS(setDragging)(true);
     })
     .onUpdate((e) => {
       tx.value = e.translationX;
+      targetIndex.value = Math.max(
+        0,
+        Math.min(count - 1, index + Math.round(e.translationX / STEP)),
+      );
     })
     .onEnd(() => {
-      const to = Math.max(0, Math.min(count - 1, index + Math.round(tx.value / STEP)));
-      if (to !== index) runOnJS(onMove)(index, to);
-    })
-    .onFinalize(() => {
-      tx.value = 0;
-      active.value = 0;
+      const from = index;
+      const to = targetIndex.value;
+      if (to !== from) {
+        // 재정렬로 레이아웃이 (to-from)*STEP 만큼 이동하므로 그만큼 빼서 시각적 연속 유지
+        tx.value = tx.value - (to - from) * STEP;
+        runOnJS(onMove)(from, to);
+      } else {
+        activeIndex.value = -1;
+        targetIndex.value = -1;
+      }
+      tx.value = withTiming(0, { duration: 160 });
+      isActive.value = 0;
       runOnJS(setDragging)(false);
+    })
+    .onFinalize((_e, success) => {
+      // 제스처가 취소된 경우(onEnd 미도달)만 정리
+      if (!success) {
+        tx.value = withTiming(0, { duration: 160 });
+        isActive.value = 0;
+        activeIndex.value = -1;
+        targetIndex.value = -1;
+        runOnJS(setDragging)(false);
+      }
     });
 
-  const style = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: tx.value },
-      { scale: withTiming(active.value ? 1.07 : 1, { duration: 120 }) },
-    ],
-    zIndex: active.value ? 10 : 0,
-  }));
+  const style = useAnimatedStyle(() => {
+    if (isActive.value) {
+      return {
+        transform: [{ translateX: tx.value }, { scale: withTiming(1.07, { duration: 120 }) }],
+        zIndex: 10,
+      };
+    }
+    // 드래그 중인 이웃을 위해 비켜나기 — 삽입 위치와 내 위치 사이에 있으면 한 칸 이동
+    const a = activeIndex.value;
+    const t = targetIndex.value;
+    let shift = 0;
+    if (a >= 0 && t >= 0) {
+      if (index > a && index <= t) shift = -STEP;
+      else if (index < a && index >= t) shift = STEP;
+    }
+    return {
+      transform: [
+        // 드래그 중에만 애니메이션 — 끝나는 순간엔 재정렬 레이아웃과 겹치지 않게 즉시 0
+        { translateX: a >= 0 ? withTiming(shift, { duration: 150 }) : 0 },
+        { scale: withTiming(1, { duration: 120 }) },
+      ],
+      zIndex: 0,
+    };
+  });
 
   return (
     <GestureDetector gesture={pan}>
-      <Animated.View layout={LinearTransition.duration(180)} style={[styles.thumb, style]}>
+      <Animated.View style={[styles.thumb, style]}>
         <Image source={{ uri }} style={styles.image} />
         <Pressable onPress={() => onRemove(index)} hitSlop={6} style={styles.remove}>
           <Text style={styles.removeText}>✕</Text>
@@ -83,12 +134,17 @@ export default function PhotoDragList({ uris, onChange, onAdd, max }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [dragging, setDragging] = useState(false);
+  const activeIndex = useSharedValue(-1);
+  const targetIndex = useSharedValue(-1);
 
   const move = (from: number, to: number) => {
     const next = [...uris];
     const [item] = next.splice(from, 1);
     next.splice(to, 0, item);
     onChange(next);
+    // 재정렬 커밋과 같은 사이클에 리셋해야 비켜난 썸네일이 튀지 않는다
+    activeIndex.value = -1;
+    targetIndex.value = -1;
   };
 
   const remove = (index: number) => {
@@ -105,6 +161,8 @@ export default function PhotoDragList({ uris, onChange, onAdd, max }: Props) {
               uri={uri}
               index={i}
               count={uris.length}
+              activeIndex={activeIndex}
+              targetIndex={targetIndex}
               onMove={move}
               onRemove={remove}
               setDragging={setDragging}

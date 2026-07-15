@@ -19,11 +19,14 @@ export default function ReviewForm({ placeId }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
-  const { mutateAsync, isPending } = useCreateReview();
+  const { mutateAsync } = useCreateReview();
 
   const [rating, setRating] = useState(0);
   const [content, setContent] = useState('');
   const [imageUris, setImageUris] = useState<string[]>([]);
+  // isPending(mutation)만으로는 사진 업로드 구간이 비어 연타로 중복 등록됐다 —
+  // 업로드부터 등록까지 전 과정을 잠근다
+  const [submitting, setSubmitting] = useState(false);
 
   if (!user) {
     return (
@@ -46,11 +49,13 @@ export default function ReviewForm({ placeId }: Props) {
   };
 
   const handleSubmit = async () => {
+    if (submitting) return;
     if (rating === 0) {
       toast.info('별점을 선택해주세요.');
       return;
     }
 
+    setSubmitting(true);
     try {
       let photoUrls: string[] = [];
       if (imageUris.length > 0) {
@@ -69,6 +74,8 @@ export default function ReviewForm({ placeId }: Props) {
       toast.success('리뷰가 등록되었습니다.');
     } catch (error: any) {
       toast.error('리뷰 등록에 실패했습니다.', error.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -99,10 +106,13 @@ export default function ReviewForm({ placeId }: Props) {
 
       <TouchableOpacity
         onPress={handleSubmit}
-        disabled={isPending}
+        disabled={submitting}
         activeOpacity={0.8}
-        style={[styles.submitButton, { backgroundColor: colors.tint, opacity: isPending ? 0.6 : 1 }]}>
-        {isPending ? (
+        style={[
+          styles.submitButton,
+          { backgroundColor: colors.tint, opacity: submitting ? 0.6 : 1 },
+        ]}>
+        {submitting ? (
           <ActivityIndicator size="small" color={colors.background} />
         ) : (
           <Text style={[styles.submitText, { color: colors.background }]}>리뷰 등록</Text>
