@@ -71,23 +71,36 @@ export default function EditBikeScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       onPress={Keyboard.dismiss}>
       <Text style={[styles.label, { color: colors.text }]}>내 바이크 기종</Text>
-      <TextInput
+      <View
         style={[
-          styles.input,
-          { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text },
-        ]}
-        placeholder="예: CB650R, R7, 슈퍼커브110"
-        placeholderTextColor={colors.textSecondary}
-        value={model}
-        onChangeText={(text) => {
-          setModel(text);
-          setPicked(false);
-        }}
-        maxLength={30}
-        autoFocus
-        returnKeyType="done"
-        onSubmitEditing={handleSave}
-      />
+          styles.inputRow,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}>
+        <TextInput
+          style={[styles.input, { color: colors.text }]}
+          placeholder="예: CB650R, R7, 슈퍼커브110"
+          placeholderTextColor={colors.textSecondary}
+          value={model}
+          onChangeText={(text) => {
+            setModel(text);
+            setPicked(false);
+          }}
+          maxLength={30}
+          autoFocus
+          returnKeyType="done"
+          onSubmitEditing={handleSave}
+        />
+        {model.length > 0 && (
+          <Pressable
+            hitSlop={8}
+            onPress={() => {
+              setModel('');
+              setPicked(false);
+            }}>
+            <Text style={[styles.clearText, { color: colors.textSecondary }]}>✕</Text>
+          </Pressable>
+        )}
+      </View>
 
       {suggestions.length > 0 && (
         <View
@@ -148,12 +161,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  input: {
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderRadius: 12,
+    paddingRight: 12,
+  },
+  input: {
+    flex: 1,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
+  },
+  clearText: {
+    fontSize: 16,
+    fontWeight: '600',
+    padding: 4,
   },
   hint: {
     fontSize: 12,
