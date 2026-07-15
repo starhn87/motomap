@@ -27,12 +27,17 @@ export default function EditBikeScreen() {
   const [saving, setSaving] = useState(false);
   // 자동완성 — 목록에서 고른 직후에는 드롭다운을 다시 열지 않는다
   const [picked, setPicked] = useState(false);
-  const suggestions = picked ? [] : searchBikeModels(model);
+  // 입력과 정확히 같은 항목은 제외 — 타이핑으로 완성한 경우 중복 표시 방지
+  const suggestions = picked ? [] : searchBikeModels(model).filter((s) => s !== model.trim());
 
   useEffect(() => {
     (async () => {
       const profile = await getProfile();
-      if (profile?.bike_model) setModel(profile.bike_model);
+      if (profile?.bike_model) {
+        setModel(profile.bike_model);
+        // 저장된 기종은 이미 확정된 값 — 재진입 시 자기 자신이 드롭다운에 뜨지 않게
+        setPicked(true);
+      }
       setLoading(false);
     })();
   }, []);
