@@ -16,11 +16,12 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useReviews, useUpdateReview, useDeleteReview } from '@/hooks/useReviews';
 import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
-import { pickImage, uploadImage } from '@/lib/uploadImage';
+import { pickImages, uploadImage } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
 import ReportSheet from '@/components/report/ReportSheet';
 import ImageViewer from '@/components/ui/ImageViewer';
 import StarRating from './StarRating';
+import PhotoDragList from './PhotoDragList';
 
 interface Props {
   placeId: string;
@@ -92,14 +93,15 @@ export default function ReviewList({ placeId }: Props) {
     setEditPhotos([]);
   };
 
-  const handleAddEditPhoto = async () => {
-    if (editPhotos.length >= 5) {
+  const handleAddEditPhotos = async () => {
+    const remaining = 5 - editPhotos.length;
+    if (remaining <= 0) {
       toast.info('사진은 최대 5장까지입니다.');
       return;
     }
-    const uri = await pickImage();
-    if (uri) {
-      setEditPhotos((prev) => [...prev, uri]);
+    const uris = await pickImages(remaining);
+    if (uris.length > 0) {
+      setEditPhotos((prev) => [...prev, ...uris]);
     }
   };
 
@@ -199,40 +201,12 @@ export default function ReviewList({ placeId }: Props) {
                   multiline
                   numberOfLines={2}
                 />
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.editPhotoRow}>
-                    {editPhotos.map((url, i) => (
-                      <TouchableOpacity
-                        key={`${url}-${i}`}
-                        activeOpacity={0.7}
-                        onPress={() => {
-                          Alert.alert('사진 삭제', '이 사진을 삭제하시겠습니까?', [
-                            { text: '취소', style: 'cancel' },
-                            { text: '삭제', style: 'destructive', onPress: () => setEditPhotos((prev) => prev.filter((_, idx) => idx !== i)) },
-                          ]);
-                        }}
-                        style={styles.editPhotoThumb}>
-                        <RNImage source={{ uri: url }} style={styles.editPhotoImage} />
-                        <View style={styles.editPhotoOverlay}>
-                          <Text style={styles.editPhotoOverlayText}>✕</Text>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                    {editPhotos.length < 5 && (
-                      <TouchableOpacity
-                        onPress={handleAddEditPhoto}
-                        style={[
-                          styles.editPhotoAdd,
-                          {
-                            backgroundColor: colors.surfaceMuted,
-                            borderColor: colors.border,
-                          },
-                        ]}>
-                        <Text style={[styles.editPhotoAddText, { color: colors.textSecondary }]}>+</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </ScrollView>
+                <PhotoDragList
+                  uris={editPhotos}
+                  onChange={setEditPhotos}
+                  onAdd={handleAddEditPhotos}
+                  max={5}
+                />
                 <View style={styles.editButtons}>
                   <TouchableOpacity onPress={handleCancelEdit} style={styles.cancelButton}>
                     <Text style={[styles.cancelText, { color: colors.textSecondary }]}>취소</Text>
@@ -348,26 +322,6 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 12 },
   actionText: { fontSize: 12, fontWeight: '600' },
   editForm: { gap: 10 },
-  editPhotoRow: { flexDirection: 'row', gap: 6 },
-  editPhotoThumb: { width: 60, height: 60, borderRadius: 8 },
-  editPhotoImage: { width: 60, height: 60, borderRadius: 8 },
-  editPhotoOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editPhotoOverlayText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  editPhotoAdd: {
-    width: 60, height: 60, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  editPhotoAddText: { fontSize: 20, fontWeight: '300' },
   editInput: {
     borderWidth: 1,
     borderRadius: 10,

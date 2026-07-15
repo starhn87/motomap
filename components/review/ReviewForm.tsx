@@ -1,12 +1,4 @@
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  ActivityIndicator,
-  ScrollView,
-} from 'react-native';
-import { Image } from 'expo-image';
+import { View, Text, TextInput, StyleSheet, ActivityIndicator } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState } from 'react';
 
@@ -14,9 +6,10 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCreateReview } from '@/hooks/useReviews';
-import { pickImage, uploadMultipleImages } from '@/lib/uploadImage';
+import { pickImages, uploadMultipleImages } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
 import StarRating from './StarRating';
+import PhotoDragList from './PhotoDragList';
 
 interface Props {
   placeId: string;
@@ -40,19 +33,16 @@ export default function ReviewForm({ placeId }: Props) {
     );
   }
 
-  const handleAddPhoto = async () => {
-    if (imageUris.length >= 5) {
+  const handleAddPhotos = async () => {
+    const remaining = 5 - imageUris.length;
+    if (remaining <= 0) {
       toast.info('사진은 최대 5장까지 추가할 수 있습니다.');
       return;
     }
-    const uri = await pickImage();
-    if (uri) {
-      setImageUris((prev) => [...prev, uri]);
+    const uris = await pickImages(remaining);
+    if (uris.length > 0) {
+      setImageUris((prev) => [...prev, ...uris]);
     }
-  };
-
-  const handleRemovePhoto = (index: number) => {
-    setImageUris((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async () => {
@@ -104,37 +94,8 @@ export default function ReviewForm({ placeId }: Props) {
         numberOfLines={3}
       />
 
-      {/* 사진 추가 영역 */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.photoRow}>
-          {imageUris.map((uri, index) => (
-            <View key={uri} style={styles.photoThumb}>
-              <Image source={{ uri }} style={styles.photoImage} />
-              <TouchableOpacity
-                onPress={() => handleRemovePhoto(index)}
-                style={styles.photoRemove}>
-                <Text style={styles.photoRemoveText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-          {imageUris.length < 5 && (
-            <TouchableOpacity
-              onPress={handleAddPhoto}
-              style={[
-                styles.photoAdd,
-                {
-                  backgroundColor: colors.surfaceMuted,
-                  borderColor: colors.border,
-                },
-              ]}>
-              <Text style={[styles.photoAddIcon, { color: colors.textSecondary }]}>+</Text>
-              <Text style={[styles.photoAddText, { color: colors.textSecondary }]}>
-                {imageUris.length}/5
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </ScrollView>
+      {/* 사진 추가·정렬 영역 */}
+      <PhotoDragList uris={imageUris} onChange={setImageUris} onAdd={handleAddPhotos} max={5} />
 
       <TouchableOpacity
         onPress={handleSubmit}
@@ -172,53 +133,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     minHeight: 70,
     textAlignVertical: 'top',
-  },
-  photoRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  photoThumb: {
-    width: 72,
-    height: 72,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  photoImage: {
-    width: 72,
-    height: 72,
-  },
-  photoRemove: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  photoRemoveText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  photoAdd: {
-    width: 72,
-    height: 72,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  photoAddIcon: {
-    fontSize: 24,
-    fontWeight: '300',
-  },
-  photoAddText: {
-    fontSize: 10,
-    marginTop: 2,
   },
   submitButton: {
     paddingVertical: 12,
