@@ -32,7 +32,7 @@ import { useMapStore } from '@/stores/useMapStore';
 import { usePlace } from '@/hooks/usePlace';
 import ReviewList from '@/components/review/ReviewList';
 import ReviewForm from '@/components/review/ReviewForm';
-import PhotoGrid from '@/components/map/PhotoGrid';
+import PhotoStrip from '@/components/map/PhotoStrip';
 import { useReviews } from '@/hooks/useReviews';
 import { toast } from '@/lib/toast';
 import type { Place } from '@/types';
@@ -93,10 +93,10 @@ function PlaceBottomSheet({
   const displayPlace = latestPlace ?? place;
   const isFavorite = useIsFavorite(place?.id ?? '');
 
-  // 장소 자체 사진 + 리뷰 사진을 모두 모음
-  const allPhotos = [
-    ...(displayPlace?.photos ?? []),
-    ...(reviews ?? []).flatMap((r) => r.photos),
+  // 장소 자체 사진(리뷰 없음) + 리뷰 사진(작성 리뷰 연결) — 확대 모달에서 리뷰를 함께 보여준다
+  const photoItems = [
+    ...(displayPlace?.photos ?? []).map((url) => ({ url, review: null })),
+    ...(reviews ?? []).flatMap((r) => r.photos.map((url) => ({ url, review: r }))),
   ];
   const { mutateAsync: toggleFav } = useToggleFavorite();
 
@@ -337,7 +337,6 @@ function PlaceBottomSheet({
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
           <Animated.View style={spacerStyle} />
-          <PhotoGrid photos={allPhotos} />
 
           <View style={styles.nameRow}>
             <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
@@ -428,6 +427,15 @@ function PlaceBottomSheet({
                   </Text>
                 </View>
               ))}
+            </View>
+          )}
+
+          {photoItems.length > 0 && (
+            <View style={styles.photoSection}>
+              <Text style={[styles.photoSectionTitle, { color: colors.text }]}>
+                사진 {photoItems.length}
+              </Text>
+              <PhotoStrip items={photoItems} />
             </View>
           )}
 
@@ -652,6 +660,14 @@ const styles = StyleSheet.create({
   },
   navButtonText: {
     fontSize: 14,
+    fontWeight: '700',
+  },
+  photoSection: {
+    marginTop: 12,
+    gap: 10,
+  },
+  photoSectionTitle: {
+    fontSize: 18,
     fontWeight: '700',
   },
   reviewSection: {
