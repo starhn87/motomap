@@ -95,8 +95,12 @@ export default function WeatherSheet({ weather, onClose }: Props) {
                 <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>{h.hour}</Text>
                 <Text style={styles.hourEmoji}>{h.emoji}</Text>
                 <Text style={[styles.hourTemp, { color: colors.text }]}>{h.temp}°</Text>
-                <Text style={[styles.hourPop, { color: colors.tint }]}>
-                  {h.pop > 0 ? `${h.pop}%` : ' '}
+                <Text
+                  style={[
+                    styles.hourPop,
+                    { color: h.pop > 0 ? colors.tint : colors.textSecondary },
+                  ]}>
+                  💧{h.pop}%
                 </Text>
               </View>
             ))}
