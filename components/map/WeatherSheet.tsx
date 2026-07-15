@@ -1,5 +1,7 @@
-import { View, Text, StyleSheet } from 'react-native';
-import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useCallback } from 'react';
+import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -15,6 +17,20 @@ export default function WeatherSheet({ weather, onClose }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  // 시트 밖 영역 탭으로 닫기 — 살짝 어둡게 깔리는 백드롭
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop
+        {...props}
+        appearsOnIndex={0}
+        disappearsOnIndex={-1}
+        opacity={0.25}
+        pressBehavior="close"
+      />
+    ),
+    [],
+  );
+
   const stats = [
     { label: '기온', value: `${weather.current.temp}°` },
     { label: '체감', value: `${weather.current.feels}°` },
@@ -26,9 +42,10 @@ export default function WeatherSheet({ weather, onClose }: Props) {
 
   return (
     <BottomSheet
-      snapPoints={['54%']}
+      snapPoints={['56%']}
       enablePanDownToClose
       onClose={onClose}
+      backdropComponent={renderBackdrop}
       backgroundStyle={{
         backgroundColor: colors.background,
         borderRadius: 24,
@@ -68,19 +85,23 @@ export default function WeatherSheet({ weather, onClose }: Props) {
           ))}
         </View>
 
-        {/* 6시간 예보 */}
-        <View style={styles.hourlyRow}>
-          {weather.hourly.map((h) => (
-            <View key={h.hour} style={styles.hourCell}>
-              <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>{h.hour}</Text>
-              <Text style={styles.hourEmoji}>{h.emoji}</Text>
-              <Text style={[styles.hourTemp, { color: colors.text }]}>{h.temp}°</Text>
-              <Text style={[styles.hourPop, { color: colors.tint }]}>
-                {h.pop > 0 ? `${h.pop}%` : ' '}
-              </Text>
-            </View>
-          ))}
-        </View>
+        {/* 12시간 예보 — 가로 스와이프 */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.hourlyRow}>
+            {weather.hourly.map((h) => (
+              <View
+                key={h.hour}
+                style={[styles.hourCell, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>{h.hour}</Text>
+                <Text style={styles.hourEmoji}>{h.emoji}</Text>
+                <Text style={[styles.hourTemp, { color: colors.text }]}>{h.temp}°</Text>
+                <Text style={[styles.hourPop, { color: colors.tint }]}>
+                  {h.pop > 0 ? `${h.pop}%` : ' '}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
 
         <Text style={[styles.footnote, { color: colors.textSecondary }]}>
           현재 지도 위치 기준 · Open-Meteo
@@ -147,27 +168,31 @@ const styles = StyleSheet.create({
   },
   hourlyRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 8,
   },
   hourCell: {
     alignItems: 'center',
-    gap: 2,
-    flex: 1,
+    gap: 4,
+    width: 62,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
   },
   hourLabel: {
-    fontSize: 11,
+    fontSize: 13,
+    fontWeight: '600',
   },
   hourEmoji: {
-    fontSize: 18,
+    fontSize: 26,
   },
   hourTemp: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
   },
   hourPop: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
-    minHeight: 12,
+    minHeight: 14,
   },
   footnote: {
     fontSize: 11,

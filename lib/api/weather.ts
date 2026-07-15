@@ -99,18 +99,19 @@ export async function fetchRidingWeather(latitude: number, longitude: number): P
   // 현재 시각 이후 6시간 슬라이스
   const nowIdx = hourlyTimes.findIndex((t) => new Date(t).getTime() > Date.now()) - 1;
   const startIdx = Math.max(0, nowIdx);
-  const next6 = Array.from({ length: 6 }, (_, i) => startIdx + i).filter(
+  const next12 = Array.from({ length: 12 }, (_, i) => startIdx + i).filter(
     (i) => i < hourlyTimes.length,
   );
 
-  const hourly: HourlyWeather[] = next6.map((i) => ({
+  const hourly: HourlyWeather[] = next12.map((i) => ({
     hour: `${new Date(hourlyTimes[i]).getHours()}시`,
     temp: Math.round(data.hourly.temperature_2m[i]),
     pop: data.hourly.precipitation_probability[i] ?? 0,
     emoji: describeCode(data.hourly.weather_code[i]).emoji,
   }));
 
-  const popMax = Math.max(0, ...hourly.map((h) => h.pop));
+  // 점수는 라이딩 판단에 유의미한 향후 6시간의 강수확률만 반영 (표시는 12시간)
+  const popMax = Math.max(0, ...hourly.slice(0, 6).map((h) => h.pop));
   const score = scoreWeather(cur.temperature_2m, popMax, cur.precipitation, cur.wind_speed_10m, cur.weather_code);
   const { condition, emoji } = describeCode(cur.weather_code);
 
