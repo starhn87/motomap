@@ -17,6 +17,8 @@ import Animated, {
   withSequence,
   Easing,
   FadeIn,
+  interpolate,
+  Extrapolation,
 } from 'react-native-reanimated';
 
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
@@ -215,6 +217,8 @@ export default function MapScreen() {
         setNavigating(true);
         setSelectedPlace(null);
         setSelectedPlaceId(null);
+        // 시트가 언마운트되며 위치 값이 중간에 남지 않도록 리셋 (버튼이 붕 뜨는 것 방지)
+        sheetPosition.value = 999999;
 
         if (result.geometry.length > 0) {
           const lngs = result.geometry.map((c) => c[0]);
@@ -254,6 +258,23 @@ export default function MapScreen() {
   const myLocationStyle = useAnimatedStyle(() => ({
     transform: [{ scale: myLocationScale.value }],
   }));
+
+  // 내 위치 버튼이 장소 시트의 실시간 위치를 따라 위로 밀려난다 (시트 위 16px).
+  // 시트가 끝까지(100% 근처) 올라가면 페이드아웃. 닫히면 기본 위치로 자연 복귀.
+  const sheetPosition = useSharedValue(999999);
+  const containerHeight = useSharedValue(0);
+  const myLocationFollowStyle = useAnimatedStyle(() => {
+    const base = navigating ? 200 : 24;
+    const h = containerHeight.value;
+    const fromSheet = h > 0 ? h - sheetPosition.value + 16 : 0;
+    return {
+      bottom: Math.max(base, fromSheet),
+      opacity:
+        h > 0
+          ? interpolate(sheetPosition.value, [h * 0.2, h * 0.35], [0, 1], Extrapolation.CLAMP)
+          : 1,
+    };
+  });
   const handleMyLocationPressIn = () => {
     myLocationScale.value = withTiming(0.85, { duration: 90 });
   };
@@ -311,7 +332,11 @@ export default function MapScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      onLayout={(e) => {
+        containerHeight.value = e.nativeEvent.layout.height;
+      }}>
       <NaverMapView
         ref={mapRef}
         style={styles.map}
@@ -442,11 +467,8 @@ export default function MapScreen() {
         style={[
           styles.myLocationButton,
           myLocationStyle,
-          {
-            backgroundColor: colors.background,
-            shadowColor: '#000',
-            bottom: navigating ? 200 : selectedPlace ? 260 : 24,
-          },
+          myLocationFollowStyle,
+          { backgroundColor: colors.background, shadowColor: '#000' },
         ]}>
         <View style={styles.myLocationIconContainer}>
           <View style={[styles.myLocationCrosshair, { borderColor: colors.tint }]}>
@@ -460,6 +482,7 @@ export default function MapScreen() {
           place={selectedPlace}
           onClose={handleBottomSheetClose}
           onRoutePreview={handleRoutePreview}
+          animatedPosition={sheetPosition}
         />
       )}
 

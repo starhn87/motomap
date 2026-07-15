@@ -3,6 +3,7 @@ import Animated, {
   FadeIn,
   FadeOut,
   useSharedValue,
+  type SharedValue,
   useAnimatedReaction,
   useAnimatedStyle,
   interpolate,
@@ -39,6 +40,8 @@ interface Props {
   place: Place | null;
   onClose: () => void;
   onRoutePreview?: (place: Place) => void;
+  /** 시트 상단의 컨테이너 기준 y — 내 위치 버튼이 시트를 따라 움직이도록 밖에 노출 */
+  animatedPosition?: SharedValue<number>;
 }
 
 const SNAP_POINTS = ['28%', '60%', '100%'];
@@ -55,6 +58,7 @@ function PlaceBottomSheet({
   place,
   onClose,
   onRoutePreview,
+  animatedPosition,
 }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -300,6 +304,7 @@ function PlaceBottomSheet({
         snapPoints={SNAP_POINTS}
         enableDynamicSizing={false}
         animatedIndex={animatedIndex}
+        animatedPosition={animatedPosition}
         onChange={handleSheetChanges}
         enablePanDownToClose
         containerStyle={styles.sheetContainer}
