@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { getProfile, updateBikeModel } from '@/lib/nickname';
+import { searchBikeModels } from '@/constants/bikes';
 import { toast } from '@/lib/toast';
 
 // 마이 바이크 — 기종 자기 신고. 리뷰에 "OO 라이더" 뱃지로 표시된다.
@@ -24,6 +25,9 @@ export default function EditBikeScreen() {
   const [model, setModel] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // 자동완성 — 목록에서 고른 직후에는 드롭다운을 다시 열지 않는다
+  const [picked, setPicked] = useState(false);
+  const suggestions = picked ? [] : searchBikeModels(model);
 
   useEffect(() => {
     (async () => {
@@ -70,14 +74,43 @@ export default function EditBikeScreen() {
         placeholder="예: CB650R, R7, 슈퍼커브110"
         placeholderTextColor={colors.textSecondary}
         value={model}
-        onChangeText={setModel}
+        onChangeText={(text) => {
+          setModel(text);
+          setPicked(false);
+        }}
         maxLength={30}
         autoFocus
         returnKeyType="done"
         onSubmitEditing={handleSave}
       />
+
+      {suggestions.length > 0 && (
+        <View
+          style={[
+            styles.suggestions,
+            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+          ]}>
+          {suggestions.map((s) => (
+            <Pressable
+              key={s}
+              onPress={() => {
+                setModel(s);
+                setPicked(true);
+                Keyboard.dismiss();
+              }}
+              style={({ pressed }) => [
+                styles.suggestionItem,
+                { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
+              ]}>
+              <Text style={[styles.suggestionText, { color: colors.text }]}>{s}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       <Text style={[styles.hint, { color: colors.textSecondary }]}>
-        등록하면 내가 쓴 리뷰에 기종 뱃지가 표시돼요. 비우고 저장하면 해제됩니다.
+        입력하면 인기 기종이 자동완성돼요. 목록에 없는 기종은 그대로 입력해도 됩니다.
+        등록하면 내가 쓴 리뷰에 기종 뱃지가 표시돼요.
       </Text>
 
       <TouchableOpacity
@@ -120,6 +153,20 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 12,
     lineHeight: 18,
+  },
+  suggestions: {
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  suggestionText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   saveButton: {
     marginTop: 8,
