@@ -10,6 +10,7 @@
 //
 // 필요한 secrets (Edge Functions > Secrets):
 //   ANTHROPIC_API_KEY, KAKAO_REST_API_KEY, DISCORD_WEBHOOK_URL, JUDGE_WEBHOOK_SECRET
+//   DISCORD_BOT_TOKEN + DISCORD_CHANNEL_ID (봇 버튼 발송 — 없으면 웹훅 링크로 폴백)
 //   (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 는 자동 주입)
 // 배포 시 "Enforce JWT verification" 은 끈다 — 인증은 x-judge-secret 헤더로 한다.
 import Anthropic from 'npm:@anthropic-ai/sdk';
@@ -172,7 +173,10 @@ async function judge(table: string, record: Record<string, unknown>): Promise<{ 
   return { v: JSON.parse(text) as Verdict, evidence };
 }
 
-// moderate EF 링크 서명 — 버튼 URL 위조 방지 (moderate 쪽과 같은 방식)
+const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+const CHANNEL_ID = Deno.env.get('DISCORD_CHANNEL_ID');
+
+// moderate EF 링크 서명 — 버튼 URL 위조 방지 (봇 미설정 시 폴백 링크에만 사용)
 async function sign(msg: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     'raw',
@@ -211,12 +215,39 @@ async function saveUserReason(table: string, id: string, userReason: string) {
   }
 }
 
-// 승인·반려는 마스크드 링크로 — 일반 인커밍 웹훅은 버튼(components)을 200 OK 로
-// 조용히 무시한다(앱 소유 웹훅 전용). URL 을 <> 로 감싸 링크 미리보기도 억제한다.
-async function postDiscord(content: string, links?: { label: string; url: string }[]) {
+// 봇이 설정돼 있으면 채널 메시지 API 로 진짜 버튼을 단다 (클릭은 discord-interactions
+// EF 가 처리). 봇 미설정·발송 실패 시엔 웹훅 + 마스크드 링크(moderate EF)로 폴백 —
+// 일반 인커밍 웹훅은 버튼(components)을 200 OK 로 조용히 무시하기 때문.
+async function postDiscord(
+  content: string,
+  actions?: { label: string; style: number; customId: string; url: string }[],
+) {
+  if (BOT_TOKEN && CHANNEL_ID) {
+    const res = await fetch(`https://discord.com/api/v10/channels/${CHANNEL_ID}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bot ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: content.slice(0, 1900),
+        components: actions?.length
+          ? [
+              {
+                type: 1,
+                components: actions.map((a) => ({
+                  type: 2,
+                  style: a.style,
+                  label: a.label,
+                  custom_id: a.customId,
+                })),
+              },
+            ]
+          : undefined,
+      }),
+    });
+    if (res.ok) return;
+  }
   if (!DISCORD_URL) return;
-  const linkLine = links?.length
-    ? '\n' + links.map((l) => `[${l.label}](<${l.url}>)`).join(' · ')
+  const linkLine = actions?.length
+    ? '\n' + actions.map((a) => `[${a.label}](<${a.url}>)`).join(' · ')
     : '';
   await fetch(DISCORD_URL, {
     method: 'POST',
@@ -248,8 +279,18 @@ async function judgeAndPost(table: string, record: Record<string, unknown>) {
       `근거: ${v.reason}\n` +
       `반려 시 안내 문구: ${v.userReason}`,
       [
-        { label: '✅ 승인', url: await moderateUrl(table, id, 'approve') },
-        { label: '❌ 반려', url: await moderateUrl(table, id, 'reject') },
+        {
+          label: '승인',
+          style: 3, // 초록
+          customId: `mod:approve:${table}:${id}`,
+          url: await moderateUrl(table, id, 'approve'),
+        },
+        {
+          label: '반려',
+          style: 4, // 빨강
+          customId: `mod:reject:${table}:${id}`,
+          url: await moderateUrl(table, id, 'reject'),
+        },
       ],
     );
   } catch (e) {

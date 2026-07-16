@@ -28,8 +28,12 @@ function routeFromNotification(data: Record<string, unknown> | undefined) {
       });
     } else if (data.type === 'course_approved' && typeof data.courseId === 'string') {
       router.push(`/course/${data.courseId}`);
-    } else if (data.type === 'place_rejected' || data.type === 'course_rejected') {
-      // 반려된 제보는 앱에서 조회할 수 없다 — 알림 목록에서 해당 알림을 스크롤·강조
+    } else if (
+      data.type === 'place_rejected' ||
+      data.type === 'course_rejected' ||
+      data.type === 'feedback_reply'
+    ) {
+      // 반려·건의 답변은 이동할 상세 화면이 없다 — 알림 목록에서 해당 알림을 스크롤·강조
       router.push({
         pathname: '/notifications',
         params:

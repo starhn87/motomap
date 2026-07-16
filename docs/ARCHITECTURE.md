@@ -231,6 +231,7 @@ Sentry.wrap(
 | `018_rejection_push_deeplink.sql` | 반려 푸시 data 에 `notificationId` — 탭하면 앱이 알림 목록에서 해당 알림 스크롤·강조 |
 | `019_retry_missing_judgements.sql` | 판정 누락 자동 재시도 — EF waitUntil 백그라운드는 인스턴스 셧다운 시 증발할 수 있어, 3분 넘게 판정 문구 없는 pending 제보를 pg_cron 이 5분마다 재판정 (1시간 윈도) |
 | `020_lock_retry_rpc.sql` | 019 함수의 RPC 권한 잠금 — anon 이 재판정을 연타하는 비용 공격 차단 (cron 은 postgres 권한이라 무관) |
+| `021_feedback_reply.sql` | `feedback.reply`/`reply_at` + 답변 시 건의자 알림·푸시 트리거 + 새 건의를 봇 메시지([답변하기] 버튼)로 발송 (봇 미설정 시 웹훅 폴백) |
 
 ---
 
@@ -246,7 +247,8 @@ Sentry.wrap(
 | Supabase Storage | `lib/uploadImage.ts` | 리뷰·제보 사진 (`ridemap-media` 버킷, base64 업로드) |
 | Expo Push | `lib/push.ts` + migration 006/008 | 제보(장소·코스) 승인 푸시 — 토큰은 `push_tokens`, 발송은 DB 트리거(pg_net→Expo Push API). 권한 요청은 제보 직후에만 |
 | Claude API | `supabase/functions/judge-submission` (배포명 `smart-task`) | 제보 AI 판정 — 트리거가 EF 호출 → 카카오 교차검증 + 웹 조사 → `claude-opus-4-8` 판정 → 디스코드에 근거·반려 안내 문구·[승인]/[반려] 버튼 발송. 제보자용 반려 문구는 `ai_reject_reason`에 저장 |
-| 원클릭 심사 | `supabase/functions/moderate` | 디스코드 판정 메시지의 승인·반려 링크(HMAC 서명) 탭 = 즉시 처리, 결과는 디스코드 완료 로그로 확인. 크롤러 방어는 봇 UA 필터+HEAD 무시+`<>` 임베드 억제. 반려 시 `ai_reject_reason`→`rejected_reason` 복사로 015 알림에 사유 포함. JWT 검증 OFF. ⚠️ EF는 HTML 응답 불가(게이트웨이가 text/plain+CSP sandbox 로 강제) — 응답은 JSON |
+| 디스코드 봇 심사·답변 | `supabase/functions/discord-interactions` | Interactions Endpoint(Ed25519 검증). 판정 메시지의 [승인]/[반려] 버튼 → 즉시 처리 + 원 메시지 업데이트, 건의 메시지의 [답변하기] 버튼 → 인풋 모달 → `feedback.reply` 저장(021 트리거가 건의자 알림·푸시). secrets: `DISCORD_PUBLIC_KEY`. 발송은 judge-submission·021 트리거가 봇 API(`DISCORD_BOT_TOKEN`/`DISCORD_CHANNEL_ID`, vault 는 `discord_bot_token`/`discord_channel_id`) — 봇 미설정 시 웹훅 폴백. JWT 검증 OFF |
+| 원클릭 심사 (폴백) | `supabase/functions/moderate` | 봇 미설정 시 웹훅 메시지의 승인·반려 링크(HMAC 서명) 탭 = 즉시 처리. 크롤러 방어는 봇 UA 필터+HEAD 무시+`<>` 임베드 억제. 반려 시 `ai_reject_reason`→`rejected_reason` 복사. JWT 검증 OFF. ⚠️ EF는 HTML 응답 불가(게이트웨이가 text/plain+CSP sandbox 로 강제) — 응답은 JSON |
 | 오피넷 유가 | `supabase/functions/gas-stations` + `lib/api/gasStations.ts`, `hooks/useGasStations.ts` | 주유소 필터 시 실시간 유가 레이어 — EF가 키 은닉·KATEC↔WGS84 변환·3분 캐시, 앱은 가격 마커(최저가 강조)+상세 카드. 주의: 오피넷 인증 파라미터는 `code=`(문서의 certkey 아님), 브랜드 필드는 aroundAll `POLL_DIV_CD`/detailById `POLL_DIV_CO`로 상이, 반경 최대 5km(줌 게이트 `GAS_MIN_ZOOM`) |
 | Sentry | `app/_layout.tsx`, `metro.config.js` | 에러·세션 추적 |
 

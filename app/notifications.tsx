@@ -126,7 +126,9 @@ export default function NotificationsScreen() {
                     opacity: pressed ? 0.8 : 1,
                   },
                 ]}>
-                <Text style={styles.itemIcon}>{item.type.startsWith('course') ? '🛣️' : '📍'}</Text>
+                <Text style={styles.itemIcon}>
+                  {item.type === 'feedback_reply' ? '💬' : item.type.startsWith('course') ? '🛣️' : '📍'}
+                </Text>
                 <View style={styles.itemBody}>
                   <View style={styles.itemHeader}>
                     <Text style={[styles.itemTitle, { color: colors.text }]}>
