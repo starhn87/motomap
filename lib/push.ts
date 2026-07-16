@@ -21,7 +21,11 @@ function routeFromNotification(data: Record<string, unknown> | undefined) {
   try {
     if (!data) return;
     if (data.type === 'place_approved' && typeof data.placeId === 'string') {
-      router.push({ pathname: '/', params: { focusPlaceId: data.placeId } });
+      // focusTs(nonce)가 없으면 같은 장소 재탭이 중복 판정에 걸려 시트가 안 열린다
+      router.push({
+        pathname: '/',
+        params: { focusPlaceId: data.placeId, focusTs: String(Date.now()) },
+      });
     } else if (data.type === 'course_approved' && typeof data.courseId === 'string') {
       router.push(`/course/${data.courseId}`);
     } else if (data.type === 'place_rejected' || data.type === 'course_rejected') {
