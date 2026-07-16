@@ -24,9 +24,9 @@ export default function SearchEntry() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,

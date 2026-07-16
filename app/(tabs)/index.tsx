@@ -23,9 +23,11 @@ import Animated, {
 
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { usePlaces } from '@/hooks/usePlaces';
 import { useGasStations, GAS_MIN_ZOOM, type SearchPoint } from '@/hooks/useGasStations';
 import { useWeather } from '@/hooks/useWeather';
+import { useUnreadCount } from '@/hooks/useNotifications';
 import { fetchPlaceById } from '@/hooks/usePlace';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { fetchRoute } from '@/lib/api/directions';
@@ -41,6 +43,8 @@ import WeatherSheet from '@/components/map/WeatherSheet';
 import RouteLine from '@/components/map/RouteLine';
 import RouteInfoCard from '@/components/map/RouteInfoCard';
 import SearchEntry from '@/components/search/SearchEntry';
+import Feather from '@expo/vector-icons/Feather';
+import { router } from 'expo-router';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { LocationPulse } from '@/components/map/LocationPulse';
 import { toast } from '@/lib/toast';
@@ -68,6 +72,8 @@ export default function MapScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { userLocation, selectedPlaceId, activeFilter, setSelectedPlaceId } =
     useMapStore();
+  const authedUser = useAuthStore((s) => s.user);
+  const unreadCount = useUnreadCount();
   const { heading } = useUserLocation();
 
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
@@ -437,7 +443,20 @@ export default function MapScreen() {
         <Animated.View
           entering={FadeIn.duration(300)}
           style={styles.searchAndFilter}>
-          <SearchEntry />
+          <View style={styles.searchRow}>
+            <SearchEntry />
+            {authedUser && (
+              <Pressable
+                onPress={() => router.push('/notifications')}
+                style={[
+                  styles.bellButton,
+                  { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                ]}>
+                <Feather name="bell" size={20} color={colors.text} />
+                {unreadCount > 0 && <View style={styles.bellDot} />}
+              </Pressable>
+            )}
+          </View>
           <CategoryFilter />
         </Animated.View>
       )}
@@ -534,6 +553,36 @@ const styles = StyleSheet.create({
     zIndex: 5,
     elevation: 5,
     gap: 0,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+  },
+  bellButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  bellDot: {
+    position: 'absolute',
+    top: 9,
+    right: 10,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
   zoomHint: {
     position: 'absolute',
