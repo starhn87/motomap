@@ -78,6 +78,59 @@ function scoreWeather(temp: number, popMax: number, precip: number, windMs: numb
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
+export interface RouteWeatherWarning {
+  /** 날씨가 나쁜 지점 수 */
+  count: number;
+  /** 가장 심한 상태 — 뇌우 > 눈 > 비 > 강수 예보 순 */
+  worstCondition: '뇌우' | '눈' | '비' | '강수 예보';
+  /** 나쁜 지점들의 향후 3시간 최대 강수확률(%) */
+  maxPop: number;
+}
+
+// 내비 출발 전 경로 지점들(출발지·경유지·목적지)의 날씨를 한 번에 확인한다.
+// 문제가 없거나 확인에 실패하면 null (출발을 막지 않는 fail-open).
+export async function checkRouteWeather(
+  points: { latitude: number; longitude: number }[],
+): Promise<RouteWeatherWarning | null> {
+  if (points.length === 0) return null;
+  try {
+    const params = new URLSearchParams({
+      latitude: points.map((p) => p.latitude.toFixed(3)).join(','),
+      longitude: points.map((p) => p.longitude.toFixed(3)).join(','),
+      current: 'precipitation,weather_code',
+      hourly: 'precipitation_probability,weather_code',
+      forecast_hours: '3',
+      timezone: 'Asia/Seoul',
+    });
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    // 좌표 1개면 객체, 여러 개면 배열로 온다
+    const results: any[] = Array.isArray(data) ? data : [data];
+
+    let count = 0;
+    let maxPop = 0;
+    let severity = 0; // 1=강수 예보, 2=비, 3=눈, 4=뇌우
+    for (const r of results) {
+      const codes: number[] = [r.current.weather_code, ...(r.hourly?.weather_code ?? [])];
+      const pop = Math.max(0, ...((r.hourly?.precipitation_probability ?? []) as number[]));
+      const hasThunder = codes.some((c) => c >= 95);
+      const hasSnow = codes.some((c) => c >= 71 && c <= 86);
+      const hasRain = r.current.precipitation > 0 || codes.some((c) => c >= 51 && c <= 67);
+      const rainy = hasThunder || hasSnow || hasRain || pop >= 50;
+      if (!rainy) continue;
+      count += 1;
+      maxPop = Math.max(maxPop, pop);
+      severity = Math.max(severity, hasThunder ? 4 : hasSnow ? 3 : hasRain ? 2 : 1);
+    }
+    if (count === 0) return null;
+    const worstCondition = (['강수 예보', '비', '눈', '뇌우'] as const)[severity - 1];
+    return { count, worstCondition, maxPop };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchRidingWeather(latitude: number, longitude: number): Promise<RidingWeather> {
   const params = new URLSearchParams({
     latitude: String(latitude),

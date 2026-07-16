@@ -2,7 +2,9 @@ import { Alert, Linking } from 'react-native';
 import KakaoNavi from '@react-native-kakao/navi';
 
 import { useNavPrefStore, type NavAppId } from '@/stores/useNavPrefStore';
+import { useMapStore } from '@/stores/useMapStore';
 import { coordToAddress } from '@/lib/api/kakaoLocal';
+import { checkRouteWeather } from '@/lib/api/weather';
 import { toast } from '@/lib/toast';
 
 export interface NavTarget {
@@ -178,7 +180,31 @@ async function withNavApp(run: (app: NavApp) => Promise<void>) {
   ]);
 }
 
+// 내비 출발 전 경로 지점들의 날씨를 확인하고, 비·눈·뇌우가 있으면 출발 여부를 묻는다.
+// 취소하면 false. 날씨가 좋거나 확인에 실패하면 조용히 true (출발을 막지 않는다).
+async function confirmRouteWeather(
+  points: { latitude: number; longitude: number }[],
+): Promise<boolean> {
+  const userLocation = useMapStore.getState().userLocation;
+  const allPoints = userLocation ? [userLocation, ...points] : points;
+  const warning = await checkRouteWeather(allPoints);
+  if (!warning) return true;
+
+  const popText = warning.maxPop > 0 ? ` (강수확률 최대 ${warning.maxPop}%)` : '';
+  return new Promise((resolve) => {
+    Alert.alert(
+      '경로 날씨 주의',
+      `경로 위 ${warning.count}개 지역에 ${warning.worstCondition} 소식이 있어요${popText}. 노면이 미끄러울 수 있으니 주의하세요. 그래도 출발할까요?`,
+      [
+        { text: '취소', style: 'cancel', onPress: () => resolve(false) },
+        { text: '출발', onPress: () => resolve(true) },
+      ],
+    );
+  });
+}
+
 export async function openNavigation(target: NavTarget) {
+  if (!(await confirmRouteWeather([target]))) return;
   await withNavApp((app) => app.launch(target));
 }
 
@@ -202,6 +228,7 @@ async function resolvePointNames(course: NavCourse): Promise<NavCourse> {
  */
 export async function openCourseNavigation(course: NavCourse) {
   if (course.points.length === 0) return;
+  if (!(await confirmRouteWeather(course.points))) return;
   await withNavApp(async (app) => {
     if (app.launchCourse && course.points.length >= 2) {
       return app.launchCourse(await resolvePointNames(course));
