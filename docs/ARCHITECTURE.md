@@ -223,6 +223,9 @@ Sentry.wrap(
 | `010_duplicate_check_rpc.sql` | 중복 제보 방지 RPC (`place_exists_at_address`/`course_exists_with_name`, definer — RLS 숨김 무관하게 존재 여부만 반환) |
 | `011_add_camping_category.sql` | `places_category_check`에 `camping` 추가 (모토캠핑) |
 | `012_rpc_exclude_soft_deleted.sql` | `all_places`/`nearby_places`에 `deleted_at IS NULL` 추가 — 승인 후 soft delete 된 행이 지도·검색·AI 챗에 노출되던 버그 수정 |
+| `013_profiles_bike_model.sql` | `profiles.bike_model` — 마이 바이크 기종 (자기 신고, 리뷰에 뱃지 노출) |
+| `014_notifications.sql` | `notifications` 테이블(RLS 본인만) + 승인 트리거가 푸시 전에 인앱 알림 이력을 기록 (토큰 없어도 기록) |
+| `015_rejection_notifications.sql` | `places`/`courses.rejected_reason` + 반려(미승인 `deleted_at` 세팅) 시 사유 포함 인앱 알림·푸시 — 승인 후 운영 정리(soft delete)에는 발동 안 함 |
 
 ---
 
