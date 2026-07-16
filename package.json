@@ -8,7 +8,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "seed:bike-cafes": "node scripts/seed-bike-cafes.mjs"
+    "seed:bike-cafes": "node scripts/seed-bike-cafes.mjs",
+    "sync:bikes": "node scripts/sync-bike-models.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
