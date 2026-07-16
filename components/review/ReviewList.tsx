@@ -15,7 +15,6 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withSequence,
-  withRepeat,
   interpolateColor,
 } from 'react-native-reanimated';
 
@@ -59,11 +58,11 @@ function HighlightPulse({
 
   useEffect(() => {
     if (!pulseKey) return;
-    // 시트 확장(~200ms 후 시작) + 스크롤(950ms 후 시작)이 끝난 뒤 반짝이기 시작
+    // 시트 확장(~200ms 후 시작) + 스크롤(950ms 후 시작)이 끝난 뒤 한 번 반짝
     const t = setTimeout(() => {
-      progress.value = withRepeat(
-        withSequence(withTiming(1, { duration: 320 }), withTiming(0, { duration: 320 })),
-        3,
+      progress.value = withSequence(
+        withTiming(1, { duration: 320 }),
+        withTiming(0, { duration: 420 }),
       );
     }, 1400);
     return () => clearTimeout(t);
