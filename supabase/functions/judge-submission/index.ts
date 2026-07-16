@@ -24,7 +24,9 @@ const SECRET = Deno.env.get('JUDGE_WEBHOOK_SECRET');
 const SB_URL = Deno.env.get('SUPABASE_URL');
 const SB_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-const MODEL = 'claude-opus-4-8';
+// 판정은 명확한 기준의 분류 + 짧은 문구 생성 — Sonnet 이 품질·비용 균형점.
+// 토큰의 대부분은 웹 검색 결과 입력이라 모델 단가가 곧 판정 단가다 (Opus 대비 ~1/5).
+const MODEL = 'claude-sonnet-5';
 
 interface Verdict {
   verdict: 'approve' | 'reject' | 'uncertain';
