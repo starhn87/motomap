@@ -86,12 +86,13 @@ export default function NotificationsScreen() {
               <Text style={styles.itemIcon}>{item.type.startsWith('course') ? '🛣️' : '📍'}</Text>
               <View style={styles.itemBody}>
                 <View style={styles.itemHeader}>
-                  <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>
+                  <Text style={[styles.itemTitle, { color: colors.text }]}>
                     {item.title}
                   </Text>
                   {!item.readAt && <View style={[styles.unreadDot, { backgroundColor: colors.tint }]} />}
                 </View>
-                <Text style={[styles.itemText, { color: colors.textSecondary }]} numberOfLines={2}>
+                {/* 알림 목록이 본문 전문을 볼 수 있는 유일한 곳 — 말줄임 없이 그대로 보여준다 */}
+                <Text style={[styles.itemText, { color: colors.textSecondary }]}>
                   {item.body}
                 </Text>
                 <Text style={[styles.itemTime, { color: colors.textSecondary }]}>
