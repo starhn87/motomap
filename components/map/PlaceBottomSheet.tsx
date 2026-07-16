@@ -43,6 +43,8 @@ interface Props {
   onRoutePreview?: (place: Place) => void;
   /** 시트 상단의 컨테이너 기준 y — 내 위치 버튼이 시트를 따라 움직이도록 밖에 노출 */
   animatedPosition?: SharedValue<number>;
+  /** 내 리뷰에서 진입 — 시트를 끝까지 펼치고 이 리뷰로 스크롤·강조한다. key(nonce)마다 재실행 */
+  highlightReview?: { id: string; key: string } | null;
 }
 
 const SNAP_POINTS = ['28%', '60%', '100%'];
@@ -60,6 +62,7 @@ function PlaceBottomSheet({
   onClose,
   onRoutePreview,
   animatedPosition,
+  highlightReview,
 }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -131,6 +134,31 @@ function PlaceBottomSheet({
       bottomSheetRef.current?.close();
     }
   }, [place?.id]);
+
+  // 강조 리뷰로 스크롤: 콘텐츠 기준 y = 리뷰섹션 y + 리스트 wrapper y + 카드 y (onLayout 합산)
+  const scrollRef = useRef<any>(null);
+  const reviewSectionYRef = useRef(0);
+  const reviewListYRef = useRef(0);
+  const highlightItemYRef = useRef(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!highlightReview) return;
+    // place 리셋 effect의 snapToIndex(1)과 겹치지 않게 살짝 늦춰 끝까지 편다
+    const t1 = setTimeout(() => bottomSheetRef.current?.snapToIndex(2), 200);
+    // 확장 애니메이션과 리뷰 렌더가 끝날 즈음 스크롤 (카드 미측정이면 리뷰 섹션 상단으로)
+    const t2 = setTimeout(() => {
+      const y =
+        reviewSectionYRef.current + reviewListYRef.current + highlightItemYRef.current;
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, y - insets.top - PAGE_HEADER_HEIGHT - HEADER_CONTENT_GAP - 8),
+        animated: true,
+      });
+    }, 950);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [highlightReview?.key]);
 
   const handleSheetChanges = (index: number) => {
     if (index === -1) onClose();
@@ -336,6 +364,7 @@ function PlaceBottomSheet({
         handleComponent={renderHandle}
         footerComponent={renderFooter}>
         <BottomSheetScrollView
+          ref={scrollRef}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -443,7 +472,11 @@ function PlaceBottomSheet({
             </View>
           )}
 
-          <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
+          <View
+            style={[styles.reviewSection, { borderTopColor: colors.border }]}
+            onLayout={(e) => {
+              reviewSectionYRef.current = e.nativeEvent.layout.y;
+            }}>
             <View style={styles.reviewSectionHeader}>
               <Text style={[styles.reviewSectionTitle, { color: colors.text }]}>
                 리뷰
@@ -463,7 +496,18 @@ function PlaceBottomSheet({
             </View>
             <ReviewForm placeId={place.id} />
             <View style={styles.reviewDivider} />
-            <ReviewList placeId={place.id} />
+            <View
+              onLayout={(e) => {
+                reviewListYRef.current = e.nativeEvent.layout.y;
+              }}>
+              <ReviewList
+                placeId={place.id}
+                highlight={highlightReview}
+                onHighlightLayout={(y) => {
+                  highlightItemYRef.current = y;
+                }}
+              />
+            </View>
           </View>
         </BottomSheetScrollView>
       </BottomSheet>

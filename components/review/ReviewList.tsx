@@ -9,7 +9,15 @@ import {
 } from 'react-native';
 import { Image as RNImage } from 'expo-image';
 import { TouchableOpacity } from 'react-native-gesture-handler';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  withRepeat,
+  interpolateColor,
+} from 'react-native-reanimated';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -25,9 +33,58 @@ import PhotoDragList from './PhotoDragList';
 
 interface Props {
   placeId: string;
+  /** 이 리뷰로 스크롤·강조 — key(nonce)가 바뀔 때마다 다시 반짝인다 */
+  highlight?: { id: string; key: string } | null;
+  /** 강조 대상 리뷰 카드의 y(리스트 루트 기준)를 부모에 보고 — 스크롤 목표 계산용 */
+  onHighlightLayout?: (y: number) => void;
 }
 
-export default function ReviewList({ placeId }: Props) {
+// 강조 대상 카드를 감싸 테두리를 두 번 반짝인다 (pulseKey 없으면 아무 효과 없음)
+function HighlightPulse({
+  pulseKey,
+  baseColor,
+  tint,
+  style,
+  children,
+  onLayout,
+}: {
+  pulseKey?: string;
+  baseColor: string;
+  tint: string;
+  style: object[];
+  children: React.ReactNode;
+  onLayout?: (y: number) => void;
+}) {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    if (!pulseKey) return;
+    // 시트 확장(~200ms 후 시작) + 스크롤(950ms 후 시작)이 끝난 뒤 반짝이기 시작
+    const t = setTimeout(() => {
+      progress.value = withRepeat(
+        withSequence(withTiming(1, { duration: 320 }), withTiming(0, { duration: 320 })),
+        3,
+      );
+    }, 1400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pulseKey]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(progress.value, [0, 1], [baseColor, tint]),
+    borderWidth: 1 + progress.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[...style, pulseStyle]}
+      onLayout={onLayout ? (e) => onLayout(e.nativeEvent.layout.y) : undefined}>
+      {children}
+    </Animated.View>
+  );
+}
+
+export default function ReviewList({ placeId, highlight, onHighlightLayout }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -156,15 +213,17 @@ export default function ReviewList({ placeId }: Props) {
         const isOwner = user?.id === review.userId;
         const isEditing = editingId === review.id;
 
+        const isHighlight = highlight?.id === review.id;
         return (
-          <View
+          <HighlightPulse
             key={review.id}
+            pulseKey={isHighlight ? highlight!.key : undefined}
+            baseColor={colors.border}
+            tint={colors.tint}
+            onLayout={isHighlight ? onHighlightLayout : undefined}
             style={[
               styles.reviewItem,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
+              { backgroundColor: colors.surface, borderColor: colors.border },
             ]}>
             <View style={styles.reviewHeader}>
               <View style={styles.reviewUser}>
@@ -287,7 +346,7 @@ export default function ReviewList({ placeId }: Props) {
                 </View>
               </>
             )}
-          </View>
+          </HighlightPulse>
         );
       })}
       <ReportSheet

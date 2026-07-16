@@ -159,6 +159,7 @@ export default function MapScreen() {
   const handleMarkerPress = useCallback(
     (place: Place) => {
       if (navigating) return;
+      setHighlightReview(null);
       setSelectedPlaceId(place.id);
       setSelectedPlace(place);
       // 현재 줌을 유지한 채 마커가 시트에 가리지 않는 위치로 카메라만 보정
@@ -189,10 +190,15 @@ export default function MapScreen() {
 
   // 승인 푸시 탭·검색 화면 선택 → focusPlaceId 파라미터로 진입 시 해당 장소를 선택·포커스.
   // 같은 장소를 연속 선택해도 반응하도록 focusTs(검색 화면이 넣어줌)까지 포함해 중복 판정한다.
-  const { focusPlaceId, focusTs } = useLocalSearchParams<{
+  // focusReviewId(내 리뷰에서 진입)가 있으면 시트를 펼쳐 그 리뷰로 스크롤·강조한다.
+  const { focusPlaceId, focusTs, focusReviewId } = useLocalSearchParams<{
     focusPlaceId?: string;
     focusTs?: string;
+    focusReviewId?: string;
   }>();
+  const [highlightReview, setHighlightReview] = useState<{ id: string; key: string } | null>(
+    null
+  );
   const handledFocusIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!focusPlaceId || !mapReady) return;
@@ -202,16 +208,20 @@ export default function MapScreen() {
     let cancelled = false;
     (async () => {
       const place = await fetchPlaceById(focusPlaceId);
-      if (place && !cancelled) handleSearchSelect(place);
+      if (place && !cancelled) {
+        setHighlightReview(focusReviewId ? { id: focusReviewId, key: focusKey } : null);
+        handleSearchSelect(place);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [focusPlaceId, focusTs, mapReady, handleSearchSelect]);
+  }, [focusPlaceId, focusTs, focusReviewId, mapReady, handleSearchSelect]);
 
   const handleBottomSheetClose = useCallback(() => {
     setSelectedPlaceId(null);
     setSelectedPlace(null);
+    setHighlightReview(null);
     // ✕/뒤로가기는 시트를 닫힘 애니메이션 없이 언마운트시켜 position 이 확장 값에
     // 동결된다(버튼 실종) — 닫힘 위치로 부드럽게 복귀시킨다. 스와이프 닫기처럼 이미
     // 닫힘 값에 도달한 경우엔 사실상 no-op 이다.
@@ -517,6 +527,7 @@ export default function MapScreen() {
           onClose={handleBottomSheetClose}
           onRoutePreview={handleRoutePreview}
           animatedPosition={sheetPosition}
+          highlightReview={highlightReview}
         />
       )}
 

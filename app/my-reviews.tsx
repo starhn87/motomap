@@ -3,6 +3,7 @@ import {
   View,
   Text,
   FlatList,
+  Pressable,
   RefreshControl,
 } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -43,13 +44,25 @@ export default function MyReviewsScreen() {
     queryFn: fetchMyReviews,
   });
 
+  // 탭하면 지도의 해당 장소 시트가 펼쳐지고 이 리뷰로 스크롤·강조된다
   const renderItem = ({ item }: { item: any }) => (
-    <View
-      style={[
+    <Pressable
+      onPress={() =>
+        router.navigate({
+          pathname: '/',
+          params: {
+            focusPlaceId: item.placeId,
+            focusTs: String(Date.now()),
+            focusReviewId: item.id,
+          },
+        })
+      }
+      style={({ pressed }) => [
         styles.card,
         {
           backgroundColor: colors.surfaceElevated,
           borderColor: colors.border,
+          opacity: pressed ? 0.8 : 1,
         },
       ]}>
       <View style={styles.cardHeader}>
@@ -66,7 +79,7 @@ export default function MyReviewsScreen() {
       <Text style={[styles.date, { color: colors.textSecondary }]}>
         {new Date(item.createdAt).toLocaleDateString('ko-KR')}
       </Text>
-    </View>
+    </Pressable>
   );
 
   return (
