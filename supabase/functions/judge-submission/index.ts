@@ -211,32 +211,18 @@ async function saveUserReason(table: string, id: string, userReason: string) {
   }
 }
 
-async function postDiscord(content: string, buttons?: { label: string; url: string }[]) {
+// 승인·반려는 마스크드 링크로 — 일반 인커밍 웹훅은 버튼(components)을 200 OK 로
+// 조용히 무시한다(앱 소유 웹훅 전용). URL 을 <> 로 감싸 링크 미리보기도 억제한다.
+async function postDiscord(content: string, links?: { label: string; url: string }[]) {
   if (!DISCORD_URL) return;
-  const body: Record<string, unknown> = { content: content.slice(0, 1900) };
-  if (buttons?.length) {
-    // 일반 웹훅도 link 버튼(style 5)은 붙일 수 있다 (custom_id 버튼은 봇 필요)
-    body.components = [
-      {
-        type: 1,
-        components: buttons.map((b) => ({ type: 2, style: 5, label: b.label, url: b.url })),
-      },
-    ];
-  }
-  const res = await fetch(DISCORD_URL, {
+  const linkLine = links?.length
+    ? '\n' + links.map((l) => `[${l.label}](<${l.url}>)`).join(' · ')
+    : '';
+  await fetch(DISCORD_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ content: (content + linkLine).slice(0, 1900) }),
   });
-  // components 가 거부되면 링크를 본문에 붙여 재발송 (버튼 없이도 처리 가능해야 한다)
-  if (!res.ok && buttons?.length) {
-    const links = buttons.map((b) => `[${b.label}](${b.url})`).join(' · ');
-    await fetch(DISCORD_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: `${content}\n${links}`.slice(0, 1900) }),
-    });
-  }
 }
 
 const VERDICT_LABEL: Record<Verdict['verdict'], string> = {
