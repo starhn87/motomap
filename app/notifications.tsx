@@ -1,11 +1,12 @@
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { useEffect, useRef } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useNotifications, useMarkAllRead } from '@/hooks/useNotifications';
 import EmptyState from '@/components/ui/EmptyState';
+import HighlightPulse from '@/components/ui/HighlightPulse';
 import type { AppNotification } from '@/lib/api/notifications';
 
 // "3분 전", "2시간 전", "5일 전", 그 이상은 날짜
@@ -28,6 +29,28 @@ export default function NotificationsScreen() {
   const { data: notifications, isLoading } = useNotifications();
   const { mutate: markAllRead } = useMarkAllRead();
   const markedRef = useRef(false);
+
+  // 반려 푸시 탭 → 해당 알림으로 스크롤·강조 (highlightTs 는 같은 알림 재탭용 nonce)
+  const { highlightId, highlightTs } = useLocalSearchParams<{
+    highlightId?: string;
+    highlightTs?: string;
+  }>();
+  const highlightKey = highlightId ? `${highlightId}-${highlightTs ?? ''}` : null;
+  const listRef = useRef<FlatList<AppNotification>>(null);
+  const scrolledKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!highlightKey || !highlightId || !notifications?.length) return;
+    if (scrolledKeyRef.current === highlightKey) return;
+    const index = notifications.findIndex((n) => n.id === highlightId);
+    if (index < 0) return;
+    scrolledKeyRef.current = highlightKey;
+    // 목록 첫 렌더가 끝난 뒤 스크롤 — 강조(delay 800ms)는 스크롤이 멎을 즈음 시작된다
+    const t = setTimeout(() => {
+      listRef.current?.scrollToIndex({ index, viewPosition: 0.2, animated: true });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [highlightKey, highlightId, notifications]);
 
   // 화면에 들어오면 전부 읽음 처리 (뱃지 해소) — 목록의 안읽음 점은 이번 렌더 동안 유지
   useEffect(() => {
@@ -69,37 +92,58 @@ export default function NotificationsScreen() {
         />
       ) : (
         <FlatList
+          ref={listRef}
           data={notifications}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          onScrollToIndexFailed={(info) => {
+            // 가변 높이 카드라 미측정 구간은 근사 오프셋으로 이동 후 재시도
+            listRef.current?.scrollToOffset({
+              offset: info.averageItemLength * info.index,
+              animated: true,
+            });
+            setTimeout(() => {
+              listRef.current?.scrollToIndex({
+                index: info.index,
+                viewPosition: 0.2,
+                animated: true,
+              });
+            }, 350);
+          }}
           renderItem={({ item }) => (
-            <Pressable
-              onPress={() => handlePress(item)}
-              style={({ pressed }) => [
-                styles.item,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  opacity: pressed ? 0.8 : 1,
-                },
-              ]}>
-              <Text style={styles.itemIcon}>{item.type.startsWith('course') ? '🛣️' : '📍'}</Text>
-              <View style={styles.itemBody}>
-                <View style={styles.itemHeader}>
-                  <Text style={[styles.itemTitle, { color: colors.text }]}>
-                    {item.title}
+            <HighlightPulse
+              pulseKey={item.id === highlightId ? (highlightKey ?? undefined) : undefined}
+              delay={800}
+              tint={colors.tint}
+              borderRadius={14}>
+              <Pressable
+                onPress={() => handlePress(item)}
+                style={({ pressed }) => [
+                  styles.item,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}>
+                <Text style={styles.itemIcon}>{item.type.startsWith('course') ? '🛣️' : '📍'}</Text>
+                <View style={styles.itemBody}>
+                  <View style={styles.itemHeader}>
+                    <Text style={[styles.itemTitle, { color: colors.text }]}>
+                      {item.title}
+                    </Text>
+                    {!item.readAt && <View style={[styles.unreadDot, { backgroundColor: colors.tint }]} />}
+                  </View>
+                  {/* 알림 목록이 본문 전문을 볼 수 있는 유일한 곳 — 말줄임 없이 그대로 보여준다 */}
+                  <Text style={[styles.itemText, { color: colors.textSecondary }]}>
+                    {item.body}
                   </Text>
-                  {!item.readAt && <View style={[styles.unreadDot, { backgroundColor: colors.tint }]} />}
+                  <Text style={[styles.itemTime, { color: colors.textSecondary }]}>
+                    {timeAgo(item.createdAt)}
+                  </Text>
                 </View>
-                {/* 알림 목록이 본문 전문을 볼 수 있는 유일한 곳 — 말줄임 없이 그대로 보여준다 */}
-                <Text style={[styles.itemText, { color: colors.textSecondary }]}>
-                  {item.body}
-                </Text>
-                <Text style={[styles.itemTime, { color: colors.textSecondary }]}>
-                  {timeAgo(item.createdAt)}
-                </Text>
-              </View>
-            </Pressable>
+              </Pressable>
+            </HighlightPulse>
           )}
         />
       )}

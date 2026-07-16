@@ -228,6 +228,7 @@ Sentry.wrap(
 | `015_rejection_notifications.sql` | `places`/`courses.rejected_reason` + 반려(미승인 `deleted_at` 세팅) 시 사유 포함 인앱 알림·푸시 — 승인 후 운영 정리(soft delete)에는 발동 안 함 |
 | `016_ai_reject_reason.sql` | `places`/`courses.ai_reject_reason` — AI 판정이 만든 제보자용 반려 문구. 디스코드 반려 버튼(moderate EF)이 `rejected_reason`으로 복사 |
 | `017_rejection_copy.sql` | 반려 알림 문구 재구성 — 제보명은 title 로, body 는 사유 전문만 (상투 접두와 AI 문구 중복 제거) |
+| `018_rejection_push_deeplink.sql` | 반려 푸시 data 에 `notificationId` — 탭하면 앱이 알림 목록에서 해당 알림 스크롤·강조 |
 
 ---
 

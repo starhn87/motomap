@@ -16,7 +16,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// 승인 푸시의 data 페이로드(트리거가 심음)에 따라 해당 화면으로 이동
+// 푸시의 data 페이로드(트리거가 심음)에 따라 해당 화면으로 이동
 function routeFromNotification(data: Record<string, unknown> | undefined) {
   try {
     if (!data) return;
@@ -24,6 +24,15 @@ function routeFromNotification(data: Record<string, unknown> | undefined) {
       router.push({ pathname: '/', params: { focusPlaceId: data.placeId } });
     } else if (data.type === 'course_approved' && typeof data.courseId === 'string') {
       router.push(`/course/${data.courseId}`);
+    } else if (data.type === 'place_rejected' || data.type === 'course_rejected') {
+      // 반려된 제보는 앱에서 조회할 수 없다 — 알림 목록에서 해당 알림을 스크롤·강조
+      router.push({
+        pathname: '/notifications',
+        params:
+          typeof data.notificationId === 'string'
+            ? { highlightId: data.notificationId, highlightTs: String(Date.now()) }
+            : {},
+      });
     }
   } catch {
     // 내비게이션 준비 전 등 — 이동 실패는 치명적이지 않음
