@@ -229,6 +229,7 @@ Sentry.wrap(
 | `016_ai_reject_reason.sql` | `places`/`courses.ai_reject_reason` — AI 판정이 만든 제보자용 반려 문구. 디스코드 반려 버튼(moderate EF)이 `rejected_reason`으로 복사 |
 | `017_rejection_copy.sql` | 반려 알림 문구 재구성 — 제보명은 title 로, body 는 사유 전문만 (상투 접두와 AI 문구 중복 제거) |
 | `018_rejection_push_deeplink.sql` | 반려 푸시 data 에 `notificationId` — 탭하면 앱이 알림 목록에서 해당 알림 스크롤·강조 |
+| `019_retry_missing_judgements.sql` | 판정 누락 자동 재시도 — EF waitUntil 백그라운드는 인스턴스 셧다운 시 증발할 수 있어, 3분 넘게 판정 문구 없는 pending 제보를 pg_cron 이 5분마다 재판정 (1시간 윈도) |
 
 ---
 
