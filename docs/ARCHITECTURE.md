@@ -226,6 +226,7 @@ Sentry.wrap(
 | `013_profiles_bike_model.sql` | `profiles.bike_model` — 마이 바이크 기종 (자기 신고, 리뷰에 뱃지 노출) |
 | `014_notifications.sql` | `notifications` 테이블(RLS 본인만) + 승인 트리거가 푸시 전에 인앱 알림 이력을 기록 (토큰 없어도 기록) |
 | `015_rejection_notifications.sql` | `places`/`courses.rejected_reason` + 반려(미승인 `deleted_at` 세팅) 시 사유 포함 인앱 알림·푸시 — 승인 후 운영 정리(soft delete)에는 발동 안 함 |
+| `016_ai_reject_reason.sql` | `places`/`courses.ai_reject_reason` — AI 판정이 만든 제보자용 반려 문구. 디스코드 반려 버튼(moderate EF)이 `rejected_reason`으로 복사 |
 
 ---
 
@@ -240,7 +241,8 @@ Sentry.wrap(
 | 외부 내비 딥링크 | `lib/navigation.ts` + `plugins/withQuerySchemes.js` | 카카오내비(이륜차)·T맵·카카오맵·네이버지도·Apple 지도. `LSApplicationQueriesSchemes`로 설치 감지, 기본 앱은 `useNavPrefStore` |
 | Supabase Storage | `lib/uploadImage.ts` | 리뷰·제보 사진 (`ridemap-media` 버킷, base64 업로드) |
 | Expo Push | `lib/push.ts` + migration 006/008 | 제보(장소·코스) 승인 푸시 — 토큰은 `push_tokens`, 발송은 DB 트리거(pg_net→Expo Push API). 권한 요청은 제보 직후에만 |
-| Claude API | `supabase/functions/judge-submission` | 제보 AI 판정(Phase A: 추천만) — 트리거가 EF 호출 → 카카오 교차검증 → `claude-opus-4-8` 판정 → 디스코드. 결정은 관리자 |
+| Claude API | `supabase/functions/judge-submission` (배포명 `smart-task`) | 제보 AI 판정 — 트리거가 EF 호출 → 카카오 교차검증 + 웹 조사 → `claude-opus-4-8` 판정 → 디스코드에 근거·반려 안내 문구·[승인]/[반려] 버튼 발송. 제보자용 반려 문구는 `ai_reject_reason`에 저장 |
+| 원클릭 심사 | `supabase/functions/moderate` | 디스코드 버튼 링크(HMAC 서명)로 승인·반려 실행 — GET은 확인 화면, POST가 처리(링크 미리보기 크롤러 방어). 반려 시 `ai_reject_reason`→`rejected_reason` 복사로 015 알림에 사유 포함. JWT 검증 OFF |
 | 오피넷 유가 | `supabase/functions/gas-stations` + `lib/api/gasStations.ts`, `hooks/useGasStations.ts` | 주유소 필터 시 실시간 유가 레이어 — EF가 키 은닉·KATEC↔WGS84 변환·3분 캐시, 앱은 가격 마커(최저가 강조)+상세 카드. 주의: 오피넷 인증 파라미터는 `code=`(문서의 certkey 아님), 브랜드 필드는 aroundAll `POLL_DIV_CD`/detailById `POLL_DIV_CO`로 상이, 반경 최대 5km(줌 게이트 `GAS_MIN_ZOOM`) |
 | Sentry | `app/_layout.tsx`, `metro.config.js` | 에러·세션 추적 |
 

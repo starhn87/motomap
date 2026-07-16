@@ -1,13 +1,16 @@
 // 제보(장소·코스) AI 판정 — DB 트리거(notify_ai_judge)가 호출하는 Edge Function.
 // 1) 카카오 로컬 교차검증 + 웹 검색으로 라이더 근거 조사 → 2) 구조화 판정 →
 // 3) 결과(승인 추천/반려 추천/판단 유보 + 근거)를 디스코드로 발송.
-// 판정은 "추천"일 뿐 — 승인/반려 결정은 관리자가 한다 (Phase A).
+//    메시지의 [승인]/[반려] 버튼은 moderate EF 로 연결 — 클릭 한 번으로 처리된다.
+//    반려될 경우 제보자에게 보낼 문구(userReason)는 판정 시점에 만들어
+//    ai_reject_reason 에 저장해 두고, 반려 시 moderate 가 rejected_reason 으로 복사한다.
 //
 // 요청은 즉시 200을 반환하고 판정은 백그라운드(EdgeRuntime.waitUntil)에서 진행 —
 // 호출자(pg_net)의 짧은 타임아웃이 판정을 중단시키지 않도록.
 //
 // 필요한 secrets (Edge Functions > Secrets):
 //   ANTHROPIC_API_KEY, KAKAO_REST_API_KEY, DISCORD_WEBHOOK_URL, JUDGE_WEBHOOK_SECRET
+//   (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 는 자동 주입)
 // 배포 시 "Enforce JWT verification" 은 끈다 — 인증은 x-judge-secret 헤더로 한다.
 import Anthropic from 'npm:@anthropic-ai/sdk';
 
@@ -17,6 +20,8 @@ const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
 const KAKAO_KEY = Deno.env.get('KAKAO_REST_API_KEY');
 const DISCORD_URL = Deno.env.get('DISCORD_WEBHOOK_URL');
 const SECRET = Deno.env.get('JUDGE_WEBHOOK_SECRET');
+const SB_URL = Deno.env.get('SUPABASE_URL');
+const SB_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 const MODEL = 'claude-opus-4-8';
 
@@ -24,6 +29,7 @@ interface Verdict {
   verdict: 'approve' | 'reject' | 'uncertain';
   confidence: 'high' | 'medium' | 'low';
   reason: string;
+  userReason: string;
 }
 
 const VERDICT_SCHEMA = {
@@ -32,8 +38,16 @@ const VERDICT_SCHEMA = {
     verdict: { type: 'string', enum: ['approve', 'reject', 'uncertain'] },
     confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
     reason: { type: 'string', description: '판정 근거 (한국어, 1~3문장)' },
+    userReason: {
+      type: 'string',
+      description:
+        '이 제보가 반려될 경우 제보자 알림에 들어갈 안내. verdict 와 무관하게 항상 작성. ' +
+        '한국어 해요체 완결 문장 1~2개. 알림 본문 "○○를 검토했지만 이번에는 담지 못했어요." 뒤에 ' +
+        '그대로 이어지므로 이유만 담백하게. 예: "라이더분들 사이에서 알려진 곳인지 확인하기 어려웠어요." ' +
+        '내부 판정 용어(카카오 로컬, 웹 조사, confidence 등)는 쓰지 않는다.',
+    },
   },
-  required: ['verdict', 'confidence', 'reason'],
+  required: ['verdict', 'confidence', 'reason', 'userReason'],
   additionalProperties: false,
 } as const;
 
@@ -158,13 +172,71 @@ async function judge(table: string, record: Record<string, unknown>): Promise<{ 
   return { v: JSON.parse(text) as Verdict, evidence };
 }
 
-async function postDiscord(content: string) {
+// moderate EF 링크 서명 — 버튼 URL 위조 방지 (moderate 쪽과 같은 방식)
+async function sign(msg: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(SECRET ?? ''),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 32);
+}
+
+async function moderateUrl(table: string, id: string, action: 'approve' | 'reject') {
+  const s = await sign(`${table}:${id}:${action}`);
+  return `${SB_URL}/functions/v1/moderate?t=${table}&id=${id}&a=${action}&s=${s}`;
+}
+
+// 판정과 함께 만든 제보자용 반려 문구를 저장 — 실패해도 판정 발송은 계속한다
+async function saveUserReason(table: string, id: string, userReason: string) {
+  if (!SB_URL || !SB_KEY) return;
+  try {
+    await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: {
+        apikey: SB_KEY,
+        Authorization: `Bearer ${SB_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ai_reject_reason: userReason }),
+    });
+  } catch {
+    // 저장 실패 시 반려 버튼은 기본 문구로 나간다
+  }
+}
+
+async function postDiscord(content: string, buttons?: { label: string; url: string }[]) {
   if (!DISCORD_URL) return;
-  await fetch(DISCORD_URL, {
+  const body: Record<string, unknown> = { content: content.slice(0, 1900) };
+  if (buttons?.length) {
+    // 일반 웹훅도 link 버튼(style 5)은 붙일 수 있다 (custom_id 버튼은 봇 필요)
+    body.components = [
+      {
+        type: 1,
+        components: buttons.map((b) => ({ type: 2, style: 5, label: b.label, url: b.url })),
+      },
+    ];
+  }
+  const res = await fetch(DISCORD_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: content.slice(0, 1900) }),
+    body: JSON.stringify(body),
   });
+  // components 가 거부되면 링크를 본문에 붙여 재발송 (버튼 없이도 처리 가능해야 한다)
+  if (!res.ok && buttons?.length) {
+    const links = buttons.map((b) => `[${b.label}](${b.url})`).join(' · ');
+    await fetch(DISCORD_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: `${content}\n${links}`.slice(0, 1900) }),
+    });
+  }
 }
 
 const VERDICT_LABEL: Record<Verdict['verdict'], string> = {
@@ -180,11 +252,19 @@ async function judgeAndPost(table: string, record: Record<string, unknown>) {
   const icon = table === 'places' ? '📍' : '🛣️';
   try {
     const { v } = await judge(table, record);
+    const id = String(record.id);
+    // 반려 버튼을 누르면 이 문구가 rejected_reason 으로 복사된다 (verdict 무관 항상 저장)
+    await saveUserReason(table, id, v.userReason);
     // 교차검증 원자료(evidence)는 판정 입력으로만 쓰고 노출하지 않는다 — reason 에 요약됨
     await postDiscord(
       `🤖 AI 판정 — ${icon} ${record.name}\n` +
       `**${VERDICT_LABEL[v.verdict]}** (${CONFIDENCE_LABEL[v.confidence]})\n` +
-      `근거: ${v.reason}`,
+      `근거: ${v.reason}\n` +
+      `반려 시 안내 문구: ${v.userReason}`,
+      [
+        { label: '✅ 승인', url: await moderateUrl(table, id, 'approve') },
+        { label: '❌ 반려', url: await moderateUrl(table, id, 'reject') },
+      ],
     );
   } catch (e) {
     // 기본 제보 알림은 별도 트리거로 이미 발송됨 — 판정 실패만 알린다
