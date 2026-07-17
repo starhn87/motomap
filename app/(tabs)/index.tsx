@@ -44,7 +44,8 @@ import RouteLine from '@/components/map/RouteLine';
 import RouteInfoCard from '@/components/map/RouteInfoCard';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
-import { coordToSpot, nearestPoi } from '@/lib/api/kakaoLocal';
+import { coordToSpot, coordToAddress, nearestPoi } from '@/lib/api/kakaoLocal';
+import * as Updates from 'expo-updates';
 import SearchEntry from '@/components/search/SearchEntry';
 import Feather from '@expo/vector-icons/Feather';
 import { router } from 'expo-router';
@@ -56,6 +57,18 @@ import type { Route } from '@/lib/api/directions';
 import type { GasStation } from '@/lib/api/gasStations';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// 이 빌드(runtime)에 네이버 심벌 탭 네이티브 이벤트(onTapSymbol 패치)가 포함됐는지 —
+// 1.1.3 빌드부터 포함. 구 빌드는 이벤트가 안 오므로 지도 탭의 카카오 근사로 폴백한다.
+const SYMBOL_TAP_NATIVE = (() => {
+  const v = (Updates.runtimeVersion ?? '').split('.').map(Number);
+  const min = [1, 1, 3];
+  for (let i = 0; i < 3; i++) {
+    if ((v[i] ?? 0) > min[i]) return true;
+    if ((v[i] ?? 0) < min[i]) return false;
+  }
+  return true;
+})();
 
 // 짧은 거리 근사(m) — 재검색 버튼 노출 판정용 (한국 위도대 경도 1도 ≈ 88km)
 function approxMeters(a: SearchPoint, b: SearchPoint): number {
@@ -331,7 +344,9 @@ export default function MapScreen() {
     const radius = Math.min(70, Math.max(35, Math.round(22 * mPerPx)));
     void (async () => {
       const [poi, spot] = await Promise.all([
-        zoom >= 14 ? nearestPoi(searchLat, longitude, radius) : Promise.resolve(null),
+        zoom >= 14 && !SYMBOL_TAP_NATIVE
+          ? nearestPoi(searchLat, longitude, radius)
+          : Promise.resolve(null),
         coordToSpot(latitude, longitude),
       ]);
       if (poi) {
@@ -351,6 +366,36 @@ export default function MapScreen() {
         longitude,
       });
     })();
+  };
+
+  // 네이버 지도가 그린 심벌(장소 아이콘·이름)을 탭 — 패치된 네이티브 이벤트라
+  // 이름·좌표가 정확하다. 주소만 역지오코딩으로 뒤에서 채운다.
+  const handleSymbolTap = ({
+    latitude,
+    longitude,
+    caption,
+  }: {
+    latitude: number;
+    longitude: number;
+    caption: string;
+  }) => {
+    Keyboard.dismiss();
+    if (selectedPlace || selectedStation || tempPlace) {
+      if (selectedPlace) handleBottomSheetClose();
+      if (selectedStation) setSelectedStation(null);
+      if (tempPlace) setTempPlace(null);
+      return;
+    }
+    if (gasMode || navigating) return;
+    setTempPlace({ name: caption, address: '', latitude, longitude });
+    void coordToAddress(latitude, longitude).then((address) => {
+      if (!address) return;
+      setTempPlace((prev) =>
+        prev && prev.name === caption && prev.latitude === latitude
+          ? { ...prev, address }
+          : prev,
+      );
+    });
   };
 
   // 탭바와 같은 프레스 감각 — 누르는 동안 움츠리고 떼면 한 번만 튕기며 복귀
@@ -451,6 +496,7 @@ export default function MapScreen() {
         locale="ko"
         isExtentBoundedInKorea
         onTapMap={handleMapTap}
+        onTapSymbol={handleSymbolTap}
         onCameraChanged={(e) => {
           // 사용자가 직접 지도를 움직이면(Gesture) 펄스가 마커와 어긋나므로 중단
           // (내 위치 버튼이 일으킨 이동은 'Developer'라 펄스를 유지)

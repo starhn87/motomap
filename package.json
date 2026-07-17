@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "seed:bike-cafes": "node scripts/seed-bike-cafes.mjs",
-    "sync:bikes": "node scripts/sync-bike-models.mjs"
+    "sync:bikes": "node scripts/sync-bike-models.mjs",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -52,6 +53,7 @@
   "devDependencies": {
     "@types/react": "~19.1.0",
     "eas-cli": "^18.7.0",
+    "patch-package": "^8.0.1",
     "sharp": "^0.34.5",
     "typescript": "~5.9.2"
   },
