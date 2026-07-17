@@ -3,7 +3,7 @@
 // moto-kr 의 mapping/ 에 기여한 뒤 이 스크립트로 동기화한다.
 //
 // 사용: node scripts/sync-bike-models.mjs
-// 소스: 로컬 ../moto-kr 체크아웃이 있으면 그걸 쓰고, 없으면 GitHub raw 에서 받는다.
+// 소스: 로컬 ../moto-kr 체크아웃이 있으면 그걸 쓰고, 없으면 jsDelivr CDN 에서 받는다.
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
