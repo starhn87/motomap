@@ -318,12 +318,19 @@ export default function MapScreen() {
       return;
     }
     // 2단계: 아무것도 없으면 탭 지점을 조회해 임시 카드를 띄운다.
-    // 근처(40m)에 지도 심볼로 뜨는 POI가 있으면 그 장소로 스냅하고,
+    // 근처에 지도 심볼로 뜨는 POI가 있으면 그 장소(좌표 포함)로 스냅하고,
     // 없을 때만 주소·건물명으로 폴백. 주유소 모드·내비 중엔 방해라 생략.
     if (gasMode || navigating) return;
+    // 심볼 아이콘만이 아니라 그 아래 이름 라벨을 탭해도 같은 POI로 잡는다 —
+    // 심볼은 항상 이름보다 위(북쪽)에 그려지므로 검색 중심을 화면 13px 상당
+    // 북쪽으로 올리고, 반경도 줌에 따른 화면 25px 상당으로 잡는다 (40~90m).
+    const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
+    const mPerPx = (156543.04 * Math.cos((latitude * Math.PI) / 180)) / Math.pow(2, zoom);
+    const searchLat = latitude + (13 * mPerPx) / 111320;
+    const radius = Math.min(90, Math.max(40, Math.round(25 * mPerPx)));
     void (async () => {
       const [poi, spot] = await Promise.all([
-        nearestPoi(latitude, longitude),
+        nearestPoi(searchLat, longitude, radius),
         coordToSpot(latitude, longitude),
       ]);
       if (poi) {
