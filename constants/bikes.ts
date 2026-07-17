@@ -816,7 +816,7 @@ export const BIKE_MODELS: string[] = [
 ];
 
 // 공백·대소문자 무시 부분 일치 검색 (최대 limit개)
-export function searchBikeModels(query: string, limit = 8): string[] {
+export function searchBikeModels(query: string, limit = 15): string[] {
   const q = query.trim().toLowerCase().replace(/\s+/g, '');
   if (!q) return [];
   return BIKE_MODELS.filter((m) => m.toLowerCase().replace(/\s+/g, '').includes(q)).slice(0, limit);

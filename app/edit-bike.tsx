@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Keyboard,
   Pressable,
+  ScrollView,
 } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState, useEffect } from 'react';
@@ -103,11 +104,14 @@ export default function EditBikeScreen() {
       </View>
 
       {suggestions.length > 0 && (
-        <View
+        <ScrollView
           style={[
             styles.suggestions,
             { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-          ]}>
+          ]}
+          // 키보드가 떠 있어도 항목을 바로 탭할 수 있어야 한다 (없으면 첫 탭이 키보드 닫기에 먹힘)
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled>
           {suggestions.map((s) => (
             <Pressable
               key={s}
@@ -123,7 +127,7 @@ export default function EditBikeScreen() {
               <Text style={[styles.suggestionText, { color: colors.text }]}>{s}</Text>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
       )}
 
       <Text style={[styles.hint, { color: colors.textSecondary }]}>
@@ -187,6 +191,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     overflow: 'hidden',
+    // 4개 반이 보이는 높이 — 잘린 항목이 스크롤 가능함을 암시하고 키보드에 안 가린다
+    maxHeight: 198,
+    flexGrow: 0,
   },
   suggestionItem: {
     paddingHorizontal: 14,
