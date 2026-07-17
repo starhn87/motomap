@@ -57,3 +57,26 @@ export async function coordToAddress(latitude: number, longitude: number): Promi
     return null;
   }
 }
+
+// 지도 탭 지점 정보 — 주소와 건물명(있으면)을 함께 반환한다.
+// 지도에 그려진 건물 심볼을 탭했을 때 그 이름을 카드 제목으로 쓰기 위한 용도.
+export async function coordToSpot(
+  latitude: number,
+  longitude: number,
+): Promise<{ address: string; buildingName: string | null } | null> {
+  if (!REST_KEY) return null;
+  const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${longitude}&y=${latitude}`;
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `KakaoAK ${REST_KEY}` },
+    });
+    if (!res.ok) return null;
+    const doc = (await res.json()).documents?.[0];
+    const address = doc?.road_address?.address_name ?? doc?.address?.address_name;
+    if (!address) return null;
+    const buildingName = doc?.road_address?.building_name || null;
+    return { address, buildingName };
+  } catch {
+    return null;
+  }
+}

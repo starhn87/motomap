@@ -43,6 +43,8 @@ import WeatherSheet from '@/components/map/WeatherSheet';
 import RouteLine from '@/components/map/RouteLine';
 import RouteInfoCard from '@/components/map/RouteInfoCard';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
+import TempPlaceMarker from '@/components/map/TempPlaceMarker';
+import { coordToSpot } from '@/lib/api/kakaoLocal';
 import SearchEntry from '@/components/search/SearchEntry';
 import Feather from '@expo/vector-icons/Feather';
 import { router } from 'expo-router';
@@ -306,10 +308,28 @@ export default function MapScreen() {
     setNavigating(false);
   }, []);
 
-  const handleMapTap = () => {
+  const handleMapTap = ({ latitude, longitude }: { latitude: number; longitude: number }) => {
     Keyboard.dismiss();
-    if (selectedPlace) handleBottomSheetClose();
-    if (selectedStation) setSelectedStation(null);
+    // 1단계: 열려 있는 카드·시트가 있으면 닫기만 한다 (지도 앱 관례)
+    if (selectedPlace || selectedStation || tempPlace) {
+      if (selectedPlace) handleBottomSheetClose();
+      if (selectedStation) setSelectedStation(null);
+      if (tempPlace) setTempPlace(null);
+      return;
+    }
+    // 2단계: 아무것도 없으면 탭 지점을 조회해 임시 카드를 띄운다
+    // (건물 심볼을 탭하면 건물명이 제목으로 잡힌다). 주유소 모드·내비 중엔 방해라 생략.
+    if (gasMode || navigating) return;
+    void (async () => {
+      const spot = await coordToSpot(latitude, longitude);
+      if (!spot) return;
+      setTempPlace({
+        name: spot.buildingName ?? '선택한 위치',
+        address: spot.address,
+        latitude,
+        longitude,
+      });
+    })();
   };
 
   // 탭바와 같은 프레스 감각 — 누르는 동안 움츠리고 떼면 한 번만 튕기며 복귀
@@ -471,14 +491,9 @@ export default function MapScreen() {
 
         {route && <RouteLine route={route} />}
 
-        {/* 일반 장소(카카오) 임시 목적지 핀 — DB 마커와 구분되는 기본 핀 */}
+        {/* 일반 장소(임시 목적지) 핀 — 카테고리 마커와 구분되는 전용 디자인 */}
         {tempPlace && (
-          <NaverMapMarkerOverlay
-            latitude={tempPlace.latitude}
-            longitude={tempPlace.longitude}
-            anchor={{ x: 0.5, y: 1 }}
-            tintColor={colors.tint}
-          />
+          <TempPlaceMarker latitude={tempPlace.latitude} longitude={tempPlace.longitude} />
         )}
       </NaverMapView>
 
