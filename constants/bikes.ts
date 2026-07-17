@@ -1,7 +1,7 @@
 // 내 바이크 자동완성용 기종 목록 — moto-kr 데이터셋에서 생성된 파일이다.
 // ⚠️ 직접 수정하지 말 것. 기종 추가·수정은 https://github.com/starhn87/moto-kr 의
 // mapping/models.json 에 반영한 뒤 `node scripts/sync-bike-models.mjs` 로 동기화한다.
-// (생성: 2026-07-16, 808종)
+// (생성: 2026-07-17, 808종)
 // 완전한 전수는 아니므로 목록에 없는 기종은 자유 입력으로 저장한다.
 
 export const BIKE_MODELS: string[] = [

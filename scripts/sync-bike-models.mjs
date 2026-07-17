@@ -11,7 +11,7 @@ import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const LOCAL = join(root, '..', 'moto-kr', 'data', 'models.min.json');
-const REMOTE = 'https://raw.githubusercontent.com/starhn87/moto-kr/main/data/models.min.json';
+const REMOTE = 'https://cdn.jsdelivr.net/gh/starhn87/moto-kr@main/data/models.min.json';
 
 let dataset;
 if (existsSync(LOCAL)) {
@@ -21,7 +21,7 @@ if (existsSync(LOCAL)) {
   const res = await fetch(REMOTE);
   if (!res.ok) throw new Error(`moto-kr 다운로드 실패: HTTP ${res.status}`);
   dataset = await res.json();
-  console.log(`GitHub raw 사용`);
+  console.log(`jsDelivr CDN 사용`);
 }
 
 const names = dataset.names;
