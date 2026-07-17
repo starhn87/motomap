@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 
 interface Props {
@@ -6,12 +6,13 @@ interface Props {
   longitude: number;
 }
 
-// 일반 장소(임시 목적지) 핀 — 물방울 모양, 카테고리 마커(PNG)와 구분되는 중립 슬레이트 색.
-// 물방울은 "모서리 셋만 둥근 사각형을 45도 회전"으로 그린다. 마커 children 은 정적
-// 비트맵으로 캡처되므로 순수 View 도형 + 이모지 Text 만 사용한다 (벡터 아이콘 폰트 금지).
+// 일반 장소(임시 목적지) 핀 — 갸름한 물방울(원형 헤드 + 좁고 긴 꼬리) 실루엣.
+// 마커 children 은 정적 비트맵으로 캡처되어 이모지·폰트 아이콘이 유실될 수 있으므로
+// 깃발까지 순수 View 도형으로만 그린다 (실측: 🚩 이모지가 캡처에서 빠졌다).
 const PIN = '#475569';
-const HEAD = 34; // 회전 전 사각형 한 변
-const WRAP = 48; // 회전 대각선을 감싸는 캔버스 (뾰족 끝이 바닥 중앙에 온다)
+const HEAD = 26; // 헤드 지름
+const WRAP_W = 32;
+const WRAP_H = 42;
 
 export default function TempPlaceMarker({ latitude, longitude }: Props) {
   return (
@@ -19,15 +20,18 @@ export default function TempPlaceMarker({ latitude, longitude }: Props) {
       latitude={latitude}
       longitude={longitude}
       anchor={{ x: 0.5, y: 1 }}
-      width={WRAP}
-      height={WRAP}
+      width={WRAP_W}
+      height={WRAP_H}
       zIndex={2000}>
       <View collapsable={false} style={styles.wrap}>
-        <View style={styles.drop}>
-          <View style={styles.inner}>
-            <Text style={styles.emoji}>🚩</Text>
+        <View style={styles.head}>
+          {/* 도형 깃발: 깃대 + 사각 깃면 */}
+          <View style={styles.flagRow}>
+            <View style={styles.flagPole} />
+            <View style={styles.flagFace} />
           </View>
         </View>
+        <View style={styles.tail} />
       </View>
     </NaverMapMarkerOverlay>
   );
@@ -35,21 +39,16 @@ export default function TempPlaceMarker({ latitude, longitude }: Props) {
 
 const styles = StyleSheet.create({
   wrap: {
-    width: WRAP,
-    height: WRAP,
+    width: WRAP_W,
+    height: WRAP_H,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  drop: {
+  head: {
     width: HEAD,
     height: HEAD,
+    borderRadius: HEAD / 2,
     backgroundColor: PIN,
-    borderTopLeftRadius: HEAD / 2,
-    borderTopRightRadius: HEAD / 2,
-    borderBottomLeftRadius: HEAD / 2,
-    borderBottomRightRadius: 4,
-    transform: [{ rotate: '45deg' }],
-    borderWidth: 2.5,
+    borderWidth: 2,
     borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -58,16 +57,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3,
   },
-  inner: {
-    width: HEAD - 12,
-    height: HEAD - 12,
-    borderRadius: (HEAD - 12) / 2,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ rotate: '-45deg' }],
+  flagRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
-  emoji: {
-    fontSize: 13,
+  flagPole: {
+    width: 1.5,
+    height: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 1,
+  },
+  flagFace: {
+    width: 7,
+    height: 5.5,
+    marginTop: 0.5,
+    backgroundColor: '#FFFFFF',
+    borderTopRightRadius: 1,
+    borderBottomRightRadius: 1,
+  },
+  tail: {
+    width: 0,
+    height: 0,
+    marginTop: -3,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 14,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: PIN,
   },
 });
