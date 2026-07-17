@@ -127,19 +127,10 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         </View>
         <Pressable onPress={handleSaveMyPlace} hitSlop={8} style={styles.saveButton}>
           <Ionicons
-            name={savedSlot ? 'star' : 'star-outline'}
-            size={22}
+            name={savedSlot === 'home' ? 'home' : savedSlot === 'work' ? 'business' : 'star-outline'}
+            size={20}
             color={savedSlot ? colors.tint : colors.textSecondary}
           />
-          {savedSlot != null && (
-            <View pointerEvents="none" style={styles.saveInner}>
-              <Ionicons
-                name={savedSlot === 'home' ? 'home' : 'business'}
-                size={9}
-                color={colors.background}
-              />
-            </View>
-          )}
         </Pressable>
         <Pressable onPress={onClose} hitSlop={10} style={styles.closeButton}>
           <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
@@ -202,13 +193,6 @@ const styles = StyleSheet.create({
   saveButton: {
     padding: 2,
     marginRight: 10,
-  },
-  saveInner: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // 별 글리프의 몸통 중심이 박스 중심보다 살짝 위라 안쪽 아이콘도 따라 올린다
-    paddingBottom: 2,
   },
   closeButton: {
     padding: 2,
