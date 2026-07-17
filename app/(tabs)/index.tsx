@@ -44,7 +44,7 @@ import RouteLine from '@/components/map/RouteLine';
 import RouteInfoCard from '@/components/map/RouteInfoCard';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
-import { coordToSpot } from '@/lib/api/kakaoLocal';
+import { coordToSpot, nearestPoi } from '@/lib/api/kakaoLocal';
 import SearchEntry from '@/components/search/SearchEntry';
 import Feather from '@expo/vector-icons/Feather';
 import { router } from 'expo-router';
@@ -317,11 +317,24 @@ export default function MapScreen() {
       if (tempPlace) setTempPlace(null);
       return;
     }
-    // 2단계: 아무것도 없으면 탭 지점을 조회해 임시 카드를 띄운다
-    // (건물 심볼을 탭하면 건물명이 제목으로 잡힌다). 주유소 모드·내비 중엔 방해라 생략.
+    // 2단계: 아무것도 없으면 탭 지점을 조회해 임시 카드를 띄운다.
+    // 근처(40m)에 지도 심볼로 뜨는 POI가 있으면 그 장소로 스냅하고,
+    // 없을 때만 주소·건물명으로 폴백. 주유소 모드·내비 중엔 방해라 생략.
     if (gasMode || navigating) return;
     void (async () => {
-      const spot = await coordToSpot(latitude, longitude);
+      const [poi, spot] = await Promise.all([
+        nearestPoi(latitude, longitude),
+        coordToSpot(latitude, longitude),
+      ]);
+      if (poi) {
+        setTempPlace({
+          name: poi.placeName,
+          address: poi.roadAddress || poi.address,
+          latitude: poi.latitude,
+          longitude: poi.longitude,
+        });
+        return;
+      }
       if (!spot) return;
       setTempPlace({
         name: spot.buildingName ?? '선택한 위치',

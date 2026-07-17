@@ -81,6 +81,46 @@ export async function coordToSpot(
   }
 }
 
+// 지도에 심볼로 그려지는 대표 POI 카테고리들 — 탭 지점 근처의 "알려진 장소"를 찾는 용도
+const POI_CATEGORIES = ['FD6', 'CE7', 'CS2', 'OL7', 'AT4', 'CT1', 'MT1', 'SW8', 'AD5', 'HP8'];
+
+// 탭 지점 반경 내 최근접 POI — 지도 기본 심볼 탭을 근사한다.
+// 라이브러리가 심볼 탭 이벤트를 안 주므로, 좌표 기준 카테고리 검색으로 대신한다.
+export async function nearestPoi(
+  latitude: number,
+  longitude: number,
+  radius = 40,
+): Promise<KakaoLocalResult | null> {
+  if (!REST_KEY) return null;
+  const base =
+    `https://dapi.kakao.com/v2/local/search/category.json` +
+    `?x=${longitude}&y=${latitude}&radius=${radius}&sort=distance&size=1`;
+  const docs = await Promise.all(
+    POI_CATEGORIES.map(async (code) => {
+      try {
+        const res = await fetch(`${base}&category_group_code=${code}`, {
+          headers: { Authorization: `KakaoAK ${REST_KEY}` },
+        });
+        if (!res.ok) return null;
+        return (await res.json()).documents?.[0] ?? null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  const best = docs
+    .filter((d): d is any => d != null)
+    .sort((a, b) => Number(a.distance) - Number(b.distance))[0];
+  if (!best) return null;
+  return {
+    placeName: best.place_name ?? '',
+    address: best.address_name ?? '',
+    roadAddress: best.road_address_name ?? '',
+    latitude: Number(best.y),
+    longitude: Number(best.x),
+  };
+}
+
 // 좌표의 행정동 이름 — "중구 명동" 형태 (날씨 기준 위치 표기용)
 export async function coordToRegion(latitude: number, longitude: number): Promise<string | null> {
   if (!REST_KEY) return null;
