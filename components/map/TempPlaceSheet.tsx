@@ -133,7 +133,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
           />
         </Pressable>
         <Pressable onPress={onClose} hitSlop={10} style={styles.closeButton}>
-          <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
+          <Ionicons name="close" size={20} color={colors.textSecondary} />
         </Pressable>
       </View>
 
@@ -196,9 +196,6 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 2,
-  },
-  closeText: {
-    fontSize: 16,
   },
   actions: {
     flexDirection: 'row',
