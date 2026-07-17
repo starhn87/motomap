@@ -4,8 +4,11 @@ import { router } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import { useEffect } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
 import { openNavigation } from '@/lib/navigation';
-import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
+import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { toast } from '@/lib/toast';
 
 export interface TempPlace {
@@ -25,20 +28,59 @@ interface Props {
 export default function TempPlaceSheet({ place, onClose }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const myPlaces = useMyPlacesStore((s) => s.places);
+  const loadMyPlaces = useMyPlacesStore((s) => s.load);
   const saveMyPlace = useMyPlacesStore((s) => s.save);
+  const removeMyPlace = useMyPlacesStore((s) => s.remove);
+
+  useEffect(() => {
+    void loadMyPlaces();
+  }, [loadMyPlaces]);
+
+  // 이 장소가 이미 집/회사로 저장돼 있는지 (좌표 근사 일치)
+  const near = (a: number, b: number) => Math.abs(a - b) < 1e-5;
+  const savedSlot: MyPlaceSlot | null =
+    myPlaces.home && near(myPlaces.home.latitude, place.latitude) && near(myPlaces.home.longitude, place.longitude)
+      ? 'home'
+      : myPlaces.work && near(myPlaces.work.latitude, place.latitude) && near(myPlaces.work.longitude, place.longitude)
+        ? 'work'
+        : null;
 
   const handleSaveMyPlace = () => {
+    if (savedSlot) {
+      const isHome = savedSlot === 'home';
+      Alert.alert(isHome ? '집으로 저장된 장소' : '회사로 저장된 장소', place.name, [
+        { text: '취소', style: 'cancel' },
+        {
+          text: isHome ? '회사로 변경' : '집으로 변경',
+          onPress: async () => {
+            await removeMyPlace(savedSlot);
+            await saveMyPlace(isHome ? 'work' : 'home', place);
+            toast.success(isHome ? '회사로 변경했어요.' : '집으로 변경했어요.');
+          },
+        },
+        {
+          text: '저장 해제',
+          style: 'destructive',
+          onPress: async () => {
+            await removeMyPlace(savedSlot);
+            toast.info('내 장소에서 해제했어요.');
+          },
+        },
+      ]);
+      return;
+    }
     Alert.alert('내 장소로 저장', `${place.name}\n검색 화면에서 바로 길안내할 수 있어요.`, [
       { text: '취소', style: 'cancel' },
       {
-        text: '🏠 집으로',
+        text: '집으로',
         onPress: async () => {
           await saveMyPlace('home', place);
           toast.success('집으로 저장했어요.');
         },
       },
       {
-        text: '🏢 회사로',
+        text: '회사로',
         onPress: async () => {
           await saveMyPlace('work', place);
           toast.success('회사로 저장했어요.');
@@ -84,7 +126,11 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
           </Text>
         </View>
         <Pressable onPress={handleSaveMyPlace} hitSlop={8} style={styles.saveButton}>
-          <Text style={styles.saveIcon}>⭐</Text>
+          <Ionicons
+            name={savedSlot === 'home' ? 'home' : savedSlot === 'work' ? 'business' : 'star-outline'}
+            size={19}
+            color={savedSlot ? colors.tint : colors.textSecondary}
+          />
         </Pressable>
         <Pressable onPress={onClose} hitSlop={10} style={styles.closeButton}>
           <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
@@ -147,9 +193,6 @@ const styles = StyleSheet.create({
   saveButton: {
     padding: 2,
     marginRight: 10,
-  },
-  saveIcon: {
-    fontSize: 15,
   },
   closeButton: {
     padding: 2,
