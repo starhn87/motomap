@@ -604,7 +604,7 @@ export default function MapScreen() {
       )}
 
       {weatherOpen && weather && (
-        <WeatherSheet weather={weather} onClose={() => setWeatherOpen(false)} />
+        <WeatherSheet weather={weather} latitude={weatherLat} longitude={weatherLng} onClose={() => setWeatherOpen(false)} />
       )}
     </View>
   );

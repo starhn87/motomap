@@ -3,17 +3,29 @@ import { useCallback } from 'react';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
+import { useQuery } from '@tanstack/react-query';
+import { coordToRegion } from '@/lib/api/kakaoLocal';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import type { RidingWeather } from '@/lib/api/weather';
 
 interface Props {
   weather: RidingWeather;
+  /** 예보 기준 좌표 — 하단에 동네 이름으로 표기해 "어디 날씨인지" 혼동을 없앤다 */
+  latitude?: number;
+  longitude?: number;
   onClose: () => void;
 }
 
 // 라이딩 날씨 상세 바텀시트 — 적합도 등급·점수, 현재 조건, 6시간 예보
-export default function WeatherSheet({ weather, onClose }: Props) {
+export default function WeatherSheet({ weather, latitude, longitude, onClose }: Props) {
+  const { data: region } = useQuery({
+    queryKey: ['weather-region', latitude?.toFixed(2), longitude?.toFixed(2)],
+    queryFn: () => coordToRegion(latitude!, longitude!),
+    enabled: latitude != null && longitude != null,
+    staleTime: 30 * 60 * 1000,
+  });
+
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -105,7 +117,7 @@ export default function WeatherSheet({ weather, onClose }: Props) {
         </ScrollView>
 
         <Text style={[styles.footnote, { color: colors.textSecondary }]}>
-          현재 지도 위치 기준 · 기상청 단기예보
+          {region ?? '현재 지도 위치'} 기준 · 기상청 단기예보
         </Text>
       </BottomSheetView>
     </BottomSheet>

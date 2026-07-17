@@ -80,3 +80,21 @@ export async function coordToSpot(
     return null;
   }
 }
+
+// 좌표의 행정동 이름 — "중구 명동" 형태 (날씨 기준 위치 표기용)
+export async function coordToRegion(latitude: number, longitude: number): Promise<string | null> {
+  if (!REST_KEY) return null;
+  const url = `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${longitude}&y=${latitude}`;
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `KakaoAK ${REST_KEY}` },
+    });
+    if (!res.ok) return null;
+    const docs = (await res.json()).documents ?? [];
+    const doc = docs.find((d: any) => d.region_type === 'H') ?? docs[0];
+    if (!doc) return null;
+    return [doc.region_2depth_name, doc.region_3depth_name].filter(Boolean).join(' ') || null;
+  } catch {
+    return null;
+  }
+}
