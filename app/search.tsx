@@ -22,6 +22,10 @@ import { fetchFavoritePlaces } from '@/lib/api/favorites';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
+import { openNavigation } from '@/lib/navigation';
+import { toast } from '@/lib/toast';
+import { Alert } from 'react-native';
 import { formatDistance } from '@/constants/course';
 import {
   loadRecentSearches,
@@ -48,6 +52,40 @@ export default function SearchScreen() {
   useEffect(() => {
     loadRecentSearches().then(setRecent);
   }, []);
+
+  // 내 장소(집·회사) — 기기 로컬 저장. 탭하면 바로 길안내, 길게 누르면 삭제
+  const myPlaces = useMyPlacesStore((s) => s.places);
+  const loadMyPlaces = useMyPlacesStore((s) => s.load);
+  const removeMyPlace = useMyPlacesStore((s) => s.remove);
+  useEffect(() => {
+    void loadMyPlaces();
+  }, [loadMyPlaces]);
+
+  const handleMyPlace = (slot: MyPlaceSlot) => {
+    const saved = myPlaces[slot];
+    if (!saved) {
+      toast.info(
+        slot === 'home' ? '집이 아직 저장되지 않았어요.' : '회사가 아직 저장되지 않았어요.',
+        '장소 검색이나 지도에서 카드의 ⭐로 저장할 수 있어요.',
+      );
+      return;
+    }
+    Keyboard.dismiss();
+    void openNavigation({
+      name: saved.name,
+      latitude: saved.latitude,
+      longitude: saved.longitude,
+    });
+  };
+
+  const handleMyPlaceLongPress = (slot: MyPlaceSlot) => {
+    const saved = myPlaces[slot];
+    if (!saved) return;
+    Alert.alert(slot === 'home' ? '집 삭제' : '회사 삭제', `${saved.name}\n저장을 해제할까요?`, [
+      { text: '취소', style: 'cancel' },
+      { text: '삭제', style: 'destructive', onPress: () => void removeMyPlace(slot) },
+    ]);
+  };
 
   const trimmed = query.trim();
   const searching = trimmed.length >= 2;
@@ -259,6 +297,39 @@ export default function SearchScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           contentContainerStyle={styles.listContent}>
+          {/* 내 장소 — 집·회사 원터치 길안내 */}
+          <View style={styles.myPlacesRow}>
+            {(['home', 'work'] as const).map((slot) => {
+              const saved = myPlaces[slot];
+              return (
+                <Pressable
+                  key={slot}
+                  onPress={() => handleMyPlace(slot)}
+                  onLongPress={() => handleMyPlaceLongPress(slot)}
+                  style={({ pressed }) => [
+                    styles.myPlaceCard,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}>
+                  <Text style={styles.myPlaceIcon}>{slot === 'home' ? '🏠' : '🏢'}</Text>
+                  <View style={styles.rowInfo}>
+                    <Text style={[styles.myPlaceLabel, { color: colors.text }]}>
+                      {slot === 'home' ? '집' : '회사'}
+                    </Text>
+                    <Text
+                      style={[styles.myPlaceSub, { color: colors.textSecondary }]}
+                      numberOfLines={1}>
+                      {saved ? saved.name : '저장 안 됨'}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+
           <Pressable
             onPress={() => {
               Keyboard.dismiss();
@@ -401,6 +472,32 @@ const styles = StyleSheet.create({
     padding: 24,
     textAlign: 'center',
     fontSize: 14,
+  },
+  myPlacesRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  myPlaceCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  myPlaceIcon: {
+    fontSize: 18,
+  },
+  myPlaceLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  myPlaceSub: {
+    fontSize: 11,
+    marginTop: 1,
   },
   kakaoAttribution: {
     fontSize: 11,

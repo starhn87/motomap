@@ -1,10 +1,12 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 import { router } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { openNavigation } from '@/lib/navigation';
+import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
+import { toast } from '@/lib/toast';
 
 export interface TempPlace {
   name: string;
@@ -23,6 +25,27 @@ interface Props {
 export default function TempPlaceSheet({ place, onClose }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const saveMyPlace = useMyPlacesStore((s) => s.save);
+
+  const handleSaveMyPlace = () => {
+    Alert.alert('내 장소로 저장', `${place.name}\n검색 화면에서 바로 길안내할 수 있어요.`, [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '🏠 집으로',
+        onPress: async () => {
+          await saveMyPlace('home', place);
+          toast.success('집으로 저장했어요.');
+        },
+      },
+      {
+        text: '🏢 회사로',
+        onPress: async () => {
+          await saveMyPlace('work', place);
+          toast.success('회사로 저장했어요.');
+        },
+      },
+    ]);
+  };
 
   const handleNavigate = () => {
     void openNavigation({
@@ -60,6 +83,9 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
             {place.address}
           </Text>
         </View>
+        <Pressable onPress={handleSaveMyPlace} hitSlop={8} style={styles.saveButton}>
+          <Text style={styles.saveIcon}>⭐</Text>
+        </Pressable>
         <Pressable onPress={onClose} hitSlop={10} style={styles.closeButton}>
           <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
         </Pressable>
@@ -117,6 +143,13 @@ const styles = StyleSheet.create({
   },
   address: {
     fontSize: 13,
+  },
+  saveButton: {
+    padding: 2,
+    marginRight: 10,
+  },
+  saveIcon: {
+    fontSize: 15,
   },
   closeButton: {
     padding: 2,
