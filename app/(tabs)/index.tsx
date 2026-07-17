@@ -42,6 +42,7 @@ import WeatherFab from '@/components/map/WeatherFab';
 import WeatherSheet from '@/components/map/WeatherSheet';
 import RouteLine from '@/components/map/RouteLine';
 import RouteInfoCard from '@/components/map/RouteInfoCard';
+import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import SearchEntry from '@/components/search/SearchEntry';
 import Feather from '@expo/vector-icons/Feather';
 import { router } from 'expo-router';
@@ -160,6 +161,7 @@ export default function MapScreen() {
     (place: Place) => {
       if (navigating) return;
       setHighlightReview(null);
+      setTempPlace(null);
       setSelectedPlaceId(place.id);
       setSelectedPlace(place);
       // 현재 줌을 유지한 채 마커가 시트에 가리지 않는 위치로 카메라만 보정
@@ -191,11 +193,41 @@ export default function MapScreen() {
   // 승인 푸시 탭·검색 화면 선택 → focusPlaceId 파라미터로 진입 시 해당 장소를 선택·포커스.
   // 같은 장소를 연속 선택해도 반응하도록 focusTs(검색 화면이 넣어줌)까지 포함해 중복 판정한다.
   // focusReviewId(내 리뷰에서 진입)가 있으면 시트를 펼쳐 그 리뷰로 스크롤·강조한다.
-  const { focusPlaceId, focusTs, focusReviewId } = useLocalSearchParams<{
-    focusPlaceId?: string;
-    focusTs?: string;
-    focusReviewId?: string;
-  }>();
+  const { focusPlaceId, focusTs, focusReviewId, kakaoName, kakaoAddress, kakaoLat, kakaoLng } =
+    useLocalSearchParams<{
+      focusPlaceId?: string;
+      focusTs?: string;
+      focusReviewId?: string;
+      kakaoName?: string;
+      kakaoAddress?: string;
+      kakaoLat?: string;
+      kakaoLng?: string;
+    }>();
+  // 검색의 "일반 장소"(카카오 로컬) 선택 — DB 에 없는 임시 목적지
+  const [tempPlace, setTempPlace] = useState<TempPlace | null>(null);
+  const handledKakaoRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!kakaoName || !kakaoLat || !kakaoLng || !mapReady) return;
+    const key = `${kakaoName}-${focusTs ?? ''}`;
+    if (handledKakaoRef.current === key) return;
+    handledKakaoRef.current = key;
+    const place: TempPlace = {
+      name: kakaoName,
+      address: kakaoAddress ?? '',
+      latitude: Number(kakaoLat),
+      longitude: Number(kakaoLng),
+    };
+    setSelectedPlaceId(null);
+    setSelectedPlace(null);
+    setTempPlace(place);
+    mapRef.current?.animateCameraTo({
+      latitude: place.latitude,
+      longitude: place.longitude,
+      zoom: 15,
+      duration: 800,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, focusTs, mapReady]);
   const [highlightReview, setHighlightReview] = useState<{ id: string; key: string } | null>(
     null
   );
@@ -438,6 +470,16 @@ export default function MapScreen() {
         ))}
 
         {route && <RouteLine route={route} />}
+
+        {/* 일반 장소(카카오) 임시 목적지 핀 — DB 마커와 구분되는 기본 핀 */}
+        {tempPlace && (
+          <NaverMapMarkerOverlay
+            latitude={tempPlace.latitude}
+            longitude={tempPlace.longitude}
+            anchor={{ x: 0.5, y: 1 }}
+            tintColor={colors.tint}
+          />
+        )}
       </NaverMapView>
 
       {pulse && (
@@ -529,6 +571,10 @@ export default function MapScreen() {
           animatedPosition={sheetPosition}
           highlightReview={highlightReview}
         />
+      )}
+
+      {tempPlace && !navigating && (
+        <TempPlaceSheet place={tempPlace} onClose={() => setTempPlace(null)} />
       )}
 
       {navigating && route && routePlace && (

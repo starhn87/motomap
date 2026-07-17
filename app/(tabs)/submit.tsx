@@ -8,7 +8,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import Animated, {
   useAnimatedStyle,
   withSpring,
@@ -88,6 +89,26 @@ function SubmitPlace() {
   const [parkingInfo, setParkingInfo] = useState('');
   const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // 지도의 "일반 장소" 시트에서 넘어온 프리필 (이름·주소·좌표)
+  const { prefillName, prefillAddress, prefillLat, prefillLng, prefillTs } =
+    useLocalSearchParams<{
+      prefillName?: string;
+      prefillAddress?: string;
+      prefillLat?: string;
+      prefillLng?: string;
+      prefillTs?: string;
+    }>();
+  const handledPrefillRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!prefillName || !prefillTs || handledPrefillRef.current === prefillTs) return;
+    handledPrefillRef.current = prefillTs;
+    setName(prefillName);
+    if (prefillAddress) setAddress(prefillAddress);
+    if (prefillLat && prefillLng) {
+      setCoords({ latitude: Number(prefillLat), longitude: Number(prefillLng) });
+    }
+  }, [prefillName, prefillAddress, prefillLat, prefillLng, prefillTs]);
 
   const submitScale = useSharedValue(1);
   const submitStyle = useAnimatedStyle(() => ({

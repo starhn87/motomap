@@ -21,6 +21,7 @@ import { searchAll } from '@/lib/api/search';
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { formatDistance } from '@/constants/course';
 import {
   loadRecentSearches,
@@ -57,6 +58,13 @@ export default function SearchScreen() {
     enabled: searching,
   });
 
+  // "일반 장소" — DB(라이더 특화 장소)에 없는 곳도 카카오 로컬로 찾아 목적지로 쓸 수 있게
+  const { data: kakaoResults } = useQuery({
+    queryKey: ['search-kakao', trimmed],
+    queryFn: () => searchKakaoLocal(trimmed),
+    enabled: searching,
+  });
+
   const { data: favorites } = useQuery({
     queryKey: ['favorites', 'places', user?.id],
     queryFn: fetchFavoritePlaces,
@@ -72,6 +80,20 @@ export default function SearchScreen() {
     router.navigate({
       pathname: '/',
       params: { focusPlaceId: place.id, focusTs: String(Date.now()) },
+    });
+  }, []);
+
+  const goToKakaoPlace = useCallback((k: KakaoLocalResult) => {
+    Keyboard.dismiss();
+    router.navigate({
+      pathname: '/',
+      params: {
+        kakaoName: k.placeName,
+        kakaoAddress: k.roadAddress || k.address,
+        kakaoLat: String(k.latitude),
+        kakaoLng: String(k.longitude),
+        focusTs: String(Date.now()),
+      },
     });
   }, []);
 
@@ -150,8 +172,21 @@ export default function SearchScreen() {
             data={[
               ...(results?.places.map((p) => ({ type: 'place' as const, data: p })) ?? []),
               ...(results?.courses.map((c) => ({ type: 'course' as const, data: c })) ?? []),
+              ...(kakaoResults?.length
+                ? [
+                    { type: 'kakao-header' as const, data: null },
+                    ...kakaoResults.map((k) => ({ type: 'kakao' as const, data: k })),
+                    { type: 'kakao-footer' as const, data: null },
+                  ]
+                : []),
             ]}
-            keyExtractor={(item) => `${item.type}-${item.data.id}`}
+            keyExtractor={(item, index) =>
+              item.type === 'kakao'
+                ? `kakao-${(item.data as KakaoLocalResult).placeName}-${index}`
+                : item.type === 'kakao-header' || item.type === 'kakao-footer'
+                  ? item.type
+                  : `${item.type}-${(item.data as { id: string }).id}`
+            }
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             contentContainerStyle={styles.listContent}
@@ -161,7 +196,36 @@ export default function SearchScreen() {
               </Text>
             }
             renderItem={({ item }) =>
-              item.type === 'place' ? (
+              item.type === 'kakao-header' ? (
+                sectionTitle('일반 장소')
+              ) : item.type === 'kakao-footer' ? (
+                <Text style={[styles.kakaoAttribution, { color: colors.textSecondary }]}>
+                  장소 정보 제공: 카카오
+                </Text>
+              ) : item.type === 'kakao' ? (
+                (() => {
+                  const k = item.data as KakaoLocalResult;
+                  return (
+                    <Pressable
+                      onPress={() => goToKakaoPlace(k)}
+                      style={({ pressed }) => [
+                        styles.row,
+                        { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                      ]}>
+                      <Text style={styles.rowIcon}>📍</Text>
+                      <View style={styles.rowInfo}>
+                        <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
+                          {k.placeName}
+                        </Text>
+                        <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
+                          {k.roadAddress || k.address}
+                        </Text>
+                      </View>
+                      <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>일반</Text>
+                    </Pressable>
+                  );
+                })()
+              ) : item.type === 'place' ? (
                 placeRow(item.data as Place, 'result')
               ) : (
                 <Pressable
@@ -337,6 +401,12 @@ const styles = StyleSheet.create({
     padding: 24,
     textAlign: 'center',
     fontSize: 14,
+  },
+  kakaoAttribution: {
+    fontSize: 11,
+    textAlign: 'right',
+    paddingVertical: 8,
+    paddingRight: 4,
   },
   sectionHeader: {
     flexDirection: 'row',
