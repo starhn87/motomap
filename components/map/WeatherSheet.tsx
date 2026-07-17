@@ -95,12 +95,9 @@ export default function WeatherSheet({ weather, onClose }: Props) {
                 <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>{h.hour}</Text>
                 <Text style={styles.hourEmoji}>{h.emoji}</Text>
                 <Text style={[styles.hourTemp, { color: colors.text }]}>{h.temp}°</Text>
-                <Text
-                  style={[
-                    styles.hourPop,
-                    { color: h.pop > 0 ? colors.tint : colors.textSecondary },
-                  ]}>
-                  💧{h.pop}%
+                {/* 강수확률 0%는 표기 자체를 비운다 (자리는 유지해 셀 높이 정렬) */}
+                <Text style={[styles.hourPop, { color: colors.tint }]}>
+                  {h.pop > 0 ? `💧${h.pop}%` : ' '}
                 </Text>
               </View>
             ))}
@@ -108,7 +105,7 @@ export default function WeatherSheet({ weather, onClose }: Props) {
         </ScrollView>
 
         <Text style={[styles.footnote, { color: colors.textSecondary }]}>
-          현재 지도 위치 기준 · Open-Meteo
+          현재 지도 위치 기준 · 기상청 단기예보
         </Text>
       </BottomSheetView>
     </BottomSheet>
