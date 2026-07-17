@@ -8,10 +8,13 @@ const MAX = 5;
 
 export type RecentSearch =
   | { type: 'place'; place: Place }
-  | { type: 'course'; id: string; name: string };
+  | { type: 'course'; id: string; name: string }
+  | { type: 'kakao'; name: string; address: string; latitude: number; longitude: number };
 
 export function recentKey(entry: RecentSearch): string {
-  return entry.type === 'place' ? `place-${entry.place.id}` : `course-${entry.id}`;
+  if (entry.type === 'place') return `place-${entry.place.id}`;
+  if (entry.type === 'course') return `course-${entry.id}`;
+  return `kakao-${entry.latitude},${entry.longitude}`;
 }
 
 export async function loadRecentSearches(): Promise<RecentSearch[]> {

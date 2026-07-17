@@ -121,19 +121,23 @@ export default function SearchScreen() {
     });
   }, []);
 
-  const goToKakaoPlace = useCallback((k: KakaoLocalResult) => {
-    Keyboard.dismiss();
-    router.navigate({
-      pathname: '/',
-      params: {
-        kakaoName: k.placeName,
-        kakaoAddress: k.roadAddress || k.address,
-        kakaoLat: String(k.latitude),
-        kakaoLng: String(k.longitude),
-        focusTs: String(Date.now()),
-      },
-    });
-  }, []);
+  const goToKakaoPlace = useCallback(
+    (name: string, address: string, latitude: number, longitude: number) => {
+      Keyboard.dismiss();
+      addRecentSearch({ type: 'kakao', name, address, latitude, longitude });
+      router.navigate({
+        pathname: '/',
+        params: {
+          kakaoName: name,
+          kakaoAddress: address,
+          kakaoLat: String(latitude),
+          kakaoLng: String(longitude),
+          focusTs: String(Date.now()),
+        },
+      });
+    },
+    [],
+  );
 
   const goToCourse = useCallback((courseId: string, courseName: string) => {
     Keyboard.dismiss();
@@ -245,7 +249,7 @@ export default function SearchScreen() {
                   const k = item.data as KakaoLocalResult;
                   return (
                     <Pressable
-                      onPress={() => goToKakaoPlace(k)}
+                      onPress={() => goToKakaoPlace(k.placeName, k.roadAddress || k.address, k.latitude, k.longitude)}
                       style={({ pressed }) => [
                         styles.row,
                         { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
@@ -366,23 +370,28 @@ export default function SearchScreen() {
               )}
               {recent.map((entry) => {
                 const key = recentKey(entry);
-                const isPlace = entry.type === 'place';
                 return (
                   <Pressable
                     key={key}
-                    onPress={() =>
-                      isPlace ? goToPlace(entry.place) : goToCourse(entry.id, entry.name)
-                    }
+                    onPress={() => {
+                      if (entry.type === 'place') goToPlace(entry.place);
+                      else if (entry.type === 'course') goToCourse(entry.id, entry.name);
+                      else goToKakaoPlace(entry.name, entry.address, entry.latitude, entry.longitude);
+                    }}
                     style={({ pressed }) => [
                       styles.row,
                       { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
                     ]}>
                     <Text style={styles.rowIcon}>
-                      {isPlace ? CATEGORIES[entry.place.category].icon : '🛣️'}
+                      {entry.type === 'place'
+                        ? CATEGORIES[entry.place.category].icon
+                        : entry.type === 'course'
+                          ? '🛣️'
+                          : '📍'}
                     </Text>
                     <View style={styles.rowInfo}>
                       <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-                        {isPlace ? entry.place.name : entry.name}
+                        {entry.type === 'place' ? entry.place.name : entry.name}
                       </Text>
                     </View>
                     <Pressable
