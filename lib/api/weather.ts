@@ -1,5 +1,9 @@
-// 라이딩 날씨 — Open-Meteo(무료, 키 불필요)에서 현재·시간별 예보를 받아
-// 라이더 기준 적합도 점수(0~100)와 등급으로 가공한다.
+// 라이딩 날씨 — 시간대별 예보는 기상청 단기예보(EF weather-kr 프록시)에서 받아
+// 라이더 기준 적합도 점수(0~100)와 등급으로 가공한다. 강수확률(POP)이 네이버·
+// 아이폰 날씨와 같은 원천이라 체감과 일치한다 (Open-Meteo 확률은 한국에서 과대).
+// 경로 날씨 경고만 Open-Meteo 유지 — 멀티 좌표 1콜과 강수형태 중심 판정 때문.
+
+import { supabase } from '@/lib/supabase';
 
 export interface HourlyWeather {
   hour: string; // "14시"
@@ -25,18 +29,21 @@ export interface RidingWeather {
   hourly: HourlyWeather[];
 }
 
-// WMO weather code → 상태·이모지
-function describeCode(code: number): { condition: string; emoji: string } {
-  if (code === 0) return { condition: '맑음', emoji: '☀️' };
-  if (code <= 2) return { condition: '구름 조금', emoji: '🌤️' };
-  if (code === 3) return { condition: '흐림', emoji: '☁️' };
-  if (code === 45 || code === 48) return { condition: '안개', emoji: '🌫️' };
-  if (code <= 57) return { condition: '이슬비', emoji: '🌦️' };
-  if (code <= 67) return { condition: '비', emoji: '🌧️' };
-  if (code <= 77) return { condition: '눈', emoji: '🌨️' };
-  if (code <= 82) return { condition: '소나기', emoji: '🌧️' };
-  if (code <= 86) return { condition: '소낙눈', emoji: '🌨️' };
-  return { condition: '뇌우', emoji: '⛈️' };
+// 기상청 하늘상태(SKY)·강수형태(PTY) → 상태·이모지
+function describeKma(sky: number, pty: number): { condition: string; emoji: string } {
+  if (pty === 1) return { condition: '비', emoji: '🌧️' };
+  if (pty === 2) return { condition: '비/눈', emoji: '🌨️' };
+  if (pty === 3) return { condition: '눈', emoji: '🌨️' };
+  if (pty === 4) return { condition: '소나기', emoji: '🌧️' };
+  if (sky === 4) return { condition: '흐림', emoji: '☁️' };
+  if (sky === 3) return { condition: '구름 많음', emoji: '⛅' };
+  return { condition: '맑음', emoji: '☀️' };
+}
+
+// 체감온도 (Steadman apparent temperature) — 기상청 단기예보에 없어 자체 계산
+function feelsLike(tempC: number, humidityPct: number, windMs: number): number {
+  const e = (humidityPct / 100) * 6.105 * Math.exp((17.27 * tempC) / (237.7 + tempC));
+  return Math.round(tempC + 0.33 * e - 0.7 * windMs - 4.0);
 }
 
 function gradeOf(score: number): {
@@ -55,14 +62,14 @@ function gradeOf(score: number): {
   return { grade: '비추천', gradeColor: '#DC2626', comment: '오늘은 쉬어 가는 게 좋겠어요.' };
 }
 
-// 라이더 기준 감점제 — 기온(15~24 최적)·강수·바람·시정 요인
-function scoreWeather(temp: number, popMax: number, precip: number, windMs: number, code: number): number {
+// 라이더 기준 감점제 — 기온(15~24 최적)·강수·바람 요인
+function scoreWeather(temp: number, popMax: number, pty: number, windMs: number): number {
   let score = 100;
 
   if (temp < 15) score -= Math.min(50, (15 - temp) * 4);
   else if (temp > 24) score -= Math.min(40, (temp - 24) * 4);
 
-  if (precip > 0) score -= 50;
+  if (pty > 0) score -= 50; // 지금 강수 형태가 있으면 (비·눈·소나기)
   if (popMax >= 60) score -= 40;
   else if (popMax >= 30) score -= 20;
   else if (popMax >= 10) score -= 8;
@@ -71,9 +78,7 @@ function scoreWeather(temp: number, popMax: number, precip: number, windMs: numb
   else if (windMs >= 7) score -= 15;
   else if (windMs >= 5) score -= 8;
 
-  if (code === 45 || code === 48) score -= 15; // 안개
-  if (code >= 95) score -= 60; // 뇌우
-  if (code >= 71 && code <= 86) score -= 60; // 눈
+  if (pty === 2 || pty === 3) score -= 60; // 눈·비/눈은 라이딩 불가급
 
   return Math.max(0, Math.min(100, Math.round(score)));
 }
@@ -131,52 +136,50 @@ export async function checkRouteWeather(
   }
 }
 
+interface KmaHour {
+  date: string; // "20260717"
+  time: string; // "1800"
+  tmp: number | null;
+  pop: number;
+  pty: number;
+  sky: number;
+  wsd: number | null;
+  reh: number | null;
+}
+
 export async function fetchRidingWeather(latitude: number, longitude: number): Promise<RidingWeather> {
-  const params = new URLSearchParams({
-    latitude: String(latitude),
-    longitude: String(longitude),
-    current:
-      'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m',
-    hourly: 'temperature_2m,precipitation_probability,weather_code',
-    forecast_days: '2',
-    timezone: 'Asia/Seoul',
-    wind_speed_unit: 'ms',
+  const { data, error } = await supabase.functions.invoke('weather-kr', {
+    body: { lat: latitude, lng: longitude },
   });
-  const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
-  if (!res.ok) throw new Error(`날씨 요청 실패 (HTTP ${res.status})`);
-  const data = await res.json();
+  if (error) throw new Error(`날씨 요청 실패 (${error.message})`);
+  const hours: KmaHour[] = data?.hours ?? [];
+  if (hours.length === 0) throw new Error('날씨 데이터가 비어 있습니다');
 
-  const cur = data.current;
-  const hourlyTimes: string[] = data.hourly.time;
-
-  // 현재 시각 이후 6시간 슬라이스
-  const nowIdx = hourlyTimes.findIndex((t) => new Date(t).getTime() > Date.now()) - 1;
-  const startIdx = Math.max(0, nowIdx);
-  const next12 = Array.from({ length: 12 }, (_, i) => startIdx + i).filter(
-    (i) => i < hourlyTimes.length,
-  );
-
-  const hourly: HourlyWeather[] = next12.map((i) => ({
-    hour: `${new Date(hourlyTimes[i]).getHours()}시`,
-    temp: Math.round(data.hourly.temperature_2m[i]),
-    pop: data.hourly.precipitation_probability[i] ?? 0,
-    emoji: describeCode(data.hourly.weather_code[i]).emoji,
+  const next12 = hours.slice(0, 12);
+  const hourly: HourlyWeather[] = next12.map((h) => ({
+    hour: `${parseInt(h.time.slice(0, 2), 10)}시`,
+    temp: Math.round(h.tmp ?? 0),
+    pop: h.pop,
+    emoji: describeKma(h.sky, h.pty).emoji,
   }));
 
+  const now = hours[0];
+  const temp = now.tmp ?? 0;
+  const windMs = now.wsd ?? 0;
   // 점수는 라이딩 판단에 유의미한 향후 6시간의 강수확률만 반영 (표시는 12시간)
-  const popMax = Math.max(0, ...hourly.slice(0, 6).map((h) => h.pop));
-  const score = scoreWeather(cur.temperature_2m, popMax, cur.precipitation, cur.wind_speed_10m, cur.weather_code);
-  const { condition, emoji } = describeCode(cur.weather_code);
+  const popMax = Math.max(0, ...next12.slice(0, 6).map((h) => h.pop));
+  const score = scoreWeather(temp, popMax, now.pty, windMs);
+  const { condition, emoji } = describeKma(now.sky, now.pty);
 
   return {
     score,
     ...gradeOf(score),
     current: {
-      temp: Math.round(cur.temperature_2m),
-      feels: Math.round(cur.apparent_temperature),
-      humidity: cur.relative_humidity_2m,
-      windMs: Math.round(cur.wind_speed_10m * 10) / 10,
-      pop: hourly[0]?.pop ?? 0,
+      temp: Math.round(temp),
+      feels: feelsLike(temp, now.reh ?? 50, windMs),
+      humidity: now.reh ?? 0,
+      windMs: Math.round(windMs * 10) / 10,
+      pop: now.pop,
       condition,
       emoji,
     },
