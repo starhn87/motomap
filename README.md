@@ -11,7 +11,7 @@
 
 ## 📱 스크린샷
 
-| 지도 | 라이딩 날씨 | 어디든 장소 카드 |
+| 지도 | 라이딩 날씨 | 일반 장소 |
 |:---:|:---:|:---:|
 | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/01-map.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/02-weather.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/03-any-place.png" width="240"/> |
 | **장소 상세** | **검색** | **코스 탐색** |
