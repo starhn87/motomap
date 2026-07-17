@@ -322,15 +322,16 @@ export default function MapScreen() {
     // 없을 때만 주소·건물명으로 폴백. 주유소 모드·내비 중엔 방해라 생략.
     if (gasMode || navigating) return;
     // 심볼 아이콘만이 아니라 그 아래 이름 라벨을 탭해도 같은 POI로 잡는다 —
-    // 심볼은 항상 이름보다 위(북쪽)에 그려지므로 검색 중심을 화면 13px 상당
-    // 북쪽으로 올리고, 반경도 줌에 따른 화면 25px 상당으로 잡는다 (40~90m).
+    // 심볼은 항상 이름보다 위(북쪽)에 그려지므로 검색 중심을 화면 10px 상당
+    // 북쪽으로 올리고, 반경은 줌에 따른 화면 22px 상당(35~70m)으로 잡는다.
+    // 심볼이 그려지지 않는 저줌(<14)에서는 스냅이 오탐만 만들므로 주소 폴백만 쓴다.
     const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
     const mPerPx = (156543.04 * Math.cos((latitude * Math.PI) / 180)) / Math.pow(2, zoom);
-    const searchLat = latitude + (13 * mPerPx) / 111320;
-    const radius = Math.min(90, Math.max(40, Math.round(25 * mPerPx)));
+    const searchLat = latitude + (10 * mPerPx) / 111320;
+    const radius = Math.min(70, Math.max(35, Math.round(22 * mPerPx)));
     void (async () => {
       const [poi, spot] = await Promise.all([
-        nearestPoi(searchLat, longitude, radius),
+        zoom >= 14 ? nearestPoi(searchLat, longitude, radius) : Promise.resolve(null),
         coordToSpot(latitude, longitude),
       ]);
       if (poi) {
