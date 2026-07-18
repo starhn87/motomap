@@ -6,7 +6,7 @@ import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 import { useQuery } from '@tanstack/react-query';
 import { coordToRegion } from '@/lib/api/kakaoLocal';
 import { fetchAirQuality, AIR_GRADE_LABEL, AIR_GRADE_COLOR } from '@/lib/api/air';
-import { sunTimes } from '@/lib/sun';
+import { sunEvents, type SunEvent } from '@/lib/sun';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import type { RidingWeather } from '@/lib/api/weather';
@@ -36,7 +36,8 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
     staleTime: 30 * 60 * 1000,
   });
 
-  const sun = latitude != null && longitude != null ? sunTimes(latitude, longitude) : null;
+  // 일출·일몰은 아이폰 날씨처럼 시간대별 예보 사이에 끼워 넣는다
+  const suns = latitude != null && longitude != null ? sunEvents(latitude, longitude) : [];
 
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -71,8 +72,24 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
     { label: '상태', value: weather.current.condition },
     { label: '미세먼지', value: pm10.text, color: pm10.color },
     { label: '초미세먼지', value: pm25.text, color: pm25.color },
-    { label: '일출과 일몰', value: sun ? `${sun.sunrise} ~ ${sun.sunset}` : '-' },
   ];
+
+  // 시간대별 셀 목록에 일출·일몰 카드를 시각 순서대로 삽입 — hourly[i]는 첫 셀
+  // 시각 + i 시간이므로, 이벤트가 속한 시간 셀 바로 뒤에 끼운다.
+  const firstHour = parseInt(weather.hourly[0]?.hour ?? '0', 10);
+  const firstStart = new Date();
+  firstStart.setMinutes(0, 0, 0);
+  firstStart.setHours(firstHour);
+  const hourItems: ({ kind: 'hour'; h: (typeof weather.hourly)[number] } | { kind: 'sun'; e: SunEvent })[] = [];
+  weather.hourly.forEach((h, i) => {
+    hourItems.push({ kind: 'hour', h });
+    const cellStart = firstStart.getTime() + i * 3600000;
+    for (const e of suns) {
+      if (e.at.getTime() >= cellStart && e.at.getTime() < cellStart + 3600000) {
+        hourItems.push({ kind: 'sun', e });
+      }
+    }
+  });
 
   return (
     <BottomSheet
@@ -122,19 +139,32 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
         {/* 12시간 예보 — 가로 스와이프 */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.hourlyRow}>
-            {weather.hourly.map((h) => (
-              <View
-                key={h.hour}
-                style={[styles.hourCell, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>{h.hour}</Text>
-                <Text style={styles.hourEmoji}>{h.emoji}</Text>
-                <Text style={[styles.hourTemp, { color: colors.text }]}>{h.temp}°</Text>
-                {/* 강수확률 0%는 표기 자체를 비운다 (자리는 유지해 셀 높이 정렬) */}
-                <Text style={[styles.hourPop, { color: colors.tint }]}>
-                  {h.pop > 0 ? `💧${h.pop}%` : ' '}
-                </Text>
-              </View>
-            ))}
+            {hourItems.map((item) =>
+              item.kind === 'hour' ? (
+                <View
+                  key={item.h.hour}
+                  style={[styles.hourCell, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>{item.h.hour}</Text>
+                  <Text style={styles.hourEmoji}>{item.h.emoji}</Text>
+                  <Text style={[styles.hourTemp, { color: colors.text }]}>{item.h.temp}°</Text>
+                  {/* 강수확률 0%는 표기 자체를 비운다 (자리는 유지해 셀 높이 정렬) */}
+                  <Text style={[styles.hourPop, { color: colors.tint }]}>
+                    {item.h.pop > 0 ? `💧${item.h.pop}%` : ' '}
+                  </Text>
+                </View>
+              ) : (
+                <View
+                  key={`${item.e.type}-${item.e.time}`}
+                  style={[styles.hourCell, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>
+                    {item.e.type === 'sunrise' ? '일출' : '일몰'}
+                  </Text>
+                  <Text style={styles.hourEmoji}>{item.e.type === 'sunrise' ? '🌅' : '🌇'}</Text>
+                  <Text style={[styles.hourTemp, { color: colors.text }]}>{item.e.time}</Text>
+                  <Text style={styles.hourPop}> </Text>
+                </View>
+              ),
+            )}
           </View>
         </ScrollView>
 

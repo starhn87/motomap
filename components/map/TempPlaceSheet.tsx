@@ -132,7 +132,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
             onPress={() => void Linking.openURL(`tel:${place.phone}`)}
             hitSlop={8}
             style={styles.saveButton}>
-            <Ionicons name="call-outline" size={19} color={colors.textSecondary} />
+            <Ionicons name="call-outline" size={20} color={colors.textSecondary} />
           </Pressable>
         )}
         <Pressable onPress={handleSaveMyPlace} hitSlop={8} style={styles.saveButton}>
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   headerInfo: {
     flex: 1,

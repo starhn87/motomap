@@ -54,3 +54,28 @@ export function sunTimes(
   const jRise = jNoon - (jSet - jNoon);
   return { sunrise: toHHMM(jRise), sunset: toHHMM(jSet) };
 }
+
+export interface SunEvent {
+  type: 'sunrise' | 'sunset';
+  at: Date;
+  /** "05:25" 형태 (KST) */
+  time: string;
+}
+
+// 오늘과 내일의 일출·일몰을 시각순으로 — 시간대별 예보 사이에 끼워 넣는 용도
+export function sunEvents(latitude: number, longitude: number, now = new Date()): SunEvent[] {
+  const events: SunEvent[] = [];
+  for (const dayOffset of [0, 1]) {
+    const date = new Date(now.getTime() + dayOffset * DAY_MS);
+    const t = sunTimes(latitude, longitude, date);
+    if (!t) continue;
+    for (const type of ['sunrise', 'sunset'] as const) {
+      const hhmm = type === 'sunrise' ? t.sunrise : t.sunset;
+      const [h, m] = hhmm.split(':').map(Number);
+      const kstDayStart =
+        Math.floor((date.getTime() + 9 * 3600 * 1000) / DAY_MS) * DAY_MS - 9 * 3600 * 1000;
+      events.push({ type, at: new Date(kstDayStart + (h * 60 + m) * 60000), time: hhmm });
+    }
+  }
+  return events.sort((a, b) => a.at.getTime() - b.at.getTime());
+}
