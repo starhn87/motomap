@@ -33,7 +33,11 @@ function SunGlyph({ type, lineColor, arrowColor }: { type: 'sunrise' | 'sunset';
   return (
     <View style={glyph.wrap}>
       <Feather name={type === 'sunrise' ? 'arrow-up' : 'arrow-down'} size={11} color={arrowColor} />
-      <View style={[glyph.sun, { backgroundColor: sunColor }]} />
+      <View style={glyph.sunRow}>
+        <View style={[glyph.ray, glyph.rayLeft, { backgroundColor: sunColor }]} />
+        <View style={[glyph.sun, { backgroundColor: sunColor }]} />
+        <View style={[glyph.ray, glyph.rayRight, { backgroundColor: sunColor }]} />
+      </View>
       <View style={[glyph.horizon, { backgroundColor: lineColor }]} />
     </View>
   );
@@ -44,11 +48,33 @@ const glyph = StyleSheet.create({
     alignItems: 'center',
     gap: 1,
   },
+  // 반원 해 + 좌우 어깨의 대각 광선 (아이폰 sunrise 글리프의 그 광선)
+  sunRow: {
+    width: 28,
+    height: 10,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
   sun: {
     width: 16,
     height: 8,
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
+  },
+  ray: {
+    position: 'absolute',
+    width: 6,
+    height: 2,
+    borderRadius: 1,
+    bottom: 6,
+  },
+  rayLeft: {
+    left: 0,
+    transform: [{ rotate: '-40deg' }],
+  },
+  rayRight: {
+    right: 0,
+    transform: [{ rotate: '40deg' }],
   },
   horizon: {
     width: 24,
