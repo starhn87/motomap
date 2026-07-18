@@ -5,6 +5,8 @@ import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
 import { useQuery } from '@tanstack/react-query';
 import { coordToRegion } from '@/lib/api/kakaoLocal';
+import { fetchAirQuality, AIR_GRADE_LABEL, AIR_GRADE_COLOR } from '@/lib/api/air';
+import { sunTimes } from '@/lib/sun';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import type { RidingWeather } from '@/lib/api/weather';
@@ -26,6 +28,16 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
     staleTime: 30 * 60 * 1000,
   });
 
+  // 미세먼지 — 측정소 데이터가 시간 단위라 30분 캐시면 충분
+  const { data: air } = useQuery({
+    queryKey: ['air-quality', latitude?.toFixed(2), longitude?.toFixed(2)],
+    queryFn: () => fetchAirQuality(latitude!, longitude!),
+    enabled: latitude != null && longitude != null,
+    staleTime: 30 * 60 * 1000,
+  });
+
+  const sun = latitude != null && longitude != null ? sunTimes(latitude, longitude) : null;
+
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -43,18 +55,28 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
     [],
   );
 
-  const stats = [
+  const airStat = (grade: number | null | undefined, value: number | null | undefined) =>
+    grade != null
+      ? { text: AIR_GRADE_LABEL[grade] ?? '-', color: AIR_GRADE_COLOR[grade], sub: value != null ? `${value}` : undefined }
+      : { text: '-', color: undefined, sub: undefined };
+  const pm10 = airStat(air?.pm10Grade, air?.pm10);
+  const pm25 = airStat(air?.pm25Grade, air?.pm25);
+
+  const stats: { label: string; value: string; color?: string }[] = [
     { label: '기온', value: `${weather.current.temp}°` },
     { label: '체감', value: `${weather.current.feels}°` },
     { label: '강수확률', value: `${weather.current.pop}%` },
     { label: '바람', value: `${weather.current.windMs}m/s` },
     { label: '습도', value: `${weather.current.humidity}%` },
     { label: '상태', value: weather.current.condition },
+    { label: '미세먼지', value: pm10.text, color: pm10.color },
+    { label: '초미세먼지', value: pm25.text, color: pm25.color },
+    { label: '일출과 일몰', value: sun ? `${sun.sunrise} ~ ${sun.sunset}` : '-' },
   ];
 
   return (
     <BottomSheet
-      snapPoints={['56%']}
+      snapPoints={['62%']}
       enablePanDownToClose
       onClose={onClose}
       backdropComponent={renderBackdrop}
@@ -92,7 +114,7 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
               key={s.label}
               style={[styles.statCell, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{s.label}</Text>
-              <Text style={[styles.statValue, { color: colors.text }]}>{s.value}</Text>
+              <Text style={[styles.statValue, { color: s.color ?? colors.text }]}>{s.value}</Text>
             </View>
           ))}
         </View>
@@ -117,7 +139,7 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
         </ScrollView>
 
         <Text style={[styles.footnote, { color: colors.textSecondary }]}>
-          {region ?? '현재 지도 위치'} 기준 · 기상청 단기예보
+          {region ?? '현재 지도 위치'} 기준 · 기상청 단기예보 · 에어코리아
         </Text>
       </BottomSheetView>
     </BottomSheet>
