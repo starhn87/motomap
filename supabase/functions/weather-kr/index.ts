@@ -164,6 +164,8 @@ Deno.serve(async (req) => {
   }
   // 초단기 병합 — 카테고리 이름이 다르다 (T1H→TMP 상당, PTY·SKY는 동일 의미)
   const ULTRA_MAP: Record<string, string> = { T1H: 'TMP', PTY: 'PTY', SKY: 'SKY', WSD: 'WSD', REH: 'REH' };
+  // 초단기 전용 강수형태 코드를 단기 체계(0~4)로 정규화 — 5 빗방울→비, 6 빗방울눈날림→비/눈, 7 눈날림→눈
+  const ULTRA_PTY: Record<string, string> = { '5': '1', '6': '2', '7': '3' };
   const ultraCovered = new Set<string>();
   for (const it of ultraItems) {
     const cat = ULTRA_MAP[it.category];
@@ -171,7 +173,7 @@ Deno.serve(async (req) => {
     const k = `${it.fcstDate}${it.fcstTime}`;
     const row = byTime.get(k);
     if (!row) continue; // 단기예보 범위 밖 시간은 무시
-    row[cat] = it.fcstValue;
+    row[cat] = cat === 'PTY' ? (ULTRA_PTY[it.fcstValue] ?? it.fcstValue) : it.fcstValue;
     ultraCovered.add(k);
   }
   // 발표 후 시간이 지나면 앞 행들이 과거가 된다 — 현재 시간대(정시) 이전은 버린다
