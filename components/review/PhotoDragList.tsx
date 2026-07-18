@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -127,10 +127,12 @@ interface Props {
   onChange: (next: string[]) => void;
   onAdd: () => void;
   max: number;
+  /** 사진 선택·불러오기 진행 중 — 썸네일 자리에 스피너를 보여준다 */
+  loading?: boolean;
 }
 
 // 리뷰 사진 썸네일 목록 (작성·수정 공용) — 다중 추가 버튼 + 길게 눌러 드래그로 순서 변경
-export default function PhotoDragList({ uris, onChange, onAdd, max }: Props) {
+export default function PhotoDragList({ uris, onChange, onAdd, max, loading }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [dragging, setDragging] = useState(false);
@@ -168,12 +170,23 @@ export default function PhotoDragList({ uris, onChange, onAdd, max }: Props) {
               setDragging={setDragging}
             />
           ))}
-          {uris.length < max && (
-            <Pressable
-              onPress={onAdd}
+          {loading && (
+            <View
               style={[
                 styles.add,
                 { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+              ]}>
+              <ActivityIndicator size="small" color={colors.textSecondary} />
+            </View>
+          )}
+          {uris.length < max && (
+            <Pressable
+              onPress={onAdd}
+              disabled={loading}
+              style={[
+                styles.add,
+                { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+                loading && { opacity: 0.5 },
               ]}>
               <Text style={[styles.addIcon, { color: colors.textSecondary }]}>+</Text>
               <Text style={[styles.addText, { color: colors.textSecondary }]}>

@@ -24,6 +24,7 @@ export default function ReviewForm({ placeId }: Props) {
   const [rating, setRating] = useState(0);
   const [content, setContent] = useState('');
   const [imageUris, setImageUris] = useState<string[]>([]);
+  const [picking, setPicking] = useState(false);
   // isPending(mutation)만으로는 사진 업로드 구간이 비어 연타로 중복 등록됐다 —
   // 업로드부터 등록까지 전 과정을 잠근다
   const [submitting, setSubmitting] = useState(false);
@@ -37,14 +38,21 @@ export default function ReviewForm({ placeId }: Props) {
   }
 
   const handleAddPhotos = async () => {
+    if (picking) return;
     const remaining = 5 - imageUris.length;
     if (remaining <= 0) {
       toast.info('사진은 최대 5장까지 추가할 수 있습니다.');
       return;
     }
-    const uris = await pickImages(remaining);
-    if (uris.length > 0) {
-      setImageUris((prev) => [...prev, ...uris]);
+    // iCloud 원본 내려받기·HEIC 변환이 있으면 픽커가 닫힌 뒤에도 수 초 걸린다
+    setPicking(true);
+    try {
+      const uris = await pickImages(remaining);
+      if (uris.length > 0) {
+        setImageUris((prev) => [...prev, ...uris]);
+      }
+    } finally {
+      setPicking(false);
     }
   };
 
@@ -102,7 +110,7 @@ export default function ReviewForm({ placeId }: Props) {
       />
 
       {/* 사진 추가·정렬 영역 */}
-      <PhotoDragList uris={imageUris} onChange={setImageUris} onAdd={handleAddPhotos} max={5} />
+      <PhotoDragList uris={imageUris} onChange={setImageUris} onAdd={handleAddPhotos} max={5} loading={picking} />
 
       <TouchableOpacity
         onPress={handleSubmit}

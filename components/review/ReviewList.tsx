@@ -46,6 +46,7 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
   const [editRating, setEditRating] = useState(0);
   const [editContent, setEditContent] = useState('');
   const [editPhotos, setEditPhotos] = useState<string[]>([]);
+  const [editPicking, setEditPicking] = useState(false);
   // 사진 업로드 포함 저장 전 과정을 잠가 연타 중복 저장을 막는다
   const [savingEdit, setSavingEdit] = useState(false);
   const [reportingId, setReportingId] = useState<string | null>(null);
@@ -101,14 +102,20 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
   };
 
   const handleAddEditPhotos = async () => {
+    if (editPicking) return;
     const remaining = 5 - editPhotos.length;
     if (remaining <= 0) {
       toast.info('사진은 최대 5장까지입니다.');
       return;
     }
-    const uris = await pickImages(remaining);
-    if (uris.length > 0) {
-      setEditPhotos((prev) => [...prev, ...uris]);
+    setEditPicking(true);
+    try {
+      const uris = await pickImages(remaining);
+      if (uris.length > 0) {
+        setEditPhotos((prev) => [...prev, ...uris]);
+      }
+    } finally {
+      setEditPicking(false);
     }
   };
 
@@ -228,6 +235,7 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
                   onChange={setEditPhotos}
                   onAdd={handleAddEditPhotos}
                   max={5}
+                  loading={editPicking}
                 />
                 <View style={styles.editButtons}>
                   <TouchableOpacity onPress={handleCancelEdit} style={styles.cancelButton}>
