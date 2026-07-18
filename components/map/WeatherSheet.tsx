@@ -32,7 +32,12 @@ function SunGlyph({ type, lineColor, arrowColor }: { type: 'sunrise' | 'sunset';
   const sunColor = type === 'sunrise' ? '#FBBF24' : '#F97316';
   return (
     <View style={glyph.wrap}>
-      <Feather name={type === 'sunrise' ? 'arrow-up' : 'arrow-down'} size={11} color={arrowColor} />
+      <Feather
+        name={type === 'sunrise' ? 'arrow-up' : 'arrow-down'}
+        size={13}
+        color={arrowColor}
+        style={glyph.arrow}
+      />
       <View style={glyph.sunRow}>
         {/* 해 중심에서 방사형으로 뻗는 광선 — 화살표(12시) 양옆으로 2개씩 */}
         <View style={[glyph.ray, glyph.rayL1, { backgroundColor: sunColor }]} />
@@ -50,6 +55,10 @@ const glyph = StyleSheet.create({
   wrap: {
     alignItems: 'center',
     gap: 1,
+  },
+  // 아이콘 뷰박스의 상하 여백을 상쇄해 해에 바짝 붙인다
+  arrow: {
+    marginBottom: -4,
   },
   // 반원 해 + 방사형 광선 — 광선 위치·각도는 해의 원 중심(컨테이너 하단 중앙)
   // 기준 반지름 12, 방사각 20°·65° 대칭 배치
