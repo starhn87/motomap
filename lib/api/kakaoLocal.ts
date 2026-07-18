@@ -10,6 +10,7 @@ export interface KakaoLocalResult {
   roadAddress: string; // 도로명 주소
   latitude: number;
   longitude: number;
+  phone: string; // 전화번호 (없으면 빈 문자열)
 }
 
 // 카카오 로컬 키워드 검색 — 상호·주소로 장소를 찾아 좌표까지 반환한다.
@@ -35,6 +36,7 @@ export async function searchKakaoLocal(query: string): Promise<KakaoLocalResult[
       roadAddress: d.road_address_name ?? '',
       latitude: Number(d.y),
       longitude: Number(d.x),
+      phone: d.phone ?? '',
     }));
   } catch {
     return [];
@@ -122,6 +124,7 @@ export async function nearestPoi(
     roadAddress: best.road_address_name ?? '',
     latitude: Number(best.y),
     longitude: Number(best.x),
+    phone: best.phone ?? '',
   };
 }
 

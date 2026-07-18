@@ -1,4 +1,4 @@
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, Linking } from 'react-native';
 import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 import { router } from 'expo-router';
 
@@ -16,6 +16,8 @@ export interface TempPlace {
   address: string;
   latitude: number;
   longitude: number;
+  /** 전화번호 (카카오 로컬에서 온 경우만, 없으면 미표시) */
+  phone?: string;
 }
 
 interface Props {
@@ -125,6 +127,14 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
             {place.address}
           </Text>
         </View>
+        {!!place.phone && (
+          <Pressable
+            onPress={() => void Linking.openURL(`tel:${place.phone}`)}
+            hitSlop={8}
+            style={styles.saveButton}>
+            <Ionicons name="call-outline" size={19} color={colors.textSecondary} />
+          </Pressable>
+        )}
         <Pressable onPress={handleSaveMyPlace} hitSlop={8} style={styles.saveButton}>
           <Ionicons
             name={savedSlot === 'home' ? 'home' : savedSlot === 'work' ? 'business' : 'star-outline'}

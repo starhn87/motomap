@@ -122,9 +122,9 @@ export default function SearchScreen() {
   }, []);
 
   const goToKakaoPlace = useCallback(
-    (name: string, address: string, latitude: number, longitude: number) => {
+    (name: string, address: string, latitude: number, longitude: number, phone?: string) => {
       Keyboard.dismiss();
-      addRecentSearch({ type: 'kakao', name, address, latitude, longitude });
+      addRecentSearch({ type: 'kakao', name, address, latitude, longitude, phone });
       router.navigate({
         pathname: '/',
         params: {
@@ -132,6 +132,7 @@ export default function SearchScreen() {
           kakaoAddress: address,
           kakaoLat: String(latitude),
           kakaoLng: String(longitude),
+          kakaoPhone: phone ?? '',
           focusTs: String(Date.now()),
         },
       });
@@ -249,7 +250,7 @@ export default function SearchScreen() {
                   const k = item.data as KakaoLocalResult;
                   return (
                     <Pressable
-                      onPress={() => goToKakaoPlace(k.placeName, k.roadAddress || k.address, k.latitude, k.longitude)}
+                      onPress={() => goToKakaoPlace(k.placeName, k.roadAddress || k.address, k.latitude, k.longitude, k.phone)}
                       style={({ pressed }) => [
                         styles.row,
                         { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
@@ -376,7 +377,7 @@ export default function SearchScreen() {
                     onPress={() => {
                       if (entry.type === 'place') goToPlace(entry.place);
                       else if (entry.type === 'course') goToCourse(entry.id, entry.name);
-                      else goToKakaoPlace(entry.name, entry.address, entry.latitude, entry.longitude);
+                      else goToKakaoPlace(entry.name, entry.address, entry.latitude, entry.longitude, entry.phone);
                     }}
                     style={({ pressed }) => [
                       styles.row,

@@ -44,7 +44,7 @@ import RouteLine from '@/components/map/RouteLine';
 import RouteInfoCard from '@/components/map/RouteInfoCard';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
-import { coordToSpot, coordToAddress, nearestPoi } from '@/lib/api/kakaoLocal';
+import { coordToSpot, coordToAddress, nearestPoi, searchKakaoLocal } from '@/lib/api/kakaoLocal';
 import * as Updates from 'expo-updates';
 import SearchEntry from '@/components/search/SearchEntry';
 import Feather from '@expo/vector-icons/Feather';
@@ -215,7 +215,7 @@ export default function MapScreen() {
   // 승인 푸시 탭·검색 화면 선택 → focusPlaceId 파라미터로 진입 시 해당 장소를 선택·포커스.
   // 같은 장소를 연속 선택해도 반응하도록 focusTs(검색 화면이 넣어줌)까지 포함해 중복 판정한다.
   // focusReviewId(내 리뷰에서 진입)가 있으면 시트를 펼쳐 그 리뷰로 스크롤·강조한다.
-  const { focusPlaceId, focusTs, focusReviewId, kakaoName, kakaoAddress, kakaoLat, kakaoLng } =
+  const { focusPlaceId, focusTs, focusReviewId, kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone } =
     useLocalSearchParams<{
       focusPlaceId?: string;
       focusTs?: string;
@@ -224,6 +224,7 @@ export default function MapScreen() {
       kakaoAddress?: string;
       kakaoLat?: string;
       kakaoLng?: string;
+      kakaoPhone?: string;
     }>();
   // 검색의 "일반 장소"(카카오 로컬) 선택 — DB 에 없는 임시 목적지
   const [tempPlace, setTempPlace] = useState<TempPlace | null>(null);
@@ -238,6 +239,7 @@ export default function MapScreen() {
       address: kakaoAddress ?? '',
       latitude: Number(kakaoLat),
       longitude: Number(kakaoLng),
+      phone: kakaoPhone || undefined,
     };
     setSelectedPlaceId(null);
     setSelectedPlace(null);
@@ -249,7 +251,7 @@ export default function MapScreen() {
       duration: 800,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, focusTs, mapReady]);
+  }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, focusTs, mapReady]);
   const [highlightReview, setHighlightReview] = useState<{ id: string; key: string } | null>(
     null
   );
@@ -362,6 +364,7 @@ export default function MapScreen() {
           address: poi.roadAddress || poi.address,
           latitude: poi.latitude,
           longitude: poi.longitude,
+          phone: poi.phone || undefined,
         });
         return;
       }
@@ -403,6 +406,20 @@ export default function MapScreen() {
       setTempPlace((prev) =>
         prev && prev.name === caption && prev.latitude === latitude
           ? { ...prev, address }
+          : prev,
+      );
+    });
+    // 전화번호는 심벌 이벤트에 없다 — 이름으로 검색해 같은 자리(150m 이내) 결과에서 채운다
+    void searchKakaoLocal(caption).then((results) => {
+      const match = results.find(
+        (r) =>
+          r.phone &&
+          Math.hypot((r.latitude - latitude) * 111000, (r.longitude - longitude) * 88000) < 150,
+      );
+      if (!match) return;
+      setTempPlace((prev) =>
+        prev && prev.name === caption && prev.latitude === latitude
+          ? { ...prev, phone: match.phone }
           : prev,
       );
     });

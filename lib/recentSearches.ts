@@ -9,7 +9,7 @@ const MAX = 5;
 export type RecentSearch =
   | { type: 'place'; place: Place }
   | { type: 'course'; id: string; name: string }
-  | { type: 'kakao'; name: string; address: string; latitude: number; longitude: number };
+  | { type: 'kakao'; name: string; address: string; latitude: number; longitude: number; phone?: string };
 
 export function recentKey(entry: RecentSearch): string {
   if (entry.type === 'place') return `place-${entry.place.id}`;
