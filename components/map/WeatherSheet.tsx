@@ -4,6 +4,7 @@ import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/botto
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
 import { useQuery } from '@tanstack/react-query';
+import Feather from '@expo/vector-icons/Feather';
 import { coordToRegion } from '@/lib/api/kakaoLocal';
 import { fetchAirQuality, AIR_GRADE_LABEL, AIR_GRADE_COLOR } from '@/lib/api/air';
 import { sunEvents, type SunEvent } from '@/lib/sun';
@@ -17,6 +18,14 @@ interface Props {
   latitude?: number;
   longitude?: number;
   onClose: () => void;
+}
+
+// "05:24" → "오전 5:24" (아이폰 날씨 표기)
+function toAmPm(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const period = h < 12 ? '오전' : '오후';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${period} ${h12}:${String(m).padStart(2, '0')}`;
 }
 
 // 라이딩 날씨 상세 바텀시트 — 적합도 등급·점수, 현재 조건, 6시간 예보
@@ -156,11 +165,22 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
                 <View
                   key={`${item.e.type}-${item.e.time}`}
                   style={[styles.hourCell, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>
+                  <Text
+                    style={[styles.hourLabel, styles.sunTime, { color: colors.text }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit>
+                    {toAmPm(item.e.time)}
+                  </Text>
+                  <View style={styles.sunIcon}>
+                    <Feather
+                      name={item.e.type === 'sunrise' ? 'sunrise' : 'sunset'}
+                      size={24}
+                      color="#F59E0B"
+                    />
+                  </View>
+                  <Text style={[styles.hourTemp, { color: colors.text }]}>
                     {item.e.type === 'sunrise' ? '일출' : '일몰'}
                   </Text>
-                  <Text style={styles.hourEmoji}>{item.e.type === 'sunrise' ? '🌅' : '🌇'}</Text>
-                  <Text style={[styles.hourTemp, { color: colors.text }]}>{item.e.time}</Text>
                   <Text style={styles.hourPop}> </Text>
                 </View>
               ),
@@ -249,6 +269,14 @@ const styles = StyleSheet.create({
   },
   hourEmoji: {
     fontSize: 26,
+  },
+  sunTime: {
+    fontWeight: '700',
+    maxWidth: 58,
+  },
+  sunIcon: {
+    height: 31,
+    justifyContent: 'center',
   },
   hourTemp: {
     fontSize: 15,
