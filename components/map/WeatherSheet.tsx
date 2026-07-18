@@ -20,12 +20,10 @@ interface Props {
   onClose: () => void;
 }
 
-// "05:24" → "오전 5:24" (아이폰 날씨 표기)
-function toAmPm(hhmm: string): string {
-  const [h, m] = hhmm.split(':').map(Number);
-  const period = h < 12 ? '오전' : '오후';
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${period} ${h12}:${String(m).padStart(2, '0')}`;
+// "05:24" → "5:24" (시간대별 스트립의 24시간제 표기와 톤을 맞춘다)
+function toShortTime(hhmm: string): string {
+  const [h, m] = hhmm.split(':');
+  return `${Number(h)}:${m}`;
 }
 
 // 라이딩 날씨 상세 바텀시트 — 적합도 등급·점수, 현재 조건, 6시간 예보
@@ -67,20 +65,24 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
 
   const airStat = (grade: number | null | undefined, value: number | null | undefined) =>
     grade != null
-      ? { text: AIR_GRADE_LABEL[grade] ?? '-', color: AIR_GRADE_COLOR[grade], sub: value != null ? `${value}` : undefined }
+      ? {
+          text: AIR_GRADE_LABEL[grade] ?? '-',
+          color: AIR_GRADE_COLOR[grade],
+          sub: value != null ? `${value}㎍/m³` : undefined,
+        }
       : { text: '-', color: undefined, sub: undefined };
   const pm10 = airStat(air?.pm10Grade, air?.pm10);
   const pm25 = airStat(air?.pm25Grade, air?.pm25);
 
-  const stats: { label: string; value: string; color?: string }[] = [
+  const stats: { label: string; value: string; color?: string; sub?: string }[] = [
     { label: '기온', value: `${weather.current.temp}°` },
     { label: '체감', value: `${weather.current.feels}°` },
     { label: '강수확률', value: `${weather.current.pop}%` },
     { label: '바람', value: `${weather.current.windMs}m/s` },
     { label: '습도', value: `${weather.current.humidity}%` },
     { label: '상태', value: weather.current.condition },
-    { label: '미세먼지', value: pm10.text, color: pm10.color },
-    { label: '초미세먼지', value: pm25.text, color: pm25.color },
+    { label: '미세먼지', value: pm10.text, color: pm10.color, sub: pm10.sub },
+    { label: '초미세먼지', value: pm25.text, color: pm25.color, sub: pm25.sub },
   ];
 
   // 시간대별 셀 목록에 일출·일몰 카드를 시각 순서대로 삽입 — hourly[i]는 첫 셀
@@ -141,6 +143,9 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
               style={[styles.statCell, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{s.label}</Text>
               <Text style={[styles.statValue, { color: s.color ?? colors.text }]}>{s.value}</Text>
+              {!!s.sub && (
+                <Text style={[styles.statSub, { color: colors.textSecondary }]}>{s.sub}</Text>
+              )}
             </View>
           ))}
         </View>
@@ -169,7 +174,7 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
                     style={[styles.hourLabel, styles.sunTime, { color: colors.text }]}
                     numberOfLines={1}
                     adjustsFontSizeToFit>
-                    {toAmPm(item.e.time)}
+                    {toShortTime(item.e.time)}
                   </Text>
                   <View style={styles.sunIcon}>
                     <Feather
@@ -250,6 +255,9 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  statSub: {
+    fontSize: 11,
   },
   hourlyRow: {
     flexDirection: 'row',
