@@ -1,6 +1,10 @@
-// 기상청 단기예보 프록시 — 시간대별 강수확률(POP)을 네이버·아이폰 날씨와 같은
+// 기상청 예보 프록시 — 시간대별 강수확률(POP)을 네이버·아이폰 날씨와 같은
 // 원천(기상청 동네예보)으로 제공한다. Open-Meteo(ECMWF 앙상블)의 확률이 한국에서
 // 체감보다 높게 나오는 문제의 해법.
+//
+// 단기예보(3시간 주기)에 초단기예보(매시간 발표, 향후 6시간)를 병합한다 — 네이버가
+// 가까운 시간대를 매시간 갱신하는 것과 같은 방식. 기온(T1H)·강수형태(PTY)·하늘(SKY)은
+// 초단기가 덮어쓰고, 강수확률(POP)은 초단기에 없어 단기예보 값을 유지한다.
 //
 // GET ?lat=&lng= 또는 POST {lat, lng}  →  { base: "202607171700", hours: [{ date, time, tmp, pop, pty, sky, wsd, reh }] }
 //   pty(강수형태): 0 없음, 1 비, 2 비/눈, 3 눈, 4 소나기
@@ -65,6 +69,24 @@ function baseDateTime(): { date: string; time: string } {
   };
 }
 
+// 최근 초단기예보 발표분 — 매시 30분 발표, 제공 여유 45분 (KST 기준)
+function ultraBaseDateTime(): { date: string; time: string } {
+  const kst = new Date(Date.now() + 9 * 3600 * 1000);
+  let h = kst.getUTCHours();
+  let day = kst;
+  if (kst.getUTCMinutes() < 45) {
+    if (h === 0) {
+      day = new Date(kst.getTime() - 86400000);
+      h = 24;
+    }
+    h -= 1;
+  }
+  return {
+    date: day.toISOString().slice(0, 10).replaceAll('-', ''),
+    time: String(h).padStart(2, '0') + '30',
+  };
+}
+
 interface Hour {
   date: string;
   time: string;
@@ -97,7 +119,8 @@ Deno.serve(async (req) => {
 
   const { nx, ny } = toGrid(lat, lng);
   const base = baseDateTime();
-  const cacheKey = `${nx},${ny},${base.date}${base.time}`;
+  const ultra = ultraBaseDateTime();
+  const cacheKey = `${nx},${ny},${base.date}${base.time},${ultra.date}${ultra.time}`;
   const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < TTL) {
     return new Response(hit.body, {
@@ -105,11 +128,17 @@ Deno.serve(async (req) => {
     });
   }
 
+  const common = `?serviceKey=${KEY}&pageNo=1&dataType=JSON&nx=${nx}&ny=${ny}`;
   const api =
     `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst` +
-    `?serviceKey=${KEY}&pageNo=1&numOfRows=400&dataType=JSON` +
-    `&base_date=${base.date}&base_time=${base.time}&nx=${nx}&ny=${ny}`;
-  const res = await fetch(api);
+    `${common}&numOfRows=400&base_date=${base.date}&base_time=${base.time}`;
+  const ultraApi =
+    `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtFcst` +
+    `${common}&numOfRows=100&base_date=${ultra.date}&base_time=${ultra.time}`;
+  const [res, ultraRes] = await Promise.all([
+    fetch(api),
+    fetch(ultraApi).catch(() => null),
+  ]);
   if (!res.ok) return Response.json({ error: `upstream ${res.status}` }, { status: 502 });
   const data = await res.json().catch(() => null);
   const items: { category: string; fcstDate: string; fcstTime: string; fcstValue: string }[] =
@@ -120,6 +149,10 @@ Deno.serve(async (req) => {
       { status: 502 },
     );
   }
+  // 초단기는 실패해도 단기만으로 응답한다
+  const ultraData = ultraRes?.ok ? await ultraRes.json().catch(() => null) : null;
+  const ultraItems: { category: string; fcstDate: string; fcstTime: string; fcstValue: string }[] =
+    ultraData?.response?.body?.items?.item ?? [];
 
   // (날짜, 시각)별로 카테고리를 모아 시간 행으로 변환 — 앞 24시간만
   const byTime = new Map<string, Partial<Record<string, string>>>();
@@ -128,6 +161,16 @@ Deno.serve(async (req) => {
     const row = byTime.get(k) ?? {};
     row[it.category] = it.fcstValue;
     byTime.set(k, row);
+  }
+  // 초단기 병합 — 카테고리 이름이 다르다 (T1H→TMP 상당, PTY·SKY는 동일 의미)
+  const ULTRA_MAP: Record<string, string> = { T1H: 'TMP', PTY: 'PTY', SKY: 'SKY', WSD: 'WSD', REH: 'REH' };
+  for (const it of ultraItems) {
+    const cat = ULTRA_MAP[it.category];
+    if (!cat) continue;
+    const k = `${it.fcstDate}${it.fcstTime}`;
+    const row = byTime.get(k);
+    if (!row) continue; // 단기예보 범위 밖 시간은 무시
+    row[cat] = it.fcstValue;
   }
   // 발표 후 시간이 지나면 앞 행들이 과거가 된다 — 현재 시간대(정시) 이전은 버린다
   const kstNow = new Date(Date.now() + 9 * 3600 * 1000);
