@@ -164,6 +164,7 @@ Deno.serve(async (req) => {
   }
   // 초단기 병합 — 카테고리 이름이 다르다 (T1H→TMP 상당, PTY·SKY는 동일 의미)
   const ULTRA_MAP: Record<string, string> = { T1H: 'TMP', PTY: 'PTY', SKY: 'SKY', WSD: 'WSD', REH: 'REH' };
+  const ultraCovered = new Set<string>();
   for (const it of ultraItems) {
     const cat = ULTRA_MAP[it.category];
     if (!cat) continue;
@@ -171,6 +172,7 @@ Deno.serve(async (req) => {
     const row = byTime.get(k);
     if (!row) continue; // 단기예보 범위 밖 시간은 무시
     row[cat] = it.fcstValue;
+    ultraCovered.add(k);
   }
   // 발표 후 시간이 지나면 앞 행들이 과거가 된다 — 현재 시간대(정시) 이전은 버린다
   const kstNow = new Date(Date.now() + 9 * 3600 * 1000);
@@ -182,16 +184,24 @@ Deno.serve(async (req) => {
     .sort(([a], [b]) => a.localeCompare(b))
     .filter(([k]) => k >= nowKey)
     .slice(0, 24)
-    .map(([k, r]) => ({
-      date: k.slice(0, 8),
-      time: k.slice(8, 12),
-      tmp: r.TMP != null ? Number(r.TMP) : null,
-      pop: Number(r.POP ?? 0),
-      pty: Number(r.PTY ?? 0),
-      sky: Number(r.SKY ?? 1),
-      wsd: r.WSD != null ? Number(r.WSD) : null,
-      reh: r.REH != null ? Number(r.REH) : null,
-    }));
+    .map(([k, r]) => {
+      const pty = Number(r.PTY ?? 0);
+      let pop = Number(r.POP ?? 0);
+      // 초단기(레이더 실황 기반)가 "강수 없음"으로 갱신한 시간대에 3시간 전
+      // 단기예보의 확률을 남겨두면 "갬인데 60%"라는 모순으로 보인다 — 네이버처럼
+      // 확률도 0으로 정합화한다.
+      if (ultraCovered.has(k) && pty === 0) pop = 0;
+      return {
+        date: k.slice(0, 8),
+        time: k.slice(8, 12),
+        tmp: r.TMP != null ? Number(r.TMP) : null,
+        pop,
+        pty,
+        sky: Number(r.SKY ?? 1),
+        wsd: r.WSD != null ? Number(r.WSD) : null,
+        reh: r.REH != null ? Number(r.REH) : null,
+      };
+    });
 
   const body = JSON.stringify({ base: `${base.date}${base.time}`, nx, ny, hours });
   cache.set(cacheKey, { at: Date.now(), body });
