@@ -103,6 +103,24 @@ export default function SearchScreen() {
     enabled: searching,
   });
 
+  // 이미 등록된 장소는 일반 장소 섹션에서 뺀다 — 이름(정규화)이 같고 좌표가
+  // 가까우면 같은 곳으로 본다. 제보 폼이 카카오 좌표를 그대로 쓰므로 20m 이내는
+  // 이름이 조금 달라도 동일 장소다.
+  const normName = (n: string) => n.replace(/\s/g, '').toLowerCase();
+  const kakaoOnly = (kakaoResults ?? []).filter((k) => {
+    const kn = normName(k.placeName);
+    return !(results?.places ?? []).some((p) => {
+      const dist = Math.hypot(
+        (p.latitude - k.latitude) * 111000,
+        (p.longitude - k.longitude) * 88000,
+      );
+      if (dist > 150) return false;
+      if (dist < 20) return true;
+      const pn = normName(p.name);
+      return kn === pn || kn.includes(pn) || pn.includes(kn);
+    });
+  });
+
   const { data: favorites } = useQuery({
     queryKey: ['favorites', 'places', user?.id],
     queryFn: fetchFavoritePlaces,
@@ -215,10 +233,10 @@ export default function SearchScreen() {
             data={[
               ...(results?.places.map((p) => ({ type: 'place' as const, data: p })) ?? []),
               ...(results?.courses.map((c) => ({ type: 'course' as const, data: c })) ?? []),
-              ...(kakaoResults?.length
+              ...(kakaoOnly.length
                 ? [
                     { type: 'kakao-header' as const, data: null },
-                    ...kakaoResults.map((k) => ({ type: 'kakao' as const, data: k })),
+                    ...kakaoOnly.map((k) => ({ type: 'kakao' as const, data: k })),
                     { type: 'kakao-footer' as const, data: null },
                   ]
                 : []),
