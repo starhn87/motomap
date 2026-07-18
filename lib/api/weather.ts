@@ -4,6 +4,7 @@
 // 경로 날씨 경고만 Open-Meteo 유지 — 멀티 좌표 1콜과 강수형태 중심 판정 때문.
 
 import { supabase } from '@/lib/supabase';
+import { coordToRegion } from '@/lib/api/kakaoLocal';
 
 export interface HourlyWeather {
   hour: string; // "14시"
@@ -84,53 +85,72 @@ function scoreWeather(temp: number, popMax: number, pty: number, windMs: number)
 }
 
 export interface RouteWeatherWarning {
-  /** 날씨가 나쁜 지점 수 */
+  /** 강수가 예상되는 지역 이름 (행정동, 최대 3곳) — 역지오코딩 실패 시 빈 배열 */
+  regions: string[];
+  /** 강수가 예상되는 지점 수 */
   count: number;
-  /** 가장 심한 상태 — 뇌우 > 눈 > 비 > 강수 예보 순 */
-  worstCondition: '뇌우' | '눈' | '비' | '강수 예보';
+  /** 가장 심한 상태 — 눈 > 비 > 강수 예보 순 */
+  worstCondition: '눈' | '비' | '강수 예보';
   /** 나쁜 지점들의 향후 3시간 최대 강수확률(%) */
   maxPop: number;
 }
 
-// 내비 출발 전 경로 지점들(출발지·경유지·목적지)의 날씨를 한 번에 확인한다.
-// 문제가 없거나 확인에 실패하면 null (출발을 막지 않는 fail-open).
+// 경로에서 확인할 지점 수 상한 — 출발지와 도착지를 보존하고 사이를 고르게 추린다
+function sampleRoutePoints<T>(points: T[], max: number): T[] {
+  if (points.length <= max) return points;
+  const picked = [points[0]];
+  for (let i = 1; i < max - 1; i++) {
+    picked.push(points[Math.round((i * (points.length - 1)) / (max - 1))]);
+  }
+  picked.push(points[points.length - 1]);
+  return picked;
+}
+
+// 내비 출발 전 경로 지점들(출발지·경유지·목적지)의 날씨를 확인한다.
+// 시간대별 시트와 같은 기상청 예보(weather-kr)를 쓰므로 두 화면의 값이 어긋나지 않고,
+// 강수 지점은 행정동 이름으로 알려준다. 확인에 실패하면 null (출발을 막지 않는 fail-open).
 export async function checkRouteWeather(
   points: { latitude: number; longitude: number }[],
 ): Promise<RouteWeatherWarning | null> {
   if (points.length === 0) return null;
   try {
-    const params = new URLSearchParams({
-      latitude: points.map((p) => p.latitude.toFixed(3)).join(','),
-      longitude: points.map((p) => p.longitude.toFixed(3)).join(','),
-      current: 'precipitation,weather_code',
-      hourly: 'precipitation_probability,weather_code',
-      forecast_hours: '3',
-      timezone: 'Asia/Seoul',
-    });
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    // 좌표 1개면 객체, 여러 개면 배열로 온다
-    const results: any[] = Array.isArray(data) ? data : [data];
+    const sampled = sampleRoutePoints(points, 4);
+    const results = await Promise.all(
+      sampled.map(async (p) => {
+        const { data, error } = await supabase.functions.invoke('weather-kr', {
+          body: { lat: p.latitude, lng: p.longitude },
+        });
+        if (error) return null;
+        const hours: KmaHour[] = data?.hours ?? [];
+        return { point: p, hours };
+      }),
+    );
 
-    let count = 0;
     let maxPop = 0;
-    let severity = 0; // 1=강수 예보, 2=비, 3=눈, 4=뇌우
+    let severity = 0; // 1=강수 예보(확률만) 2=비 3=눈
+    const rainyPoints: { latitude: number; longitude: number }[] = [];
     for (const r of results) {
-      const codes: number[] = [r.current.weather_code, ...(r.hourly?.weather_code ?? [])];
-      const pop = Math.max(0, ...((r.hourly?.precipitation_probability ?? []) as number[]));
-      const hasThunder = codes.some((c) => c >= 95);
-      const hasSnow = codes.some((c) => c >= 71 && c <= 86);
-      const hasRain = r.current.precipitation > 0 || codes.some((c) => c >= 51 && c <= 67);
-      const rainy = hasThunder || hasSnow || hasRain || pop >= 50;
-      if (!rainy) continue;
-      count += 1;
+      if (!r || r.hours.length === 0) continue;
+      const soon = r.hours.slice(0, 3); // 향후 3시간
+      const pop = Math.max(0, ...soon.map((h) => h.pop));
+      const ptys = soon.map((h) => h.pty);
+      const hasSnow = ptys.some((t) => t === 2 || t === 3);
+      const hasRain = ptys.some((t) => t === 1 || t === 4);
+      if (!hasSnow && !hasRain && pop < 60) continue;
+      rainyPoints.push(r.point);
       maxPop = Math.max(maxPop, pop);
-      severity = Math.max(severity, hasThunder ? 4 : hasSnow ? 3 : hasRain ? 2 : 1);
+      severity = Math.max(severity, hasSnow ? 3 : hasRain ? 2 : 1);
     }
-    if (count === 0) return null;
-    const worstCondition = (['강수 예보', '비', '눈', '뇌우'] as const)[severity - 1];
-    return { count, worstCondition, maxPop };
+    if (rainyPoints.length === 0) return null;
+
+    // 어느 지역인지 이름으로 보여준다 — 실패한 지점은 조용히 제외
+    const names = await Promise.all(
+      rainyPoints.map((p) => coordToRegion(p.latitude, p.longitude)),
+    );
+    const regions = [...new Set(names.filter((n): n is string => !!n))].slice(0, 3);
+
+    const worstCondition = (['강수 예보', '비', '눈'] as const)[severity - 1];
+    return { regions, count: rainyPoints.length, worstCondition, maxPop };
   } catch {
     return null;
   }

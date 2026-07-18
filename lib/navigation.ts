@@ -191,10 +191,14 @@ async function confirmRouteWeather(
   if (!warning) return true;
 
   const popText = warning.maxPop > 0 ? ` (강수확률 최대 ${warning.maxPop}%)` : '';
+  const where =
+    warning.regions.length > 0
+      ? warning.regions.join(', ')
+      : `경로 위 ${warning.count}개 지점`;
   return new Promise((resolve) => {
     Alert.alert(
       '경로 날씨 주의',
-      `경로 위 ${warning.count}개 지역에 ${warning.worstCondition} 소식이 있어요${popText}. 노면이 미끄러울 수 있으니 주의하세요. 그래도 출발할까요?`,
+      `${where}에 ${warning.worstCondition} 소식이 있어요${popText}. 노면이 미끄러울 수 있으니 주의하세요. 그래도 출발할까요?`,
       [
         { text: '취소', style: 'cancel', onPress: () => resolve(false) },
         { text: '출발', onPress: () => resolve(true) },
@@ -203,9 +207,18 @@ async function confirmRouteWeather(
   });
 }
 
+// 내비 시작 연타 방지 — 날씨 확인이 끝나기 전에 다시 누르면 경고가 겹겹이 쌓인다
+let navLaunchInFlight = false;
+
 export async function openNavigation(target: NavTarget) {
-  if (!(await confirmRouteWeather([target]))) return;
-  await withNavApp((app) => app.launch(target));
+  if (navLaunchInFlight) return;
+  navLaunchInFlight = true;
+  try {
+    if (!(await confirmRouteWeather([target]))) return;
+    await withNavApp((app) => app.launch(target));
+  } finally {
+    navLaunchInFlight = false;
+  }
 }
 
 // 각 지점의 실제 주소를 역지오코딩으로 채운다 — 내비 화면에 "경유지 1" 같은
@@ -228,6 +241,16 @@ async function resolvePointNames(course: NavCourse): Promise<NavCourse> {
  */
 export async function openCourseNavigation(course: NavCourse) {
   if (course.points.length === 0) return;
+  if (navLaunchInFlight) return;
+  navLaunchInFlight = true;
+  try {
+    await openCourseNavigationInner(course);
+  } finally {
+    navLaunchInFlight = false;
+  }
+}
+
+async function openCourseNavigationInner(course: NavCourse) {
   if (!(await confirmRouteWeather(course.points))) return;
   await withNavApp(async (app) => {
     if (app.launchCourse && course.points.length >= 2) {
