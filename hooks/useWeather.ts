@@ -12,6 +12,8 @@ export function useWeather(latitude?: number | null, longitude?: number | null) 
     queryFn: () => fetchRidingWeather(lat!, lng!),
     enabled: lat !== null && lng !== null,
     staleTime: 10 * 60 * 1000,
+    // 기상청 초단기예보가 매시간 갱신되므로 지도가 떠 있는 동안 주기적으로 따라간다
+    refetchInterval: 10 * 60 * 1000,
     placeholderData: (prev) => prev,
   });
 }

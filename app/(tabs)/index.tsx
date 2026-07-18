@@ -124,8 +124,14 @@ export default function MapScreen() {
   // 라이딩 날씨 — 내 위치 우선, 없으면 지도 중심 기준
   const weatherLat = userLocation?.latitude ?? mapCenter?.latitude;
   const weatherLng = userLocation?.longitude ?? mapCenter?.longitude;
-  const { data: weather } = useWeather(weatherLat, weatherLng);
+  const { data: weather, refetch: refetchWeather } = useWeather(weatherLat, weatherLng);
   const [weatherOpen, setWeatherOpen] = useState(false);
+
+  // 시트를 여는 순간엔 캐시 신선도와 무관하게 서버에 재확인한다 — 발표분이 바뀌었으면
+  // 즉시 반영되고, 같으면 EF 캐시가 같은 값을 돌려주므로 비용도 없다
+  useEffect(() => {
+    if (weatherOpen) void refetchWeather();
+  }, [weatherOpen, refetchWeather]);
 
   // 필터 진입 시 현재 지도 중심으로 최초 1회 검색, 필터를 벗어나면 초기화
   useEffect(() => {
