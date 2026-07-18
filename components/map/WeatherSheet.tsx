@@ -34,9 +34,12 @@ function SunGlyph({ type, lineColor, arrowColor }: { type: 'sunrise' | 'sunset';
     <View style={glyph.wrap}>
       <Feather name={type === 'sunrise' ? 'arrow-up' : 'arrow-down'} size={11} color={arrowColor} />
       <View style={glyph.sunRow}>
-        <View style={[glyph.ray, glyph.rayLeft, { backgroundColor: sunColor }]} />
+        {/* 해 중심에서 방사형으로 뻗는 광선 — 화살표(12시) 양옆으로 2개씩 */}
+        <View style={[glyph.ray, glyph.rayL1, { backgroundColor: sunColor }]} />
+        <View style={[glyph.ray, glyph.rayL2, { backgroundColor: sunColor }]} />
+        <View style={[glyph.ray, glyph.rayR2, { backgroundColor: sunColor }]} />
+        <View style={[glyph.ray, glyph.rayR1, { backgroundColor: sunColor }]} />
         <View style={[glyph.sun, { backgroundColor: sunColor }]} />
-        <View style={[glyph.ray, glyph.rayRight, { backgroundColor: sunColor }]} />
       </View>
       <View style={[glyph.horizon, { backgroundColor: lineColor }]} />
     </View>
@@ -48,10 +51,11 @@ const glyph = StyleSheet.create({
     alignItems: 'center',
     gap: 1,
   },
-  // 반원 해 + 좌우 어깨의 대각 광선 (아이폰 sunrise 글리프의 그 광선)
+  // 반원 해 + 방사형 광선 — 광선 위치·각도는 해의 원 중심(컨테이너 하단 중앙)
+  // 기준 반지름 12, 방사각 20°·65° 대칭 배치
   sunRow: {
-    width: 28,
-    height: 10,
+    width: 34,
+    height: 14,
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
@@ -63,18 +67,29 @@ const glyph = StyleSheet.create({
   },
   ray: {
     position: 'absolute',
-    width: 6,
+    width: 5,
     height: 2,
     borderRadius: 1,
-    bottom: 6,
   },
-  rayLeft: {
-    left: 0,
-    transform: [{ rotate: '-40deg' }],
+  rayL1: {
+    left: 3,
+    bottom: 3,
+    transform: [{ rotate: '20deg' }],
   },
-  rayRight: {
-    right: 0,
-    transform: [{ rotate: '40deg' }],
+  rayL2: {
+    left: 9,
+    bottom: 10,
+    transform: [{ rotate: '65deg' }],
+  },
+  rayR2: {
+    right: 9,
+    bottom: 10,
+    transform: [{ rotate: '-65deg' }],
+  },
+  rayR1: {
+    right: 3,
+    bottom: 3,
+    transform: [{ rotate: '-20deg' }],
   },
   horizon: {
     width: 24,
