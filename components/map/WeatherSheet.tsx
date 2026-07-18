@@ -142,10 +142,12 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
               key={s.label}
               style={[styles.statCell, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{s.label}</Text>
-              <Text style={[styles.statValue, { color: s.color ?? colors.text }]}>{s.value}</Text>
-              {!!s.sub && (
-                <Text style={[styles.statSub, { color: colors.textSecondary }]}>{s.sub}</Text>
-              )}
+              <View style={styles.statValueRow}>
+                <Text style={[styles.statValue, { color: s.color ?? colors.text }]}>{s.value}</Text>
+                {!!s.sub && (
+                  <Text style={[styles.statSub, { color: colors.textSecondary }]}>{s.sub}</Text>
+                )}
+              </View>
             </View>
           ))}
         </View>
@@ -251,6 +253,11 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 11,
+  },
+  statValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
   },
   statValue: {
     fontSize: 15,
