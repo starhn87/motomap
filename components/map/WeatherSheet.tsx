@@ -26,6 +26,37 @@ function toShortTime(hhmm: string): string {
   return `${Number(h)}:${m}`;
 }
 
+// 일출·일몰 글리프 — 폰트 아이콘은 단색뿐이라 아이폰 날씨처럼 해(노랑·주황)와
+// 수평선·화살표를 색을 나눠 View 로 직접 그린다
+function SunGlyph({ type, lineColor, arrowColor }: { type: 'sunrise' | 'sunset'; lineColor: string; arrowColor: string }) {
+  const sunColor = type === 'sunrise' ? '#FBBF24' : '#F97316';
+  return (
+    <View style={glyph.wrap}>
+      <Feather name={type === 'sunrise' ? 'arrow-up' : 'arrow-down'} size={11} color={arrowColor} />
+      <View style={[glyph.sun, { backgroundColor: sunColor }]} />
+      <View style={[glyph.horizon, { backgroundColor: lineColor }]} />
+    </View>
+  );
+}
+
+const glyph = StyleSheet.create({
+  wrap: {
+    alignItems: 'center',
+    gap: 1,
+  },
+  sun: {
+    width: 16,
+    height: 8,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+  },
+  horizon: {
+    width: 24,
+    height: 2,
+    borderRadius: 1,
+  },
+});
+
 // 라이딩 날씨 상세 바텀시트 — 적합도 등급·점수, 현재 조건, 6시간 예보
 export default function WeatherSheet({ weather, latitude, longitude, onClose }: Props) {
   const { data: region } = useQuery({
@@ -179,10 +210,10 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
                     {toShortTime(item.e.time)}
                   </Text>
                   <View style={styles.sunIcon}>
-                    <Feather
-                      name={item.e.type === 'sunrise' ? 'sunrise' : 'sunset'}
-                      size={24}
-                      color="#F59E0B"
+                    <SunGlyph
+                      type={item.e.type}
+                      lineColor={colors.textSecondary}
+                      arrowColor={colors.text}
                     />
                   </View>
                   <Text style={[styles.hourTemp, { color: colors.text }]}>
