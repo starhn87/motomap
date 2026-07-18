@@ -37,6 +37,15 @@ export async function addRecentSearch(entry: RecentSearch): Promise<RecentSearch
   return next;
 }
 
+// 승격 등으로 목록을 통째로 바꿀 때 사용
+export async function saveRecentSearches(list: RecentSearch[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(KEY, JSON.stringify(list));
+  } catch {
+    // 무시
+  }
+}
+
 export async function removeRecentSearch(key: string): Promise<RecentSearch[]> {
   const next = (await loadRecentSearches()).filter((e) => recentKey(e) !== key);
   try {

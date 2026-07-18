@@ -32,6 +32,7 @@ import {
   addRecentSearch,
   removeRecentSearch,
   clearRecentSearches,
+  saveRecentSearches,
   recentKey,
   type RecentSearch,
 } from '@/lib/recentSearches';
@@ -40,6 +41,53 @@ import type { Place } from '@/types';
 // 검색 전용 화면 — 입력 전에는 최근 검색·즐겨찾기·추천 목적지를 모아 보여주고,
 // 2자 이상 입력하면 통합 검색 결과로 전환된다. 장소 선택은 지도 탭의
 // focusPlaceId 파라미터(승인 푸시 딥링크와 같은 경로)로 전달한다.
+// 등록 장소와 카카오 일반 장소가 같은 곳인지 — 이름(정규화) 일치 + 좌표 근접.
+// 제보 폼이 카카오 좌표를 그대로 쓰므로 20m 이내는 이름이 조금 달라도 동일 장소다.
+const normName = (n: string) => n.replace(/\s/g, '').toLowerCase();
+function isSamePlace(
+  p: { name: string; latitude: number; longitude: number },
+  k: { name: string; latitude: number; longitude: number },
+): boolean {
+  const dist = Math.hypot((p.latitude - k.latitude) * 111000, (p.longitude - k.longitude) * 88000);
+  if (dist > 150) return false;
+  if (dist < 20) return true;
+  const pn = normName(p.name);
+  const kn = normName(k.name);
+  return kn === pn || kn.includes(pn) || pn.includes(kn);
+}
+
+// 최근 검색의 일반 장소가 그 사이 제보로 등록됐으면 등록 장소 항목으로 승격한다
+async function promoteRegisteredKakao(list: RecentSearch[]): Promise<RecentSearch[] | null> {
+  if (!list.some((e) => e.type === 'kakao')) return null;
+  try {
+    // query '' 는 전체 장소를 반환한다 (all_places + 클라 필터 구조)
+    const { places } = await searchAll('');
+    let changed = false;
+    const next: RecentSearch[] = list.map((e) => {
+      if (e.type !== 'kakao') return e;
+      const match = places.find((p) =>
+        isSamePlace(p, { name: e.name, latitude: e.latitude, longitude: e.longitude }),
+      );
+      if (!match) return e;
+      changed = true;
+      return { type: 'place', place: match };
+    });
+    if (!changed) return null;
+    // 승격으로 기존 place 항목과 겹치면 앞선 것만 남긴다
+    const seen = new Set<string>();
+    const deduped = next.filter((e) => {
+      const k = recentKey(e);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    await saveRecentSearches(deduped);
+    return deduped;
+  } catch {
+    return null;
+  }
+}
+
 export default function SearchScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -50,7 +98,16 @@ export default function SearchScreen() {
   const [recent, setRecent] = useState<RecentSearch[]>([]);
 
   useEffect(() => {
-    loadRecentSearches().then(setRecent);
+    let cancelled = false;
+    loadRecentSearches().then(async (list) => {
+      if (cancelled) return;
+      setRecent(list);
+      const promoted = await promoteRegisteredKakao(list);
+      if (!cancelled && promoted) setRecent(promoted);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 내 장소(집·회사) — 기기 로컬 저장. 탭하면 바로 길안내, 길게 누르면 삭제
@@ -103,23 +160,13 @@ export default function SearchScreen() {
     enabled: searching,
   });
 
-  // 이미 등록된 장소는 일반 장소 섹션에서 뺀다 — 이름(정규화)이 같고 좌표가
-  // 가까우면 같은 곳으로 본다. 제보 폼이 카카오 좌표를 그대로 쓰므로 20m 이내는
-  // 이름이 조금 달라도 동일 장소다.
-  const normName = (n: string) => n.replace(/\s/g, '').toLowerCase();
-  const kakaoOnly = (kakaoResults ?? []).filter((k) => {
-    const kn = normName(k.placeName);
-    return !(results?.places ?? []).some((p) => {
-      const dist = Math.hypot(
-        (p.latitude - k.latitude) * 111000,
-        (p.longitude - k.longitude) * 88000,
-      );
-      if (dist > 150) return false;
-      if (dist < 20) return true;
-      const pn = normName(p.name);
-      return kn === pn || kn.includes(pn) || pn.includes(kn);
-    });
-  });
+  // 이미 등록된 장소는 일반 장소 섹션에서 뺀다
+  const kakaoOnly = (kakaoResults ?? []).filter(
+    (k) =>
+      !(results?.places ?? []).some((p) =>
+        isSamePlace(p, { name: k.placeName, latitude: k.latitude, longitude: k.longitude }),
+      ),
+  );
 
   const { data: favorites } = useQuery({
     queryKey: ['favorites', 'places', user?.id],
