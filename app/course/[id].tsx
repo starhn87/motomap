@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { NaverMapView, NaverMapPathOverlay } from '@mj-studio/react-native-naver-map';
+import { NaverMapView, NaverMapPathOverlay, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -18,8 +18,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useCourse } from '@/hooks/useCourses';
 import { useCourseReviews, useCreateCourseReview, useUpdateCourseReview, useDeleteCourseReview } from '@/hooks/useCourseReviews';
 import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
-import { openNavigation } from '@/lib/navigation';
-import { useCourseRoute } from '@/hooks/useCourseRoute';
+import { openCourseNavigation } from '@/lib/navigation';
 import { formatDistance, formatDuration } from '@/constants/course';
 import { toast } from '@/lib/toast';
 import StarRating from '@/components/review/StarRating';
@@ -27,46 +26,38 @@ import ReportSheet from '@/components/report/ReportSheet';
 
 type LatLng = { latitude: number; longitude: number };
 
-// 경로에서 "갔다가 같은 길로 되돌아오는" 구간을 분리한다 — 방향을 무시한 세그먼트
-// 키(~11m 그리드)가 두 번 이상 등장하면 왕복. 3세그먼트 미만의 짧은 겹침(교차로
-// 노이즈)은 본선으로 남긴다.
-function splitRetrace(path: LatLng[]): { main: LatLng[][]; retrace: LatLng[][] } {
-  const segKey = (a: LatLng, b: LatLng) => {
-    const ka = `${a.longitude.toFixed(4)},${a.latitude.toFixed(4)}`;
-    const kb = `${b.longitude.toFixed(4)},${b.latitude.toFixed(4)}`;
-    return ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
-  };
-  const count = new Map<string, number>();
-  for (let i = 0; i < path.length - 1; i++) {
-    const k = segKey(path[i], path[i + 1]);
-    count.set(k, (count.get(k) ?? 0) + 1);
-  }
-  const isRetrace = (i: number) => (count.get(segKey(path[i], path[i + 1])) ?? 0) > 1;
-
-  const main: LatLng[][] = [];
-  const retrace: LatLng[][] = [];
-  let cur: LatLng[] = [path[0]];
-  let curRetrace = path.length > 1 ? isRetrace(0) : false;
-  const flush = () => {
-    if (cur.length >= 2) (curRetrace ? retrace : main).push(cur);
-  };
-  for (let i = 0; i < path.length - 1; i++) {
-    const r = isRetrace(i);
-    if (r !== curRetrace) {
-      flush();
-      cur = [path[i]];
-      curRetrace = r;
+// 코스 상세 지도는 실도로 폴리라인 대신 "노선 개념도"를 그린다 — waypoint 를
+// 통과하는 부드러운 곡선(Catmull-Rom). 실도로를 흉내내지 않으니 왕복·가지가
+// 표현을 해치지 않고, 정밀성을 기대하게 만들지도 않는다.
+function conceptCurve(points: LatLng[], closed: boolean): LatLng[] {
+  if (points.length < 3) return points;
+  const pts = closed ? points.slice(0, -1) : points;
+  const n = pts.length;
+  const get = (i: number) =>
+    closed ? pts[((i % n) + n) % n] : pts[Math.max(0, Math.min(n - 1, i))];
+  const out: LatLng[] = [];
+  const segs = closed ? n : n - 1;
+  const STEPS = 16;
+  for (let i = 0; i < segs; i++) {
+    const p0 = get(i - 1);
+    const p1 = get(i);
+    const p2 = get(i + 1);
+    const p3 = get(i + 2);
+    for (let t = 0; t < STEPS; t++) {
+      const u = t / STEPS;
+      const u2 = u * u;
+      const u3 = u2 * u;
+      const cr = (a: number, b: number, c: number, d: number) =>
+        0.5 * (2 * b + (-a + c) * u + (2 * a - 5 * b + 4 * c - d) * u2 + (-a + 3 * b - 3 * c + d) * u3);
+      out.push({
+        latitude: cr(p0.latitude, p1.latitude, p2.latitude, p3.latitude),
+        longitude: cr(p0.longitude, p1.longitude, p2.longitude, p3.longitude),
+      });
     }
-    cur.push(path[i + 1]);
   }
-  flush();
-  // 짧은 왕복 조각은 본선으로 되돌린다
-  const shortOnes = retrace.filter((seg) => seg.length < 4);
-  const realRetrace = retrace.filter((seg) => seg.length >= 4);
-  return { main: [...main, ...shortOnes], retrace: realRetrace };
+  out.push(closed ? get(0) : pts[n - 1]);
+  return out;
 }
-
-const RETRACE_COLOR = '#F97316';
 
 export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -74,11 +65,6 @@ export default function CourseDetailScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const { data: course, isLoading } = useCourse(id ?? null);
-  // waypoint 직선 연결 대신 실제 주행 도로 경로 (실패·로딩 중엔 직선 fallback)
-  const { data: roadRoute } = useCourseRoute(
-    id ?? null,
-    course?.coordinates as [number, number][] | undefined,
-  );
   const { data: reviews } = useCourseReviews(id ?? null);
 
   const { mutateAsync: submitReview, isPending } = useCreateCourseReview();
@@ -130,12 +116,12 @@ export default function CourseDetailScreen() {
     longitude: lng,
   }));
 
-  // 지도에 그릴 경로 — 실도로 경로가 준비되면 그것을, 아니면 waypoint 직선.
-  // 들렀다 되돌아 나오는 구간은 색을 바꿔 "왕복 가지"임을 드러낸다.
-  const pathCoords = roadRoute
-    ? roadRoute.geometry.map(([lng, lat]) => ({ latitude: lat, longitude: lng }))
-    : coords;
-  const { main: mainSegs, retrace: retraceSegs } = splitRetrace(pathCoords);
+  // 개념 곡선과 시작·도착 칩 — 순환(시작=끝)이면 곡선을 닫고 칩은 하나만
+  const isLoop =
+    coords.length >= 2 &&
+    Math.abs(coords[0].latitude - coords[coords.length - 1].latitude) < 1e-6 &&
+    Math.abs(coords[0].longitude - coords[coords.length - 1].longitude) < 1e-6;
+  const curve = conceptCurve(coords, isLoop);
 
   // 지도 카메라 중심 계산
   const lats = coords.map((c) => c.latitude);
@@ -143,8 +129,11 @@ export default function CourseDetailScreen() {
   const centerLat = (Math.max(...lats) + Math.min(...lats)) / 2;
   const centerLng = (Math.max(...lngs) + Math.min(...lngs)) / 2;
 
-  // 목적지 (마지막 좌표)
-  const destination = coords[coords.length - 1];
+  // 코스 범위에 맞는 줌 근사 (스팬이 클수록 줌 아웃, 7~11 클램프)
+  const latSpan = Math.max(...lats) - Math.min(...lats);
+  const lngSpan = (Math.max(...lngs) - Math.min(...lngs)) * 0.8;
+  const span = Math.max(latSpan, lngSpan, 0.02);
+  const courseZoom = Math.min(11, Math.max(7, Math.log2(180 / span) - 0.5));
 
   return (
     <>
@@ -168,34 +157,42 @@ export default function CourseDetailScreen() {
             initialCamera={{
               latitude: centerLat,
               longitude: centerLng,
-              zoom: 9,
+              zoom: courseZoom,
             }}>
-            {mainSegs.map((seg, i) => (
-              <NaverMapPathOverlay
-                key={`m${i}`}
-                coords={seg}
-                width={5}
-                color={colors.tint}
-                outlineWidth={2}
-                outlineColor={colors.background}
-              />
-            ))}
-            {retraceSegs.map((seg, i) => (
-              <NaverMapPathOverlay
-                key={`r${i}`}
-                coords={seg}
-                width={5}
-                color={RETRACE_COLOR}
-                outlineWidth={2}
-                outlineColor={colors.background}
-              />
-            ))}
+            <NaverMapPathOverlay
+              coords={curve}
+              width={4}
+              color={`${colors.tint}B3`}
+            />
+            {course.sectionFrom && (
+              <NaverMapMarkerOverlay
+                latitude={coords[0].latitude}
+                longitude={coords[0].longitude}
+                anchor={{ x: 0.5, y: 0.5 }}
+                width={course.sectionFrom.length * 13 + 26}
+                height={32}>
+                <View
+                  collapsable={false}
+                  style={[chipStyles.chip, { backgroundColor: colors.background, borderColor: colors.tint }]}>
+                  <Text style={[chipStyles.text, { color: colors.tint }]}>{course.sectionFrom}</Text>
+                </View>
+              </NaverMapMarkerOverlay>
+            )}
+            {!isLoop && course.sectionTo && (
+              <NaverMapMarkerOverlay
+                latitude={coords[coords.length - 1].latitude}
+                longitude={coords[coords.length - 1].longitude}
+                anchor={{ x: 0.5, y: 0.5 }}
+                width={course.sectionTo.length * 13 + 26}
+                height={32}>
+                <View
+                  collapsable={false}
+                  style={[chipStyles.chip, { backgroundColor: colors.tint, borderColor: colors.tint }]}>
+                  <Text style={[chipStyles.text, { color: colors.background }]}>{course.sectionTo}</Text>
+                </View>
+              </NaverMapMarkerOverlay>
+            )}
           </NaverMapView>
-          {retraceSegs.length > 0 && (
-            <Text style={[mapMarkerStyles.legend, { color: colors.textSecondary }]}>
-              주황 구간은 들렀다가 같은 길로 되돌아 나오는 길이에요
-            </Text>
-          )}
         </View>
       )}
 
@@ -248,24 +245,17 @@ export default function CourseDetailScreen() {
           </View>
         </View>
 
-        {coords.length > 0 && (
+        {coords.length >= 2 && (
           <Pressable
             onPress={() =>
-              // 구간 진입점까지만 안내한다 — 거기서부터는 길 자체를 즐기는 게 코스.
-              // 경유지를 억지로 태우면 실주행과 다른 어색한 동선이 생긴다.
-              openNavigation({
-                name: course.sectionFrom
-                  ? `${course.name} 시작점 (${course.sectionFrom})`
-                  : `${course.name} 시작점`,
-                latitude: coords[0].latitude,
-                longitude: coords[0].longitude,
-              })
+              // 현재 위치 → 코스 출발지(경유) → … → 코스 도착지 순으로 안내
+              openCourseNavigation({ name: course.name, points: coords })
             }
             style={({ pressed }) => [
               styles.navButton,
               { backgroundColor: colors.tint, opacity: pressed ? 0.8 : 1 },
             ]}>
-            <Text style={[styles.navButtonText, { color: colors.background }]}>코스 시작점까지 안내</Text>
+            <Text style={[styles.navButtonText, { color: colors.background }]}>이 코스로 네비 시작</Text>
           </Pressable>
         )}
 
@@ -462,10 +452,17 @@ export default function CourseDetailScreen() {
   );
 }
 
-const mapMarkerStyles = StyleSheet.create({
-  legend: {
-    fontSize: 12,
-    marginTop: 6,
+const chipStyles = StyleSheet.create({
+  chip: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  text: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
 
