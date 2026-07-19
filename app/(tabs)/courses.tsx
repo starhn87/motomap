@@ -46,8 +46,9 @@ export default function ExploreScreen() {
   const { data: courses, isLoading, refetch, isRefetching } = useCourses();
   const userLocation = useMapStore((s) => s.userLocation);
 
-  // 왕복 시간 필터 — "지금 나가면 N시간짜리"로 고르는 라이더 관점. 경계는 표시
-  // 시간 + 15분 여유(근사 오차 흡수). 내 위치가 없으면 칩 자체를 숨긴다.
+  // 왕복 시간 필터 — "지금 나가면 N시간짜리"로 고르는 라이더 관점. 칩은 서로
+  // 배타적인 구간(1시간 ~75분, 2시간 76~135분, 3시간 136~195분; 15분은 근사 오차
+  // 여유)이라 같은 코스가 두 칩에 겹치지 않고, 빈 구간의 칩은 만들지 않는다.
   const [tripFilter, setTripFilter] = useState<number | null>(null);
   const roundTrips = useMemo(() => {
     if (!userLocation || !courses) return new Map<string, number>();
@@ -59,11 +60,31 @@ export default function ExploreScreen() {
     return map;
   }, [courses, userLocation]);
 
+  const tripBucket = (min: number): number | null =>
+    min <= 75 ? 60 : min <= 135 ? 120 : min <= 195 ? 180 : null;
+
+  const tripChips = useMemo(() => {
+    if (roundTrips.size === 0) return [];
+    const counts = new Map<number, number>();
+    for (const min of roundTrips.values()) {
+      const bucket = tripBucket(min);
+      if (bucket != null) counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+    }
+    const chips: { label: string; value: number | null }[] = [{ label: '전체', value: null }];
+    for (const bucket of [60, 120, 180]) {
+      if (counts.has(bucket)) chips.push({ label: `왕복 ${bucket / 60}시간`, value: bucket });
+    }
+    return chips.length > 1 ? chips : [];
+  }, [roundTrips]);
+
   const visibleCourses = useMemo(() => {
     if (!courses) return courses;
     if (tripFilter == null || roundTrips.size === 0) return courses;
     return courses
-      .filter((c) => (roundTrips.get(c.id) ?? Infinity) <= tripFilter + 15)
+      .filter((c) => {
+        const min = roundTrips.get(c.id);
+        return min != null && tripBucket(min) === tripFilter;
+      })
       .sort((a, b) => (roundTrips.get(a.id) ?? 0) - (roundTrips.get(b.id) ?? 0));
   }, [courses, tripFilter, roundTrips]);
 
@@ -188,14 +209,9 @@ export default function ExploreScreen() {
             keyExtractor={(item) => item.id}
             renderItem={renderCourse}
             ListHeaderComponent={
-              roundTrips.size > 0 ? (
+              tripChips.length > 0 ? (
                 <View style={styles.tripChipRow}>
-                  {[
-                    { label: '전체', value: null },
-                    { label: '왕복 1시간', value: 60 },
-                    { label: '왕복 2시간', value: 120 },
-                    { label: '왕복 3시간', value: 180 },
-                  ].map((chip) => {
+                  {tripChips.map((chip) => {
                     const active = tripFilter === chip.value;
                     return (
                       <Pressable
