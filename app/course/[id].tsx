@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { NaverMapView, NaverMapPathOverlay, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
+import { NaverMapView, NaverMapPathOverlay } from '@mj-studio/react-native-naver-map';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -136,10 +136,6 @@ export default function CourseDetailScreen() {
     ? roadRoute.geometry.map(([lng, lat]) => ({ latitude: lat, longitude: lng }))
     : coords;
   const { main: mainSegs, retrace: retraceSegs } = splitRetrace(pathCoords);
-  const isLoop =
-    coords.length >= 2 &&
-    Math.abs(coords[0].latitude - coords[coords.length - 1].latitude) < 1e-6 &&
-    Math.abs(coords[0].longitude - coords[coords.length - 1].longitude) < 1e-6;
 
   // 지도 카메라 중심 계산
   const lats = coords.map((c) => c.latitude);
@@ -194,36 +190,6 @@ export default function CourseDetailScreen() {
                 outlineColor={colors.background}
               />
             ))}
-            {/* 출발(초록) · 들르는 곳(파랑) · 도착(빨강) — 순환이면 출발 하나로 합침 */}
-            <NaverMapMarkerOverlay
-              latitude={coords[0].latitude}
-              longitude={coords[0].longitude}
-              anchor={{ x: 0.5, y: 0.5 }}
-              width={16}
-              height={16}>
-              <View collapsable={false} style={[mapMarkerStyles.dot, { backgroundColor: '#22C55E' }]} />
-            </NaverMapMarkerOverlay>
-            {coords.slice(1, isLoop ? -1 : coords.length - 1).map((c, i) => (
-              <NaverMapMarkerOverlay
-                key={`w${i}`}
-                latitude={c.latitude}
-                longitude={c.longitude}
-                anchor={{ x: 0.5, y: 0.5 }}
-                width={14}
-                height={14}>
-                <View collapsable={false} style={[mapMarkerStyles.dot, mapMarkerStyles.small, { backgroundColor: '#3B82F6' }]} />
-              </NaverMapMarkerOverlay>
-            ))}
-            {!isLoop && (
-              <NaverMapMarkerOverlay
-                latitude={coords[coords.length - 1].latitude}
-                longitude={coords[coords.length - 1].longitude}
-                anchor={{ x: 0.5, y: 0.5 }}
-                width={16}
-                height={16}>
-                <View collapsable={false} style={[mapMarkerStyles.dot, { backgroundColor: '#EF4444' }]} />
-              </NaverMapMarkerOverlay>
-            )}
           </NaverMapView>
           {retraceSegs.length > 0 && (
             <Text style={[mapMarkerStyles.legend, { color: colors.textSecondary }]}>
@@ -497,18 +463,6 @@ export default function CourseDetailScreen() {
 }
 
 const mapMarkerStyles = StyleSheet.create({
-  dot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-  },
-  small: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-  },
   legend: {
     fontSize: 12,
     marginTop: 6,
