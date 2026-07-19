@@ -39,6 +39,8 @@ export interface RidingCourse {
   sectionFrom: string | null;
   sectionTo: string | null;
   routeName: string | null;
+  /** 표시용 단순화 경로 [lng, lat][] — 실도로 스냅을 단순화한 것 (구데이터는 null) */
+  routeGeometry: [number, number][] | null;
   waypoints: Place[];
   tags: string[];
   createdBy: string;

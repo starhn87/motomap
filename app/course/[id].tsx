@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { NaverMapView, NaverMapPathOverlay, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
+import { NaverMapView, NaverMapPathOverlay } from '@mj-studio/react-native-naver-map';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -23,41 +23,6 @@ import { formatDistance, formatDuration } from '@/constants/course';
 import { toast } from '@/lib/toast';
 import StarRating from '@/components/review/StarRating';
 import ReportSheet from '@/components/report/ReportSheet';
-
-type LatLng = { latitude: number; longitude: number };
-
-// 코스 상세 지도는 실도로 폴리라인 대신 "노선 개념도"를 그린다 — waypoint 를
-// 통과하는 부드러운 곡선(Catmull-Rom). 실도로를 흉내내지 않으니 왕복·가지가
-// 표현을 해치지 않고, 정밀성을 기대하게 만들지도 않는다.
-function conceptCurve(points: LatLng[], closed: boolean): LatLng[] {
-  if (points.length < 3) return points;
-  const pts = closed ? points.slice(0, -1) : points;
-  const n = pts.length;
-  const get = (i: number) =>
-    closed ? pts[((i % n) + n) % n] : pts[Math.max(0, Math.min(n - 1, i))];
-  const out: LatLng[] = [];
-  const segs = closed ? n : n - 1;
-  const STEPS = 16;
-  for (let i = 0; i < segs; i++) {
-    const p0 = get(i - 1);
-    const p1 = get(i);
-    const p2 = get(i + 1);
-    const p3 = get(i + 2);
-    for (let t = 0; t < STEPS; t++) {
-      const u = t / STEPS;
-      const u2 = u * u;
-      const u3 = u2 * u;
-      const cr = (a: number, b: number, c: number, d: number) =>
-        0.5 * (2 * b + (-a + c) * u + (2 * a - 5 * b + 4 * c - d) * u2 + (-a + 3 * b - 3 * c + d) * u3);
-      out.push({
-        latitude: cr(p0.latitude, p1.latitude, p2.latitude, p3.latitude),
-        longitude: cr(p0.longitude, p1.longitude, p2.longitude, p3.longitude),
-      });
-    }
-  }
-  out.push(closed ? get(0) : pts[n - 1]);
-  return out;
-}
 
 export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -116,12 +81,12 @@ export default function CourseDetailScreen() {
     longitude: lng,
   }));
 
-  // 개념 곡선과 시작·도착 칩 — 순환(시작=끝)이면 곡선을 닫고 칩은 하나만
-  const isLoop =
-    coords.length >= 2 &&
-    Math.abs(coords[0].latitude - coords[coords.length - 1].latitude) < 1e-6 &&
-    Math.abs(coords[0].longitude - coords[coords.length - 1].longitude) < 1e-6;
-  const curve = conceptCurve(coords, isLoop);
+  // 표시용 경로 — 서버에 저장된 단순화 실도로 경로(스냅 후 Douglas-Peucker).
+  // 실도로의 굵은 형상은 따르되 왕복·가지 세부가 뭉개져 한 줄로 읽힌다.
+  // 아직 없는 코스(구데이터)는 waypoint 직선으로 폴백.
+  const displayPath = course.routeGeometry?.length
+    ? course.routeGeometry.map(([lng, lat]) => ({ latitude: lat, longitude: lng }))
+    : coords;
 
   // 지도 카메라 중심 계산
   const lats = coords.map((c) => c.latitude);
@@ -160,38 +125,12 @@ export default function CourseDetailScreen() {
               zoom: courseZoom,
             }}>
             <NaverMapPathOverlay
-              coords={curve}
-              width={4}
-              color={`${colors.tint}B3`}
+              coords={displayPath}
+              width={5}
+              color={colors.tint}
+              outlineWidth={2}
+              outlineColor={colors.background}
             />
-            {course.sectionFrom && (
-              <NaverMapMarkerOverlay
-                latitude={coords[0].latitude}
-                longitude={coords[0].longitude}
-                anchor={{ x: 0.5, y: 0.5 }}
-                width={course.sectionFrom.length * 13 + 26}
-                height={32}>
-                <View
-                  collapsable={false}
-                  style={[chipStyles.chip, { backgroundColor: colors.background, borderColor: colors.tint }]}>
-                  <Text style={[chipStyles.text, { color: colors.tint }]}>{course.sectionFrom}</Text>
-                </View>
-              </NaverMapMarkerOverlay>
-            )}
-            {!isLoop && course.sectionTo && (
-              <NaverMapMarkerOverlay
-                latitude={coords[coords.length - 1].latitude}
-                longitude={coords[coords.length - 1].longitude}
-                anchor={{ x: 0.5, y: 0.5 }}
-                width={course.sectionTo.length * 13 + 26}
-                height={32}>
-                <View
-                  collapsable={false}
-                  style={[chipStyles.chip, { backgroundColor: colors.tint, borderColor: colors.tint }]}>
-                  <Text style={[chipStyles.text, { color: colors.background }]}>{course.sectionTo}</Text>
-                </View>
-              </NaverMapMarkerOverlay>
-            )}
           </NaverMapView>
         </View>
       )}
@@ -451,20 +390,6 @@ export default function CourseDetailScreen() {
     </>
   );
 }
-
-const chipStyles = StyleSheet.create({
-  chip: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  text: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-});
 
 const styles = StyleSheet.create({
   container: {

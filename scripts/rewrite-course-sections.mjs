@@ -166,19 +166,62 @@ async function snap(coords) {
   const data = await res.json();
   if (data.code !== 0) throw new Error(data.message ?? 'no route');
   const s = data.route.trafast[0].summary;
-  return { km: s.distance / 1000, min: s.duration / 60000 };
+  return { km: s.distance / 1000, min: s.duration / 60000, path: data.route.trafast[0].path };
+}
+
+// Douglas-Peucker 단순화 — 실도로의 굵은 형상만 남긴 표시용 경로를 만든다.
+// 허용오차를 코스 스팬에 비례시켜 큰 코스든 작은 코스든 비슷한 밀도가 되게 한다.
+function simplify(points, eps) {
+  if (points.length < 3) return points;
+  const [ax, ay] = points[0];
+  const [bx, by] = points[points.length - 1];
+  let dmax = 0;
+  let idx = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    const [px, py] = points[i];
+    const dx = bx - ax;
+    const dy = by - ay;
+    let d;
+    if (dx === 0 && dy === 0) {
+      d = Math.hypot(px - ax, py - ay);
+    } else {
+      const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
+      d = Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+    }
+    if (d > dmax) {
+      dmax = d;
+      idx = i;
+    }
+  }
+  if (dmax > eps) {
+    const left = simplify(points.slice(0, idx + 1), eps);
+    const right = simplify(points.slice(idx), eps);
+    return [...left.slice(0, -1), ...right];
+  }
+  return [points[0], points[points.length - 1]];
+}
+
+function displayGeometry(path) {
+  const xs = path.map((p) => p[0]);
+  const ys = path.map((p) => p[1]);
+  const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  return simplify(path, span * 0.006).map(([lng, lat]) => [
+    Number(lng.toFixed(5)),
+    Number(lat.toFixed(5)),
+  ]);
 }
 
 const round5 = (n) => Math.max(5, Math.round(n / 5) * 5);
 
 for (const c of COURSES) {
-  const { km, min } = await snap(c.coordinates);
+  const { km, min, path } = await snap(c.coordinates);
   const distance = Math.round(km);
   const duration = round5(min);
+  const geometry = displayGeometry(path);
   console.log(
     `${c.name}: ${c.section_from} → ${c.section_to}` +
       (c.route_name ? ` (${c.route_name})` : '') +
-      ` — 실측 ${km.toFixed(1)}km ${min.toFixed(0)}분 → 기록 ${distance}km ${duration}분`,
+      ` — 실측 ${km.toFixed(1)}km ${min.toFixed(0)}분, 표시 경로 ${geometry.length}점`,
   );
   if (!VERIFY_ONLY) {
     const res = await fetch(`${BASE}/rest/v1/courses?name=eq.${encodeURIComponent(c.name)}`, {
@@ -196,6 +239,7 @@ for (const c of COURSES) {
         section_from: c.section_from,
         section_to: c.section_to,
         route_name: c.route_name,
+        route_geometry: geometry,
         ...(c.rename ? { name: c.rename } : {}),
         ...(c.description ? { description: c.description } : {}),
       }),

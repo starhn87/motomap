@@ -13,6 +13,7 @@ function rowToCourse(row: any): RidingCourse {
     sectionFrom: row.section_from ?? null,
     sectionTo: row.section_to ?? null,
     routeName: row.route_name ?? null,
+    routeGeometry: row.route_geometry ?? null,
     waypoints: [],
     tags: row.tags ?? [],
     createdBy: row.created_by,
