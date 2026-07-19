@@ -125,6 +125,12 @@ export default function ExploreScreen() {
       <Text style={[styles.courseName, { color: colors.text }]}>
         {item.name}
       </Text>
+      {item.sectionFrom && item.sectionTo && (
+        <Text style={[styles.sectionLine, { color: colors.textSecondary }]} numberOfLines={1}>
+          {item.sectionFrom} → {item.sectionTo}
+          {item.routeName ? ` · ${item.routeName}` : ''}
+        </Text>
+      )}
       {item.description ? (
         <Text
           style={[styles.courseDesc, { color: colors.textSecondary }]}
@@ -290,6 +296,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 32,
     fontSize: 14,
+  },
+  sectionLine: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
   },
   segmentRow: {
     flexDirection: 'row',

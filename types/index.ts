@@ -35,6 +35,10 @@ export interface RidingCourse {
   distance: number; // km
   duration: number; // minutes
   coordinates: [number, number][];
+  /** 구간 표기 — "어디서 어디까지, 무슨 길" (구모델 데이터는 null) */
+  sectionFrom: string | null;
+  sectionTo: string | null;
+  routeName: string | null;
   waypoints: Place[];
   tags: string[];
   createdBy: string;

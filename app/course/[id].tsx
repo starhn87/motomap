@@ -18,7 +18,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useCourse } from '@/hooks/useCourses';
 import { useCourseReviews, useCreateCourseReview, useUpdateCourseReview, useDeleteCourseReview } from '@/hooks/useCourseReviews';
 import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
-import { openCourseNavigation } from '@/lib/navigation';
+import { openNavigation } from '@/lib/navigation';
 import { useCourseRoute } from '@/hooks/useCourseRoute';
 import { formatDistance, formatDuration } from '@/constants/course';
 import { toast } from '@/lib/toast';
@@ -179,6 +179,12 @@ export default function CourseDetailScreen() {
         )}
 
         <Text style={[styles.name, { color: colors.text }]}>{course.name}</Text>
+        {course.sectionFrom && course.sectionTo && (
+          <Text style={[styles.sectionLine, { color: colors.textSecondary }]}>
+            {course.sectionFrom} → {course.sectionTo}
+            {course.routeName ? ` · ${course.routeName}` : ''}
+          </Text>
+        )}
         {course.description ? (
           <Text style={[styles.desc, { color: colors.textSecondary }]}>
             {course.description}
@@ -218,17 +224,24 @@ export default function CourseDetailScreen() {
           )}
         </View>
 
-        {destination && (
+        {coords.length > 0 && (
           <Pressable
             onPress={() =>
-              // 현재 위치 → 코스 출발지(경유) → … → 코스 도착지 순으로 안내
-              openCourseNavigation({ name: course.name, points: coords })
+              // 구간 진입점까지만 안내한다 — 거기서부터는 길 자체를 즐기는 게 코스.
+              // 경유지를 억지로 태우면 실주행과 다른 어색한 동선이 생긴다.
+              openNavigation({
+                name: course.sectionFrom
+                  ? `${course.name} 시작점 (${course.sectionFrom})`
+                  : `${course.name} 시작점`,
+                latitude: coords[0].latitude,
+                longitude: coords[0].longitude,
+              })
             }
             style={({ pressed }) => [
               styles.navButton,
               { backgroundColor: colors.tint, opacity: pressed ? 0.8 : 1 },
             ]}>
-            <Text style={[styles.navButtonText, { color: colors.background }]}>이 코스로 네비 시작</Text>
+            <Text style={[styles.navButtonText, { color: colors.background }]}>코스 시작점까지 안내</Text>
           </Pressable>
         )}
 
@@ -478,6 +491,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     marginBottom: 16,
+  },
+  sectionLine: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: -6,
   },
   statsRow: {
     flexDirection: 'row',
