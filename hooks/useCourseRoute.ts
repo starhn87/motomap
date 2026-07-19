@@ -9,11 +9,18 @@ export function useCourseRoute(
   courseId: string | null,
   coordinates: [number, number][] | undefined,
 ) {
+  const sig = coordinates?.map(([lng, lat]) => `${lng},${lat}`).join('|') ?? '';
   return useQuery<Route>({
-    queryKey: ['course-route', courseId],
+    // 좌표가 바뀌면(코스 데이터 정비 등) 캐시를 새로 받도록 키에 좌표 시그니처 포함
+    queryKey: ['course-route', courseId, sig],
     queryFn: () => {
       const pts = coordinates!;
-      return fetchRoute(pts[0], pts[pts.length - 1], pts.slice(1, -1));
+      let goal = pts[pts.length - 1];
+      // 순환 코스(시작=끝)는 동일 좌표를 API 가 거부한다 — 100m 오프셋으로 완주 경로
+      if (Math.abs(goal[0] - pts[0][0]) < 1e-6 && Math.abs(goal[1] - pts[0][1]) < 1e-6) {
+        goal = [pts[0][0] + 0.001, pts[0][1]];
+      }
+      return fetchRoute(pts[0], goal, pts.slice(1, -1));
     },
     enabled: !!courseId && (coordinates?.length ?? 0) >= 2,
     staleTime: 24 * 60 * 60 * 1000,

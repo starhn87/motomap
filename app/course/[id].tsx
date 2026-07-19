@@ -23,9 +23,6 @@ import { useCourseRoute } from '@/hooks/useCourseRoute';
 import { formatDistance, formatDuration } from '@/constants/course';
 import { toast } from '@/lib/toast';
 import StarRating from '@/components/review/StarRating';
-import { useQuery } from '@tanstack/react-query';
-import { useMapStore } from '@/stores/useMapStore';
-import { fetchRoute } from '@/lib/api/directions';
 import ReportSheet from '@/components/report/ReportSheet';
 
 export default function CourseDetailScreen() {
@@ -41,29 +38,6 @@ export default function CourseDetailScreen() {
   );
   const { data: reviews } = useCourseReviews(id ?? null);
 
-  // 내 위치 기준 정밀 왕복 — 목록의 계수 근사와 달리 실도로 경로(Directions)로
-  // 접근·복귀를 계산한다. 상세 진입 시에만 2콜이라 호출량 부담이 없다.
-  const userLocation = useMapStore((s) => s.userLocation);
-  const { data: roundTripMin } = useQuery({
-    queryKey: [
-      'course-roundtrip',
-      id,
-      userLocation?.latitude.toFixed(3),
-      userLocation?.longitude.toFixed(3),
-    ],
-    enabled: !!userLocation && !!course && (course.coordinates?.length ?? 0) > 0,
-    staleTime: 10 * 60 * 1000,
-    queryFn: async () => {
-      const cs = course!.coordinates as [number, number][];
-      const me: [number, number] = [userLocation!.longitude, userLocation!.latitude];
-      const [go, back] = await Promise.all([
-        fetchRoute(me, cs[0]),
-        fetchRoute(cs[cs.length - 1], me),
-      ]);
-      // Route.duration 은 초 단위
-      return Math.round((go.duration + back.duration) / 60) + course!.duration;
-    },
-  });
   const { mutateAsync: submitReview, isPending } = useCreateCourseReview();
   const { mutateAsync: updateReview } = useUpdateCourseReview(id ?? '');
   const { mutateAsync: removeReview } = useDeleteCourseReview(id ?? '');
@@ -209,19 +183,6 @@ export default function CourseDetailScreen() {
               예상 시간
             </Text>
           </View>
-          {roundTripMin != null && (
-            <>
-              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.stat}>
-                <Text style={[styles.statValue, { color: colors.tint }]}>
-                  {formatDuration(roundTripMin)}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                  내 위치 왕복
-                </Text>
-              </View>
-            </>
-          )}
         </View>
 
         {coords.length > 0 && (
