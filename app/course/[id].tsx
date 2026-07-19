@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { NaverMapView, NaverMapPathOverlay } from '@mj-studio/react-native-naver-map';
+import { NaverMapView, NaverMapPathOverlay, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -24,6 +24,49 @@ import { formatDistance, formatDuration } from '@/constants/course';
 import { toast } from '@/lib/toast';
 import StarRating from '@/components/review/StarRating';
 import ReportSheet from '@/components/report/ReportSheet';
+
+type LatLng = { latitude: number; longitude: number };
+
+// 경로에서 "갔다가 같은 길로 되돌아오는" 구간을 분리한다 — 방향을 무시한 세그먼트
+// 키(~11m 그리드)가 두 번 이상 등장하면 왕복. 3세그먼트 미만의 짧은 겹침(교차로
+// 노이즈)은 본선으로 남긴다.
+function splitRetrace(path: LatLng[]): { main: LatLng[][]; retrace: LatLng[][] } {
+  const segKey = (a: LatLng, b: LatLng) => {
+    const ka = `${a.longitude.toFixed(4)},${a.latitude.toFixed(4)}`;
+    const kb = `${b.longitude.toFixed(4)},${b.latitude.toFixed(4)}`;
+    return ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+  };
+  const count = new Map<string, number>();
+  for (let i = 0; i < path.length - 1; i++) {
+    const k = segKey(path[i], path[i + 1]);
+    count.set(k, (count.get(k) ?? 0) + 1);
+  }
+  const isRetrace = (i: number) => (count.get(segKey(path[i], path[i + 1])) ?? 0) > 1;
+
+  const main: LatLng[][] = [];
+  const retrace: LatLng[][] = [];
+  let cur: LatLng[] = [path[0]];
+  let curRetrace = path.length > 1 ? isRetrace(0) : false;
+  const flush = () => {
+    if (cur.length >= 2) (curRetrace ? retrace : main).push(cur);
+  };
+  for (let i = 0; i < path.length - 1; i++) {
+    const r = isRetrace(i);
+    if (r !== curRetrace) {
+      flush();
+      cur = [path[i]];
+      curRetrace = r;
+    }
+    cur.push(path[i + 1]);
+  }
+  flush();
+  // 짧은 왕복 조각은 본선으로 되돌린다
+  const shortOnes = retrace.filter((seg) => seg.length < 4);
+  const realRetrace = retrace.filter((seg) => seg.length >= 4);
+  return { main: [...main, ...shortOnes], retrace: realRetrace };
+}
+
+const RETRACE_COLOR = '#F97316';
 
 export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -87,10 +130,16 @@ export default function CourseDetailScreen() {
     longitude: lng,
   }));
 
-  // 지도에 그릴 경로 — 실도로 경로가 준비되면 그것을, 아니면 waypoint 직선
+  // 지도에 그릴 경로 — 실도로 경로가 준비되면 그것을, 아니면 waypoint 직선.
+  // 들렀다 되돌아 나오는 구간은 색을 바꿔 "왕복 가지"임을 드러낸다.
   const pathCoords = roadRoute
     ? roadRoute.geometry.map(([lng, lat]) => ({ latitude: lat, longitude: lng }))
     : coords;
+  const { main: mainSegs, retrace: retraceSegs } = splitRetrace(pathCoords);
+  const isLoop =
+    coords.length >= 2 &&
+    Math.abs(coords[0].latitude - coords[coords.length - 1].latitude) < 1e-6 &&
+    Math.abs(coords[0].longitude - coords[coords.length - 1].longitude) < 1e-6;
 
   // 지도 카메라 중심 계산
   const lats = coords.map((c) => c.latitude);
@@ -125,14 +174,62 @@ export default function CourseDetailScreen() {
               longitude: centerLng,
               zoom: 9,
             }}>
-            <NaverMapPathOverlay
-              coords={pathCoords}
-              width={5}
-              color={colors.tint}
-              outlineWidth={2}
-              outlineColor={colors.background}
-            />
+            {mainSegs.map((seg, i) => (
+              <NaverMapPathOverlay
+                key={`m${i}`}
+                coords={seg}
+                width={5}
+                color={colors.tint}
+                outlineWidth={2}
+                outlineColor={colors.background}
+              />
+            ))}
+            {retraceSegs.map((seg, i) => (
+              <NaverMapPathOverlay
+                key={`r${i}`}
+                coords={seg}
+                width={5}
+                color={RETRACE_COLOR}
+                outlineWidth={2}
+                outlineColor={colors.background}
+              />
+            ))}
+            {/* 출발(초록) · 들르는 곳(파랑) · 도착(빨강) — 순환이면 출발 하나로 합침 */}
+            <NaverMapMarkerOverlay
+              latitude={coords[0].latitude}
+              longitude={coords[0].longitude}
+              anchor={{ x: 0.5, y: 0.5 }}
+              width={16}
+              height={16}>
+              <View collapsable={false} style={[mapMarkerStyles.dot, { backgroundColor: '#22C55E' }]} />
+            </NaverMapMarkerOverlay>
+            {coords.slice(1, isLoop ? -1 : coords.length - 1).map((c, i) => (
+              <NaverMapMarkerOverlay
+                key={`w${i}`}
+                latitude={c.latitude}
+                longitude={c.longitude}
+                anchor={{ x: 0.5, y: 0.5 }}
+                width={14}
+                height={14}>
+                <View collapsable={false} style={[mapMarkerStyles.dot, mapMarkerStyles.small, { backgroundColor: '#3B82F6' }]} />
+              </NaverMapMarkerOverlay>
+            ))}
+            {!isLoop && (
+              <NaverMapMarkerOverlay
+                latitude={coords[coords.length - 1].latitude}
+                longitude={coords[coords.length - 1].longitude}
+                anchor={{ x: 0.5, y: 0.5 }}
+                width={16}
+                height={16}>
+                <View collapsable={false} style={[mapMarkerStyles.dot, { backgroundColor: '#EF4444' }]} />
+              </NaverMapMarkerOverlay>
+            )}
           </NaverMapView>
+          {retraceSegs.length > 0 && (
+            <Text style={[mapMarkerStyles.legend, { color: colors.textSecondary }]}>
+              주황 구간은 들렀다가 같은 길로 되돌아 나오는 길이에요
+            </Text>
+          )}
         </View>
       )}
 
@@ -398,6 +495,25 @@ export default function CourseDetailScreen() {
     </>
   );
 }
+
+const mapMarkerStyles = StyleSheet.create({
+  dot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  small: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  legend: {
+    fontSize: 12,
+    marginTop: 6,
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
