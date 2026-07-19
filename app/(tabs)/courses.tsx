@@ -6,13 +6,15 @@ import {
   FlatList,
   RefreshControl,
 } from 'react-native';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { router } from 'expo-router';
 import EmptyState from '@/components/ui/EmptyState';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useCourses } from '@/hooks/useCourses';
+import { useMapStore } from '@/stores/useMapStore';
+import { estimateRoundTripMinutes } from '@/lib/roundTrip';
 import { formatDistance, formatDuration, seasonalBadge } from '@/constants/course';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import RecommendedPlaces from '@/components/explore/RecommendedPlaces';
@@ -42,6 +44,28 @@ export default function ExploreScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const [segment, setSegment] = useState<Segment>('courses');
   const { data: courses, isLoading, refetch, isRefetching } = useCourses();
+  const userLocation = useMapStore((s) => s.userLocation);
+
+  // 왕복 시간 필터 — "지금 나가면 N시간짜리"로 고르는 라이더 관점. 경계는 표시
+  // 시간 + 15분 여유(근사 오차 흡수). 내 위치가 없으면 칩 자체를 숨긴다.
+  const [tripFilter, setTripFilter] = useState<number | null>(null);
+  const roundTrips = useMemo(() => {
+    if (!userLocation || !courses) return new Map<string, number>();
+    const map = new Map<string, number>();
+    for (const c of courses) {
+      const min = estimateRoundTripMinutes(userLocation, c);
+      if (min != null) map.set(c.id, min);
+    }
+    return map;
+  }, [courses, userLocation]);
+
+  const visibleCourses = useMemo(() => {
+    if (!courses) return courses;
+    if (tripFilter == null || roundTrips.size === 0) return courses;
+    return courses
+      .filter((c) => (roundTrips.get(c.id) ?? Infinity) <= tripFilter + 15)
+      .sort((a, b) => (roundTrips.get(a.id) ?? 0) - (roundTrips.get(b.id) ?? 0));
+  }, [courses, tripFilter, roundTrips]);
 
   const renderCourse = ({ item }: { item: RidingCourse }) => (
     <Pressable
@@ -101,6 +125,19 @@ export default function ExploreScreen() {
             예상 시간
           </Text>
         </View>
+        {roundTrips.has(item.id) && (
+          <>
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.stat}>
+              <Text style={[styles.statValue, { color: colors.tint }]}>
+                {formatDuration(roundTrips.get(item.id)!)}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                내 위치 왕복
+              </Text>
+            </View>
+          </>
+        )}
       </View>
     </Pressable>
   );
@@ -147,9 +184,50 @@ export default function ExploreScreen() {
           />
         ) : (
           <FlatList
-            data={courses}
+            data={visibleCourses}
             keyExtractor={(item) => item.id}
             renderItem={renderCourse}
+            ListHeaderComponent={
+              roundTrips.size > 0 ? (
+                <View style={styles.tripChipRow}>
+                  {[
+                    { label: '전체', value: null },
+                    { label: '왕복 1시간', value: 60 },
+                    { label: '왕복 2시간', value: 120 },
+                    { label: '왕복 3시간', value: 180 },
+                  ].map((chip) => {
+                    const active = tripFilter === chip.value;
+                    return (
+                      <Pressable
+                        key={chip.label}
+                        onPress={() => setTripFilter(chip.value)}
+                        style={[
+                          styles.tripChip,
+                          {
+                            backgroundColor: active ? colors.tint : colors.surface,
+                            borderColor: active ? colors.tint : colors.border,
+                          },
+                        ]}>
+                        <Text
+                          style={[
+                            styles.tripChipText,
+                            { color: active ? colors.background : colors.text },
+                          ]}>
+                          {chip.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null
+            }
+            ListEmptyComponent={
+              tripFilter != null ? (
+                <Text style={[styles.tripEmpty, { color: colors.textSecondary }]}>
+                  이 시간 안에 다녀올 코스가 아직 없어요
+                </Text>
+              ) : null
+            }
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
             refreshControl={
@@ -171,6 +249,26 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  tripChipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  tripChip: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  tripChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tripEmpty: {
+    textAlign: 'center',
+    marginTop: 32,
+    fontSize: 14,
   },
   segmentRow: {
     flexDirection: 'row',
