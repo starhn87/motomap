@@ -92,20 +92,20 @@ function RootLayoutNav() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack>
+          <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="search" options={{ headerShown: false, animation: 'none' }} />
             <Stack.Screen name="chat" options={{ headerShown: false }} />
-            <Stack.Screen name="notifications" options={{ title: '알림', headerBackTitle: '뒤로' }} />
-            <Stack.Screen name="settings" options={{ title: '설정', headerBackTitle: '뒤로' }} />
-            <Stack.Screen name="edit-nickname" options={{ title: '닉네임 변경', headerBackTitle: '뒤로' }} />
-            <Stack.Screen name="edit-bike" options={{ title: '내 바이크', headerBackTitle: '뒤로' }} />
-            <Stack.Screen name="favorites" options={{ title: '즐겨찾기', headerBackTitle: '뒤로' }} />
-            <Stack.Screen name="my-submissions" options={{ title: '내 제보 목록', headerBackTitle: '뒤로' }} />
-            <Stack.Screen name="my-reviews" options={{ title: '내 리뷰', headerBackTitle: '뒤로' }} />
-            <Stack.Screen name="blocked-users" options={{ title: '차단 관리', headerBackTitle: '뒤로' }} />
-            <Stack.Screen name="legal/[type]" options={{ headerBackTitle: '뒤로' }} />
-            <Stack.Screen name="course/[id]" options={{ title: '코스 상세', headerBackTitle: '뒤로' }} />
+            <Stack.Screen name="notifications" options={{ title: '알림' }} />
+            <Stack.Screen name="settings" options={{ title: '설정' }} />
+            <Stack.Screen name="edit-nickname" options={{ title: '닉네임 변경' }} />
+            <Stack.Screen name="edit-bike" options={{ title: '내 바이크' }} />
+            <Stack.Screen name="favorites" options={{ title: '즐겨찾기' }} />
+            <Stack.Screen name="my-submissions" options={{ title: '내 제보 목록' }} />
+            <Stack.Screen name="my-reviews" options={{ title: '내 리뷰' }} />
+            <Stack.Screen name="blocked-users" options={{ title: '차단 관리' }} />
+            <Stack.Screen name="legal/[type]" options={{}} />
+            <Stack.Screen name="course/[id]" options={{ title: '코스 상세' }} />
           </Stack>
         </ThemeProvider>
       </QueryClientProvider>
