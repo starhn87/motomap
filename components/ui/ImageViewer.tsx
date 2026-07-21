@@ -5,8 +5,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
+  Easing,
   interpolate,
   runOnJS,
 } from 'react-native-reanimated';
@@ -53,7 +53,10 @@ export default function ImageViewer({
   const snapToPage = (page: number) => {
     'worklet';
     const clamped = Math.max(0, Math.min(photos.length - 1, page));
-    translateX.value = withSpring(-clamped * width, { damping: 20, stiffness: 180 });
+    translateX.value = withTiming(-clamped * width, {
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+    });
     runOnJS(setIndex)(clamped);
   };
 
@@ -83,7 +86,7 @@ export default function ImageViewer({
           translateY.value = withTiming(height, { duration: 180 });
           runOnJS(onClose)();
         } else {
-          translateY.value = withSpring(0, { damping: 18, stiffness: 220 });
+          translateY.value = withTiming(0, { duration: 180, easing: Easing.out(Easing.cubic) });
         }
       }
       mode.value = 'idle';
