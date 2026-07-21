@@ -5,7 +5,9 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
+import { Pressable } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -88,11 +90,24 @@ function RootLayoutNav() {
   // 알림 탭 → 해당 장소/코스로 이동 (Stack 마운트 이후 등록해야 내비게이션이 안전)
   useEffect(() => setupNotificationTapHandling(), []);
 
+  // 네이티브 백 버튼은 iOS 26 스타일에서 유리 캡슐 배경을 그린다 — 배경 없는
+  // 순수 화살표로 대체한다 (스와이프 백 제스처는 그대로 동작).
+  const headerBack = () =>
+    router.canGoBack() ? (
+      <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Ionicons
+          name="chevron-back"
+          size={26}
+          color={colorScheme === 'dark' ? '#FFFFFF' : '#111111'}
+        />
+      </Pressable>
+    ) : null;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
+          <Stack screenOptions={{ headerLeft: headerBack }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="search" options={{ headerShown: false, animation: 'none' }} />
             <Stack.Screen name="chat" options={{ headerShown: false }} />
