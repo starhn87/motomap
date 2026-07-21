@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, Share } from 'react-native';
+import { View, Text, StyleSheet, Share , ActivityIndicator
+} from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -23,7 +24,7 @@ import { useRef, useEffect, useState, useCallback, memo } from 'react';
 import Colors, { semantic } from '@/constants/Colors';
 import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
 import { useColorScheme } from '@/components/useColorScheme';
-import { openNavigation } from '@/lib/navigation';
+import { openNavigation, useNavLaunching } from '@/lib/navigation';
 import { haversine } from '@/lib/distance';
 import { formatMeters } from '@/lib/api/directions';
 import { useIsFavorite, useToggleFavorite } from '@/hooks/useFavorites';
@@ -66,6 +67,7 @@ function PlaceBottomSheet({
 }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const navLaunching = useNavLaunching((st) => st.launching);
   const insets = useSafeAreaInsets();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const [currentIndex, setCurrentIndex] = useState(1);
@@ -281,6 +283,7 @@ function PlaceBottomSheet({
           </View>
           <View style={{ flex: 1 }}>
             <TouchableOpacity
+              disabled={navLaunching}
               onPress={() =>
                 openNavigation({
                   name: place.name,
@@ -289,10 +292,14 @@ function PlaceBottomSheet({
                 })
               }
               activeOpacity={0.8}
-              style={[styles.navButton, { backgroundColor: colors.tint }]}>
-              <Text style={[styles.navButtonText, { color: colors.background }]}>
-                네비 시작
-              </Text>
+              style={[styles.navButton, { backgroundColor: colors.tint, opacity: navLaunching ? 0.8 : 1 }]}>
+              {navLaunching ? (
+                <ActivityIndicator size="small" color={colors.background} />
+              ) : (
+                <Text style={[styles.navButtonText, { color: colors.background }]}>
+                  네비 시작
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>

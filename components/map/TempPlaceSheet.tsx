@@ -1,4 +1,4 @@
-import { View, Text, Pressable, StyleSheet, Alert, Linking } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, Linking, ActivityIndicator } from 'react-native';
 import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 import { router } from 'expo-router';
 
@@ -7,7 +7,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useEffect } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { openNavigation } from '@/lib/navigation';
+import { openNavigation, useNavLaunching } from '@/lib/navigation';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { toast } from '@/lib/toast';
 
@@ -30,6 +30,7 @@ interface Props {
 export default function TempPlaceSheet({ place, onClose }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const navLaunching = useNavLaunching((s) => s.launching);
   const myPlaces = useMyPlacesStore((s) => s.places);
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
   const saveMyPlace = useMyPlacesStore((s) => s.save);
@@ -149,12 +150,17 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
 
       <View style={styles.actions}>
         <Pressable
+          disabled={navLaunching}
           onPress={handleNavigate}
           style={({ pressed }) => [
             styles.actionButton,
-            { backgroundColor: colors.tint, opacity: pressed ? 0.85 : 1 },
+            { backgroundColor: colors.tint, opacity: pressed || navLaunching ? 0.85 : 1 },
           ]}>
-          <Text style={[styles.actionText, { color: colors.background }]}>길안내 시작</Text>
+          {navLaunching ? (
+            <ActivityIndicator size="small" color={colors.background} />
+          ) : (
+            <Text style={[styles.actionText, { color: colors.background }]}>길안내 시작</Text>
+          )}
         </Pressable>
         <Pressable
           onPress={handleSubmit}

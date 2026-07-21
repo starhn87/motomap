@@ -1,4 +1,5 @@
 import { Alert, Linking } from 'react-native';
+import { create } from 'zustand';
 import KakaoNavi from '@react-native-kakao/navi';
 
 import { useNavPrefStore, type NavAppId } from '@/stores/useNavPrefStore';
@@ -207,17 +208,24 @@ async function confirmRouteWeather(
   });
 }
 
-// 내비 시작 연타 방지 — 날씨 확인이 끝나기 전에 다시 누르면 경고가 겹겹이 쌓인다
-let navLaunchInFlight = false;
+// 내비 시작 연타 방지 + 진행 표시 — 날씨 확인·경유지 주소 변환이 수 초 걸리므로
+// 진행 중에는 재진입을 막고, 버튼들이 이 상태를 구독해 스피너를 보여준다.
+export const useNavLaunching = create<{ launching: boolean }>(() => ({ launching: false }));
+
+const beginLaunch = (): boolean => {
+  if (useNavLaunching.getState().launching) return false;
+  useNavLaunching.setState({ launching: true });
+  return true;
+};
+const endLaunch = () => useNavLaunching.setState({ launching: false });
 
 export async function openNavigation(target: NavTarget) {
-  if (navLaunchInFlight) return;
-  navLaunchInFlight = true;
+  if (!beginLaunch()) return;
   try {
     if (!(await confirmRouteWeather([target]))) return;
     await withNavApp((app) => app.launch(target));
   } finally {
-    navLaunchInFlight = false;
+    endLaunch();
   }
 }
 
@@ -241,12 +249,11 @@ async function resolvePointNames(course: NavCourse): Promise<NavCourse> {
  */
 export async function openCourseNavigation(course: NavCourse) {
   if (course.points.length === 0) return;
-  if (navLaunchInFlight) return;
-  navLaunchInFlight = true;
+  if (!beginLaunch()) return;
   try {
     await openCourseNavigationInner(course);
   } finally {
-    navLaunchInFlight = false;
+    endLaunch();
   }
 }
 

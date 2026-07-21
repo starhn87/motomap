@@ -18,7 +18,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useCourse } from '@/hooks/useCourses';
 import { useCourseReviews, useCreateCourseReview, useUpdateCourseReview, useDeleteCourseReview } from '@/hooks/useCourseReviews';
 import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
-import { openCourseNavigation } from '@/lib/navigation';
+import { openCourseNavigation, useNavLaunching } from '@/lib/navigation';
 import { formatDistance, formatDuration } from '@/constants/course';
 import { toast } from '@/lib/toast';
 import StarRating from '@/components/review/StarRating';
@@ -30,6 +30,7 @@ export default function CourseDetailScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const { data: course, isLoading } = useCourse(id ?? null);
+  const navLaunching = useNavLaunching((s) => s.launching);
   const { data: reviews } = useCourseReviews(id ?? null);
 
   const { mutateAsync: submitReview, isPending } = useCreateCourseReview();
@@ -186,15 +187,23 @@ export default function CourseDetailScreen() {
 
         {coords.length >= 2 && (
           <Pressable
+            disabled={navLaunching}
             onPress={() =>
               // 현재 위치 → 코스 출발지(경유) → … → 코스 도착지 순으로 안내
               openCourseNavigation({ name: course.name, points: coords })
             }
             style={({ pressed }) => [
               styles.navButton,
-              { backgroundColor: colors.tint, opacity: pressed ? 0.8 : 1 },
+              { backgroundColor: colors.tint, opacity: pressed || navLaunching ? 0.8 : 1 },
             ]}>
-            <Text style={[styles.navButtonText, { color: colors.background }]}>이 코스로 네비 시작</Text>
+            {navLaunching ? (
+              <View style={styles.navLoadingRow}>
+                <ActivityIndicator size="small" color={colors.background} />
+                <Text style={[styles.navButtonText, { color: colors.background }]}>안내 준비 중</Text>
+              </View>
+            ) : (
+              <Text style={[styles.navButtonText, { color: colors.background }]}>이 코스로 네비 시작</Text>
+            )}
           </Pressable>
         )}
 
@@ -473,6 +482,11 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 32,
+  },
+  navLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   navButton: {
     paddingVertical: 16,
