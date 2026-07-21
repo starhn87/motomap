@@ -1,19 +1,12 @@
 import { useEffect, useState } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  Pressable,
-  FlatList,
-  useWindowDimensions,
-  StyleSheet,
-} from 'react-native';
+import { Modal, View, Text, Pressable, useWindowDimensions, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
+  withTiming,
   interpolate,
   runOnJS,
 } from 'react-native-reanimated';
@@ -29,7 +22,9 @@ interface Props {
 }
 
 // 전체화면 이미지 뷰어 — 좌우 스와이프로 넘기고, 아래로 스와이프·이미지 탭·✕ 로 닫는다.
-// RN Modal 은 네이티브 루트에 뜨므로 바텀시트 안에서 열어도 항상 최상위에 표시된다.
+// 페이징을 FlatList 에 맡기면 네이티브 스크롤과 dismiss 팬이 경합해 비결정적으로
+// 지므로, 팬 제스처 하나가 첫 이동 방향을 보고 페이징(가로)과 닫기(세로)를 모두
+// 처리한다. RN Modal 은 네이티브 루트에 뜨므로 바텀시트 안에서 열어도 최상위 표시.
 export default function ImageViewer({
   photos,
   initialIndex = 0,
@@ -41,35 +36,61 @@ export default function ImageViewer({
   const insets = useSafeAreaInsets();
   const [index, setIndex] = useState(initialIndex);
 
-  // 아래로 끌면 사진이 따라 내려가고 배경이 옅어지다, 충분히 끌면 닫힌다.
+  const translateX = useSharedValue(-initialIndex * width);
   const translateY = useSharedValue(0);
+  // 'h' 페이징 / 'v' 닫기 — 첫 12px 이동의 지배 축으로 한 번만 결정
+  const mode = useSharedValue<'idle' | 'h' | 'v'>('idle');
 
   useEffect(() => {
     if (visible) {
       setIndex(initialIndex);
+      translateX.value = -initialIndex * width;
       translateY.value = 0;
+      mode.value = 'idle';
     }
-  }, [visible, initialIndex, translateY]);
+  }, [visible, initialIndex, width, translateX, translateY, mode]);
 
-  // 세로 24px 를 넘겨야 활성, 가로 16px 가 먼저면 실패 — 좌우 페이징(FlatList)과
-  // 세로 닫기가 임계값으로 갈라져 서로를 침범하지 않는다.
-  const dismissPan = Gesture.Pan()
-    .activeOffsetY([-24, 24])
-    .failOffsetX([-16, 16])
+  const snapToPage = (page: number) => {
+    'worklet';
+    const clamped = Math.max(0, Math.min(photos.length - 1, page));
+    translateX.value = withSpring(-clamped * width, { damping: 20, stiffness: 180 });
+    runOnJS(setIndex)(clamped);
+  };
+
+  const pan = Gesture.Pan()
     .onUpdate((e) => {
-      // 위쪽은 저항만 주고 닫지 않는다
-      translateY.value = e.translationY > 0 ? e.translationY : e.translationY * 0.2;
+      if (mode.value === 'idle') {
+        if (Math.abs(e.translationX) < 12 && Math.abs(e.translationY) < 12) return;
+        mode.value = Math.abs(e.translationX) > Math.abs(e.translationY) ? 'h' : 'v';
+      }
+      if (mode.value === 'h') {
+        const base = -index * width + e.translationX;
+        // 양 끝에서는 고무줄 저항
+        const min = -(photos.length - 1) * width;
+        translateX.value = base > 0 ? base * 0.3 : base < min ? min + (base - min) * 0.3 : base;
+      } else {
+        // 위쪽은 저항만 주고 닫지 않는다
+        translateY.value = e.translationY > 0 ? e.translationY : e.translationY * 0.2;
+      }
     })
     .onEnd((e) => {
-      if (e.translationY > 110 || e.velocityY > 900) {
-        runOnJS(onClose)();
-      } else {
-        translateY.value = withSpring(0, { damping: 18, stiffness: 220 });
+      if (mode.value === 'h') {
+        const moved = e.translationX + e.velocityX * 0.2;
+        const delta = moved < -width * 0.35 ? 1 : moved > width * 0.35 ? -1 : 0;
+        snapToPage(index + delta);
+      } else if (mode.value === 'v') {
+        if (e.translationY > 110 || e.velocityY > 900) {
+          translateY.value = withTiming(height, { duration: 180 });
+          runOnJS(onClose)();
+        } else {
+          translateY.value = withSpring(0, { damping: 18, stiffness: 220 });
+        }
       }
+      mode.value = 'idle';
     });
 
-  const contentStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+  const stripStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
   }));
   const backdropStyle = useAnimatedStyle(() => ({
     opacity: interpolate(translateY.value, [0, height * 0.4], [1, 0.3], 'clamp'),
@@ -84,30 +105,18 @@ export default function ImageViewer({
       onRequestClose={onClose}>
       <View style={styles.root}>
         <Animated.View style={[styles.backdrop, backdropStyle]} />
-        <GestureDetector gesture={dismissPan}>
-          <Animated.View style={[styles.content, contentStyle]}>
-            <FlatList
-              data={photos}
-              horizontal
-              pagingEnabled
-              initialScrollIndex={initialIndex}
-              getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-              keyExtractor={(item, i) => `${item}-${i}`}
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(e) =>
-                setIndex(Math.round(e.nativeEvent.contentOffset.x / width))
-              }
-              renderItem={({ item }) => (
-                <Pressable style={{ width, height }} onPress={onClose}>
-                  <Image
-                    source={{ uri: item }}
-                    style={{ width, height }}
-                    contentFit="contain"
-                    transition={150}
-                  />
-                </Pressable>
-              )}
-            />
+        <GestureDetector gesture={pan}>
+          <Animated.View style={[styles.strip, { width: width * photos.length }, stripStyle]}>
+            {photos.map((uri, i) => (
+              <Pressable key={`${uri}-${i}`} style={{ width, height }} onPress={onClose}>
+                <Image
+                  source={{ uri }}
+                  style={{ width, height }}
+                  contentFit="contain"
+                  transition={150}
+                />
+              </Pressable>
+            ))}
           </Animated.View>
         </GestureDetector>
 
@@ -146,8 +155,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#000000',
   },
-  content: {
+  strip: {
     flex: 1,
+    flexDirection: 'row',
   },
   counter: {
     position: 'absolute',

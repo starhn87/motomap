@@ -6,8 +6,10 @@ import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
 import { Stack, router } from 'expo-router';
-import { Pressable } from 'react-native';
+import { Pressable, View, Text } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Colors from '@/constants/Colors';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -84,30 +86,53 @@ function RootLayout() {
   return <RootLayoutNav />;
 }
 
+// iOS 26 네이티브 헤더는 버튼 슬롯을 유리 캡슐로 감싼다(커스텀 headerLeft 도 예외
+// 없음) — 헤더를 통째로 직접 그려서 화살표만 남긴다.
+function AppHeader({ title, colorScheme }: { title: string; colorScheme: 'light' | 'dark' }) {
+  const insets = useSafeAreaInsets();
+  const colors = Colors[colorScheme];
+  return (
+    <View
+      style={{
+        paddingTop: insets.top,
+        backgroundColor: colors.background,
+        borderBottomWidth: 0.5,
+        borderBottomColor: colors.border,
+      }}>
+      <View style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}>
+        {router.canGoBack() && (
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={12}
+            style={{ position: 'absolute', left: 12 }}>
+            <Ionicons name="chevron-back" size={26} color={colors.text} />
+          </Pressable>
+        )}
+        <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text }}>{title}</Text>
+      </View>
+    </View>
+  );
+}
+
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
   // 알림 탭 → 해당 장소/코스로 이동 (Stack 마운트 이후 등록해야 내비게이션이 안전)
   useEffect(() => setupNotificationTapHandling(), []);
 
-  // 네이티브 백 버튼은 iOS 26 스타일에서 유리 캡슐 배경을 그린다 — 배경 없는
-  // 순수 화살표로 대체한다 (스와이프 백 제스처는 그대로 동작).
-  const headerBack = () =>
-    router.canGoBack() ? (
-      <Pressable onPress={() => router.back()} hitSlop={12}>
-        <Ionicons
-          name="chevron-back"
-          size={26}
-          color={colorScheme === 'dark' ? '#FFFFFF' : '#111111'}
-        />
-      </Pressable>
-    ) : null;
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack screenOptions={{ headerLeft: headerBack }}>
+          <Stack
+            screenOptions={{
+              header: ({ options }) => (
+                <AppHeader
+                  title={typeof options.title === 'string' ? options.title : ''}
+                  colorScheme={colorScheme === 'dark' ? 'dark' : 'light'}
+                />
+              ),
+            }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="search" options={{ headerShown: false, animation: 'none' }} />
             <Stack.Screen name="chat" options={{ headerShown: false }} />
