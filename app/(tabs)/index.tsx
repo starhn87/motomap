@@ -489,19 +489,22 @@ export default function MapScreen() {
   };
 
   // 선택 강조는 별도 오버레이 마커가 맡는다 — selectedPlaceId 를 의존성에서 빼서
-  // 마커 탭마다 클러스터 전체가 네이티브로 재전송·재계산되는 것을 막는다
+  // 마커 탭마다 클러스터 전체가 네이티브로 재전송·재계산되는 것을 막는다.
+  // 선택된 장소는 별도 선택 마커가 뜨므로 목록에서 빼서 겹침(마커 2개)을 막는다.
   const clusterMarkers = useMemo(
     () =>
-      places.map((place) => ({
-        identifier: place.id,
-        latitude: place.latitude,
-        longitude: place.longitude,
-        image: MARKER_IMAGES[place.category],
-        // 이미지 하반부는 투명 여백 — 시각 크기는 40x50, 중앙 앵커에서 꼬리가 좌표를 찍는다
-        width: 40,
-        height: 100,
-      })),
-    [places]
+      places
+        .filter((place) => place.id !== selectedPlaceId)
+        .map((place) => ({
+          identifier: place.id,
+          latitude: place.latitude,
+          longitude: place.longitude,
+          image: MARKER_IMAGES[place.category],
+          // 이미지 하반부는 투명 여백 — 시각 크기는 32x45, 중앙 앵커에서 꼬리가 좌표를 찍는다
+          width: 32,
+          height: 90,
+        })),
+    [places, selectedPlaceId]
   );
 
   return (
@@ -565,8 +568,8 @@ export default function MapScreen() {
             latitude={selectedPlace.latitude}
             longitude={selectedPlace.longitude}
             image={MARKER_IMAGES[selectedPlace.category]}
-            width={52}
-            height={130}
+            width={40}
+            height={112}
             anchor={{ x: 0.5, y: 0.5 }}
             zIndex={100}
           />

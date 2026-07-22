@@ -41,22 +41,22 @@ const ICONS = {
   camping: 'M12 3 L23 20 H15.2 L12 14.6 L8.8 20 H1 Z',
 };
 
-// 물방울 핀 (48x60 뷰박스): 원형 상단 + 아래로 뾰족한 꼬리, 흰 외곽선
+// 슬림 물방울 핀 (40x56 뷰박스): 폭 36 원형 상단 + 아래로 뾰족한 꼬리, 흰 외곽선
 const PIN_PATH =
-  'M24 1.5 C11.6 1.5 1.5 11.6 1.5 24 C1.5 33.5 8.8 41 24 58.5 C39.2 41 46.5 33.5 46.5 24 C46.5 11.6 36.4 1.5 24 1.5 Z';
+  'M20 1.5 C9.8 1.5 2 9.3 2 19 C2 26.8 8 33.5 20 54.5 C32 33.5 38 26.8 38 19 C38 9.3 30.2 1.5 20 1.5 Z';
 
-const ICON_SCALE = 0.67; // 24x24 아이콘을 배지(직경 27) 안에 여백 있게
-const BADGE_CX = 24;
-const BADGE_CY = 22;
+const ICON_SCALE = 0.75; // 24x24 아이콘을 배지(직경 26) 안에 — 아이콘 18px
+const BADGE_CX = 20;
+const BADGE_CY = 18.5;
 
 for (const [category, color] of Object.entries(CATEGORIES)) {
   const tx = BADGE_CX - 12 * ICON_SCALE;
   const ty = BADGE_CY - 12 * ICON_SCALE;
   // 캔버스 세로 2배(하반부 투명) — 클러스터 마커는 앵커 지정이 안 되고 중앙에
   // 붙으므로, 핀을 상반부에 그리면 캔버스 중앙 = 꼬리 끝 = 좌표가 된다.
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 120" width="144" height="360">
-  <path d="${PIN_PATH}" fill="${color}" stroke="#FFFFFF" stroke-width="2.5"/>
-  <circle cx="${BADGE_CX}" cy="${BADGE_CY}" r="13.5" fill="#FFFFFF"/>
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 112" width="120" height="336">
+  <path d="${PIN_PATH}" fill="${color}" stroke="#FFFFFF" stroke-width="2"/>
+  <circle cx="${BADGE_CX}" cy="${BADGE_CY}" r="13" fill="#FFFFFF"/>
   <g transform="translate(${tx} ${ty}) scale(${ICON_SCALE})">
     <path d="${ICONS[category]}" fill="${color}"/>
   </g>
