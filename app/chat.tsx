@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 // eslint 참고: TypingDots 의 훅은 고정 3개 점에만 쓰여 순서가 안정적이다
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -318,7 +319,7 @@ export default function ChatScreen() {
         {messages.length === 0 ? (
           // 시작 화면 — 인사 + 예시 질문
           <View style={styles.welcome}>
-            <FontAwesome5 name="motorcycle" size={38} color={colors.tint} />
+            <Image source={require('@/assets/images/bike-silhouette.png')} style={{ width: 72, height: 42 }} tintColor={colors.tint} contentFit="contain" />
             <Text style={[styles.welcomeTitle, { color: colors.text }]}>
               어디로 달려볼까요?
             </Text>

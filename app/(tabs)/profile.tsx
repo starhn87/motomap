@@ -145,7 +145,7 @@ function LoggedInContent() {
 
       <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.menu}>
         <MenuItem icon={<Ionicons name="create-outline" size={20} color={colors.text} />} label="닉네임 변경" onPress={() => router.push('/edit-nickname')} />
-        <MenuItem icon={<FontAwesome5 name="motorcycle" size={17} color={colors.text} />} label="내 바이크" onPress={() => router.push('/edit-bike')} />
+        <MenuItem icon={<Image source={require('@/assets/images/bike-silhouette.png')} style={{ width: 26, height: 15 }} tintColor={colors.text} contentFit="contain" />} label="내 바이크" onPress={() => router.push('/edit-bike')} />
         <MenuItem icon={<Ionicons name="star-outline" size={20} color={colors.text} />} label="즐겨찾기" onPress={() => router.push('/favorites')} />
         <MenuItem icon={<Ionicons name="document-text-outline" size={20} color={colors.text} />} label="내 제보 목록" onPress={() => router.push('/my-submissions')} />
         <MenuItem icon={<Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />} label="내 리뷰" onPress={() => router.push('/my-reviews')} />
@@ -205,6 +205,7 @@ const styles = StyleSheet.create({
   settingsButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
     alignSelf: 'flex-end',
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -281,7 +282,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   menuIcon: {
-    fontSize: 18,
+    width: 26,
+    alignItems: 'center',
     marginRight: 12,
   },
   menuLabel: {
