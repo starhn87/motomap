@@ -1,3 +1,4 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
   StyleSheet,
   View,
@@ -172,7 +173,7 @@ export default function ExploreScreen() {
           <CourseSkeletonList />
         ) : !courses?.length ? (
           <EmptyState
-            icon="🛣️"
+            icon={<MaterialCommunityIcons name="road-variant" size={44} color={colors.textSecondary} />}
             title="등록된 코스가 없습니다"
             hint="달려본 코스가 있다면 라이더들과 나눠보세요!"
             actionLabel="코스 제보하러 가기"

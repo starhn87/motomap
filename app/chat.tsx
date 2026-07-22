@@ -1,3 +1,6 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   View,
   Text,
@@ -241,7 +244,11 @@ export default function ChatScreen() {
                       opacity: pressed ? 0.8 : 1,
                     },
                   ]}>
-                  <Text style={styles.cardIcon}>{cat?.icon ?? '📍'}</Text>
+                  {cat ? (
+                    <CategoryIcon category={p.category as PlaceCategory} size={20} />
+                  ) : (
+                    <Ionicons name="location-outline" size={20} color="#475569" />
+                  )}
                   <View style={styles.cardInfo}>
                     <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>
                       {p.name}
@@ -268,7 +275,7 @@ export default function ChatScreen() {
                     opacity: pressed ? 0.8 : 1,
                   },
                 ]}>
-                <Text style={styles.cardIcon}>🛣️</Text>
+                <MaterialCommunityIcons name="road-variant" size={20} color={colors.tint} />
                 <View style={styles.cardInfo}>
                   <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>
                     {c.name}
@@ -310,7 +317,7 @@ export default function ChatScreen() {
         {messages.length === 0 ? (
           // 시작 화면 — 인사 + 예시 질문
           <View style={styles.welcome}>
-            <Text style={styles.welcomeIcon}>🏍️</Text>
+            <MaterialCommunityIcons name="motorbike" size={44} color={colors.tint} />
             <Text style={[styles.welcomeTitle, { color: colors.text }]}>
               어디로 달려볼까요?
             </Text>

@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 
@@ -16,7 +17,7 @@ export default function SearchEntry() {
         styles.container,
         { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
       ]}>
-      <Text style={styles.searchIcon}>🔍</Text>
+      <Ionicons name="search" size={17} color={colors.textSecondary} style={styles.searchIcon} />
       <Text style={[styles.placeholder, { color: colors.textSecondary }]}>장소, 코스 검색</Text>
     </Pressable>
   );

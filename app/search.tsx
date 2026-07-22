@@ -1,3 +1,6 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   View,
   Text,
@@ -123,7 +126,7 @@ export default function SearchScreen() {
     if (!saved) {
       toast.info(
         slot === 'home' ? '집이 아직 저장되지 않았어요.' : '회사가 아직 저장되지 않았어요.',
-        '장소 검색이나 지도에서 카드의 ⭐로 저장할 수 있어요.',
+        '장소 검색이나 지도에서 카드의 별 버튼으로 저장할 수 있어요.',
       );
       return;
     }
@@ -221,7 +224,7 @@ export default function SearchScreen() {
           styles.row,
           { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
         ]}>
-        <Text style={styles.rowIcon}>{cat.icon}</Text>
+        <View style={styles.rowIconWrap}><CategoryIcon category={place.category} size={20} /></View>
         <View style={styles.rowInfo}>
           <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
             {place.name}
@@ -320,7 +323,7 @@ export default function SearchScreen() {
                         styles.row,
                         { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
                       ]}>
-                      <Text style={styles.rowIcon}>📍</Text>
+                      <View style={styles.rowIconWrap}><Ionicons name="location-outline" size={20} color="#475569" /></View>
                       <View style={styles.rowInfo}>
                         <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
                           {k.placeName}
@@ -342,7 +345,7 @@ export default function SearchScreen() {
                     styles.row,
                     { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
                   ]}>
-                  <Text style={styles.rowIcon}>🛣️</Text>
+                  <View style={styles.rowIconWrap}><MaterialCommunityIcons name="road-variant" size={20} color={colors.tint} /></View>
                   <View style={styles.rowInfo}>
                     <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
                       {item.data.name}
@@ -384,7 +387,7 @@ export default function SearchScreen() {
                       opacity: pressed ? 0.8 : 1,
                     },
                   ]}>
-                  <Text style={styles.myPlaceIcon}>{slot === 'home' ? '🏠' : '🏢'}</Text>
+                  <Ionicons name={slot === 'home' ? 'home' : 'business'} size={20} color={colors.tint} />
                   <View style={styles.rowInfo}>
                     <Text style={[styles.myPlaceLabel, { color: colors.text }]}>
                       {slot === 'home' ? '집' : '회사'}
@@ -409,7 +412,7 @@ export default function SearchScreen() {
               styles.aiBanner,
               { backgroundColor: colors.surface, borderColor: colors.tint, opacity: pressed ? 0.85 : 1 },
             ]}>
-            <Text style={styles.aiBannerIcon}>🤖</Text>
+            <MaterialCommunityIcons name="robot-outline" size={26} color={colors.tint} />
             <View style={styles.rowInfo}>
               <Text style={[styles.rowName, { color: colors.text }]}>AI에게 추천받기</Text>
               <Text style={[styles.rowSub, { color: colors.textSecondary }]}>
@@ -448,13 +451,15 @@ export default function SearchScreen() {
                       styles.row,
                       { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
                     ]}>
-                    <Text style={styles.rowIcon}>
-                      {entry.type === 'place'
-                        ? CATEGORIES[entry.place.category].icon
-                        : entry.type === 'course'
-                          ? '🛣️'
-                          : '📍'}
-                    </Text>
+                    <View style={styles.rowIconWrap}>
+                      {entry.type === 'place' ? (
+                        <CategoryIcon category={entry.place.category} size={20} />
+                      ) : entry.type === 'course' ? (
+                        <MaterialCommunityIcons name="road-variant" size={20} color={colors.tint} />
+                      ) : (
+                        <Ionicons name="location-outline" size={20} color="#475569" />
+                      )}
+                    </View>
                     <View style={styles.rowInfo}>
                       <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
                         {entry.type === 'place' ? entry.place.name : entry.name}
@@ -504,6 +509,10 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
+  rowIconWrap: {
+    width: 24,
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
   },

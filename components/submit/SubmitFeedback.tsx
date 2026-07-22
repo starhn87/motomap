@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   StyleSheet,
   View,
@@ -24,9 +25,9 @@ import type { FeedbackType } from '@/lib/api/feedback';
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const FEEDBACK_TYPES = [
-  { key: 'bug' as const, label: '버그 신고', icon: '🐛' },
-  { key: 'feature' as const, label: '기능 건의', icon: '💡' },
-  { key: 'general' as const, label: '기타 의견', icon: '💬' },
+  { key: 'bug' as const, label: '버그 신고', icon: 'bug-outline' as const },
+  { key: 'feature' as const, label: '기능 건의', icon: 'bulb-outline' as const },
+  { key: 'general' as const, label: '기타 의견', icon: 'chatbubble-ellipses-outline' as const },
 ];
 
 export default function SubmitFeedback() {
@@ -95,7 +96,7 @@ export default function SubmitFeedback() {
                   borderColor: type === ft.key ? colors.tint : colors.border,
                 },
               ]}>
-              <Text style={styles.typeIcon}>{ft.icon}</Text>
+              <Ionicons name={ft.icon} size={18} color={type === ft.key ? colors.tint : colors.textSecondary} />
               <Text
                 style={[
                   styles.typeLabel,

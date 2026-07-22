@@ -1,3 +1,5 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { View, Text, StyleSheet, Share , ActivityIndicator
 } from 'react-native';
 import Animated, {
@@ -326,21 +328,21 @@ function PlaceBottomSheet({
 
   const infoCards = [
     displayPlace.openingHours && {
-      icon: '🕐',
+      icon: <Ionicons name="time-outline" size={16} color={colors.textSecondary} />,
       label: '영업시간',
       value: displayPlace.openingHours,
     },
     displayPlace.parkingInfo && {
-      icon: '🅿️',
+      icon: <MaterialIcons name="local-parking" size={16} color={colors.textSecondary} />,
       label: '주차',
       value: displayPlace.parkingInfo,
     },
     displayPlace.phone && {
-      icon: '☎️',
+      icon: <Ionicons name="call-outline" size={16} color={colors.textSecondary} />,
       label: '전화',
       value: displayPlace.phone,
     },
-  ].filter(Boolean) as Array<{ icon: string; label: string; value: string }>;
+  ].filter(Boolean) as Array<{ icon: React.ReactNode; label: string; value: string }>;
 
   return (
     <>
@@ -455,7 +457,7 @@ function PlaceBottomSheet({
                     styles.infoCard,
                     { backgroundColor: colors.surface, borderColor: colors.border },
                   ]}>
-                  <Text style={styles.infoCardIcon}>{card.icon}</Text>
+                  <View style={styles.infoCardIcon}>{card.icon}</View>
                   <Text
                     style={[styles.infoCardLabel, { color: colors.textSecondary }]}>
                     {card.label}

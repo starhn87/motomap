@@ -1,3 +1,4 @@
+import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   StyleSheet,
   View,
@@ -214,7 +215,7 @@ function SubmitPlace() {
                   borderColor: category === cat.key ? cat.color : colors.border,
                 },
               ]}>
-              <Text style={styles.categoryIcon}>{cat.icon}</Text>
+              <CategoryIcon category={cat.key} size={15} color={category === cat.key ? colors.background : cat.color} />
               <Text style={[styles.categoryLabel, { color: category === cat.key ? colors.background : colors.text }]}>
                 {cat.label}
               </Text>

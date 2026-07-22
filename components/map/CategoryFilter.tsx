@@ -1,3 +1,4 @@
+import CategoryIcon from '@/components/ui/CategoryIcon';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -15,13 +16,13 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 function FilterChip({
   label,
-  icon,
+  categoryKey,
   color,
   isActive,
   onPress,
 }: {
   label: string;
-  icon: string;
+  categoryKey: PlaceCategory;
   color: string;
   isActive: boolean;
   onPress: () => void;
@@ -59,7 +60,7 @@ function FilterChip({
           borderColor: isActive ? color : colors.border,
         },
       ]}>
-      <Text style={styles.chipIcon}>{icon}</Text>
+      <CategoryIcon category={categoryKey} size={15} color={isActive ? '#FFFFFF' : color} />
       <Text
         style={[
           styles.chipLabel,
@@ -87,7 +88,7 @@ export default function CategoryFilter() {
         <FilterChip
           key={cat.key}
           label={cat.label}
-          icon={cat.icon}
+          categoryKey={cat.key}
           color={cat.color}
           isActive={activeFilter === cat.key}
           onPress={() => handlePress(cat.key)}

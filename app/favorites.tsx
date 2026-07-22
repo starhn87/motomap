@@ -1,3 +1,5 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   StyleSheet,
   View,
@@ -72,7 +74,7 @@ export default function FavoritesScreen() {
               styles.categoryBadge,
               { backgroundColor: category.color + '20' },
             ]}>
-            <Text style={styles.categoryIcon}>{category.icon}</Text>
+            <CategoryIcon category={item.category} size={14} color={category.color} />
             <Text style={[styles.categoryLabel, { color: category.color }]}>
               {category.label}
             </Text>
@@ -102,7 +104,7 @@ export default function FavoritesScreen() {
         <PlaceSkeletonList />
       ) : !places?.length ? (
         <EmptyState
-          icon="⭐"
+          icon={<Ionicons name="star-outline" size={44} color={colors.textSecondary} />}
           title="즐겨찾기한 장소가 없습니다"
           hint="지도에서 장소를 탭하고 ❤️ 버튼을 눌러보세요."
           actionLabel="지도에서 찾아보기"

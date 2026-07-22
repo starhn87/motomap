@@ -1,3 +1,4 @@
+import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   StyleSheet,
   View,
@@ -28,7 +29,7 @@ function PlaceCard({ place, isNew }: { place: Place; isNew?: boolean }) {
       ]}>
       <View style={styles.cardHeader}>
         <View style={[styles.catChip, { backgroundColor: cat.color + '22' }]}>
-          <Text style={styles.catIcon}>{cat.icon}</Text>
+          <CategoryIcon category={place.category} size={13} color={cat.color} />
           <Text style={[styles.catLabel, { color: cat.color }]}>{cat.label}</Text>
         </View>
         <View style={styles.headerRight}>
@@ -131,7 +132,7 @@ export default function RecommendedPlaces() {
       {recent.length > 0 && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            🆕 새로 오픈
+            새로 오픈
           </Text>
           {recent.map((p) => (
             <PlaceCard key={p.id} place={p} isNew />
@@ -142,7 +143,7 @@ export default function RecommendedPlaces() {
       {topRated.length > 0 && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            ⭐ 라이더 추천
+            라이더 추천
           </Text>
           {topRated.map((p) => (
             <PlaceCard key={p.id} place={p} />

@@ -4,7 +4,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 
 interface Props {
-  icon?: string;
+  icon?: React.ReactNode;
   title: string;
   hint?: string;
   actionLabel?: string;
@@ -18,7 +18,7 @@ export default function EmptyState({ icon, title, hint, actionLabel, onAction }:
 
   return (
     <View style={styles.container}>
-      {icon ? <Text style={styles.icon}>{icon}</Text> : null}
+      {icon ? (typeof icon === 'string' ? <Text style={styles.icon}>{icon}</Text> : <View style={styles.icon}>{icon}</View>) : null}
       <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
       {hint ? <Text style={[styles.hint, { color: colors.textSecondary }]}>{hint}</Text> : null}
       {actionLabel && onAction ? (

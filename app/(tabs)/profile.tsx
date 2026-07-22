@@ -1,3 +1,5 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   StyleSheet,
   View,
@@ -32,7 +34,7 @@ function MenuItem({
   onPress,
   danger,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   onPress: () => void;
   danger?: boolean;
@@ -57,7 +59,7 @@ function MenuItem({
           borderColor: colors.border,
         },
       ]}>
-      <Text style={styles.menuIcon}>{icon}</Text>
+      <View style={styles.menuIcon}>{icon}</View>
       <Text
         style={[
           styles.menuLabel,
@@ -141,13 +143,13 @@ function LoggedInContent() {
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.menu}>
-        <MenuItem icon="✏️" label="닉네임 변경" onPress={() => router.push('/edit-nickname')} />
-        <MenuItem icon="🏍️" label="내 바이크" onPress={() => router.push('/edit-bike')} />
-        <MenuItem icon="⭐" label="즐겨찾기" onPress={() => router.push('/favorites')} />
-        <MenuItem icon="📝" label="내 제보 목록" onPress={() => router.push('/my-submissions')} />
-        <MenuItem icon="💬" label="내 리뷰" onPress={() => router.push('/my-reviews')} />
+        <MenuItem icon={<Ionicons name="create-outline" size={20} color={colors.text} />} label="닉네임 변경" onPress={() => router.push('/edit-nickname')} />
+        <MenuItem icon={<MaterialCommunityIcons name="motorbike" size={20} color={colors.text} />} label="내 바이크" onPress={() => router.push('/edit-bike')} />
+        <MenuItem icon={<Ionicons name="star-outline" size={20} color={colors.text} />} label="즐겨찾기" onPress={() => router.push('/favorites')} />
+        <MenuItem icon={<Ionicons name="document-text-outline" size={20} color={colors.text} />} label="내 제보 목록" onPress={() => router.push('/my-submissions')} />
+        <MenuItem icon={<Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />} label="내 리뷰" onPress={() => router.push('/my-reviews')} />
         <MenuItem
-          icon="🚪"
+          icon={<Ionicons name="log-out-outline" size={20} color={colors.text} />}
           label="로그아웃"
           onPress={handleSignOut}
           danger

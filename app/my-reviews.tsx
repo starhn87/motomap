@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   StyleSheet,
   View,
@@ -88,7 +89,7 @@ export default function MyReviewsScreen() {
         <ReviewSkeletonList />
       ) : !reviews?.length ? (
         <EmptyState
-          icon="💬"
+          icon={<Ionicons name="chatbubble-ellipses-outline" size={44} color={colors.textSecondary} />}
           title="작성한 리뷰가 없습니다"
           hint="장소를 방문하고 리뷰를 남겨보세요!"
           actionLabel="지도에서 장소 찾아보기"

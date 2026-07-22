@@ -1,3 +1,5 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   StyleSheet,
   View,
@@ -58,7 +60,7 @@ export default function MySubmissionsScreen() {
         ]}>
         <View style={styles.cardHeader}>
           <View style={[styles.categoryBadge, { backgroundColor: category.color + '20' }]}>
-            <Text style={styles.categoryIcon}>{category.icon}</Text>
+            <CategoryIcon category={item.category} size={14} color={category.color} />
             <Text style={[styles.categoryLabel, { color: category.color }]}>
               {category.label}
             </Text>
@@ -94,7 +96,7 @@ export default function MySubmissionsScreen() {
         <SubmissionSkeletonList />
       ) : !places?.length ? (
         <EmptyState
-          icon="📍"
+          icon={<Ionicons name="location-outline" size={44} color={colors.textSecondary} />}
           title="제보한 장소가 없습니다"
           hint="라이더들과 나누고 싶은 장소를 알려주세요!"
           actionLabel="제보하러 가기"

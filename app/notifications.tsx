@@ -1,3 +1,5 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -126,9 +128,15 @@ export default function NotificationsScreen() {
                     opacity: pressed ? 0.8 : 1,
                   },
                 ]}>
-                <Text style={styles.itemIcon}>
-                  {item.type === 'feedback_reply' ? '💬' : item.type.startsWith('course') ? '🛣️' : '📍'}
-                </Text>
+                <View style={styles.itemIcon}>
+                  {item.type === 'feedback_reply' ? (
+                    <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.tint} />
+                  ) : item.type.startsWith('course') ? (
+                    <MaterialCommunityIcons name="road-variant" size={20} color={colors.tint} />
+                  ) : (
+                    <Ionicons name="location-outline" size={20} color={colors.tint} />
+                  )}
+                </View>
                 <View style={styles.itemBody}>
                   <View style={styles.itemHeader}>
                     <Text style={[styles.itemTitle, { color: colors.text }]}>
@@ -174,7 +182,9 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   itemIcon: {
-    fontSize: 22,
+    width: 26,
+    alignItems: 'center',
+    marginTop: 2,
   },
   itemBody: {
     flex: 1,
