@@ -92,6 +92,190 @@ index e2f54f7..8b4d121 100644
        registerDirectEvent(this, NaverMapScreenToCoordinateEvent.EVENT_NAME)
        registerDirectEvent(this, NaverMapCoordinateToScreenEvent.EVENT_NAME)
        registerDirectEvent(this, NaverMapClusterLeafTapEvent.EVENT_NAME)
+diff --git a/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/overlay/marker/cluster/RNCNaverMapClusterMarkerUpdater.kt b/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/overlay/marker/cluster/RNCNaverMapClusterMarkerUpdater.kt
+index 2287045..cc0fff4 100644
+--- a/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/overlay/marker/cluster/RNCNaverMapClusterMarkerUpdater.kt
++++ b/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/overlay/marker/cluster/RNCNaverMapClusterMarkerUpdater.kt
+@@ -1,10 +1,15 @@
+ package com.mjstudio.reactnativenavermap.overlay.marker.cluster
+ 
++import android.graphics.Bitmap
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.graphics.Typeface
+ import com.mjstudio.reactnativenavermap.util.px
+ import com.naver.maps.map.clustering.ClusterMarkerInfo
+ import com.naver.maps.map.clustering.DefaultClusterMarkerUpdater
+ import com.naver.maps.map.overlay.Marker
+-import com.naver.maps.map.overlay.Marker.SIZE_AUTO
++import com.naver.maps.map.overlay.OverlayImage
+ 
+ internal class RNCNaverMapClusterMarkerUpdater(
+   private val holder: RNCNaverMapClusterDataHolder,
+@@ -14,8 +19,65 @@ internal class RNCNaverMapClusterMarkerUpdater(
+     marker: Marker,
+   ) {
+     super.updateClusterMarker(info, marker)
+-    val (width, height) = holder
+-    marker.width = width?.px ?: SIZE_AUTO
+-    marker.height = height?.px ?: SIZE_AUTO
++
++    val count = info.size
++    // JS에서 클러스터 크기를 지정하면 그 값을, 아니면 개수에 따라 3단계 (dp)
++    val dDp = holder.width ?: if (count < 10) 40.0 else if (count < 100) 46.0 else 52.0
++    val d = dDp.px
++    val text = if (count < 100) "$count" else "99+"
++
++    marker.icon = clusterIcon(text, d)
++    marker.captionText = ""
++    marker.width = d + (HALO_DP + 2).px * 2
++    marker.height = d + (HALO_DP + 2).px * 2
++  }
++
++  companion object {
++    // 기본 클러스터 마커처럼 원 주위에 두르는 동색 반투명 헤일로의 폭 (dp)
++    private const val HALO_DP = 4.0
++
++    private val iconCache = HashMap<String, OverlayImage>()
++
++
++    // [모토맵 패치] SDK 기본 클러스터 아이콘(밀도별 3색 원 + 캡션 숫자) 대신
++    // 장소 마커의 흰 배지와 톤을 잇는 흰 원(헤어라인 테두리) + 검정 숫자를 직접 그린다.
++    // 같은 (텍스트, 크기) 조합은 캐시해 줌 변경마다 재생성하지 않는다.
++    private fun clusterIcon(
++      text: String,
++      d: Int,
++    ): OverlayImage =
++      iconCache.getOrPut("$text-$d") {
++        val halo = HALO_DP.px
++        // 그림자가 잘리지 않도록 헤일로보다 살짝 넓게 패딩
++        val pad = (HALO_DP + 2).px
++        val t = d + pad * 2
++        val bmp = Bitmap.createBitmap(t, t, Bitmap.Config.ARGB_8888)
++        val canvas = Canvas(bmp)
++        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
++        val half = t / 2f
++        val line = (1.5).px.toFloat()
++
++        paint.color = Color.argb(128, 255, 255, 255)
++        canvas.drawCircle(half, half, d / 2f + halo, paint)
++        // 밝은 지도에서 흰 원이 묻히지 않도록 드롭 섀도로 띄운다
++        paint.color = Color.WHITE
++        paint.setShadowLayer((3.0).px.toFloat(), 0f, (1.5).px.toFloat(), Color.argb(72, 0, 0, 0))
++        canvas.drawCircle(half, half, d / 2f - line / 2, paint)
++        paint.clearShadowLayer()
++        paint.style = Paint.Style.STROKE
++        paint.strokeWidth = line
++        paint.color = Color.rgb(0xC8, 0xC8, 0xCE)
++        canvas.drawCircle(half, half, d / 2f - line / 2, paint)
++
++        paint.style = Paint.Style.FILL
++        paint.color = Color.rgb(0x18, 0x18, 0x1B)
++        paint.textSize = d * 0.34f
++        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
++        paint.textAlign = Paint.Align.CENTER
++        val fm = paint.fontMetrics
++        canvas.drawText(text, half, half - (fm.ascent + fm.descent) / 2f, paint)
++
++        OverlayImage.fromBitmap(bmp)
++      }
+   }
+ }
+diff --git a/node_modules/@mj-studio/react-native-naver-map/ios/Overlay/Cluster/RNCNaverMapClusterMarkerUpdater.mm b/node_modules/@mj-studio/react-native-naver-map/ios/Overlay/Cluster/RNCNaverMapClusterMarkerUpdater.mm
+index 335f551..3b781fd 100644
+--- a/node_modules/@mj-studio/react-native-naver-map/ios/Overlay/Cluster/RNCNaverMapClusterMarkerUpdater.mm
++++ b/node_modules/@mj-studio/react-native-naver-map/ios/Overlay/Cluster/RNCNaverMapClusterMarkerUpdater.mm
+@@ -8,6 +8,70 @@
+ #import "MacroUtil.h"
+ #import "RNCNaverMapClusterKey.h"
+ 
++// 기본 클러스터 마커처럼 원 주위에 두르는 동색 반투명 헤일로의 폭 (dp)
++static const CGFloat kClusterHalo = 4;
++
++// [모토맵 패치] SDK 기본 클러스터 아이콘(밀도별 3색 원 + 캡션 숫자) 대신
++// 장소 마커의 흰 배지와 톤을 잇는 흰 원(헤어라인 테두리) + 검정 숫자를 직접 그린다.
++// 같은 (텍스트, 크기) 조합은 캐시해 줌 변경마다 재생성하지 않는다.
++static NMFOverlayImage* clusterIcon(NSString* text, CGFloat d) {
++  static NSCache<NSString*, NMFOverlayImage*>* cache;
++  static dispatch_once_t once;
++  dispatch_once(&once, ^{
++    cache = [NSCache new];
++  });
++  NSString* key = [NSString stringWithFormat:@"%@-%.0f", text, d];
++  NMFOverlayImage* cached = [cache objectForKey:key];
++  if (cached)
++    return cached;
++
++  CGFloat halo = kClusterHalo;
++  // 그림자가 잘리지 않도록 헤일로보다 살짝 넓게 패딩
++  CGFloat pad = halo + 2;
++  CGFloat t = d + pad * 2;
++  UIGraphicsImageRendererFormat* fmt = [UIGraphicsImageRendererFormat preferredFormat];
++  fmt.opaque = NO;
++  UIGraphicsImageRenderer* renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(t, t)
++                                                                             format:fmt];
++  UIImage* img = [renderer imageWithActions:^(UIGraphicsImageRendererContext* ctx) {
++    CGContextRef c = ctx.CGContext;
++    CGContextSetFillColorWithColor(c, [UIColor.whiteColor colorWithAlphaComponent:0.5].CGColor);
++    CGContextFillEllipseInRect(c,
++                               CGRectMake(pad - halo, pad - halo, d + halo * 2, d + halo * 2));
++
++    // 밝은 지도에서 흰 원이 묻히지 않도록 드롭 섀도로 띄운다
++    CGFloat line = 1.5;
++    CGRect r = CGRectMake(pad + line / 2, pad + line / 2, d - line, d - line);
++    CGContextSaveGState(c);
++    CGContextSetShadowWithColor(c, CGSizeMake(0, 1.5), 3,
++                                [UIColor colorWithWhite:0 alpha:0.28].CGColor);
++    CGContextSetFillColorWithColor(c, UIColor.whiteColor.CGColor);
++    CGContextFillEllipseInRect(c, r);
++    CGContextRestoreGState(c);
++    UIColor* hairline = [UIColor colorWithRed:0xC8 / 255.0
++                                        green:0xC8 / 255.0
++                                         blue:0xCE / 255.0
++                                        alpha:1];
++    CGContextSetStrokeColorWithColor(c, hairline.CGColor);
++    CGContextSetLineWidth(c, line);
++    CGContextStrokeEllipseInRect(c, r);
++
++    UIFont* font = [UIFont systemFontOfSize:d * 0.34 weight:UIFontWeightBold];
++    NSDictionary* attrs = @{
++      NSFontAttributeName : font,
++      NSForegroundColorAttributeName : [UIColor colorWithRed:0x18 / 255.0
++                                                       green:0x18 / 255.0
++                                                        blue:0x1B / 255.0
++                                                       alpha:1],
++    };
++    CGSize ts = [text sizeWithAttributes:attrs];
++    [text drawAtPoint:CGPointMake((t - ts.width) / 2, (t - ts.height) / 2) withAttributes:attrs];
++  }];
++  NMFOverlayImage* overlay = [NMFOverlayImage overlayImageWithImage:img];
++  [cache setObject:overlay forKey:key];
++  return overlay;
++}
++
+ @implementation RNCNaverMapClusterMarkerUpdater
+ 
+ - (instancetype)initWith:(double)width height:(double)height {
+@@ -22,8 +86,16 @@ - (instancetype)initWith:(double)width height:(double)height {
+ #pragma clang diagnostic ignored "-Wmissing-selector-name"
+ - (void)updateClusterMarker:(NMCClusterMarkerInfo*)info:(NMFMarker*)marker {
+   [super updateClusterMarker:info:marker];
+-  marker.width = isValidNumber(_width) && _width ? _width : NMF_MARKER_SIZE_AUTO;
+-  marker.height = isValidNumber(_height) && _height ? _height : NMF_MARKER_SIZE_AUTO;
++
++  NSInteger count = info.size;
++  // JS에서 클러스터 크기를 지정하면 그 값을, 아니면 개수에 따라 3단계
++  CGFloat d = isValidNumber(_width) && _width ? _width : (count < 10 ? 40 : count < 100 ? 46 : 52);
++  NSString* text = count < 100 ? [NSString stringWithFormat:@"%ld", (long)count] : @"99+";
++
++  marker.iconImage = clusterIcon(text, d);
++  marker.captionText = @"";
++  marker.width = d + (kClusterHalo + 2) * 2;
++  marker.height = d + (kClusterHalo + 2) * 2;
+ }
+ #pragma clang diagnostic pop
+ 
 diff --git a/node_modules/@mj-studio/react-native-naver-map/ios/RNCNaverMapViewImpl.mm b/node_modules/@mj-studio/react-native-naver-map/ios/RNCNaverMapViewImpl.mm
 index 35add80..d1e188c 100644
 --- a/node_modules/@mj-studio/react-native-naver-map/ios/RNCNaverMapViewImpl.mm
