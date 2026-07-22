@@ -55,9 +55,9 @@ const BADGE_CY = 18.5;
 for (const [category, color] of Object.entries(CATEGORIES)) {
   const tx = BADGE_CX - 12 * ICON_SCALE;
   const ty = BADGE_CY - 12 * ICON_SCALE;
-  // 캔버스 세로 2배(하반부 투명) — 클러스터 마커는 앵커 지정이 안 되고 중앙에
-  // 붙으므로, 핀을 상반부에 그리면 캔버스 중앙 = 꼬리 끝 = 좌표가 된다.
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 112" width="120" height="336">
+  // 네이버 마커의 기본 앵커는 하단 중앙(0.5, 1) — 꼬리 끝이 곧 좌표이므로
+  // 캔버스는 핀에 꽉 차게 만든다.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 56" width="120" height="168">
   <path d="${PIN_PATH}" fill="${color}" stroke="#FFFFFF" stroke-width="2"/>
   <circle cx="${BADGE_CX}" cy="${BADGE_CY}" r="13" fill="#FFFFFF"/>
   <g transform="translate(${tx} ${ty}) scale(${ICON_SCALE})">

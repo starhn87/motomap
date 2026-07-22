@@ -500,9 +500,9 @@ export default function MapScreen() {
           latitude: place.latitude,
           longitude: place.longitude,
           image: MARKER_IMAGES[place.category],
-          // 이미지 하반부는 투명 여백 — 시각 크기는 36x50, 중앙 앵커에서 꼬리가 좌표를 찍는다
+          // 마커 기본 앵커는 하단 중앙 — 꼬리 끝이 좌표를 찍는다
           width: 36,
-          height: 101,
+          height: 50,
         })),
     [places, selectedPlaceId]
   );
@@ -569,8 +569,8 @@ export default function MapScreen() {
             longitude={selectedPlace.longitude}
             image={MARKER_IMAGES[selectedPlace.category]}
             width={42}
-            height={118}
-            anchor={{ x: 0.5, y: 0.5 }}
+            height={59}
+            anchor={{ x: 0.5, y: 1 }}
             zIndex={100}
           />
         )}
