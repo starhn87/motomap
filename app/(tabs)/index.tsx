@@ -568,8 +568,8 @@ export default function MapScreen() {
             latitude={selectedPlace.latitude}
             longitude={selectedPlace.longitude}
             image={MARKER_IMAGES[selectedPlace.category]}
-            width={47}
-            height={132}
+            width={42}
+            height={118}
             anchor={{ x: 0.5, y: 0.5 }}
             zIndex={100}
           />
