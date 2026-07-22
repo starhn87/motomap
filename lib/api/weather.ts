@@ -50,17 +50,39 @@ function feelsLike(tempC: number, humidityPct: number, windMs: number): number {
 function gradeOf(score: number): {
   grade: RidingWeather['grade'];
   gradeColor: string;
-  comment: string;
 } {
-  if (score >= 85)
-    return { grade: '최고', gradeColor: '#16A34A', comment: '달리기 딱 좋은 날이에요!' };
-  if (score >= 70)
-    return { grade: '좋음', gradeColor: '#65A30D', comment: '라이딩하기 좋은 날씨예요.' };
-  if (score >= 50)
-    return { grade: '보통', gradeColor: '#D97706', comment: '무난하지만 장비를 챙기세요.' };
-  if (score >= 30)
-    return { grade: '주의', gradeColor: '#EA580C', comment: '컨디션이 좋지 않아요. 조심히 달리세요.' };
-  return { grade: '비추천', gradeColor: '#DC2626', comment: '오늘은 쉬어 가는 게 좋겠어요.' };
+  if (score >= 85) return { grade: '최고', gradeColor: '#16A34A' };
+  if (score >= 70) return { grade: '좋음', gradeColor: '#65A30D' };
+  if (score >= 50) return { grade: '보통', gradeColor: '#D97706' };
+  if (score >= 30) return { grade: '주의', gradeColor: '#EA580C' };
+  return { grade: '비추천', gradeColor: '#DC2626' };
+}
+
+// 시간대를 읽는 코멘트 — 하루를 통째로 재단하지 않고 "언제까지 괜찮은지,
+// 언제부터 갤지"를 말한다. 라이딩은 한두 시간짜리도 많아서 비 없는 창을
+// 짚어주는 쪽이 실제 출발 판단에 맞다.
+function commentFor(hours: KmaHour[], temp: number, windMs: number): string {
+  const next12 = hours.slice(0, 12);
+  const isRainy = (h: KmaHour) => h.pty > 0 || h.pop >= 60;
+  const hourLabel = (h: KmaHour) => `${parseInt(h.time.slice(0, 2), 10)}시`;
+
+  if (isRainy(next12[0])) {
+    const clearIdx = next12.findIndex((h) => !isRainy(h));
+    if (clearIdx === -1) return '당분간 비가 이어져요. 오늘은 쉬어 가는 게 좋겠어요.';
+    return `지금은 비 소식이 있어요. ${hourLabel(next12[clearIdx])}부터는 갤 것 같아요.`;
+  }
+  const rainIdx = next12.findIndex(isRainy);
+  if (rainIdx > 0 && rainIdx <= 2) {
+    return `${hourLabel(next12[rainIdx])}쯤 비가 시작될 것 같아요. 멀리 가긴 애매해요.`;
+  }
+  if (rainIdx > 2) {
+    return `${hourLabel(next12[rainIdx])} 전까지는 비 소식이 없어요. 그 안에 다녀오기 좋아요.`;
+  }
+  if (windMs >= 7) return '비 소식은 없지만 바람이 강해요. 옆바람을 조심하세요.';
+  if (temp > 28) return '비 걱정은 없어요. 한낮 더위와 노면 열기만 조심하세요.';
+  if (temp < 5) return '비 소식은 없지만 많이 추워요. 방한을 단단히 하세요.';
+  if (temp < 15) return '비 걱정 없이 달릴 수 있어요. 쌀쌀하니 겉옷을 챙기세요.';
+  return '앞으로 비 소식 없이 달리기 좋아요.';
 }
 
 // 라이더 기준 감점제 — 기온(15~24 최적)·강수·바람 요인
@@ -194,6 +216,7 @@ export async function fetchRidingWeather(latitude: number, longitude: number): P
   return {
     score,
     ...gradeOf(score),
+    comment: commentFor(hours, temp, windMs),
     current: {
       temp: Math.round(temp),
       feels: feelsLike(temp, now.reh ?? 50, windMs),
