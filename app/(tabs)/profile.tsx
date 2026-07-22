@@ -1,3 +1,4 @@
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
@@ -131,7 +132,7 @@ function LoggedInContent() {
             disabled={uploading}
             hitSlop={6}
             style={styles.avatarBadge}>
-            <Text style={styles.avatarBadgeText}>{uploading ? '...' : '📷'}</Text>
+            {uploading ? <Text style={styles.avatarBadgeText}>...</Text> : <Ionicons name="camera" size={13} color="#FFFFFF" />}
           </Pressable>
         </Pressable>
         <Text style={[styles.name, { color: colors.text }]}>
@@ -144,7 +145,7 @@ function LoggedInContent() {
 
       <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.menu}>
         <MenuItem icon={<Ionicons name="create-outline" size={20} color={colors.text} />} label="닉네임 변경" onPress={() => router.push('/edit-nickname')} />
-        <MenuItem icon={<MaterialCommunityIcons name="motorbike" size={20} color={colors.text} />} label="내 바이크" onPress={() => router.push('/edit-bike')} />
+        <MenuItem icon={<FontAwesome5 name="motorcycle" size={17} color={colors.text} />} label="내 바이크" onPress={() => router.push('/edit-bike')} />
         <MenuItem icon={<Ionicons name="star-outline" size={20} color={colors.text} />} label="즐겨찾기" onPress={() => router.push('/favorites')} />
         <MenuItem icon={<Ionicons name="document-text-outline" size={20} color={colors.text} />} label="내 제보 목록" onPress={() => router.push('/my-submissions')} />
         <MenuItem icon={<Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />} label="내 리뷰" onPress={() => router.push('/my-reviews')} />
@@ -184,7 +185,7 @@ export default function ProfileScreen() {
             borderColor: colors.border,
           },
         ]}>
-        <Text style={styles.settingsIcon}>⚙️</Text>
+        <Ionicons name="settings-outline" size={22} color={colors.text} />
         <Text style={[styles.settingsLabel, { color: colors.text }]}>설정</Text>
       </Pressable>
 

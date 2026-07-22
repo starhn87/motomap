@@ -322,6 +322,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: 16, marginBottom: 8 },
   categories: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   categoryChip: {
+    gap: 5,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,

@@ -133,6 +133,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   categoryBadge: {
+    gap: 5,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,

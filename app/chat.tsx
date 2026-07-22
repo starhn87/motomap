@@ -1,3 +1,4 @@
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -317,7 +318,7 @@ export default function ChatScreen() {
         {messages.length === 0 ? (
           // 시작 화면 — 인사 + 예시 질문
           <View style={styles.welcome}>
-            <MaterialCommunityIcons name="motorbike" size={44} color={colors.tint} />
+            <FontAwesome5 name="motorcycle" size={38} color={colors.tint} />
             <Text style={[styles.welcomeTitle, { color: colors.text }]}>
               어디로 달려볼까요?
             </Text>
@@ -518,6 +519,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   card: {
+    gap: 5,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,

@@ -105,6 +105,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   chip: {
+    gap: 5,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,

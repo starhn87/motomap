@@ -93,13 +93,16 @@ export default function ExploreScreen() {
         </View>
       )}
 
-      {seasonalBadge(item.tags) && (
-        <View style={[styles.seasonBadge, { backgroundColor: colors.surfaceMuted }]}>
-          <Text style={[styles.seasonBadgeText, { color: colors.text }]}>
-            {seasonalBadge(item.tags)}
-          </Text>
-        </View>
-      )}
+      {(() => {
+        const season = seasonalBadge(item.tags);
+        if (!season) return null;
+        return (
+          <View style={[styles.seasonBadge, { backgroundColor: colors.surfaceMuted }]}>
+            <MaterialCommunityIcons name={season.icon as any} size={13} color={colors.tint} />
+            <Text style={[styles.seasonBadgeText, { color: colors.text }]}>{season.label}</Text>
+          </View>
+        );
+      })()}
       <Text style={[styles.courseName, { color: colors.text }]}>
         {item.name}
       </Text>
@@ -321,6 +324,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   seasonBadge: {
+    gap: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
     borderRadius: 8,
     paddingHorizontal: 8,

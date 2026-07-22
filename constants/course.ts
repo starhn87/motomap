@@ -1,15 +1,16 @@
-// 코스 태그와 현재 달을 대조해 "지금이 제철" 뱃지를 돌려준다 (해당 없으면 null)
-const SEASONAL: { months: number[]; tags: string[]; badge: string }[] = [
-  { months: [3, 4], tags: ['벚꽃', '봄'], badge: '🌸 지금이 제철' },
-  { months: [6, 7, 8], tags: ['계곡', '바다', '해안', '여름'], badge: '🌊 지금이 제철' },
-  { months: [10, 11], tags: ['단풍', '억새', '가을'], badge: '🍂 지금이 제철' },
+// 코스 태그와 현재 달을 대조해 "지금이 제철" 뱃지를 돌려준다 (해당 없으면 null).
+// icon 은 MaterialCommunityIcons 이름 — 계절 감성을 벡터로 표현한다.
+const SEASONAL: { months: number[]; tags: string[]; icon: string }[] = [
+  { months: [3, 4], tags: ['벚꽃', '봄'], icon: 'flower' },
+  { months: [6, 7, 8], tags: ['계곡', '바다', '해안', '여름'], icon: 'waves' },
+  { months: [10, 11], tags: ['단풍', '억새', '가을'], icon: 'leaf-maple' },
 ];
 
-export function seasonalBadge(tags: string[]): string | null {
+export function seasonalBadge(tags: string[]): { icon: string; label: string } | null {
   const month = new Date().getMonth() + 1;
   for (const season of SEASONAL) {
     if (season.months.includes(month) && tags.some((t) => season.tags.includes(t))) {
-      return season.badge;
+      return { icon: season.icon, label: '지금이 제철' };
     }
   }
   return null;
