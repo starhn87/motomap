@@ -239,7 +239,7 @@ Sentry.wrap(
 
 | 연동 | 위치 | 용도 |
 |---|---|---|
-| 네이버 지도 SDK | `@mj-studio/react-native-naver-map`, app.config `NAVER_MAP_CLIENT_ID` | 지도 렌더·마커·경로선 |
+| 네이버 지도 SDK | `@mj-studio/react-native-naver-map`, app.config `NAVER_MAP_CLIENT_ID` | 지도 렌더·마커·경로선. `patches/`로 심벌 탭 노출·클러스터 마커 커스텀(새 빌드에만 반영) |
 | 네이버 Directions | `lib/api/directions.ts` (`EXPO_PUBLIC_NAVER_CLIENT_ID/SECRET`) | 경로 미리보기(거리·시간·geometry) |
 | 네이버 Geocoding | `lib/geocode.ts` | 주소→좌표 (코스 제보 fallback) |
 | 카카오 로컬 검색 | `lib/api/kakaoLocal.ts` (`EXPO_PUBLIC_KAKAO_REST_API_KEY`) | 제보 주소 검색 (상호+주소→좌표) |
@@ -284,7 +284,7 @@ Sentry.wrap(
 - `seed-moto-camping.mjs`(camping 7) — 모토캠핑 캠핑장. 마이그레이션 011 적용 후 실행.
 - `seed-places-from-json.mjs`(범용) — `scripts/data/*.json`(name/category/address/lat/lng/description/tags, 좌표 사전 검증)을 읽어 삽입. 2026-07 운영자 추천 33 + 라이더 맛집 25 시드에 사용.
 - `cleanup-places.mjs`(중복 삭제·태그 정규화) · `list-places.mjs`(카테고리별 감사) · `verify-place-coords.mjs`(`all_places` RPC로 좌표 누락 점검).
-- `generate-marker-images.swift`(카테고리 마커 PNG 생성) · `invert-theme.js`(라이트 아이콘→다크 변환, sharp).
+- `generate-markers.mjs`(카테고리 물방울 마커 PNG 생성, sharp) · `invert-theme.js`(라이트 아이콘→다크 변환, sharp).
 
 **`constants/`**: `Colors`(테마) · `categories`(라벨·아이콘·색) · `course`(거리/시간 포맷터) · `legal`(약관 본문) · `mapStyle`(기본 중심·줌) · `markerImages`(마커 경로) · `riderTags`(하이라이트 태그).
 

@@ -46,7 +46,7 @@ set -a; . ./.env; set +a
 
 ## 주의점 (hard-won gotchas)
 - **@gorhom/bottom-sheet**: `BottomSheet`에 `animateOnMount={false}`를 둬야 첫 확장 시 마운트 레이아웃 계산 타이밍과 제스처가 안 엉킨다(빼면 마커 탭 직후 첫 확장이 비결정적으로 튕김). 콘텐츠 패닝 + 스크롤은 빠른 드래그에서 충돌 소지가 있는 라이브러리 한계.
-- **@mj-studio naver-map**: `NaverMapMarkerOverlay`는 children을 **정적 비트맵으로 한 번 캡처**한다 → 폰트 아이콘은 캡처 타이밍 때문에 안 보일 수 있으니 순수 `View`로 그린다. 마커 `onTap`은 불안정. `coordinateToScreen({latitude,longitude})`는 동작(DP 좌표). `onCameraChanged`의 `reason`은 `'Developer' | 'Gesture' | 'Control' | 'Location'` — 프로그램 이동(`animateCameraTo`='Developer')과 사용자 드래그('Gesture')를 구분할 때 쓴다. `animateCameraTo`의 `zoom`은 옵션. 지도 기본 심벌 탭(`onTapSymbol`)은 라이브러리 미노출이라 **patch-package로 자가 패치**(`patches/`) — 네이티브 3층(spec·iOS·Android) 수정이므로 새 빌드에만 반영되고, 라이브러리 업그레이드 시 패치 재검토 필요. JS는 `SYMBOL_TAP_NATIVE`(runtime ≥ 1.1.3)로 구빌드 폴백 분기.
+- **@mj-studio naver-map**: `NaverMapMarkerOverlay`는 children을 **정적 비트맵으로 한 번 캡처**한다 → 폰트 아이콘은 캡처 타이밍 때문에 안 보일 수 있으니 순수 `View`로 그린다. 마커 `onTap`은 불안정. `coordinateToScreen({latitude,longitude})`는 동작(DP 좌표). `onCameraChanged`의 `reason`은 `'Developer' | 'Gesture' | 'Control' | 'Location'` — 프로그램 이동(`animateCameraTo`='Developer')과 사용자 드래그('Gesture')를 구분할 때 쓴다. `animateCameraTo`의 `zoom`은 옵션. 지도 기본 심벌 탭(`onTapSymbol`)은 라이브러리 미노출이라 **patch-package로 자가 패치**(`patches/`) — 네이티브 3층(spec·iOS·Android) 수정이므로 새 빌드에만 반영되고, 라이브러리 업그레이드 시 패치 재검토 필요. JS는 `SYMBOL_TAP_NATIVE`(runtime ≥ 1.1.3)로 구빌드 폴백 분기. 클러스터(집계) 마커 외형도 JS 미노출(width/height만)이라 같은 패치에서 양 플랫폼 updater가 직접 그린다(흰 원+헤어라인+숫자+헤일로+그림자, 1.1.4+) — 마커는 정적 오버레이라 고빈도 크기 변경 애니메이션은 텍스처 재생성 폭주로 워치독 킬을 부른다(실증됨, 금지).
 - **reanimated**: `Animated.View`는 `pointerEvents="box-only"`를 무시한다(plain `View`에서만 적용됨).
 
 ## 커밋
