@@ -11,8 +11,9 @@ import {
   FlatList,
   ActivityIndicator,
   Keyboard,
+  InteractionManager,
 } from 'react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -98,6 +99,15 @@ export default function SearchScreen() {
   const user = useAuthStore((s) => s.user);
 
   const [query, setQuery] = useState('');
+  const inputRef = useRef<TextInput>(null);
+
+  // autoFocus 대신 화면 전환이 끝난 뒤 포커스 — 지도가 배경에 살아있는 채로
+  // push 애니메이션과 키보드 상승이 겹치면 구형 기기에서 메인 스레드가 멈춘다
+  // (Sentry AppHang, RCTTextInputComponentView didMoveToWindow).
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => inputRef.current?.focus());
+    return () => task.cancel();
+  }, []);
   const [recent, setRecent] = useState<RecentSearch[]>([]);
 
   useEffect(() => {
@@ -258,12 +268,12 @@ export default function SearchScreen() {
             { backgroundColor: colors.surfaceElevated, borderColor: colors.tint },
           ]}>
           <TextInput
+            ref={inputRef}
             style={[styles.input, { color: colors.text }]}
             placeholder="장소, 코스 검색"
             placeholderTextColor={colors.textSecondary}
             value={query}
             onChangeText={setQuery}
-            autoFocus
             returnKeyType="search"
           />
           {query.length > 0 && (
