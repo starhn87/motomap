@@ -6,9 +6,11 @@ import Animated, {
   withTiming,
   withDelay,
   runOnJS,
+  Easing,
 } from 'react-native-reanimated';
 
-const USER_LOCATION_PULSE = 'rgba(45, 140, 255, 0.55)';
+// 네이버 지도처럼 링이 아니라 채워진 글로우가 마커 밖으로 퍼지며 사라진다
+const USER_LOCATION_PULSE = 'rgba(45, 140, 255, 0.35)';
 const PULSE_SIZE = 40;
 const PULSE_COUNT = 3;
 const PULSE_DURATION = 1600;
@@ -31,15 +33,16 @@ function PulseRing({
   useEffect(() => {
     progress.value = withDelay(
       delay,
-      withTiming(1, { duration: PULSE_DURATION }, (finished) => {
+      withTiming(1, { duration: PULSE_DURATION, easing: Easing.out(Easing.quad) }, (finished) => {
         if (finished && onDone) runOnJS(onDone)();
       })
     );
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    // 링 안쪽 가장자리가 점 외경(지름 18) 바로 바깥에서 시작해 화살표 끝/halo(지름 40)까지 퍼진다
-    transform: [{ scale: 0.55 + progress.value * 0.45 }],
+    // 점 외경(지름 18) 바로 바깥에서 시작해 마커의 세 배 가까이(지름 ~104)
+    // 퍼진다 — 초반에 빠르게 번지고 감속하며 잦아드는 글로우
+    transform: [{ scale: 0.45 + progress.value * 2.15 }],
     opacity: progress.value === 0 ? 0 : 1 - progress.value,
   }));
 
@@ -89,7 +92,6 @@ const styles = StyleSheet.create({
     width: PULSE_SIZE,
     height: PULSE_SIZE,
     borderRadius: PULSE_SIZE / 2,
-    borderWidth: 3,
-    borderColor: USER_LOCATION_PULSE,
+    backgroundColor: USER_LOCATION_PULSE,
   },
 });
