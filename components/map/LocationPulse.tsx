@@ -10,11 +10,11 @@ import Animated, {
 } from 'react-native-reanimated';
 
 // 네이버 지도 실측(확대 편집 영상 프레임 분석) 기반 안무: 채워진 소프트 글로우가
-// 마커 점 언저리(지름 ~27dp)에서 태어나 지름 ~68dp까지 퍼지면서 점점 흐려져
+// 마커 점 언저리(지름 ~27dp)에서 태어나 지름 ~60dp까지 퍼지면서 점점 흐려져
 // 소멸하고, 짧은 휴지 뒤 다시 태어난다(주기 ~2초).
 const GLOW_BLUE = 'rgb(45, 140, 255)';
-const GLOW_SIZE = 68;
-const START_SCALE = 0.4;
+const GLOW_SIZE = 60;
+const START_SCALE = 0.45;
 const START_ALPHA = 0.5;
 const WAVE_DURATION = 1600; // 확산+소멸
 const WAVE_INTERVAL = 2000; // 다음 파동까지 (휴지 400ms)
