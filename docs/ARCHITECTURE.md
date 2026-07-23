@@ -239,7 +239,7 @@ Sentry.wrap(
 
 | 연동 | 위치 | 용도 |
 |---|---|---|
-| 네이버 지도 SDK | `@mj-studio/react-native-naver-map`, app.config `NAVER_MAP_CLIENT_ID` | 지도 렌더·마커·경로선. `patches/`로 심벌 탭 노출·클러스터 마커 커스텀(새 빌드에만 반영) |
+| 네이버 지도 SDK | `@mj-studio/react-native-naver-map`, app.config `NAVER_MAP_CLIENT_ID` | 지도 렌더·마커·경로선. `patches/`로 심벌 탭 노출(새 빌드에만 반영) |
 | 네이버 Directions | `lib/api/directions.ts` (`EXPO_PUBLIC_NAVER_CLIENT_ID/SECRET`) | 경로 미리보기(거리·시간·geometry) |
 | 네이버 Geocoding | `lib/geocode.ts` | 주소→좌표 (코스 제보 fallback) |
 | 카카오 로컬 검색 | `lib/api/kakaoLocal.ts` (`EXPO_PUBLIC_KAKAO_REST_API_KEY`) | 제보 주소 검색 (상호+주소→좌표) |
