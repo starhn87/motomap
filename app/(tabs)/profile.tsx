@@ -132,7 +132,7 @@ function LoggedInContent() {
             disabled={uploading}
             hitSlop={6}
             style={styles.avatarBadge}>
-            {uploading ? <Text style={styles.avatarBadgeText}>...</Text> : <Ionicons name="camera" size={13} color="#18181B" />}
+            {uploading ? <Text style={styles.avatarBadgeText}>...</Text> : <Ionicons name="camera" size={15} color="#18181B" />}
           </Pressable>
         </Pressable>
         <Text style={[styles.name, { color: colors.text }]}>
