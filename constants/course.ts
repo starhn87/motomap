@@ -3,7 +3,7 @@
 // 계절감이 살지 않아 뱃지에서 유일하게 색을 쓴다.
 const SEASONAL: { months: number[]; tags: string[]; icon: string; color: string }[] = [
   { months: [3, 4], tags: ['벚꽃', '봄'], icon: 'flower', color: '#EC4899' },
-  { months: [6, 7, 8], tags: ['계곡', '바다', '해안', '여름'], icon: 'waves', color: '#0EA5E9' },
+  { months: [6, 7, 8], tags: ['계곡', '바다', '해안', '여름'], icon: 'palm-tree', color: '#0EA5E9' },
   { months: [10, 11], tags: ['단풍', '억새', '가을'], icon: 'leaf-maple', color: '#EA580C' },
 ];
 
