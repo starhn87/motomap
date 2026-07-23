@@ -7,6 +7,7 @@ import {
   Text,
   Pressable,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useState } from 'react';
@@ -82,6 +83,8 @@ function LoggedInContent() {
   );
   const [uploading, setUploading] = useState(false);
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
+  // 뷰어에서 골랐지만 아직 적용하지 않은 사진 — 뷰어 안 미리보기로만 보인다
+  const [pendingUri, setPendingUri] = useState<string | null>(null);
 
   const displayName = user.user_metadata?.name
     ?? user.user_metadata?.full_name
@@ -97,6 +100,31 @@ function LoggedInContent() {
       const url = await uploadImage(uri, `avatars/${user.id}`);
       await updateAvatarUrl(url);
       setAvatarUrl(url);
+    } catch (error: any) {
+      toast.error('프로필 사진 변경에 실패했습니다.', error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 뷰어를 닫지 않고 피커를 띄운다 — 닫는 애니메이션과 피커 프레젠트가
+  // 경합하면 iOS가 피커를 조용히 무산시킨다.
+  const handlePickForViewer = async () => {
+    const uri = await pickImage();
+    if (uri) setPendingUri(uri);
+  };
+
+  const handleApplyPending = async () => {
+    if (!pendingUri) return;
+    const uri = pendingUri;
+    setUploading(true);
+    try {
+      const url = await uploadImage(uri, `avatars/${user.id}`);
+      await updateAvatarUrl(url);
+      setAvatarUrl(url);
+      setPendingUri(null);
+      setAvatarViewerOpen(false);
+      toast.success('프로필 사진을 변경했어요.');
     } catch (error: any) {
       toast.error('프로필 사진 변경에 실패했습니다.', error.message);
     } finally {
@@ -157,19 +185,40 @@ function LoggedInContent() {
       {avatarUrl && (
         <ImageViewer
           visible={avatarViewerOpen}
-          photos={[avatarUrl]}
-          onClose={() => setAvatarViewerOpen(false)}
-          renderFooter={() => (
-            <Pressable
-              onPress={() => {
-                setAvatarViewerOpen(false);
-                void handleChangeAvatar();
-              }}
-              style={({ pressed }) => [styles.viewerChangeButton, { opacity: pressed ? 0.7 : 1 }]}>
-              <Ionicons name="camera" size={16} color="#FFFFFF" />
-              <Text style={styles.viewerChangeText}>사진 변경</Text>
-            </Pressable>
-          )}
+          photos={[pendingUri ?? avatarUrl]}
+          onClose={() => {
+            setAvatarViewerOpen(false);
+            setPendingUri(null);
+          }}
+          renderFooter={() =>
+            pendingUri ? (
+              <View style={styles.viewerFooterRow}>
+                <Pressable
+                  onPress={() => setPendingUri(null)}
+                  disabled={uploading}
+                  style={({ pressed }) => [styles.viewerChangeButton, { opacity: pressed ? 0.7 : 1 }]}>
+                  <Text style={styles.viewerChangeText}>취소</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void handleApplyPending()}
+                  disabled={uploading}
+                  style={({ pressed }) => [styles.viewerApplyButton, { opacity: pressed ? 0.8 : 1 }]}>
+                  {uploading ? (
+                    <ActivityIndicator size="small" color="#18181B" />
+                  ) : (
+                    <Text style={styles.viewerApplyText}>적용</Text>
+                  )}
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => void handlePickForViewer()}
+                style={({ pressed }) => [styles.viewerChangeButton, { opacity: pressed ? 0.7 : 1 }]}>
+                <Ionicons name="camera" size={16} color="#FFFFFF" />
+                <Text style={styles.viewerChangeText}>사진 변경</Text>
+              </Pressable>
+            )
+          }
         />
       )}
     </>
@@ -277,6 +326,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  viewerFooterRow: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    gap: 10,
+  },
+  viewerApplyButton: {
+    minWidth: 88,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    paddingHorizontal: 24,
+    paddingVertical: 11,
+  },
+  viewerApplyText: {
+    color: '#18181B',
+    fontSize: 14,
+    fontWeight: '700',
   },
   avatarBadgeText: {
     fontSize: 14,
