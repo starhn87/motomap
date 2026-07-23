@@ -50,7 +50,6 @@ import SearchEntry from '@/components/search/SearchEntry';
 import Feather from '@expo/vector-icons/Feather';
 import { router } from 'expo-router';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
-import { LocationPulse } from '@/components/map/LocationPulse';
 import { toast } from '@/lib/toast';
 import type { Place } from '@/types';
 import type { Route } from '@/lib/api/directions';
@@ -97,13 +96,10 @@ export default function MapScreen() {
   const [route, setRoute] = useState<Route | null>(null);
   const [routePlace, setRoutePlace] = useState<Place | null>(null);
   const [navigating, setNavigating] = useState(false);
-  const [pulse, setPulse] = useState<{ x: number; y: number; id: number } | null>(null);
-  const pulseIdRef = useRef(0);
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { height: screenHeight } = useWindowDimensions();
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; zoom: number } | null>(null);
   const mapRef = useRef<NaverMapViewRef>(null);
   const cameraTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const didCenterOnUserRef = useRef(false);
 
@@ -157,11 +153,10 @@ export default function MapScreen() {
     });
   }, [mapReady, userLocation]);
 
-  // 언마운트 시 카메라/펄스 타이머 정리
+  // 언마운트 시 카메라 타이머 정리
   useEffect(() => {
     return () => {
       if (cameraTimerRef.current) clearTimeout(cameraTimerRef.current);
-      if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
     };
   }, []);
 
@@ -459,13 +454,6 @@ export default function MapScreen() {
 
   const handleMyLocation = () => {
     if (!userLocation || !mapRef.current) return;
-    // 이미 내 위치가 지도 중앙(≈30m 이내)이면 시각 변화가 없으므로 펄스도 생략
-    const alreadyCentered =
-      !!mapCenter &&
-      Math.hypot(
-        (mapCenter.latitude - userLocation.latitude) * 111320,
-        (mapCenter.longitude - userLocation.longitude) * 88000
-      ) < 30;
     // 내 위치를 지도 중앙으로 이동(현재 줌 유지)
     mapRef.current.animateCameraTo({
       latitude: userLocation.latitude,
@@ -473,21 +461,6 @@ export default function MapScreen() {
       zoom: mapCenter?.zoom ?? DEFAULT_ZOOM,
       duration: 600,
     });
-    if (alreadyCentered) return;
-    // 카메라 이동이 끝난 뒤 마커의 실제 화면 좌표에서 펄스 재생(중앙과 어긋나지 않게)
-    if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
-    pulseTimerRef.current = setTimeout(async () => {
-      const res = await mapRef.current?.coordinateToScreen({
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-      });
-      pulseIdRef.current += 1;
-      setPulse(
-        res?.isValid
-          ? { x: res.screenX, y: res.screenY, id: pulseIdRef.current }
-          : { x: screenWidth / 2, y: screenHeight / 2, id: pulseIdRef.current }
-      );
-    }, 650);
   };
 
   const initialCamera = {
@@ -537,9 +510,6 @@ export default function MapScreen() {
         onTapMap={handleMapTap}
         onTapSymbol={handleSymbolTap}
         onCameraChanged={(e) => {
-          // 사용자가 직접 지도를 움직이면(Gesture) 펄스가 마커와 어긋나므로 중단
-          // (내 위치 버튼이 일으킨 이동은 'Developer'라 펄스를 유지)
-          if (e.reason === 'Gesture') setPulse(null);
           if (cameraTimerRef.current) clearTimeout(cameraTimerRef.current);
           cameraTimerRef.current = setTimeout(() => {
             setMapCenter({
@@ -567,7 +537,6 @@ export default function MapScreen() {
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
             heading={heading}
-            haloHidden={!!pulse}
           />
         )}
 
@@ -604,14 +573,6 @@ export default function MapScreen() {
         )}
       </NaverMapView>
 
-      {pulse && (
-        <LocationPulse
-          key={pulse.id}
-          x={pulse.x}
-          y={pulse.y}
-          onDone={() => setPulse((cur) => (cur?.id === pulse.id ? null : cur))}
-        />
-      )}
 
       {!navigating && (
         <Animated.View
