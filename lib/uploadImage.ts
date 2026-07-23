@@ -3,11 +3,12 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from '@/lib/supabase';
 
+// 크롭 UI 없음 — 아바타는 표시 단계에서 원형으로 중앙 크롭되므로
+// 선택 시 잘라내기를 강제할 이유가 없다
 export async function pickImage(): Promise<string | null> {
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
     quality: 0.7,
-    allowsEditing: true,
   });
 
   if (result.canceled || !result.assets[0]) return null;
