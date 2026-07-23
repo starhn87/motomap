@@ -97,9 +97,9 @@ export default function ExploreScreen() {
         const season = seasonalBadge(item.tags);
         if (!season) return null;
         return (
-          <View style={[styles.seasonBadge, { backgroundColor: colors.surfaceMuted }]}>
-            <MaterialCommunityIcons name={season.icon as any} size={13} color={colors.tint} />
-            <Text style={[styles.seasonBadgeText, { color: colors.text }]}>{season.label}</Text>
+          <View style={[styles.seasonBadge, { backgroundColor: `${season.color}1A` }]}>
+            <MaterialCommunityIcons name={season.icon as any} size={13} color={season.color} />
+            <Text style={[styles.seasonBadgeText, { color: season.color }]}>{season.label}</Text>
           </View>
         );
       })()}
