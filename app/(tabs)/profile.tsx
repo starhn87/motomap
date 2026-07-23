@@ -114,7 +114,8 @@ function LoggedInContent() {
   return (
     <>
       <Animated.View entering={FadeInDown.duration(300)} style={styles.profileHeader}>
-        {/* 사진이 있으면 본체 탭은 확대 보기, 변경은 📷 뱃지로 분리 */}
+        {/* 아바타 어디를 눌러도 확대 보기로 통일 — 변경은 뷰어 하단 버튼에서.
+            뱃지는 터치 타깃이 아니라 "바꿀 수 있음"을 알리는 힌트다. */}
         <Pressable
           onPress={avatarUrl ? () => setAvatarViewerOpen(true) : handleChangeAvatar}
           disabled={uploading}>
@@ -127,13 +128,9 @@ function LoggedInContent() {
               </Text>
             </View>
           )}
-          <Pressable
-            onPress={handleChangeAvatar}
-            disabled={uploading}
-            hitSlop={6}
-            style={styles.avatarBadge}>
+          <View style={styles.avatarBadge}>
             {uploading ? <Text style={styles.avatarBadgeText}>...</Text> : <Ionicons name="camera" size={15} color="#18181B" />}
-          </Pressable>
+          </View>
         </Pressable>
         <Text style={[styles.name, { color: colors.text }]}>
           {displayName}
@@ -162,6 +159,17 @@ function LoggedInContent() {
           visible={avatarViewerOpen}
           photos={[avatarUrl]}
           onClose={() => setAvatarViewerOpen(false)}
+          renderFooter={() => (
+            <Pressable
+              onPress={() => {
+                setAvatarViewerOpen(false);
+                void handleChangeAvatar();
+              }}
+              style={({ pressed }) => [styles.viewerChangeButton, { opacity: pressed ? 0.7 : 1 }]}>
+              <Ionicons name="camera" size={16} color="#FFFFFF" />
+              <Text style={styles.viewerChangeText}>사진 변경</Text>
+            </Pressable>
+          )}
         />
       )}
     </>
@@ -254,6 +262,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
+  },
+  viewerChangeButton: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+  },
+  viewerChangeText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   avatarBadgeText: {
     fontSize: 14,
