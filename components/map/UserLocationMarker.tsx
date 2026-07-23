@@ -13,13 +13,18 @@ export function UserLocationMarker({
   latitude,
   longitude,
   heading,
+  haloHidden,
 }: {
   latitude: number;
   longitude: number;
   heading: number;
+  /** 펄스 재생 동안 정적 halo 를 숨긴다 — 복귀는 LocationPulse 의 페이드 인이 잇는다 */
+  haloHidden?: boolean;
 }) {
   return (
     <NaverMapMarkerOverlay
+      // 마커 children 은 정적 비트맵 캡처라 리렌더로는 안 바뀔 수 있다 — key 로 강제 리마운트
+      key={haloHidden ? 'no-halo' : 'halo'}
       latitude={latitude}
       longitude={longitude}
       anchor={{ x: 0.5, y: 0.5 }}
@@ -28,7 +33,7 @@ export function UserLocationMarker({
       angle={heading}
       isFlatEnabled>
       <View collapsable={false} style={styles.container}>
-        <View style={styles.halo} />
+        {!haloHidden && <View style={styles.halo} />}
         <View style={styles.arrowOutline} />
         <View style={styles.arrowInner} />
         <View style={styles.dot} />

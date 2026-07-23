@@ -459,6 +459,13 @@ export default function MapScreen() {
 
   const handleMyLocation = () => {
     if (!userLocation || !mapRef.current) return;
+    // 이미 내 위치가 지도 중앙(≈30m 이내)이면 시각 변화가 없으므로 펄스도 생략
+    const alreadyCentered =
+      !!mapCenter &&
+      Math.hypot(
+        (mapCenter.latitude - userLocation.latitude) * 111320,
+        (mapCenter.longitude - userLocation.longitude) * 88000
+      ) < 30;
     // 내 위치를 지도 중앙으로 이동(현재 줌 유지)
     mapRef.current.animateCameraTo({
       latitude: userLocation.latitude,
@@ -466,6 +473,7 @@ export default function MapScreen() {
       zoom: mapCenter?.zoom ?? DEFAULT_ZOOM,
       duration: 600,
     });
+    if (alreadyCentered) return;
     // 카메라 이동이 끝난 뒤 마커의 실제 화면 좌표에서 펄스 재생(중앙과 어긋나지 않게)
     if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
     pulseTimerRef.current = setTimeout(async () => {
@@ -559,6 +567,7 @@ export default function MapScreen() {
             latitude={userLocation.latitude}
             longitude={userLocation.longitude}
             heading={heading}
+            haloHidden={!!pulse}
           />
         )}
 
