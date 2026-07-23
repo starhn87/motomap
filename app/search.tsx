@@ -649,16 +649,13 @@ const styles = StyleSheet.create({
   aiBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
     marginHorizontal: 16,
     marginTop: 6,
     borderWidth: 1.5,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
-  },
-  aiBannerIcon: {
-    fontSize: 22,
-    marginRight: 12,
   },
   aiBannerArrow: {
     fontSize: 18,
