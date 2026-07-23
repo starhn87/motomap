@@ -618,13 +618,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-  },
-  rowIcon: {
-    fontSize: 20,
-    marginRight: 12,
   },
   rowInfo: {
     flex: 1,
