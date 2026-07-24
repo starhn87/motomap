@@ -718,8 +718,10 @@ const styles = StyleSheet.create({
   },
   courseReturnWrap: {
     position: 'absolute',
-    top: 118,
-    left: 16,
+    top: 162,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
     zIndex: 6,
     elevation: 6,
   },
