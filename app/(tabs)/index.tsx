@@ -17,6 +17,7 @@ import Animated, {
   withSequence,
   Easing,
   FadeIn,
+  FadeOut,
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
@@ -48,6 +49,7 @@ import { coordToSpot, coordToAddress, nearestPoi, searchKakaoLocal } from '@/lib
 import * as Updates from 'expo-updates';
 import SearchEntry from '@/components/search/SearchEntry';
 import Feather from '@expo/vector-icons/Feather';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { toast } from '@/lib/toast';
@@ -210,10 +212,11 @@ export default function MapScreen() {
   // 승인 푸시 탭·검색 화면 선택 → focusPlaceId 파라미터로 진입 시 해당 장소를 선택·포커스.
   // 같은 장소를 연속 선택해도 반응하도록 focusTs(검색 화면이 넣어줌)까지 포함해 중복 판정한다.
   // focusReviewId(내 리뷰에서 진입)가 있으면 시트를 펼쳐 그 리뷰로 스크롤·강조한다.
-  const { focusPlaceId, focusTs, focusReviewId, kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone } =
+  const { focusPlaceId, focusTs, focusReviewId, fromCourseId, kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone } =
     useLocalSearchParams<{
       focusPlaceId?: string;
       focusTs?: string;
+      fromCourseId?: string;
       focusReviewId?: string;
       kakaoName?: string;
       kakaoAddress?: string;
@@ -250,6 +253,11 @@ export default function MapScreen() {
   const [highlightReview, setHighlightReview] = useState<{ id: string; key: string } | null>(
     null
   );
+  // 코스 상세의 근처 장소에서 넘어온 경우 — 돌아갈 코스와 그 장소를 기억해
+  // 시트가 열려 있는 동안 "코스로 돌아가기" 칩을 띄운다
+  const [courseReturn, setCourseReturn] = useState<{ courseId: string; placeId: string } | null>(
+    null
+  );
   const handledFocusIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!focusPlaceId || !mapReady) return;
@@ -261,18 +269,20 @@ export default function MapScreen() {
       const place = await fetchPlaceById(focusPlaceId);
       if (place && !cancelled) {
         setHighlightReview(focusReviewId ? { id: focusReviewId, key: focusKey } : null);
+        setCourseReturn(fromCourseId ? { courseId: fromCourseId, placeId: place.id } : null);
         handleSearchSelect(place);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [focusPlaceId, focusTs, focusReviewId, mapReady, handleSearchSelect]);
+  }, [focusPlaceId, focusTs, focusReviewId, fromCourseId, mapReady, handleSearchSelect]);
 
   const handleBottomSheetClose = useCallback(() => {
     setSelectedPlaceId(null);
     setSelectedPlace(null);
     setHighlightReview(null);
+    setCourseReturn(null);
     // ✕/뒤로가기는 시트를 닫힘 애니메이션 없이 언마운트시켜 position 이 확장 값에
     // 동결된다(버튼 실종) — 닫힘 위치로 부드럽게 복귀시킨다. 스와이프 닫기처럼 이미
     // 닫힘 값에 도달한 경우엔 사실상 no-op 이다.
@@ -574,6 +584,27 @@ export default function MapScreen() {
       </NaverMapView>
 
 
+      {courseReturn && selectedPlaceId === courseReturn.placeId && !navigating && (
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
+          style={styles.courseReturnWrap}>
+          <Pressable
+            onPress={() => router.navigate(`/course/${courseReturn.courseId}`)}
+            style={({ pressed }) => [
+              styles.courseReturnChip,
+              {
+                backgroundColor: colors.surfaceElevated,
+                borderColor: colors.border,
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}>
+            <Ionicons name="chevron-back" size={16} color={colors.text} />
+            <Text style={[styles.courseReturnText, { color: colors.text }]}>코스로 돌아가기</Text>
+          </Pressable>
+        </Animated.View>
+      )}
+
       {!navigating && (
         <Animated.View
           entering={FadeIn.duration(300)}
@@ -684,6 +715,27 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  courseReturnWrap: {
+    position: 'absolute',
+    top: 118,
+    left: 16,
+    zIndex: 6,
+    elevation: 6,
+  },
+  courseReturnChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingLeft: 8,
+    paddingRight: 13,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  courseReturnText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   searchAndFilter: {
     position: 'absolute',

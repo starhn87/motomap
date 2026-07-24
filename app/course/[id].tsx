@@ -236,7 +236,11 @@ export default function CourseDetailScreen() {
                     onPress={() =>
                       router.navigate({
                         pathname: '/',
-                        params: { focusPlaceId: place.id, focusTs: String(Date.now()) },
+                        params: {
+                          focusPlaceId: place.id,
+                          focusTs: String(Date.now()),
+                          fromCourseId: id,
+                        },
                       })
                     }
                     style={({ pressed }) => [
