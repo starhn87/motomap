@@ -227,7 +227,11 @@ function PlaceBottomSheet({
   const actions = (
     <>
       <TouchableOpacity onPress={handleFavorite} style={styles.iconButton}>
-        <Text style={{ fontSize: 26 }}>{isFavorite ? '❤️' : '🤍'}</Text>
+        <Ionicons
+          name={isFavorite ? 'heart' : 'heart-outline'}
+          size={26}
+          color={isFavorite ? semantic.danger : colors.textSecondary}
+        />
       </TouchableOpacity>
       <TouchableOpacity onPress={onClose} style={styles.iconButton}>
         <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
