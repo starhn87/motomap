@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { useState } from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { NaverMapView, NaverMapPathOverlay, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 
 import Colors, { semantic } from '@/constants/Colors';
@@ -25,6 +25,7 @@ import { CATEGORIES } from '@/constants/categories';
 import { MARKER_IMAGES } from '@/constants/markerImages';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { toast } from '@/lib/toast';
+import { focusPlaceOnMap } from '@/lib/mapFocus';
 import StarRating from '@/components/review/StarRating';
 import ReportSheet from '@/components/report/ReportSheet';
 
@@ -233,16 +234,7 @@ export default function CourseDetailScreen() {
                 {nearbyPlaces.map(({ place, routeFraction }) => (
                   <Pressable
                     key={place.id}
-                    onPress={() =>
-                      router.navigate({
-                        pathname: '/',
-                        params: {
-                          focusPlaceId: place.id,
-                          focusTs: String(Date.now()),
-                          fromCourseId: id,
-                        },
-                      })
-                    }
+                    onPress={() => focusPlaceOnMap(place.id, { fromCourseId: id })}
                     style={({ pressed }) => [
                       styles.nearbyCard,
                       {

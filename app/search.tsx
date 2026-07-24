@@ -32,6 +32,7 @@ import { toast } from '@/lib/toast';
 import { Alert } from 'react-native';
 import { formatDistance } from '@/constants/course';
 import { haversine } from '@/lib/distance';
+import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { useMapStore } from '@/stores/useMapStore';
 import {
   loadRecentSearches,
@@ -195,11 +196,7 @@ export default function SearchScreen() {
   const goToPlace = useCallback((place: Place) => {
     Keyboard.dismiss();
     addRecentSearch({ type: 'place', place });
-    // 같은 장소를 연속 선택해도 지도가 반응하도록 focusTs 로 매번 다른 키를 만든다
-    router.navigate({
-      pathname: '/',
-      params: { focusPlaceId: place.id, focusTs: String(Date.now()) },
-    });
+    focusPlaceOnMap(place.id);
   }, []);
 
   const goToKakaoPlace = useCallback(

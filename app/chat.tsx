@@ -17,6 +17,7 @@ import {
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   FadeInDown,
@@ -192,10 +193,7 @@ export default function ChatScreen() {
   );
 
   const goToPlace = (card: ChatPlaceCard) => {
-    router.navigate({
-      pathname: '/',
-      params: { focusPlaceId: card.id, focusTs: String(Date.now()) },
-    });
+    focusPlaceOnMap(card.id);
   };
 
   const handleNewChat = () => {

@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { useNotifications, useMarkAllRead } from '@/hooks/useNotifications';
 import EmptyState from '@/components/ui/EmptyState';
 import HighlightPulse from '@/components/ui/HighlightPulse';
@@ -65,10 +66,7 @@ export default function NotificationsScreen() {
 
   const handlePress = (item: AppNotification) => {
     if (item.data?.placeId) {
-      router.navigate({
-        pathname: '/',
-        params: { focusPlaceId: item.data.placeId, focusTs: String(Date.now()) },
-      });
+      focusPlaceOnMap(item.data.placeId);
     } else if (item.data?.courseId) {
       router.push(`/course/${item.data.courseId}`);
     }

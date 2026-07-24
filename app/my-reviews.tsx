@@ -13,6 +13,7 @@ import EmptyState from '@/components/ui/EmptyState';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { fetchMyReviews } from '@/lib/api/mydata';
 import { useAuthStore } from '@/stores/useAuthStore';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
@@ -48,16 +49,7 @@ export default function MyReviewsScreen() {
   // 탭하면 지도의 해당 장소 시트가 펼쳐지고 이 리뷰로 스크롤·강조된다
   const renderItem = ({ item }: { item: any }) => (
     <Pressable
-      onPress={() =>
-        router.navigate({
-          pathname: '/',
-          params: {
-            focusPlaceId: item.placeId,
-            focusTs: String(Date.now()),
-            focusReviewId: item.id,
-          },
-        })
-      }
+      onPress={() => focusPlaceOnMap(item.placeId, { reviewId: item.id })}
       style={({ pressed }) => [
         styles.card,
         {
