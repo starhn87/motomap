@@ -31,6 +31,8 @@ import { openNavigation } from '@/lib/navigation';
 import { toast } from '@/lib/toast';
 import { Alert } from 'react-native';
 import { formatDistance } from '@/constants/course';
+import { haversine } from '@/lib/distance';
+import { useMapStore } from '@/stores/useMapStore';
 import {
   loadRecentSearches,
   addRecentSearch,
@@ -99,6 +101,7 @@ export default function SearchScreen() {
   const user = useAuthStore((s) => s.user);
 
   const [query, setQuery] = useState('');
+  const userLocation = useMapStore((s) => s.userLocation);
   const inputRef = useRef<TextInput>(null);
 
   // autoFocus 대신 화면 전환이 끝난 뒤 포커스 — 지도가 배경에 살아있는 채로
@@ -240,7 +243,9 @@ export default function SearchScreen() {
             {place.name}
           </Text>
           <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
-            {place.address}
+            {userLocation
+              ? `${formatDistance(haversine(userLocation, place) / 1000)} · ${place.address}`
+              : place.address}
           </Text>
         </View>
         <Text style={[styles.rowBadge, { color: cat.color }]}>{cat.label}</Text>
@@ -291,7 +296,13 @@ export default function SearchScreen() {
         ) : (
           <FlatList
             data={[
-              ...(results?.places.map((p) => ({ type: 'place' as const, data: p })) ?? []),
+              // 내 위치를 알면 등록 장소는 가까운 순으로
+              ...((userLocation
+                ? [...(results?.places ?? [])].sort(
+                    (a, b) => haversine(userLocation, a) - haversine(userLocation, b)
+                  )
+                : (results?.places ?? [])
+              ).map((p) => ({ type: 'place' as const, data: p }))),
               ...(results?.courses.map((c) => ({ type: 'course' as const, data: c })) ?? []),
               ...(kakaoOnly.length
                 ? [
