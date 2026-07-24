@@ -9,23 +9,28 @@ import {
   Alert,
 } from 'react-native';
 import { useState } from 'react';
-import { useLocalSearchParams } from 'expo-router';
-import { NaverMapView, NaverMapPathOverlay } from '@mj-studio/react-native-naver-map';
+import { router, useLocalSearchParams } from 'expo-router';
+import { NaverMapView, NaverMapPathOverlay, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCourse } from '@/hooks/useCourses';
+import { useCoursePlaces } from '@/hooks/useCoursePlaces';
 import { useCourseReviews, useCreateCourseReview, useUpdateCourseReview, useDeleteCourseReview } from '@/hooks/useCourseReviews';
 import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
 import { openCourseNavigation, useNavLaunching } from '@/lib/navigation';
 import { formatDistance, formatDuration } from '@/constants/course';
+import { CATEGORIES } from '@/constants/categories';
+import { MARKER_IMAGES } from '@/constants/markerImages';
+import CategoryIcon from '@/components/ui/CategoryIcon';
 import { toast } from '@/lib/toast';
 import StarRating from '@/components/review/StarRating';
 import ReportSheet from '@/components/report/ReportSheet';
 
 export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { data: nearbyPlaces = [] } = useCoursePlaces(id);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -132,6 +137,17 @@ export default function CourseDetailScreen() {
               outlineWidth={2}
               outlineColor={colors.background}
             />
+            {nearbyPlaces.map(({ place }) => (
+              <NaverMapMarkerOverlay
+                key={place.id}
+                latitude={place.latitude}
+                longitude={place.longitude}
+                image={MARKER_IMAGES[place.category]}
+                width={24}
+                height={34}
+                anchor={{ x: 0.5, y: 1 }}
+              />
+            ))}
           </NaverMapView>
         </View>
       )}
@@ -205,6 +221,49 @@ export default function CourseDetailScreen() {
               <Text style={[styles.navButtonText, { color: colors.background }]}>이 코스로 네비 시작</Text>
             )}
           </Pressable>
+        )}
+
+        {nearbyPlaces.length > 0 && (
+          <View style={[styles.nearbySection, { borderTopColor: colors.border }]}>
+            <Text style={[styles.nearbySectionTitle, { color: colors.text }]}>
+              코스 근처 장소
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.nearbyCards}>
+                {nearbyPlaces.map(({ place, routeFraction }) => (
+                  <Pressable
+                    key={place.id}
+                    onPress={() =>
+                      router.navigate({
+                        pathname: '/',
+                        params: { focusPlaceId: place.id, focusTs: String(Date.now()) },
+                      })
+                    }
+                    style={({ pressed }) => [
+                      styles.nearbyCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                        opacity: pressed ? 0.7 : 1,
+                      },
+                    ]}>
+                    <View style={styles.nearbyCardHeader}>
+                      <CategoryIcon category={place.category} size={16} />
+                      <Text
+                        style={[styles.nearbyCardName, { color: colors.text }]}
+                        numberOfLines={1}>
+                        {place.name}
+                      </Text>
+                    </View>
+                    <Text style={[styles.nearbyCardSub, { color: colors.textSecondary }]}>
+                      {CATEGORIES[place.category].label} · 코스{' '}
+                      {routeFraction < 0.33 ? '초반' : routeFraction < 0.67 ? '중반' : '후반'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
         )}
 
         {/* 리뷰 섹션 */}
@@ -496,6 +555,40 @@ const styles = StyleSheet.create({
   navButtonText: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  nearbySection: {
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+  },
+  nearbySectionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  nearbyCards: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  nearbyCard: {
+    width: 160,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 5,
+  },
+  nearbyCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  nearbyCardName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  nearbyCardSub: {
+    fontSize: 12,
   },
   reviewSection: {
     borderTopWidth: 1,

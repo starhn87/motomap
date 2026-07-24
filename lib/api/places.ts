@@ -83,6 +83,22 @@ export async function fetchNearbyPlaces({
   return (data ?? []).map(rowToPlace);
 }
 
+/** 코스 경로선 반경 내 장소 — 코스 진행 순서(route_fraction 오름차순)로 온다 */
+export async function fetchPlacesNearCourse(
+  courseId: string
+): Promise<{ place: Place; routeFraction: number }[]> {
+  const { data, error } = await supabase.rpc('places_near_course', {
+    course_id: courseId,
+  });
+
+  if (error) throw error;
+
+  return ((data ?? []) as (PlaceRow & { route_fraction: number })[]).map((row) => ({
+    place: rowToPlace(row),
+    routeFraction: row.route_fraction,
+  }));
+}
+
 export async function fetchAllPlaces(
   category?: PlaceCategory | null
 ): Promise<Place[]> {
