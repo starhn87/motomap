@@ -314,11 +314,20 @@ export default function MapScreen() {
         if (result.geometry.length > 0) {
           const lngs = result.geometry.map((c) => c[0]);
           const lats = result.geometry.map((c) => c[1]);
+          // 경로 전체가 화면에 들어오는 줌으로 맞춘다. 가장자리 여유 10%,
+          // 남쪽은 하단 경로 카드가 덮는 만큼 더(35%) 벌린다.
+          const latSpan = Math.max(Math.max(...lats) - Math.min(...lats), 0.01);
+          const lngSpan = Math.max(Math.max(...lngs) - Math.min(...lngs), 0.01);
 
-          mapRef.current?.animateCameraTo({
-            latitude: (Math.max(...lats) + Math.min(...lats)) / 2,
-            longitude: (Math.max(...lngs) + Math.min(...lngs)) / 2,
-            zoom: 10,
+          mapRef.current?.animateCameraWithTwoCoords({
+            coord1: {
+              latitude: Math.min(...lats) - latSpan * 0.35,
+              longitude: Math.min(...lngs) - lngSpan * 0.1,
+            },
+            coord2: {
+              latitude: Math.max(...lats) + latSpan * 0.1,
+              longitude: Math.max(...lngs) + lngSpan * 0.1,
+            },
             duration: 1000,
           });
         }
