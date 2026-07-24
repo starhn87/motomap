@@ -7,7 +7,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { useLocalSearchParams } from 'expo-router';
 import { NaverMapView, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 import Animated, {
@@ -17,7 +16,6 @@ import Animated, {
   withSequence,
   Easing,
   FadeIn,
-  FadeOut,
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
@@ -29,14 +27,15 @@ import { usePlaces } from '@/hooks/usePlaces';
 import { useGasStations, GAS_MIN_ZOOM, type SearchPoint } from '@/hooks/useGasStations';
 import { useWeather } from '@/hooks/useWeather';
 import { useUnreadCount } from '@/hooks/useNotifications';
-import { fetchPlaceById } from '@/hooks/usePlace';
 import { useUserLocation } from '@/hooks/useUserLocation';
+import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
 import { fetchRoute } from '@/lib/api/directions';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryFilter from '@/components/map/CategoryFilter';
 import { MARKER_IMAGES } from '@/constants/markerImages';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
+import CourseReturnChip from '@/components/map/CourseReturnChip';
 import GasStationMarker from '@/components/map/GasStationMarker';
 import GasStationCard from '@/components/map/GasStationCard';
 import WeatherFab from '@/components/map/WeatherFab';
@@ -49,7 +48,6 @@ import { coordToSpot, coordToAddress, nearestPoi, searchKakaoLocal } from '@/lib
 import * as Updates from 'expo-updates';
 import SearchEntry from '@/components/search/SearchEntry';
 import Feather from '@expo/vector-icons/Feather';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { toast } from '@/lib/toast';
@@ -209,74 +207,23 @@ export default function MapScreen() {
     [setSelectedPlaceId, screenHeight]
   );
 
-  // 승인 푸시 탭·검색 화면 선택 → focusPlaceId 파라미터로 진입 시 해당 장소를 선택·포커스.
-  // 같은 장소를 연속 선택해도 반응하도록 focusTs(검색 화면이 넣어줌)까지 포함해 중복 판정한다.
-  // focusReviewId(내 리뷰에서 진입)가 있으면 시트를 펼쳐 그 리뷰로 스크롤·강조한다.
-  const { focusPlaceId, focusTs, focusReviewId, fromCourseId, kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone } =
-    useLocalSearchParams<{
-      focusPlaceId?: string;
-      focusTs?: string;
-      fromCourseId?: string;
-      focusReviewId?: string;
-      kakaoName?: string;
-      kakaoAddress?: string;
-      kakaoLat?: string;
-      kakaoLng?: string;
-      kakaoPhone?: string;
-    }>();
-  // 검색의 "일반 장소"(카카오 로컬) 선택 — DB 에 없는 임시 목적지
-  const [tempPlace, setTempPlace] = useState<TempPlace | null>(null);
-  const handledKakaoRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!kakaoName || !kakaoLat || !kakaoLng || !mapReady) return;
-    const key = `${kakaoName}-${focusTs ?? ''}`;
-    if (handledKakaoRef.current === key) return;
-    handledKakaoRef.current = key;
-    const place: TempPlace = {
-      name: kakaoName,
-      address: kakaoAddress ?? '',
-      latitude: Number(kakaoLat),
-      longitude: Number(kakaoLng),
-      phone: kakaoPhone || undefined,
-    };
-    setSelectedPlaceId(null);
-    setSelectedPlace(null);
-    setTempPlace(place);
-    mapRef.current?.animateCameraTo({
-      latitude: place.latitude,
-      longitude: place.longitude,
-      zoom: 15,
-      duration: 800,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, focusTs, mapReady]);
-  const [highlightReview, setHighlightReview] = useState<{ id: string; key: string } | null>(
-    null
-  );
-  // 코스 상세의 근처 장소에서 넘어온 경우 — 돌아갈 코스와 그 장소를 기억해
-  // 시트가 열려 있는 동안 "코스로 돌아가기" 칩을 띄운다
-  const [courseReturn, setCourseReturn] = useState<{ courseId: string; placeId: string } | null>(
-    null
-  );
-  const handledFocusIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!focusPlaceId || !mapReady) return;
-    const focusKey = `${focusPlaceId}-${focusTs ?? ''}`;
-    if (handledFocusIdRef.current === focusKey) return;
-    handledFocusIdRef.current = focusKey;
-    let cancelled = false;
-    (async () => {
-      const place = await fetchPlaceById(focusPlaceId);
-      if (place && !cancelled) {
-        setHighlightReview(focusReviewId ? { id: focusReviewId, key: focusKey } : null);
-        setCourseReturn(fromCourseId ? { courseId: fromCourseId, placeId: place.id } : null);
-        handleSearchSelect(place);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [focusPlaceId, focusTs, focusReviewId, fromCourseId, mapReady, handleSearchSelect]);
+  // 라우트 파라미터(검색·푸시·내 리뷰·코스 근처 장소·카카오 일반 장소) 진입 처리
+  const {
+    tempPlace,
+    setTempPlace,
+    highlightReview,
+    setHighlightReview,
+    courseReturn,
+    setCourseReturn,
+  } = useMapDeepLinks({
+    mapReady,
+    mapRef,
+    onSelectPlace: handleSearchSelect,
+    clearSelection: () => {
+      setSelectedPlaceId(null);
+      setSelectedPlace(null);
+    },
+  });
 
   const handleBottomSheetClose = useCallback(() => {
     setSelectedPlaceId(null);
@@ -594,28 +541,13 @@ export default function MapScreen() {
 
 
       {courseReturn && selectedPlaceId === courseReturn.placeId && !navigating && (
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(150)}
-          style={styles.courseReturnWrap}>
-          <Pressable
-            onPress={() => {
-              const courseId = courseReturn.courseId;
-              handleBottomSheetClose();
-              router.navigate(`/course/${courseId}`);
-            }}
-            style={({ pressed }) => [
-              styles.courseReturnChip,
-              {
-                backgroundColor: colors.surfaceElevated,
-                borderColor: colors.border,
-                opacity: pressed ? 0.8 : 1,
-              },
-            ]}>
-            <Ionicons name="chevron-back" size={16} color={colors.text} />
-            <Text style={[styles.courseReturnText, { color: colors.text }]}>코스로 돌아가기</Text>
-          </Pressable>
-        </Animated.View>
+        <CourseReturnChip
+          onPress={() => {
+            const courseId = courseReturn.courseId;
+            handleBottomSheetClose();
+            router.navigate(`/course/${courseId}`);
+          }}
+        />
       )}
 
       {!navigating && (
@@ -728,29 +660,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  courseReturnWrap: {
-    position: 'absolute',
-    top: 162,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 6,
-    elevation: 6,
-  },
-  courseReturnChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingLeft: 12,
-    paddingRight: 17,
-    paddingVertical: 11,
-    borderRadius: 22,
-    borderWidth: 1,
-  },
-  courseReturnText: {
-    fontSize: 13,
-    fontWeight: '600',
   },
   searchAndFilter: {
     position: 'absolute',
