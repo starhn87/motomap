@@ -590,7 +590,11 @@ export default function MapScreen() {
           exiting={FadeOut.duration(150)}
           style={styles.courseReturnWrap}>
           <Pressable
-            onPress={() => router.navigate(`/course/${courseReturn.courseId}`)}
+            onPress={() => {
+              const courseId = courseReturn.courseId;
+              handleBottomSheetClose();
+              router.navigate(`/course/${courseId}`);
+            }}
             style={({ pressed }) => [
               styles.courseReturnChip,
               {
@@ -728,11 +732,11 @@ const styles = StyleSheet.create({
   courseReturnChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingLeft: 8,
-    paddingRight: 13,
-    paddingVertical: 8,
-    borderRadius: 20,
+    gap: 4,
+    paddingLeft: 12,
+    paddingRight: 17,
+    paddingVertical: 11,
+    borderRadius: 22,
     borderWidth: 1,
   },
   courseReturnText: {
