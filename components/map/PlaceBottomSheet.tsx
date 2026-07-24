@@ -9,6 +9,9 @@ import Animated, {
   type SharedValue,
   useAnimatedReaction,
   useAnimatedStyle,
+  withSequence,
+  withTiming,
+  Easing,
   interpolate,
   Extrapolation,
   runOnJS,
@@ -107,18 +110,31 @@ function PlaceBottomSheet({
   ];
   const { mutateAsync: toggleFav } = useToggleFavorite();
 
+  // 하트 팝 — 즐겨찾기를 추가할 때만 커졌다 돌아온다 (해제 시엔 효과 없음)
+  const heartScale = useSharedValue(1);
+
   const handleFavorite = async () => {
     if (!user) {
       toast.info('로그인이 필요합니다.');
       return;
     }
     if (!place) return;
+    if (!isFavorite) {
+      heartScale.value = withSequence(
+        withTiming(1.35, { duration: 120, easing: Easing.out(Easing.quad) }),
+        withTiming(1, { duration: 180, easing: Easing.inOut(Easing.quad) })
+      );
+    }
     try {
       await toggleFav(place.id);
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }
   };
+
+  const heartStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: heartScale.value }],
+  }));
 
   const didInitRef = useRef(false);
   // place(장소)가 바뀔 때만 시트 위치를 리셋한다.
@@ -227,11 +243,13 @@ function PlaceBottomSheet({
   const actions = (
     <>
       <TouchableOpacity onPress={handleFavorite} style={styles.iconButton}>
-        <Ionicons
-          name={isFavorite ? 'heart' : 'heart-outline'}
-          size={26}
-          color={isFavorite ? semantic.danger : colors.textSecondary}
-        />
+        <Animated.View style={heartStyle}>
+          <Ionicons
+            name={isFavorite ? 'heart' : 'heart-outline'}
+            size={26}
+            color={isFavorite ? semantic.danger : colors.textSecondary}
+          />
+        </Animated.View>
       </TouchableOpacity>
       <TouchableOpacity onPress={onClose} style={styles.iconButton}>
         <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
