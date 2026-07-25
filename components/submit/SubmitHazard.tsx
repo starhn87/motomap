@@ -20,6 +20,8 @@ import { HAZARD_LIST } from '@/constants/hazards';
 import { useSubmitHazard } from '@/hooks/useHazards';
 import { useMapStore } from '@/stores/useMapStore';
 import { coordToAddress } from '@/lib/api/kakaoLocal';
+import AddressSearchModal from '@/components/submit/AddressSearchModal';
+import MapPickerModal from '@/components/map/MapPickerModal';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { toast } from '@/lib/toast';
@@ -38,9 +40,16 @@ export default function SubmitHazard() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
+  // 직접 고른 위치. null 이면 현재 위치를 쓴다.
+  const [picked, setPicked] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
 
+  const coord = picked ?? userLocation ?? null;
+
+  // 현재 위치를 쓰는 동안에만 주소를 따라 갱신한다 (직접 고른 위치는 그때 주소가 정해짐)
   useEffect(() => {
-    if (!userLocation) return;
+    if (picked || !userLocation) return;
     let cancelled = false;
     void coordToAddress(userLocation.latitude, userLocation.longitude).then((value) => {
       if (!cancelled) setAddress(value);
@@ -48,7 +57,7 @@ export default function SubmitHazard() {
     return () => {
       cancelled = true;
     };
-  }, [userLocation?.latitude, userLocation?.longitude]);
+  }, [picked, userLocation?.latitude, userLocation?.longitude]);
 
   const handlePickPhoto = async () => {
     const uri = await pickImage();
@@ -68,15 +77,15 @@ export default function SubmitHazard() {
       toast.info('위험 유형을 선택해주세요.');
       return;
     }
-    if (!userLocation) {
-      toast.info('현재 위치를 확인할 수 없습니다.');
+    if (!coord) {
+      toast.info('위치를 선택해주세요.');
       return;
     }
     try {
       await submit({
         type,
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
+        latitude: coord.latitude,
+        longitude: coord.longitude,
         address: address ?? undefined,
         note,
         photo: photo ?? undefined,
@@ -84,6 +93,7 @@ export default function SubmitHazard() {
       setType(null);
       setNote('');
       setPhoto(null);
+      setPicked(null);
       toast.success('제보 감사합니다. 다른 라이더에게 바로 표시돼요.');
     } catch (error: any) {
       toast.error('제보에 실패했습니다.', error.message);
@@ -129,17 +139,60 @@ export default function SubmitHazard() {
           })}
         </View>
 
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>위치</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>위치 *</Text>
         <View style={[styles.locationBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Ionicons name="location-outline" size={18} color={colors.textSecondary} />
           <Text style={[styles.locationText, { color: colors.text }]} numberOfLines={2}>
-            {userLocation
-              ? (address ?? '현재 위치')
-              : '현재 위치를 확인할 수 없어요. 지도 탭을 먼저 열어주세요.'}
+            {coord
+              ? (address ?? (picked ? '선택한 위치' : '현재 위치'))
+              : '위치를 선택해주세요.'}
           </Text>
         </View>
+        <View style={styles.locationActions}>
+          <Pressable
+            onPress={() => {
+              setPicked(null);
+              setAddress(null);
+            }}
+            disabled={!userLocation}
+            style={[
+              styles.locationAction,
+              {
+                backgroundColor: !picked ? `${colors.tint}14` : colors.surface,
+                borderColor: !picked ? colors.tint : colors.border,
+                opacity: userLocation ? 1 : 0.5,
+              },
+            ]}>
+            <Ionicons
+              name="navigate-outline"
+              size={15}
+              color={!picked ? colors.tint : colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.locationActionText,
+                { color: !picked ? colors.tint : colors.textSecondary },
+              ]}>
+              현재 위치
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setSearchOpen(true)}
+            style={[styles.locationAction, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="search" size={15} color={colors.textSecondary} />
+            <Text style={[styles.locationActionText, { color: colors.textSecondary }]}>검색</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setMapOpen(true)}
+            style={[styles.locationAction, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="map-outline" size={15} color={colors.textSecondary} />
+            <Text style={[styles.locationActionText, { color: colors.textSecondary }]}>지도에서</Text>
+          </Pressable>
+        </View>
         <Text style={[styles.hint, { color: colors.textSecondary }]}>
-          지금 서 있는 위치로 등록됩니다.
+          {picked
+            ? '지도에서 고른 위치로 등록됩니다.'
+            : '지금 서 있는 위치로 등록됩니다. 나중에 제보할 땐 검색이나 지도를 쓰세요.'}
         </Text>
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>메모</Text>
@@ -193,6 +246,27 @@ export default function SubmitHazard() {
           )}
         </Pressable>
       </ScrollView>
+
+      <AddressSearchModal
+        visible={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onSelect={(result) => {
+          setPicked({ latitude: result.latitude, longitude: result.longitude });
+          setAddress(result.roadAddress || result.address);
+          setSearchOpen(false);
+        }}
+      />
+
+      <MapPickerModal
+        visible={mapOpen}
+        initial={coord}
+        onClose={() => setMapOpen(false)}
+        onPick={({ latitude, longitude, address: pickedAddress }) => {
+          setPicked({ latitude, longitude });
+          setAddress(pickedAddress);
+          setMapOpen(false);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -222,6 +296,17 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   locationText: { flex: 1, fontSize: 14 },
+  locationActions: { flexDirection: 'row', gap: 6, marginTop: 8 },
+  locationAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  locationActionText: { fontSize: 12, fontWeight: '600' },
   hint: { fontSize: 12, marginTop: 6 },
   input: {
     borderWidth: 1,
