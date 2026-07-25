@@ -165,6 +165,8 @@ Sentry.wrap(
 |---|---|
 | 장소(반경/전체) | `['places', lat, lng, radius, category]` · `['places']` · `['places','recommended']` |
 | 장소 상세 | `['place', id]` |
+| 근처 장소(장소 기준) | `['nearby-of', placeId, radius, limit]` |
+| 코스 근처 장소 | `['course-places', courseId]` |
 | 코스 | `['courses']` · `['courses','detail', id]` |
 | 리뷰 / 코스리뷰 | `['reviews', placeId]` · `['course-reviews', courseId]` |
 | 즐겨찾기 | `['favorites', userId]` |
@@ -283,9 +285,9 @@ Sentry.wrap(
 - `seed-national-expansion.mjs`(장소 19 + 코스 8) — 전국 확장(강원·충청·전라·경상·제주). 장소는 카카오 로컬로 사전 검증한 좌표를 인라인, 코스 경유지는 실행 시 카카오 키워드 검색으로 해석해 `courses.coordinates`에 저장.
 - `seed-moto-camping.mjs`(camping 7) — 모토캠핑 캠핑장. 마이그레이션 011 적용 후 실행.
 - `seed-places-from-json.mjs`(범용) — `scripts/data/*.json`(name/category/address/lat/lng/description/tags, 좌표 사전 검증)을 읽어 삽입. 2026-07 운영자 추천 33 + 라이더 맛집 25 시드에 사용.
-- `cleanup-places.mjs`(중복 삭제·태그 정규화) · `list-places.mjs`(카테고리별 감사) · `verify-place-coords.mjs`(`all_places` RPC로 좌표 누락 점검).
+- `cleanup-places.mjs`(중복 삭제·태그 정규화) · `list-places.mjs`(카테고리별 감사) · `verify-place-coords.mjs`(`all_places` RPC로 좌표 누락 점검) · `normalize-addresses.mjs`(주소 시도 표기를 카카오와 같은 축약형으로 통일, `--dry` 지원).
 - `generate-markers.mjs`(카테고리 물방울 마커 PNG 생성, sharp) · `invert-theme.js`(라이트 아이콘→다크 변환, sharp).
 
-**`constants/`**: `Colors`(테마) · `categories`(라벨·아이콘·색) · `course`(거리/시간 포맷터) · `legal`(약관 본문) · `mapStyle`(기본 중심·줌) · `markerImages`(마커 경로) · `riderTags`(하이라이트 태그).
+**`constants/`**: `Colors`(테마) · `categories`(라벨·색) · `course`(거리/시간 포맷터) · `legal`(약관 본문) · `mapStyle`(기본 중심·줌) · `markerImages`(마커 경로) · `riderTags`(하이라이트 태그).
 
 **`.maestro/`**: 메인 지도·코스·내 정보 플로우를 자동 실행해 App Store용 스크린샷을 캡처(`appId=com.ridemap.app`).
