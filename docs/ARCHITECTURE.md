@@ -235,6 +235,10 @@ Sentry.wrap(
 | `019_retry_missing_judgements.sql` | 판정 누락 자동 재시도 — EF waitUntil 백그라운드는 인스턴스 셧다운 시 증발할 수 있어, 3분 넘게 판정 문구 없는 pending 제보를 pg_cron 이 5분마다 재판정 (1시간 윈도) |
 | `020_lock_retry_rpc.sql` | 019 함수의 RPC 권한 잠금 — anon 이 재판정을 연타하는 비용 공격 차단 (cron 은 postgres 권한이라 무관) |
 | `021_feedback_reply.sql` | `feedback.reply`/`reply_at` + 답변 시 건의자 알림·푸시 트리거 + 새 건의를 봇 메시지([답변하기] 버튼)로 발송 (봇 미설정 시 웹훅 폴백) |
+| `022_course_sections.sql` | `courses.section_from`/`section_to`/`route_name` — 코스를 "어디에서 어디까지, 무슨 길" 구간으로 표기 |
+| `023_course_geometry.sql` | `courses.route_geometry` — 실도로 스냅 후 단순화한 표시용 경로선 (등록 좌표 `coordinates` 는 코스 정의로 유지) |
+| `024_places_near_course.sql` | `places_near_course` RPC — 코스 경로선 반경 내 승인 장소를 `ST_LineLocatePoint` 진행도 순으로 (코스 상세 '근처 장소') |
+| `025_road_hazards.sql` | `road_hazards`+`hazard_votes`, `live_road_hazards` 뷰, `nearby_hazards`/`hazards_near_course`/`vote_hazard` — 노면 위험 제보. 승인 대기 없이 즉시 공개하고 유형별 수명(`hazard_fresh_days`)으로 신뢰 관리: 수명 초과면 `staleness=1`(흐리게), 2배 초과나 '없어졌어요' 2표면 목록에서 제외(삭제 아님) |
 
 ---
 
