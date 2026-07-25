@@ -4,6 +4,8 @@ import { toast } from '@/lib/toast';
 // 네이티브 앱 키(KAKAO_NATIVE_APP_KEY)와는 다른 키다.
 const REST_KEY = process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY;
 
+import { normalizeSido } from '@/lib/region';
+
 export interface KakaoLocalResult {
   placeName: string; // 상호 (예: "카페 모토라드")
   address: string; // 지번 주소
@@ -32,8 +34,8 @@ export async function searchKakaoLocal(query: string): Promise<KakaoLocalResult[
     const data = await res.json();
     return (data.documents ?? []).map((d: any) => ({
       placeName: d.place_name ?? '',
-      address: d.address_name ?? '',
-      roadAddress: d.road_address_name ?? '',
+      address: normalizeSido(d.address_name),
+      roadAddress: normalizeSido(d.road_address_name),
       latitude: Number(d.y),
       longitude: Number(d.x),
       phone: d.phone ?? '',
@@ -54,7 +56,8 @@ export async function coordToAddress(latitude: number, longitude: number): Promi
     });
     if (!res.ok) return null;
     const doc = (await res.json()).documents?.[0];
-    return doc?.road_address?.address_name ?? doc?.address?.address_name ?? null;
+    const address = doc?.road_address?.address_name ?? doc?.address?.address_name;
+    return address ? normalizeSido(address) : null;
   } catch {
     return null;
   }
@@ -77,7 +80,7 @@ export async function coordToSpot(
     const address = doc?.road_address?.address_name ?? doc?.address?.address_name;
     if (!address) return null;
     const buildingName = doc?.road_address?.building_name || null;
-    return { address, buildingName };
+    return { address: normalizeSido(address), buildingName };
   } catch {
     return null;
   }
@@ -120,7 +123,7 @@ export async function nearestPoi(
   if (!best) return null;
   return {
     placeName: best.place_name ?? '',
-    address: best.address_name ?? '',
+    address: normalizeSido(best.address_name),
     roadAddress: best.road_address_name ?? '',
     latitude: Number(best.y),
     longitude: Number(best.x),
