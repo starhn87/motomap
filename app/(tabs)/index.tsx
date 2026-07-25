@@ -46,6 +46,7 @@ import RouteInfoCard from '@/components/map/RouteInfoCard';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import HazardMarker from '@/components/map/HazardMarker';
+import HazardSheet from '@/components/map/HazardSheet';
 import { coordToSpot, coordToAddress, nearestPoi, searchKakaoLocal } from '@/lib/api/kakaoLocal';
 import * as Updates from 'expo-updates';
 import SearchEntry from '@/components/search/SearchEntry';
@@ -53,7 +54,7 @@ import Feather from '@expo/vector-icons/Feather';
 import { router } from 'expo-router';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { toast } from '@/lib/toast';
-import type { Place } from '@/types';
+import type { Place, RoadHazard } from '@/types';
 import type { Route } from '@/lib/api/directions';
 import type { GasStation } from '@/lib/api/gasStations';
 
@@ -115,6 +116,7 @@ export default function MapScreen() {
 
   const { data: supabasePlaces } = usePlaces(activeFilter, mapCenter, !gasMode);
   const { data: hazards = [] } = useNearbyHazards(mapCenter);
+  const [selectedHazard, setSelectedHazard] = useState<RoadHazard | null>(null);
   const { data: gasStations, isFetching: gasFetching } = useGasStations(
     gasSearchPoint,
     gasMode && mapReady,
@@ -542,7 +544,7 @@ export default function MapScreen() {
         )}
 
         {hazards.map((h) => (
-          <HazardMarker key={h.id} hazard={h} />
+          <HazardMarker key={h.id} hazard={h} onTap={() => setSelectedHazard(h)} />
         ))}
       </NaverMapView>
 
@@ -638,6 +640,8 @@ export default function MapScreen() {
           highlightReview={highlightReview}
         />
       )}
+
+      <HazardSheet hazard={selectedHazard} onClose={() => setSelectedHazard(null)} />
 
       {tempPlace && !navigating && (
         <TempPlaceSheet place={tempPlace} onClose={() => setTempPlace(null)} />

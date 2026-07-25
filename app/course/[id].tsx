@@ -18,6 +18,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useCourse } from '@/hooks/useCourses';
 import { useCoursePlaces } from '@/hooks/useCoursePlaces';
 import { useCourseHazards } from '@/hooks/useHazards';
+import HazardSheet from '@/components/map/HazardSheet';
 import { HAZARDS, hazardFreshness } from '@/constants/hazards';
 import { useCourseReviews, useCreateCourseReview, useUpdateCourseReview, useDeleteCourseReview } from '@/hooks/useCourseReviews';
 import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
@@ -26,8 +27,10 @@ import { formatDistance, formatDuration } from '@/constants/course';
 import { CATEGORIES } from '@/constants/categories';
 import { MARKER_IMAGES } from '@/constants/markerImages';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { toast } from '@/lib/toast';
+import type { RoadHazard } from '@/types';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
 import StarRating from '@/components/review/StarRating';
 import ReportSheet from '@/components/report/ReportSheet';
@@ -36,6 +39,7 @@ export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: nearbyPlaces = [] } = useCoursePlaces(id);
   const { data: courseHazards = [] } = useCourseHazards(id);
+  const [selectedHazard, setSelectedHazard] = useState<RoadHazard | null>(null);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -237,11 +241,15 @@ export default function CourseDetailScreen() {
               {courseHazards.map(({ hazard }) => {
                 const meta = HAZARDS[hazard.type];
                 return (
-                  <View
+                  <Pressable
                     key={hazard.id}
-                    style={[
+                    onPress={() => setSelectedHazard(hazard)}
+                    style={({ pressed }) => [
                       styles.hazardRow,
-                      { backgroundColor: `${meta.color}14`, opacity: hazard.staleness > 0 ? 0.6 : 1 },
+                      {
+                        backgroundColor: `${meta.color}14`,
+                        opacity: pressed ? 0.6 : hazard.staleness > 0 ? 0.6 : 1,
+                      },
                     ]}>
                     <MaterialCommunityIcons name={meta.icon as any} size={17} color={meta.color} />
                     <View style={styles.hazardBody}>
@@ -253,7 +261,8 @@ export default function CourseDetailScreen() {
                         {hazardFreshness(hazard.lastConfirmedAt, hazard.staleness)}
                       </Text>
                     </View>
-                  </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+                  </Pressable>
                 );
               })}
             </View>
@@ -295,6 +304,8 @@ export default function CourseDetailScreen() {
                 ))}
               </View>
             </ScrollView>
+
+    <HazardSheet hazard={selectedHazard} onClose={() => setSelectedHazard(null)} />
           </View>
         )}
 

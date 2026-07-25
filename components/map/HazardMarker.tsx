@@ -7,7 +7,13 @@ import type { RoadHazard } from '@/types';
 // 노면 위험 마커 — 장소(물방울)와 확실히 구분되도록 삼각 경고 형태로 그린다.
 // 마커 children 은 정적 비트맵으로 한 번 캡처되므로 폰트 아이콘 대신 순수 View.
 // 수명을 넘긴(staleness=1) 제보는 흐리게 띄워 "오래된 정보"임을 형태로도 알린다.
-export default function HazardMarker({ hazard }: { hazard: RoadHazard }) {
+export default function HazardMarker({
+  hazard,
+  onTap,
+}: {
+  hazard: RoadHazard;
+  onTap?: () => void;
+}) {
   const color = HAZARDS[hazard.type].color;
 
   return (
@@ -17,7 +23,8 @@ export default function HazardMarker({ hazard }: { hazard: RoadHazard }) {
       anchor={{ x: 0.5, y: 0.5 }}
       width={34}
       height={34}
-      zIndex={80}>
+      zIndex={80}
+      onTap={onTap}>
       <View collapsable={false} style={styles.canvas}>
         <View
           style={[
