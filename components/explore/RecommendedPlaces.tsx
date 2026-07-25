@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   StyleSheet,
@@ -96,7 +97,8 @@ function RecommendedSkeleton() {
 export default function RecommendedPlaces() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { data, isLoading, refetch, isRefetching } = useRecommendedPlaces();
+  const [region, setRegion] = useState<string | null>(null);
+  const { data, isLoading, refetch, isRefetching } = useRecommendedPlaces(region);
 
   if (isLoading) {
     return <RecommendedSkeleton />;
@@ -104,8 +106,11 @@ export default function RecommendedPlaces() {
 
   const recent = data?.recent ?? [];
   const topRated = data?.topRated ?? [];
+  const regions = data?.regions ?? [];
 
-  if (!recent.length && !topRated.length) {
+  // 지역을 골라 결과가 빈 경우까지 여기서 걸리면 칩이 사라져 전체로 못 돌아온다.
+  // 전체 데이터 자체가 없을 때만 빈 화면으로 빠진다.
+  if (!regions.length && !recent.length && !topRated.length) {
     return (
       <View style={styles.empty}>
         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
@@ -129,6 +134,43 @@ export default function RecommendedPlaces() {
           tintColor={colors.tint}
         />
       }>
+      {regions.length > 1 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.regionChips}>
+          {[null, ...regions].map((r) => {
+            const active = region === r;
+            return (
+              <Pressable
+                key={r ?? 'all'}
+                onPress={() => setRegion(r)}
+                style={[
+                  styles.regionChip,
+                  {
+                    backgroundColor: active ? colors.tint : colors.surfaceElevated,
+                    borderColor: active ? colors.tint : colors.border,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.regionChipText,
+                    { color: active ? colors.background : colors.text },
+                  ]}>
+                  {r ?? '전체'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {!recent.length && !topRated.length && (
+        <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
+          {region} 지역에 아직 등록된 장소가 없어요.
+        </Text>
+      )}
+
       {recent.length > 0 && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -156,6 +198,14 @@ export default function RecommendedPlaces() {
 
 const styles = StyleSheet.create({
   container: { padding: 16, gap: 12 },
+  regionChips: { gap: 6, paddingBottom: 4 },
+  regionChip: {
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  regionChipText: { fontSize: 13, fontWeight: '600' },
   section: { gap: 12, marginBottom: 8 },
   sectionTitle: { fontSize: 17, fontWeight: '700', marginBottom: 2 },
   card: { padding: 16, borderRadius: 14, borderWidth: 1 },

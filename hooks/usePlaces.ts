@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { fetchNearbyPlaces, fetchAllPlaces } from '@/lib/api/places';
 import type { Place, PlaceCategory } from '@/types';
+import { regionOf } from '@/lib/region';
 
 interface MapCenter {
   latitude: number;
@@ -79,21 +80,35 @@ export function useNearbyPlacesOf(place: Place | null, radiusMeters = 20_000, li
 export interface RecommendedPlaces {
   recent: Place[];
   topRated: Place[];
+  /** 칩으로 띄울 시도 목록 — 장소가 많은 지역 순 (선택과 무관하게 전체 기준) */
+  regions: string[];
 }
 
 // 추천 목적지 — 기존 장소 DB를 재사용 (새로 등록된 곳 + 고평점)
-export function useRecommendedPlaces() {
+export function useRecommendedPlaces(region?: string | null) {
   return useQuery({
     queryKey: ['places', 'recommended'],
     queryFn: () => fetchAllPlaces(null),
-    select: (places: Place[]): RecommendedPlaces => ({
-      recent: [...places]
-        .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
-        .slice(0, 8),
-      topRated: [...places]
-        .filter((p) => p.reviewCount > 0)
-        .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount)
-        .slice(0, 8),
-    }),
+    select: (places: Place[]): RecommendedPlaces => {
+      const counts: Record<string, number> = {};
+      for (const p of places) {
+        const r = regionOf(p.address);
+        if (r) counts[r] = (counts[r] ?? 0) + 1;
+      }
+      const scoped = region ? places.filter((p) => regionOf(p.address) === region) : places;
+
+      return {
+        recent: [...scoped]
+          .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+          .slice(0, 8),
+        topRated: [...scoped]
+          .filter((p) => p.reviewCount > 0)
+          .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount)
+          .slice(0, 8),
+        regions: Object.entries(counts)
+          .sort((a, b) => b[1] - a[1])
+          .map(([name]) => name),
+      };
+    },
   });
 }
