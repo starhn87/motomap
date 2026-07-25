@@ -1,8 +1,7 @@
 import { View, Text, Pressable, Modal, StyleSheet, ActivityIndicator } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { NaverMapView } from '@mj-studio/react-native-naver-map';
-import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
+import { NaverMapView, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/Colors';
@@ -17,46 +16,46 @@ interface Props {
   onPick: (coord: { latitude: number; longitude: number; address: string | null }) => void;
 }
 
-// 지도를 움직여 화면 중앙 십자에 위치를 맞추는 선택기. 중심을 마커로 그리지 않고
-// 고정 오버레이로 두는 게 표준 — 지도만 움직이면 되니 손이 가려지지 않는다.
+// 지도를 탭해 지점을 찍는 선택기. 중앙 고정 핀 방식은 지도를 움직일 때마다
+// 역지오코딩을 부르는데, 지도는 훑어보려고 움직이는 경우가 대부분이라 헛호출이 많다.
+// 탭한 순간에만 핀을 옮기고 그때 한 번 주소를 조회한다.
 export default function MapPickerModal({ visible, initial, onClose, onPick }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
-  const mapRef = useRef<NaverMapViewRef>(null);
-  const centerRef = useRef({
-    latitude: initial?.latitude ?? DEFAULT_CENTER[1],
-    longitude: initial?.longitude ?? DEFAULT_CENTER[0],
-  });
+
+  const [marker, setMarker] = useState<{ latitude: number; longitude: number } | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
-  const addressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 카메라가 멈춘 뒤에만 역지오코딩한다 (이동 중 매 프레임 호출 방지)
-  const scheduleAddress = () => {
-    if (addressTimerRef.current) clearTimeout(addressTimerRef.current);
-    setResolving(true);
-    addressTimerRef.current = setTimeout(async () => {
-      const { latitude, longitude } = centerRef.current;
-      const value = await coordToAddress(latitude, longitude);
-      setAddress(value);
-      setResolving(false);
-    }, 400);
-  };
-
+  // 열 때마다 초기 위치(현재 위치 등)에 핀을 놓고 시작한다
   useEffect(() => {
-    if (visible) scheduleAddress();
-    return () => {
-      if (addressTimerRef.current) clearTimeout(addressTimerRef.current);
-    };
+    if (!visible) return;
+    setMarker(initial ?? null);
+    setAddress(null);
+    if (initial) void resolveAddress(initial.latitude, initial.longitude);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
+
+  const resolveAddress = async (latitude: number, longitude: number) => {
+    setResolving(true);
+    try {
+      setAddress(await coordToAddress(latitude, longitude));
+    } finally {
+      setResolving(false);
+    }
+  };
+
+  const handleTap = ({ latitude, longitude }: { latitude: number; longitude: number }) => {
+    setMarker({ latitude, longitude });
+    setAddress(null);
+    void resolveAddress(latitude, longitude);
+  };
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         <NaverMapView
-          ref={mapRef}
           style={StyleSheet.absoluteFill}
           mapType="Basic"
           isNightModeEnabled={colorScheme === 'dark'}
@@ -66,30 +65,33 @@ export default function MapPickerModal({ visible, initial, onClose, onPick }: Pr
           isShowZoomControls={false}
           locale="ko"
           initialCamera={{
-            latitude: centerRef.current.latitude,
-            longitude: centerRef.current.longitude,
+            latitude: initial?.latitude ?? DEFAULT_CENTER[1],
+            longitude: initial?.longitude ?? DEFAULT_CENTER[0],
             zoom: initial ? 16 : DEFAULT_ZOOM,
           }}
-          onCameraChanged={(e) => {
-            centerRef.current = { latitude: e.latitude, longitude: e.longitude };
-            scheduleAddress();
-          }}
-        />
-
-        {/* 화면 중앙 고정 핀 — 지도가 움직이고 핀은 제자리 */}
-        <View style={styles.pinWrap} pointerEvents="none">
-          {/* 핀 끝이 화면 정중앙을 찍도록 아이콘 높이의 절반만큼 올린다 */}
-          <View style={styles.pinLift}>
-            <Ionicons name="location" size={38} color={colors.tint} />
-          </View>
-        </View>
+          onTapMap={handleTap}>
+          {marker && (
+            <NaverMapMarkerOverlay
+              latitude={marker.latitude}
+              longitude={marker.longitude}
+              image={require('@/assets/images/markers/general.png')}
+              width={36}
+              height={50}
+              anchor={{ x: 0.5, y: 1 }}
+            />
+          )}
+        </NaverMapView>
 
         <Pressable
           onPress={onClose}
           hitSlop={10}
           style={[
             styles.close,
-            { top: insets.top + 12, backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+            {
+              top: insets.top + 12,
+              backgroundColor: colors.surfaceElevated,
+              borderColor: colors.border,
+            },
           ]}>
           <Ionicons name="close" size={20} color={colors.text} />
         </Pressable>
@@ -106,15 +108,22 @@ export default function MapPickerModal({ visible, initial, onClose, onPick }: Pr
           <View style={styles.addressRow}>
             <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
             <Text style={[styles.address, { color: colors.text }]} numberOfLines={2}>
-              {resolving ? '위치 확인 중…' : (address ?? '주소를 찾을 수 없는 위치')}
+              {!marker
+                ? '지도를 눌러 위치를 찍어주세요.'
+                : resolving
+                  ? '위치 확인 중…'
+                  : (address ?? '주소를 찾을 수 없는 지점')}
             </Text>
           </View>
           <Pressable
-            onPress={() => onPick({ ...centerRef.current, address })}
-            disabled={resolving}
+            onPress={() => marker && onPick({ ...marker, address })}
+            disabled={!marker || resolving}
             style={({ pressed }) => [
               styles.confirm,
-              { backgroundColor: colors.tint, opacity: pressed || resolving ? 0.8 : 1 },
+              {
+                backgroundColor: colors.tint,
+                opacity: !marker || resolving ? 0.4 : pressed ? 0.8 : 1,
+              },
             ]}>
             {resolving ? (
               <ActivityIndicator size="small" color={colors.background} />
@@ -130,12 +139,6 @@ export default function MapPickerModal({ visible, initial, onClose, onPick }: Pr
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  pinWrap: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pinLift: { transform: [{ translateY: -19 }] },
   close: {
     position: 'absolute',
     left: 16,
