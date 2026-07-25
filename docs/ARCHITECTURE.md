@@ -166,6 +166,7 @@ Sentry.wrap(
 | 장소(반경/전체) | `['places', lat, lng, radius, category]` · `['places']` · `['places','recommended']` |
 | 장소 상세 | `['place', id]` |
 | 근처 장소(장소 기준) | `['nearby-of', placeId, radius, limit]` |
+| 노면 위험 | `['hazards', lat, lng]` · `['course-hazards', courseId]` |
 | 코스 근처 장소 | `['course-places', courseId]` |
 | 코스 | `['courses']` · `['courses','detail', id]` |
 | 리뷰 / 코스리뷰 | `['reviews', placeId]` · `['course-reviews', courseId]` |
