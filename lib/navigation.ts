@@ -4,6 +4,9 @@ import KakaoNavi from '@react-native-kakao/navi';
 
 import { useNavPrefStore, type NavAppId } from '@/stores/useNavPrefStore';
 import { useMapStore } from '@/stores/useMapStore';
+import { fetchNearbyHazards } from '@/lib/api/hazards';
+import { HAZARDS } from '@/constants/hazards';
+import type { RoadHazard } from '@/types';
 import { coordToAddress } from '@/lib/api/kakaoLocal';
 import { checkRouteWeather } from '@/lib/api/weather';
 import { toast } from '@/lib/toast';
@@ -208,6 +211,49 @@ async function confirmRouteWeather(
   });
 }
 
+// 경로 주변의 노면 위험을 모아 출발 전에 알린다. 백그라운드 위치 없이도
+// 성립하는 알림이라 이 자리가 이 정보의 제일 쓸모 있는 지점이다.
+async function confirmRouteHazards(
+  points: { latitude: number; longitude: number }[],
+): Promise<boolean> {
+  const userLocation = useMapStore.getState().userLocation;
+  const allPoints = userLocation ? [userLocation, ...points] : points;
+
+  let hazards: RoadHazard[] = [];
+  try {
+    const found = await Promise.all(
+      allPoints.map((p) => fetchNearbyHazards(p.latitude, p.longitude, 1500)),
+    );
+    // 지점마다 겹쳐 잡히므로 id 로 합친다. 오래된 정보는 경고까지 띄우지 않는다.
+    const byId = new Map<string, RoadHazard>();
+    for (const h of found.flat()) {
+      if (h.staleness === 0) byId.set(h.id, h);
+    }
+    hazards = [...byId.values()];
+  } catch {
+    return true; // 위험 조회 실패로 안내를 막지는 않는다
+  }
+  if (hazards.length === 0) return true;
+
+  const counts = new Map<string, number>();
+  for (const h of hazards) {
+    const label = HAZARDS[h.type].label;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  const summary = [...counts.entries()].map(([label, n]) => `${label} ${n}곳`).join(', ');
+
+  return new Promise((resolve) => {
+    Alert.alert(
+      '경로 주의 구간',
+      `경로 주변에 ${summary}이 제보돼 있어요. 감속해서 지나가세요. 그래도 출발할까요?`,
+      [
+        { text: '취소', style: 'cancel', onPress: () => resolve(false) },
+        { text: '출발', onPress: () => resolve(true) },
+      ],
+    );
+  });
+}
+
 // 내비 시작 연타 방지 + 진행 표시 — 날씨 확인·경유지 주소 변환이 수 초 걸리므로
 // 진행 중에는 재진입을 막고, 버튼들이 이 상태를 구독해 스피너를 보여준다.
 export const useNavLaunching = create<{ launching: boolean }>(() => ({ launching: false }));
@@ -223,6 +269,7 @@ export async function openNavigation(target: NavTarget) {
   if (!beginLaunch()) return;
   try {
     if (!(await confirmRouteWeather([target]))) return;
+    if (!(await confirmRouteHazards([target]))) return;
     await withNavApp((app) => app.launch(target));
   } finally {
     endLaunch();
@@ -259,6 +306,7 @@ export async function openCourseNavigation(course: NavCourse) {
 
 async function openCourseNavigationInner(course: NavCourse) {
   if (!(await confirmRouteWeather(course.points))) return;
+  if (!(await confirmRouteHazards(course.points))) return;
   await withNavApp(async (app) => {
     if (app.launchCourse && course.points.length >= 2) {
       return app.launchCourse(await resolvePointNames(course));

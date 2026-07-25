@@ -61,3 +61,29 @@ export interface Review {
   photos: string[];
   createdAt: string;
 }
+
+export type HazardType =
+  | 'sand'
+  | 'oil'
+  | 'pothole'
+  | 'rockfall'
+  | 'ice'
+  | 'construction'
+  | 'etc';
+
+export interface RoadHazard {
+  id: string;
+  type: HazardType;
+  note: string | null;
+  photo: string | null;
+  address: string | null;
+  latitude: number;
+  longitude: number;
+  reportedBy: string;
+  createdAt: string;
+  lastConfirmedAt: string;
+  confirmCount: number;
+  resolvedCount: number;
+  /** 0 신선 / 1 수명을 넘겨 흐리게 표시 */
+  staleness: number;
+}

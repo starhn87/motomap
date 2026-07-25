@@ -4,7 +4,7 @@ import { fetchNearbyPlaces, fetchAllPlaces } from '@/lib/api/places';
 import type { Place, PlaceCategory } from '@/types';
 import { regionOf } from '@/lib/region';
 
-interface MapCenter {
+export interface MapCenter {
   latitude: number;
   longitude: number;
   zoom: number;

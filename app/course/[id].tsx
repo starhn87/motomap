@@ -17,12 +17,15 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useCourse } from '@/hooks/useCourses';
 import { useCoursePlaces } from '@/hooks/useCoursePlaces';
+import { useCourseHazards } from '@/hooks/useHazards';
+import { HAZARDS, hazardFreshness } from '@/constants/hazards';
 import { useCourseReviews, useCreateCourseReview, useUpdateCourseReview, useDeleteCourseReview } from '@/hooks/useCourseReviews';
 import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
 import { openCourseNavigation, useNavLaunching } from '@/lib/navigation';
 import { formatDistance, formatDuration } from '@/constants/course';
 import { CATEGORIES } from '@/constants/categories';
 import { MARKER_IMAGES } from '@/constants/markerImages';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { toast } from '@/lib/toast';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
@@ -32,6 +35,7 @@ import ReportSheet from '@/components/report/ReportSheet';
 export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: nearbyPlaces = [] } = useCoursePlaces(id);
+  const { data: courseHazards = [] } = useCourseHazards(id);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -222,6 +226,38 @@ export default function CourseDetailScreen() {
               <Text style={[styles.navButtonText, { color: colors.background }]}>이 코스로 네비 시작</Text>
             )}
           </Pressable>
+        )}
+
+        {courseHazards.length > 0 && (
+          <View style={[styles.nearbySection, { borderTopColor: colors.border }]}>
+            <Text style={[styles.nearbySectionTitle, { color: colors.text }]}>
+              이 코스의 주의 구간
+            </Text>
+            <View style={styles.hazardList}>
+              {courseHazards.map(({ hazard }) => {
+                const meta = HAZARDS[hazard.type];
+                return (
+                  <View
+                    key={hazard.id}
+                    style={[
+                      styles.hazardRow,
+                      { backgroundColor: `${meta.color}14`, opacity: hazard.staleness > 0 ? 0.6 : 1 },
+                    ]}>
+                    <MaterialCommunityIcons name={meta.icon as any} size={17} color={meta.color} />
+                    <View style={styles.hazardBody}>
+                      <Text style={[styles.hazardLabel, { color: colors.text }]}>
+                        {meta.label}
+                        {hazard.note ? ` · ${hazard.note}` : ''}
+                      </Text>
+                      <Text style={[styles.hazardMeta, { color: colors.textSecondary }]}>
+                        {hazardFreshness(hazard.lastConfirmedAt, hazard.staleness)}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
         )}
 
         {nearbyPlaces.length > 0 && (
@@ -562,6 +598,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 12,
   },
+  hazardList: { gap: 8 },
+  hazardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  hazardBody: { flex: 1, gap: 2 },
+  hazardLabel: { fontSize: 14, fontWeight: '600' },
+  hazardMeta: { fontSize: 12 },
   nearbyCards: {
     flexDirection: 'row',
     gap: 8,

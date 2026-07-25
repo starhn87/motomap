@@ -29,6 +29,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { useUnreadCount } from '@/hooks/useNotifications';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
+import { useNearbyHazards } from '@/hooks/useHazards';
 import { fetchRoute } from '@/lib/api/directions';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -44,6 +45,7 @@ import RouteLine from '@/components/map/RouteLine';
 import RouteInfoCard from '@/components/map/RouteInfoCard';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
+import HazardMarker from '@/components/map/HazardMarker';
 import { coordToSpot, coordToAddress, nearestPoi, searchKakaoLocal } from '@/lib/api/kakaoLocal';
 import * as Updates from 'expo-updates';
 import SearchEntry from '@/components/search/SearchEntry';
@@ -112,6 +114,7 @@ export default function MapScreen() {
   const [gasSearchPoint, setGasSearchPoint] = useState<SearchPoint | null>(null);
 
   const { data: supabasePlaces } = usePlaces(activeFilter, mapCenter, !gasMode);
+  const { data: hazards = [] } = useNearbyHazards(mapCenter);
   const { data: gasStations, isFetching: gasFetching } = useGasStations(
     gasSearchPoint,
     gasMode && mapReady,
@@ -537,6 +540,10 @@ export default function MapScreen() {
         {tempPlace && (
           <TempPlaceMarker latitude={tempPlace.latitude} longitude={tempPlace.longitude} />
         )}
+
+        {hazards.map((h) => (
+          <HazardMarker key={h.id} hazard={h} />
+        ))}
       </NaverMapView>
 
 

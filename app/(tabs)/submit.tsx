@@ -27,12 +27,13 @@ import { toast } from '@/lib/toast';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import SubmitCourse from '@/components/submit/SubmitCourse';
 import SubmitFeedback from '@/components/submit/SubmitFeedback';
+import SubmitHazard from '@/components/submit/SubmitHazard';
 import AddressSearchModal from '@/components/submit/AddressSearchModal';
 import type { PlaceCategory } from '@/types';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-type SubmitType = 'place' | 'course' | 'feedback';
+type SubmitType = 'place' | 'course' | 'hazard' | 'feedback';
 
 function SubmitTypeTab({
   type,
@@ -49,6 +50,7 @@ function SubmitTypeTab({
   const labels: Record<SubmitType, string> = {
     place: '장소',
     course: '코스',
+    hazard: '위험',
     feedback: '건의',
   };
   const label = labels[type];
@@ -291,11 +293,13 @@ export default function SubmitScreen() {
       <View style={styles.tabRow}>
         <SubmitTypeTab type="place" current={submitType} onPress={setSubmitType} />
         <SubmitTypeTab type="course" current={submitType} onPress={setSubmitType} />
+        <SubmitTypeTab type="hazard" current={submitType} onPress={setSubmitType} />
         <SubmitTypeTab type="feedback" current={submitType} onPress={setSubmitType} />
       </View>
 
       {submitType === 'place' && <SubmitPlace />}
       {submitType === 'course' && <SubmitCourse />}
+      {submitType === 'hazard' && <SubmitHazard />}
       {submitType === 'feedback' && <SubmitFeedback />}
     </View>
   );
