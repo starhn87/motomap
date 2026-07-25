@@ -39,6 +39,7 @@ import { usePlace } from '@/hooks/usePlace';
 import ReviewList from '@/components/review/ReviewList';
 import ReviewForm from '@/components/review/ReviewForm';
 import PhotoStrip from '@/components/map/PhotoStrip';
+import NearbyPlaces from '@/components/map/NearbyPlaces';
 import { useReviews } from '@/hooks/useReviews';
 import { toast } from '@/lib/toast';
 import type { Place } from '@/types';
@@ -502,6 +503,8 @@ function PlaceBottomSheet({
               <PhotoStrip items={photoItems} />
             </View>
           )}
+
+          {displayPlace && <NearbyPlaces place={displayPlace} />}
 
           <View
             style={[styles.reviewSection, { borderTopColor: colors.border }]}

@@ -55,6 +55,27 @@ export function usePlaces(
   });
 }
 
+/**
+ * 어떤 장소 주변의 다른 등록 장소 — 장소 상세의 "근처 다른 장소" 섹션용.
+ * 자기 자신은 빼고 가까운 순으로 limit 개까지. RPC 가 이미 거리순으로 준다.
+ * 기본 반경 20km 는 실측으로 정했다(5km 는 장소의 43%만 이웃이 있어 섹션이
+ * 대부분 비었고, 20km 면 78%). 바이크로 20~30분이라 "가는 김에" 범위에도 맞다.
+ */
+export function useNearbyPlacesOf(place: Place | null, radiusMeters = 20_000, limit = 8) {
+  return useQuery({
+    queryKey: ['nearby-of', place?.id, radiusMeters, limit],
+    queryFn: async () => {
+      const list = await fetchNearbyPlaces({
+        latitude: place!.latitude,
+        longitude: place!.longitude,
+        radiusMeters,
+      });
+      return list.filter((p) => p.id !== place!.id).slice(0, limit);
+    },
+    enabled: !!place,
+  });
+}
+
 export interface RecommendedPlaces {
   recent: Place[];
   topRated: Place[];
