@@ -159,14 +159,14 @@ async function snap(coords) {
     : '';
   const url =
     `https://maps.apigw.ntruss.com/map-direction/v1/driving` +
-    `?start=${start[0]},${start[1]}&goal=${goal[0]},${goal[1]}&option=trafast${via}`;
+    `?start=${start[0]},${start[1]}&goal=${goal[0]},${goal[1]}&option=traavoidcaronly${via}`;
   const res = await fetch(url, {
     headers: { 'x-ncp-apigw-api-key-id': NAVER_ID, 'x-ncp-apigw-api-key': NAVER_SECRET },
   });
   const data = await res.json();
   if (data.code !== 0) throw new Error(data.message ?? 'no route');
-  const s = data.route.trafast[0].summary;
-  return { km: s.distance / 1000, min: s.duration / 60000, path: data.route.trafast[0].path };
+  const s = data.route.traavoidcaronly[0].summary;
+  return { km: s.distance / 1000, min: s.duration / 60000, path: data.route.traavoidcaronly[0].path };
 }
 
 // Douglas-Peucker 단순화 — 실도로의 굵은 형상만 남긴 표시용 경로를 만든다.

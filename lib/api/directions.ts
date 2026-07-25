@@ -3,6 +3,13 @@ import { requireEnv } from '@/lib/env';
 const CLIENT_ID = requireEnv(process.env.EXPO_PUBLIC_NAVER_CLIENT_ID, 'EXPO_PUBLIC_NAVER_CLIENT_ID');
 const CLIENT_SECRET = requireEnv(process.env.EXPO_PUBLIC_NAVER_CLIENT_SECRET, 'EXPO_PUBLIC_NAVER_CLIENT_SECRET');
 
+// 이륜차는 고속도로·자동차 전용도로를 통행할 수 없다(도로교통법 제63조).
+// 네이버 Directions 의 기본격인 trafast 는 그 길을 적극적으로 태워서, 라이더가
+// 실제로 갈 수 없는 경로와 그만큼 짧은 시간을 준다(실측: 강남→춘천 78분 vs 126분,
+// 강남→미사리 29분 vs 47분). traavoidcaronly 도 같은 실시간 교통 기반이면서
+// 자동차 전용도로만 피하므로 이륜차 앱에는 이쪽이 맞다.
+const ROUTE_OPTION = 'traavoidcaronly';
+
 export interface RouteStep {
   instruction: string;
   distance: number; // meters
@@ -27,7 +34,7 @@ export async function fetchRoute(
         .map(([lng, lat]) => `${lng},${lat}`)
         .join('|')}`
     : '';
-  const url = `https://maps.apigw.ntruss.com/map-direction/v1/driving?start=${origin[0]},${origin[1]}&goal=${destination[0]},${destination[1]}&option=trafast${via}`;
+  const url = `https://maps.apigw.ntruss.com/map-direction/v1/driving?start=${origin[0]},${origin[1]}&goal=${destination[0]},${destination[1]}&option=${ROUTE_OPTION}${via}`;
 
   const res = await fetch(url, {
     headers: {
@@ -42,11 +49,11 @@ export async function fetchRoute(
 
   const data = await res.json();
 
-  if (data.code !== 0 || !data.route?.trafast?.length) {
+  if (data.code !== 0 || !data.route?.[ROUTE_OPTION]?.length) {
     throw new Error(data.message ?? data?.error?.message ?? '경로를 찾을 수 없습니다.');
   }
 
-  const route = data.route.trafast[0];
+  const route = data.route[ROUTE_OPTION][0];
   const summary = route.summary;
 
   // path: [[lng, lat], ...] 형태
