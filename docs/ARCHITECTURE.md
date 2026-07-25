@@ -239,6 +239,7 @@ Sentry.wrap(
 | `023_course_geometry.sql` | `courses.route_geometry` — 실도로 스냅 후 단순화한 표시용 경로선 (등록 좌표 `coordinates` 는 코스 정의로 유지) |
 | `024_places_near_course.sql` | `places_near_course` RPC — 코스 경로선 반경 내 승인 장소를 `ST_LineLocatePoint` 진행도 순으로 (코스 상세 '근처 장소') |
 | `025_road_hazards.sql` | `road_hazards`+`hazard_votes`, `live_road_hazards` 뷰, `nearby_hazards`/`hazards_near_course`/`vote_hazard` — 노면 위험 제보. 승인 대기 없이 즉시 공개하고 유형별 수명(`hazard_fresh_days`)으로 신뢰 관리: 수명 초과면 `staleness=1`(흐리게), 2배 초과나 '없어졌어요' 2표면 목록에서 제외(삭제 아님) |
+| `026_fix_vote_hazard_ambiguity.sql` | `vote_hazard` 파라미터를 `p_` 접두사로 재생성 — 이름이 `hazard_votes.hazard_id` 와 같아 `ON CONFLICT` 자리에서 ambiguous 로 실패했다 |
 
 ---
 
