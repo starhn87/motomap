@@ -89,8 +89,8 @@ export async function submitHazard(params: {
 export async function voteHazard(hazardId: string, kind: 'confirm' | 'resolve'): Promise<void> {
   await requireUser();
   const { error } = await supabase.rpc('vote_hazard', {
-    hazard_id: hazardId,
-    vote_kind: kind,
+    p_hazard_id: hazardId,
+    p_kind: kind,
   });
   if (error) throw error;
 }
