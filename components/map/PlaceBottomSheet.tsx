@@ -254,7 +254,7 @@ function PlaceBottomSheet({
         </Animated.View>
       </TouchableOpacity>
       <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-        <Ionicons name="close" size={20} color={colors.textSecondary} />
+        <Ionicons name="close" size={26} color={colors.textSecondary} />
       </TouchableOpacity>
     </>
   );
