@@ -61,7 +61,12 @@ function gradeOf(score: number): {
 // 시간대를 읽는 코멘트 — 하루를 통째로 재단하지 않고 "언제까지 괜찮은지,
 // 언제부터 갤지"를 말한다. 라이딩은 한두 시간짜리도 많아서 비 없는 창을
 // 짚어주는 쪽이 실제 출발 판단에 맞다.
+// 시트 부제목 — 두 문장이라 문장마다 줄을 나눠야 한눈에 읽힌다
 function commentFor(hours: KmaHour[], temp: number, windMs: number): string {
+  return buildComment(hours, temp, windMs).replace(/\. /g, '.\n');
+}
+
+function buildComment(hours: KmaHour[], temp: number, windMs: number): string {
   const next12 = hours.slice(0, 12);
   const isRainy = (h: KmaHour) => h.pty > 0 || h.pop >= 60;
   const hourLabel = (h: KmaHour) => `${parseInt(h.time.slice(0, 2), 10)}시`;

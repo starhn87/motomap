@@ -317,6 +317,7 @@ const styles = StyleSheet.create({
   },
   gradeComment: {
     fontSize: 14,
+    lineHeight: 20,
   },
   statsGrid: {
     flexDirection: 'row',
