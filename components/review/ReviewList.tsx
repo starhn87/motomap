@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Image as RNImage } from 'expo-image';
 import { TouchableOpacity } from 'react-native-gesture-handler';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -36,7 +36,20 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
-  const { data: reviews, isLoading } = useReviews(placeId);
+  const {
+    data: reviewPages,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useReviews(placeId);
+  const reviews = reviewPages?.pages.flat();
+
+  // 내 리뷰에서 진입한 강조 대상이 아직 안 실린 페이지에 있으면 찾을 때까지 더 받는다
+  useEffect(() => {
+    if (!highlight || !reviews || isFetchingNextPage || !hasNextPage) return;
+    if (!reviews.some((r) => r.id === highlight.id)) void fetchNextPage();
+  }, [highlight?.id, reviews, hasNextPage, isFetchingNextPage, fetchNextPage]);
   const { mutateAsync: updateReview } = useUpdateReview(placeId);
   const { mutateAsync: removeReview } = useDeleteReview(placeId);
   const blockedIds = useBlockedIds();
@@ -307,6 +320,23 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
           </HighlightPulse>
         );
       })}
+
+      {hasNextPage && (
+        <TouchableOpacity
+          onPress={() => void fetchNextPage()}
+          disabled={isFetchingNextPage}
+          style={[
+            styles.moreButton,
+            { borderColor: colors.border, opacity: isFetchingNextPage ? 0.6 : 1 },
+          ]}>
+          {isFetchingNextPage ? (
+            <ActivityIndicator size="small" color={colors.tint} />
+          ) : (
+            <Text style={[styles.moreText, { color: colors.text }]}>리뷰 더 보기</Text>
+          )}
+        </TouchableOpacity>
+      )}
+
       <ReportSheet
         visible={!!reportingId}
         onClose={() => setReportingId(null)}
@@ -324,6 +354,14 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
 }
 
 const styles = StyleSheet.create({
+  moreButton: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  moreText: { fontSize: 14, fontWeight: '600' },
   container: { gap: 10 },
   empty: { fontSize: 13, textAlign: 'center', marginVertical: 16 },
   reviewItem: { padding: 14, borderRadius: 12, borderWidth: 1 },

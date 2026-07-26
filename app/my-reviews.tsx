@@ -85,10 +85,12 @@ export default function MyReviewsScreen() {
         </Text>
       ) : null}
       {item.photos?.length ? (
-        <PhotoStrip
-          items={item.photos.map((url: string) => ({ url, review: null }))}
-          size={84}
-        />
+        <View style={styles.cardPhotos}>
+          <PhotoStrip
+            items={item.photos.map((url: string) => ({ url, review: null }))}
+            size={84}
+          />
+        </View>
       ) : null}
       <Text style={[styles.date, { color: colors.textSecondary }]}>
         {new Date(item.createdAt).toLocaleDateString('ko-KR')}
@@ -154,6 +156,7 @@ const styles = StyleSheet.create({
   },
   placeName: { fontSize: 15, fontWeight: '700' },
   content: { fontSize: 13, lineHeight: 19, marginBottom: 6 },
+  cardPhotos: { marginBottom: 10 },
   date: { fontSize: 11 },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   emptyText: { fontSize: 16, fontWeight: '600', marginBottom: 8 },

@@ -100,7 +100,8 @@ function PlaceBottomSheet({
   const user = useAuthStore((s) => s.user);
   const userLocation = useMapStore((s) => s.userLocation);
   const { data: latestPlace } = usePlace(place?.id ?? null);
-  const { data: reviews } = useReviews(place?.id ?? null);
+  const { data: reviewPages } = useReviews(place?.id ?? null);
+  const reviews = reviewPages?.pages.flat();
   const displayPlace = latestPlace ?? place;
   const isFavorite = useIsFavorite(place?.id ?? '');
 

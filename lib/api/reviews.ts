@@ -2,12 +2,16 @@ import { supabase } from '@/lib/supabase';
 import type { Review } from '@/types';
 import { requireUser } from '@/lib/auth';
 
-export async function fetchReviews(placeId: string): Promise<Review[]> {
+export const REVIEWS_PAGE_SIZE = 20;
+
+export async function fetchReviews(placeId: string, page = 0): Promise<Review[]> {
+  const from = page * REVIEWS_PAGE_SIZE;
   const { data, error } = await supabase
     .from('reviews')
     .select('*, profiles(nickname, avatar_url, bike_model)')
     .eq('place_id', placeId)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(from, from + REVIEWS_PAGE_SIZE - 1);
 
   if (error) throw error;
 
