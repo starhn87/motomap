@@ -28,15 +28,21 @@ export async function fetchMySubmissions(): Promise<Place[]> {
   });
 }
 
-export async function fetchMyReviews(): Promise<(Review & { placeName: string })[]> {
+export const MY_REVIEWS_PAGE_SIZE = 20;
+
+export async function fetchMyReviews(
+  page = 0
+): Promise<(Review & { placeName: string })[]> {
   const user = await getCurrentUser();
   if (!user) return [];
 
+  const from = page * MY_REVIEWS_PAGE_SIZE;
   const { data, error } = await supabase
     .from('reviews')
     .select('*, places(name)')
     .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(from, from + MY_REVIEWS_PAGE_SIZE - 1);
 
   if (error) throw error;
 

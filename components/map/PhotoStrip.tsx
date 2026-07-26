@@ -38,7 +38,14 @@ function ReviewOverlay({ review }: { review: Review }) {
 // 장소 상세의 사진 스트립 — 가로 스와이프로 훑고, 탭하면 확대 모달에서
 // 해당 사진이 달린 리뷰를 하단에 함께 보여준다. 시트와의 제스처 방향 잠금은
 // PlaceBottomSheet 의 activeOffsetY/failOffsetX 가 담당한다.
-export default function PhotoStrip({ items }: { items: PhotoStripItem[] }) {
+export default function PhotoStrip({
+  items,
+  size = 150,
+}: {
+  items: PhotoStripItem[];
+  /** 썸네일 한 변 (목록 카드처럼 좁은 자리에서는 줄여 쓴다) */
+  size?: number;
+}) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   if (items.length === 0) return null;
@@ -49,7 +56,11 @@ export default function PhotoStrip({ items }: { items: PhotoStripItem[] }) {
         <View style={styles.row}>
           {items.map((item, i) => (
             <Pressable key={`${item.url}-${i}`} onPress={() => setViewerIndex(i)}>
-              <Image source={{ uri: item.url }} style={styles.photo} transition={100} />
+              <Image
+                source={{ uri: item.url }}
+                style={[styles.photo, { width: size, height: size }]}
+                transition={100}
+              />
             </Pressable>
           ))}
         </View>
@@ -74,8 +85,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   photo: {
-    width: 150,
-    height: 150,
     borderRadius: 12,
   },
   overlay: {

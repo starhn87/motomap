@@ -4,20 +4,22 @@ import {
   View,
   Text,
   FlatList,
+  ActivityIndicator,
   Pressable,
   RefreshControl,
 } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import EmptyState from '@/components/ui/EmptyState';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
-import { fetchMyReviews } from '@/lib/api/mydata';
+import { fetchMyReviews, MY_REVIEWS_PAGE_SIZE } from '@/lib/api/mydata';
 import { useAuthStore } from '@/stores/useAuthStore';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import StarRating from '@/components/review/StarRating';
+import PhotoStrip from '@/components/map/PhotoStrip';
 
 function ReviewSkeletonList() {
   return (
@@ -41,10 +43,23 @@ export default function MyReviewsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
-  const { data: reviews, isLoading, refetch, isRefetching } = useQuery({
+  const {
+    data,
+    isLoading,
+    refetch,
+    isRefetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['my-reviews', user?.id],
-    queryFn: fetchMyReviews,
+    queryFn: ({ pageParam }) => fetchMyReviews(pageParam),
+    initialPageParam: 0,
+    // 마지막 페이지가 꽉 차 있으면 다음 페이지가 더 있을 수 있다
+    getNextPageParam: (last, all) =>
+      last.length === MY_REVIEWS_PAGE_SIZE ? all.length : undefined,
   });
+  const reviews = data?.pages.flat();
 
   // 탭하면 지도의 해당 장소 시트가 펼쳐지고 이 리뷰로 스크롤·강조된다
   const renderItem = ({ item }: { item: any }) => (
@@ -68,6 +83,12 @@ export default function MyReviewsScreen() {
         <Text style={[styles.content, { color: colors.text }]}>
           {item.content}
         </Text>
+      ) : null}
+      {item.photos?.length ? (
+        <PhotoStrip
+          items={item.photos.map((url: string) => ({ url, review: null }))}
+          size={84}
+        />
       ) : null}
       <Text style={[styles.date, { color: colors.textSecondary }]}>
         {new Date(item.createdAt).toLocaleDateString('ko-KR')}
@@ -101,6 +122,19 @@ export default function MyReviewsScreen() {
               tintColor={colors.tint}
             />
           }
+          onEndReachedThreshold={0.4}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+          }}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <ActivityIndicator
+                size="small"
+                color={colors.tint}
+                style={styles.footerSpinner}
+              />
+            ) : null
+          }
         />
       )}
     </View>
@@ -109,6 +143,7 @@ export default function MyReviewsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  footerSpinner: { paddingVertical: 16 },
   list: { padding: 16, gap: 12 },
   card: { padding: 16, borderRadius: 14, borderWidth: 1 },
   cardHeader: {
