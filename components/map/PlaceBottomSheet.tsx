@@ -481,11 +481,7 @@ function PlaceBottomSheet({
                     styles.infoCard,
                     { backgroundColor: colors.surface, borderColor: colors.border },
                   ]}>
-                  <View style={styles.infoCardIcon}>{card.icon}</View>
-                  <Text
-                    style={[styles.infoCardLabel, { color: colors.textSecondary }]}>
-                    {card.label}
-                  </Text>
+                  {card.icon}
                   <Text
                     style={[styles.infoCardValue, { color: colors.text }]}
                     numberOfLines={2}>
@@ -698,22 +694,21 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 16,
   },
+  // 아이콘이 곧 라벨이다 — 전화 아이콘 옆의 "전화"처럼 겹치는 글자는 두지 않고
+  // 한 줄로 눕혀 카드 높이를 줄인다.
   infoCard: {
     flexBasis: '48%',
     flexGrow: 1,
-    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
     borderRadius: 12,
     borderWidth: 1,
   },
-  infoCardIcon: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  infoCardLabel: {
-    fontSize: 11,
-    marginBottom: 2,
-  },
   infoCardValue: {
+    flex: 1,
     fontSize: 13,
     fontWeight: '600',
   },
