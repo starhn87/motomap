@@ -189,7 +189,7 @@ export default function PhotoDragList({ uris, onChange, onAdd, max, loading }: P
                 { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
                 loading && { opacity: 0.5 },
               ]}>
-              <Text style={[styles.addIcon, { color: colors.textSecondary }]}>+</Text>
+              <Ionicons name="add" size={24} color={colors.textSecondary} />
               <Text style={[styles.addText, { color: colors.textSecondary }]}>
                 {uris.length}/{max}
               </Text>
@@ -243,10 +243,6 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  addIcon: {
-    fontSize: 24,
-    fontWeight: '300',
   },
   addText: {
     fontSize: 10,

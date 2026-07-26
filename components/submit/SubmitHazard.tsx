@@ -81,6 +81,10 @@ export default function SubmitHazard() {
       toast.info('위치를 선택해주세요.');
       return;
     }
+    if (type === 'etc' && !note.trim()) {
+      toast.info('어떤 위험인지 적어주세요.');
+      return;
+    }
     try {
       await submit({
         type,
@@ -195,10 +199,16 @@ export default function SubmitHazard() {
             : '지금 서 있는 위치로 등록됩니다. 나중에 제보할 땐 검색이나 지도를 쓰세요.'}
         </Text>
 
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>메모</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          {type === 'etc' ? '어떤 위험인가요 *' : '메모'}
+        </Text>
         <TextInput
           style={[...inputStyle, styles.multiline]}
-          placeholder="어떤 상황인지 알려주세요 (선택)"
+          placeholder={
+            type === 'etc'
+              ? '예) 도로 함몰, 가드레일 파손'
+              : '어떤 상황인지 알려주세요 (선택)'
+          }
           placeholderTextColor={colors.textSecondary}
           value={note}
           onChangeText={setNote}
