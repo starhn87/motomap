@@ -19,7 +19,7 @@ function ReviewOverlay({ review }: { review: Review }) {
       <View style={styles.overlayHeader}>
         <Text style={styles.overlayName} numberOfLines={1}>
           {review.userName}
-          {review.bikeModel ? `  🏍 ${review.bikeModel}` : ''}
+          {review.bikeModel ? `  ·  ${review.bikeModel}` : ''}
         </Text>
         <Text style={styles.overlayStars}>
           {'★'.repeat(review.rating)}

@@ -1,3 +1,4 @@
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import {
   StyleSheet,
   View,
@@ -385,9 +386,10 @@ export default function CourseDetailScreen() {
                             {review.userName}
                           </Text>
                           {review.bikeModel ? (
-                            <Text style={[styles.bikeBadge, { color: colors.tint }]}>
-                              🏍 {review.bikeModel}
-                            </Text>
+                            <View style={styles.bikeBadgeRow}>
+                              <FontAwesome5 name="motorcycle" size={10} color={colors.tint} />
+                              <Text style={[styles.bikeBadge, { color: colors.tint }]}>{review.bikeModel}</Text>
+                            </View>
                           ) : null}
                         </View>
                       </View>
@@ -726,6 +728,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  bikeBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   bikeBadge: { fontSize: 11, fontWeight: '600', marginTop: 1 },
   reviewContent: {
     fontSize: 13,

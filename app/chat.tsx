@@ -298,7 +298,7 @@ export default function ChatScreen() {
       {/* 헤더 */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backButton}>
-          <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.text }]}>AI 추천</Text>
         {messages.length > 0 ? (
@@ -403,13 +403,11 @@ export default function ChatScreen() {
                 opacity: pressed ? 0.85 : 1,
               },
             ]}>
-            <Text
-              style={[
-                styles.sendText,
-                { color: sending || !input.trim() ? colors.textSecondary : colors.background },
-              ]}>
-              ↑
-            </Text>
+            <Ionicons
+              name="arrow-up"
+              size={20}
+              color={sending || !input.trim() ? colors.textSecondary : colors.background}
+            />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -443,10 +441,6 @@ const styles = StyleSheet.create({
   },
   newChatText: {
     fontSize: 14,
-    fontWeight: '600',
-  },
-  backIcon: {
-    fontSize: 22,
     fontWeight: '600',
   },
   headerTitle: {
@@ -568,10 +562,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  sendText: {
-    fontSize: 18,
-    fontWeight: '700',
   },
   typingDots: {
     flexDirection: 'row',

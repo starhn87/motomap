@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   View,
   Text,
@@ -98,7 +99,7 @@ export default function EditBikeScreen() {
               setModel('');
               setPicked(false);
             }}>
-            <Text style={[styles.clearText, { color: colors.textSecondary }]}>✕</Text>
+            <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
           </Pressable>
         )}
       </View>
@@ -177,11 +178,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-  },
-  clearText: {
-    fontSize: 16,
-    fontWeight: '600',
-    padding: 4,
   },
   hint: {
     fontSize: 12,

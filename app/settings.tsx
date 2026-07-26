@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useState } from 'react';
 import {
   StyleSheet,
@@ -103,7 +104,7 @@ function NavAppRow({
           미설치
         </Text>
       ) : selected ? (
-        <Text style={[styles.navAppCheck, { color: colors.background }]}>✓</Text>
+        <Ionicons name="checkmark" size={15} color={colors.background} />
       ) : null}
     </Pressable>
   );
@@ -336,10 +337,6 @@ const styles = StyleSheet.create({
   navAppLabel: {
     fontSize: 14,
     fontWeight: '500',
-  },
-  navAppCheck: {
-    fontSize: 16,
-    fontWeight: '700',
   },
   navAppBadge: {
     fontSize: 12,

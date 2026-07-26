@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   View,
   Text,
@@ -55,7 +56,7 @@ function AgreementRow({
               backgroundColor: checked ? colors.tint : 'transparent',
             },
           ]}>
-          {checked && <Text style={[styles.checkmark, { color: colors.background }]}>✓</Text>}
+          {checked && <Ionicons name="checkmark" size={13} color={colors.background} />}
         </View>
         <Text style={[styles.agreementText, { color: colors.text }]}>{label}</Text>
       </Pressable>
@@ -196,7 +197,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
                   <Image source={{ uri: avatarUri }} style={styles.avatarPreview} />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarPlaceholderIcon}>📷</Text>
+                    <Ionicons name="camera-outline" size={26} color={colors.textSecondary} />
                     <Text style={[styles.avatarPlaceholderText, { color: colors.textSecondary }]}>
                       프로필 사진
                     </Text>
@@ -231,13 +232,13 @@ export default function LoginPrompt({ message }: { message?: string }) {
                         nicknameStatus === 'available' ? semantic.success : colors.tint,
                     },
                   ]}>
-                  <Text style={[styles.checkText, { color: colors.background }]}>
-                    {nicknameStatus === 'checking'
-                      ? '...'
-                      : nicknameStatus === 'available'
-                        ? '✓'
-                        : '확인'}
-                  </Text>
+                  {nicknameStatus === 'available' ? (
+                    <Ionicons name="checkmark" size={16} color={colors.background} />
+                  ) : (
+                    <Text style={[styles.checkText, { color: colors.background }]}>
+                      {nicknameStatus === 'checking' ? '...' : '확인'}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
               {nicknameStatus === 'available' && (
@@ -280,7 +281,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
                   { borderColor: colors.border, backgroundColor: (agreedTerms && agreedPrivacy && agreedLocation) ? colors.tint : 'transparent' },
                 ]}>
                   {(agreedTerms && agreedPrivacy && agreedLocation) && (
-                    <Text style={[styles.checkmark, { color: colors.background }]}>✓</Text>
+                    <Ionicons name="checkmark" size={13} color={colors.background} />
                   )}
                 </View>
                 <Text style={[styles.agreementTextAll, { color: colors.text }]}>
@@ -374,9 +375,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  avatarPlaceholderIcon: {
-    fontSize: 24,
   },
   avatarPlaceholderText: {
     fontSize: 10,
@@ -472,10 +470,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  checkmark: {
-    fontSize: 13,
-    fontWeight: '700',
   },
   agreementText: {
     fontSize: 13,

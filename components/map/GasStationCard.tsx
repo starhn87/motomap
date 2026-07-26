@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 
@@ -53,7 +54,7 @@ export default function GasStationCard({ station, onClose }: Props) {
           </View>
         </View>
         <Pressable onPress={onClose} hitSlop={8} style={styles.closeButton}>
-          <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
+          <Ionicons name="close" size={20} color={colors.textSecondary} />
         </Pressable>
       </View>
 
@@ -156,9 +157,6 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 4,
-  },
-  closeText: {
-    fontSize: 16,
   },
   priceRows: {
     gap: 6,

@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   View,
   Text,
@@ -154,9 +155,13 @@ export default function EditNicknameScreen() {
             styles.checkButton,
             { backgroundColor: status === 'available' ? semantic.success : colors.tint },
           ]}>
-          <Text style={[styles.checkText, { color: colors.background }]}>
-            {status === 'checking' ? '...' : status === 'available' ? '✓' : '확인'}
-          </Text>
+          {status === 'available' ? (
+            <Ionicons name="checkmark" size={16} color={colors.background} />
+          ) : (
+            <Text style={[styles.checkText, { color: colors.background }]}>
+              {status === 'checking' ? '...' : '확인'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 

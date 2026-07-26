@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   StyleSheet,
   View,
@@ -233,7 +234,7 @@ export default function SubmitCourse() {
               <Pressable
                 onPress={() => removeWaypoint(wp.id)}
                 style={styles.removeButton}>
-                <Text style={styles.removeText}>✕</Text>
+                <Ionicons name="close" size={13} color="#FFFFFF" />
               </Pressable>
             )}
           </View>
@@ -326,7 +327,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  removeText: { color: semantic.danger, fontSize: 14, fontWeight: '700' },
   addWaypointButton: {
     paddingVertical: 12,
     borderRadius: 12,

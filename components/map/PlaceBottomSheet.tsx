@@ -254,7 +254,7 @@ function PlaceBottomSheet({
         </Animated.View>
       </TouchableOpacity>
       <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-        <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
+        <Ionicons name="close" size={20} color={colors.textSecondary} />
       </TouchableOpacity>
     </>
   );
@@ -562,7 +562,7 @@ function PlaceBottomSheet({
           <TouchableOpacity
             onPress={() => bottomSheetRef.current?.close()}
             style={styles.iconButton}>
-            <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.nameActions}>{actions}</View>
         </Animated.View>
@@ -645,14 +645,6 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 8,
-  },
-  closeText: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  backIcon: {
-    fontSize: 26,
-    fontWeight: '700',
   },
   addressRow: {
     flexDirection: 'row',

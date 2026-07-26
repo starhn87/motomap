@@ -262,7 +262,7 @@ export default function SearchScreen() {
       {/* 검색 입력 바 */}
       <View style={styles.searchBarRow}>
         <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backButton}>
-          <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
         </Pressable>
         <View
           style={[
@@ -280,7 +280,7 @@ export default function SearchScreen() {
           />
           {query.length > 0 && (
             <Pressable onPress={() => setQuery('')} hitSlop={8}>
-              <Text style={[styles.clearText, { color: colors.textSecondary }]}>✕</Text>
+              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
             </Pressable>
           )}
         </View>
@@ -437,7 +437,7 @@ export default function SearchScreen() {
                 코스, 장소를 대화로 골라보세요
               </Text>
             </View>
-            <Text style={[styles.aiBannerArrow, { color: colors.tint }]}>→</Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.tint} />
           </Pressable>
 
           {recent.length > 0 && (
@@ -487,7 +487,7 @@ export default function SearchScreen() {
                       hitSlop={8}
                       onPress={() => removeRecentSearch(key).then(setRecent)}
                       style={styles.removeButton}>
-                      <Text style={[styles.removeText, { color: colors.textSecondary }]}>✕</Text>
+                      <Ionicons name="close" size={15} color={colors.textSecondary} />
                     </Pressable>
                   </Pressable>
                 );
@@ -509,14 +509,14 @@ export default function SearchScreen() {
 
           {(recommended?.recent.length ?? 0) > 0 && (
             <>
-              {sectionTitle('🆕 새로 오픈')}
+              {sectionTitle('새로 오픈')}
               {recommended!.recent.slice(0, 5).map((p) => placeRow(p, 'new'))}
             </>
           )}
 
           {(recommended?.topRated.length ?? 0) > 0 && (
             <>
-              {sectionTitle('👍 라이더 추천')}
+              {sectionTitle('라이더 추천')}
               {recommended!.topRated.slice(0, 5).map((p) => placeRow(p, 'top'))}
             </>
           )}
@@ -545,10 +545,6 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 6,
   },
-  backIcon: {
-    fontSize: 22,
-    fontWeight: '600',
-  },
   inputContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -561,11 +557,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-  },
-  clearText: {
-    fontSize: 16,
-    fontWeight: '600',
-    padding: 4,
   },
   listContent: {
     paddingBottom: 40,
@@ -651,9 +642,6 @@ const styles = StyleSheet.create({
     padding: 4,
     marginLeft: 8,
   },
-  removeText: {
-    fontSize: 13,
-  },
   aiBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -664,9 +652,5 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
-  },
-  aiBannerArrow: {
-    fontSize: 18,
-    fontWeight: '700',
   },
 });

@@ -84,7 +84,7 @@ export default function NotificationsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {!notifications?.length ? (
         <EmptyState
-          icon="🔔"
+          icon={<Ionicons name="notifications-outline" size={44} color={colors.textSecondary} />}
           title="아직 알림이 없습니다"
           hint="제보하신 장소나 코스가 반영되면 여기서 알려드려요."
           actionLabel="제보하러 가기"

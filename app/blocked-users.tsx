@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   StyleSheet,
   View,
@@ -92,7 +93,10 @@ export default function BlockedUsersScreen() {
       {isLoading ? (
         <BlockedSkeletonList />
       ) : !blocked?.length ? (
-        <EmptyState icon="🛡️" title="차단한 사용자가 없습니다" />
+        <EmptyState
+          icon={<Ionicons name="shield-checkmark-outline" size={44} color={colors.textSecondary} />}
+          title="차단한 사용자가 없습니다"
+        />
       ) : (
         <FlatList
           data={blocked}
