@@ -104,9 +104,9 @@ export default function FavoritesScreen() {
         <PlaceSkeletonList />
       ) : !places?.length ? (
         <EmptyState
-          icon={<Ionicons name="star-outline" size={44} color={colors.textSecondary} />}
+          icon={<Ionicons name="heart-outline" size={44} color={colors.textSecondary} />}
           title="즐겨찾기한 장소가 없습니다"
-          hint="지도에서 장소를 탭하고 ❤️ 버튼을 눌러보세요."
+          hint="지도에서 장소를 탭하고 하트 버튼을 눌러보세요."
           actionLabel="지도에서 찾아보기"
           onAction={() => router.navigate('/')}
         />
