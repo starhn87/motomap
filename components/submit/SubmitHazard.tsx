@@ -208,10 +208,10 @@ export default function SubmitHazard() {
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>사진</Text>
         {photo ? (
-          <View style={styles.photoRow}>
+          <View style={styles.photoWrap}>
             <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" />
-            <Pressable onPress={() => setPhoto(null)} hitSlop={8}>
-              <Text style={[styles.removePhoto, { color: colors.textSecondary }]}>삭제</Text>
+            <Pressable onPress={() => setPhoto(null)} hitSlop={8} style={styles.photoRemove}>
+              <Ionicons name="close" size={13} color="#FFFFFF" />
             </Pressable>
           </View>
         ) : (
@@ -225,7 +225,7 @@ export default function SubmitHazard() {
               <>
                 <Ionicons name="camera-outline" size={18} color={colors.textSecondary} />
                 <Text style={[styles.photoAddText, { color: colors.textSecondary }]}>
-                  사진 추가 (선택)
+                  사진 추가 (선택, 1장)
                 </Text>
               </>
             )}
@@ -316,9 +316,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   multiline: { minHeight: 80, textAlignVertical: 'top' },
-  photoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  // 삭제는 사진 우상단에 겹쳐 둔다 (리뷰 사진 목록과 같은 자리)
+  photoWrap: { alignSelf: 'flex-start' },
   photo: { width: 88, height: 88, borderRadius: 12 },
-  removePhoto: { fontSize: 13, fontWeight: '600' },
+  photoRemove: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   photoAdd: {
     flexDirection: 'row',
     alignItems: 'center',
