@@ -1,6 +1,6 @@
-import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import BikeIcon from '@/components/ui/BikeIcon';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   View,
@@ -317,7 +317,7 @@ export default function ChatScreen() {
         {messages.length === 0 ? (
           // 시작 화면 — 인사 + 예시 질문
           <View style={styles.welcome}>
-            <Image source={require('@/assets/images/bike-silhouette.png')} style={{ width: 72, height: 42 }} tintColor={colors.tint} contentFit="contain" />
+            <BikeIcon size={72} color={colors.tint} />
             <Text style={[styles.welcomeTitle, { color: colors.text }]}>
               어디로 달려볼까요?
             </Text>

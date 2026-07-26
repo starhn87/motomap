@@ -1,4 +1,3 @@
-import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
@@ -27,6 +26,7 @@ import { updateAvatarUrl } from '@/lib/nickname';
 import { toast } from '@/lib/toast';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import ImageViewer from '@/components/ui/ImageViewer';
+import BikeIcon from '@/components/ui/BikeIcon';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -170,7 +170,7 @@ function LoggedInContent() {
 
       <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.menu}>
         <MenuItem icon={<Ionicons name="create-outline" size={20} color={colors.text} />} label="닉네임 변경" onPress={() => router.push('/edit-nickname')} />
-        <MenuItem icon={<Image source={require('@/assets/images/bike-silhouette.png')} style={{ width: 26, height: 15 }} tintColor={colors.text} contentFit="contain" />} label="내 바이크" onPress={() => router.push('/edit-bike')} />
+        <MenuItem icon={<BikeIcon size={26} color={colors.text} />} label="내 바이크" onPress={() => router.push('/edit-bike')} />
         <MenuItem icon={<Ionicons name="star-outline" size={20} color={colors.text} />} label="즐겨찾기" onPress={() => router.push('/favorites')} />
         <MenuItem icon={<Ionicons name="document-text-outline" size={20} color={colors.text} />} label="내 제보 목록" onPress={() => router.push('/my-submissions')} />
         <MenuItem icon={<Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />} label="내 리뷰" onPress={() => router.push('/my-reviews')} />

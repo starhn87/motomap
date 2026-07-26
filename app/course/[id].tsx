@@ -1,4 +1,4 @@
-import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
+import BikeIcon from '@/components/ui/BikeIcon';
 import {
   StyleSheet,
   View,
@@ -387,7 +387,7 @@ export default function CourseDetailScreen() {
                           </Text>
                           {review.bikeModel ? (
                             <View style={styles.bikeBadgeRow}>
-                              <FontAwesome5 name="motorcycle" size={10} color={colors.tint} />
+                              <BikeIcon size={15} color={colors.tint} />
                               <Text style={[styles.bikeBadge, { color: colors.tint }]}>{review.bikeModel}</Text>
                             </View>
                           ) : null}
