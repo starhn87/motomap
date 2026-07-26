@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
@@ -115,7 +116,7 @@ function Thumb({
       <Animated.View style={[styles.thumb, style]}>
         <Image source={{ uri }} style={styles.image} />
         <Pressable onPress={() => onRemove(index)} hitSlop={6} style={styles.remove}>
-          <Text style={styles.removeText}>✕</Text>
+          <Ionicons name="close" size={13} color="#FFFFFF" />
         </Pressable>
       </Animated.View>
     </GestureDetector>
@@ -225,19 +226,14 @@ const styles = StyleSheet.create({
   },
   remove: {
     position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  removeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
   },
   add: {
     width: THUMB,
