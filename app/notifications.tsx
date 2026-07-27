@@ -1,8 +1,8 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -56,6 +56,14 @@ export default function NotificationsScreen() {
     }, 350);
     return () => clearTimeout(t);
   }, [highlightKey, highlightId, notifications]);
+
+  // 들어올 때마다 스냅샷을 새로 잡는다 — 화면이 재사용되면 이전 방문의 스냅샷이
+  // 남아 새 알림에 점이 안 붙고 읽음 처리까지 건너뛴다(뱃지가 계속 남는다).
+  useFocusEffect(
+    useCallback(() => {
+      setArrivedUnread(null);
+    }, [])
+  );
 
   // 화면에 들어오면 전부 읽음 처리 (뱃지 해소). 표시는 위 스냅샷이 맡는다.
   useEffect(() => {
