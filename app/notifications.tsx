@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import Colors from '@/constants/Colors';
@@ -31,7 +31,9 @@ export default function NotificationsScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { data: notifications, isLoading } = useNotifications();
   const { mutate: markAllRead } = useMarkAllRead();
-  const markedRef = useRef(false);
+  // 들어온 순간 안 읽었던 알림들. 곧바로 읽음 처리하면 목록이 다시 조회되면서
+  // 표시가 지워지므로, 이 화면에 머무는 동안은 이 스냅샷으로 새 알림을 표시한다.
+  const [arrivedUnread, setArrivedUnread] = useState<Set<string> | null>(null);
 
   // 반려 푸시 탭 → 해당 알림으로 스크롤·강조 (highlightTs 는 같은 알림 재탭용 nonce)
   const { highlightId, highlightTs } = useLocalSearchParams<{
@@ -55,14 +57,13 @@ export default function NotificationsScreen() {
     return () => clearTimeout(t);
   }, [highlightKey, highlightId, notifications]);
 
-  // 화면에 들어오면 전부 읽음 처리 (뱃지 해소) — 목록의 안읽음 점은 이번 렌더 동안 유지
+  // 화면에 들어오면 전부 읽음 처리 (뱃지 해소). 표시는 위 스냅샷이 맡는다.
   useEffect(() => {
-    if (markedRef.current) return;
-    if (notifications?.some((n) => !n.readAt)) {
-      markedRef.current = true;
-      markAllRead();
-    }
-  }, [notifications, markAllRead]);
+    if (arrivedUnread || !notifications) return;
+    const unread = new Set(notifications.filter((n) => !n.readAt).map((n) => n.id));
+    setArrivedUnread(unread);
+    if (unread.size > 0) markAllRead();
+  }, [notifications, arrivedUnread, markAllRead]);
 
   const handlePress = (item: AppNotification) => {
     if (item.data?.placeId) {
@@ -120,11 +121,11 @@ export default function NotificationsScreen() {
                 onPress={() => handlePress(item)}
                 style={({ pressed }) => [
                   styles.item,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    opacity: pressed ? 0.8 : 1,
-                  },
+                  arrivedUnread?.has(item.id)
+                    ? // 이번에 새로 온 알림 — 점만으로는 훑을 때 놓치기 쉬워 카드째 띄운다
+                      { backgroundColor: `${colors.tint}0D`, borderColor: colors.tint }
+                    : { backgroundColor: colors.surface, borderColor: colors.border },
+                  { opacity: pressed ? 0.8 : 1 },
                 ]}>
                 <View style={styles.itemIcon}>
                   {item.type === 'feedback_reply' ? (
@@ -140,7 +141,9 @@ export default function NotificationsScreen() {
                     <Text style={[styles.itemTitle, { color: colors.text }]}>
                       {item.title}
                     </Text>
-                    {!item.readAt && <View style={[styles.unreadDot, { backgroundColor: colors.tint }]} />}
+                    {arrivedUnread?.has(item.id) && (
+                      <View style={[styles.unreadDot, { backgroundColor: colors.tint }]} />
+                    )}
                   </View>
                   {/* 알림 목록이 본문 전문을 볼 수 있는 유일한 곳 — 말줄임 없이 그대로 보여준다 */}
                   <Text style={[styles.itemText, { color: colors.textSecondary }]}>
