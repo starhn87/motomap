@@ -121,10 +121,13 @@ export default function NotificationsScreen() {
                 onPress={() => handlePress(item)}
                 style={({ pressed }) => [
                   styles.item,
-                  arrivedUnread?.has(item.id)
-                    ? // 이번에 새로 온 알림 — 점만으로는 훑을 때 놓치기 쉬워 카드째 띄운다
-                      { backgroundColor: `${colors.tint}0D`, borderColor: colors.tint }
-                    : { backgroundColor: colors.surface, borderColor: colors.border },
+                  {
+                    // 이번에 새로 온 알림은 배경만 옅게 띄운다 — 점만으로는 훑을 때 놓치기 쉽다
+                    backgroundColor: arrivedUnread?.has(item.id)
+                      ? `${colors.tint}0D`
+                      : colors.surface,
+                    borderColor: colors.border,
+                  },
                   { opacity: pressed ? 0.8 : 1 },
                 ]}>
                 <View style={styles.itemIcon}>
