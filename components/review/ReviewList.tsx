@@ -304,28 +304,42 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
                   </ScrollView>
                 )}
                 <View style={styles.reviewFooter}>
-                  <Text style={[styles.reviewDate, { color: colors.textSecondary }]}>
-                    {new Date(review.createdAt).toLocaleDateString('ko-KR')}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => handleLike(review)}
-                    disabled={isOwner}
-                    style={styles.likeButton}>
-                    <Ionicons
-                      name={review.likedByMe ? 'thumbs-up' : 'thumbs-up-outline'}
-                      size={15}
-                      color={review.likedByMe ? colors.tint : colors.textSecondary}
-                    />
-                    {review.likeCount > 0 && (
-                      <Text
-                        style={[
-                          styles.likeCount,
-                          { color: review.likedByMe ? colors.tint : colors.textSecondary },
-                        ]}>
-                        {review.likeCount}
-                      </Text>
+                  <View style={styles.footerLeft}>
+                    <Text style={[styles.reviewDate, { color: colors.textSecondary }]}>
+                      {new Date(review.createdAt).toLocaleDateString('ko-KR')}
+                    </Text>
+                    {/* 내 리뷰에는 누를 수 없으니 받은 수만, 그마저 0이면 감춘다 */}
+                    {isOwner ? (
+                      review.likeCount > 0 && (
+                        <View style={styles.likeButton}>
+                          <Ionicons name="thumbs-up" size={14} color={colors.textSecondary} />
+                          <Text style={[styles.likeCount, { color: colors.textSecondary }]}>
+                            {review.likeCount}
+                          </Text>
+                        </View>
+                      )
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleLike(review)}
+                        hitSlop={8}
+                        style={styles.likeButton}>
+                        <Ionicons
+                          name={review.likedByMe ? 'thumbs-up' : 'thumbs-up-outline'}
+                          size={14}
+                          color={review.likedByMe ? colors.tint : colors.textSecondary}
+                        />
+                        {review.likeCount > 0 && (
+                          <Text
+                            style={[
+                              styles.likeCount,
+                              { color: review.likedByMe ? colors.tint : colors.textSecondary },
+                            ]}>
+                            {review.likeCount}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
                     )}
-                  </TouchableOpacity>
+                  </View>
                   {isOwner ? (
                     <View style={styles.actions}>
                       <TouchableOpacity onPress={() => handleEdit(review)}>
@@ -420,14 +434,10 @@ const styles = StyleSheet.create({
   reviewContent: { fontSize: 13, lineHeight: 19, marginBottom: 6 },
   reviewPhotos: { marginBottom: 8 },
   reviewPhoto: { width: 80, height: 80, borderRadius: 8, marginRight: 6 },
-  likeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginLeft: 10,
-    paddingVertical: 2,
-  },
-  likeCount: { fontSize: 12, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  // 날짜와 한 묶음으로 왼쪽에 둔다 — 푸터가 space-between 이라 따로 두면 가운데로 밀린다
+  footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  likeButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  likeCount: { fontSize: 11, fontWeight: '600', fontVariant: ['tabular-nums'] },
   reviewFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
