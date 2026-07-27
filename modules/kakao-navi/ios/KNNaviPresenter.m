@@ -1,4 +1,5 @@
 #import "KNNaviPresenter.h"
+#import "KNNaviTheme.h"
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 
@@ -17,6 +18,7 @@
 @property(nonatomic, strong, nullable) KNDriveGuidance *guidance;
 @property(nonatomic, strong, nullable) KNTrip *trip;
 @property(nonatomic, copy, nullable) void (^onDismiss)(void);
+@property(nonatomic, assign) BOOL carThemeApplied;
 @end
 
 @implementation KNNaviViewController
@@ -55,6 +57,15 @@
 - (void)viewDidAppear:(BOOL)animated {
   [super viewDidAppear:animated];
   [self.naviView resumeView];
+
+  [self applyCarTheme];
+}
+
+// 안내가 시작되거나 위치가 처음 잡히면 SDK 가 자차를 다시 그리면서
+// 기본 아이콘으로 되돌린다. 그 시점마다 다시 씌운다.
+- (void)applyCarTheme {
+  [self.naviView.mapView setCustomCarImages:[KNNaviTheme carImages]
+                                     anchor:[KNNaviTheme carAnchor]];
 }
 
 - (void)naviViewGuideEnded:(KNNaviView *)aNaviView {
@@ -68,6 +79,7 @@
 
 - (void)guidanceGuideStarted:(KNGuidance *)aGuidance {
   [self.naviView guidanceGuideStarted:aGuidance];
+  [self applyCarTheme];
 }
 
 - (void)guidanceCheckingRouteChange:(KNGuidance *)aGuidance {
@@ -112,6 +124,11 @@
 
 - (void)guidance:(KNGuidance *)aGuidance didUpdateLocation:(KNGuide_Location *)aLocationGuide {
   [self.naviView guidance:aGuidance didUpdateLocation:aLocationGuide];
+
+  if (!self.carThemeApplied) {
+    self.carThemeApplied = YES;
+    [self applyCarTheme];
+  }
 }
 
 - (void)guidance:(KNGuidance *)aGuidance didUpdateRouteGuide:(KNGuide_Route *)aRouteGuide {
