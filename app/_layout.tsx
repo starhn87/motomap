@@ -1,5 +1,6 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { initializeKakaoSDK } from '@react-native-kakao/core';
+import KakaoNavi from '@/modules/kakao-navi';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
@@ -70,6 +71,10 @@ function RootLayout() {
       initializeKakaoSDK(appKey).catch((err) => {
         console.warn('Failed to initialize Kakao SDK', err);
       });
+      // 카카오내비 SDK(KNSDK) — 앱 안 이륜차 길안내용. 인증 성공 여부만 남긴다.
+      KakaoNavi.initialize(appKey)
+        .then(() => console.log('[KNSDK] 인증 성공'))
+        .catch((err) => console.warn('[KNSDK] 인증 실패', err));
     }
   }, [initialize, loadDefaultApp, loadMode]);
 

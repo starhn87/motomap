@@ -1,0 +1,7 @@
+{
+  "name": "kakao-navi",
+  "version": "1.0.0",
+  "description": "카카오내비 SDK(KNSDK) 브리지 — 이륜차 길안내",
+  "main": "index.ts",
+  "private": true
+}

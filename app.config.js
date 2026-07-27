@@ -30,6 +30,12 @@ export default {
           '라이딩 중 현재 위치를 표시하고 주변 장소를 찾기 위해 위치 정보가 필요합니다.',
         NSPhotoLibraryUsageDescription:
           '리뷰에 사진을 첨부하기 위해 사진 라이브러리 접근 권한이 필요합니다.',
+        // KNSDK(카카오내비)는 초기화 시 백그라운드 위치 업데이트를 켠다.
+        // 이 항목이 없으면 CoreLocation 이 즉시 예외를 던지며 앱이 죽는다
+        // ("Invalid parameter not satisfying: !stayUp || CLClientIsBackgroundable").
+        UIBackgroundModes: ['location'],
+        NSLocationAlwaysAndWhenInUseUsageDescription:
+          '길안내 중 화면이 꺼져 있어도 경로를 안내하기 위해 위치 정보가 필요합니다.',
         ITSAppUsesNonExemptEncryption: false,
       },
       bundleIdentifier: 'com.ridemap.app',
@@ -55,6 +61,7 @@ export default {
     plugins: [
       'expo-router',
       './plugins/withQuerySchemes',
+      './plugins/withRealmDynamicFramework',
       [
         'expo-image-picker',
         {
