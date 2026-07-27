@@ -41,7 +41,10 @@
                                                   avoidOption:KNRouteAvoidOption_None];
   [naviView sndVolume:1.0f];
   naviView.guideStateDelegate = self;
-  [naviView carType:KNCarType_Bike];
+  // 주의: [naviView carType:KNCarType_Bike] 를 부르면 자차 마커가 SDK 내장
+  // 바이크 캐릭터(bike_on/off.png)로 바뀌는데, 그 분기는 setCustomCarImages 를
+  // 무시한다. 경로 계산 차종은 trip.routeConfig 가 들고 있으므로 뷰 쪽은
+  // 건드리지 않는다 — 그래야 커스텀 마커가 적용된다.
   naviView.frame = self.view.bounds;
   naviView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
   [self.view addSubview:naviView];
@@ -64,8 +67,21 @@
 // 안내가 시작되거나 위치가 처음 잡히면 SDK 가 자차를 다시 그리면서
 // 기본 아이콘으로 되돌린다. 그 시점마다 다시 씌운다.
 - (void)applyCarTheme {
-  [self.naviView.mapView setCustomCarImages:[KNNaviTheme carImages]
-                                     anchor:[KNNaviTheme carAnchor]];
+  KNNaviMapView *mapView = self.naviView.mapView;
+  [mapView setCustomCarImages:[KNNaviTheme carImages] anchor:[KNNaviTheme carAnchor]];
+
+  // setCustomCarImages 는 내부에서 trip.routeConfig.carType 을 읽어 이륜차(6)면
+  // carImageType 을 2(내장 바이크 아이콘)로 강제한다 — 1.10.9 디스어셈블로 확인.
+  // 커스텀 배열은 이미 저장돼 있으므로 type 만 0(커스텀)으로 되돌리고 테마를 다시 그린다.
+  SEL typeSel = NSSelectorFromString(@"carImageType:");
+  SEL renewSel = NSSelectorFromString(@"renewTheme");
+  if ([mapView respondsToSelector:typeSel] && [mapView respondsToSelector:renewSel]) {
+    void (*setType)(id, SEL, NSInteger) =
+        (void (*)(id, SEL, NSInteger))[mapView methodForSelector:typeSel];
+    setType(mapView, typeSel, 0);
+    void (*renew)(id, SEL) = (void (*)(id, SEL))[mapView methodForSelector:renewSel];
+    renew(mapView, renewSel);
+  }
 }
 
 - (void)naviViewGuideEnded:(KNNaviView *)aNaviView {
