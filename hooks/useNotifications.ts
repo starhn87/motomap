@@ -9,7 +9,9 @@ export function useNotifications() {
     queryKey: ['notifications', user?.id],
     queryFn: fetchNotifications,
     enabled: !!user,
-    staleTime: 60 * 1000,
+    // 뱃지가 걸린 쿼리라 전역 기본(60초)보다 짧게 — 앱으로 돌아왔을 때
+    // 대부분 다시 받아오도록 한다
+    staleTime: 15 * 1000,
   });
 }
 

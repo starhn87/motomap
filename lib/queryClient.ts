@@ -1,4 +1,5 @@
-import { QueryClient } from '@tanstack/react-query';
+import { AppState } from 'react-native';
+import { QueryClient, focusManager } from '@tanstack/react-query';
 
 // 앱 전역 단일 QueryClient. 모듈로 분리해 비-React 코드(예: 로그아웃 시
 // 캐시 클리어)에서도 참조할 수 있게 한다.
@@ -13,4 +14,11 @@ export const queryClient = new QueryClient({
       retry: 1,
     },
   },
+});
+
+// RN 에는 브라우저의 window focus 가 없어 react-query 의 포커스 재조회가 잠들어
+// 있다 — AppState 에 연결해 앱이 앞으로 돌아올 때 stale 한 쿼리만 다시 받는다.
+// 알림 뱃지가 앱을 껐다 켜야만 갱신되던 것이 이것 때문이었다.
+AppState.addEventListener('change', (status) => {
+  focusManager.setFocused(status === 'active');
 });

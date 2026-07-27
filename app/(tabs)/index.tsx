@@ -31,7 +31,7 @@ import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
 import { useNearbyHazards } from '@/hooks/useHazards';
 import { fetchRoute } from '@/lib/api/directions';
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryFilter from '@/components/map/CategoryFilter';
 import { MARKER_IMAGES } from '@/constants/markerImages';
@@ -573,7 +573,13 @@ export default function MapScreen() {
                   { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
                 ]}>
                 <Feather name="bell" size={20} color={colors.text} />
-                {unreadCount > 0 && <View style={styles.bellDot} />}
+                {unreadCount > 0 && (
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText}>
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
               </Pressable>
             )}
           </View>
@@ -700,16 +706,26 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  bellDot: {
+  // 종 우상단에 걸치는 안읽음 뱃지 — 개수를 보여주되 두 자리를 넘기면 9+
+  bellBadge: {
     position: 'absolute',
-    top: 9,
-    right: 10,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    backgroundColor: '#EF4444',
+    top: 2,
+    right: 2,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 8.5,
+    paddingHorizontal: 4,
+    backgroundColor: semantic.danger,
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   zoomHint: {
     position: 'absolute',

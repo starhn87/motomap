@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { router } from 'expo-router';
 
 import { supabase } from '@/lib/supabase';
+import { queryClient } from '@/lib/queryClient';
 import { getCurrentUser } from '@/lib/auth';
 
 // 포그라운드에서도 알림 배너 표시 (기본은 무음 폐기)
@@ -59,7 +60,14 @@ export function setupNotificationTapHandling(): () => void {
       resp.notification.request.content.data as Record<string, unknown>,
     );
   });
-  return () => sub.remove();
+  // 앱을 켜둔 채 푸시를 받은 경우 — 목록·뱃지가 바로 따라오게 캐시를 턴다
+  const received = Notifications.addNotificationReceivedListener(() => {
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+  });
+  return () => {
+    sub.remove();
+    received.remove();
+  };
 }
 
 /**
