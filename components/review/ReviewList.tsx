@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   reviewPhoto: { width: 80, height: 80, borderRadius: 8, marginRight: 6 },
   // 날짜와 한 묶음으로 왼쪽에 둔다 — 푸터가 space-between 이라 따로 두면 가운데로 밀린다
   footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  likeButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  likeButton: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   likeCount: { fontSize: 11, fontWeight: '600', fontVariant: ['tabular-nums'] },
   reviewFooter: {
     flexDirection: 'row',
