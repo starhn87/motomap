@@ -8,6 +8,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { useNotifications, useMarkAllRead } from '@/hooks/useNotifications';
+import { registerPushToken } from '@/lib/push';
 import EmptyState from '@/components/ui/EmptyState';
 import HighlightPulse from '@/components/ui/HighlightPulse';
 import type { AppNotification } from '@/lib/api/notifications';
@@ -56,6 +57,12 @@ export default function NotificationsScreen() {
     }, 350);
     return () => clearTimeout(t);
   }, [highlightKey, highlightId, notifications]);
+
+  // 알림을 보러 온 사람에게 묻는 게 가장 맥락이 맞다. 이미 허용됐으면 창은 안 뜨고
+  // 토큰만 갱신되며, 거부한 적 있으면 조용히 지나간다.
+  useEffect(() => {
+    void registerPushToken(true);
+  }, []);
 
   // 들어올 때마다 스냅샷을 새로 잡는다 — 화면이 재사용되면 이전 방문의 스냅샷이
   // 남아 새 알림에 점이 안 붙고 읽음 처리까지 건너뛴다(뱃지가 계속 남는다).

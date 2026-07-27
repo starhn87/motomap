@@ -42,6 +42,7 @@ import PhotoStrip from '@/components/map/PhotoStrip';
 import NearbyPlaces from '@/components/map/NearbyPlaces';
 import { useReviews } from '@/hooks/useReviews';
 import { toast } from '@/lib/toast';
+import { registerPushToken } from '@/lib/push';
 import type { Place } from '@/types';
 
 interface Props {
@@ -129,6 +130,8 @@ function PlaceBottomSheet({
     }
     try {
       await toggleFav(place.id);
+      // 즐겨찾은 곳의 소식을 받을 의향이 있는 시점 — 해제할 때는 묻지 않는다
+      if (!isFavorite) void registerPushToken(true);
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }
