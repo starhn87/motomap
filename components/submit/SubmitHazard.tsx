@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
@@ -73,6 +74,7 @@ export default function SubmitHazard() {
   };
 
   const handleSubmit = async () => {
+    Keyboard.dismiss();
     if (!type) {
       toast.info('위험 유형을 선택해주세요.');
       return;

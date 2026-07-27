@@ -8,6 +8,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { useState } from 'react';
 import Animated, {
@@ -71,6 +72,7 @@ export default function SubmitCourse() {
   };
 
   const handleSubmit = async () => {
+    Keyboard.dismiss();
     if (!name.trim()) {
       toast.info('코스명을 입력해주세요.');
       return;

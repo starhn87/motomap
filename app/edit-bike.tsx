@@ -45,6 +45,7 @@ export default function EditBikeScreen() {
   }, []);
 
   const handleSave = async () => {
+    Keyboard.dismiss();
     if (saving) return;
     setSaving(true);
     try {

@@ -8,6 +8,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams } from 'expo-router';
@@ -119,6 +120,7 @@ function SubmitPlace() {
   }));
 
   const handleSubmit = async () => {
+    Keyboard.dismiss();
     if (!name.trim()) {
       toast.info('장소명을 입력해주세요.');
       return;

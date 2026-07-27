@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Keyboard,
 } from 'react-native';
 import { useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
@@ -61,6 +62,7 @@ export default function CourseDetailScreen() {
   const [reportingId, setReportingId] = useState<string | null>(null);
 
   const handleSubmitReview = async () => {
+    Keyboard.dismiss();
     if (!id) return;
     if (rating === 0) {
       toast.info('별점을 선택해주세요.');

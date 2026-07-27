@@ -1,4 +1,4 @@
-import { View, Text, TextInput, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, StyleSheet, ActivityIndicator, Keyboard} from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState } from 'react';
 
@@ -57,6 +57,7 @@ export default function ReviewForm({ placeId }: Props) {
   };
 
   const handleSubmit = async () => {
+    Keyboard.dismiss();
     if (submitting) return;
     if (rating === 0) {
       toast.info('별점을 선택해주세요.');

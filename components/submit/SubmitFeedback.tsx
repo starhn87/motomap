@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import { useState } from 'react';
 import Animated, {
@@ -44,6 +45,7 @@ export default function SubmitFeedback() {
   }));
 
   const handleSubmit = async () => {
+    Keyboard.dismiss();
     if (!type) {
       toast.info('유형을 선택해주세요.');
       return;

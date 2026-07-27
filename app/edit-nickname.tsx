@@ -68,6 +68,7 @@ export default function EditNicknameScreen() {
   };
 
   const handleSave = async () => {
+    Keyboard.dismiss();
     if (!nickname.trim() || nickname.trim().length < 2 || nickname.trim().length > 15) {
       toast.info('닉네임은 2~15자여야 합니다.');
       return;

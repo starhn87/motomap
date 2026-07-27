@@ -43,6 +43,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
   };
 
   const handleSubmit = async () => {
+    Keyboard.dismiss();
     if (!reason) {
       toast.info('신고 사유를 선택해주세요.');
       return;
