@@ -1,3 +1,4 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import BikeIcon from '@/components/ui/BikeIcon';
 import {
@@ -308,36 +309,18 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
                     <Text style={[styles.reviewDate, { color: colors.textSecondary }]}>
                       {new Date(review.createdAt).toLocaleDateString('ko-KR')}
                     </Text>
-                    {/* 내 리뷰에는 누를 수 없으니 받은 수만, 그마저 0이면 감춘다 */}
-                    {isOwner ? (
-                      review.likeCount > 0 && (
-                        <View style={styles.likeButton}>
-                          <Ionicons name="thumbs-up" size={14} color={colors.textSecondary} />
-                          <Text style={[styles.likeCount, { color: colors.textSecondary }]}>
-                            {review.likeCount}
-                          </Text>
-                        </View>
-                      )
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => handleLike(review)}
-                        hitSlop={8}
-                        style={styles.likeButton}>
-                        <Ionicons
-                          name={review.likedByMe ? 'thumbs-up' : 'thumbs-up-outline'}
+                    {/* 내 리뷰는 누를 수 없으니 받은 수만 날짜 옆에, 0이면 감춘다 */}
+                    {isOwner && review.likeCount > 0 && (
+                      <View style={styles.likeButton}>
+                        <MaterialCommunityIcons
+                          name="thumb-up"
                           size={14}
-                          color={review.likedByMe ? colors.tint : colors.textSecondary}
+                          color={colors.textSecondary}
                         />
-                        {review.likeCount > 0 && (
-                          <Text
-                            style={[
-                              styles.likeCount,
-                              { color: review.likedByMe ? colors.tint : colors.textSecondary },
-                            ]}>
-                            {review.likeCount}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
+                        <Text style={[styles.likeCount, { color: colors.textSecondary }]}>
+                          {review.likeCount}
+                        </Text>
+                      </View>
                     )}
                   </View>
                   {isOwner ? (
@@ -356,6 +339,25 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => handleBlock(review.userId, review.userName)}>
                         <Text style={[styles.actionText, { color: colors.textSecondary }]}>차단</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleLike(review)}
+                        hitSlop={8}
+                        style={styles.likeButton}>
+                        <MaterialCommunityIcons
+                          name={review.likedByMe ? 'thumb-up' : 'thumb-up-outline'}
+                          size={15}
+                          color={review.likedByMe ? colors.tint : colors.textSecondary}
+                        />
+                        {review.likeCount > 0 && (
+                          <Text
+                            style={[
+                              styles.likeCount,
+                              { color: review.likedByMe ? colors.tint : colors.textSecondary },
+                            ]}>
+                            {review.likeCount}
+                          </Text>
+                        )}
                       </TouchableOpacity>
                     </View>
                   ) : null}
