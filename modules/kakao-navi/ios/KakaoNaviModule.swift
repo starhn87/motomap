@@ -17,5 +17,19 @@ public class KakaoNaviModule: Module {
         }
       }
     }
+
+    // 이륜차 경로. 지금 쓰는 카카오 REST 길찾기와 결과를 견줘보기 위한 것이다.
+    AsyncFunction("requestBikeRoute") {
+      (startLng: Double, startLat: Double, goalLng: Double, goalLat: Double, promise: Promise) in
+      KNSDKBridge.requestBikeRoute(
+        fromLng: startLng, lat: startLat, toLng: goalLng, lat: goalLat
+      ) { errorMessage, distance, duration in
+        if let errorMessage {
+          promise.reject("E_KNSDK_ROUTE", errorMessage)
+        } else {
+          promise.resolve(["distance": distance, "duration": duration])
+        }
+      }
+    }
   }
 }

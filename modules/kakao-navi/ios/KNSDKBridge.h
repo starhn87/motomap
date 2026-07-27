@@ -12,6 +12,15 @@ NS_ASSUME_NONNULL_BEGIN
                clientVersion:(NSString *)clientVersion
                   completion:(void (^)(NSString *_Nullable errorMessage))completion;
 
+// 이륜차 경로를 계산한다. 성공하면 distance(m)·duration(초)가 채워진다.
++ (void)requestBikeRouteFromLng:(double)startLng
+                            lat:(double)startLat
+                          toLng:(double)goalLng
+                            lat:(double)goalLat
+                     completion:(void (^)(NSString *_Nullable errorMessage,
+                                          NSInteger distance,
+                                          NSInteger duration))completion;
+
 @end
 
 NS_ASSUME_NONNULL_END
