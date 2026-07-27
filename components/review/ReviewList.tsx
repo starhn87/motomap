@@ -305,62 +305,63 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
                   </ScrollView>
                 )}
                 <View style={styles.reviewFooter}>
+                  {/* 날짜와 관리 액션은 한 묶음으로 왼쪽에, 좋아요만 오른쪽 끝에 떼어 둔다 */}
                   <View style={styles.footerLeft}>
                     <Text style={[styles.reviewDate, { color: colors.textSecondary }]}>
                       {new Date(review.createdAt).toLocaleDateString('ko-KR')}
                     </Text>
-                    {/* 내 리뷰는 누를 수 없으니 받은 수만 날짜 옆에, 0이면 감춘다 */}
-                    {isOwner && review.likeCount > 0 && (
+                    {isOwner ? (
+                      <View style={styles.actions}>
+                        <TouchableOpacity onPress={() => handleEdit(review)}>
+                          <Text style={[styles.actionText, { color: colors.tint }]}>수정</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDelete(review.id)}>
+                          <Text style={[styles.actionText, { color: semantic.danger }]}>삭제</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : user ? (
+                      <View style={styles.actions}>
+                        <TouchableOpacity onPress={() => setReportingId(review.id)}>
+                          <Text style={[styles.actionText, { color: colors.textSecondary }]}>신고</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleBlock(review.userId, review.userName)}>
+                          <Text style={[styles.actionText, { color: colors.textSecondary }]}>차단</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {isOwner ? (
+                    // 내 리뷰는 누를 수 없으니 받은 수만, 0이면 감춘다
+                    review.likeCount > 0 && (
                       <View style={styles.likeButton}>
-                        <MaterialCommunityIcons
-                          name="thumb-up"
-                          size={14}
-                          color={colors.textSecondary}
-                        />
+                        <MaterialCommunityIcons name="thumb-up" size={15} color={colors.textSecondary} />
                         <Text style={[styles.likeCount, { color: colors.textSecondary }]}>
                           {review.likeCount}
                         </Text>
                       </View>
-                    )}
-                  </View>
-                  {isOwner ? (
-                    <View style={styles.actions}>
-                      <TouchableOpacity onPress={() => handleEdit(review)}>
-                        <Text style={[styles.actionText, { color: colors.tint }]}>수정</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleDelete(review.id)}>
-                        <Text style={[styles.actionText, { color: semantic.danger }]}>삭제</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : user ? (
-                    <View style={styles.actions}>
-                      <TouchableOpacity onPress={() => setReportingId(review.id)}>
-                        <Text style={[styles.actionText, { color: colors.textSecondary }]}>신고</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleBlock(review.userId, review.userName)}>
-                        <Text style={[styles.actionText, { color: colors.textSecondary }]}>차단</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleLike(review)}
-                        hitSlop={8}
-                        style={styles.likeButton}>
-                        <MaterialCommunityIcons
-                          name={review.likedByMe ? 'thumb-up' : 'thumb-up-outline'}
-                          size={15}
-                          color={review.likedByMe ? colors.tint : colors.textSecondary}
-                        />
-                        {review.likeCount > 0 && (
-                          <Text
-                            style={[
-                              styles.likeCount,
-                              { color: review.likedByMe ? colors.tint : colors.textSecondary },
-                            ]}>
-                            {review.likeCount}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  ) : null}
+                    )
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => handleLike(review)}
+                      hitSlop={8}
+                      style={styles.likeButton}>
+                      <MaterialCommunityIcons
+                        name={review.likedByMe ? 'thumb-up' : 'thumb-up-outline'}
+                        size={15}
+                        color={review.likedByMe ? colors.tint : colors.textSecondary}
+                      />
+                      {review.likeCount > 0 && (
+                        <Text
+                          style={[
+                            styles.likeCount,
+                            { color: review.likedByMe ? colors.tint : colors.textSecondary },
+                          ]}>
+                          {review.likeCount}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
               </>
             )}
