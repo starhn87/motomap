@@ -1,5 +1,6 @@
 #import "KNSDKBridge.h"
 #import <KNSDK/KNSDK.h>
+#import <AVFoundation/AVFoundation.h>
 
 @implementation KNSDKBridge
 
@@ -11,6 +12,15 @@
     completion(@"KNSDK 인스턴스를 가져오지 못했다");
     return;
   }
+
+  // 음성 안내용. SDK 초기화 전에 잡아두라고 문서가 요구한다.
+  AVAudioSession *session = AVAudioSession.sharedInstance;
+  [session setActive:NO error:nil];
+  [session setMode:AVAudioSessionModeDefault error:nil];
+  [session setCategory:AVAudioSessionCategoryPlayback
+           withOptions:AVAudioSessionCategoryOptionMixWithOthers
+                 error:nil];
+  [session setActive:YES error:nil];
 
   [sdk initializeWithAppKey:appKey
               clientVersion:clientVersion

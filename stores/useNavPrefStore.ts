@@ -1,9 +1,16 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type NavAppId = 'kakaonavi' | 'tmap' | 'kakaomap' | 'nmap' | 'apple';
+export type NavAppId =
+  | 'ridemap'
+  | 'kakaonavi'
+  | 'tmap'
+  | 'kakaomap'
+  | 'nmap'
+  | 'apple';
 
 const VALID_IDS: readonly NavAppId[] = [
+  'ridemap',
   'kakaonavi',
   'tmap',
   'kakaomap',

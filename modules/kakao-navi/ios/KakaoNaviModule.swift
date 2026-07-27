@@ -31,5 +31,23 @@ public class KakaoNaviModule: Module {
         }
       }
     }
+
+    // 길안내는 네이티브 전체화면으로 띄운다(이유는 KNNaviPresenter.h 참고).
+    // 경로 탐색이 비동기라 결과는 이벤트로 알린다.
+    Events("onGuideEnd", "onGuideFailed")
+
+    AsyncFunction("startGuide") {
+      (startLng: Double, startLat: Double, goalLng: Double, goalLat: Double, goalName: String) in
+      KNNaviPresenter.present(
+        fromLng: startLng, lat: startLat, toLng: goalLng, lat: goalLat, name: goalName,
+        onDismiss: { [weak self] in
+          self?.sendEvent("onGuideEnd", [:])
+        },
+        onError: { [weak self] message in
+          self?.sendEvent("onGuideFailed", ["message": message])
+        }
+      )
+    }
+
   }
 }

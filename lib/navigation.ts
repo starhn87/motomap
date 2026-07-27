@@ -1,5 +1,6 @@
 import { Alert, Linking } from 'react-native';
 import { create } from 'zustand';
+import { router } from 'expo-router';
 import KakaoNavi from '@react-native-kakao/navi';
 
 import { useNavPrefStore, type NavAppId } from '@/stores/useNavPrefStore';
@@ -44,6 +45,18 @@ function sampleWaypoints<T>(points: T[], max: number): T[] {
 }
 
 export const NAV_APPS: NavApp[] = [
+  {
+    id: 'ridemap',
+    label: '모토맵에서 안내',
+    // 앱 안에서 그리는 화면이라 스킴을 열지 않는다. 설치 검사도 건너뛴다.
+    scheme: 'ridemap://',
+    launch: async ({ name, latitude, longitude }) => {
+      router.push({
+        pathname: '/navi',
+        params: { lng: String(longitude), lat: String(latitude), name },
+      });
+    },
+  },
   {
     id: 'kakaonavi',
     label: '카카오내비 (이륜차)',
@@ -132,6 +145,7 @@ export const NAV_APPS: NavApp[] = [
 export async function getAvailableNavApps(): Promise<NavApp[]> {
   const results = await Promise.all(
     NAV_APPS.map(async (app) => {
+      if (app.id === 'ridemap') return app; // 앱 안 안내라 항상 쓸 수 있다
       const canOpen = await Linking.canOpenURL(app.scheme).catch(() => false);
       return canOpen ? app : null;
     }),

@@ -151,6 +151,10 @@ function RootLayoutNav() {
             <Stack.Screen name="blocked-users" options={{ title: '차단 관리' }} />
             <Stack.Screen name="legal/[type]" options={{}} />
             <Stack.Screen name="course/[id]" options={{ title: '코스 상세' }} />
+            <Stack.Screen
+              name="navi"
+              options={{ headerShown: false, animation: 'fade' }}
+            />
           </Stack>
         </ThemeProvider>
       </QueryClientProvider>
