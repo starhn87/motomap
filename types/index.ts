@@ -60,6 +60,9 @@ export interface Review {
   content: string;
   photos: string[];
   createdAt: string;
+  likeCount: number;
+  /** 내가 좋아요를 눌렀는지 (RLS 상 본인 행만 조회되는 점을 이용) */
+  likedByMe: boolean;
 }
 
 export type HazardType =

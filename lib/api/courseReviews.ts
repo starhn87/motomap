@@ -21,6 +21,8 @@ export async function fetchCourseReviews(courseId: string): Promise<Review[]> {
     rating: row.rating,
     content: row.content ?? '',
     photos: [],
+    likeCount: 0,
+    likedByMe: false,
     createdAt: row.created_at,
   }));
 }

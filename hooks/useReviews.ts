@@ -5,6 +5,7 @@ import {
   createReview,
   updateReview,
   deleteReview,
+  toggleReviewLike,
   REVIEWS_PAGE_SIZE,
 } from '@/lib/api/reviews';
 
@@ -58,6 +59,46 @@ export function useDeleteReview(placeId: string) {
     mutationFn: deleteReview,
     onSuccess: () => {
       invalidatePlaceData(queryClient, placeId);
+    },
+  });
+}
+
+// 좋아요 토글 — 탭 즉시 반응해야 하므로 캐시를 낙관적으로 바꾸고,
+// 실패하면 되돌린다(즐겨찾기 하트와 같은 방식).
+export function useToggleReviewLike(placeId: string | null) {
+  const queryClient = useQueryClient();
+  const key = ['reviews', placeId];
+
+  return useMutation({
+    mutationFn: ({ id, liked }: { id: string; liked: boolean }) => toggleReviewLike(id, liked),
+    onMutate: async ({ id, liked }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData(key);
+      queryClient.setQueryData(key, (cur: any) =>
+        cur
+          ? {
+              ...cur,
+              pages: cur.pages.map((page: any[]) =>
+                page.map((r) =>
+                  r.id === id
+                    ? {
+                        ...r,
+                        likedByMe: !liked,
+                        likeCount: Math.max(0, r.likeCount + (liked ? -1 : 1)),
+                      }
+                    : r
+                )
+              ),
+            }
+          : cur
+      );
+      return { prev };
+    },
+    onError: (_e, _vars, context) => {
+      if (context?.prev) queryClient.setQueryData(key, context.prev);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: key });
     },
   });
 }

@@ -21,6 +21,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { submitFeedback } from '@/lib/api/feedback';
 import { toast } from '@/lib/toast';
+import { registerPushToken } from '@/lib/push';
 import type { FeedbackType } from '@/lib/api/feedback';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -61,6 +62,8 @@ export default function SubmitFeedback() {
     try {
       await submitFeedback({ type, content: content.trim() });
       toast.success('소중한 의견이 접수되었습니다.');
+      // 처리 결과를 알림으로 받을 사람이라 이 자리에서 묻는다
+      await registerPushToken(true);
       setType(null);
       setContent('');
     } catch (error: any) {

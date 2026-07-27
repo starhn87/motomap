@@ -8,7 +8,6 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useCreateReview } from '@/hooks/useReviews';
 import { pickImages, uploadMultipleImages } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
-import { registerPushToken } from '@/lib/push';
 import StarRating from './StarRating';
 import PhotoDragList from './PhotoDragList';
 
@@ -82,8 +81,6 @@ export default function ReviewForm({ placeId }: Props) {
       setContent('');
       setImageUris([]);
       toast.success('리뷰가 등록되었습니다.');
-      // 남긴 리뷰에 달릴 소식을 받을 의향이 있는 시점
-      void registerPushToken(true);
     } catch (error: any) {
       toast.error('리뷰 등록에 실패했습니다.', error.message);
     } finally {

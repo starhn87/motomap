@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import BikeIcon from '@/components/ui/BikeIcon';
 import {
   View,
@@ -15,7 +16,7 @@ import { useState, useEffect } from 'react';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useReviews, useUpdateReview, useDeleteReview } from '@/hooks/useReviews';
+import { useToggleReviewLike, useReviews, useUpdateReview, useDeleteReview } from '@/hooks/useReviews';
 import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
 import { pickImages, uploadImage } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
@@ -45,6 +46,7 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
     isFetchingNextPage,
   } = useReviews(placeId);
   const reviews = reviewPages?.pages.flat();
+  const { mutate: toggleLike } = useToggleReviewLike(placeId);
 
   // 내 리뷰에서 진입한 강조 대상이 아직 안 실린 페이지에 있으면 찾을 때까지 더 받는다
   useEffect(() => {
@@ -99,6 +101,14 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
         },
       ]
     );
+  };
+
+  const handleLike = (review: { id: string; likedByMe: boolean }) => {
+    if (!user) {
+      toast.info('로그인이 필요합니다.');
+      return;
+    }
+    toggleLike({ id: review.id, liked: review.likedByMe });
   };
 
   const handleEdit = (review: any) => {
@@ -297,6 +307,25 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
                   <Text style={[styles.reviewDate, { color: colors.textSecondary }]}>
                     {new Date(review.createdAt).toLocaleDateString('ko-KR')}
                   </Text>
+                  <TouchableOpacity
+                    onPress={() => handleLike(review)}
+                    disabled={isOwner}
+                    style={styles.likeButton}>
+                    <Ionicons
+                      name={review.likedByMe ? 'thumbs-up' : 'thumbs-up-outline'}
+                      size={15}
+                      color={review.likedByMe ? colors.tint : colors.textSecondary}
+                    />
+                    {review.likeCount > 0 && (
+                      <Text
+                        style={[
+                          styles.likeCount,
+                          { color: review.likedByMe ? colors.tint : colors.textSecondary },
+                        ]}>
+                        {review.likeCount}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
                   {isOwner ? (
                     <View style={styles.actions}>
                       <TouchableOpacity onPress={() => handleEdit(review)}>
@@ -391,6 +420,14 @@ const styles = StyleSheet.create({
   reviewContent: { fontSize: 13, lineHeight: 19, marginBottom: 6 },
   reviewPhotos: { marginBottom: 8 },
   reviewPhoto: { width: 80, height: 80, borderRadius: 8, marginRight: 6 },
+  likeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 10,
+    paddingVertical: 2,
+  },
+  likeCount: { fontSize: 12, fontWeight: '600', fontVariant: ['tabular-nums'] },
   reviewFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',

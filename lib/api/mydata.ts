@@ -57,6 +57,8 @@ export async function fetchMyReviews(
     content: row.content ?? '',
     photos: row.photos ?? [],
     createdAt: row.created_at,
+    likeCount: row.like_count ?? 0,
+    likedByMe: false, // 내 리뷰라 표시하지 않는다
     placeName: row.places?.name ?? '알 수 없는 장소',
   }));
 }

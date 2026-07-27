@@ -26,6 +26,7 @@ import MapPickerModal from '@/components/map/MapPickerModal';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { toast } from '@/lib/toast';
+import { registerPushToken } from '@/lib/push';
 import type { HazardType } from '@/types';
 
 // 노면 위험 제보 — 지금 서 있는 자리를 찍는 게 기본 시나리오라 현재 위치를 쓴다.
@@ -101,6 +102,8 @@ export default function SubmitHazard() {
       setPhoto(null);
       setPicked(null);
       toast.success('제보 감사합니다. 다른 라이더에게 바로 표시돼요.');
+      // 처리 결과를 알림으로 받을 사람이라 이 자리에서 묻는다
+      await registerPushToken(true);
     } catch (error: any) {
       toast.error('제보에 실패했습니다.', error.message);
     }
