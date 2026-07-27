@@ -1,6 +1,7 @@
 // 코스의 거리·소요시간·표시 경로를 이륜차 기준으로 다시 계산한다.
-// 기존 값은 네이버 trafast(자동차 전용도로 포함)로 뽑은 것이라 라이더가 실제로
-// 갈 수 없는 길과 그만큼 짧은 시간이 저장돼 있었다. traavoidcaronly 로 다시 잰다.
+// 카카오모빌리티 길찾기의 이륜차 차종(car_type=7)으로 재는 게 가장 정확하고,
+// 카카오가 거절하는 지점(도로에서 떨어진 시작·경유지)은 네이버 traavoidcaronly 로
+// 폴백한다 — 앱(lib/api/directions.ts)과 같은 전략.
 // coordinates(코스 정의)는 손대지 않고 DB 값을 그대로 읽어 쓴다.
 //
 // 사용: node scripts/recalc-course-routes.mjs [--dry]
@@ -25,9 +26,10 @@ const URL = process.env.EXPO_PUBLIC_SUPABASE_URL.replace(/\/$/, '');
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const NAVER_ID = process.env.EXPO_PUBLIC_NAVER_CLIENT_ID;
 const NAVER_SECRET = process.env.EXPO_PUBLIC_NAVER_CLIENT_SECRET;
+const KAKAO_KEY = process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY;
 const DRY = process.argv.includes('--dry');
 
-const OPTION = 'traavoidcaronly';
+const NAVER_OPTION = 'traavoidcaronly';
 
 async function api(path, options = {}) {
   const res = await fetch(`${URL}/rest/v1/${path}`, {
@@ -43,28 +45,82 @@ async function api(path, options = {}) {
   return res.status === 204 ? null : res.json();
 }
 
-// 실도로 스냅 — 경유지는 네이버 제한(5개)까지만
-async function snap(coords) {
+// 순환 코스는 시작=끝이면 API 가 거부하므로 살짝 어긋나게 둔다
+function endpoints(coords) {
   const start = coords[0];
   let goal = coords[coords.length - 1];
-  // 순환 코스는 시작=끝이면 API 가 거부하므로 살짝 어긋나게 둔다
   if (start[0] === goal[0] && start[1] === goal[1]) goal = [goal[0] + 0.001, goal[1]];
-  const mid = coords.slice(1, -1).slice(0, 5);
+  return { start, goal, mid: coords.slice(1, -1).slice(0, 5) };
+}
+
+async function snapKakao(coords) {
+  const { start, goal, mid } = endpoints(coords);
+  const p = new URLSearchParams({
+    origin: `${start[0]},${start[1]}`,
+    destination: `${goal[0]},${goal[1]}`,
+    car_type: '7',
+    priority: 'RECOMMEND',
+    road_details: 'true',
+    summary: 'false',
+  });
+  if (mid.length) p.set('waypoints', mid.map((c) => `${c[0]},${c[1]}`).join('|'));
+
+  const res = await fetch(`https://apis-navi.kakaomobility.com/v1/directions?${p}`, {
+    headers: { Authorization: `KakaoAK ${KAKAO_KEY}` },
+  });
+  const route = (await res.json()).routes?.[0];
+  if (!route || route.result_code !== 0) {
+    throw new Error(route?.result_msg ?? `카카오 실패 (HTTP ${res.status})`);
+  }
+  // vertexes 는 [x1, y1, x2, y2, ...] 평면 배열
+  const path = [];
+  for (const section of route.sections ?? []) {
+    for (const road of section.roads ?? []) {
+      const v = road.vertexes ?? [];
+      for (let i = 0; i + 1 < v.length; i += 2) path.push([v[i], v[i + 1]]);
+    }
+  }
+  return { km: route.summary.distance / 1000, min: route.summary.duration / 60, path };
+}
+
+async function snapNaver(coords) {
+  const { start, goal, mid } = endpoints(coords);
   const via = mid.length ? `&waypoints=${mid.map((c) => `${c[0]},${c[1]}`).join('|')}` : '';
   const url =
     `https://maps.apigw.ntruss.com/map-direction/v1/driving` +
-    `?start=${start[0]},${start[1]}&goal=${goal[0]},${goal[1]}&option=${OPTION}${via}`;
+    `?start=${start[0]},${start[1]}&goal=${goal[0]},${goal[1]}&option=${NAVER_OPTION}${via}`;
   const res = await fetch(url, {
     headers: { 'x-ncp-apigw-api-key-id': NAVER_ID, 'x-ncp-apigw-api-key': NAVER_SECRET },
   });
   const data = await res.json();
-  const route = data.route?.[OPTION]?.[0];
-  if (!route) throw new Error(data.message ?? `경로 실패 (code ${data.code})`);
+  const route = data.route?.[NAVER_OPTION]?.[0];
+  if (!route) throw new Error(data.message ?? `네이버 실패 (code ${data.code})`);
   return {
     km: route.summary.distance / 1000,
     min: route.summary.duration / 60000,
     path: route.path,
   };
+}
+
+// 카카오 이륜차가 기본이지만, 코스는 설계된 길이 있어서 크게 우회하면 다른 코스가
+// 된다. 지리산 성삼재-정령치가 그랬다 — 네이버는 지리산 관통도로(노고단로·정령치로)로
+// 42km 인데 카카오는 같은 도로를 지나면서도 94km 로 돌았다(차종 무관, 소형차도 94km).
+// 두 결과를 다 받아 카카오가 지나치게 길면 네이버를 쓴다.
+const DETOUR_RATIO = 1.3;
+
+async function snap(coords) {
+  const [kakao, naver] = await Promise.all([
+    snapKakao(coords).catch(() => null),
+    snapNaver(coords).catch(() => null),
+  ]);
+  if (!kakao) {
+    if (!naver) throw new Error('카카오·네이버 모두 실패');
+    return { ...naver, via: 'naver(카카오 거절)' };
+  }
+  if (naver && kakao.km > naver.km * DETOUR_RATIO) {
+    return { ...naver, via: `naver(카카오 ${kakao.km.toFixed(0)}km 우회)` };
+  }
+  return { ...kakao, via: 'kakao' };
 }
 
 // Douglas-Peucker — rewrite-course-sections.mjs 와 같은 구현.
@@ -110,18 +166,18 @@ function displayGeometry(path) {
 }
 
 const courses = await api('courses?select=id,name,coordinates,distance,duration&approved=eq.true');
-console.log(`코스 ${courses.length}개를 이륜차 기준(${OPTION})으로 다시 잽니다.\n`);
+console.log(`코스 ${courses.length}개를 이륜차 기준(카카오 car_type=7, 실패 시 네이버)으로 다시 잽니다.\n`);
 
 for (const c of courses) {
   try {
-    const { km, min, path } = await snap(c.coordinates);
+    const { km, min, path, via } = await snap(c.coordinates);
     const distance = Number(km.toFixed(1));
     const duration = Math.round(min / 5) * 5;
     const geometry = displayGeometry(path);
     const mark = duration !== c.duration ? `(${duration > c.duration ? '+' : ''}${duration - c.duration}분)` : '(변화 없음)';
     console.log(
       `${c.name.slice(0, 24).padEnd(26)} ${String(c.duration).padStart(3)}분 ${c.distance.toFixed(0).padStart(3)}km → ` +
-        `${String(duration).padStart(3)}분 ${distance.toFixed(0).padStart(3)}km  ${mark}  점 ${geometry.length}개`
+        `${String(duration).padStart(3)}분 ${distance.toFixed(0).padStart(3)}km  ${mark}  점 ${geometry.length}개  ${via === 'kakao' ? '' : '← ' + via}`
     );
     if (!DRY) {
       await api(`courses?id=eq.${c.id}`, {
