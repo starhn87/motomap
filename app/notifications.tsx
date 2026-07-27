@@ -122,10 +122,7 @@ export default function NotificationsScreen() {
                 style={({ pressed }) => [
                   styles.item,
                   {
-                    // 이번에 새로 온 알림은 배경만 옅게 띄운다 — 점만으로는 훑을 때 놓치기 쉽다
-                    backgroundColor: arrivedUnread?.has(item.id)
-                      ? `${colors.tint}0D`
-                      : colors.surface,
+                    backgroundColor: colors.surface,
                     borderColor: colors.border,
                   },
                   { opacity: pressed ? 0.8 : 1 },
