@@ -214,6 +214,8 @@ export default function NaviScreen() {
         toast.info('코스 출발지 기준으로 보여드려요', '현재 위치에서 이어지는 도로가 없어요.');
         return;
       }
+      // 병렬로 받아둔 혼잡도 선만 남으면 "경로 없음"과 어긋난다 — 함께 지운다
+      setTraffic((prev) => ({ ...prev, [priority]: undefined }));
       toast.error('경로를 찾을 수 없습니다', friendlyRouteError(lastErr));
     })().finally(() => {
       if (!cancelled) setLoading(false);
@@ -225,11 +227,14 @@ export default function NaviScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias 문자열·courseOnly 에서 파생
   }, [effStart?.[0], effStart?.[1], priority, routes, goalLng, goalLat, vias, courseOnly, activeVias]);
 
-  // 혼잡 구간 색칠 — SDK 경로가 확정되면 같은 엔진인 REST 로 같은 조건을 조회한다.
-  // 위 경로 useEffect 안에서 부르면 setRoutes 가 deps(routes)를 바꿔 cleanup 이
-  // 돌고, 응답이 cancelled 에 막혀 버려진다(실측). 실패하면 단색 그대로.
+  // 혼잡 구간 색칠 — 같은 엔진인 REST 로 같은 조건을 조회한다. 경유지가 없으면
+  // 입력이 이미 확정이라 SDK 경로 요청과 병렬로 바로 쏘고(색칠이 SDK 왕복만큼
+  // 빨라진다), 경유지가 있으면 사다리가 경유지를 줄일 수 있어 경로 확정을
+  // 기다린다. 경로 useEffect 안에서 부르면 setRoutes 가 deps(routes)를 바꿔
+  // cleanup 이 돌고 응답이 cancelled 에 막혀 버려진다(실측). 실패하면 단색 그대로.
   useEffect(() => {
-    if (!effStart || !route || traffic[priority]) return;
+    if (!effStart || traffic[priority]) return;
+    if (effVias.length > 0 && !route) return;
     let cancelled = false;
     fetchBikeTraffic(effStart, [goalLng, goalLat], pairsFromFlat(activeVias ?? effVias), priority)
       .then((parts) => {
