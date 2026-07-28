@@ -1,8 +1,7 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -27,17 +26,15 @@ import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { formatMeters, formatSeconds } from '@/lib/api/directions';
 import { toast } from '@/lib/toast';
-import { haversine } from '@/lib/distance';
-import { HAZARD_LIST } from '@/constants/hazards';
-import { submitHazard } from '@/lib/api/hazards';
-import { fetchNearbyPlaces } from '@/lib/api/places';
-import { focusPlaceOnMap } from '@/lib/mapFocus';
+import { useGuideSession } from '@/lib/guideSession';
 
 // 길안내 진입 화면 — 경로 미리보기와 옵션 선택을 겸한다.
 // 옵션별 경로를 지도에 그려 보여주고, 고르면 그 옵션으로 KNSDK 안내를 시작한다.
 // 미리보기도 안내와 같은 KNSDK 엔진을 쓰므로 여기서 본 경로가 곧 안내 경로다.
 export default function NaviScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const startGuideSession = useGuideSession((st) => st.start);
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -76,13 +73,6 @@ export default function NaviScreen() {
   // 현재 위치에서 도로가 이어지지 않는 원거리 코스(예: 육지→제주)는
   // 코스 출발지 기준 미리보기로 폴백한다. 이때 안내 시작은 막는다.
   const [courseOnly, setCourseOnly] = useState(false);
-  // 안내 중 '근처 장소'로 목적지를 바꾼 경우 — 도착 판정·리뷰 연결이 새 목적지를 본다
-  const [goalOverride, setGoalOverride] = useState<{
-    lng: number;
-    lat: number;
-    name: string;
-    placeId?: string;
-  } | null>(null);
   // 20412(경유지가 도로와 안 이어짐)로 경유지를 줄여 성공한 경우의 경유지.
   // 안내 시작도 이 목록을 그대로 쓴다.
   const [activeVias, setActiveVias] = useState<number[] | null>(null);
@@ -98,141 +88,32 @@ export default function NaviScreen() {
   const effVias = courseOnly ? flatVias.slice(2) : flatVias;
   const route = routes[priority];
 
-  // 안내 종료·실패 이벤트 — 안내는 네이티브 전체화면이라 이벤트로만 돌아온다.
-  // 종료 시 목적지 근처면(취소가 아니라 도착으로 보고) 리뷰 작성으로 잇는다.
+  // 안내 시작 신호 — 안내 화면이 덮인 동안 밑 화면을 지도로 바꿔 둔다.
+  // 닫힘 주도권이 SDK 쪽에도 있어(도착 자동 종료 등) 닫힘 타이밍은 잡을 수 없다.
+  // 밑이 항상 지도면 어떤 경로로 걷히든 지도가 드러난다. 종료·메뉴 이벤트
+  // 처리는 이 화면이 언마운트된 뒤에도 살아 있도록 전역(lib/guideEvents)이 맡는다.
   useEffect(() => {
-    // 안내가 끝나면 즉시 지도 화면으로 — 네이티브 화면이 아직 덮고 있는 동안
-    // 이동해 두면 닫힘이 걷혔을 때 이전 화면이 아니라 지도가 바로 보인다.
-    // 도착 판정·리뷰 제안은 그 뒤 지도 위에서 이어진다.
-    const end = KakaoNavi.addListener('onGuideEnd', () => {
+    const started = KakaoNavi.addListener('onGuideStarted', () => {
+      startGuideSession(
+        {
+          latitude: goalLat,
+          longitude: goalLng,
+          name: goalName,
+          placeId: pid,
+          courseId: cid,
+        },
+        priority,
+      );
+      navigation.setOptions({ animation: 'none' });
       router.navigate('/');
-      void (async () => {
-        const effPid = goalOverride ? goalOverride.placeId : pid;
-        const effCid = goalOverride ? undefined : cid;
-        const effLat = goalOverride?.lat ?? goalLat;
-        const effLng = goalOverride?.lng ?? goalLng;
-        const effName = goalOverride?.name ?? goalName;
-        if (!effPid && !effCid) return;
-        let near = false;
-        try {
-          const pos =
-            (await Location.getLastKnownPositionAsync()) ??
-            (await Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.Balanced,
-            }));
-          near =
-            haversine(
-              { latitude: pos.coords.latitude, longitude: pos.coords.longitude },
-              { latitude: effLat, longitude: effLng },
-            ) < 400;
-        } catch {
-          // 위치를 못 읽으면 조용히 넘어간다 — 제안을 못 띄울 뿐
-        }
-        if (!near) return;
-        // 네이티브 닫힘 애니메이션이 끝난 뒤 지도 위에서 띄운다
-        setTimeout(() => {
-          Alert.alert(`${effName} 도착!`, '어떠셨나요? 리뷰를 남겨보세요.', [
-            { text: '나중에', style: 'cancel' },
-            {
-              text: '리뷰 남기기',
-              onPress: () => {
-                if (effPid) {
-                  focusPlaceOnMap(effPid); // 장소 시트로 — 리뷰 작성이 그 안에 있다
-                } else if (effCid) {
-                  router.push(`/course/${effCid}`); // 코스 리뷰 폼은 코스 상세에
-                }
-              },
-            },
-          ]);
-        }, 500);
-      })();
     });
-    const failed = KakaoNavi.addListener('onGuideFailed', ({ message }) => {
-      setStarting(false);
-      toast.error('길안내를 시작할 수 없습니다', message);
-    });
+    // 경로 탐색 실패 시 시작 스피너만 되돌린다 (토스트는 전역 리스너가 띄운다)
+    const failed = KakaoNavi.addListener('onGuideFailed', () => setStarting(false));
     return () => {
-      end.remove();
+      started.remove();
       failed.remove();
     };
-  }, [router, pid, cid, goalLat, goalLng, goalName, goalOverride]);
-
-  // 안내 화면 메뉴 버튼 — 위험 제보(100) · 근처 장소(101).
-  // 화면은 네이티브가 덮고 있으므로 UI 는 네이티브 액션시트로, 데이터는 여기서 처리한다.
-  useEffect(() => {
-    const reportHazard = async () => {
-      const picked = await KakaoNavi.showGuideOptions(
-        '노면 위험 제보',
-        HAZARD_LIST.map((h) => h.label),
-      );
-      if (picked < 0) return;
-      try {
-        const pos = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        await submitHazard({
-          type: HAZARD_LIST[picked].key,
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-        void KakaoNavi.showGuideNotice('제보했어요. 안전 운행하세요!');
-      } catch {
-        void KakaoNavi.showGuideNotice('제보하지 못했어요. 로그인 상태를 확인해주세요.');
-      }
-    };
-
-    const nearbyPlaces = async () => {
-      try {
-        const pos = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        const here = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-        const places = (await fetchNearbyPlaces({ ...here, radiusMeters: 5000 }))
-          .map((p) => ({ ...p, dist: haversine(here, p) }))
-          .sort((a, b) => a.dist - b.dist)
-          .slice(0, 5);
-        if (places.length === 0) {
-          void KakaoNavi.showGuideNotice('5km 안에 등록된 장소가 없어요.');
-          return;
-        }
-        const picked = await KakaoNavi.showGuideOptions(
-          '근처 라이더 장소로 안내',
-          places.map((p) => `${p.name} · ${formatMeters(p.dist)}`),
-        );
-        if (picked < 0) return;
-        const target = places[picked];
-        await KakaoNavi.changeGuideDestination(
-          target.longitude,
-          target.latitude,
-          target.name,
-          priority,
-        );
-        setGoalOverride({
-          lng: target.longitude,
-          lat: target.latitude,
-          name: target.name,
-          placeId: target.id,
-        });
-        void KakaoNavi.showGuideNotice(`${target.name}(으)로 안내를 변경했어요.`);
-      } catch {
-        void KakaoNavi.showGuideNotice('목적지를 변경하지 못했어요.');
-      }
-    };
-
-    // 커스텀 슬롯이 하나뿐이라 버튼 하나에서 1차 시트로 가른다
-    const menu = KakaoNavi.addListener('onGuideMenu', ({ id }) => {
-      if (id !== 100) return;
-      void (async () => {
-        const picked = await KakaoNavi.showGuideOptions('모토맵', [
-          '위험 제보',
-          '근처 장소로 안내',
-        ]);
-        if (picked === 0) await reportHazard();
-        else if (picked === 1) await nearbyPlaces();
-      })();
-    });
-    return () => menu.remove();
-  }, [priority]);
+  }, [router, navigation, pid, cid, goalLat, goalLng, goalName, priority]);
 
   // 출발지 확보 — 지정돼 있으면 그대로, 아니면 현재 위치
   useEffect(() => {
@@ -435,7 +316,7 @@ export default function NaviScreen() {
           </Text>
         )}
         <Text style={[styles.goalName, { color: colors.text }]} numberOfLines={1}>
-          {goalOverride?.name ?? goalName}
+          {goalName}
         </Text>
 
         <View style={styles.chipRow}>

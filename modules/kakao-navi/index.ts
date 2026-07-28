@@ -37,6 +37,10 @@ interface KakaoNaviModule {
     priority: RoutePriority,
   ): Promise<void>;
   addListener(
+    event: 'onGuideStarted',
+    listener: () => void,
+  ): { remove: () => void };
+  addListener(
     event: 'onGuideEnd',
     listener: () => void,
   ): { remove: () => void };

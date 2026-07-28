@@ -21,6 +21,7 @@
 @property(nonatomic, strong, nullable) KNTrip *trip;
 @property(nonatomic, copy, nullable) void (^onDismiss)(void);
 @property(nonatomic, copy, nullable) void (^onMenu)(NSInteger);
+@property(nonatomic, copy, nullable) void (^onStarted)(void);
 @property(nonatomic, assign) BOOL carThemeApplied;
 @property(nonatomic, assign) KNRoutePriority priority;
 @end
@@ -144,6 +145,13 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 - (void)guidanceGuideStarted:(KNGuidance *)aGuidance {
   [self.naviView guidanceGuideStarted:aGuidance];
   [self applyCarTheme];
+  // JS 가 이 신호를 받아 밑 화면을 지도로 바꿔 둔다 — 안내가 어떤 경로로
+  // 걷히든(도착·취소·SDK 자체 닫힘) 드러나는 건 항상 지도다.
+  if (self.onStarted != nil) {
+    void (^started)(void) = self.onStarted;
+    self.onStarted = nil;
+    started();
+  }
 }
 
 - (void)guidanceCheckingRouteChange:(KNGuidance *)aGuidance {
@@ -224,14 +232,12 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 }
 
 - (void)finish {
-  if (gActiveNavi == self) gActiveNavi = nil;
   [self.guidance stop];
   [self.naviView releaseView];
   self.naviView = nil;
   self.guidance = nil;
 
-  // JS 쪽 전환(지도 화면 이동)을 화면이 아직 덮인 동안 시작시킨다 —
-  // 닫힘 애니메이션이 걷히면 이전 화면이 아니라 지도가 바로 보인다.
+  if (gActiveNavi == self) gActiveNavi = nil;
   void (^done)(void) = self.onDismiss;
   self.onDismiss = nil;
   if (done != nil) done();
@@ -249,6 +255,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                   name:(NSString *)goalName
                   vias:(NSArray<NSNumber *> *_Nullable)flatVias
               priority:(NSInteger)priority
+             onStarted:(void (^_Nullable)(void))onStarted
                 onMenu:(void (^_Nullable)(NSInteger))onMenu
              onDismiss:(void (^)(void))onDismiss
                onError:(void (^)(NSString *))onError {
@@ -284,13 +291,14 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                                                     : @"경로를 찾지 못했다");
                                  return;
                                }
-                               [self presentWithTrip:trip priority:(KNRoutePriority)priority onMenu:onMenu onDismiss:onDismiss onError:onError];
+                               [self presentWithTrip:trip priority:(KNRoutePriority)priority onStarted:onStarted onMenu:onMenu onDismiss:onDismiss onError:onError];
                              }];
               }];
 }
 
 + (void)presentWithTrip:(KNTrip *)trip
                priority:(KNRoutePriority)priority
+              onStarted:(void (^_Nullable)(void))onStarted
                  onMenu:(void (^_Nullable)(NSInteger))onMenu
               onDismiss:(void (^)(void))onDismiss
                 onError:(void (^)(NSString *))onError {
@@ -306,9 +314,13 @@ static __weak KNNaviViewController *gActiveNavi = nil;
     KNNaviViewController *vc = [[KNNaviViewController alloc] init];
     vc.trip = trip;
     vc.priority = priority;
+    vc.onStarted = onStarted;
     vc.onMenu = onMenu;
     vc.onDismiss = onDismiss;
-    vc.modalPresentationStyle = UIModalPresentationFullScreen;
+    // FullScreen 은 밑 화면을 뷰 계층에서 떼어내 네비게이션 전환(지도로 미리
+    // 이동)이 걷힐 때까지 보류된다 — 그래서 닫힐 때 이전 화면이 비쳤다(실측).
+    // OverFullScreen 은 밑을 계층에 유지해 덮인 동안 전환이 실제로 실행된다.
+    vc.modalPresentationStyle = UIModalPresentationOverFullScreen;
     [top presentViewController:vc animated:YES completion:nil];
   });
 }
@@ -318,6 +330,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
     [gActiveNavi finish];
   });
 }
+
 
 + (void)showOptionsWithTitle:(NSString *)title
                       labels:(NSArray<NSString *> *)labels

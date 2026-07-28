@@ -15,6 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
                   name:(NSString *)goalName
                   vias:(NSArray<NSNumber *> *_Nullable)flatVias
               priority:(NSInteger)priority
+             onStarted:(void (^_Nullable)(void))onStarted
                 onMenu:(void (^_Nullable)(NSInteger menuId))onMenu
             onDismiss:(void (^)(void))onDismiss
               onError:(void (^)(NSString *message))onError;

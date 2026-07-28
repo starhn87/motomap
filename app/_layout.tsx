@@ -1,6 +1,7 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { initializeKakaoSDK } from '@react-native-kakao/core';
 import KakaoNavi from '@/modules/kakao-navi';
+import { registerGuideEvents } from '@/lib/guideEvents';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
@@ -54,6 +55,10 @@ function RootLayout() {
 
   const initialize = useAuthStore((s) => s.initialize);
   const loadMode = useThemeStore((s) => s.loadMode);
+
+  // 길안내 전역 이벤트 — 안내 중에는 /navi 화면이 지도로 빠져 언마운트되므로
+  // 종료(도착 리뷰 제안)·메뉴(위험 제보 등) 처리는 루트에서 상시 구독한다.
+  useEffect(() => registerGuideEvents(), []);
 
   useEffect(() => {
     initialize();
