@@ -29,9 +29,12 @@ const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 if (sentryDsn) {
   Sentry.init({
     dsn: sentryDsn,
+    // 개발 빌드는 보내지 않는다 — Metro 번들 로드가 메인 스레드를 수 초 잡아
+    // AppHang 노이즈가 실이슈처럼 쌓인다(실측: dev 이벤트가 다수).
+    enabled: !__DEV__,
     enableAutoSessionTracking: true,
-    tracesSampleRate: __DEV__ ? 1.0 : 0.2,
-    environment: __DEV__ ? 'development' : 'production',
+    tracesSampleRate: 0.2,
+    environment: 'production',
   });
 }
 
