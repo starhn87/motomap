@@ -171,7 +171,12 @@ export default function DirectionsScreen() {
       setOrigin(point);
       void preview(point, dest);
     } else if (kind === 'dest') {
-      if (point !== 'current') pickDest(point, address);
+      if (point === 'current') {
+        setDest('current');
+        void preview(origin, 'current');
+      } else {
+        pickDest(point, address);
+      }
     } else if ((kind === 'home' || kind === 'work') && point !== 'current') {
       void saveMyPlace(kind, {
         name: point.name,
@@ -320,7 +325,9 @@ export default function DirectionsScreen() {
 
       <PointSearchModal
         visible={editing !== null}
-        allowCurrent={editing === 'origin'}
+        allowCurrent={editing === 'origin' || editing === 'dest'}
+        allowSaved={editing === 'origin' || editing === 'dest'}
+        recents={recentTargets.map((r) => r.target)}
         title={
           editing === 'home' ? '집 설정' : editing === 'work' ? '회사 설정' : undefined
         }
@@ -407,22 +414,29 @@ function ShortcutChip({
   );
 }
 
-// 카카오 로컬 검색으로 지점을 고르는 모달. 출발지에는 '현재 위치' 행이 함께 뜬다.
+// 카카오 로컬 검색으로 지점을 고르는 모달. 입력 전에는 현재 위치·집·회사·
+// 최근 검색을 보여주고, 입력하면 검색 결과로 바뀐다.
 function PointSearchModal({
   visible,
   allowCurrent,
+  allowSaved = false,
+  recents = [],
   title,
   onClose,
   onSelect,
 }: {
   visible: boolean;
   allowCurrent: boolean;
+  /** 집·회사·최근 검색 제안을 보여줄지 (집/회사 '설정' 모달에서는 숨김) */
+  allowSaved?: boolean;
+  recents?: (NavTarget & { address?: string })[];
   title?: string;
   onClose: () => void;
   onSelect: (point: Point, address?: string) => void;
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const myPlaces = useMyPlacesStore((s) => s.places);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<KakaoLocalResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -465,7 +479,7 @@ function PointSearchModal({
             <TextInput
               value={query}
               onChangeText={handleChange}
-              placeholder={title ? `${title} — 장소, 주소 검색` : '장소, 주소 검색'}
+              placeholder={title ? `${title}: 장소, 주소 검색` : '장소, 주소 검색'}
               placeholderTextColor={colors.textSecondary}
               autoFocus
               style={[styles.searchInput, { color: colors.text }]}
@@ -482,14 +496,94 @@ function PointSearchModal({
           keyExtractor={(item, i) => `${item.placeName}-${i}`}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
-            allowCurrent ? (
-              <Pressable
-                onPress={() => onSelect('current')}
-                style={[styles.resultRow, { borderBottomColor: colors.border }]}>
-                <Ionicons name="locate" size={16} color={colors.tint} />
-                <Text style={[styles.resultName, { color: colors.text }]}>현재 위치</Text>
-              </Pressable>
-            ) : null
+            query.trim() ? null : (
+              <>
+                {allowCurrent && (
+                  <Pressable
+                    onPress={() => onSelect('current')}
+                    style={[styles.resultRow, { borderBottomColor: colors.border }]}>
+                    <Ionicons name="locate" size={16} color={colors.tint} />
+                    <Text style={[styles.resultName, { color: colors.text }]}>현재 위치</Text>
+                  </Pressable>
+                )}
+                {allowSaved && myPlaces.home && (
+                  <Pressable
+                    onPress={() =>
+                      onSelect(
+                        {
+                          name: myPlaces.home!.name,
+                          latitude: myPlaces.home!.latitude,
+                          longitude: myPlaces.home!.longitude,
+                        },
+                        myPlaces.home!.address,
+                      )
+                    }
+                    style={[styles.resultRow, { borderBottomColor: colors.border }]}>
+                    <Ionicons name="home" size={16} color={colors.tint} />
+                    <View style={styles.resultTexts}>
+                      <Text style={[styles.resultName, { color: colors.text }]}>집</Text>
+                      <Text
+                        style={[styles.resultAddress, { color: colors.textSecondary }]}
+                        numberOfLines={1}>
+                        {myPlaces.home.name}
+                      </Text>
+                    </View>
+                  </Pressable>
+                )}
+                {allowSaved && myPlaces.work && (
+                  <Pressable
+                    onPress={() =>
+                      onSelect(
+                        {
+                          name: myPlaces.work!.name,
+                          latitude: myPlaces.work!.latitude,
+                          longitude: myPlaces.work!.longitude,
+                        },
+                        myPlaces.work!.address,
+                      )
+                    }
+                    style={[styles.resultRow, { borderBottomColor: colors.border }]}>
+                    <Ionicons name="business" size={16} color={colors.tint} />
+                    <View style={styles.resultTexts}>
+                      <Text style={[styles.resultName, { color: colors.text }]}>회사</Text>
+                      <Text
+                        style={[styles.resultAddress, { color: colors.textSecondary }]}
+                        numberOfLines={1}>
+                        {myPlaces.work.name}
+                      </Text>
+                    </View>
+                  </Pressable>
+                )}
+                {allowSaved &&
+                  recents.map((r) => (
+                    <Pressable
+                      key={`${r.name}-${r.longitude}-${r.latitude}`}
+                      onPress={() =>
+                        onSelect(
+                          { name: r.name, latitude: r.latitude, longitude: r.longitude },
+                          r.address,
+                        )
+                      }
+                      style={[styles.resultRow, { borderBottomColor: colors.border }]}>
+                      <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                      <View style={styles.resultTexts}>
+                        <Text
+                          style={[styles.resultName, { color: colors.text }]}
+                          numberOfLines={1}>
+                          {r.name}
+                        </Text>
+                        {!!r.address && (
+                          <Text
+                            style={[styles.resultAddress, { color: colors.textSecondary }]}
+                            numberOfLines={1}>
+                            {r.address}
+                          </Text>
+                        )}
+                      </View>
+                    </Pressable>
+                  ))}
+              </>
+            )
           }
           renderItem={({ item }) => (
             <Pressable

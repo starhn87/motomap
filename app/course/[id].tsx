@@ -217,8 +217,18 @@ export default function CourseDetailScreen() {
           <Pressable
             disabled={navLaunching}
             onPress={() =>
-              // 현재 위치 → 코스 출발지(경유) → … → 코스 도착지 순으로 안내
-              openCourseNavigation({ name: course.name, points: coords })
+              // 현재 위치 → 코스 출발지(경유) → … → 코스 도착지 순으로 안내.
+              // 경유지는 도로에 스냅된 routeGeometry 에서 뽑는다 — 원본 코스 점은
+              // 산악 구간에서 도로 밖이라 경로 탐색이 20412 로 거절된다.
+              openCourseNavigation({
+                name: course.name,
+                points: course.routeGeometry?.length
+                  ? course.routeGeometry.map(([lng, lat]) => ({
+                      latitude: lat,
+                      longitude: lng,
+                    }))
+                  : coords,
+              })
             }
             style={({ pressed }) => [
               styles.navButton,

@@ -44,8 +44,9 @@ function launchInAppNavi(target: NavTarget, vias?: number[], start?: NavTarget) 
 }
 
 // 경유지 상한에 맞춰 추림 — 코스 출발지(첫 점)는 보존하고 나머지를 고르게 선택.
-// 카카오내비 계열의 경유지 관례가 3개라 그에 맞춘다.
-const MAX_VIAS = 3;
+// 실측(영남알프스 순환 코스, 도로 스냅 지오메트리 기준 재현율): 3개 47% → 5개 77%
+// → 12개 94% → 20개 100%. KNSDK 가 20개를 거부하면 /navi 가 줄여가며 재시도한다.
+const MAX_VIAS = 20;
 function sampleWaypoints<T>(points: T[], max: number): T[] {
   if (points.length <= max) return points;
   const [first, ...rest] = points;

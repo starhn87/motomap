@@ -48,16 +48,38 @@ export default function NaviScreen() {
   }>();
 
   const mapRef = useRef<NaverMapViewRef>(null);
+
+  const friendlyRouteError = (err: unknown): string => {
+    const raw = String((err as any)?.message ?? err);
+    if (raw.includes('20413')) {
+      return '자동차 전용도로를 빼면 이어지는 도로가 없어요. 바다 건너나 도로가 끊긴 곳은 안내할 수 없어요.';
+    }
+    if (raw.includes('20412')) {
+      return '경유지가 도로와 이어지지 않아요.';
+    }
+    return raw;
+  };
   const [start, setStart] = useState<[number, number] | null>(null); // [lng, lat]
   const [priority, setPriority] = useState<RoutePriority>(0);
   const [routes, setRoutes] = useState<Partial<Record<RoutePriority, BikeRoute>>>({});
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  // 현재 위치에서 도로가 이어지지 않는 원거리 코스(예: 육지→제주)는
+  // 코스 출발지 기준 미리보기로 폴백한다. 이때 안내 시작은 막는다.
+  const [courseOnly, setCourseOnly] = useState(false);
+  // 20412(경유지가 도로와 안 이어짐)로 경유지를 줄여 성공한 경우의 경유지.
+  // 안내 시작도 이 목록을 그대로 쓴다.
+  const [activeVias, setActiveVias] = useState<number[] | null>(null);
 
   const goalLng = Number(lng);
   const goalLat = Number(lat);
   const goalName = name ?? '목적지';
   const flatVias: number[] = vias ? JSON.parse(vias) : [];
+  // 폴백 시: 첫 경유지(코스 출발지)가 출발점이 되고 나머지가 경유지로 남는다
+  const effStart: [number, number] | null = courseOnly
+    ? [flatVias[0], flatVias[1]]
+    : start;
+  const effVias = courseOnly ? flatVias.slice(2) : flatVias;
   const route = routes[priority];
 
   // 안내 종료·실패 이벤트 — 안내는 네이티브 전체화면이라 이벤트로만 돌아온다
@@ -104,28 +126,71 @@ export default function NaviScreen() {
     };
   }, [router, slng, slat]);
 
-  // 선택된 옵션의 경로 확보 (옵션별 캐시)
+  // 선택된 옵션의 경로 확보 (옵션별 캐시).
+  // 20412 는 경유지 좌표가 도로에 스냅되지 않는 경우라, 경유지를
+  // [전체 → 코스 출발지만 → 없음] 순으로 줄여가며 재시도한다.
   useEffect(() => {
-    if (!start || routes[priority]) return;
+    if (!effStart || routes[priority]) return;
     let cancelled = false;
     setLoading(true);
-    KakaoNavi.requestBikeRoute(start[0], start[1], goalLng, goalLat, flatVias, priority)
-      .then((result) => {
-        if (cancelled) return;
-        setRoutes((prev) => ({ ...prev, [priority]: result }));
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        toast.error('경로를 찾을 수 없습니다', String(err?.message ?? err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+
+    (async () => {
+      const requestVias = activeVias ?? effVias;
+      // 실패 시 경유지를 줄여가며 재시도하는 사다리. 20413(도로 자체가 안 이어짐)은
+      // 경유지를 줄여도 소용없으니 바로 중단한다.
+      const flatSample = (flat: number[], n: number): number[] => {
+        const pairs: [number, number][] = [];
+        for (let i = 0; i + 1 < flat.length; i += 2) pairs.push([flat[i], flat[i + 1]]);
+        if (pairs.length <= n) return flat;
+        const [first, ...rest] = pairs;
+        const picked = [first];
+        for (let i = 0; i < n - 1; i++) {
+          picked.push(rest[Math.round(((i + 1) * rest.length) / (n - 1)) - 1]);
+        }
+        return picked.flat();
+      };
+      const pairCount = requestVias.length / 2;
+      const ladder = [pairCount, 12, 5, 1, 0]
+        .filter((n, i, arr) => n <= pairCount && arr.indexOf(n) === i)
+        .map((n) => (n === 0 ? [] : flatSample(requestVias, n)));
+
+      let lastErr: unknown = null;
+      for (const tryVias of ladder) {
+        try {
+          const result = await KakaoNavi.requestBikeRoute(
+            effStart[0], effStart[1], goalLng, goalLat, tryVias, priority,
+          );
+          if (cancelled) return;
+          if (tryVias.length < requestVias.length) {
+            setActiveVias(tryVias);
+            toast.info('일부 경유지를 빼고 안내해요', '경로가 코스와 다를 수 있어요.');
+          }
+          setRoutes((prev) => ({ ...prev, [priority]: result }));
+          return;
+        } catch (err) {
+          lastErr = err;
+          if (String((err as any)?.message ?? err).includes('20413')) break;
+        }
+      }
+      if (cancelled) return;
+
+      // 현재 위치 출발이 막히고 경유지가 있으면(코스 안내) 코스 출발지 기준으로 재시도
+      if (!courseOnly && !slng && flatVias.length >= 2) {
+        setRoutes({});
+        setCourseOnly(true);
+        toast.info('코스 출발지 기준으로 보여드려요', '현재 위치에서 이어지는 도로가 없어요.');
+        return;
+      }
+      toast.error('경로를 찾을 수 없습니다', friendlyRouteError(lastErr));
+    })().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- flatVias 는 vias 문자열에서 파생
-  }, [start, priority, routes, goalLng, goalLat, vias]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias 문자열·courseOnly 에서 파생
+  }, [effStart?.[0], effStart?.[1], priority, routes, goalLng, goalLat, vias, courseOnly, activeVias]);
 
   // 경로가 바뀌면 전체가 보이도록 카메라를 맞춘다.
   // 남쪽은 하단 카드가 덮는 만큼 더 벌린다.
@@ -153,12 +218,12 @@ export default function NaviScreen() {
   }, [route]);
 
   const startGuide = () => {
-    if (!start || starting) return;
+    if (!start || starting || courseOnly) return;
     setStarting(true);
-    KakaoNavi.startGuide(start[0], start[1], goalLng, goalLat, goalName, flatVias, priority).catch(
+    KakaoNavi.startGuide(start[0], start[1], goalLng, goalLat, goalName, activeVias ?? flatVias, priority).catch(
       (err) => {
         setStarting(false);
-        toast.error('길안내를 시작할 수 없습니다', String(err?.message ?? err));
+        toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(err));
       },
     );
   };
@@ -223,6 +288,13 @@ export default function NaviScreen() {
             출발 · {sname}
           </Text>
         )}
+        {courseOnly && (
+          <Text
+            style={[styles.startName, { color: colors.textSecondary }]}
+            numberOfLines={2}>
+            코스 출발지 기준 미리보기: 현재 위치에서 이어지는 도로가 없어요
+          </Text>
+        )}
         <Text style={[styles.goalName, { color: colors.text }]} numberOfLines={1}>
           {goalName}
         </Text>
@@ -253,7 +325,7 @@ export default function NaviScreen() {
           })}
         </View>
 
-        <View style={styles.infoRow}>
+        <View style={[styles.infoRow, (loading || !route) && styles.infoRowCentered]}>
           {loading || !route ? (
             <ActivityIndicator size="small" color={colors.textSecondary} />
           ) : (
@@ -271,19 +343,19 @@ export default function NaviScreen() {
 
         <Pressable
           onPress={startGuide}
-          disabled={!route || starting}
+          disabled={!route || starting || courseOnly}
           style={({ pressed }) => [
             styles.startButton,
             {
               backgroundColor: colors.tint,
-              opacity: !route || starting ? 0.5 : pressed ? 0.85 : 1,
+              opacity: !route || starting || courseOnly ? 0.5 : pressed ? 0.85 : 1,
             },
           ]}>
           {starting ? (
             <ActivityIndicator size="small" color={colors.background} />
           ) : (
             <Text style={[styles.startLabel, { color: colors.background }]}>
-              안내 시작
+              {courseOnly ? '코스 근처에서 시작할 수 있어요' : '안내 시작'}
             </Text>
           )}
         </Pressable>
@@ -348,6 +420,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     minHeight: 24,
+  },
+  infoRowCentered: {
+    justifyContent: 'center',
   },
   infoValue: {
     fontSize: 16,
