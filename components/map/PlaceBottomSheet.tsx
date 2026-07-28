@@ -21,9 +21,7 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 import Feather from '@expo/vector-icons/Feather';
 import BottomSheet, {
   BottomSheetScrollView,
-  BottomSheetFooter,
 } from '@gorhom/bottom-sheet';
-import type { BottomSheetFooterProps } from '@gorhom/bottom-sheet';
 import { useRef, useEffect, useState, useCallback, memo } from 'react';
 
 import Colors, { semantic } from '@/constants/Colors';
@@ -280,64 +278,6 @@ function PlaceBottomSheet({
     [handleIndicatorStyle]
   );
 
-  const renderFooter = useCallback(
-    (props: BottomSheetFooterProps) => {
-    if (!place) return null;
-    return (
-      <BottomSheetFooter {...props} bottomInset={0}>
-        <View
-          style={[
-            styles.footer,
-            {
-              backgroundColor: colors.background,
-              borderTopColor: colors.border,
-            },
-          ]}>
-          <View style={{ flex: 1 }}>
-            <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: '/directions',
-                  params: {
-                    olng: String(place.longitude),
-                    olat: String(place.latitude),
-                    oname: place.name,
-                  },
-                })
-              }
-              activeOpacity={0.8}
-              style={[styles.departButton, { backgroundColor: colors.surfaceMuted }]}>
-              <Text style={[styles.departButtonText, { color: colors.text }]}>출발</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={{ flex: 1 }}>
-            <TouchableOpacity
-              disabled={navLaunching}
-              onPress={() =>
-                openNavigation({
-                  name: place.name,
-                  latitude: place.latitude,
-                  longitude: place.longitude,
-                })
-              }
-              activeOpacity={0.8}
-              style={[styles.navButton, { backgroundColor: colors.tint, opacity: navLaunching ? 0.8 : 1 }]}>
-              {navLaunching ? (
-                <ActivityIndicator size="small" color={colors.background} />
-              ) : (
-                <Text style={[styles.navButtonText, { color: colors.background }]}>
-                  도착
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </BottomSheetFooter>
-    );
-    },
-    [place, colors]
-  );
-
   if (!place || !displayPlace) return null;
 
   const distanceMeters = userLocation
@@ -397,8 +337,7 @@ function PlaceBottomSheet({
           shadowRadius: 12,
           elevation: 8,
         }}
-        handleComponent={renderHandle}
-        footerComponent={renderFooter}>
+        handleComponent={renderHandle}>
         <BottomSheetScrollView
           ref={scrollRef}
           contentContainerStyle={styles.content}
@@ -434,6 +373,45 @@ function PlaceBottomSheet({
             )}
             <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareButton}>
               <Feather name="share-2" size={19} color={colors.tint} />
+            </TouchableOpacity>
+          </View>
+
+          {/* 출발/도착 — 시트 안 액션 행. 접힌 스냅에서도 보이도록 상단에 둔다 */}
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: '/directions',
+                  params: {
+                    olng: String(place.longitude),
+                    olat: String(place.latitude),
+                    oname: place.name,
+                  },
+                })
+              }
+              activeOpacity={0.8}
+              style={[styles.departButton, { backgroundColor: colors.surfaceMuted }]}>
+              <Text style={[styles.departButtonText, { color: colors.text }]}>출발</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              disabled={navLaunching}
+              onPress={() =>
+                openNavigation({
+                  name: place.name,
+                  latitude: place.latitude,
+                  longitude: place.longitude,
+                })
+              }
+              activeOpacity={0.8}
+              style={[
+                styles.navButton,
+                { backgroundColor: colors.tint, opacity: navLaunching ? 0.8 : 1 },
+              ]}>
+              {navLaunching ? (
+                <ActivityIndicator size="small" color={colors.background} />
+              ) : (
+                <Text style={[styles.navButtonText, { color: colors.background }]}>도착</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -600,14 +578,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
-  footer: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 28,
-    borderTopWidth: 1,
-  },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -715,8 +685,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+    marginBottom: 10,
+  },
   departButton: {
-    height: 48,
+    flex: 1,
+    height: 40,
+    paddingHorizontal: 12,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -727,12 +705,14 @@ const styles = StyleSheet.create({
   },
   navButton: {
     flex: 1,
-    paddingVertical: 14,
+    height: 40,
+    paddingHorizontal: 12,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   navButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
   },
   photoSection: {
