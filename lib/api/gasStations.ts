@@ -62,7 +62,10 @@ export async function fetchNearbyGasStations(params: {
     },
   });
   if (error) throw new Error(`주유소 정보를 불러오지 못했습니다: ${error.message}`);
-  return (data?.stations ?? []) as GasStation[];
+  const stations = (data?.stations ?? []) as GasStation[];
+  // 이륜차는 고속도로 진입 금지 — 휴게소 주유소는 애초에 갈 수 없는 곳이라 뺀다.
+  // ex알뜰(RTX)은 도로공사 고속도로 휴게소 전용 브랜드, 그 외 브랜드 휴게소는 상호로 거른다.
+  return stations.filter((s) => s.brand !== 'ex알뜰' && !s.name.includes('휴게소'));
 }
 
 export async function fetchGasStationDetail(id: string): Promise<GasStationDetail> {

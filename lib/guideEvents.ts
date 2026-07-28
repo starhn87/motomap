@@ -7,6 +7,7 @@ import { useGuideSession } from '@/lib/guideSession';
 import { HAZARD_LIST } from '@/constants/hazards';
 import { submitHazard } from '@/lib/api/hazards';
 import { fetchNearbyPlaces } from '@/lib/api/places';
+import { fetchNearbyGasStations } from '@/lib/api/gasStations';
 import { formatMeters } from '@/lib/api/directions';
 import { haversine } from '@/lib/distance';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
@@ -120,6 +121,52 @@ async function handleGuideEnd() {
   }, 500);
 }
 
+// 근처 주유소 유가 — 가까운 순 5곳, 고르면 그 주유소로 안내 변경.
+// 휴게소 주유소는 fetchNearbyGasStations 가 걸러준다(이륜차 진입 금지).
+async function nearbyGasStations() {
+  const { priority, changeGoal } = useGuideSession.getState();
+  try {
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    const stations = (
+      await fetchNearbyGasStations({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        radius: 5000,
+      })
+    )
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 5);
+    if (stations.length === 0) {
+      void KakaoNavi.showGuideNotice('5km 안에 주유소가 없어요.');
+      return;
+    }
+    const picked = await KakaoNavi.showGuideOptions(
+      '근처 주유소 유가',
+      stations.map(
+        (st) => `${st.name} · ${st.price.toLocaleString()}원 · ${formatMeters(st.distance)}`,
+      ),
+    );
+    if (picked < 0) return;
+    const target = stations[picked];
+    await KakaoNavi.changeGuideDestination(
+      target.longitude,
+      target.latitude,
+      target.name,
+      priority,
+    );
+    changeGoal({
+      latitude: target.latitude,
+      longitude: target.longitude,
+      name: target.name,
+    });
+    void KakaoNavi.showGuideNotice(`${target.name}(으)로 안내를 변경했어요.`);
+  } catch {
+    void KakaoNavi.showGuideNotice('주유소 정보를 불러오지 못했어요.');
+  }
+}
+
 /** 루트 레이아웃에서 1회 등록. 반환값은 해제 함수. */
 export function registerGuideEvents(): () => void {
   const end = KakaoNavi.addListener('onGuideEnd', () => void handleGuideEnd());
@@ -134,9 +181,11 @@ export function registerGuideEvents(): () => void {
       const picked = await KakaoNavi.showGuideOptions('모토맵', [
         '위험 제보',
         '근처 장소로 안내',
+        '주유소 유가',
       ]);
       if (picked === 0) await reportHazard();
       else if (picked === 1) await nearbyPlaces();
+      else if (picked === 2) await nearbyGasStations();
     })();
   });
   return () => {

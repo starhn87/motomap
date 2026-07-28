@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   NaverMapView,
   NaverMapPathOverlay,
+  NaverMapMarkerOverlay,
   type NaverMapViewRef,
 } from '@mj-studio/react-native-naver-map';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -269,6 +270,19 @@ export default function NaviScreen() {
         isShowZoomControls={false}
         locale="ko"
         initialCamera={{ latitude: goalLat, longitude: goalLng, zoom: 12 }}>
+        {start && (
+          <NaverMapMarkerOverlay
+            latitude={start[1]}
+            longitude={start[0]}
+            width={18}
+            height={18}
+            anchor={{ x: 0.5, y: 0.5 }}>
+            {/* 출발점 도트 — 흰 테두리 + 초록 심. 마커는 정적 뷰만 그려진다 */}
+            <View style={styles.originDot}>
+              <View style={styles.originDotCore} />
+            </View>
+          </NaverMapMarkerOverlay>
+        )}
         {coords && (
           <NaverMapPathOverlay
             coords={coords}
@@ -386,6 +400,24 @@ export default function NaviScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  originDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  originDotCore: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#22C55E',
+  },
   closeButton: {
     position: 'absolute',
     left: 16,

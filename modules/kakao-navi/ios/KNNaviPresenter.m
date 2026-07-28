@@ -66,6 +66,9 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                  priority:self.priority
              avoidOptions:KNRouteAvoidOption_None];
 
+  // 주행 중 화면이 꺼지면 안내가 무용지물이다 — 안내가 떠 있는 동안 잠금 방지
+  [UIApplication sharedApplication].idleTimerDisabled = YES;
+
   // 모토맵 메뉴 버튼 — 커스텀 슬롯이 하나뿐이라(실측) 버튼 하나로 합치고,
   // 위험 제보/근처 장소 분기는 JS 가 1차 액션시트로 가른다.
   UIImage *menuIcon = [UIImage systemImageNamed:@"mappin.and.ellipse"];
