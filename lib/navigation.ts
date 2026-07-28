@@ -137,13 +137,15 @@ const beginLaunch = (): boolean => {
 };
 const endLaunch = () => useNavLaunching.setState({ launching: false });
 
-export async function openNavigation(target: NavTarget, start?: NavTarget) {
-  if (!beginLaunch()) return;
+/** 미리보기까지 실제로 진입했으면 true (날씨·위험 확인에서 취소하면 false) */
+export async function openNavigation(target: NavTarget, start?: NavTarget): Promise<boolean> {
+  if (!beginLaunch()) return false;
   try {
     const points = start ? [start, target] : [target];
-    if (!(await confirmRouteWeather(points))) return;
-    if (!(await confirmRouteHazards(points))) return;
+    if (!(await confirmRouteWeather(points))) return false;
+    if (!(await confirmRouteHazards(points))) return false;
     launchInAppNavi(target, undefined, start);
+    return true;
   } finally {
     endLaunch();
   }
