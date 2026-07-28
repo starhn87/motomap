@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   NaverMapView,
   NaverMapPathOverlay,
+  NaverMapMultiPathOverlay,
   NaverMapMarkerOverlay,
   type NaverMapViewRef,
 } from '@mj-studio/react-native-naver-map';
@@ -25,9 +26,23 @@ import KakaoNavi, {
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { formatMeters, formatSeconds } from '@/lib/api/directions';
+import {
+  fetchBikeTraffic,
+  formatMeters,
+  formatSeconds,
+  type TrafficPart,
+} from '@/lib/api/directions';
 import { toast } from '@/lib/toast';
 import { useGuideSession } from '@/lib/guideSession';
+
+// 혼잡도별 경로선 색 — 막힐수록 붉게. 원활은 기존 경로색, 정보 없음은 회색.
+const TRAFFIC_COLORS: Record<number, string> = {
+  4: semantic.success, // 원활
+  3: '#F59E0B', // 서행
+  2: '#EF4444', // 지체
+  1: '#B91C1C', // 정체
+  0: '#9CA3AF', // 정보 없음
+};
 
 // 길안내 진입 화면 — 경로 미리보기와 옵션 선택을 겸한다.
 // 옵션별 경로를 지도에 그려 보여주고, 고르면 그 옵션으로 KNSDK 안내를 시작한다.
@@ -69,6 +84,8 @@ export default function NaviScreen() {
   const [start, setStart] = useState<[number, number] | null>(null); // [lng, lat]
   const [priority, setPriority] = useState<RoutePriority>(0);
   const [routes, setRoutes] = useState<Partial<Record<RoutePriority, BikeRoute>>>({});
+  // 옵션별 혼잡 구간(경로선 색칠용). 없으면 SDK 선형을 단색으로 그린다.
+  const [traffic, setTraffic] = useState<Partial<Record<RoutePriority, TrafficPart[]>>>({});
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   // 현재 위치에서 도로가 이어지지 않는 원거리 코스(예: 육지→제주)는
@@ -198,6 +215,7 @@ export default function NaviScreen() {
       // 현재 위치 출발이 막히고 경유지가 있으면(코스 안내) 코스 출발지 기준으로 재시도
       if (!courseOnly && !slng && flatVias.length >= 2) {
         setRoutes({});
+        setTraffic({});
         setCourseOnly(true);
         toast.info('코스 출발지 기준으로 보여드려요', '현재 위치에서 이어지는 도로가 없어요.');
         return;
@@ -212,6 +230,26 @@ export default function NaviScreen() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias 문자열·courseOnly 에서 파생
   }, [effStart?.[0], effStart?.[1], priority, routes, goalLng, goalLat, vias, courseOnly, activeVias]);
+
+  // 혼잡 구간 색칠 — SDK 경로가 확정되면 같은 엔진인 REST 로 같은 조건을 조회한다.
+  // 위 경로 useEffect 안에서 부르면 setRoutes 가 deps(routes)를 바꿔 cleanup 이
+  // 돌고, 응답이 cancelled 에 막혀 버려진다(실측). 실패하면 단색 그대로.
+  useEffect(() => {
+    if (!effStart || !route || traffic[priority]) return;
+    let cancelled = false;
+    const flat = activeVias ?? effVias;
+    const viaPairs: [number, number][] = [];
+    for (let i = 0; i + 1 < flat.length; i += 2) viaPairs.push([flat[i], flat[i + 1]]);
+    fetchBikeTraffic(effStart, [goalLng, goalLat], viaPairs, priority)
+      .then((parts) => {
+        if (!cancelled) setTraffic((prev) => ({ ...prev, [priority]: parts }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias·courseOnly 에서 파생
+  }, [effStart?.[0], effStart?.[1], route, priority, goalLng, goalLat, activeVias]);
 
   // 경로가 바뀌면 전체가 보이도록 카메라를 맞춘다.
   // 남쪽은 하단 카드가 덮는 만큼 더 벌린다.
@@ -256,6 +294,7 @@ export default function NaviScreen() {
           latitude: route.polyline[i * 2 + 1],
         }))
       : null;
+  const trafficParts = traffic[priority];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -283,7 +322,18 @@ export default function NaviScreen() {
             </View>
           </NaverMapMarkerOverlay>
         )}
-        {coords && (
+        {trafficParts ? (
+          // 혼잡도 색 경로 — 선형도 색과 같은 REST 응답 것을 쓴다(색·선 불일치 방지)
+          <NaverMapMultiPathOverlay
+            pathParts={trafficParts.map((p) => ({
+              coords: p.coords,
+              color: TRAFFIC_COLORS[p.state] ?? semantic.success,
+              outlineColor: '#FFFFFF',
+            }))}
+            width={6}
+            outlineWidth={2}
+          />
+        ) : coords ? (
           <NaverMapPathOverlay
             coords={coords}
             width={6}
@@ -291,7 +341,7 @@ export default function NaviScreen() {
             outlineWidth={2}
             outlineColor="#FFFFFF"
           />
-        )}
+        ) : null}
         <TempPlaceMarker latitude={goalLat} longitude={goalLng} />
       </NaverMapView>
 
