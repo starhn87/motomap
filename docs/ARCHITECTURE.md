@@ -116,7 +116,7 @@ Sentry.wrap(
 
 | 탭 | 라우트 | 화면 | 하는 일 |
 |---|---|---|---|
-| 지도 | `/` | `index.tsx` | 지도+POI 탐색, 카테고리 필터, 검색, 마커 탭→상세, 경로 미리보기 |
+| 지도 | `/` | `index.tsx` | 지도+POI 탐색, 카테고리 필터, 검색, 마커 탭→상세 |
 | 탐색 | `/courses` | `courses.tsx` | 추천 코스 목록 ↔ "추천 목적지"(RecommendedPlaces) 토글 |
 | 제보 | `/submit` | `submit.tsx` | 장소·코스·건의 3종 제보 폼 |
 | 내 정보 | `/profile` | `profile.tsx` | 프로필·메뉴(설정·즐겨찾기·내 리뷰·내 제보·로그아웃) |
@@ -132,7 +132,7 @@ Sentry.wrap(
 | `/my-reviews` | 내 정보 | 내가 쓴 리뷰 |
 | `/blocked-users` | 내 정보 | 차단 관리(해제) |
 | `/legal/[type]` | 설정 | 약관·개인정보·위치 문서 (`type` 동적) |
-| `/course/[id]` | 코스 목록·검색 | 코스 상세 + 리뷰 + 경로 미리보기 |
+| `/course/[id]` | 코스 목록·검색 | 코스 상세 + 리뷰 + 지도 미리보기 |
 
 ### 인증 게이팅
 
@@ -140,7 +140,7 @@ Sentry.wrap(
 
 ### 화면 구성 하이라이트
 
-- **지도 화면(`(tabs)/index.tsx`)** — `NaverMapView` 위에 오버레이를 쌓는다: 클러스터/마커(`PlaceMarker`), 사용자 위치(`UserLocationMarker`+`LocationPulse`), 경로선(`RouteLine`). UI 레이어로 `SearchBar`·`CategoryFilter`·내 위치 버튼·`PlaceBottomSheet`(선택 장소)·`RouteInfoCard`(경로 미리보기 시). 카메라 이동(`onCameraChanged`)을 디바운스해 `usePlaces`를 재조회.
+- **지도 화면(`(tabs)/index.tsx`)** — `NaverMapView` 위에 오버레이를 쌓는다: 클러스터/마커(`PlaceMarker`), 사용자 위치(`UserLocationMarker`+`LocationPulse`). UI 레이어로 `SearchBar`·`CategoryFilter`·내 위치 버튼·`PlaceBottomSheet`(선택 장소). 카메라 이동(`onCameraChanged`)을 디바운스해 `usePlaces`를 재조회. 길안내 진입 시 경로 미리보기·옵션 선택은 `/navi` 화면이 맡는다.
 
 ---
 
@@ -250,7 +250,7 @@ Sentry.wrap(
 |---|---|---|
 | 네이버 지도 SDK | `@mj-studio/react-native-naver-map`, app.config `NAVER_MAP_CLIENT_ID` | 지도 렌더·마커·경로선. `patches/`로 심벌 탭 노출(새 빌드에만 반영) |
 | 카카오모빌리티 길찾기 | `lib/api/directions.ts`, `EXPO_PUBLIC_KAKAO_REST_API_KEY` | **이륜차 경로**(`car_type=7`) — 고속도로·자동차 전용도로를 애초에 빼고 잡는다. 일 10,000건 무료. 도로에서 떨어진 지점은 거절하므로 네이버 Directions(`traavoidcaronly`)로 폴백 |
-| 네이버 Directions | `lib/api/directions.ts` (`EXPO_PUBLIC_NAVER_CLIENT_ID/SECRET`) | 경로 미리보기(거리·시간·geometry) |
+| 네이버 Directions | `lib/api/directions.ts` (`EXPO_PUBLIC_NAVER_CLIENT_ID/SECRET`) | 코스 경로 재계산 폴백(스크립트) |
 | 네이버 Geocoding | `lib/geocode.ts` | 주소→좌표 (코스 제보 fallback) |
 | 카카오 로컬 검색 | `lib/api/kakaoLocal.ts` (`EXPO_PUBLIC_KAKAO_REST_API_KEY`) | 제보 주소 검색 (상호+주소→좌표) |
 | 앱 안 길안내 | `lib/navigation.ts` + `app/navi.tsx` + `modules/kakao-navi/` | KNSDK 이륜차 턴바이턴. 출발 전 날씨·노면 위험 확인 후 진입 |

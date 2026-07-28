@@ -12,14 +12,18 @@ NS_ASSUME_NONNULL_BEGIN
                clientVersion:(NSString *)clientVersion
                   completion:(void (^)(NSString *_Nullable errorMessage))completion;
 
-// 이륜차 경로를 계산한다. 성공하면 distance(m)·duration(초)가 채워진다.
+// 이륜차 경로를 계산한다. 성공하면 distance(m)·duration(초)와
+// polyline([lng, lat, lng, lat, ...] 평면 배열, WGS84)이 채워진다.
+// priority 는 KNRoutePriority 원시값.
 + (void)requestBikeRouteFromLng:(double)startLng
                             lat:(double)startLat
                           toLng:(double)goalLng
                             lat:(double)goalLat
+                       priority:(NSInteger)priority
                      completion:(void (^)(NSString *_Nullable errorMessage,
                                           NSInteger distance,
-                                          NSInteger duration))completion;
+                                          NSInteger duration,
+                                          NSArray<NSNumber *> *_Nullable polyline))completion;
 
 @end
 

@@ -21,8 +21,8 @@ export interface NavCourse {
   points: { latitude: number; longitude: number; name?: string }[];
 }
 
-// 길안내는 항상 앱 안 화면(KNSDK, app/navi.tsx)으로 간다.
-// 외부 내비 앱 선택은 앱 내 이륜차 길안내가 생기면서 제거했다.
+// 길안내는 항상 앱 안 미리보기 화면(app/navi.tsx)으로 간다 — 옵션별 경로를
+// 지도로 보여주고 고르면 KNSDK 안내를 시작한다. 외부 내비 앱 선택은 제거했다.
 function launchInAppNavi(target: NavTarget) {
   router.push({
     pathname: '/navi',

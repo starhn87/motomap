@@ -7,11 +7,13 @@ NS_ASSUME_NONNULL_BEGIN
 // 자체 UIViewController 로 present 한다 — 공식 예제도 이 형태다.
 @interface KNNaviPresenter : NSObject
 
+// priority 는 KNRoutePriority 원시값(0 추천 · 1 시간 · 2 거리 · 3 고속도로 · 4 큰길).
 + (void)presentFromLng:(double)startLng
                    lat:(double)startLat
                  toLng:(double)goalLng
                    lat:(double)goalLat
                   name:(NSString *)goalName
+              priority:(NSInteger)priority
             onDismiss:(void (^)(void))onDismiss
               onError:(void (^)(NSString *message))onError;
 

@@ -230,7 +230,7 @@ export default function CourseDetailScreen() {
                 <Text style={[styles.navButtonText, { color: colors.background }]}>안내 준비 중</Text>
               </View>
             ) : (
-              <Text style={[styles.navButtonText, { color: colors.background }]}>이 코스로 네비 시작</Text>
+              <Text style={[styles.navButtonText, { color: colors.background }]}>이 코스로 길안내</Text>
             )}
           </Pressable>
         )}

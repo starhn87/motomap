@@ -47,7 +47,6 @@ import type { Place } from '@/types';
 interface Props {
   place: Place | null;
   onClose: () => void;
-  onRoutePreview?: (place: Place) => void;
   /** 시트 상단의 컨테이너 기준 y — 내 위치 버튼이 시트를 따라 움직이도록 밖에 노출 */
   animatedPosition?: SharedValue<number>;
   /** 내 리뷰에서 진입 — 시트를 끝까지 펼치고 이 리뷰로 스크롤·강조한다. key(nonce)마다 재실행 */
@@ -67,7 +66,6 @@ const CONTENT_PADDING = 20;
 function PlaceBottomSheet({
   place,
   onClose,
-  onRoutePreview,
   animatedPosition,
   highlightReview,
 }: Props) {
@@ -296,19 +294,6 @@ function PlaceBottomSheet({
           ]}>
           <View style={{ flex: 1 }}>
             <TouchableOpacity
-              onPress={() => onRoutePreview?.(place)}
-              activeOpacity={0.8}
-              style={[
-                styles.routePreviewButton,
-                { backgroundColor: colors.surfaceMuted },
-              ]}>
-              <Text style={[styles.routePreviewText, { color: colors.text }]}>
-                경로 미리보기
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <View style={{ flex: 1 }}>
-            <TouchableOpacity
               disabled={navLaunching}
               onPress={() =>
                 openNavigation({
@@ -323,7 +308,7 @@ function PlaceBottomSheet({
                 <ActivityIndicator size="small" color={colors.background} />
               ) : (
                 <Text style={[styles.navButtonText, { color: colors.background }]}>
-                  네비 시작
+                  길안내
                 </Text>
               )}
             </TouchableOpacity>
@@ -332,7 +317,7 @@ function PlaceBottomSheet({
       </BottomSheetFooter>
     );
     },
-    [place, onRoutePreview, colors]
+    [place, colors]
   );
 
   if (!place || !displayPlace) return null;
@@ -710,16 +695,6 @@ const styles = StyleSheet.create({
   infoCardValue: {
     flex: 1,
     fontSize: 13,
-    fontWeight: '600',
-  },
-  routePreviewButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  routePreviewText: {
-    fontSize: 14,
     fontWeight: '600',
   },
   navButton: {

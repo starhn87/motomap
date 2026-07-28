@@ -30,7 +30,6 @@ import { useUnreadCount } from '@/hooks/useNotifications';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
 import { useNearbyHazards } from '@/hooks/useHazards';
-import { fetchRoute } from '@/lib/api/directions';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryFilter from '@/components/map/CategoryFilter';
@@ -41,8 +40,6 @@ import GasStationMarker from '@/components/map/GasStationMarker';
 import GasStationCard from '@/components/map/GasStationCard';
 import WeatherFab from '@/components/map/WeatherFab';
 import WeatherSheet from '@/components/map/WeatherSheet';
-import RouteLine from '@/components/map/RouteLine';
-import RouteInfoCard from '@/components/map/RouteInfoCard';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import HazardMarker from '@/components/map/HazardMarker';
@@ -55,7 +52,6 @@ import { router } from 'expo-router';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { toast } from '@/lib/toast';
 import type { Place, RoadHazard } from '@/types';
-import type { Route } from '@/lib/api/directions';
 import type { GasStation } from '@/lib/api/gasStations';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -96,9 +92,6 @@ export default function MapScreen() {
   const { heading } = useUserLocation();
 
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
-  const [route, setRoute] = useState<Route | null>(null);
-  const [routePlace, setRoutePlace] = useState<Place | null>(null);
-  const [navigating, setNavigating] = useState(false);
   const { height: screenHeight } = useWindowDimensions();
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; zoom: number } | null>(null);
   const mapRef = useRef<NaverMapViewRef>(null);
@@ -181,7 +174,6 @@ export default function MapScreen() {
 
   const handleMarkerPress = useCallback(
     (place: Place) => {
-      if (navigating) return;
       setHighlightReview(null);
       setTempPlace(null);
       setSelectedPlaceId(place.id);
@@ -195,7 +187,7 @@ export default function MapScreen() {
         duration: 400,
       });
     },
-    [setSelectedPlaceId, navigating, mapCenter, screenHeight]
+    [setSelectedPlaceId, mapCenter, screenHeight]
   );
 
   const handleSearchSelect = useCallback(
@@ -242,60 +234,6 @@ export default function MapScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setSelectedPlaceId]);
 
-  const handleRoutePreview = useCallback(
-    async (place: Place) => {
-      if (!userLocation) {
-        toast.info('현재 위치를 확인할 수 없습니다.');
-        return;
-      }
-
-      try {
-        const result = await fetchRoute(
-          [userLocation.longitude, userLocation.latitude],
-          [place.longitude, place.latitude]
-        );
-
-        setRoute(result);
-        setRoutePlace(place);
-        setNavigating(true);
-        setSelectedPlace(null);
-        setSelectedPlaceId(null);
-        // 시트가 언마운트되며 위치 값이 중간에 남지 않도록 닫힘 위치로 부드럽게 복귀
-        sheetPosition.value = withTiming(containerHeight.value + 100, { duration: 250 });
-
-        if (result.geometry.length > 0) {
-          const lngs = result.geometry.map((c) => c[0]);
-          const lats = result.geometry.map((c) => c[1]);
-          // 경로 전체가 화면에 들어오는 줌으로 맞춘다. 가장자리 여유 10%,
-          // 남쪽은 하단 경로 카드가 덮는 만큼 더(35%) 벌린다.
-          const latSpan = Math.max(Math.max(...lats) - Math.min(...lats), 0.01);
-          const lngSpan = Math.max(Math.max(...lngs) - Math.min(...lngs), 0.01);
-
-          mapRef.current?.animateCameraWithTwoCoords({
-            coord1: {
-              latitude: Math.min(...lats) - latSpan * 0.35,
-              longitude: Math.min(...lngs) - lngSpan * 0.1,
-            },
-            coord2: {
-              latitude: Math.max(...lats) + latSpan * 0.1,
-              longitude: Math.max(...lngs) + lngSpan * 0.1,
-            },
-            duration: 1000,
-          });
-        }
-      } catch (error: any) {
-        toast.error('경로를 찾을 수 없습니다.', error.message);
-      }
-    },
-    [userLocation, setSelectedPlaceId]
-  );
-
-  const handleRouteClose = useCallback(() => {
-    setRoute(null);
-    setRoutePlace(null);
-    setNavigating(false);
-  }, []);
-
   const handleMapTap = ({ latitude, longitude }: { latitude: number; longitude: number }) => {
     Keyboard.dismiss();
     // 1단계: 열려 있는 카드·시트가 있으면 닫기만 한다 (지도 앱 관례)
@@ -307,8 +245,8 @@ export default function MapScreen() {
     }
     // 2단계: 아무것도 없으면 탭 지점을 조회해 임시 카드를 띄운다.
     // 근처에 지도 심볼로 뜨는 POI가 있으면 그 장소(좌표 포함)로 스냅하고,
-    // 없을 때만 주소·건물명으로 폴백. 주유소 모드·내비 중엔 방해라 생략.
-    if (gasMode || navigating) return;
+    // 없을 때만 주소·건물명으로 폴백. 주유소 모드에선 방해라 생략.
+    if (gasMode) return;
     // 심볼 아이콘만이 아니라 그 아래 이름 라벨을 탭해도 같은 POI로 잡는다 —
     // 심볼은 항상 이름보다 위(북쪽)에 그려지므로 검색 중심을 화면 10px 상당
     // 북쪽으로 올리고, 반경은 줌에 따른 화면 22px 상당(35~70m)으로 잡는다.
@@ -356,8 +294,8 @@ export default function MapScreen() {
     caption: string;
   }) => {
     Keyboard.dismiss();
-    // 주유소 모드·내비 중엔 새 카드를 띄우지 않고 열려 있는 것만 닫는다
-    if (gasMode || navigating) {
+    // 주유소 모드에선 새 카드를 띄우지 않고 열려 있는 것만 닫는다
+    if (gasMode) {
       if (selectedPlace) handleBottomSheetClose();
       if (selectedStation) setSelectedStation(null);
       if (tempPlace) setTempPlace(null);
@@ -402,7 +340,7 @@ export default function MapScreen() {
   const sheetPosition = useSharedValue(999999);
   const containerHeight = useSharedValue(0);
   const myLocationFollowStyle = useAnimatedStyle(() => {
-    const base = navigating ? 200 : 24;
+    const base = 24;
     const h = containerHeight.value;
     const fromSheet = h > 0 ? h - sheetPosition.value + 16 : 0;
     return {
@@ -536,8 +474,6 @@ export default function MapScreen() {
           />
         ))}
 
-        {route && <RouteLine route={route} />}
-
         {/* 일반 장소(임시 목적지) 핀 — 카테고리 마커와 구분되는 전용 디자인 */}
         {tempPlace && (
           <TempPlaceMarker latitude={tempPlace.latitude} longitude={tempPlace.longitude} />
@@ -549,7 +485,7 @@ export default function MapScreen() {
       </NaverMapView>
 
 
-      {courseReturn && selectedPlaceId === courseReturn.placeId && !navigating && (
+      {courseReturn && selectedPlaceId === courseReturn.placeId && (
         <CourseReturnChip
           onPress={() => {
             const courseId = courseReturn.courseId;
@@ -559,7 +495,7 @@ export default function MapScreen() {
         />
       )}
 
-      {!navigating && (
+      {(
         <Animated.View
           entering={FadeIn.duration(300)}
           style={styles.searchAndFilter}>
@@ -587,7 +523,7 @@ export default function MapScreen() {
         </Animated.View>
       )}
 
-      {!navigating && weather && (
+      {weather && (
         <WeatherFab weather={weather} onPress={() => setWeatherOpen(true)} />
       )}
 
@@ -637,11 +573,10 @@ export default function MapScreen() {
         </View>
       </AnimatedPressable>
 
-      {!navigating && (
+      {(
         <PlaceBottomSheet
           place={selectedPlace}
           onClose={handleBottomSheetClose}
-          onRoutePreview={handleRoutePreview}
           animatedPosition={sheetPosition}
           highlightReview={highlightReview}
         />
@@ -649,12 +584,8 @@ export default function MapScreen() {
 
       <HazardSheet hazard={selectedHazard} onClose={() => setSelectedHazard(null)} />
 
-      {tempPlace && !navigating && (
+      {tempPlace && (
         <TempPlaceSheet place={tempPlace} onClose={() => setTempPlace(null)} />
-      )}
-
-      {navigating && route && routePlace && (
-        <RouteInfoCard route={route} place={routePlace} onClose={handleRouteClose} />
       )}
 
       {selectedStation && (

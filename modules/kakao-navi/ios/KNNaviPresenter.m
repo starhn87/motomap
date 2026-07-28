@@ -19,6 +19,7 @@
 @property(nonatomic, strong, nullable) KNTrip *trip;
 @property(nonatomic, copy, nullable) void (^onDismiss)(void);
 @property(nonatomic, assign) BOOL carThemeApplied;
+@property(nonatomic, assign) KNRoutePriority priority;
 @end
 
 @implementation KNNaviViewController
@@ -37,7 +38,7 @@
 
   KNNaviView *naviView = [[KNNaviView alloc] initWithGuidance:guidance
                                                          trip:self.trip
-                                                  routeOption:KNRoutePriority_Recommand
+                                                  routeOption:self.priority
                                                   avoidOption:KNRouteAvoidOption_None];
   [naviView sndVolume:1.0f];
   naviView.guideStateDelegate = self;
@@ -53,7 +54,7 @@
   self.guidance = guidance;
 
   [guidance startWithTrip:self.trip
-                 priority:KNRoutePriority_Recommand
+                 priority:self.priority
              avoidOptions:KNRouteAvoidOption_None];
 }
 
@@ -197,6 +198,7 @@
                  toLng:(double)goalLng
                    lat:(double)goalLat
                   name:(NSString *)goalName
+              priority:(NSInteger)priority
              onDismiss:(void (^)(void))onDismiss
                onError:(void (^)(NSString *))onError {
   KNSDK *sdk = [KNSDK sharedInstance];
@@ -222,7 +224,7 @@
                 }
 
                 trip.routeConfig = [[KNRouteConfiguration alloc] initWithCarType:KNCarType_Bike];
-                [trip routeWithPriority:KNRoutePriority_Recommand
+                [trip routeWithPriority:(KNRoutePriority)priority
                            avoidOptions:KNRouteAvoidOption_None
                              completion:^(KNError *_Nullable routeError,
                                           NSArray<KNRoute *> *_Nullable routes) {
@@ -231,12 +233,13 @@
                                                     : @"경로를 찾지 못했다");
                                  return;
                                }
-                               [self presentWithTrip:trip onDismiss:onDismiss onError:onError];
+                               [self presentWithTrip:trip priority:(KNRoutePriority)priority onDismiss:onDismiss onError:onError];
                              }];
               }];
 }
 
 + (void)presentWithTrip:(KNTrip *)trip
+               priority:(KNRoutePriority)priority
               onDismiss:(void (^)(void))onDismiss
                 onError:(void (^)(NSString *))onError {
   dispatch_async(dispatch_get_main_queue(), ^{
@@ -250,6 +253,7 @@
 
     KNNaviViewController *vc = [[KNNaviViewController alloc] init];
     vc.trip = trip;
+    vc.priority = priority;
     vc.onDismiss = onDismiss;
     vc.modalPresentationStyle = UIModalPresentationFullScreen;
     [top presentViewController:vc animated:YES completion:nil];

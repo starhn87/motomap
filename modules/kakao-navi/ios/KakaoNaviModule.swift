@@ -18,16 +18,21 @@ public class KakaoNaviModule: Module {
       }
     }
 
-    // 이륜차 경로. 지금 쓰는 카카오 REST 길찾기와 결과를 견줘보기 위한 것이다.
+    // 이륜차 경로 — 길안내 전 미리보기용. 안내와 같은 엔진이라 결과가 일치한다.
     AsyncFunction("requestBikeRoute") {
-      (startLng: Double, startLat: Double, goalLng: Double, goalLat: Double, promise: Promise) in
+      (startLng: Double, startLat: Double, goalLng: Double, goalLat: Double, priority: Int,
+       promise: Promise) in
       KNSDKBridge.requestBikeRoute(
-        fromLng: startLng, lat: startLat, toLng: goalLng, lat: goalLat
-      ) { errorMessage, distance, duration in
+        fromLng: startLng, lat: startLat, toLng: goalLng, lat: goalLat, priority: priority
+      ) { errorMessage, distance, duration, polyline in
         if let errorMessage {
           promise.reject("E_KNSDK_ROUTE", errorMessage)
         } else {
-          promise.resolve(["distance": distance, "duration": duration])
+          promise.resolve([
+            "distance": distance,
+            "duration": duration,
+            "polyline": polyline ?? [],
+          ])
         }
       }
     }
@@ -37,9 +42,11 @@ public class KakaoNaviModule: Module {
     Events("onGuideEnd", "onGuideFailed")
 
     AsyncFunction("startGuide") {
-      (startLng: Double, startLat: Double, goalLng: Double, goalLat: Double, goalName: String) in
+      (startLng: Double, startLat: Double, goalLng: Double, goalLat: Double, goalName: String,
+       priority: Int) in
       KNNaviPresenter.present(
         fromLng: startLng, lat: startLat, toLng: goalLng, lat: goalLat, name: goalName,
+        priority: priority,
         onDismiss: { [weak self] in
           self?.sendEvent("onGuideEnd", [:])
         },
