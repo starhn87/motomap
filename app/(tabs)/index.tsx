@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
   directionsButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 22,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
