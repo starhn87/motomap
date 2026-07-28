@@ -416,7 +416,8 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#22C55E',
+    // 경로선(초록)과 겹치지 않는 진한 파랑 — 바다색(연파랑)과도 구분된다
+    backgroundColor: '#2563EB',
   },
   closeButton: {
     position: 'absolute',
