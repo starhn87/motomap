@@ -9,6 +9,7 @@
 // 전부 받아 naviView 로 넘겨야 화면이 갱신된다. 게다가 델리게이트를 걸지 않으면
 // guidance 의 locationGuide/routeGuide 자체가 갱신되지 않는다(헤더 주석).
 @interface KNNaviViewController : UIViewController <KNNaviView_GuideStateDelegate,
+                                                    KNNaviView_StateDelegate,
                                                     KNGuidance_GuideStateDelegate,
                                                     KNGuidance_LocationGuideDelegate,
                                                     KNGuidance_RouteGuideDelegate,
@@ -19,9 +20,14 @@
 @property(nonatomic, strong, nullable) KNDriveGuidance *guidance;
 @property(nonatomic, strong, nullable) KNTrip *trip;
 @property(nonatomic, copy, nullable) void (^onDismiss)(void);
+@property(nonatomic, copy, nullable) void (^onMenu)(NSInteger);
 @property(nonatomic, assign) BOOL carThemeApplied;
 @property(nonatomic, assign) KNRoutePriority priority;
 @end
+
+// 안내 화면 위 상호작용(액션시트·알림·목적지 변경)을 모듈 함수가 쓸 수 있도록
+// 살아 있는 컨트롤러를 하나 기억한다.
+static __weak KNNaviViewController *gActiveNavi = nil;
 
 @implementation KNNaviViewController
 
@@ -43,6 +49,7 @@
                                                   avoidOption:KNRouteAvoidOption_None];
   [naviView sndVolume:1.0f];
   naviView.guideStateDelegate = self;
+  naviView.stateDelegate = self;
   // 주의: [naviView carType:KNCarType_Bike] 를 부르면 자차 마커가 SDK 내장
   // 바이크 캐릭터(bike_on/off.png)로 바뀌는데, 그 분기는 setCustomCarImages 를
   // 무시한다. 경로 계산 차종은 trip.routeConfig 가 들고 있으므로 뷰 쪽은
@@ -57,6 +64,21 @@
   [guidance startWithTrip:self.trip
                  priority:self.priority
              avoidOptions:KNRouteAvoidOption_None];
+
+  // 모토맵 메뉴 버튼 — 커스텀 슬롯이 하나뿐이라(실측) 버튼 하나로 합치고,
+  // 위험 제보/근처 장소 분기는 JS 가 1차 액션시트로 가른다.
+  UIImage *menuIcon = [UIImage systemImageNamed:@"mappin.and.ellipse"];
+  KNCustomBottomMenuItem *motoItem =
+      [[KNCustomBottomMenuItem alloc] initWithId:100
+                                            name:@"모토맵"
+                                            icon:menuIcon
+                                       nightIcon:menuIcon
+                                           style:MENU_BUTTON_TOUCH
+                                        toggleOn:NO];
+  [naviView.menuView setCustomMenu:@[ motoItem ]];
+  [naviView.menuView useGuideCancel:NO];
+
+  gActiveNavi = self;
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -91,6 +113,30 @@
 }
 
 - (void)naviViewGuideState:(KNGuideState)aGuideState {
+}
+
+#pragma mark - KNNaviView_StateDelegate (메뉴 탭 외에는 관심 없음)
+
+- (void)naviViewDidMenuItemWithId:(int)aId toggle:(BOOL)aToggle {
+  if (self.onMenu != nil) self.onMenu(aId);
+}
+
+- (void)naviViewDidUpdateSndVolume:(float)aVolume {
+}
+
+- (void)naviViewDidUpdateUseDarkMode:(BOOL)aDarkMode {
+}
+
+- (void)naviViewDidUpdateMapCameraMode:(MapViewCameraMode)aMapViewCameraMode {
+}
+
+- (void)naviViewScreenState:(KNNaviViewState)aKNNaviViewState {
+}
+
+- (void)naviViewPopupOpenCheck:(BOOL)aOpen {
+}
+
+- (void)naviViewIsArrival:(BOOL)aIsArrival {
 }
 
 #pragma mark - KNGuidance 델리게이트 → naviView 중계
@@ -178,16 +224,18 @@
 }
 
 - (void)finish {
+  if (gActiveNavi == self) gActiveNavi = nil;
   [self.guidance stop];
   [self.naviView releaseView];
   self.naviView = nil;
   self.guidance = nil;
 
+  // JS 쪽 전환(지도 화면 이동)을 화면이 아직 덮인 동안 시작시킨다 —
+  // 닫힘 애니메이션이 걷히면 이전 화면이 아니라 지도가 바로 보인다.
   void (^done)(void) = self.onDismiss;
-  [self dismissViewControllerAnimated:YES
-                           completion:^{
-                             if (done != nil) done();
-                           }];
+  self.onDismiss = nil;
+  if (done != nil) done();
+  [self dismissViewControllerAnimated:YES completion:nil];
 }
 
 @end
@@ -201,6 +249,7 @@
                   name:(NSString *)goalName
                   vias:(NSArray<NSNumber *> *_Nullable)flatVias
               priority:(NSInteger)priority
+                onMenu:(void (^_Nullable)(NSInteger))onMenu
              onDismiss:(void (^)(void))onDismiss
                onError:(void (^)(NSString *))onError {
   KNSDK *sdk = [KNSDK sharedInstance];
@@ -235,13 +284,14 @@
                                                     : @"경로를 찾지 못했다");
                                  return;
                                }
-                               [self presentWithTrip:trip priority:(KNRoutePriority)priority onDismiss:onDismiss onError:onError];
+                               [self presentWithTrip:trip priority:(KNRoutePriority)priority onMenu:onMenu onDismiss:onDismiss onError:onError];
                              }];
               }];
 }
 
 + (void)presentWithTrip:(KNTrip *)trip
                priority:(KNRoutePriority)priority
+                 onMenu:(void (^_Nullable)(NSInteger))onMenu
               onDismiss:(void (^)(void))onDismiss
                 onError:(void (^)(NSString *))onError {
   dispatch_async(dispatch_get_main_queue(), ^{
@@ -256,9 +306,105 @@
     KNNaviViewController *vc = [[KNNaviViewController alloc] init];
     vc.trip = trip;
     vc.priority = priority;
+    vc.onMenu = onMenu;
     vc.onDismiss = onDismiss;
     vc.modalPresentationStyle = UIModalPresentationFullScreen;
     [top presentViewController:vc animated:YES completion:nil];
+  });
+}
+
++ (void)stopGuide {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [gActiveNavi finish];
+  });
+}
+
++ (void)showOptionsWithTitle:(NSString *)title
+                      labels:(NSArray<NSString *> *)labels
+                  completion:(void (^)(NSInteger))completion {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    KNNaviViewController *navi = gActiveNavi;
+    if (navi == nil) {
+      completion(-1);
+      return;
+    }
+    UIAlertController *sheet =
+        [UIAlertController alertControllerWithTitle:title
+                                            message:nil
+                                     preferredStyle:UIAlertControllerStyleActionSheet];
+    [labels enumerateObjectsUsingBlock:^(NSString *label, NSUInteger idx, BOOL *stop) {
+      [sheet addAction:[UIAlertAction actionWithTitle:label
+                                                style:UIAlertActionStyleDefault
+                                              handler:^(UIAlertAction *action) {
+                                                completion((NSInteger)idx);
+                                              }]];
+    }];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"취소"
+                                              style:UIAlertActionStyleCancel
+                                            handler:^(UIAlertAction *action) {
+                                              completion(-1);
+                                            }]];
+    [navi presentViewController:sheet animated:YES completion:nil];
+  });
+}
+
++ (void)showNotice:(NSString *)message {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    KNNaviViewController *navi = gActiveNavi;
+    if (navi == nil) return;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil
+                                                                   message:message
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [navi presentViewController:alert animated:YES completion:nil];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.8 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+                     [alert dismissViewControllerAnimated:YES completion:nil];
+                   });
+  });
+}
+
++ (void)changeDestinationToLng:(double)lng
+                           lat:(double)lat
+                          name:(NSString *)name
+                      priority:(NSInteger)priority
+                    completion:(void (^)(NSString *_Nullable))completion {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    KNNaviViewController *navi = gActiveNavi;
+    KNSDK *sdk = [KNSDK sharedInstance];
+    if (navi == nil || navi.naviView == nil || sdk == nil) {
+      completion(@"안내 화면이 없다");
+      return;
+    }
+
+    // 출발점은 현 위치 — SDK 가 KATEC 으로 들고 있어 변환이 필요 없다
+    KNGPSData *gps = [sdk sharedGpsManager].lastValidGpsData ?: [sdk sharedGpsManager].recentGpsData;
+    if (gps == nil) {
+      completion(@"현재 위치를 아직 못 잡았다");
+      return;
+    }
+    IntPoint startPos = IntPointMakeWithDoublePoint(gps.pos);
+    KNPOI *startPOI = [[KNPOI alloc] initWithName:@"출발" x:startPos.x y:startPos.y];
+
+    IntPoint goalPos = [sdk convertWGS84ToKATECWithLongitude:lng latitude:lat];
+    KNPOI *goalPOI = [[KNPOI alloc] initWithName:name x:goalPos.x y:goalPos.y];
+
+    [sdk makeTripWithStart:startPOI
+                      goal:goalPOI
+                      vias:nil
+                completion:^(KNError *_Nullable error, KNTrip *_Nullable trip) {
+                  dispatch_async(dispatch_get_main_queue(), ^{
+                    if (error != nil || trip == nil) {
+                      completion(error ? [NSString stringWithFormat:@"[%@] %@", error.code, error.msg ?: @"경로 생성 실패"]
+                                       : @"경로를 만들지 못했다");
+                      return;
+                    }
+                    trip.routeConfig = [[KNRouteConfiguration alloc] initWithCarType:KNCarType_Bike];
+                    [navi.naviView guideNewDestinations:trip
+                                               priority:(KNRoutePriority)priority
+                                           avoidOptions:KNRouteAvoidOption_None];
+                    completion(nil);
+                  });
+                }];
   });
 }
 

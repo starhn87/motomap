@@ -216,11 +216,20 @@ export default function DirectionsScreen() {
     p === 'current' ? '현재 위치' : (p?.name ?? fallback);
 
   const busy = resolving || navLaunching;
+  // 같은 장소가 등록 장소(place)와 카카오 검색(kakao) 두 형태로 쌓일 수 있어
+  // 이름+좌표(±10m)로 합친다 — 먼저 온(최신) 항목이 남는다.
+  const seenRecent = new Set<string>();
   const recentTargets = recents
     .map((entry) => ({ entry, target: recentAsTarget(entry) }))
     .filter((r): r is { entry: RecentSearch; target: NavTarget & { address?: string } } =>
       r.target !== null,
-    );
+    )
+    .filter(({ target }) => {
+      const key = `${target.name}|${target.latitude.toFixed(4)},${target.longitude.toFixed(4)}`;
+      if (seenRecent.has(key)) return false;
+      seenRecent.add(key);
+      return true;
+    });
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

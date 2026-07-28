@@ -40,7 +40,7 @@ public class KakaoNaviModule: Module {
 
     // 길안내는 네이티브 전체화면으로 띄운다(이유는 KNNaviPresenter.h 참고).
     // 경로 탐색이 비동기라 결과는 이벤트로 알린다.
-    Events("onGuideEnd", "onGuideFailed")
+    Events("onGuideEnd", "onGuideFailed", "onGuideMenu")
 
     AsyncFunction("startGuide") {
       (startLng: Double, startLat: Double, goalLng: Double, goalLat: Double, goalName: String,
@@ -49,6 +49,9 @@ public class KakaoNaviModule: Module {
         fromLng: startLng, lat: startLat, toLng: goalLng, lat: goalLat, name: goalName,
         vias: vias.map { NSNumber(value: $0) },
         priority: priority,
+        onMenu: { [weak self] menuId in
+          self?.sendEvent("onGuideMenu", ["id": menuId])
+        },
         onDismiss: { [weak self] in
           self?.sendEvent("onGuideEnd", [:])
         },
@@ -58,5 +61,31 @@ public class KakaoNaviModule: Module {
       )
     }
 
+    // 안내 화면 위 액션시트 — JS 가 항목을 채우고, 고른 인덱스를 받는다(취소 -1)
+    AsyncFunction("showGuideOptions") { (title: String, labels: [String], promise: Promise) in
+      KNNaviPresenter.showOptions(withTitle: title, labels: labels) { picked in
+        promise.resolve(picked)
+      }
+    }
+
+    AsyncFunction("showGuideNotice") { (message: String) in
+      KNNaviPresenter.showNotice(message)
+    }
+
+    AsyncFunction("stopGuide") {
+      KNNaviPresenter.stopGuide()
+    }
+
+    AsyncFunction("changeGuideDestination") {
+      (lng: Double, lat: Double, name: String, priority: Int, promise: Promise) in
+      KNNaviPresenter.changeDestination(toLng: lng, lat: lat, name: name, priority: priority) {
+        errorMessage in
+        if let errorMessage {
+          promise.reject("E_KNSDK_DEST", errorMessage)
+        } else {
+          promise.resolve(true)
+        }
+      }
+    }
   }
 }

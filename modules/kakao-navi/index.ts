@@ -44,6 +44,23 @@ interface KakaoNaviModule {
     event: 'onGuideFailed',
     listener: (payload: { message: string }) => void,
   ): { remove: () => void };
+  addListener(
+    event: 'onGuideMenu',
+    listener: (payload: { id: number }) => void,
+  ): { remove: () => void };
+  /** 안내 화면 위 액션시트. 고른 인덱스, 취소면 -1 */
+  showGuideOptions(title: string, labels: string[]): Promise<number>;
+  /** 안내를 종료한다 — 정상 종료 흐름(onGuideEnd)을 탄다 */
+  stopGuide(): Promise<void>;
+  /** 안내 화면 위에 잠깐 떴다 사라지는 알림 */
+  showGuideNotice(message: string): Promise<void>;
+  /** 안내 중 목적지 변경 — 현 위치에서 새 목적지로 재탐색 */
+  changeGuideDestination(
+    lng: number,
+    lat: number,
+    name: string,
+    priority: RoutePriority,
+  ): Promise<boolean>;
   /** 이륜차 경로 계산 (미리보기용, 안내와 같은 엔진). vias 형식은 동일. */
   requestBikeRoute(
     startLng: number,
