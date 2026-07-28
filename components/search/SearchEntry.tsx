@@ -1,11 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Text, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 
-// 지도 위 검색바 모양의 진입 버튼 — 탭하면 검색 전용 화면(/search)으로 전환된다
+// 지도 위 검색바 모양의 진입 버튼 — 탭하면 검색 전용 화면(/search)으로 전환된다.
+// 길찾기 진입은 검색바 오른쪽의 독립 버튼이 맡는다(지도 탭).
 export default function SearchEntry() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];

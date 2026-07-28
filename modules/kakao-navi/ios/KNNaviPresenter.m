@@ -1,5 +1,6 @@
 #import "KNNaviPresenter.h"
 #import "KNNaviTheme.h"
+#import "KNSDKBridge.h"
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 
@@ -198,6 +199,7 @@
                  toLng:(double)goalLng
                    lat:(double)goalLat
                   name:(NSString *)goalName
+                  vias:(NSArray<NSNumber *> *_Nullable)flatVias
               priority:(NSInteger)priority
              onDismiss:(void (^)(void))onDismiss
                onError:(void (^)(NSString *))onError {
@@ -215,7 +217,7 @@
 
   [sdk makeTripWithStart:startPOI
                     goal:goalPOI
-                    vias:nil
+                    vias:[KNSDKBridge viasFromFlat:flatVias]
               completion:^(KNError *_Nullable tripError, KNTrip *_Nullable trip) {
                 if (tripError != nil || trip == nil) {
                   onError(tripError ? [NSString stringWithFormat:@"[%@] %@", tripError.code, tripError.msg ?: @"경로 생성 실패"]

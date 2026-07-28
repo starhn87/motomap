@@ -6,7 +6,6 @@ import { useMapStore } from '@/stores/useMapStore';
 import { fetchNearbyHazards } from '@/lib/api/hazards';
 import { HAZARDS } from '@/constants/hazards';
 import type { RoadHazard } from '@/types';
-import { coordToAddress } from '@/lib/api/kakaoLocal';
 import { checkRouteWeather } from '@/lib/api/weather';
 
 export interface NavTarget {
@@ -23,15 +22,38 @@ export interface NavCourse {
 
 // 길안내는 항상 앱 안 미리보기 화면(app/navi.tsx)으로 간다 — 옵션별 경로를
 // 지도로 보여주고 고르면 KNSDK 안내를 시작한다. 외부 내비 앱 선택은 제거했다.
-function launchInAppNavi(target: NavTarget) {
+// vias 는 [lng, lat, ...] 평면 배열 — 코스 안내의 경유지.
+// start 를 주면 그 지점에서 출발(길찾기), 없으면 현재 위치에서 출발.
+function launchInAppNavi(target: NavTarget, vias?: number[], start?: NavTarget) {
   router.push({
     pathname: '/navi',
     params: {
       lng: String(target.longitude),
       lat: String(target.latitude),
       name: target.name,
+      ...(vias && vias.length > 0 ? { vias: JSON.stringify(vias) } : {}),
+      ...(start
+        ? {
+            slng: String(start.longitude),
+            slat: String(start.latitude),
+            sname: start.name,
+          }
+        : {}),
     },
   });
+}
+
+// 경유지 상한에 맞춰 추림 — 코스 출발지(첫 점)는 보존하고 나머지를 고르게 선택.
+// 카카오내비 계열의 경유지 관례가 3개라 그에 맞춘다.
+const MAX_VIAS = 3;
+function sampleWaypoints<T>(points: T[], max: number): T[] {
+  if (points.length <= max) return points;
+  const [first, ...rest] = points;
+  const picked = [first];
+  for (let i = 0; i < max - 1; i++) {
+    picked.push(rest[Math.round(((i + 1) * rest.length) / (max - 1)) - 1]);
+  }
+  return picked;
 }
 
 // 내비 출발 전 경로 지점들의 날씨를 확인하고, 비·눈·뇌우가 있으면 출발 여부를 묻는다.
@@ -115,21 +137,21 @@ const beginLaunch = (): boolean => {
 };
 const endLaunch = () => useNavLaunching.setState({ launching: false });
 
-export async function openNavigation(target: NavTarget) {
+export async function openNavigation(target: NavTarget, start?: NavTarget) {
   if (!beginLaunch()) return;
   try {
-    if (!(await confirmRouteWeather([target]))) return;
-    if (!(await confirmRouteHazards([target]))) return;
-    launchInAppNavi(target);
+    const points = start ? [start, target] : [target];
+    if (!(await confirmRouteWeather(points))) return;
+    if (!(await confirmRouteHazards(points))) return;
+    launchInAppNavi(target, undefined, start);
   } finally {
     endLaunch();
   }
 }
 
 /**
- * 코스 안내 — 아직 앱 안 길안내가 단일 목적지만 지원하므로 코스 출발지로
- * 안내하고, 거기부터는 코스를 직접 탄다. 경유지 전달(KNSDK makeTrip vias)은
- * 다음 단계.
+ * 코스 전체 안내 — 출발지는 현재 위치, 코스 출발지~중간 지점을 경유지로 넣고
+ * 코스 끝을 목적지로 안내한다.
  */
 export async function openCourseNavigation(course: NavCourse) {
   if (course.points.length === 0) return;
@@ -138,13 +160,18 @@ export async function openCourseNavigation(course: NavCourse) {
     if (!(await confirmRouteWeather(course.points))) return;
     if (!(await confirmRouteHazards(course.points))) return;
 
-    const start = course.points[0];
-    const address = await coordToAddress(start.latitude, start.longitude);
-    launchInAppNavi({
-      name: address ?? `${course.name} 출발지`,
-      latitude: start.latitude,
-      longitude: start.longitude,
-    });
+    const goal = course.points[course.points.length - 1];
+    const vias = sampleWaypoints(course.points.slice(0, -1), MAX_VIAS).flatMap(
+      (p) => [p.longitude, p.latitude],
+    );
+    launchInAppNavi(
+      {
+        name: course.name,
+        latitude: goal.latitude,
+        longitude: goal.longitude,
+      },
+      vias,
+    );
   } finally {
     endLaunch();
   }

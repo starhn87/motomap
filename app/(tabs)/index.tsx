@@ -22,11 +22,9 @@ import Animated, {
 
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
-import { useAuthStore } from '@/stores/useAuthStore';
 import { usePlaces } from '@/hooks/usePlaces';
 import { useGasStations, GAS_MIN_ZOOM, type SearchPoint } from '@/hooks/useGasStations';
 import { useWeather } from '@/hooks/useWeather';
-import { useUnreadCount } from '@/hooks/useNotifications';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
 import { useNearbyHazards } from '@/hooks/useHazards';
@@ -47,7 +45,7 @@ import HazardSheet from '@/components/map/HazardSheet';
 import { coordToSpot, coordToAddress, nearestPoi, searchKakaoLocal } from '@/lib/api/kakaoLocal';
 import * as Updates from 'expo-updates';
 import SearchEntry from '@/components/search/SearchEntry';
-import Feather from '@expo/vector-icons/Feather';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { toast } from '@/lib/toast';
@@ -87,8 +85,6 @@ export default function MapScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { userLocation, selectedPlaceId, activeFilter, setSelectedPlaceId } =
     useMapStore();
-  const authedUser = useAuthStore((s) => s.user);
-  const unreadCount = useUnreadCount();
   const { heading } = useUserLocation();
 
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
@@ -501,23 +497,14 @@ export default function MapScreen() {
           style={styles.searchAndFilter}>
           <View style={styles.searchRow}>
             <SearchEntry />
-            {authedUser && (
-              <Pressable
-                onPress={() => router.push('/notifications')}
-                style={[
-                  styles.bellButton,
-                  { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-                ]}>
-                <Feather name="bell" size={20} color={colors.text} />
-                {unreadCount > 0 && (
-                  <View style={styles.bellBadge}>
-                    <Text style={styles.bellBadgeText}>
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
-            )}
+            <Pressable
+              onPress={() => router.push('/directions')}
+              style={[
+                styles.directionsButton,
+                { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+              ]}>
+              <MaterialCommunityIcons name="arrow-right-top" size={22} color={colors.tint} />
+            </Pressable>
           </View>
           <CategoryFilter />
         </Animated.View>
@@ -624,7 +611,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
   },
-  bellButton: {
+  directionsButton: {
     width: 44,
     height: 44,
     borderRadius: 12,
@@ -636,27 +623,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-  },
-  // 종 우상단에 걸치는 안읽음 뱃지 — 개수를 보여주되 두 자리를 넘기면 9+
-  bellBadge: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    minWidth: 17,
-    height: 17,
-    borderRadius: 8.5,
-    paddingHorizontal: 4,
-    backgroundColor: semantic.danger,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bellBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
   },
   zoomHint: {
     position: 'absolute',

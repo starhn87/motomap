@@ -14,16 +14,20 @@ NS_ASSUME_NONNULL_BEGIN
 
 // 이륜차 경로를 계산한다. 성공하면 distance(m)·duration(초)와
 // polyline([lng, lat, lng, lat, ...] 평면 배열, WGS84)이 채워진다.
-// priority 는 KNRoutePriority 원시값.
+// vias 도 같은 평면 배열 형식(비면 nil 허용). priority 는 KNRoutePriority 원시값.
 + (void)requestBikeRouteFromLng:(double)startLng
                             lat:(double)startLat
                           toLng:(double)goalLng
                             lat:(double)goalLat
+                           vias:(NSArray<NSNumber *> *_Nullable)flatVias
                        priority:(NSInteger)priority
                      completion:(void (^)(NSString *_Nullable errorMessage,
                                           NSInteger distance,
                                           NSInteger duration,
                                           NSArray<NSNumber *> *_Nullable polyline))completion;
+
+// [lng, lat, ...] 평면 배열을 KNPOI 경유지 목록으로 바꾼다. 비면 nil.
++ (NSArray *_Nullable)viasFromFlat:(NSArray<NSNumber *> *_Nullable)flatVias;
 
 @end
 

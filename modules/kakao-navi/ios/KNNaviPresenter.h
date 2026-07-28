@@ -13,6 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
                  toLng:(double)goalLng
                    lat:(double)goalLat
                   name:(NSString *)goalName
+                  vias:(NSArray<NSNumber *> *_Nullable)flatVias
               priority:(NSInteger)priority
             onDismiss:(void (^)(void))onDismiss
               onError:(void (^)(NSString *message))onError;

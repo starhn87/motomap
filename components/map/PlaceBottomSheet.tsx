@@ -29,6 +29,7 @@ import { useRef, useEffect, useState, useCallback, memo } from 'react';
 import Colors, { semantic } from '@/constants/Colors';
 import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
 import { useColorScheme } from '@/components/useColorScheme';
+import { router } from 'expo-router';
 import { openNavigation, useNavLaunching } from '@/lib/navigation';
 import { haversine } from '@/lib/distance';
 import { formatMeters } from '@/lib/api/directions';
@@ -294,6 +295,23 @@ function PlaceBottomSheet({
           ]}>
           <View style={{ flex: 1 }}>
             <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: '/directions',
+                  params: {
+                    olng: String(place.longitude),
+                    olat: String(place.latitude),
+                    oname: place.name,
+                  },
+                })
+              }
+              activeOpacity={0.8}
+              style={[styles.departButton, { backgroundColor: colors.surfaceMuted }]}>
+              <Text style={[styles.departButtonText, { color: colors.text }]}>출발</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ flex: 1 }}>
+            <TouchableOpacity
               disabled={navLaunching}
               onPress={() =>
                 openNavigation({
@@ -308,7 +326,7 @@ function PlaceBottomSheet({
                 <ActivityIndicator size="small" color={colors.background} />
               ) : (
                 <Text style={[styles.navButtonText, { color: colors.background }]}>
-                  길안내
+                  도착
                 </Text>
               )}
             </TouchableOpacity>
@@ -695,6 +713,16 @@ const styles = StyleSheet.create({
   infoCardValue: {
     flex: 1,
     fontSize: 13,
+    fontWeight: '600',
+  },
+  departButton: {
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  departButtonText: {
+    fontSize: 15,
     fontWeight: '600',
   },
   navButton: {

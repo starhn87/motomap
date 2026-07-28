@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Tabs } from 'expo-router';
+import Feather from '@expo/vector-icons/Feather';
+import { router, Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -13,8 +14,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { useUnreadCount } from '@/hooks/useNotifications';
 
 // 누르는 동안 움츠리고(pressIn) 떼는 순간 한 번만 튕기며 복귀(pressOut).
 // tabPress 는 손을 뗀 뒤에야 발생해 이 구분이 불가능하므로 tabBarButton 을 커스텀해
@@ -59,6 +62,54 @@ function TabButton({ tab, props }: { tab: TabScale; props: BottomTabBarButtonPro
   );
 }
 
+// 내 정보 헤더의 알림 종 — 안읽음 개수 뱃지를 단다. 지도 탭에서 옮겨왔다
+// (그 자리는 길찾기 버튼이 차지). 로그인한 사용자에게만 보인다.
+function NotificationBell() {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const user = useAuthStore((s) => s.user);
+  const unreadCount = useUnreadCount();
+
+  if (!user) return null;
+  return (
+    <Pressable
+      onPress={() => router.push('/notifications')}
+      hitSlop={8}
+      style={bellStyles.button}>
+      <Feather name="bell" size={20} color={colors.text} />
+      {unreadCount > 0 && (
+        <View style={bellStyles.badge}>
+          <Text style={bellStyles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+const bellStyles = StyleSheet.create({
+  button: {
+    marginRight: 16,
+  },
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -7,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: semantic.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+});
+
 function TabBarIcon({
   name,
   color,
@@ -84,6 +135,7 @@ export default function TabLayout() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
 
+  const unreadCount = useUnreadCount();
   const mapTab = useTabPressScale();
   const coursesTab = useTabPressScale();
   const submitTab = useTabPressScale();
@@ -144,6 +196,19 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: '내 정보',
+          headerRight: () => <NotificationBell />,
+          // 종이 내 정보로 들어가면서 안읽음 신호는 탭 아이콘 뱃지로 남긴다
+          tabBarBadge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: semantic.danger,
+            color: '#FFFFFF',
+            fontSize: 10,
+            fontWeight: '800',
+            minWidth: 17,
+            height: 17,
+            lineHeight: 15,
+            borderRadius: 8.5,
+          },
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="user" color={color} scale={profileTab.scale} />
           ),

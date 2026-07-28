@@ -38,6 +38,7 @@
                             lat:(double)startLat
                           toLng:(double)goalLng
                             lat:(double)goalLat
+                           vias:(NSArray<NSNumber *> *_Nullable)flatVias
                        priority:(NSInteger)priority
                      completion:(void (^)(NSString *_Nullable, NSInteger, NSInteger,
                                           NSArray<NSNumber *> *_Nullable))completion {
@@ -56,7 +57,7 @@
 
   [sdk makeTripWithStart:startPOI
                     goal:goalPOI
-                    vias:nil
+                    vias:[self viasFromFlat:flatVias]
               completion:^(KNError *_Nullable tripError, KNTrip *_Nullable trip) {
                 if (tripError != nil || trip == nil) {
                   completion(tripError ? [NSString stringWithFormat:@"[%@] %@", tripError.code, tripError.msg ?: @"경로 생성 실패"]
@@ -87,6 +88,19 @@
                                completion(nil, route.totalDist, route.totalTime, polyline);
                              }];
               }];
+}
+
++ (NSArray *_Nullable)viasFromFlat:(NSArray<NSNumber *> *_Nullable)flatVias {
+  if (flatVias.count < 2) return nil;
+  KNSDK *sdk = [KNSDK sharedInstance];
+  NSMutableArray *vias = [NSMutableArray arrayWithCapacity:flatVias.count / 2];
+  for (NSUInteger i = 0; i + 1 < flatVias.count; i += 2) {
+    IntPoint pt = [sdk convertWGS84ToKATECWithLongitude:flatVias[i].doubleValue
+                                               latitude:flatVias[i + 1].doubleValue];
+    NSString *name = [NSString stringWithFormat:@"경유지 %lu", (unsigned long)(i / 2 + 1)];
+    [vias addObject:[[KNPOI alloc] initWithName:name x:pt.x y:pt.y]];
+  }
+  return vias;
 }
 
 // routePolylineWGS84 의 원소 타입이 문서화돼 있지 않아 방어적으로 푼다.

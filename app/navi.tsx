@@ -35,10 +35,16 @@ export default function NaviScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { lng, lat, name } = useLocalSearchParams<{
+  const { lng, lat, name, vias, slng, slat, sname } = useLocalSearchParams<{
     lng: string;
     lat: string;
     name?: string;
+    /** JSON "[lng,lat,...]" — 코스 안내의 경유지 */
+    vias?: string;
+    /** 출발지 지정(길찾기) — 없으면 현재 위치에서 출발 */
+    slng?: string;
+    slat?: string;
+    sname?: string;
   }>();
 
   const mapRef = useRef<NaverMapViewRef>(null);
@@ -51,6 +57,7 @@ export default function NaviScreen() {
   const goalLng = Number(lng);
   const goalLat = Number(lat);
   const goalName = name ?? '목적지';
+  const flatVias: number[] = vias ? JSON.parse(vias) : [];
   const route = routes[priority];
 
   // 안내 종료·실패 이벤트 — 안내는 네이티브 전체화면이라 이벤트로만 돌아온다
@@ -66,8 +73,12 @@ export default function NaviScreen() {
     };
   }, [router]);
 
-  // 출발지(현재 위치) 확보
+  // 출발지 확보 — 지정돼 있으면 그대로, 아니면 현재 위치
   useEffect(() => {
+    if (slng && slat) {
+      setStart([Number(slng), Number(slat)]);
+      return;
+    }
     let cancelled = false;
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -91,14 +102,14 @@ export default function NaviScreen() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, slng, slat]);
 
   // 선택된 옵션의 경로 확보 (옵션별 캐시)
   useEffect(() => {
     if (!start || routes[priority]) return;
     let cancelled = false;
     setLoading(true);
-    KakaoNavi.requestBikeRoute(start[0], start[1], goalLng, goalLat, priority)
+    KakaoNavi.requestBikeRoute(start[0], start[1], goalLng, goalLat, flatVias, priority)
       .then((result) => {
         if (cancelled) return;
         setRoutes((prev) => ({ ...prev, [priority]: result }));
@@ -113,7 +124,8 @@ export default function NaviScreen() {
     return () => {
       cancelled = true;
     };
-  }, [start, priority, routes, goalLng, goalLat]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- flatVias 는 vias 문자열에서 파생
+  }, [start, priority, routes, goalLng, goalLat, vias]);
 
   // 경로가 바뀌면 전체가 보이도록 카메라를 맞춘다.
   // 남쪽은 하단 카드가 덮는 만큼 더 벌린다.
@@ -143,7 +155,7 @@ export default function NaviScreen() {
   const startGuide = () => {
     if (!start || starting) return;
     setStarting(true);
-    KakaoNavi.startGuide(start[0], start[1], goalLng, goalLat, goalName, priority).catch(
+    KakaoNavi.startGuide(start[0], start[1], goalLng, goalLat, goalName, flatVias, priority).catch(
       (err) => {
         setStarting(false);
         toast.error('길안내를 시작할 수 없습니다', String(err?.message ?? err));
@@ -204,6 +216,13 @@ export default function NaviScreen() {
             borderColor: colors.border,
           },
         ]}>
+        {sname && (
+          <Text
+            style={[styles.startName, { color: colors.textSecondary }]}
+            numberOfLines={1}>
+            출발 · {sname}
+          </Text>
+        )}
         <Text style={[styles.goalName, { color: colors.text }]} numberOfLines={1}>
           {goalName}
         </Text>
@@ -300,6 +319,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     gap: 12,
+  },
+  startName: {
+    fontSize: 13,
+    marginBottom: -6,
   },
   goalName: {
     fontSize: 17,

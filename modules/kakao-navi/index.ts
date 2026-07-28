@@ -23,13 +23,17 @@ export type RoutePriority = (typeof ROUTE_PRIORITIES)[number]['value'];
 interface KakaoNaviModule {
   /** 앱 키로 SDK 인증. 실패 시 reject */
   initialize(appKey: string): Promise<boolean>;
-  /** 길안내를 네이티브 전체화면으로 띄운다. 결과는 이벤트로 온다. */
+  /**
+   * 길안내를 네이티브 전체화면으로 띄운다. 결과는 이벤트로 온다.
+   * vias 는 [lng, lat, lng, lat, ...] 평면 배열 — 없으면 빈 배열.
+   */
   startGuide(
     startLng: number,
     startLat: number,
     goalLng: number,
     goalLat: number,
     goalName: string,
+    vias: number[],
     priority: RoutePriority,
   ): Promise<void>;
   addListener(
@@ -40,12 +44,13 @@ interface KakaoNaviModule {
     event: 'onGuideFailed',
     listener: (payload: { message: string }) => void,
   ): { remove: () => void };
-  /** 이륜차 경로 계산 (미리보기용, 안내와 같은 엔진). 실패 시 reject */
+  /** 이륜차 경로 계산 (미리보기용, 안내와 같은 엔진). vias 형식은 동일. */
   requestBikeRoute(
     startLng: number,
     startLat: number,
     goalLng: number,
     goalLat: number,
+    vias: number[],
     priority: RoutePriority,
   ): Promise<BikeRoute>;
 }
