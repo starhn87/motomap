@@ -28,7 +28,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
 import { useNearbyHazards } from '@/hooks/useHazards';
-import Colors, { semantic } from '@/constants/Colors';
+import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryFilter from '@/components/map/CategoryFilter';
 import { MARKER_IMAGES } from '@/constants/markerImages';
@@ -336,11 +336,10 @@ export default function MapScreen() {
   const sheetPosition = useSharedValue(999999);
   const containerHeight = useSharedValue(0);
   const myLocationFollowStyle = useAnimatedStyle(() => {
-    const base = 24;
     const h = containerHeight.value;
     const fromSheet = h > 0 ? h - sheetPosition.value + 16 : 0;
     return {
-      bottom: Math.max(base, fromSheet),
+      bottom: Math.max(24, fromSheet),
       opacity:
         h > 0
           ? interpolate(sheetPosition.value, [h * 0.2, h * 0.35], [0, 1], Extrapolation.CLAMP)
@@ -491,24 +490,20 @@ export default function MapScreen() {
         />
       )}
 
-      {(
-        <Animated.View
-          entering={FadeIn.duration(300)}
-          style={styles.searchAndFilter}>
-          <View style={styles.searchRow}>
-            <SearchEntry />
-            <Pressable
-              onPress={() => router.push('/directions')}
-              style={[
-                styles.directionsButton,
-                { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-              ]}>
-              <MaterialCommunityIcons name="arrow-right-top" size={22} color={colors.tint} />
-            </Pressable>
-          </View>
-          <CategoryFilter />
-        </Animated.View>
-      )}
+      <Animated.View entering={FadeIn.duration(300)} style={styles.searchAndFilter}>
+        <View style={styles.searchRow}>
+          <SearchEntry />
+          <Pressable
+            onPress={() => router.push('/directions')}
+            style={[
+              styles.directionsButton,
+              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+            ]}>
+            <MaterialCommunityIcons name="arrow-right-top" size={22} color={colors.tint} />
+          </Pressable>
+        </View>
+        <CategoryFilter />
+      </Animated.View>
 
       {weather && (
         <WeatherFab weather={weather} onPress={() => setWeatherOpen(true)} />
@@ -560,14 +555,12 @@ export default function MapScreen() {
         </View>
       </AnimatedPressable>
 
-      {(
-        <PlaceBottomSheet
-          place={selectedPlace}
-          onClose={handleBottomSheetClose}
-          animatedPosition={sheetPosition}
-          highlightReview={highlightReview}
-        />
-      )}
+      <PlaceBottomSheet
+        place={selectedPlace}
+        onClose={handleBottomSheetClose}
+        animatedPosition={sheetPosition}
+        highlightReview={highlightReview}
+      />
 
       <HazardSheet hazard={selectedHazard} onClose={() => setSelectedHazard(null)} />
 

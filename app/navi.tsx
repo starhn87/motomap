@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -20,9 +20,15 @@ import * as Location from 'expo-location';
 
 import KakaoNavi, {
   ROUTE_PRIORITIES,
+  friendlyRouteError,
+  latLngsFromFlat,
+  pairsFromFlat,
+  routeErrorCode,
   type BikeRoute,
   type RoutePriority,
 } from '@/modules/kakao-navi';
+import { sampleWaypoints } from '@/lib/navigation';
+import { useMapStore } from '@/stores/useMapStore';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -36,10 +42,11 @@ import { toast } from '@/lib/toast';
 import { useGuideSession } from '@/lib/guideSession';
 
 // 혼잡도별 경로선 색 — 막힐수록 붉게. 원활은 기존 경로색, 정보 없음은 회색.
+// 서행은 semantic.warning(amber-600)보다 밝은 amber-500 — 지도 위 가시성 우선.
 const TRAFFIC_COLORS: Record<number, string> = {
   4: semantic.success, // 원활
   3: '#F59E0B', // 서행
-  2: '#EF4444', // 지체
+  2: semantic.danger, // 지체
   1: '#B91C1C', // 정체
   0: '#9CA3AF', // 정보 없음
 };
@@ -71,16 +78,6 @@ export default function NaviScreen() {
 
   const mapRef = useRef<NaverMapViewRef>(null);
 
-  const friendlyRouteError = (err: unknown): string => {
-    const raw = String((err as any)?.message ?? err);
-    if (raw.includes('20413')) {
-      return '자동차 전용도로를 빼면 이어지는 도로가 없어요. 바다 건너나 도로가 끊긴 곳은 안내할 수 없어요.';
-    }
-    if (raw.includes('20412')) {
-      return '경유지가 도로와 이어지지 않아요.';
-    }
-    return raw;
-  };
   const [start, setStart] = useState<[number, number] | null>(null); // [lng, lat]
   const [priority, setPriority] = useState<RoutePriority>(0);
   const [routes, setRoutes] = useState<Partial<Record<RoutePriority, BikeRoute>>>({});
@@ -133,10 +130,17 @@ export default function NaviScreen() {
     };
   }, [router, navigation, pid, cid, goalLat, goalLng, goalName, priority]);
 
-  // 출발지 확보 — 지정돼 있으면 그대로, 아니면 현재 위치
+  // 출발지 확보 — 지정돼 있으면 그대로, 아니면 현재 위치.
+  // 지도 탭이 위치를 상시 추적 중이라 대개는 스토어 값으로 즉시 시작하고,
+  // 없을 때만(권한 전 딥링크 등) 새 픽스를 기다린다.
   useEffect(() => {
     if (slng && slat) {
       setStart([Number(slng), Number(slat)]);
+      return;
+    }
+    const cached = useMapStore.getState().userLocation;
+    if (cached) {
+      setStart([cached.longitude, cached.latitude]);
       return;
     }
     let cancelled = false;
@@ -174,23 +178,13 @@ export default function NaviScreen() {
 
     (async () => {
       const requestVias = activeVias ?? effVias;
-      // 실패 시 경유지를 줄여가며 재시도하는 사다리. 20413(도로 자체가 안 이어짐)은
-      // 경유지를 줄여도 소용없으니 바로 중단한다.
-      const flatSample = (flat: number[], n: number): number[] => {
-        const pairs: [number, number][] = [];
-        for (let i = 0; i + 1 < flat.length; i += 2) pairs.push([flat[i], flat[i + 1]]);
-        if (pairs.length <= n) return flat;
-        const [first, ...rest] = pairs;
-        const picked = [first];
-        for (let i = 0; i < n - 1; i++) {
-          picked.push(rest[Math.round(((i + 1) * rest.length) / (n - 1)) - 1]);
-        }
-        return picked.flat();
-      };
-      const pairCount = requestVias.length / 2;
-      const ladder = [pairCount, 12, 5, 1, 0]
-        .filter((n, i, arr) => n <= pairCount && arr.indexOf(n) === i)
-        .map((n) => (n === 0 ? [] : flatSample(requestVias, n)));
+      // 실패 시 경유지를 줄여가며 재시도하는 사다리 — 축소는 사전 추림(20개)과
+      // 같은 샘플러를 쓴다. 20413(도로 자체가 안 이어짐)은 경유지를 줄여도
+      // 소용없으니 바로 중단한다.
+      const viaPairs = pairsFromFlat(requestVias);
+      const ladder = [viaPairs.length, 12, 5, 1, 0]
+        .filter((n, i, arr) => n <= viaPairs.length && arr.indexOf(n) === i)
+        .map((n) => (n === 0 ? [] : sampleWaypoints(viaPairs, n).flat()));
 
       let lastErr: unknown = null;
       for (const tryVias of ladder) {
@@ -207,7 +201,7 @@ export default function NaviScreen() {
           return;
         } catch (err) {
           lastErr = err;
-          if (String((err as any)?.message ?? err).includes('20413')) break;
+          if (routeErrorCode(err) === 20413) break;
         }
       }
       if (cancelled) return;
@@ -237,10 +231,7 @@ export default function NaviScreen() {
   useEffect(() => {
     if (!effStart || !route || traffic[priority]) return;
     let cancelled = false;
-    const flat = activeVias ?? effVias;
-    const viaPairs: [number, number][] = [];
-    for (let i = 0; i + 1 < flat.length; i += 2) viaPairs.push([flat[i], flat[i + 1]]);
-    fetchBikeTraffic(effStart, [goalLng, goalLat], viaPairs, priority)
+    fetchBikeTraffic(effStart, [goalLng, goalLat], pairsFromFlat(activeVias ?? effVias), priority)
       .then((parts) => {
         if (!cancelled) setTraffic((prev) => ({ ...prev, [priority]: parts }));
       })
@@ -255,22 +246,28 @@ export default function NaviScreen() {
   // 남쪽은 하단 카드가 덮는 만큼 더 벌린다.
   useEffect(() => {
     if (!route || route.polyline.length < 4) return;
-    const lngs: number[] = [];
-    const lats: number[] = [];
-    for (let i = 0; i < route.polyline.length; i += 2) {
-      lngs.push(route.polyline[i]);
-      lats.push(route.polyline[i + 1]);
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+    let minLng = Infinity;
+    let maxLng = -Infinity;
+    for (let i = 0; i + 1 < route.polyline.length; i += 2) {
+      const lng = route.polyline[i];
+      const lat = route.polyline[i + 1];
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
     }
-    const latSpan = Math.max(Math.max(...lats) - Math.min(...lats), 0.01);
-    const lngSpan = Math.max(Math.max(...lngs) - Math.min(...lngs), 0.01);
+    const latSpan = Math.max(maxLat - minLat, 0.01);
+    const lngSpan = Math.max(maxLng - minLng, 0.01);
     mapRef.current?.animateCameraWithTwoCoords({
       coord1: {
-        latitude: Math.min(...lats) - latSpan * 0.45,
-        longitude: Math.min(...lngs) - lngSpan * 0.1,
+        latitude: minLat - latSpan * 0.45,
+        longitude: minLng - lngSpan * 0.1,
       },
       coord2: {
-        latitude: Math.max(...lats) + latSpan * 0.1,
-        longitude: Math.max(...lngs) + lngSpan * 0.1,
+        latitude: maxLat + latSpan * 0.1,
+        longitude: maxLng + lngSpan * 0.1,
       },
       duration: 700,
     });
@@ -287,14 +284,26 @@ export default function NaviScreen() {
     );
   };
 
-  const coords =
-    route && route.polyline.length >= 4
-      ? Array.from({ length: route.polyline.length / 2 }, (_, i) => ({
-          longitude: route.polyline[i * 2],
-          latitude: route.polyline[i * 2 + 1],
-        }))
-      : null;
+  // 폴리라인은 수천 좌표라 리렌더마다 새로 만들면 네이티브 브리지로 통째로
+  // 재전송된다 — 경로가 바뀔 때만 변환하고, 혼잡도 색 경로가 있으면 단색용
+  // coords 는 아예 만들지 않는다.
   const trafficParts = traffic[priority];
+  const coords = useMemo(
+    () =>
+      route && route.polyline.length >= 4 && !trafficParts
+        ? latLngsFromFlat(route.polyline)
+        : null,
+    [route, trafficParts],
+  );
+  const pathParts = useMemo(
+    () =>
+      trafficParts?.map((p) => ({
+        coords: p.coords,
+        color: TRAFFIC_COLORS[p.state] ?? semantic.success,
+        outlineColor: '#FFFFFF',
+      })),
+    [trafficParts],
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -322,17 +331,9 @@ export default function NaviScreen() {
             </View>
           </NaverMapMarkerOverlay>
         )}
-        {trafficParts ? (
+        {pathParts ? (
           // 혼잡도 색 경로 — 선형도 색과 같은 REST 응답 것을 쓴다(색·선 불일치 방지)
-          <NaverMapMultiPathOverlay
-            pathParts={trafficParts.map((p) => ({
-              coords: p.coords,
-              color: TRAFFIC_COLORS[p.state] ?? semantic.success,
-              outlineColor: '#FFFFFF',
-            }))}
-            width={6}
-            outlineWidth={2}
-          />
+          <NaverMapMultiPathOverlay pathParts={pathParts} width={6} outlineWidth={2} />
         ) : coords ? (
           <NaverMapPathOverlay
             coords={coords}

@@ -102,8 +102,8 @@ npm run android
 | `EXPO_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon 키 |
 | `NAVER_MAP_CLIENT_ID` | 네이버지도 SDK 클라이언트 ID |
-| `EXPO_PUBLIC_NAVER_CLIENT_ID` | 네이버 Directions API 클라이언트 ID |
-| `EXPO_PUBLIC_NAVER_CLIENT_SECRET` | 네이버 Directions API 시크릿 |
+| `EXPO_PUBLIC_NAVER_CLIENT_ID` | 네이버 클라우드 API 클라이언트 ID (지오코딩, 스크립트의 경로 재계산) |
+| `EXPO_PUBLIC_NAVER_CLIENT_SECRET` | 네이버 클라우드 API 시크릿 |
 | `KAKAO_NATIVE_APP_KEY` | 카카오 네이티브 앱 키 |
 | `EXPO_PUBLIC_KAKAO_REST_API_KEY` | 카카오 로컬 REST 키 (장소 검색과 지오코딩) |
 | `EXPO_PUBLIC_SENTRY_DSN` | Sentry DSN (선택) |

@@ -20,6 +20,43 @@ export const ROUTE_PRIORITIES = [
 
 export type RoutePriority = (typeof ROUTE_PRIORITIES)[number]['value'];
 
+/** 안내 화면 커스텀 메뉴 버튼 id — 네이티브(KNNaviPresenter.m) 등록 값과 짝 */
+export const MOTOMAP_MENU_ID = 100;
+
+/** [lng, lat, ...] 평면 배열(브리지 wire 포맷) → [lng, lat] 쌍 배열 */
+export function pairsFromFlat(flat: number[]): [number, number][] {
+  const pairs: [number, number][] = [];
+  for (let i = 0; i + 1 < flat.length; i += 2) pairs.push([flat[i], flat[i + 1]]);
+  return pairs;
+}
+
+/** [lng, lat, ...] 평면 배열 → 지도 오버레이용 {latitude, longitude} 배열 */
+export function latLngsFromFlat(flat: number[]): { latitude: number; longitude: number }[] {
+  const coords: { latitude: number; longitude: number }[] = [];
+  for (let i = 0; i + 1 < flat.length; i += 2) {
+    coords.push({ longitude: flat[i], latitude: flat[i + 1] });
+  }
+  return coords;
+}
+
+/** 네이티브가 "[코드] 메시지" 로 보내는 경로 에러에서 코드를 꺼낸다 */
+export function routeErrorCode(err: unknown): number | null {
+  const m = String((err as { message?: string })?.message ?? err).match(/\[(\d+)\]/);
+  return m ? Number(m[1]) : null;
+}
+
+/** 경로 에러를 사용자 문구로. 미리보기·안내 시작의 토스트가 함께 쓴다. */
+export function friendlyRouteError(err: unknown): string {
+  const code = routeErrorCode(err);
+  if (code === 20413) {
+    return '자동차 전용도로를 빼면 이어지는 도로가 없어요. 바다 건너나 도로가 끊긴 곳은 안내할 수 없어요.';
+  }
+  if (code === 20412) {
+    return '경유지가 도로와 이어지지 않아요.';
+  }
+  return String((err as { message?: string })?.message ?? err);
+}
+
 interface KakaoNaviModule {
   /** 앱 키로 SDK 인증. 실패 시 reject */
   initialize(appKey: string): Promise<boolean>;
@@ -54,8 +91,6 @@ interface KakaoNaviModule {
   ): { remove: () => void };
   /** 안내 화면 위 액션시트. 고른 인덱스, 취소면 -1 */
   showGuideOptions(title: string, labels: string[]): Promise<number>;
-  /** 안내를 종료한다 — 정상 종료 흐름(onGuideEnd)을 탄다 */
-  stopGuide(): Promise<void>;
   /** 안내 화면 위에 잠깐 떴다 사라지는 알림 */
   showGuideNotice(message: string): Promise<void>;
   /** 안내 중 목적지 변경 — 현 위치에서 새 목적지로 재탐색 */

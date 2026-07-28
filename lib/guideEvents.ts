@@ -2,7 +2,7 @@ import { Alert } from 'react-native';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 
-import KakaoNavi from '@/modules/kakao-navi';
+import KakaoNavi, { MOTOMAP_MENU_ID, friendlyRouteError } from '@/modules/kakao-navi';
 import { useGuideSession } from '@/lib/guideSession';
 import { HAZARD_LIST } from '@/constants/hazards';
 import { submitHazard } from '@/lib/api/hazards';
@@ -125,11 +125,11 @@ export function registerGuideEvents(): () => void {
   const end = KakaoNavi.addListener('onGuideEnd', () => void handleGuideEnd());
   const failed = KakaoNavi.addListener('onGuideFailed', ({ message }) => {
     useGuideSession.getState().clear();
-    toast.error('길안내를 시작할 수 없습니다', message);
+    toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(message));
   });
   // 커스텀 슬롯이 하나뿐이라 버튼 하나에서 1차 시트로 가른다
   const menu = KakaoNavi.addListener('onGuideMenu', ({ id }) => {
-    if (id !== 100) return;
+    if (id !== MOTOMAP_MENU_ID) return;
     void (async () => {
       const picked = await KakaoNavi.showGuideOptions('모토맵', [
         '위험 제보',

@@ -114,7 +114,7 @@ export default function DirectionsScreen() {
   // 두 지점이 갖춰지면 바로 미리보기로. 'current' 는 여기서 좌표로 푼다.
   const preview = async (
     nextOrigin: Point,
-    nextDest: (Point & object) | 'current' | null,
+    nextDest: Point | null,
     destAddress?: string,
   ) => {
     if (!nextDest || resolving) return;
@@ -159,7 +159,7 @@ export default function DirectionsScreen() {
     void preview(nextOrigin, nextDest);
   };
 
-  const pickDest = (point: NavTarget, address?: string) => {
+  const pickDest = (point: Point, address?: string) => {
     setDest(point);
     void preview(origin, point, address);
   };
@@ -171,12 +171,7 @@ export default function DirectionsScreen() {
       setOrigin(point);
       void preview(point, dest);
     } else if (kind === 'dest') {
-      if (point === 'current') {
-        setDest('current');
-        void preview(origin, 'current');
-      } else {
-        pickDest(point, address);
-      }
+      pickDest(point, address);
     } else if ((kind === 'home' || kind === 'work') && point !== 'current') {
       void saveMyPlace(kind, {
         name: point.name,
@@ -515,54 +510,43 @@ function PointSearchModal({
                     <Text style={[styles.resultName, { color: colors.text }]}>현재 위치</Text>
                   </Pressable>
                 )}
-                {allowSaved && myPlaces.home && (
-                  <Pressable
-                    onPress={() =>
-                      onSelect(
-                        {
-                          name: myPlaces.home!.name,
-                          latitude: myPlaces.home!.latitude,
-                          longitude: myPlaces.home!.longitude,
-                        },
-                        myPlaces.home!.address,
-                      )
-                    }
-                    style={[styles.resultRow, { borderBottomColor: colors.border }]}>
-                    <Ionicons name="home" size={16} color={colors.tint} />
-                    <View style={styles.resultTexts}>
-                      <Text style={[styles.resultName, { color: colors.text }]}>집</Text>
-                      <Text
-                        style={[styles.resultAddress, { color: colors.textSecondary }]}
-                        numberOfLines={1}>
-                        {myPlaces.home.name}
-                      </Text>
-                    </View>
-                  </Pressable>
-                )}
-                {allowSaved && myPlaces.work && (
-                  <Pressable
-                    onPress={() =>
-                      onSelect(
-                        {
-                          name: myPlaces.work!.name,
-                          latitude: myPlaces.work!.latitude,
-                          longitude: myPlaces.work!.longitude,
-                        },
-                        myPlaces.work!.address,
-                      )
-                    }
-                    style={[styles.resultRow, { borderBottomColor: colors.border }]}>
-                    <Ionicons name="business" size={16} color={colors.tint} />
-                    <View style={styles.resultTexts}>
-                      <Text style={[styles.resultName, { color: colors.text }]}>회사</Text>
-                      <Text
-                        style={[styles.resultAddress, { color: colors.textSecondary }]}
-                        numberOfLines={1}>
-                        {myPlaces.work.name}
-                      </Text>
-                    </View>
-                  </Pressable>
-                )}
+                {allowSaved &&
+                  (
+                    [
+                      ['home', 'home', '집'],
+                      ['work', 'business', '회사'],
+                    ] as const
+                  ).map(([slot, icon, label]) => {
+                    const saved = myPlaces[slot];
+                    if (!saved) return null;
+                    return (
+                      <Pressable
+                        key={slot}
+                        onPress={() =>
+                          onSelect(
+                            {
+                              name: saved.name,
+                              latitude: saved.latitude,
+                              longitude: saved.longitude,
+                            },
+                            saved.address,
+                          )
+                        }
+                        style={[styles.resultRow, { borderBottomColor: colors.border }]}>
+                        <Ionicons name={icon} size={16} color={colors.tint} />
+                        <View style={styles.resultTexts}>
+                          <Text style={[styles.resultName, { color: colors.text }]}>
+                            {label}
+                          </Text>
+                          <Text
+                            style={[styles.resultAddress, { color: colors.textSecondary }]}
+                            numberOfLines={1}>
+                            {saved.name}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
                 {allowSaved &&
                   recents.map((r) => (
                     <Pressable

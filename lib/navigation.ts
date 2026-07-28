@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { router } from 'expo-router';
 
 import { useMapStore } from '@/stores/useMapStore';
-import { fetchNearbyHazards } from '@/lib/api/hazards';
+import { fetchNearbyHazards, fetchHazardsNearCourse } from '@/lib/api/hazards';
 import { HAZARDS } from '@/constants/hazards';
 import type { RoadHazard } from '@/types';
 import { checkRouteWeather } from '@/lib/api/weather';
@@ -20,7 +20,7 @@ export interface NavTarget {
 export interface NavCourse {
   id: string;
   name: string;
-  points: { latitude: number; longitude: number; name?: string }[];
+  points: { latitude: number; longitude: number }[];
 }
 
 // 길안내는 항상 앱 안 미리보기 화면(app/navi.tsx)으로 간다 — 옵션별 경로를
@@ -29,10 +29,9 @@ export interface NavCourse {
 // start 를 주면 그 지점에서 출발(길찾기), 없으면 현재 위치에서 출발.
 function launchInAppNavi(
   target: NavTarget,
-  vias?: number[],
-  start?: NavTarget,
-  courseId?: string,
+  opts: { vias?: number[]; start?: NavTarget; courseId?: string } = {},
 ) {
+  const { vias, start, courseId } = opts;
   router.push({
     pathname: '/navi',
     params: {
@@ -57,7 +56,7 @@ function launchInAppNavi(
 // 실측(영남알프스 순환 코스, 도로 스냅 지오메트리 기준 재현율): 3개 47% → 5개 77%
 // → 12개 94% → 20개 100%. KNSDK 가 20개를 거부하면 /navi 가 줄여가며 재시도한다.
 const MAX_VIAS = 20;
-function sampleWaypoints<T>(points: T[], max: number): T[] {
+export function sampleWaypoints<T>(points: T[], max: number): T[] {
   if (points.length <= max) return points;
   const [first, ...rest] = points;
   const picked = [first];
@@ -94,28 +93,52 @@ async function confirmRouteWeather(
   });
 }
 
-// 경로 주변의 노면 위험을 모아 출발 전에 알린다. 백그라운드 위치 없이도
-// 성립하는 알림이라 이 자리가 이 정보의 제일 쓸모 있는 지점이다.
-async function confirmRouteHazards(
+// 오래된 제보는 경고까지 띄우지 않고, 겹쳐 잡힌 건 id 로 합친다.
+// 조회 실패는 빈 목록 — 위험 조회 실패로 안내를 막지는 않는다.
+function freshHazards(found: RoadHazard[]): RoadHazard[] {
+  const byId = new Map<string, RoadHazard>();
+  for (const h of found) {
+    if (h.staleness === 0) byId.set(h.id, h);
+  }
+  return [...byId.values()];
+}
+
+// 목적지 안내용 — 출발지·도착지 등 지점 몇 개의 주변만 본다
+async function hazardsAroundPoints(
   points: { latitude: number; longitude: number }[],
-): Promise<boolean> {
+): Promise<RoadHazard[]> {
   const userLocation = useMapStore.getState().userLocation;
   const allPoints = userLocation ? [userLocation, ...points] : points;
-
-  let hazards: RoadHazard[] = [];
   try {
     const found = await Promise.all(
       allPoints.map((p) => fetchNearbyHazards(p.latitude, p.longitude, 1500)),
     );
-    // 지점마다 겹쳐 잡히므로 id 로 합친다. 오래된 정보는 경고까지 띄우지 않는다.
-    const byId = new Map<string, RoadHazard>();
-    for (const h of found.flat()) {
-      if (h.staleness === 0) byId.set(h.id, h);
-    }
-    hazards = [...byId.values()];
+    return freshHazards(found.flat());
   } catch {
-    return true; // 위험 조회 실패로 안내를 막지는 않는다
+    return [];
   }
+}
+
+// 코스 안내용 — 경로 지오메트리는 수백 점이라 점마다 조회하는 대신
+// 코스 버퍼 RPC 하나로 받는다. 현재 위치 주변만 따로 한 번 본다.
+async function hazardsAlongCourse(courseId: string): Promise<RoadHazard[]> {
+  const userLocation = useMapStore.getState().userLocation;
+  try {
+    const [onCourse, nearMe] = await Promise.all([
+      fetchHazardsNearCourse(courseId),
+      userLocation
+        ? fetchNearbyHazards(userLocation.latitude, userLocation.longitude, 1500)
+        : Promise.resolve([]),
+    ]);
+    return freshHazards([...onCourse.map((r) => r.hazard), ...nearMe]);
+  } catch {
+    return [];
+  }
+}
+
+// 경로 주변의 노면 위험을 모아 출발 전에 알린다. 백그라운드 위치 없이도
+// 성립하는 알림이라 이 자리가 이 정보의 제일 쓸모 있는 지점이다.
+async function confirmHazards(hazards: RoadHazard[]): Promise<boolean> {
   if (hazards.length === 0) return true;
 
   const counts = new Map<string, number>();
@@ -154,8 +177,8 @@ export async function openNavigation(target: NavTarget, start?: NavTarget): Prom
   try {
     const points = start ? [start, target] : [target];
     if (!(await confirmRouteWeather(points))) return false;
-    if (!(await confirmRouteHazards(points))) return false;
-    launchInAppNavi(target, undefined, start);
+    if (!(await confirmHazards(await hazardsAroundPoints(points)))) return false;
+    launchInAppNavi(target, { start });
     return true;
   } finally {
     endLaunch();
@@ -171,7 +194,7 @@ export async function openCourseNavigation(course: NavCourse) {
   if (!beginLaunch()) return;
   try {
     if (!(await confirmRouteWeather(course.points))) return;
-    if (!(await confirmRouteHazards(course.points))) return;
+    if (!(await confirmHazards(await hazardsAlongCourse(course.id)))) return;
 
     const goal = course.points[course.points.length - 1];
     const vias = sampleWaypoints(course.points.slice(0, -1), MAX_VIAS).flatMap(
@@ -183,9 +206,7 @@ export async function openCourseNavigation(course: NavCourse) {
         latitude: goal.latitude,
         longitude: goal.longitude,
       },
-      vias,
-      undefined,
-      course.id,
+      { vias, courseId: course.id },
     );
   } finally {
     endLaunch();

@@ -390,7 +390,7 @@ function PlaceBottomSheet({
                 })
               }
               activeOpacity={0.8}
-              style={[styles.departButton, { backgroundColor: colors.surfaceMuted }]}>
+              style={[styles.actionButton, { backgroundColor: colors.surfaceMuted }]}>
               <Text style={[styles.departButtonText, { color: colors.text }]}>출발</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -405,7 +405,7 @@ function PlaceBottomSheet({
               }
               activeOpacity={0.8}
               style={[
-                styles.navButton,
+                styles.actionButton,
                 { backgroundColor: colors.tint, opacity: navLaunching ? 0.8 : 1 },
               ]}>
               {navLaunching ? (
@@ -479,7 +479,7 @@ function PlaceBottomSheet({
               <Text style={[styles.photoSectionTitle, { color: colors.text }]}>
                 사진 {photoItems.length}
               </Text>
-              <PhotoStrip items={photoItems} bleed={20} />
+              <PhotoStrip items={photoItems} bleed={CONTENT_PADDING} />
             </View>
           )}
 
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 10,
   },
-  departButton: {
+  actionButton: {
     flex: 1,
     height: 40,
     paddingHorizontal: 12,
@@ -703,14 +703,6 @@ const styles = StyleSheet.create({
   departButtonText: {
     fontSize: 15,
     fontWeight: '600',
-  },
-  navButton: {
-    flex: 1,
-    height: 40,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   navButtonText: {
     fontSize: 15,
