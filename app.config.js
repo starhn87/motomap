@@ -72,7 +72,7 @@ export default {
     },
     plugins: [
       'expo-router',
-      './plugins/withRealmDynamicFramework',
+      './plugins/withKNSDKDynamicFrameworks',
       [
         'expo-image-picker',
         {
