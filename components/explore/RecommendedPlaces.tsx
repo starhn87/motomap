@@ -67,6 +67,7 @@ function PlaceCard({ place, isNew }: { place: Place; isNew?: boolean }) {
             name: place.name,
             latitude: place.latitude,
             longitude: place.longitude,
+            placeId: place.id,
           })
         }
         style={({ pressed }) => [

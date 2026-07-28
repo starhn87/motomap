@@ -66,6 +66,7 @@ export default function FavoritesScreen() {
             name: item.name,
             latitude: item.latitude,
             longitude: item.longitude,
+            placeId: item.id,
           })
         }>
         <View style={styles.cardHeader}>

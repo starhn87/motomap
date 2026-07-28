@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -26,6 +27,8 @@ import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { formatMeters, formatSeconds } from '@/lib/api/directions';
 import { toast } from '@/lib/toast';
+import { haversine } from '@/lib/distance';
+import { focusPlaceOnMap } from '@/lib/mapFocus';
 
 // 길안내 진입 화면 — 경로 미리보기와 옵션 선택을 겸한다.
 // 옵션별 경로를 지도에 그려 보여주고, 고르면 그 옵션으로 KNSDK 안내를 시작한다.
@@ -35,7 +38,7 @@ export default function NaviScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { lng, lat, name, vias, slng, slat, sname } = useLocalSearchParams<{
+  const { lng, lat, name, vias, slng, slat, sname, pid, cid } = useLocalSearchParams<{
     lng: string;
     lat: string;
     name?: string;
@@ -45,6 +48,9 @@ export default function NaviScreen() {
     slng?: string;
     slat?: string;
     sname?: string;
+    /** 도착 후 리뷰 연결 — 등록 장소 id / 코스 id */
+    pid?: string;
+    cid?: string;
   }>();
 
   const mapRef = useRef<NaverMapViewRef>(null);
@@ -82,9 +88,53 @@ export default function NaviScreen() {
   const effVias = courseOnly ? flatVias.slice(2) : flatVias;
   const route = routes[priority];
 
-  // 안내 종료·실패 이벤트 — 안내는 네이티브 전체화면이라 이벤트로만 돌아온다
+  // 안내 종료·실패 이벤트 — 안내는 네이티브 전체화면이라 이벤트로만 돌아온다.
+  // 종료 시 목적지 근처면(취소가 아니라 도착으로 보고) 리뷰 작성으로 잇는다.
   useEffect(() => {
-    const end = KakaoNavi.addListener('onGuideEnd', () => router.back());
+    const end = KakaoNavi.addListener('onGuideEnd', () => {
+      void (async () => {
+        if (!pid && !cid) {
+          router.back();
+          return;
+        }
+        let near = false;
+        try {
+          const pos =
+            (await Location.getLastKnownPositionAsync()) ??
+            (await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            }));
+          near =
+            haversine(
+              { latitude: pos.coords.latitude, longitude: pos.coords.longitude },
+              { latitude: goalLat, longitude: goalLng },
+            ) < 400;
+        } catch {
+          // 위치를 못 읽으면 조용히 넘어간다 — 제안을 못 띄울 뿐
+        }
+        if (!near) {
+          router.back();
+          return;
+        }
+        Alert.alert(
+          `${goalName} 도착!`,
+          '어떠셨나요? 리뷰를 남겨보세요.',
+          [
+            { text: '나중에', style: 'cancel', onPress: () => router.back() },
+            {
+              text: '리뷰 남기기',
+              onPress: () => {
+                if (pid) {
+                  focusPlaceOnMap(pid); // 지도 탭의 장소 시트로 — 리뷰 작성이 그 안에 있다
+                } else {
+                  router.back(); // 코스 안내는 코스 상세에서 출발했다 — 리뷰 폼이 거기 있다
+                }
+              },
+            },
+          ],
+        );
+      })();
+    });
     const failed = KakaoNavi.addListener('onGuideFailed', ({ message }) => {
       setStarting(false);
       toast.error('길안내를 시작할 수 없습니다', message);
@@ -93,7 +143,7 @@ export default function NaviScreen() {
       end.remove();
       failed.remove();
     };
-  }, [router]);
+  }, [router, pid, cid, goalLat, goalLng, goalName]);
 
   // 출발지 확보 — 지정돼 있으면 그대로, 아니면 현재 위치
   useEffect(() => {

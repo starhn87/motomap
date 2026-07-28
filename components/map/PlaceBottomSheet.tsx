@@ -400,6 +400,7 @@ function PlaceBottomSheet({
                   name: place.name,
                   latitude: place.latitude,
                   longitude: place.longitude,
+                  placeId: place.id,
                 })
               }
               activeOpacity={0.8}

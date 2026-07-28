@@ -12,10 +12,13 @@ export interface NavTarget {
   name: string;
   latitude: number;
   longitude: number;
+  /** 등록 장소면 그 id — 도착 후 리뷰 연결에 쓴다 */
+  placeId?: string;
 }
 
 /** 코스 내비 대상 — points 는 코스 순서(출발지 → 경유지들 → 도착지) */
 export interface NavCourse {
+  id: string;
   name: string;
   points: { latitude: number; longitude: number; name?: string }[];
 }
@@ -24,7 +27,12 @@ export interface NavCourse {
 // 지도로 보여주고 고르면 KNSDK 안내를 시작한다. 외부 내비 앱 선택은 제거했다.
 // vias 는 [lng, lat, ...] 평면 배열 — 코스 안내의 경유지.
 // start 를 주면 그 지점에서 출발(길찾기), 없으면 현재 위치에서 출발.
-function launchInAppNavi(target: NavTarget, vias?: number[], start?: NavTarget) {
+function launchInAppNavi(
+  target: NavTarget,
+  vias?: number[],
+  start?: NavTarget,
+  courseId?: string,
+) {
   router.push({
     pathname: '/navi',
     params: {
@@ -32,6 +40,8 @@ function launchInAppNavi(target: NavTarget, vias?: number[], start?: NavTarget) 
       lat: String(target.latitude),
       name: target.name,
       ...(vias && vias.length > 0 ? { vias: JSON.stringify(vias) } : {}),
+      ...(target.placeId ? { pid: target.placeId } : {}),
+      ...(courseId ? { cid: courseId } : {}),
       ...(start
         ? {
             slng: String(start.longitude),
@@ -174,6 +184,8 @@ export async function openCourseNavigation(course: NavCourse) {
         longitude: goal.longitude,
       },
       vias,
+      undefined,
+      course.id,
     );
   } finally {
     endLaunch();
