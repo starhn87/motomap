@@ -478,7 +478,7 @@ function PlaceBottomSheet({
               <Text style={[styles.photoSectionTitle, { color: colors.text }]}>
                 사진 {photoItems.length}
               </Text>
-              <PhotoStrip items={photoItems} />
+              <PhotoStrip items={photoItems} bleed={20} />
             </View>
           )}
 

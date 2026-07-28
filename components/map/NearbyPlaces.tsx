@@ -23,7 +23,11 @@ export default function NearbyPlaces({ place }: { place: Place }) {
   return (
     <View style={[styles.section, { borderTopColor: colors.border }]}>
       <Text style={[styles.title, { color: colors.text }]}>근처 다른 장소</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}>
         <View style={styles.cards}>
           {nearby.map((near) => (
             <Pressable
@@ -64,6 +68,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
+  },
+  // 시트 콘텐츠 패딩(20)을 상쇄해 가장자리까지 흘린다 — 끝에 걸친 카드가
+  // 스크롤 가능함을 알려주고, 패딩에 잘리지도 않는다
+  scroll: {
+    marginHorizontal: -20,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
   },
   cards: {
     flexDirection: 'row',

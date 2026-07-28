@@ -41,10 +41,13 @@ function ReviewOverlay({ review }: { review: Review }) {
 export default function PhotoStrip({
   items,
   size = 150,
+  bleed = 0,
 }: {
   items: PhotoStripItem[];
   /** 썸네일 한 변 (목록 카드처럼 좁은 자리에서는 줄여 쓴다) */
   size?: number;
+  /** 부모 컨테이너의 가로 패딩만큼 흘려 화면 끝까지 스크롤되게 한다 */
+  bleed?: number;
 }) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
@@ -52,7 +55,11 @@ export default function PhotoStrip({
 
   return (
     <>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={bleed > 0 && { marginHorizontal: -bleed }}
+        contentContainerStyle={bleed > 0 && { paddingHorizontal: bleed }}>
         <View style={styles.row}>
           {items.map((item, i) => (
             <Pressable key={`${item.url}-${i}`} onPress={() => setViewerIndex(i)}>

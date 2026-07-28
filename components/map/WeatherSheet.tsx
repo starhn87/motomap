@@ -233,8 +233,12 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
           ))}
         </View>
 
-        {/* 12시간 예보 — 가로 스와이프 */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {/* 12시간 예보 — 가로 스와이프. 시트 패딩을 상쇄해 끝까지 흘린다 */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.hourlyScroll}
+          contentContainerStyle={styles.hourlyScrollContent}>
           <View style={styles.hourlyRow}>
             {hourItems.map((item) =>
               item.kind === 'hour' ? (
@@ -347,6 +351,12 @@ const styles = StyleSheet.create({
   },
   statSub: {
     fontSize: 11,
+  },
+  hourlyScroll: {
+    marginHorizontal: -20,
+  },
+  hourlyScrollContent: {
+    paddingHorizontal: 20,
   },
   hourlyRow: {
     flexDirection: 'row',
