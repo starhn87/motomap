@@ -21,7 +21,6 @@ import { queryClient } from '@/lib/queryClient';
 import { toastConfig } from '@/components/ui/toastConfig';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useNavPrefStore } from '@/stores/useNavPrefStore';
 import { useThemeStore } from '@/stores/useThemeStore';
 import { registerPushToken, setupNotificationTapHandling } from '@/lib/push';
 
@@ -54,12 +53,10 @@ function RootLayout() {
   }, [error]);
 
   const initialize = useAuthStore((s) => s.initialize);
-  const loadDefaultApp = useNavPrefStore((s) => s.loadDefaultApp);
   const loadMode = useThemeStore((s) => s.loadMode);
 
   useEffect(() => {
     initialize();
-    loadDefaultApp();
     loadMode();
     // 이미 권한이 허용된 기기만 조용히 토큰 갱신(로테이션 대응). 권한 요청은
     // 제보 직후(submit)에만 — 맥락 없는 첫 실행 권한 팝업을 피한다.
@@ -76,7 +73,7 @@ function RootLayout() {
         .then(() => console.log('[KNSDK] 인증 성공'))
         .catch((err) => console.warn('[KNSDK] 인증 실패', err));
     }
-  }, [initialize, loadDefaultApp, loadMode]);
+  }, [initialize, loadMode]);
 
   useEffect(() => {
     if (loaded) {

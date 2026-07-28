@@ -1,5 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -15,8 +13,6 @@ import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useThemeStore } from '@/stores/useThemeStore';
-import { useNavPrefStore, type NavAppId } from '@/stores/useNavPrefStore';
-import { NAV_APPS, getAvailableNavApps } from '@/lib/navigation';
 import { deleteAccount } from '@/lib/api/account';
 import { toast } from '@/lib/toast';
 
@@ -62,68 +58,12 @@ function ThemeOption({
   );
 }
 
-function NavAppRow({
-  label,
-  selected,
-  disabled,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  disabled?: boolean;
-  onPress: () => void;
-}) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={[
-        styles.navAppRow,
-        {
-          backgroundColor: selected
-            ? colors.tint
-            : colorScheme === 'dark'
-              ? '#1A1A1A'
-              : '#F9FAFB',
-          borderColor: selected ? colors.tint : colors.border,
-          opacity: disabled ? 0.4 : 1,
-        },
-      ]}>
-      <Text
-        style={[
-          styles.navAppLabel,
-          { color: selected ? colors.background : colors.text },
-        ]}>
-        {label}
-      </Text>
-      {disabled ? (
-        <Text style={[styles.navAppBadge, { color: colors.textSecondary }]}>
-          미설치
-        </Text>
-      ) : selected ? (
-        <Ionicons name="checkmark" size={15} color={colors.background} />
-      ) : null}
-    </Pressable>
-  );
-}
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const { mode, setMode } = useThemeStore();
-  const { defaultApp, setDefaultApp } = useNavPrefStore();
-  const [availableIds, setAvailableIds] = useState<Set<NavAppId>>(new Set());
-
-  useEffect(() => {
-    getAvailableNavApps().then((apps) => {
-      setAvailableIds(new Set(apps.map((a) => a.id)));
-    });
-  }, []);
-
   const handleDeleteAccount = () => {
     Alert.alert(
       '회원 탈퇴',
@@ -170,26 +110,6 @@ export default function SettingsScreen() {
         <ThemeOption label="시스템" value="system" current={mode} onPress={setMode} />
         <ThemeOption label="라이트" value="light" current={mode} onPress={setMode} />
         <ThemeOption label="다크" value="dark" current={mode} onPress={setMode} />
-      </View>
-
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-        기본 네비게이션
-      </Text>
-      <View style={styles.navAppList}>
-        <NavAppRow
-          label="매번 묻기"
-          selected={defaultApp === null}
-          onPress={() => setDefaultApp(null)}
-        />
-        {NAV_APPS.map((app) => (
-          <NavAppRow
-            key={app.id}
-            label={app.label}
-            selected={defaultApp === app.id}
-            disabled={!availableIds.has(app.id)}
-            onPress={() => setDefaultApp(app.id)}
-          />
-        ))}
       </View>
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
@@ -320,26 +240,6 @@ const styles = StyleSheet.create({
   themeLabel: {
     fontSize: 13,
     fontWeight: '600',
-  },
-  navAppList: {
-    gap: 8,
-    marginBottom: 32,
-  },
-  navAppRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  navAppLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  navAppBadge: {
-    fontSize: 12,
   },
   infoCard: {
     padding: 16,

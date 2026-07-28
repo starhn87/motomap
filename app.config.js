@@ -72,7 +72,6 @@ export default {
     },
     plugins: [
       'expo-router',
-      './plugins/withQuerySchemes',
       './plugins/withRealmDynamicFramework',
       [
         'expo-image-picker',

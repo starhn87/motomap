@@ -26,7 +26,7 @@
        ▼                            ▼                            ▼
 ┌──────────────┐         ┌────────────────────┐      ┌──────────────────┐
 │   Supabase   │         │    네이버 클라우드    │      │   기타 외부       │
-│ Postgres+    │         │ 지도 SDK · Directions│      │ 카카오내비/딥링크  │
+│ Postgres+    │         │ 지도 SDK · Directions│      │ KNSDK 길안내      │
 │ PostGIS·Auth │         │ · Geocoding          │      │ Sentry            │
 │ ·Storage·RLS │         └────────────────────┘      └──────────────────┘
 └──────────────┘
@@ -35,7 +35,7 @@
 핵심 결정:
 - **상태는 두 갈래** — 전역 UI·세션 상태는 zustand(`stores/`), 서버에서 온 데이터는 react-query(`hooks/`)가 캐싱한다. 둘을 섞지 않는다.
 - **백엔드는 Supabase 단일** — 인증·DB·스토리지를 한곳에서. 공간 질의는 PostGIS RPC로 위임.
-- **지도/경로/지오코딩은 네이버**, 턴바이턴 내비는 외부 앱 딥링크(카카오내비·T맵 등)로 위임 — 앱은 장소 탐색·제보에 집중한다.
+- **지도/지오코딩은 네이버, 경로는 카카오(이륜차) 우선**, 턴바이턴 내비는 앱 안 KNSDK 길안내 화면으로 제공한다.
 
 ---
 
@@ -109,7 +109,7 @@ Sentry.wrap(
 )
 ```
 
-- **부팅 초기화**(useEffect): `useAuthStore.initialize()` · `useNavPrefStore.loadDefaultApp()` · `useThemeStore.loadMode()` · 푸시 토큰 조용한 갱신(`registerPushToken(false)` — 권한 요청은 제보 직후에만) · Kakao SDK 초기화. 폰트 로드 완료 후 스플래시 해제.
+- **부팅 초기화**(useEffect): `useAuthStore.initialize()` · `useThemeStore.loadMode()` · 푸시 토큰 조용한 갱신(`registerPushToken(false)` — 권한 요청은 제보 직후에만) · Kakao SDK 초기화. 폰트 로드 완료 후 스플래시 해제.
 - Sentry는 DSN이 있을 때만 init, 앱 전체를 `Sentry.wrap`.
 
 ### 탭 (`app/(tabs)/`)
@@ -125,9 +125,9 @@ Sentry.wrap(
 
 | 라우트 | 진입점 | 화면 |
 |---|---|---|
-| `/settings` | 내 정보 | 테마·기본 내비 앱·계정 탈퇴 |
+| `/settings` | 내 정보 | 테마·계정 탈퇴 |
 | `/edit-nickname` | 내 정보 | 닉네임 변경(중복 확인·랜덤 생성) |
-| `/favorites` | 내 정보 | 즐겨찾기 장소 → 탭 시 외부 내비 |
+| `/favorites` | 내 정보 | 즐겨찾기 장소 → 탭 시 길안내 |
 | `/my-submissions` | 내 정보 | 내 제보 + 승인 상태 |
 | `/my-reviews` | 내 정보 | 내가 쓴 리뷰 |
 | `/blocked-users` | 내 정보 | 차단 관리(해제) |
@@ -152,7 +152,6 @@ Sentry.wrap(
 |---|---|---|
 | `useAuthStore` | `user` · `session` · `loading` | — (Supabase가 세션 관리, Sentry user 동기화) |
 | `useMapStore` | `userLocation` · `selectedPlaceId` · `activeFilter` | — (휘발성 지도 UI) |
-| `useNavPrefStore` | `defaultApp` (기본 내비 앱) | `nav-default-app` |
 | `useThemeStore` | `mode` (`system`/`light`/`dark`) | `theme-mode` |
 
 ### React Query (`hooks/`)
@@ -254,7 +253,7 @@ Sentry.wrap(
 | 네이버 Directions | `lib/api/directions.ts` (`EXPO_PUBLIC_NAVER_CLIENT_ID/SECRET`) | 경로 미리보기(거리·시간·geometry) |
 | 네이버 Geocoding | `lib/geocode.ts` | 주소→좌표 (코스 제보 fallback) |
 | 카카오 로컬 검색 | `lib/api/kakaoLocal.ts` (`EXPO_PUBLIC_KAKAO_REST_API_KEY`) | 제보 주소 검색 (상호+주소→좌표) |
-| 외부 내비 딥링크 | `lib/navigation.ts` + `plugins/withQuerySchemes.js` | 카카오내비(이륜차)·T맵·카카오맵·네이버지도·Apple 지도. `LSApplicationQueriesSchemes`로 설치 감지, 기본 앱은 `useNavPrefStore` |
+| 앱 안 길안내 | `lib/navigation.ts` + `app/navi.tsx` + `modules/kakao-navi/` | KNSDK 이륜차 턴바이턴. 출발 전 날씨·노면 위험 확인 후 진입 |
 | Supabase Storage | `lib/uploadImage.ts` | 리뷰·제보 사진 (`ridemap-media` 버킷, base64 업로드) |
 | Expo Push | `lib/push.ts` + migration 006/008 | 제보(장소·코스) 승인 푸시 — 토큰은 `push_tokens`, 발송은 DB 트리거(pg_net→Expo Push API). 권한 요청은 제보 직후에만 |
 | Claude API | `supabase/functions/judge-submission` (배포명 `smart-task`) | 제보 AI 판정 — 트리거가 EF 호출 → 카카오 교차검증 + 웹 조사 → `claude-opus-4-8` 판정 → 디스코드에 근거·반려 안내 문구·[승인]/[반려] 버튼 발송. 제보자용 반려 문구는 `ai_reject_reason`에 저장 |
