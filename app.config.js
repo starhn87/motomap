@@ -36,6 +36,10 @@ export default {
         UIBackgroundModes: ['location'],
         NSLocationAlwaysAndWhenInUseUsageDescription:
           '길안내 중 화면이 꺼져 있어도 경로를 안내하기 위해 위치 정보가 필요합니다.',
+        // KNSDK 의 위치 모듈(KMLocationSDK)이 CoreMotion 을 참조한다 — 실사용
+        // 여부와 무관하게 문구가 없으면 ITMS-90683 으로 업로드가 거절된다(실측).
+        NSMotionUsageDescription:
+          '주행·정지 상태를 감지해 길안내 중 위치 정확도를 높이기 위해 동작 정보를 사용합니다.',
         // KNSDK 요구사항. 지도 타일 등 일부 리소스가 평문으로 오기 때문에
         // 이 예외가 없으면 경로는 받아와도 화면이 비어 있다.
         NSAppTransportSecurity: {
