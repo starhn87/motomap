@@ -261,10 +261,11 @@ export default function DirectionsScreen() {
               />
             </View>
           ))}
-          {/* 경유지 추가 — 줄을 차지하지 않고 divider 위에 뜨는 + 버튼 */}
+          {/* 경유지가 없을 때만 사이에 + 를 띄운다(줄 미차지). 경유지가 생기면
+              ⊖ 와의 세로 근접을 피해 + 는 도착지 행 오른쪽 끝으로 옮겨 단다. */}
           <View style={styles.fieldDividerWrap}>
             <View style={[styles.fieldDivider, { backgroundColor: colors.border }]} />
-            {viaPoints.length < MAX_VIAS && (
+            {viaPoints.length === 0 && (
               <Pressable
                 onPress={addEmptyVia}
                 hitSlop={8}
@@ -282,6 +283,9 @@ export default function DirectionsScreen() {
             value={dest ? label(dest, '') : ''}
             muted={!dest}
             onPress={() => setEditing('dest')}
+            onAdd={
+              viaPoints.length > 0 && viaPoints.length < MAX_VIAS ? addEmptyVia : undefined
+            }
           />
         </View>
         <View style={styles.fieldSide}>
@@ -398,6 +402,7 @@ function FieldRow({
   muted,
   onPress,
   onRemove,
+  onAdd,
 }: {
   icon: 'radiobox-marked' | 'circle-medium' | 'map-marker';
   placeholder: string;
@@ -405,6 +410,8 @@ function FieldRow({
   muted: boolean;
   onPress: () => void;
   onRemove?: () => void;
+  /** 도착지 행 오른쪽 끝의 경유지 추가 버튼 (경유지가 있을 때) */
+  onAdd?: () => void;
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -420,9 +427,17 @@ function FieldRow({
         <Pressable onPress={onRemove} hitSlop={10} style={styles.fieldRemove}>
           <MaterialCommunityIcons
             name="minus-circle-outline"
-            size={16}
+            size={18}
             color={colors.textSecondary}
           />
+        </Pressable>
+      )}
+      {onAdd && (
+        <Pressable
+          onPress={onAdd}
+          hitSlop={8}
+          style={[styles.fieldAddButton, { borderColor: colors.border }]}>
+          <MaterialCommunityIcons name="plus" size={14} color={colors.textSecondary} />
         </Pressable>
       )}
     </Pressable>
@@ -500,9 +515,16 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   fieldInsertButton: {
-    // 삭제(⊖)와 같은 오른쪽 열
     position: 'absolute',
     right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldAddButton: {
     width: 24,
     height: 24,
     borderRadius: 12,

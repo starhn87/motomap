@@ -623,10 +623,11 @@ export default function NaviScreen() {
                   />
                 </View>
               ))}
-              {/* 마지막 경유지와 도착지 사이 — 줄을 차지하지 않는 + 버튼이 divider 위에 뜬다 */}
+              {/* 경유지가 없을 때만 사이에 + 를 띄운다(줄 미차지). 경유지가 생기면
+                  ⊖ 와의 세로 근접을 피해 + 는 도착지 행 오른쪽 끝으로 옮겨 단다. */}
               <View style={styles.routeDividerWrap}>
                 <View style={[styles.routeDivider, { backgroundColor: colors.border }]} />
-                {userVias.length < MAX_USER_VIAS && (
+                {userVias.length === 0 && (
                   <Pressable
                     onPress={addEmptyVia}
                     hitSlop={8}
@@ -634,11 +635,7 @@ export default function NaviScreen() {
                       styles.routeInsertButton,
                       { backgroundColor: colors.background, borderColor: colors.border },
                     ]}>
-                    <MaterialCommunityIcons
-                      name="plus"
-                      size={14}
-                      color={colors.textSecondary}
-                    />
+                    <MaterialCommunityIcons name="plus" size={14} color={colors.textSecondary} />
                   </Pressable>
                 )}
               </View>
@@ -646,6 +643,11 @@ export default function NaviScreen() {
                 icon="map-marker"
                 value={goal.name}
                 onPress={() => !starting && setEditing('goal')}
+                onAdd={
+                  userVias.length > 0 && userVias.length < MAX_USER_VIAS
+                    ? addEmptyVia
+                    : undefined
+                }
                 index={userVias.length + 1}
                 rowCountSv={rowCountSv}
                 dragIndex={dragIndex}
@@ -783,6 +785,7 @@ function RouteFieldRow({
   placeholder,
   onPress,
   onRemove,
+  onAdd,
   index,
   rowCountSv,
   dragIndex,
@@ -794,6 +797,8 @@ function RouteFieldRow({
   placeholder?: string;
   onPress: () => void;
   onRemove?: () => void;
+  /** 도착지 행 오른쪽 끝의 경유지 추가 버튼 (경유지가 있을 때) */
+  onAdd?: () => void;
   /** 재정렬 목록에서의 논리 인덱스 (출발 0 … 도착 마지막) */
   index: number;
   rowCountSv: SharedValue<number>;
@@ -860,9 +865,17 @@ function RouteFieldRow({
           <Pressable onPress={onRemove} hitSlop={10} style={styles.routeFieldRemove}>
             <MaterialCommunityIcons
               name="minus-circle-outline"
-              size={16}
+              size={18}
               color={colors.textSecondary}
             />
+          </Pressable>
+        )}
+        {onAdd && (
+          <Pressable
+            onPress={onAdd}
+            hitSlop={8}
+            style={[styles.routeFieldAddButton, { borderColor: colors.border }]}>
+            <MaterialCommunityIcons name="plus" size={14} color={colors.textSecondary} />
           </Pressable>
         )}
       </View>
@@ -961,9 +974,16 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   routeInsertButton: {
-    // 삭제(⊖)와 같은 오른쪽 열 — 왼쪽 드래그 핸들과 멀어 오작도 적다
     position: 'absolute',
     right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  routeFieldAddButton: {
     width: 24,
     height: 24,
     borderRadius: 12,
