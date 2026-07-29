@@ -5,6 +5,7 @@ import {
   View,
   Text,
   Pressable,
+  ScrollView,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -300,7 +301,9 @@ export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}>
       {/* 설정 버튼 - 항상 표시 */}
       <Pressable
         onPress={() => router.push('/settings')}
@@ -320,13 +323,18 @@ export default function ProfileScreen() {
       ) : (
         <LoginPrompt message="로그인하고 마이페이지를 확인하세요." />
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  content: {
+    // 비로그인 화면(LoginPrompt)의 세로 중앙 정렬 유지 + 목록 하단 숨통
+    flexGrow: 1,
+    paddingBottom: 28,
   },
   settingsButton: {
     flexDirection: 'row',
