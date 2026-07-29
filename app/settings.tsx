@@ -11,8 +11,12 @@ import Constants from 'expo-constants';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import { useEffect, useState } from 'react';
+
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useThemeStore } from '@/stores/useThemeStore';
+import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
+import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { deleteAccount } from '@/lib/api/account';
 import { toast } from '@/lib/toast';
 
@@ -64,6 +68,45 @@ export default function SettingsScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const { mode, setMode } = useThemeStore();
+
+  // 내 장소(집·회사) 관리 — 검색·길찾기의 바로가기와 같은 저장소.
+  // 변경·삭제의 명시적 진입점은 여기 하나다(롱프레스 같은 숨은 동작 없음).
+  const myPlaces = useMyPlacesStore((s) => s.places);
+  const loadMyPlaces = useMyPlacesStore((s) => s.load);
+  const saveMyPlace = useMyPlacesStore((s) => s.save);
+  const removeMyPlace = useMyPlacesStore((s) => s.remove);
+  useEffect(() => {
+    void loadMyPlaces();
+  }, [loadMyPlaces]);
+  const [editingSlot, setEditingSlot] = useState<MyPlaceSlot | null>(null);
+
+  const handleMyPlace = (slot: MyPlaceSlot) => {
+    const label = slot === 'home' ? '집' : '회사';
+    const saved = myPlaces[slot];
+    if (!saved) {
+      setEditingSlot(slot);
+      return;
+    }
+    Alert.alert(label, saved.name, [
+      { text: '변경', onPress: () => setEditingSlot(slot) },
+      { text: '삭제', style: 'destructive', onPress: () => void removeMyPlace(slot) },
+      { text: '취소', style: 'cancel' },
+    ]);
+  };
+
+  const handleSlotSelect = (point: Point, address?: string) => {
+    const slot = editingSlot;
+    setEditingSlot(null);
+    if (!slot || point === 'current') return;
+    void saveMyPlace(slot, {
+      name: point.name,
+      address: address ?? '',
+      latitude: point.latitude,
+      longitude: point.longitude,
+    });
+    toast.success(slot === 'home' ? '집을 저장했어요.' : '회사를 저장했어요.');
+  };
+
   const handleDeleteAccount = () => {
     Alert.alert(
       '회원 탈퇴',
@@ -100,6 +143,7 @@ export default function SettingsScreen() {
   };
 
   return (
+    <>
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}>
@@ -113,6 +157,30 @@ export default function SettingsScreen() {
       </View>
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+        내 장소
+      </Text>
+      {(
+        [
+          ['home', '집'],
+          ['work', '회사'],
+        ] as const
+      ).map(([slot, label]) => (
+        <Pressable
+          key={slot}
+          onPress={() => handleMyPlace(slot)}
+          style={[
+            styles.linkButton,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}>
+          <Text style={[styles.linkText, { color: colors.text }]}>{label}</Text>
+          {/* 장소명은 민감 정보라 설정 여부만 보여준다 */}
+          <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>
+            {myPlaces[slot] ? '설정됨  ›' : '설정 안 됨  ›'}
+          </Text>
+        </Pressable>
+      ))}
+
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 20 }]}>
         앱 정보
       </Text>
       <View
@@ -206,6 +274,15 @@ export default function SettingsScreen() {
         </>
       )}
     </ScrollView>
+
+      <PointSearchModal
+        visible={editingSlot !== null}
+        allowCurrent={false}
+        title={editingSlot === 'home' ? '집 설정' : '회사 설정'}
+        onClose={() => setEditingSlot(null)}
+        onSelect={handleSlotSelect}
+      />
+    </>
   );
 }
 

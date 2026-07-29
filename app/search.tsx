@@ -22,6 +22,7 @@ import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
 import { searchAll } from '@/lib/api/search';
+import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -29,7 +30,6 @@ import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { openNavigation } from '@/lib/navigation';
 import { toast } from '@/lib/toast';
-import { Alert } from 'react-native';
 import { formatDistance } from '@/constants/course';
 import { haversine } from '@/lib/distance';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
@@ -127,21 +127,23 @@ export default function SearchScreen() {
     };
   }, []);
 
-  // 내 장소(집·회사) — 기기 로컬 저장. 탭하면 바로 길안내, 길게 누르면 삭제
+  // 내 장소(집·회사) — 기기 로컬 저장. 탭하면 바로 길안내, 미저장이면 설정
   const myPlaces = useMyPlacesStore((s) => s.places);
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
-  const removeMyPlace = useMyPlacesStore((s) => s.remove);
+  const saveMyPlace = useMyPlacesStore((s) => s.save);
   useEffect(() => {
     void loadMyPlaces();
   }, [loadMyPlaces]);
 
+  // 저장 안 된 슬롯을 탭하면 주소 검색으로 바로 설정한다. 변경·삭제는
+  // 설정 화면의 '내 장소'에서 — 롱프레스 같은 숨은 동작은 두지 않는다.
+  const [editingSlot, setEditingSlot] = useState<MyPlaceSlot | null>(null);
+
   const handleMyPlace = (slot: MyPlaceSlot) => {
     const saved = myPlaces[slot];
     if (!saved) {
-      toast.info(
-        slot === 'home' ? '집이 아직 저장되지 않았어요.' : '회사가 아직 저장되지 않았어요.',
-        '장소 검색이나 지도에서 카드의 별 버튼으로 저장할 수 있어요.',
-      );
+      Keyboard.dismiss();
+      setEditingSlot(slot);
       return;
     }
     Keyboard.dismiss();
@@ -152,13 +154,17 @@ export default function SearchScreen() {
     });
   };
 
-  const handleMyPlaceLongPress = (slot: MyPlaceSlot) => {
-    const saved = myPlaces[slot];
-    if (!saved) return;
-    Alert.alert(slot === 'home' ? '집 삭제' : '회사 삭제', `${saved.name}\n저장을 해제할까요?`, [
-      { text: '취소', style: 'cancel' },
-      { text: '삭제', style: 'destructive', onPress: () => void removeMyPlace(slot) },
-    ]);
+  const handleSlotSelect = (point: Point, address?: string) => {
+    const slot = editingSlot;
+    setEditingSlot(null);
+    if (!slot || point === 'current') return;
+    void saveMyPlace(slot, {
+      name: point.name,
+      address: address ?? '',
+      latitude: point.latitude,
+      longitude: point.longitude,
+    });
+    toast.success(slot === 'home' ? '집을 저장했어요.' : '회사를 저장했어요.');
   };
 
   const trimmed = query.trim();
@@ -396,7 +402,6 @@ export default function SearchScreen() {
                 <Pressable
                   key={slot}
                   onPress={() => handleMyPlace(slot)}
-                  onLongPress={() => handleMyPlaceLongPress(slot)}
                   style={({ pressed }) => [
                     styles.myPlaceCard,
                     {
@@ -525,6 +530,14 @@ export default function SearchScreen() {
           )}
         </ScrollView>
       )}
+
+      <PointSearchModal
+        visible={editingSlot !== null}
+        allowCurrent={false}
+        title={editingSlot === 'home' ? '집 설정' : '회사 설정'}
+        onClose={() => setEditingSlot(null)}
+        onSelect={handleSlotSelect}
+      />
     </View>
   );
 }

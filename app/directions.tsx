@@ -4,22 +4,18 @@ import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  FlatList,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import * as Location from 'expo-location';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { openNavigation, useNavLaunching, type NavTarget } from '@/lib/navigation';
+import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import {
   addRecentSearch,
@@ -34,7 +30,6 @@ import { toast } from '@/lib/toast';
 // 두 지점이 정해지는 순간 바로 미리보기(/navi)로 넘어간다 — 별도 버튼 없음.
 // 집·회사(useMyPlacesStore)와 최근 검색(lib/recentSearches)은 검색 화면과
 // 같은 저장소를 그대로 쓴다 — 어느 쪽에서 만들었든 양쪽에 함께 보인다.
-type Point = NavTarget | 'current';
 
 // 검색 모달이 어느 값을 채우는 중인지
 type Editing = 'origin' | 'dest' | MyPlaceSlot;
@@ -67,7 +62,6 @@ export default function DirectionsScreen() {
   const myPlaces = useMyPlacesStore((s) => s.places);
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
   const saveMyPlace = useMyPlacesStore((s) => s.save);
-  const removeMyPlace = useMyPlacesStore((s) => s.remove);
   // 장소 상세의 출발/도착 버튼에서 넘어올 때의 프리필
   const params = useLocalSearchParams<{
     olng?: string;
@@ -196,17 +190,6 @@ export default function DirectionsScreen() {
     }
   };
 
-  const shortcutLongPress = (slot: MyPlaceSlot) => {
-    const label = slot === 'home' ? '집' : '회사';
-    const saved = myPlaces[slot];
-    if (!saved) return;
-    Alert.alert(label, saved.name, [
-      { text: '다시 설정', onPress: () => setEditing(slot) },
-      { text: '삭제', style: 'destructive', onPress: () => void removeMyPlace(slot) },
-      { text: '취소', style: 'cancel' },
-    ]);
-  };
-
   const label = (p: Point | null, fallback: string) =>
     p === 'current' ? '현재 위치' : (p?.name ?? fallback);
 
@@ -275,14 +258,12 @@ export default function DirectionsScreen() {
           text={myPlaces.home ? '집' : '집 설정'}
           set={!!myPlaces.home}
           onPress={() => shortcut('home')}
-          onLongPress={() => shortcutLongPress('home')}
         />
         <ShortcutChip
           icon="business"
           text={myPlaces.work ? '회사' : '회사 설정'}
           set={!!myPlaces.work}
           onPress={() => shortcut('work')}
-          onLongPress={() => shortcutLongPress('work')}
         />
       </View>
 
@@ -383,20 +364,17 @@ function ShortcutChip({
   text,
   set,
   onPress,
-  onLongPress,
 }: {
   icon: 'home' | 'business';
   text: string;
   set: boolean;
   onPress: () => void;
-  onLongPress: () => void;
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   return (
     <Pressable
       onPress={onPress}
-      onLongPress={onLongPress}
       style={[
         styles.shortcutChip,
         { backgroundColor: colors.surface, borderColor: colors.border },
@@ -415,190 +393,6 @@ function ShortcutChip({
         {text}
       </Text>
     </Pressable>
-  );
-}
-
-// 카카오 로컬 검색으로 지점을 고르는 모달. 입력 전에는 현재 위치·집·회사·
-// 최근 검색을 보여주고, 입력하면 검색 결과로 바뀐다.
-function PointSearchModal({
-  visible,
-  allowCurrent,
-  allowSaved = false,
-  recents = [],
-  title,
-  onClose,
-  onSelect,
-}: {
-  visible: boolean;
-  allowCurrent: boolean;
-  /** 집·회사·최근 검색 제안을 보여줄지 (집/회사 '설정' 모달에서는 숨김) */
-  allowSaved?: boolean;
-  recents?: (NavTarget & { address?: string })[];
-  title?: string;
-  onClose: () => void;
-  onSelect: (point: Point, address?: string) => void;
-}) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const myPlaces = useMyPlacesStore((s) => s.places);
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<KakaoLocalResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!visible) {
-      setQuery('');
-      setResults([]);
-    }
-  }, [visible]);
-
-  const handleChange = (text: string) => {
-    setQuery(text);
-    if (debounce.current) clearTimeout(debounce.current);
-    if (!text.trim()) {
-      setResults([]);
-      return;
-    }
-    debounce.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        setResults(await searchKakaoLocal(text));
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.modal, { backgroundColor: colors.background }]}>
-        <View style={styles.modalHeader}>
-          <View
-            style={[
-              styles.searchBox,
-              { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
-            ]}>
-            <Ionicons name="search" size={16} color={colors.textSecondary} />
-            <TextInput
-              value={query}
-              onChangeText={handleChange}
-              placeholder={title ? `${title}: 장소, 주소 검색` : '장소, 주소 검색'}
-              placeholderTextColor={colors.textSecondary}
-              autoFocus
-              style={[styles.searchInput, { color: colors.text }]}
-            />
-            {searching && <ActivityIndicator size="small" color={colors.textSecondary} />}
-          </View>
-          <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={[styles.modalCancel, { color: colors.text }]}>취소</Text>
-          </Pressable>
-        </View>
-
-        <FlatList
-          data={results}
-          keyExtractor={(item, i) => `${item.placeName}-${i}`}
-          keyboardShouldPersistTaps="handled"
-          ListHeaderComponent={
-            query.trim() ? null : (
-              <>
-                {allowCurrent && (
-                  <Pressable
-                    onPress={() => onSelect('current')}
-                    style={[styles.resultRow, { borderBottomColor: colors.border }]}>
-                    <Ionicons name="locate" size={16} color={colors.tint} />
-                    <Text style={[styles.resultName, { color: colors.text }]}>현재 위치</Text>
-                  </Pressable>
-                )}
-                {allowSaved &&
-                  (
-                    [
-                      ['home', 'home', '집'],
-                      ['work', 'business', '회사'],
-                    ] as const
-                  ).map(([slot, icon, label]) => {
-                    const saved = myPlaces[slot];
-                    if (!saved) return null;
-                    return (
-                      <Pressable
-                        key={slot}
-                        onPress={() =>
-                          onSelect(
-                            {
-                              name: saved.name,
-                              latitude: saved.latitude,
-                              longitude: saved.longitude,
-                            },
-                            saved.address,
-                          )
-                        }
-                        style={[styles.resultRow, { borderBottomColor: colors.border }]}>
-                        <Ionicons name={icon} size={16} color={colors.tint} />
-                        {/* 장소명은 민감 정보라 라벨만 보여준다 */}
-                        <Text style={[styles.resultName, { color: colors.text }]}>{label}</Text>
-                      </Pressable>
-                    );
-                  })}
-                {allowSaved &&
-                  recents.map((r) => (
-                    <Pressable
-                      key={`${r.name}-${r.longitude}-${r.latitude}`}
-                      onPress={() =>
-                        onSelect(
-                          { name: r.name, latitude: r.latitude, longitude: r.longitude },
-                          r.address,
-                        )
-                      }
-                      style={[styles.resultRow, { borderBottomColor: colors.border }]}>
-                      <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                      <View style={styles.resultTexts}>
-                        <Text
-                          style={[styles.resultName, { color: colors.text }]}
-                          numberOfLines={1}>
-                          {r.name}
-                        </Text>
-                        {!!r.address && (
-                          <Text
-                            style={[styles.resultAddress, { color: colors.textSecondary }]}
-                            numberOfLines={1}>
-                            {r.address}
-                          </Text>
-                        )}
-                      </View>
-                    </Pressable>
-                  ))}
-              </>
-            )
-          }
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() =>
-                onSelect(
-                  {
-                    name: item.placeName,
-                    latitude: item.latitude,
-                    longitude: item.longitude,
-                  },
-                  item.roadAddress || item.address,
-                )
-              }
-              style={[styles.resultRow, { borderBottomColor: colors.border }]}>
-              <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-              <View style={styles.resultTexts}>
-                <Text style={[styles.resultName, { color: colors.text }]} numberOfLines={1}>
-                  {item.placeName}
-                </Text>
-                <Text
-                  style={[styles.resultAddress, { color: colors.textSecondary }]}
-                  numberOfLines={1}>
-                  {item.roadAddress || item.address}
-                </Text>
-              </View>
-            </Pressable>
-          )}
-        />
-      </View>
-    </Modal>
   );
 }
 
@@ -696,53 +490,5 @@ const styles = StyleSheet.create({
   },
   recentRemove: {
     padding: 2,
-  },
-  modal: {
-    flex: 1,
-    paddingTop: 60,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  searchBox: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    height: 44,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-  },
-  modalCancel: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  resultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  resultTexts: {
-    flex: 1,
-    gap: 2,
-  },
-  resultName: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  resultAddress: {
-    fontSize: 13,
   },
 });
