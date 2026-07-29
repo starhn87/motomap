@@ -129,6 +129,7 @@ export default function CourseDetailScreen() {
       {coords.length >= 2 && (
         <View style={styles.mapContainer}>
           <NaverMapView
+            locationOverlay={{ isVisible: false }}
             style={styles.map}
             mapType="Basic"
             isNightModeEnabled={colorScheme === 'dark'}

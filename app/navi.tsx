@@ -341,6 +341,9 @@ export default function NaviScreen() {
         isShowScaleBar={false}
         isShowZoomControls={false}
         locale="ko"
+        // 위치 오버레이를 강제로 끈다 — 재활용된 지도 뷰가 지도 탭의 오버레이
+        // 상태를 물려받아 고아 위치 마커가 화면에 남았다(실기기 영상으로 확정)
+        locationOverlay={{ isVisible: false }}
         initialCamera={{ latitude: goalLat, longitude: goalLng, zoom: 12 }}>
         {start && (
           // 출발점 도트 — children 커스텀 뷰는 캡처용 네이티브 뷰가 화면에

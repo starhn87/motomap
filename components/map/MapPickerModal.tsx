@@ -56,6 +56,7 @@ export default function MapPickerModal({ visible, initial, onClose, onPick }: Pr
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         <NaverMapView
+          locationOverlay={{ isVisible: false }}
           style={StyleSheet.absoluteFill}
           mapType="Basic"
           isNightModeEnabled={colorScheme === 'dark'}
