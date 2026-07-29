@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { RidingCourse } from '@/types';
 import { requireUser } from '@/lib/auth';
 
-function rowToCourse(row: any): RidingCourse {
+export function rowToCourse(row: any): RidingCourse {
   return {
     id: row.id,
     name: row.name,

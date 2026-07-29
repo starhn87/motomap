@@ -15,8 +15,14 @@ import EmptyState from '@/components/ui/EmptyState';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
+import { formatDistance } from '@/constants/course';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fetchMySubmissions, type MySubmission } from '@/lib/api/mydata';
+import {
+  fetchMySubmissions,
+  fetchMyCourseSubmissions,
+  type MySubmission,
+  type MyCourseSubmission,
+} from '@/lib/api/mydata';
 import { fetchMyFeedback, type MyFeedback, type FeedbackType } from '@/lib/api/feedback';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { toast } from '@/lib/toast';
@@ -51,11 +57,21 @@ export default function MySubmissionsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
-  const [tab, setTab] = useState<'places' | 'feedback'>('places');
+  const [tab, setTab] = useState<'places' | 'courses' | 'feedback'>('places');
 
   const { data: places, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['my-submissions', user?.id],
     queryFn: fetchMySubmissions,
+  });
+
+  const {
+    data: courses,
+    isLoading: coursesLoading,
+    refetch: refetchCourses,
+    isRefetching: coursesRefetching,
+  } = useQuery({
+    queryKey: ['my-course-submissions', user?.id],
+    queryFn: fetchMyCourseSubmissions,
   });
 
   const {
@@ -128,6 +144,65 @@ export default function MySubmissionsScreen() {
     );
   };
 
+  const renderCourse = ({ item }: { item: MyCourseSubmission }) => {
+    const status = item.rejected
+      ? { label: '반려됨', color: semantic.danger }
+      : item.approved
+        ? { label: '승인됨', color: semantic.success }
+        : { label: '대기중', color: '#71717A' };
+    const section =
+      item.sectionFrom && item.sectionTo ? `${item.sectionFrom} → ${item.sectionTo}` : null;
+
+    return (
+      <Pressable
+        onPress={() => {
+          if (item.rejected) {
+            toast.info('반려된 코스예요', item.rejectedReason ?? undefined);
+          } else if (item.approved) {
+            router.push(`/course/${item.id}`);
+          } else {
+            toast.info('아직 검토 중인 코스예요', '승인되면 탐색 탭에서 볼 수 있어요.');
+          }
+        }}
+        style={({ pressed }) => [
+          styles.card,
+          {
+            backgroundColor: colors.surfaceElevated,
+            borderColor: colors.border,
+            opacity: pressed ? 0.85 : 1,
+          },
+        ]}>
+        <View style={styles.cardHeader}>
+          <View style={[styles.categoryBadge, { backgroundColor: `${colors.tint}18` }]}>
+            <Text style={[styles.categoryLabel, { color: colors.tint }]}>
+              {formatDistance(item.distance)}
+            </Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: `${status.color}20` }]}>
+            <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+          </View>
+        </View>
+        <Text style={[styles.placeName, { color: colors.text }]}>{item.name}</Text>
+        {!!section && (
+          <Text style={[styles.placeAddress, { color: colors.textSecondary }]}>{section}</Text>
+        )}
+        {item.rejected && !!item.rejectedReason && (
+          <View
+            style={[
+              styles.replyBox,
+              { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+            ]}>
+            <Text style={[styles.replyLabel, { color: colors.textSecondary }]}>반려 사유</Text>
+            <Text style={[styles.replyText, { color: colors.text }]}>{item.rejectedReason}</Text>
+          </View>
+        )}
+        <Text style={[styles.date, { color: colors.textSecondary }]}>
+          {new Date(item.createdAt).toLocaleDateString('ko-KR')}
+        </Text>
+      </Pressable>
+    );
+  };
+
   const renderFeedback = ({ item }: { item: MyFeedback }) => (
     <View
       style={[
@@ -171,14 +246,16 @@ export default function MySubmissionsScreen() {
     </View>
   );
 
-  const showLoading = tab === 'places' ? isLoading : feedbackLoading;
+  const showLoading =
+    tab === 'places' ? isLoading : tab === 'courses' ? coursesLoading : feedbackLoading;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.segmentRow}>
         {(
           [
-            ['places', '장소 제보'],
+            ['places', '장소'],
+            ['courses', '코스'],
             ['feedback', '건의'],
           ] as const
         ).map(([key, label]) => {
@@ -228,6 +305,31 @@ export default function MySubmissionsScreen() {
               <RefreshControl
                 refreshing={isRefetching}
                 onRefresh={refetch}
+                tintColor={colors.tint}
+              />
+            }
+          />
+        )
+      ) : tab === 'courses' ? (
+        !courses?.length ? (
+          <EmptyState
+            icon={<Ionicons name="map-outline" size={44} color={colors.textSecondary} />}
+            title="제보한 코스가 없습니다"
+            hint="즐겨 달리는 코스를 라이더들과 나눠보세요!"
+            actionLabel="제보하러 가기"
+            onAction={() => router.navigate('/submit')}
+          />
+        ) : (
+          <FlatList
+            data={courses}
+            keyExtractor={(item) => item.id}
+            renderItem={renderCourse}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={coursesRefetching}
+                onRefresh={refetchCourses}
                 tintColor={colors.tint}
               />
             }

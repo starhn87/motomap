@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
-import type { Place, Review } from '@/types';
+import type { Place, Review, RidingCourse } from '@/types';
 import { rowToPlace } from '@/lib/api/places';
+import { rowToCourse } from '@/lib/api/courses';
 import { getCurrentUser } from '@/lib/auth';
 
 /** 내 제보 — 반려(soft delete)된 것도 사유와 함께 포함한다 */
@@ -32,6 +33,33 @@ export async function fetchMySubmissions(): Promise<MySubmission[]> {
       rejectedReason: row.rejected_reason ?? null,
     };
   });
+}
+
+/** 내 코스 제보 — 장소와 같은 3상태(대기/승인/반려). approved 는 목록 RPC 가
+ * 아닌 직접 조회라 행에서 꺼낸다. */
+export type MyCourseSubmission = RidingCourse & {
+  approved: boolean;
+  rejected: boolean;
+  rejectedReason: string | null;
+};
+
+export async function fetchMyCourseSubmissions(): Promise<MyCourseSubmission[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('courses')
+    .select('*')
+    .eq('created_by', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map((row: any) => ({
+    ...rowToCourse(row),
+    approved: !!row.approved,
+    rejected: row.deleted_at != null,
+    rejectedReason: row.rejected_reason ?? null,
+  }));
 }
 
 export const MY_REVIEWS_PAGE_SIZE = 20;
