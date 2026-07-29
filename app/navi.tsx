@@ -343,17 +343,17 @@ export default function NaviScreen() {
         locale="ko"
         initialCamera={{ latitude: goalLat, longitude: goalLng, zoom: 12 }}>
         {start && (
+          // 출발점 도트 — children 커스텀 뷰는 캡처용 네이티브 뷰가 화면에
+          // 고아로 남는 문제가 있어(실기기: 좌표에 안 붙고 떠다니는 잔상)
+          // 정적 이미지로 그린다.
           <NaverMapMarkerOverlay
             latitude={start[1]}
             longitude={start[0]}
             width={18}
             height={18}
-            anchor={{ x: 0.5, y: 0.5 }}>
-            {/* 출발점 도트 — 흰 테두리 + 초록 심. 마커는 정적 뷰만 그려진다 */}
-            <View style={styles.originDot}>
-              <View style={styles.originDotCore} />
-            </View>
-          </NaverMapMarkerOverlay>
+            anchor={{ x: 0.5, y: 0.5 }}
+            image={require('@/assets/images/origin-dot.png')}
+          />
         )}
         {pathParts ? (
           // 혼잡도 색 경로 — 선형도 색과 같은 REST 응답 것을 쓴다(색·선 불일치 방지)
@@ -476,25 +476,6 @@ export default function NaviScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  originDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-  },
-  originDotCore: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    // 경로선(초록)과 겹치지 않는 진한 파랑 — 바다색(연파랑)과도 구분된다
-    backgroundColor: '#2563EB',
-  },
   closeButton: {
     position: 'absolute',
     left: 16,
