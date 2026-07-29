@@ -272,14 +272,14 @@ export default function DirectionsScreen() {
       <View style={styles.shortcutRow}>
         <ShortcutChip
           icon="home"
-          text={myPlaces.home ? myPlaces.home.name : '집 설정'}
+          text={myPlaces.home ? '집' : '집 설정'}
           set={!!myPlaces.home}
           onPress={() => shortcut('home')}
           onLongPress={() => shortcutLongPress('home')}
         />
         <ShortcutChip
           icon="business"
-          text={myPlaces.work ? myPlaces.work.name : '회사 설정'}
+          text={myPlaces.work ? '회사' : '회사 설정'}
           set={!!myPlaces.work}
           onPress={() => shortcut('work')}
           onLongPress={() => shortcutLongPress('work')}
@@ -534,16 +534,8 @@ function PointSearchModal({
                         }
                         style={[styles.resultRow, { borderBottomColor: colors.border }]}>
                         <Ionicons name={icon} size={16} color={colors.tint} />
-                        <View style={styles.resultTexts}>
-                          <Text style={[styles.resultName, { color: colors.text }]}>
-                            {label}
-                          </Text>
-                          <Text
-                            style={[styles.resultAddress, { color: colors.textSecondary }]}
-                            numberOfLines={1}>
-                            {saved.name}
-                          </Text>
-                        </View>
+                        {/* 장소명은 민감 정보라 라벨만 보여준다 */}
+                        <Text style={[styles.resultName, { color: colors.text }]}>{label}</Text>
                       </Pressable>
                     );
                   })}

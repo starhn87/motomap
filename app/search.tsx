@@ -410,11 +410,14 @@ export default function SearchScreen() {
                     <Text style={[styles.myPlaceLabel, { color: colors.text }]}>
                       {slot === 'home' ? '집' : '회사'}
                     </Text>
-                    <Text
-                      style={[styles.myPlaceSub, { color: colors.textSecondary }]}
-                      numberOfLines={1}>
-                      {saved ? saved.name : '저장 안 됨'}
-                    </Text>
+                    {/* 장소명은 민감 정보라 표시하지 않는다 — 미저장 안내만 */}
+                    {!saved && (
+                      <Text
+                        style={[styles.myPlaceSub, { color: colors.textSecondary }]}
+                        numberOfLines={1}>
+                        저장 안 됨
+                      </Text>
+                    )}
                   </View>
                 </Pressable>
               );
