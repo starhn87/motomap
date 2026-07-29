@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { Place } from '@/types';
+import type { NavTarget } from '@/lib/navigation';
 
 // 검색에서 선택한 장소·코스 최근 5개 (최신순). 실패는 조용히 무시 — 검색 자체를 막지 않는다.
 const KEY = 'recent-searches';
@@ -62,4 +63,44 @@ export async function clearRecentSearches(): Promise<void> {
   } catch {
     // 무시
   }
+}
+
+// 좌표가 있는 최근 검색만 길찾기 지점이 될 수 있다 (코스는 제외)
+function recentAsTarget(entry: RecentSearch): (NavTarget & { address?: string }) | null {
+  if (entry.type === 'place') {
+    return {
+      name: entry.place.name,
+      latitude: entry.place.latitude,
+      longitude: entry.place.longitude,
+      address: entry.place.address,
+    };
+  }
+  if (entry.type === 'kakao') {
+    return {
+      name: entry.name,
+      latitude: entry.latitude,
+      longitude: entry.longitude,
+      address: entry.address,
+    };
+  }
+  return null;
+}
+
+// 길찾기·미리보기의 지점 검색이 함께 쓰는 최근 검색 지점 목록.
+// 같은 장소가 등록 장소(place)와 카카오 검색(kakao) 두 형태로 쌓일 수 있어
+// 이름+좌표(±10m)로 합친다 — 먼저 온(최신) 항목이 남는다.
+export function recentTargets(
+  entries: RecentSearch[],
+): { entry: RecentSearch; target: NavTarget & { address?: string } }[] {
+  const seen = new Set<string>();
+  const out: { entry: RecentSearch; target: NavTarget & { address?: string } }[] = [];
+  for (const entry of entries) {
+    const target = recentAsTarget(entry);
+    if (!target) continue;
+    const key = `${target.name}|${target.latitude.toFixed(4)},${target.longitude.toFixed(4)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ entry, target });
+  }
+  return out;
 }

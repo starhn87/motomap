@@ -39,6 +39,7 @@ import KakaoNavi, {
 } from '@/modules/kakao-navi';
 import { sampleWaypoints, type NavTarget } from '@/lib/navigation';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
+import { loadRecentSearches, recentTargets } from '@/lib/recentSearches';
 import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
 import { useMapStore } from '@/stores/useMapStore';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
@@ -130,6 +131,8 @@ export default function NaviScreen() {
     uvias ? JSON.parse(uvias) : [],
   );
   const [editing, setEditing] = useState<EditingField | null>(null);
+  // 지점 검색 모달의 최근 검색 제안 — 검색·길찾기 화면과 같은 저장소를 공유한다
+  const [recents, setRecents] = useState<(NavTarget & { address?: string })[]>([]);
   // 드래그 중인 행(논리 인덱스: 출발 0, 경유지 1.., 도착 마지막)과 이동량
   const dragIndex = useSharedValue(-1);
   const dragY = useSharedValue(0);
@@ -152,6 +155,13 @@ export default function NaviScreen() {
 
   const courseVias: number[] = vias ? JSON.parse(vias) : [];
   const isCourseMode = !!cid || courseVias.length > 0;
+
+  useEffect(() => {
+    if (isCourseMode) return; // 편집 카드가 없으니 모달도 안 뜬다
+    void loadRecentSearches().then((entries) =>
+      setRecents(recentTargets(entries).map((r) => r.target)),
+    );
+  }, [isCourseMode]);
   const flatVias = isCourseMode
     ? courseVias
     : userVias.flatMap((p) => (p ? [p.longitude, p.latitude] : []));
@@ -763,6 +773,7 @@ export default function NaviScreen() {
         visible={editing !== null}
         allowCurrent={editing === 'start'}
         allowSaved
+        recents={recents}
         title={
           editing === 'start'
             ? '출발지 변경'

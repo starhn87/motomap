@@ -21,6 +21,7 @@ import {
   addRecentSearch,
   loadRecentSearches,
   recentKey,
+  recentTargets,
   removeRecentSearch,
   type RecentSearch,
 } from '@/lib/recentSearches';
@@ -36,27 +37,6 @@ type Editing = 'origin' | 'dest' | MyPlaceSlot | number;
 
 // 경유지 상한 — 미리보기(/navi)의 편집 카드와 같은 값
 const MAX_VIAS = 5;
-
-// 좌표가 있는 최근 검색만 길찾기 목적지가 될 수 있다 (코스는 제외)
-function recentAsTarget(entry: RecentSearch): (NavTarget & { address?: string }) | null {
-  if (entry.type === 'place') {
-    return {
-      name: entry.place.name,
-      latitude: entry.place.latitude,
-      longitude: entry.place.longitude,
-      address: entry.place.address,
-    };
-  }
-  if (entry.type === 'kakao') {
-    return {
-      name: entry.name,
-      latitude: entry.latitude,
-      longitude: entry.longitude,
-      address: entry.address,
-    };
-  }
-  return null;
-}
 
 export default function DirectionsScreen() {
   const colorScheme = useColorScheme();
@@ -218,20 +198,7 @@ export default function DirectionsScreen() {
     p === 'current' ? '현재 위치' : (p?.name ?? fallback);
 
   const busy = resolving || navLaunching;
-  // 같은 장소가 등록 장소(place)와 카카오 검색(kakao) 두 형태로 쌓일 수 있어
-  // 이름+좌표(±10m)로 합친다 — 먼저 온(최신) 항목이 남는다.
-  const seenRecent = new Set<string>();
-  const recentTargets = recents
-    .map((entry) => ({ entry, target: recentAsTarget(entry) }))
-    .filter((r): r is { entry: RecentSearch; target: NavTarget & { address?: string } } =>
-      r.target !== null,
-    )
-    .filter(({ target }) => {
-      const key = `${target.name}|${target.latitude.toFixed(4)},${target.longitude.toFixed(4)}`;
-      if (seenRecent.has(key)) return false;
-      seenRecent.add(key);
-      return true;
-    });
+  const recentRows = recentTargets(recents);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -323,13 +290,13 @@ export default function DirectionsScreen() {
       </View>
 
       {/* 최근 검색 — 좌표 있는 항목만 (검색 화면과 같은 목록) */}
-      {recentTargets.length > 0 && (
+      {recentRows.length > 0 && (
         <View style={styles.recentSection}>
           <Text style={[styles.recentTitle, { color: colors.textSecondary }]}>
             최근 검색
           </Text>
           <ScrollView keyboardShouldPersistTaps="handled">
-            {recentTargets.map(({ entry, target }) => (
+            {recentRows.map(({ entry, target }) => (
               <Pressable
                 key={recentKey(entry)}
                 onPress={() => pickDest(target, target.address)}
@@ -367,7 +334,7 @@ export default function DirectionsScreen() {
         visible={editing !== null}
         allowCurrent={editing === 'origin' || editing === 'dest'}
         allowSaved={editing !== 'home' && editing !== 'work'}
-        recents={recentTargets.map((r) => r.target)}
+        recents={recentRows.map((r) => r.target)}
         title={
           editing === 'home'
             ? '집 설정'
