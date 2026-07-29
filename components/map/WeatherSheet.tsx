@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 10,
     alignItems: 'center',
-    gap: 2,
+    gap: 5,
   },
   statLabel: {
     fontSize: 11,
