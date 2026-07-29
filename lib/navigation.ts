@@ -26,12 +26,13 @@ export interface NavCourse {
 // 길안내는 항상 앱 안 미리보기 화면(app/navi.tsx)으로 간다 — 옵션별 경로를
 // 지도로 보여주고 고르면 KNSDK 안내를 시작한다. 외부 내비 앱 선택은 제거했다.
 // vias 는 [lng, lat, ...] 평면 배열 — 코스 안내의 경유지.
+// userVias 는 길찾기에서 직접 고른 지점들 — 미리보기에서 계속 편집할 수 있다.
 // start 를 주면 그 지점에서 출발(길찾기), 없으면 현재 위치에서 출발.
 function launchInAppNavi(
   target: NavTarget,
-  opts: { vias?: number[]; start?: NavTarget; courseId?: string } = {},
+  opts: { vias?: number[]; userVias?: NavTarget[]; start?: NavTarget; courseId?: string } = {},
 ) {
-  const { vias, start, courseId } = opts;
+  const { vias, userVias, start, courseId } = opts;
   router.push({
     pathname: '/navi',
     params: {
@@ -39,6 +40,7 @@ function launchInAppNavi(
       lat: String(target.latitude),
       name: target.name,
       ...(vias && vias.length > 0 ? { vias: JSON.stringify(vias) } : {}),
+      ...(userVias && userVias.length > 0 ? { uvias: JSON.stringify(userVias) } : {}),
       ...(target.placeId ? { pid: target.placeId } : {}),
       ...(courseId ? { cid: courseId } : {}),
       ...(start
@@ -172,13 +174,17 @@ const beginLaunch = (): boolean => {
 const endLaunch = () => useNavLaunching.setState({ launching: false });
 
 /** 미리보기까지 실제로 진입했으면 true (날씨·위험 확인에서 취소하면 false) */
-export async function openNavigation(target: NavTarget, start?: NavTarget): Promise<boolean> {
+export async function openNavigation(
+  target: NavTarget,
+  start?: NavTarget,
+  userVias?: NavTarget[],
+): Promise<boolean> {
   if (!beginLaunch()) return false;
   try {
-    const points = start ? [start, target] : [target];
+    const points = [...(start ? [start] : []), ...(userVias ?? []), target];
     if (!(await confirmRouteWeather(points))) return false;
     if (!(await confirmHazards(await hazardsAroundPoints(points)))) return false;
-    launchInAppNavi(target, { start });
+    launchInAppNavi(target, { start, userVias });
     return true;
   } finally {
     endLaunch();

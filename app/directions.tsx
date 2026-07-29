@@ -31,8 +31,11 @@ import { toast } from '@/lib/toast';
 // 집·회사(useMyPlacesStore)와 최근 검색(lib/recentSearches)은 검색 화면과
 // 같은 저장소를 그대로 쓴다 — 어느 쪽에서 만들었든 양쪽에 함께 보인다.
 
-// 검색 모달이 어느 값을 채우는 중인지
-type Editing = 'origin' | 'dest' | MyPlaceSlot;
+// 검색 모달이 어느 값을 채우는 중인지 — 숫자는 경유지 인덱스
+type Editing = 'origin' | 'dest' | MyPlaceSlot | number;
+
+// 경유지 상한 — 미리보기(/navi)의 편집 카드와 같은 값
+const MAX_VIAS = 5;
 
 // 좌표가 있는 최근 검색만 길찾기 목적지가 될 수 있다 (코스는 제외)
 function recentAsTarget(entry: RecentSearch): (NavTarget & { address?: string }) | null {
@@ -91,6 +94,8 @@ export default function DirectionsScreen() {
       : null,
   );
   const [editing, setEditing] = useState<Editing | null>(null);
+  // 경유지 — null 은 + 로 만든 빈 줄. 미리보기로 넘어갈 때 채워진 것만 전달한다.
+  const [viaPoints, setViaPoints] = useState<(NavTarget | null)[]>([]);
   const [resolving, setResolving] = useState(false);
   const [recents, setRecents] = useState<RecentSearch[]>([]);
 
@@ -110,6 +115,7 @@ export default function DirectionsScreen() {
     nextOrigin: Point,
     nextDest: Point | null,
     destAddress?: string,
+    nextVias: (NavTarget | null)[] = viaPoints,
   ) => {
     if (!nextDest || resolving) return;
     setResolving(true);
@@ -117,7 +123,8 @@ export default function DirectionsScreen() {
       const resolvedDest = nextDest === 'current' ? await currentAsTarget() : nextDest;
       const resolvedOrigin =
         nextOrigin === 'current' ? undefined : nextOrigin; // undefined → /navi 가 현재 위치 사용
-      const entered = await openNavigation(resolvedDest, resolvedOrigin);
+      const vias = nextVias.filter((v): v is NavTarget => v !== null);
+      const entered = await openNavigation(resolvedDest, resolvedOrigin, vias);
       if (entered && nextDest !== 'current') {
         // 검색 화면과 같은 최근 검색 목록에 쌓는다
         const next = await addRecentSearch({
@@ -148,9 +155,11 @@ export default function DirectionsScreen() {
   const swap = () => {
     const nextOrigin: Point = dest ?? 'current';
     const nextDest: Point | null = origin === 'current' ? null : origin;
+    const nextVias = [...viaPoints].reverse(); // 왕복 반전이니 들르는 순서도 뒤집는다
     setOrigin(nextOrigin);
     setDest(nextDest);
-    void preview(nextOrigin, nextDest);
+    setViaPoints(nextVias);
+    void preview(nextOrigin, nextDest, undefined, nextVias);
   };
 
   const pickDest = (point: Point, address?: string) => {
@@ -158,10 +167,25 @@ export default function DirectionsScreen() {
     void preview(origin, point, address);
   };
 
+  // + 버튼 — 빈 경유지 줄만 만든다. 탭해서 검색으로 채운다.
+  const addEmptyVia = () => {
+    setViaPoints((prev) => (prev.length >= MAX_VIAS ? prev : [...prev, null]));
+  };
+
+  const removeVia = (index: number) => {
+    setViaPoints((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleModalSelect = (point: Point, address?: string) => {
     const kind = editing;
     setEditing(null);
-    if (kind === 'origin') {
+    if (typeof kind === 'number') {
+      if (point === 'current') return;
+      const nextVias = viaPoints.map((v, i) => (i === kind ? point : v));
+      setViaPoints(nextVias);
+      // 도착지가 이미 있으면 채워진 경유지를 반영해 바로 미리보기로
+      if (dest) void preview(origin, dest, undefined, nextVias);
+    } else if (kind === 'origin') {
       setOrigin(point);
       void preview(point, dest);
     } else if (kind === 'dest') {
@@ -224,7 +248,34 @@ export default function DirectionsScreen() {
             muted={false}
             onPress={() => setEditing('origin')}
           />
-          <View style={[styles.fieldDivider, { backgroundColor: colors.border }]} />
+          {viaPoints.map((via, i) => (
+            <View key={i}>
+              <View style={[styles.fieldDivider, { backgroundColor: colors.border }]} />
+              <FieldRow
+                icon="circle-medium"
+                placeholder="경유지 입력"
+                value={via?.name ?? ''}
+                muted={!via}
+                onPress={() => setEditing(i)}
+                onRemove={() => removeVia(i)}
+              />
+            </View>
+          ))}
+          {/* 경유지 추가 — 줄을 차지하지 않고 divider 위에 뜨는 + 버튼 */}
+          <View style={styles.fieldDividerWrap}>
+            <View style={[styles.fieldDivider, { backgroundColor: colors.border }]} />
+            {viaPoints.length < MAX_VIAS && (
+              <Pressable
+                onPress={addEmptyVia}
+                hitSlop={8}
+                style={[
+                  styles.fieldInsertButton,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}>
+                <MaterialCommunityIcons name="plus" size={14} color={colors.textSecondary} />
+              </Pressable>
+            )}
+          </View>
           <FieldRow
             icon="map-marker"
             placeholder="도착지 선택"
@@ -311,10 +362,18 @@ export default function DirectionsScreen() {
       <PointSearchModal
         visible={editing !== null}
         allowCurrent={editing === 'origin' || editing === 'dest'}
-        allowSaved={editing === 'origin' || editing === 'dest'}
+        allowSaved={editing !== 'home' && editing !== 'work'}
         recents={recentTargets.map((r) => r.target)}
         title={
-          editing === 'home' ? '집 설정' : editing === 'work' ? '회사 설정' : undefined
+          editing === 'home'
+            ? '집 설정'
+            : editing === 'work'
+              ? '회사 설정'
+              : typeof editing === 'number'
+                ? viaPoints[editing]
+                  ? '경유지 변경'
+                  : '경유지 추가'
+                : undefined
         }
         onClose={() => setEditing(null)}
         onSelect={handleModalSelect}
@@ -338,12 +397,14 @@ function FieldRow({
   value,
   muted,
   onPress,
+  onRemove,
 }: {
-  icon: 'radiobox-marked' | 'map-marker';
+  icon: 'radiobox-marked' | 'circle-medium' | 'map-marker';
   placeholder: string;
   value: string;
   muted: boolean;
   onPress: () => void;
+  onRemove?: () => void;
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -355,6 +416,15 @@ function FieldRow({
         numberOfLines={1}>
         {value || placeholder}
       </Text>
+      {onRemove && (
+        <Pressable onPress={onRemove} hitSlop={10} style={styles.fieldRemove}>
+          <MaterialCommunityIcons
+            name="minus-circle-outline"
+            size={16}
+            color={colors.textSecondary}
+          />
+        </Pressable>
+      )}
     </Pressable>
   );
 }
@@ -423,6 +493,24 @@ const styles = StyleSheet.create({
   fieldDivider: {
     height: StyleSheet.hairlineWidth,
     marginLeft: 26,
+  },
+  // divider 를 흐름에 그대로 두고 + 버튼만 그 위에 띄운다 — 줄 높이 0
+  fieldDividerWrap: {
+    justifyContent: 'center',
+    zIndex: 5,
+  },
+  fieldInsertButton: {
+    position: 'absolute',
+    alignSelf: 'center',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fieldRemove: {
+    padding: 2,
   },
   fieldValue: {
     flex: 1,

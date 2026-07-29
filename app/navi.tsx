@@ -69,31 +69,15 @@ const MAX_USER_VIAS = 5;
 // 검색 모달이 어느 필드를 채우는 중인지 — 숫자는 경유지 인덱스
 type EditingField = 'start' | 'goal' | number;
 
-// 경로 편집 카드의 행·추가 줄 높이 — 드래그 타깃 계산이 이 값에 기댄다
+// 경로 편집 카드의 행 높이 — 드래그 타깃 계산이 이 값의 균일 격자에 기댄다
+// (+ 버튼은 divider 위에 떠 있어 세로 공간을 차지하지 않는다)
 const ROW_H = 44;
-const ADD_H = 34;
-
-// 논리 인덱스 i 행의 시각 y — + 줄이 경유지와 도착지 사이에 끼어 있어
-// 마지막 행(도착지)만 그만큼 내려가 있다.
-function slotY(i: number, rowCount: number, plusH: number) {
-  'worklet';
-  return i * ROW_H + (i === rowCount - 1 ? plusH : 0);
-}
 
 // 드래그 중인 행의 현재 y 에 가장 가까운 슬롯 — 드롭 타깃이자,
 // 다른 행들이 실시간으로 비켜줄 기준이다.
-function nearestSlot(curY: number, rowCount: number, plusH: number) {
+function nearestSlot(curY: number, rowCount: number) {
   'worklet';
-  let best = 0;
-  let bestDist = Number.MAX_VALUE;
-  for (let i = 0; i < rowCount; i++) {
-    const d = Math.abs(slotY(i, rowCount, plusH) - curY);
-    if (d < bestDist) {
-      bestDist = d;
-      best = i;
-    }
-  }
-  return best;
+  return Math.max(0, Math.min(rowCount - 1, Math.round(curY / ROW_H)));
 }
 
 // 길안내 진입 화면 — 경로 미리보기와 옵션 선택을 겸한다.
@@ -108,12 +92,14 @@ export default function NaviScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { lng, lat, name, vias, slng, slat, sname, pid, cid } = useLocalSearchParams<{
+  const { lng, lat, name, vias, uvias, slng, slat, sname, pid, cid } = useLocalSearchParams<{
     lng: string;
     lat: string;
     name?: string;
     /** JSON "[lng,lat,...]" — 코스 안내의 경유지 */
     vias?: string;
+    /** JSON NavTarget[] — 길찾기 페이지에서 미리 고른 경유지(편집 가능) */
+    uvias?: string;
     /** 출발지 지정(길찾기) — 없으면 현재 위치에서 출발 */
     slng?: string;
     slat?: string;
@@ -140,7 +126,9 @@ export default function NaviScreen() {
   const [startName, setStartName] = useState<string | null>(sname ?? null);
   // 길찾기 경유지(편집 가능) — 코스 경유지(vias 파라미터)와 별개.
   // null 은 + 로 만든 빈 줄: 탭해서 채우기 전까지 경로에는 안 들어간다.
-  const [userVias, setUserVias] = useState<(NavTarget | null)[]>([]);
+  const [userVias, setUserVias] = useState<(NavTarget | null)[]>(
+    uvias ? JSON.parse(uvias) : [],
+  );
   const [editing, setEditing] = useState<EditingField | null>(null);
   // 드래그 중인 행(논리 인덱스: 출발 0, 경유지 1.., 도착 마지막)과 이동량
   const dragIndex = useSharedValue(-1);
@@ -274,13 +262,11 @@ export default function NaviScreen() {
     [],
   );
 
-  // 행 수·+ 줄 높이도 같은 이유로 shared value 로 미러링해 worklet 이 늘 최신을 본다
+  // 행 수도 같은 이유로 shared value 로 미러링해 worklet 이 늘 최신을 본다
   const rowCountSv = useSharedValue(userVias.length + 2);
-  const plusHSv = useSharedValue(userVias.length < MAX_USER_VIAS ? ADD_H : 0);
   useEffect(() => {
     rowCountSv.value = userVias.length + 2;
-    plusHSv.value = userVias.length < MAX_USER_VIAS ? ADD_H : 0;
-  }, [userVias.length, rowCountSv, plusHSv]);
+  }, [userVias.length, rowCountSv]);
 
   // 행 왼쪽 핸들의 팬 제스처 — 행 높이 격자로 드롭 슬롯을 정한다
   const makeRowPan = (index: number) =>
@@ -293,8 +279,10 @@ export default function NaviScreen() {
         dragY.value = e.translationY;
       })
       .onEnd(() => {
-        const cur = slotY(index, rowCountSv.value, plusHSv.value) + dragY.value;
-        runOnJS(dispatchReorder)(index, nearestSlot(cur, rowCountSv.value, plusHSv.value));
+        runOnJS(dispatchReorder)(
+          index,
+          nearestSlot(index * ROW_H + dragY.value, rowCountSv.value),
+        );
       })
       .onFinalize(() => {
         dragIndex.value = -1;
@@ -589,9 +577,6 @@ export default function NaviScreen() {
                 borderColor: colors.border,
               },
             ]}>
-            <Pressable onPress={() => router.back()} hitSlop={6} style={styles.routeClose}>
-              <Ionicons name="close" size={22} color={colors.text} />
-            </Pressable>
             <View style={styles.routeFields}>
               <RouteFieldRow
                 icon="radiobox-marked"
@@ -599,7 +584,6 @@ export default function NaviScreen() {
                 onPress={() => !starting && setEditing('start')}
                 index={0}
                 rowCountSv={rowCountSv}
-                plusHSv={plusHSv}
                 dragIndex={dragIndex}
                 dragY={dragY}
                 pan={makeRowPan(0)}
@@ -615,52 +599,59 @@ export default function NaviScreen() {
                     onRemove={() => removeVia(i)}
                     index={i + 1}
                     rowCountSv={rowCountSv}
-                    plusHSv={plusHSv}
                     dragIndex={dragIndex}
                     dragY={dragY}
                     pan={makeRowPan(i + 1)}
                   />
                 </View>
               ))}
-              <View style={[styles.routeDivider, { backgroundColor: colors.border }]} />
-              {userVias.length < MAX_USER_VIAS && (
-                <>
-                  {/* 경유지 추가 — 빈 줄을 만들고, 그 줄을 탭해 검색으로 채운다 */}
-                  <Pressable onPress={addEmptyVia} style={styles.routeAddRow}>
+              {/* 마지막 경유지와 도착지 사이 — 줄을 차지하지 않는 + 버튼이 divider 위에 뜬다 */}
+              <View style={styles.routeDividerWrap}>
+                <View style={[styles.routeDivider, { backgroundColor: colors.border }]} />
+                {userVias.length < MAX_USER_VIAS && (
+                  <Pressable
+                    onPress={addEmptyVia}
+                    hitSlop={8}
+                    style={[
+                      styles.routeInsertButton,
+                      { backgroundColor: colors.background, borderColor: colors.border },
+                    ]}>
                     <MaterialCommunityIcons
-                      name="plus-circle-outline"
-                      size={16}
+                      name="plus"
+                      size={14}
                       color={colors.textSecondary}
                     />
-                    <Text style={[styles.routeAddLabel, { color: colors.textSecondary }]}>
-                      경유지 추가
-                    </Text>
                   </Pressable>
-                  <View style={[styles.routeDivider, { backgroundColor: colors.border }]} />
-                </>
-              )}
+                )}
+              </View>
               <RouteFieldRow
                 icon="map-marker"
                 value={goal.name}
                 onPress={() => !starting && setEditing('goal')}
                 index={userVias.length + 1}
                 rowCountSv={rowCountSv}
-                plusHSv={plusHSv}
                 dragIndex={dragIndex}
                 dragY={dragY}
                 pan={makeRowPan(userVias.length + 1)}
               />
             </View>
-            <Pressable
-              onPress={swapEnds}
-              hitSlop={6}
-              style={[styles.routeActionButton, { borderColor: colors.border }]}>
-              <MaterialCommunityIcons
-                name="swap-vertical"
-                size={17}
-                color={colors.textSecondary}
-              />
-            </Pressable>
+            {/* 오른쪽 열 — 닫기는 상단(왼쪽 핸들과 멀리), 스왑은 세로 중앙 */}
+            <View style={styles.routeSide}>
+              <Pressable onPress={() => router.back()} hitSlop={8} style={styles.routeClose}>
+                <Ionicons name="close" size={20} color={colors.text} />
+              </Pressable>
+              <Pressable
+                onPress={swapEnds}
+                hitSlop={6}
+                style={[styles.routeActionButton, { borderColor: colors.border }]}>
+                <MaterialCommunityIcons
+                  name="swap-vertical"
+                  size={17}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+              <View style={styles.routeSideSpacer} />
+            </View>
           </View>
         )
       )}
@@ -776,7 +767,6 @@ function RouteFieldRow({
   onRemove,
   index,
   rowCountSv,
-  plusHSv,
   dragIndex,
   dragY,
   pan,
@@ -789,7 +779,6 @@ function RouteFieldRow({
   /** 재정렬 목록에서의 논리 인덱스 (출발 0 … 도착 마지막) */
   index: number;
   rowCountSv: SharedValue<number>;
-  plusHSv: SharedValue<number>;
   dragIndex: SharedValue<number>;
   dragY: SharedValue<number>;
   pan: ReturnType<typeof Gesture.Pan>;
@@ -814,8 +803,7 @@ function RouteFieldRow({
         opacity: 1,
       };
     }
-    const cur = slotY(from, rowCountSv.value, plusHSv.value) + dragY.value;
-    const target = nearestSlot(cur, rowCountSv.value, plusHSv.value);
+    const target = nearestSlot(from * ROW_H + dragY.value, rowCountSv.value);
     let shift = 0;
     if (from < index && index <= target) shift = -ROW_H; // 드래그 행이 내려와 내 자리를 차지
     else if (target <= index && index < from) shift = ROW_H; // 드래그 행이 올라와 내 자리를 차지
@@ -887,6 +875,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     paddingVertical: 4,
+    paddingLeft: 10,
     paddingRight: 8,
     shadowColor: '#000',
     shadowOpacity: 0.15,
@@ -894,11 +883,23 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  routeClose: {
-    width: 40,
+  // 닫기(상단)·스왑(중앙)·스페이서가 세로로 늘어선 오른쪽 열.
+  // 닫기를 드래그 핸들(왼쪽)과 떨어뜨려 오작을 막는다.
+  routeSide: {
     alignSelf: 'stretch',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginLeft: 6,
+    paddingVertical: 2,
+  },
+  routeClose: {
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  routeSideSpacer: {
+    height: 28,
   },
   routeFields: {
     flex: 1,
@@ -934,16 +935,20 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     marginLeft: 26,
   },
-  routeAddRow: {
-    height: ADD_H,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingLeft: 26, // 핸들 열만큼 들여써 필드 아이콘들과 맞춘다
+  // divider 를 흐름에 그대로 두고 + 버튼만 그 위에 띄운다 — 줄 높이 0
+  routeDividerWrap: {
+    justifyContent: 'center',
+    zIndex: 5,
   },
-  routeAddLabel: {
-    fontSize: 13,
-    fontWeight: '500',
+  routeInsertButton: {
+    position: 'absolute',
+    alignSelf: 'center',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   routeActionButton: {
     width: 32,
@@ -952,7 +957,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 6,
   },
   card: {
     position: 'absolute',
