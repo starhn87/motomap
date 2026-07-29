@@ -18,6 +18,8 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+
 import KakaoNavi, {
   ROUTE_PRIORITIES,
   friendlyRouteError,
@@ -27,7 +29,8 @@ import KakaoNavi, {
   type BikeRoute,
   type RoutePriority,
 } from '@/modules/kakao-navi';
-import { sampleWaypoints } from '@/lib/navigation';
+import { sampleWaypoints, type NavTarget } from '@/lib/navigation';
+import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
 import { useMapStore } from '@/stores/useMapStore';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
@@ -52,9 +55,17 @@ const TRAFFIC_COLORS: Record<number, string> = {
   0: '#9CA3AF', // 정보 없음
 };
 
+// 길찾기 경유지 상한 — 직접 고르는 지점이라 코스 샘플링(20개)과 별개다
+const MAX_USER_VIAS = 5;
+
+// 검색 모달이 어느 필드를 채우는 중인지 — 숫자는 경유지 인덱스
+type EditingField = 'start' | 'goal' | 'addVia' | number;
+
 // 길안내 진입 화면 — 경로 미리보기와 옵션 선택을 겸한다.
 // 옵션별 경로를 지도에 그려 보여주고, 고르면 그 옵션으로 KNSDK 안내를 시작한다.
 // 미리보기도 안내와 같은 KNSDK 엔진을 쓰므로 여기서 본 경로가 곧 안내 경로다.
+// 코스 안내가 아니면 상단 카드에서 출발지·경유지·도착지를 바로 바꿀 수 있다
+// (코스 경유지는 지오메트리 좌표 수십 개라 편집 대상이 아니다).
 export default function NaviScreen() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -79,7 +90,22 @@ export default function NaviScreen() {
 
   const mapRef = useRef<NaverMapViewRef>(null);
 
-  const [start, setStart] = useState<[number, number] | null>(null); // [lng, lat]
+  // 도착지 — 파라미터는 초기값일 뿐, 상단 카드에서 바꿀 수 있다.
+  // 바꾸면 placeId(도착 후 리뷰 연결)는 원래 장소 것이라 함께 버린다.
+  const [goal, setGoal] = useState<NavTarget>({
+    name: name ?? '목적지',
+    latitude: Number(lat),
+    longitude: Number(lng),
+    placeId: pid,
+  });
+  const [start, setStart] = useState<[number, number] | null>(
+    slng && slat ? [Number(slng), Number(slat)] : null,
+  ); // [lng, lat]
+  // 지정 출발지의 이름 — null 이면 현재 위치 출발
+  const [startName, setStartName] = useState<string | null>(sname ?? null);
+  // 길찾기 경유지(이름 있는 지점, 편집 가능) — 코스 경유지(vias 파라미터)와 별개
+  const [userVias, setUserVias] = useState<NavTarget[]>([]);
+  const [editing, setEditing] = useState<EditingField | null>(null);
   // 안내가 시작되면 미리보기 지도를 렌더에서 내린다 — 화면 replace 만으로는
   // 네이티브 마커(출발 도트)가 재활용 과정에서 지도 탭에 남을 수 있다(실기기
   // 보고). 안내 화면이 위를 덮은 뒤라 사용자에게는 보이지 않는 전환이다.
@@ -97,16 +123,65 @@ export default function NaviScreen() {
   // 안내 시작도 이 목록을 그대로 쓴다.
   const [activeVias, setActiveVias] = useState<number[] | null>(null);
 
-  const goalLng = Number(lng);
-  const goalLat = Number(lat);
-  const goalName = name ?? '목적지';
-  const flatVias: number[] = vias ? JSON.parse(vias) : [];
+  const courseVias: number[] = vias ? JSON.parse(vias) : [];
+  const isCourseMode = !!cid || courseVias.length > 0;
+  const flatVias = isCourseMode
+    ? courseVias
+    : userVias.flatMap((p) => [p.longitude, p.latitude]);
   // 폴백 시: 첫 경유지(코스 출발지)가 출발점이 되고 나머지가 경유지로 남는다
   const effStart: [number, number] | null = courseOnly
     ? [flatVias[0], flatVias[1]]
     : start;
   const effVias = courseOnly ? flatVias.slice(2) : flatVias;
   const route = routes[priority];
+
+  // 지점이 바뀌면 옵션별 캐시가 전부 낡는다 — 경로·혼잡도를 비워 재조회를 태운다
+  const resetRoutes = () => {
+    setRoutes({});
+    setTraffic({});
+    setActiveVias(null);
+  };
+
+  const handleFieldSelect = (point: Point) => {
+    const field = editing;
+    setEditing(null);
+    if (field === null) return;
+    if (field === 'start') {
+      if (point === 'current') {
+        // 출발지를 현재 위치로 되돌린다 — null 로 두면 아래 effect 가 다시 픽스한다
+        setStartName(null);
+        setStart(null);
+      } else {
+        setStartName(point.name);
+        setStart([point.longitude, point.latitude]);
+      }
+    } else if (point === 'current') {
+      return; // 도착지·경유지에 '현재 위치'는 모달에서 막지만 한 번 더 거른다
+    } else if (field === 'goal') {
+      setGoal({ name: point.name, latitude: point.latitude, longitude: point.longitude });
+    } else if (field === 'addVia') {
+      setUserVias((prev) =>
+        prev.length >= MAX_USER_VIAS ? prev : [...prev, point],
+      );
+    } else {
+      setUserVias((prev) => prev.map((v, i) => (i === field ? point : v)));
+    }
+    resetRoutes();
+  };
+
+  const removeVia = (index: number) => {
+    setUserVias((prev) => prev.filter((_, i) => i !== index));
+    resetRoutes();
+  };
+
+  const swapEnds = () => {
+    if (!start) return; // 현재 위치를 아직 확보 중이면 바꿀 게 없다
+    const prevGoal = goal;
+    setGoal({ name: startName ?? '현재 위치', latitude: start[1], longitude: start[0] });
+    setStartName(prevGoal.name);
+    setStart([prevGoal.longitude, prevGoal.latitude]);
+    resetRoutes();
+  };
 
   // 안내 시작 신호 — 안내 화면이 덮인 동안 밑 화면을 지도로 바꿔 둔다.
   // 닫힘 주도권이 SDK 쪽에도 있어(도착 자동 종료 등) 닫힘 타이밍은 잡을 수 없다.
@@ -116,10 +191,10 @@ export default function NaviScreen() {
     const started = KakaoNavi.addListener('onGuideStarted', () => {
       startGuideSession(
         {
-          latitude: goalLat,
-          longitude: goalLng,
-          name: goalName,
-          placeId: pid,
+          latitude: goal.latitude,
+          longitude: goal.longitude,
+          name: goal.name,
+          placeId: goal.placeId,
           courseId: cid,
         },
         priority,
@@ -137,16 +212,14 @@ export default function NaviScreen() {
       started.remove();
       failed.remove();
     };
-  }, [router, navigation, pid, cid, goalLat, goalLng, goalName, priority]);
+  }, [router, navigation, cid, goal, priority]);
 
-  // 출발지 확보 — 지정돼 있으면 그대로, 아니면 현재 위치.
+  // 출발지 확보 — 지정돼 있으면 그대로(초기값), 아니면 현재 위치.
   // 지도 탭이 위치를 상시 추적 중이라 대개는 스토어 값으로 즉시 시작하고,
-  // 없을 때만(권한 전 딥링크 등) 새 픽스를 기다린다.
+  // 없을 때만(권한 전 딥링크 등) 새 픽스를 기다린다. 상단 카드에서 출발지를
+  // '현재 위치'로 되돌리면 start 가 null 이 되어 여기가 다시 돈다.
   useEffect(() => {
-    if (slng && slat) {
-      setStart([Number(slng), Number(slat)]);
-      return;
-    }
+    if (start) return;
     const cached = useMapStore.getState().userLocation;
     if (cached) {
       setStart([cached.longitude, cached.latitude]);
@@ -175,7 +248,7 @@ export default function NaviScreen() {
     return () => {
       cancelled = true;
     };
-  }, [router, slng, slat]);
+  }, [router, start]);
 
   // 선택된 옵션의 경로 확보 (옵션별 캐시).
   // 20412 는 경유지 좌표가 도로에 스냅되지 않는 경우라, 경유지를
@@ -208,7 +281,7 @@ export default function NaviScreen() {
       for (const tryVias of ladder) {
         try {
           const result = await KakaoNavi.requestBikeRoute(
-            effStart[0], effStart[1], goalLng, goalLat, tryVias, priority,
+            effStart[0], effStart[1], goal.longitude, goal.latitude, tryVias, priority,
           );
           if (cancelled) return;
           if (tryVias.length < requestVias.length) {
@@ -224,8 +297,8 @@ export default function NaviScreen() {
       }
       if (cancelled) return;
 
-      // 현재 위치 출발이 막히고 경유지가 있으면(코스 안내) 코스 출발지 기준으로 재시도
-      if (!courseOnly && !slng && flatVias.length >= 2) {
+      // 현재 위치 출발이 막힌 코스 안내는 코스 출발지 기준으로 재시도
+      if (!courseOnly && isCourseMode && flatVias.length >= 2) {
         setRoutes({});
         setTraffic({});
         setCourseOnly(true);
@@ -242,8 +315,8 @@ export default function NaviScreen() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias 문자열·courseOnly 에서 파생
-  }, [effStart?.[0], effStart?.[1], priority, routes, goalLng, goalLat, vias, courseOnly, activeVias]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias·userVias·courseOnly 에서 파생
+  }, [effStart?.[0], effStart?.[1], priority, routes, goal.longitude, goal.latitude, vias, userVias, courseOnly, activeVias]);
 
   // 혼잡 구간 색칠 — 같은 엔진인 REST 로 같은 조건을 조회한다. 경유지가 없으면
   // 입력이 이미 확정이라 SDK 경로 요청과 병렬로 바로 쏘고(색칠이 SDK 왕복만큼
@@ -254,7 +327,7 @@ export default function NaviScreen() {
     if (!effStart || traffic[priority]) return;
     if (effVias.length > 0 && !route) return;
     let cancelled = false;
-    fetchBikeTraffic(effStart, [goalLng, goalLat], pairsFromFlat(activeVias ?? effVias), priority)
+    fetchBikeTraffic(effStart, [goal.longitude, goal.latitude], pairsFromFlat(activeVias ?? effVias), priority)
       .then((parts) => {
         if (!cancelled) setTraffic((prev) => ({ ...prev, [priority]: parts }));
       })
@@ -262,8 +335,8 @@ export default function NaviScreen() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias·courseOnly 에서 파생
-  }, [effStart?.[0], effStart?.[1], route, priority, goalLng, goalLat, activeVias]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias·userVias·courseOnly 에서 파생
+  }, [effStart?.[0], effStart?.[1], route, priority, goal.longitude, goal.latitude, activeVias]);
 
   // 경로가 바뀌면 전체가 보이도록 카메라를 맞춘다.
   // 남쪽은 하단 카드가 덮는 만큼 더 벌린다.
@@ -289,17 +362,19 @@ export default function NaviScreen() {
         longitude: minLng - lngSpan * 0.1,
       },
       coord2: {
-        latitude: maxLat + latSpan * 0.1,
+        // 북쪽은 경로 편집 카드가 덮는 만큼 더 벌린다 (코스 안내에는 카드가 없다)
+        latitude: maxLat + latSpan * (isCourseMode ? 0.1 : 0.35),
         longitude: maxLng + lngSpan * 0.1,
       },
       duration: 700,
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isCourseMode 는 파라미터에서 파생돼 불변
   }, [route]);
 
   const startGuide = () => {
     if (!start || starting || courseOnly) return;
     setStarting(true);
-    KakaoNavi.startGuide(start[0], start[1], goalLng, goalLat, goalName, activeVias ?? flatVias, priority).catch(
+    KakaoNavi.startGuide(start[0], start[1], goal.longitude, goal.latitude, goal.name, activeVias ?? flatVias, priority).catch(
       (err) => {
         setStarting(false);
         toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(err));
@@ -344,7 +419,7 @@ export default function NaviScreen() {
         // 위치 오버레이를 강제로 끈다 — 재활용된 지도 뷰가 지도 탭의 오버레이
         // 상태를 물려받아 고아 위치 마커가 화면에 남았다(실기기 영상으로 확정)
         locationOverlay={{ isVisible: false }}
-        initialCamera={{ latitude: goalLat, longitude: goalLng, zoom: 12 }}>
+        initialCamera={{ latitude: goal.latitude, longitude: goal.longitude, zoom: 12 }}>
         {start && (
           // 출발점 도트 — children 커스텀 뷰는 캡처용 네이티브 뷰가 화면에
           // 고아로 남는 문제가 있어(실기기: 좌표에 안 붙고 떠다니는 잔상)
@@ -370,19 +445,82 @@ export default function NaviScreen() {
             outlineColor="#FFFFFF"
           />
         ) : null}
-        <TempPlaceMarker latitude={goalLat} longitude={goalLng} />
+        <TempPlaceMarker latitude={goal.latitude} longitude={goal.longitude} />
       </NaverMapView>
       )}
 
-      {/* 닫기 */}
-      <Pressable
-        onPress={() => router.back()}
-        style={[
-          styles.closeButton,
-          { top: insets.top + 8, backgroundColor: colors.background },
-        ]}>
-        <Ionicons name="close" size={22} color={colors.text} />
-      </Pressable>
+      {isCourseMode ? (
+        /* 코스 안내 — 편집할 지점이 없으니 닫기 버튼만 */
+        <Pressable
+          onPress={() => router.back()}
+          style={[
+            styles.closeButton,
+            { top: insets.top + 8, backgroundColor: colors.background },
+          ]}>
+          <Ionicons name="close" size={22} color={colors.text} />
+        </Pressable>
+      ) : (
+        !guideStarted && (
+          /* 경로 편집 카드 — 필드를 탭하면 그 지점을 바꾸고 경로를 다시 그린다 */
+          <View
+            style={[
+              styles.routeCard,
+              {
+                top: insets.top + 8,
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+              },
+            ]}>
+            <Pressable onPress={() => router.back()} hitSlop={6} style={styles.routeClose}>
+              <Ionicons name="close" size={22} color={colors.text} />
+            </Pressable>
+            <View style={styles.routeFields}>
+              <RouteFieldRow
+                icon="radiobox-marked"
+                value={startName ?? '현재 위치'}
+                onPress={() => !starting && setEditing('start')}
+              />
+              {userVias.map((via, i) => (
+                <View key={`${via.longitude},${via.latitude},${i}`}>
+                  <View style={[styles.routeDivider, { backgroundColor: colors.border }]} />
+                  <RouteFieldRow
+                    icon="circle-medium"
+                    value={via.name}
+                    onPress={() => !starting && setEditing(i)}
+                    onRemove={() => removeVia(i)}
+                  />
+                </View>
+              ))}
+              <View style={[styles.routeDivider, { backgroundColor: colors.border }]} />
+              <RouteFieldRow
+                icon="map-marker"
+                value={goal.name}
+                onPress={() => !starting && setEditing('goal')}
+              />
+            </View>
+            <View style={styles.routeActions}>
+              <Pressable
+                onPress={swapEnds}
+                hitSlop={6}
+                style={[styles.routeActionButton, { borderColor: colors.border }]}>
+                <MaterialCommunityIcons
+                  name="swap-vertical"
+                  size={17}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+              {userVias.length < MAX_USER_VIAS && (
+                <Pressable
+                  onPress={() => !starting && setEditing('addVia')}
+                  hitSlop={6}
+                  style={[styles.routeActionButton, { borderColor: colors.border }]}>
+                  <MaterialCommunityIcons name="plus" size={18} color={colors.textSecondary} />
+                </Pressable>
+              )}
+            </View>
+          </View>
+        )
+      )}
 
       {/* 하단: 목적지 + 옵션 + 경로 정보 + 시작 */}
       <View
@@ -394,13 +532,6 @@ export default function NaviScreen() {
             borderColor: colors.border,
           },
         ]}>
-        {sname && (
-          <Text
-            style={[styles.startName, { color: colors.textSecondary }]}
-            numberOfLines={1}>
-            출발 · {sname}
-          </Text>
-        )}
         {courseOnly && (
           <Text
             style={[styles.startName, { color: colors.textSecondary }]}
@@ -409,7 +540,7 @@ export default function NaviScreen() {
           </Text>
         )}
         <Text style={[styles.goalName, { color: colors.text }]} numberOfLines={1}>
-          {goalName}
+          {goal.name}
         </Text>
 
         <View style={styles.chipRow}>
@@ -473,7 +604,52 @@ export default function NaviScreen() {
           )}
         </Pressable>
       </View>
+
+      <PointSearchModal
+        visible={editing !== null}
+        allowCurrent={editing === 'start'}
+        allowSaved
+        title={
+          editing === 'start'
+            ? '출발지 변경'
+            : editing === 'goal'
+              ? '도착지 변경'
+              : editing === 'addVia'
+                ? '경유지 추가'
+                : '경유지 변경'
+        }
+        onClose={() => setEditing(null)}
+        onSelect={handleFieldSelect}
+      />
     </View>
+  );
+}
+
+function RouteFieldRow({
+  icon,
+  value,
+  onPress,
+  onRemove,
+}: {
+  icon: 'radiobox-marked' | 'circle-medium' | 'map-marker';
+  value: string;
+  onPress: () => void;
+  onRemove?: () => void;
+}) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  return (
+    <Pressable onPress={onPress} style={styles.routeFieldRow}>
+      <MaterialCommunityIcons name={icon} size={15} color={colors.textSecondary} />
+      <Text style={[styles.routeFieldValue, { color: colors.text }]} numberOfLines={1}>
+        {value}
+      </Text>
+      {onRemove && (
+        <Pressable onPress={onRemove} hitSlop={10} style={styles.routeFieldRemove}>
+          <Ionicons name="close" size={15} color={colors.textSecondary} />
+        </Pressable>
+      )}
+    </Pressable>
   );
 }
 
@@ -492,6 +668,62 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
+  },
+  routeCard: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 4,
+    paddingRight: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  routeClose: {
+    width: 40,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  routeFields: {
+    flex: 1,
+  },
+  routeFieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 11,
+    paddingRight: 4,
+  },
+  routeFieldValue: {
+    flex: 1,
+    fontSize: 14.5,
+    fontWeight: '500',
+  },
+  routeFieldRemove: {
+    padding: 2,
+  },
+  routeDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: 23,
+  },
+  routeActions: {
+    marginLeft: 6,
+    gap: 8,
+  },
+  routeActionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   card: {
     position: 'absolute',
