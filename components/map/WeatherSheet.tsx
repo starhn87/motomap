@@ -344,6 +344,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 4,
+    // 미세먼지 값이 늦게 도착해 단위 텍스트가 끼어도 행 높이가 흔들리지
+    // 않도록 고정 — 로드 전후 셀 높이가 같아야 아래 예보가 안 밀린다
+    minHeight: 20,
   },
   statValue: {
     fontSize: 15,
