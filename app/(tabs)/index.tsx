@@ -211,6 +211,10 @@ export default function MapScreen() {
   } = useMapDeepLinks({
     mapReady,
     mapRef,
+    onFollow: () => {
+      followingRef.current = true;
+      handleMyLocation();
+    },
     onSelectPlace: handleSearchSelect,
     clearSelection: () => {
       setSelectedPlaceId(null);
@@ -356,6 +360,19 @@ export default function MapScreen() {
     );
   };
 
+  // 안내 종료 후 "내 위치 따라가기" — 위치 갱신마다 카메라가 따라가고,
+  // 사용자가 지도를 드래그하면 풀린다. SDK 트래킹 모드는 쓰지 않는다(유령
+  // 위치 오버레이 소환 — useMapDeepLinks 주석 참고).
+  const followingRef = useRef(false);
+  useEffect(() => {
+    if (!followingRef.current || !userLocation) return;
+    mapRef.current?.animateCameraTo({
+      latitude: userLocation.latitude,
+      longitude: userLocation.longitude,
+      duration: 600,
+    });
+  }, [userLocation]);
+
   const handleMyLocation = () => {
     if (!userLocation || !mapRef.current) return;
     // 내 위치를 지도 중앙으로 이동(현재 줌 유지)
@@ -414,6 +431,8 @@ export default function MapScreen() {
         onTapMap={handleMapTap}
         onTapSymbol={handleSymbolTap}
         onCameraChanged={(e) => {
+          // 드래그하면 따라가기 해제 (프로그램 이동 'Developer' 는 유지)
+          if (e.reason === 'Gesture') followingRef.current = false;
           if (cameraTimerRef.current) clearTimeout(cameraTimerRef.current);
           cameraTimerRef.current = setTimeout(() => {
             setMapCenter({

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -196,6 +197,13 @@ export default function SettingsScreen() {
           <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>버전</Text>
           <Text style={[styles.infoValue, { color: colors.text }]}>
             {Constants.expoConfig?.version ?? '1.0.0'}
+          </Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>업데이트</Text>
+          {/* 적용 중인 OTA 식별자 — 업데이트 반영 여부를 확인하는 용도 */}
+          <Text style={[styles.infoValue, { color: colors.text }]}>
+            {Updates.updateId ? Updates.updateId.slice(0, 8) : '내장 번들'}
           </Text>
         </View>
       </View>

@@ -14,11 +14,14 @@ import type { TempPlace } from '@/components/map/TempPlaceSheet';
 export function useMapDeepLinks({
   mapReady,
   mapRef,
+  onFollow,
   onSelectPlace,
   clearSelection,
 }: {
   mapReady: boolean;
   mapRef: React.RefObject<NaverMapViewRef | null>;
+  /** 안내 종료 직후 "내 위치 따라가기" 시작 — 지도 탭이 카메라 추적을 맡는다 */
+  onFollow: () => void;
   /** DB 장소 포커스 — 지도 이동·시트 오픈까지 담당하는 기존 선택 핸들러 */
   onSelectPlace: (place: Place) => void;
   /** 카카오 임시 핀을 띄우기 전 기존 장소 선택 해제 */
@@ -38,15 +41,17 @@ export function useMapDeepLinks({
       followTs?: string;
     }>();
 
-  // 안내 종료 직후 "내 위치 따라가기" (lib/mapFocus.followMyLocationOnMap) —
-  // 사용자가 지도를 드래그하면 SDK 가 알아서 따라가기를 푼다.
+  // 안내 종료 직후 "내 위치 따라가기" (lib/mapFocus.followMyLocationOnMap).
+  // ⚠️ setLocationTrackingMode('Follow')를 쓰면 안 된다 — SDK 위치 오버레이가
+  // 켜져 커스텀 내 위치 마커와 별개의 유령 마커가 뜬다(실기기 영상으로 확정).
+  // 카메라 추적은 지도 탭(onFollow)이 커스텀 마커 체계 위에서 직접 한다.
   const handledFollowRef = useRef<string | null>(null);
   useEffect(() => {
     if (!followTs || !mapReady) return;
     if (handledFollowRef.current === followTs) return;
     handledFollowRef.current = followTs;
-    mapRef.current?.setLocationTrackingMode('Follow');
-  }, [followTs, mapReady, mapRef]);
+    onFollow();
+  }, [followTs, mapReady, onFollow]);
 
   // 검색의 "일반 장소"(카카오 로컬) 선택 — DB 에 없는 임시 목적지
   const [tempPlace, setTempPlace] = useState<TempPlace | null>(null);
