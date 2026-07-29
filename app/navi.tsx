@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,6 +13,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
 import {
@@ -71,6 +72,29 @@ type EditingField = 'start' | 'goal' | number;
 // 경로 편집 카드의 행·추가 줄 높이 — 드래그 타깃 계산이 이 값에 기댄다
 const ROW_H = 44;
 const ADD_H = 34;
+
+// 논리 인덱스 i 행의 시각 y — + 줄이 경유지와 도착지 사이에 끼어 있어
+// 마지막 행(도착지)만 그만큼 내려가 있다.
+function slotY(i: number, rowCount: number, plusH: number) {
+  'worklet';
+  return i * ROW_H + (i === rowCount - 1 ? plusH : 0);
+}
+
+// 드래그 중인 행의 현재 y 에 가장 가까운 슬롯 — 드롭 타깃이자,
+// 다른 행들이 실시간으로 비켜줄 기준이다.
+function nearestSlot(curY: number, rowCount: number, plusH: number) {
+  'worklet';
+  let best = 0;
+  let bestDist = Number.MAX_VALUE;
+  for (let i = 0; i < rowCount; i++) {
+    const d = Math.abs(slotY(i, rowCount, plusH) - curY);
+    if (d < bestDist) {
+      bestDist = d;
+      best = i;
+    }
+  }
+  return best;
+}
 
 // 길안내 진입 화면 — 경로 미리보기와 옵션 선택을 겸한다.
 // 옵션별 경로를 지도에 그려 보여주고, 고르면 그 옵션으로 KNSDK 안내를 시작한다.
@@ -241,14 +265,26 @@ export default function NaviScreen() {
     setUserVias(rows.slice(1, -1).map((r) => (r.kind === 'via' ? r.via : asTarget(r))));
     resetRoutes();
   };
+  // 제스처 콜백은 attach 시점의 클로저를 물 수 있어(리프레시·리렌더 타이밍에
+  // 낡은 reorderRows 가 불리는 걸 실측) ref 를 거쳐 항상 최신 본문을 태운다.
+  const reorderRef = useRef(reorderRows);
+  reorderRef.current = reorderRows;
+  const dispatchReorder = useCallback(
+    (from: number, to: number) => reorderRef.current(from, to),
+    [],
+  );
 
-  // 행 오른쪽 핸들의 팬 제스처 — 행 높이 격자로 드롭 슬롯을 정한다.
-  // + 줄이 경유지와 도착지 사이에 끼어 있어 도착 행 y 만 그만큼 보정한다.
-  const makeRowPan = (index: number) => {
-    const viaCount = userVias.length;
-    const plusH = viaCount < MAX_USER_VIAS ? ADD_H : 0;
-    const rowCount = viaCount + 2;
-    return Gesture.Pan()
+  // 행 수·+ 줄 높이도 같은 이유로 shared value 로 미러링해 worklet 이 늘 최신을 본다
+  const rowCountSv = useSharedValue(userVias.length + 2);
+  const plusHSv = useSharedValue(userVias.length < MAX_USER_VIAS ? ADD_H : 0);
+  useEffect(() => {
+    rowCountSv.value = userVias.length + 2;
+    plusHSv.value = userVias.length < MAX_USER_VIAS ? ADD_H : 0;
+  }, [userVias.length, rowCountSv, plusHSv]);
+
+  // 행 왼쪽 핸들의 팬 제스처 — 행 높이 격자로 드롭 슬롯을 정한다
+  const makeRowPan = (index: number) =>
+    Gesture.Pan()
       .onStart(() => {
         dragIndex.value = index;
         dragY.value = 0;
@@ -257,24 +293,13 @@ export default function NaviScreen() {
         dragY.value = e.translationY;
       })
       .onEnd(() => {
-        const visY = (i: number) => i * ROW_H + (i === rowCount - 1 ? plusH : 0);
-        const cur = visY(index) + dragY.value;
-        let best = 0;
-        let bestDist = Number.MAX_VALUE;
-        for (let i = 0; i < rowCount; i++) {
-          const d = Math.abs(visY(i) - cur);
-          if (d < bestDist) {
-            bestDist = d;
-            best = i;
-          }
-        }
-        runOnJS(reorderRows)(index, best);
+        const cur = slotY(index, rowCountSv.value, plusHSv.value) + dragY.value;
+        runOnJS(dispatchReorder)(index, nearestSlot(cur, rowCountSv.value, plusHSv.value));
       })
       .onFinalize(() => {
         dragIndex.value = -1;
         dragY.value = 0;
       });
-  };
 
   // 안내 시작 신호 — 안내 화면이 덮인 동안 밑 화면을 지도로 바꿔 둔다.
   // 닫힘 주도권이 SDK 쪽에도 있어(도착 자동 종료 등) 닫힘 타이밍은 잡을 수 없다.
@@ -573,6 +598,8 @@ export default function NaviScreen() {
                 value={startName ?? '현재 위치'}
                 onPress={() => !starting && setEditing('start')}
                 index={0}
+                rowCountSv={rowCountSv}
+                plusHSv={plusHSv}
                 dragIndex={dragIndex}
                 dragY={dragY}
                 pan={makeRowPan(0)}
@@ -587,6 +614,8 @@ export default function NaviScreen() {
                     onPress={() => !starting && setEditing(i)}
                     onRemove={() => removeVia(i)}
                     index={i + 1}
+                    rowCountSv={rowCountSv}
+                    plusHSv={plusHSv}
                     dragIndex={dragIndex}
                     dragY={dragY}
                     pan={makeRowPan(i + 1)}
@@ -615,6 +644,8 @@ export default function NaviScreen() {
                 value={goal.name}
                 onPress={() => !starting && setEditing('goal')}
                 index={userVias.length + 1}
+                rowCountSv={rowCountSv}
+                plusHSv={plusHSv}
                 dragIndex={dragIndex}
                 dragY={dragY}
                 pan={makeRowPan(userVias.length + 1)}
@@ -744,6 +775,8 @@ function RouteFieldRow({
   onPress,
   onRemove,
   index,
+  rowCountSv,
+  plusHSv,
   dragIndex,
   dragY,
   pan,
@@ -755,24 +788,55 @@ function RouteFieldRow({
   onRemove?: () => void;
   /** 재정렬 목록에서의 논리 인덱스 (출발 0 … 도착 마지막) */
   index: number;
+  rowCountSv: SharedValue<number>;
+  plusHSv: SharedValue<number>;
   dragIndex: SharedValue<number>;
   dragY: SharedValue<number>;
   pan: ReturnType<typeof Gesture.Pan>;
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  // 드래그 중인 행만 손가락을 따라가고 나머지는 제자리 — 놓으면 목록이 재배열된다
+  // 드래그 중인 행은 손가락을 따라 떠오르고, 나머지 행은 드래그 행이
+  // 지날 슬롯을 실시간으로 비켜준다(네이버 지도식). 놓으면 그 순서로 재배열.
   const animatedStyle = useAnimatedStyle(() => {
-    const active = dragIndex.value === index;
+    const from = dragIndex.value;
+    if (from === index) {
+      return {
+        transform: [{ translateY: dragY.value }, { scale: 1.03 }],
+        zIndex: 10,
+        opacity: 0.95,
+      };
+    }
+    if (from < 0) {
+      return {
+        transform: [{ translateY: withTiming(0, { duration: 120 }) }, { scale: 1 }],
+        zIndex: 0,
+        opacity: 1,
+      };
+    }
+    const cur = slotY(from, rowCountSv.value, plusHSv.value) + dragY.value;
+    const target = nearestSlot(cur, rowCountSv.value, plusHSv.value);
+    let shift = 0;
+    if (from < index && index <= target) shift = -ROW_H; // 드래그 행이 내려와 내 자리를 차지
+    else if (target <= index && index < from) shift = ROW_H; // 드래그 행이 올라와 내 자리를 차지
     return {
-      transform: [{ translateY: active ? dragY.value : 0 }],
-      zIndex: active ? 10 : 0,
-      opacity: active ? 0.92 : 1,
+      transform: [{ translateY: withTiming(shift, { duration: 150 }) }, { scale: 1 }],
+      zIndex: 0,
+      opacity: 1,
     };
   });
   return (
     <Animated.View style={animatedStyle}>
       <View style={styles.routeFieldRow}>
+        <GestureDetector gesture={pan}>
+          <View style={styles.routeFieldHandle} collapsable={false}>
+            <MaterialCommunityIcons
+              name="unfold-more-horizontal"
+              size={16}
+              color={colors.textSecondary}
+            />
+          </View>
+        </GestureDetector>
         <Pressable onPress={onPress} style={styles.routeFieldMain}>
           <MaterialCommunityIcons name={icon} size={15} color={colors.textSecondary} />
           <Text
@@ -786,14 +850,13 @@ function RouteFieldRow({
         </Pressable>
         {onRemove && (
           <Pressable onPress={onRemove} hitSlop={10} style={styles.routeFieldRemove}>
-            <Ionicons name="close" size={15} color={colors.textSecondary} />
+            <MaterialCommunityIcons
+              name="minus-circle-outline"
+              size={16}
+              color={colors.textSecondary}
+            />
           </Pressable>
         )}
-        <GestureDetector gesture={pan}>
-          <View style={styles.routeFieldHandle} collapsable={false}>
-            <MaterialCommunityIcons name="drag" size={17} color={colors.textSecondary} />
-          </View>
-        </GestureDetector>
       </View>
     </Animated.View>
   );
@@ -862,20 +925,21 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   routeFieldHandle: {
-    paddingLeft: 8,
-    paddingRight: 2,
+    paddingRight: 8,
+    paddingLeft: 2,
     alignSelf: 'stretch',
     justifyContent: 'center',
   },
   routeDivider: {
     height: StyleSheet.hairlineWidth,
-    marginLeft: 23,
+    marginLeft: 26,
   },
   routeAddRow: {
     height: ADD_H,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    paddingLeft: 26, // 핸들 열만큼 들여써 필드 아이콘들과 맞춘다
   },
   routeAddLabel: {
     fontSize: 13,
