@@ -424,19 +424,18 @@ function FieldRow({
         {value || placeholder}
       </Text>
       {onRemove && (
-        <Pressable onPress={onRemove} hitSlop={10} style={styles.fieldRemove}>
-          <MaterialCommunityIcons
-            name="minus-circle-outline"
-            size={18}
-            color={colors.textSecondary}
-          />
+        <Pressable
+          onPress={onRemove}
+          hitSlop={8}
+          style={[styles.fieldCircleButton, { borderColor: colors.border }]}>
+          <MaterialCommunityIcons name="minus" size={14} color={colors.textSecondary} />
         </Pressable>
       )}
       {onAdd && (
         <Pressable
           onPress={onAdd}
           hitSlop={8}
-          style={[styles.fieldAddButton, { borderColor: colors.border }]}>
+          style={[styles.fieldCircleButton, { borderColor: colors.border }]}>
           <MaterialCommunityIcons name="plus" size={14} color={colors.textSecondary} />
         </Pressable>
       )}
@@ -516,7 +515,7 @@ const styles = StyleSheet.create({
   },
   fieldInsertButton: {
     position: 'absolute',
-    right: 0,
+    right: 3,
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -524,16 +523,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fieldAddButton: {
+  // 행 오른쪽 끝의 ⊖·⊕ — 같은 테두리 원형으로 시각 언어를 맞춘다
+  fieldCircleButton: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  fieldRemove: {
-    padding: 2,
+    marginRight: 3,
   },
   fieldValue: {
     flex: 1,
