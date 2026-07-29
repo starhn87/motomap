@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -216,7 +216,14 @@ export default function NaviScreen() {
   // 드래그 재정렬 — 행 전체(출발·경유지·도착)를 하나의 목록으로 본다.
   // 첫 행이 출발지, 마지막 행이 도착지가 되도록 state 를 다시 나눈다.
   const reorderRows = (from: number, to: number) => {
-    if (from === to || !start) return;
+    // 재배열이 무산되는 경로에서만 여기서 드래그 오프셋을 푼다.
+    // 성공 경로는 새 순서가 커밋된 직후(useLayoutEffect)에 푼다 — 커밋 전에
+    // 풀면 옛 레이아웃 위에서 행들이 한 번 더 미끄러진다(실기기 보고).
+    const resetDrag = () => {
+      dragIndex.value = -1;
+      dragY.value = 0;
+    };
+    if (from === to || !start) return resetDrag();
     type Row =
       | { kind: 'start' }
       | { kind: 'goal' }
@@ -231,7 +238,8 @@ export default function NaviScreen() {
     const first = rows[0];
     const last = rows[rows.length - 1];
     // 빈 경유지 줄은 출발·도착이 될 수 없다
-    if ((first.kind === 'via' && !first.via) || (last.kind === 'via' && !last.via)) return;
+    if ((first.kind === 'via' && !first.via) || (last.kind === 'via' && !last.via))
+      return resetDrag();
 
     const asTarget = (row: Row): NavTarget =>
       row.kind === 'start'
@@ -268,6 +276,13 @@ export default function NaviScreen() {
     rowCountSv.value = userVias.length + 2;
   }, [userVias.length, rowCountSv]);
 
+  // 드롭 확정 — 재배열된 목록이 커밋된 직후(페인트 전) 드래그 오프셋을 풀어
+  // 새 레이아웃과 한 프레임에 맞물리게 한다. 드롭한 자리가 그대로 유지된다.
+  useLayoutEffect(() => {
+    dragIndex.value = -1;
+    dragY.value = 0;
+  }, [userVias, dragIndex, dragY]);
+
   // 행 왼쪽 핸들의 팬 제스처 — 행 높이 격자로 드롭 슬롯을 정한다
   const makeRowPan = (index: number) =>
     Gesture.Pan()
@@ -284,9 +299,12 @@ export default function NaviScreen() {
           nearestSlot(index * ROW_H + dragY.value, rowCountSv.value),
         );
       })
-      .onFinalize(() => {
-        dragIndex.value = -1;
-        dragY.value = 0;
+      .onFinalize((_e, success) => {
+        // 정상 드롭의 해제는 reorderRows·커밋 훅이 맡는다 — 취소·실패만 즉시 원복
+        if (!success) {
+          dragIndex.value = -1;
+          dragY.value = 0;
+        }
       });
 
   // 안내 시작 신호 — 안내 화면이 덮인 동안 밑 화면을 지도로 바꿔 둔다.
@@ -797,8 +815,10 @@ function RouteFieldRow({
       };
     }
     if (from < 0) {
+      // 드래그 종료 상태는 애니메이션 없이 즉시 제자리 — 재배열 커밋과 같은
+      // 프레임에 확정돼야 드롭 후 잔여 슬라이드가 안 생긴다
       return {
-        transform: [{ translateY: withTiming(0, { duration: 120 }) }, { scale: 1 }],
+        transform: [{ translateY: 0 }, { scale: 1 }],
         zIndex: 0,
         opacity: 1,
       };
@@ -941,8 +961,9 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   routeInsertButton: {
+    // 삭제(⊖)와 같은 오른쪽 열 — 왼쪽 드래그 핸들과 멀어 오작도 적다
     position: 'absolute',
-    alignSelf: 'center',
+    right: 0,
     width: 24,
     height: 24,
     borderRadius: 12,

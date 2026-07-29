@@ -500,8 +500,9 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   fieldInsertButton: {
+    // 삭제(⊖)와 같은 오른쪽 열
     position: 'absolute',
-    alignSelf: 'center',
+    right: 0,
     width: 24,
     height: 24,
     borderRadius: 12,
