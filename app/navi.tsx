@@ -8,6 +8,13 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  type SharedValue,
+} from 'react-native-reanimated';
 import {
   NaverMapView,
   NaverMapPathOverlay,
@@ -59,7 +66,11 @@ const TRAFFIC_COLORS: Record<number, string> = {
 const MAX_USER_VIAS = 5;
 
 // 검색 모달이 어느 필드를 채우는 중인지 — 숫자는 경유지 인덱스
-type EditingField = 'start' | 'goal' | 'addVia' | number;
+type EditingField = 'start' | 'goal' | number;
+
+// 경로 편집 카드의 행·추가 줄 높이 — 드래그 타깃 계산이 이 값에 기댄다
+const ROW_H = 44;
+const ADD_H = 34;
 
 // 길안내 진입 화면 — 경로 미리보기와 옵션 선택을 겸한다.
 // 옵션별 경로를 지도에 그려 보여주고, 고르면 그 옵션으로 KNSDK 안내를 시작한다.
@@ -103,9 +114,13 @@ export default function NaviScreen() {
   ); // [lng, lat]
   // 지정 출발지의 이름 — null 이면 현재 위치 출발
   const [startName, setStartName] = useState<string | null>(sname ?? null);
-  // 길찾기 경유지(이름 있는 지점, 편집 가능) — 코스 경유지(vias 파라미터)와 별개
-  const [userVias, setUserVias] = useState<NavTarget[]>([]);
+  // 길찾기 경유지(편집 가능) — 코스 경유지(vias 파라미터)와 별개.
+  // null 은 + 로 만든 빈 줄: 탭해서 채우기 전까지 경로에는 안 들어간다.
+  const [userVias, setUserVias] = useState<(NavTarget | null)[]>([]);
   const [editing, setEditing] = useState<EditingField | null>(null);
+  // 드래그 중인 행(논리 인덱스: 출발 0, 경유지 1.., 도착 마지막)과 이동량
+  const dragIndex = useSharedValue(-1);
+  const dragY = useSharedValue(0);
   // 안내가 시작되면 미리보기 지도를 렌더에서 내린다 — 화면 replace 만으로는
   // 네이티브 마커(출발 도트)가 재활용 과정에서 지도 탭에 남을 수 있다(실기기
   // 보고). 안내 화면이 위를 덮은 뒤라 사용자에게는 보이지 않는 전환이다.
@@ -127,7 +142,7 @@ export default function NaviScreen() {
   const isCourseMode = !!cid || courseVias.length > 0;
   const flatVias = isCourseMode
     ? courseVias
-    : userVias.flatMap((p) => [p.longitude, p.latitude]);
+    : userVias.flatMap((p) => (p ? [p.longitude, p.latitude] : []));
   // 폴백 시: 첫 경유지(코스 출발지)가 출발점이 되고 나머지가 경유지로 남는다
   const effStart: [number, number] | null = courseOnly
     ? [flatVias[0], flatVias[1]]
@@ -159,19 +174,21 @@ export default function NaviScreen() {
       return; // 도착지·경유지에 '현재 위치'는 모달에서 막지만 한 번 더 거른다
     } else if (field === 'goal') {
       setGoal({ name: point.name, latitude: point.latitude, longitude: point.longitude });
-    } else if (field === 'addVia') {
-      setUserVias((prev) =>
-        prev.length >= MAX_USER_VIAS ? prev : [...prev, point],
-      );
     } else {
       setUserVias((prev) => prev.map((v, i) => (i === field ? point : v)));
     }
     resetRoutes();
   };
 
+  // + 줄 — 빈 경유지 줄만 만든다. 채우기 전엔 경로에 영향이 없다.
+  const addEmptyVia = () => {
+    setUserVias((prev) => (prev.length >= MAX_USER_VIAS ? prev : [...prev, null]));
+  };
+
   const removeVia = (index: number) => {
+    const wasEmpty = !userVias[index];
     setUserVias((prev) => prev.filter((_, i) => i !== index));
-    resetRoutes();
+    if (!wasEmpty) resetRoutes();
   };
 
   const swapEnds = () => {
@@ -180,7 +197,83 @@ export default function NaviScreen() {
     setGoal({ name: startName ?? '현재 위치', latitude: start[1], longitude: start[0] });
     setStartName(prevGoal.name);
     setStart([prevGoal.longitude, prevGoal.latitude]);
+    setUserVias((prev) => [...prev].reverse()); // 왕복 반전이니 들르는 순서도 뒤집는다
     resetRoutes();
+  };
+
+  // 드래그 재정렬 — 행 전체(출발·경유지·도착)를 하나의 목록으로 본다.
+  // 첫 행이 출발지, 마지막 행이 도착지가 되도록 state 를 다시 나눈다.
+  const reorderRows = (from: number, to: number) => {
+    if (from === to || !start) return;
+    type Row =
+      | { kind: 'start' }
+      | { kind: 'goal' }
+      | { kind: 'via'; via: NavTarget | null };
+    const rows: Row[] = [
+      { kind: 'start' },
+      ...userVias.map((v) => ({ kind: 'via' as const, via: v })),
+      { kind: 'goal' },
+    ];
+    const [moved] = rows.splice(from, 1);
+    rows.splice(to, 0, moved);
+    const first = rows[0];
+    const last = rows[rows.length - 1];
+    // 빈 경유지 줄은 출발·도착이 될 수 없다
+    if ((first.kind === 'via' && !first.via) || (last.kind === 'via' && !last.via)) return;
+
+    const asTarget = (row: Row): NavTarget =>
+      row.kind === 'start'
+        ? { name: startName ?? '현재 위치', latitude: start[1], longitude: start[0] }
+        : row.kind === 'goal'
+          ? goal
+          : row.via!;
+
+    if (first.kind !== 'start') {
+      const t = asTarget(first);
+      setStartName(t.name);
+      setStart([t.longitude, t.latitude]);
+    }
+    if (last.kind !== 'goal') {
+      // 도착지가 다른 지점으로 바뀌므로 placeId(리뷰 연결)도 새 지점 기준이 된다
+      const t = asTarget(last);
+      setGoal({ name: t.name, latitude: t.latitude, longitude: t.longitude });
+    }
+    setUserVias(rows.slice(1, -1).map((r) => (r.kind === 'via' ? r.via : asTarget(r))));
+    resetRoutes();
+  };
+
+  // 행 오른쪽 핸들의 팬 제스처 — 행 높이 격자로 드롭 슬롯을 정한다.
+  // + 줄이 경유지와 도착지 사이에 끼어 있어 도착 행 y 만 그만큼 보정한다.
+  const makeRowPan = (index: number) => {
+    const viaCount = userVias.length;
+    const plusH = viaCount < MAX_USER_VIAS ? ADD_H : 0;
+    const rowCount = viaCount + 2;
+    return Gesture.Pan()
+      .onStart(() => {
+        dragIndex.value = index;
+        dragY.value = 0;
+      })
+      .onUpdate((e) => {
+        dragY.value = e.translationY;
+      })
+      .onEnd(() => {
+        const visY = (i: number) => i * ROW_H + (i === rowCount - 1 ? plusH : 0);
+        const cur = visY(index) + dragY.value;
+        let best = 0;
+        let bestDist = Number.MAX_VALUE;
+        for (let i = 0; i < rowCount; i++) {
+          const d = Math.abs(visY(i) - cur);
+          if (d < bestDist) {
+            bestDist = d;
+            best = i;
+          }
+        }
+        runOnJS(reorderRows)(index, best);
+      })
+      .onFinalize(() => {
+        dragIndex.value = -1;
+        dragY.value = 0;
+      });
   };
 
   // 안내 시작 신호 — 안내 화면이 덮인 동안 밑 화면을 지도로 바꿔 둔다.
@@ -479,45 +572,64 @@ export default function NaviScreen() {
                 icon="radiobox-marked"
                 value={startName ?? '현재 위치'}
                 onPress={() => !starting && setEditing('start')}
+                index={0}
+                dragIndex={dragIndex}
+                dragY={dragY}
+                pan={makeRowPan(0)}
               />
               {userVias.map((via, i) => (
-                <View key={`${via.longitude},${via.latitude},${i}`}>
+                <View key={i}>
                   <View style={[styles.routeDivider, { backgroundColor: colors.border }]} />
                   <RouteFieldRow
                     icon="circle-medium"
-                    value={via.name}
+                    value={via?.name ?? ''}
+                    placeholder="경유지 입력"
                     onPress={() => !starting && setEditing(i)}
                     onRemove={() => removeVia(i)}
+                    index={i + 1}
+                    dragIndex={dragIndex}
+                    dragY={dragY}
+                    pan={makeRowPan(i + 1)}
                   />
                 </View>
               ))}
               <View style={[styles.routeDivider, { backgroundColor: colors.border }]} />
+              {userVias.length < MAX_USER_VIAS && (
+                <>
+                  {/* 경유지 추가 — 빈 줄을 만들고, 그 줄을 탭해 검색으로 채운다 */}
+                  <Pressable onPress={addEmptyVia} style={styles.routeAddRow}>
+                    <MaterialCommunityIcons
+                      name="plus-circle-outline"
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={[styles.routeAddLabel, { color: colors.textSecondary }]}>
+                      경유지 추가
+                    </Text>
+                  </Pressable>
+                  <View style={[styles.routeDivider, { backgroundColor: colors.border }]} />
+                </>
+              )}
               <RouteFieldRow
                 icon="map-marker"
                 value={goal.name}
                 onPress={() => !starting && setEditing('goal')}
+                index={userVias.length + 1}
+                dragIndex={dragIndex}
+                dragY={dragY}
+                pan={makeRowPan(userVias.length + 1)}
               />
             </View>
-            <View style={styles.routeActions}>
-              <Pressable
-                onPress={swapEnds}
-                hitSlop={6}
-                style={[styles.routeActionButton, { borderColor: colors.border }]}>
-                <MaterialCommunityIcons
-                  name="swap-vertical"
-                  size={17}
-                  color={colors.textSecondary}
-                />
-              </Pressable>
-              {userVias.length < MAX_USER_VIAS && (
-                <Pressable
-                  onPress={() => !starting && setEditing('addVia')}
-                  hitSlop={6}
-                  style={[styles.routeActionButton, { borderColor: colors.border }]}>
-                  <MaterialCommunityIcons name="plus" size={18} color={colors.textSecondary} />
-                </Pressable>
-              )}
-            </View>
+            <Pressable
+              onPress={swapEnds}
+              hitSlop={6}
+              style={[styles.routeActionButton, { borderColor: colors.border }]}>
+              <MaterialCommunityIcons
+                name="swap-vertical"
+                size={17}
+                color={colors.textSecondary}
+              />
+            </Pressable>
           </View>
         )
       )}
@@ -614,7 +726,7 @@ export default function NaviScreen() {
             ? '출발지 변경'
             : editing === 'goal'
               ? '도착지 변경'
-              : editing === 'addVia'
+              : typeof editing === 'number' && !userVias[editing]
                 ? '경유지 추가'
                 : '경유지 변경'
         }
@@ -628,28 +740,62 @@ export default function NaviScreen() {
 function RouteFieldRow({
   icon,
   value,
+  placeholder,
   onPress,
   onRemove,
+  index,
+  dragIndex,
+  dragY,
+  pan,
 }: {
   icon: 'radiobox-marked' | 'circle-medium' | 'map-marker';
   value: string;
+  placeholder?: string;
   onPress: () => void;
   onRemove?: () => void;
+  /** 재정렬 목록에서의 논리 인덱스 (출발 0 … 도착 마지막) */
+  index: number;
+  dragIndex: SharedValue<number>;
+  dragY: SharedValue<number>;
+  pan: ReturnType<typeof Gesture.Pan>;
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  // 드래그 중인 행만 손가락을 따라가고 나머지는 제자리 — 놓으면 목록이 재배열된다
+  const animatedStyle = useAnimatedStyle(() => {
+    const active = dragIndex.value === index;
+    return {
+      transform: [{ translateY: active ? dragY.value : 0 }],
+      zIndex: active ? 10 : 0,
+      opacity: active ? 0.92 : 1,
+    };
+  });
   return (
-    <Pressable onPress={onPress} style={styles.routeFieldRow}>
-      <MaterialCommunityIcons name={icon} size={15} color={colors.textSecondary} />
-      <Text style={[styles.routeFieldValue, { color: colors.text }]} numberOfLines={1}>
-        {value}
-      </Text>
-      {onRemove && (
-        <Pressable onPress={onRemove} hitSlop={10} style={styles.routeFieldRemove}>
-          <Ionicons name="close" size={15} color={colors.textSecondary} />
+    <Animated.View style={animatedStyle}>
+      <View style={styles.routeFieldRow}>
+        <Pressable onPress={onPress} style={styles.routeFieldMain}>
+          <MaterialCommunityIcons name={icon} size={15} color={colors.textSecondary} />
+          <Text
+            style={[
+              styles.routeFieldValue,
+              { color: value ? colors.text : colors.textSecondary },
+            ]}
+            numberOfLines={1}>
+            {value || placeholder}
+          </Text>
         </Pressable>
-      )}
-    </Pressable>
+        {onRemove && (
+          <Pressable onPress={onRemove} hitSlop={10} style={styles.routeFieldRemove}>
+            <Ionicons name="close" size={15} color={colors.textSecondary} />
+          </Pressable>
+        )}
+        <GestureDetector gesture={pan}>
+          <View style={styles.routeFieldHandle} collapsable={false}>
+            <MaterialCommunityIcons name="drag" size={17} color={colors.textSecondary} />
+          </View>
+        </GestureDetector>
+      </View>
+    </Animated.View>
   );
 }
 
@@ -695,11 +841,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routeFieldRow: {
+    // 높이 고정 — 드래그 재정렬의 슬롯 계산(ROW_H)이 이 값에 기댄다
+    height: ROW_H,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  routeFieldMain: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 11,
-    paddingRight: 4,
+    alignSelf: 'stretch',
   },
   routeFieldValue: {
     flex: 1,
@@ -709,13 +861,25 @@ const styles = StyleSheet.create({
   routeFieldRemove: {
     padding: 2,
   },
+  routeFieldHandle: {
+    paddingLeft: 8,
+    paddingRight: 2,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+  },
   routeDivider: {
     height: StyleSheet.hairlineWidth,
     marginLeft: 23,
   },
-  routeActions: {
-    marginLeft: 6,
+  routeAddRow: {
+    height: ADD_H,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
+  },
+  routeAddLabel: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   routeActionButton: {
     width: 32,
@@ -724,6 +888,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 6,
   },
   card: {
     position: 'absolute',
