@@ -174,9 +174,10 @@ export default function SettingsScreen() {
           ]}>
           <Text style={[styles.linkText, { color: colors.text }]}>{label}</Text>
           {/* 장소명은 민감 정보라 설정 여부만 보여준다 */}
-          <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>
-            {myPlaces[slot] ? '설정됨  ›' : '설정 안 됨  ›'}
+          <Text style={[styles.placeStatus, { color: colors.textSecondary }]}>
+            {myPlaces[slot] ? '설정됨' : '설정 안 됨'}
           </Text>
+          <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
         </Pressable>
       ))}
 
@@ -350,5 +351,10 @@ const styles = StyleSheet.create({
   linkArrow: {
     fontSize: 18,
     fontWeight: '600',
+  },
+  placeStatus: {
+    fontSize: 13,
+    marginLeft: 'auto',
+    marginRight: 8,
   },
 });
