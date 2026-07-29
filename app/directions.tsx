@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
   },
   fieldInsertButton: {
     position: 'absolute',
-    right: 3,
+    right: 5,
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 3,
+    marginRight: 5,
   },
   fieldValue: {
     flex: 1,
