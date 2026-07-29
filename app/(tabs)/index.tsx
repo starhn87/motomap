@@ -518,7 +518,7 @@ export default function MapScreen() {
               styles.directionsButton,
               { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
             ]}>
-            <MaterialCommunityIcons name="arrow-right-top" size={22} color={colors.tint} />
+            <MaterialCommunityIcons name="arrow-right-top" size={20} color={colors.tint} />
           </Pressable>
         </View>
         <CategoryFilter />
