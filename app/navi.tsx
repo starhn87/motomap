@@ -80,6 +80,10 @@ export default function NaviScreen() {
   const mapRef = useRef<NaverMapViewRef>(null);
 
   const [start, setStart] = useState<[number, number] | null>(null); // [lng, lat]
+  // 안내가 시작되면 미리보기 지도를 렌더에서 내린다 — 화면 replace 만으로는
+  // 네이티브 마커(출발 도트)가 재활용 과정에서 지도 탭에 남을 수 있다(실기기
+  // 보고). 안내 화면이 위를 덮은 뒤라 사용자에게는 보이지 않는 전환이다.
+  const [guideStarted, setGuideStarted] = useState(false);
   const [priority, setPriority] = useState<RoutePriority>(0);
   const [routes, setRoutes] = useState<Partial<Record<RoutePriority, BikeRoute>>>({});
   // 옵션별 혼잡 구간(경로선 색칠용). 없으면 SDK 선형을 단색으로 그린다.
@@ -120,6 +124,8 @@ export default function NaviScreen() {
         },
         priority,
       );
+      // 오버레이(출발 도트·경로선)를 먼저 정상 해제시키고 화면을 뗀다
+      setGuideStarted(true);
       navigation.setOptions({ animation: 'none' });
       // navigate 는 이 화면을 스택에 남긴다 — 미리보기 지도(출발지 도트)가
       // 살아남아 안내 종료 후 지도 위에 비쳤다(실측). replace 로 스택에서 뗀다.
@@ -324,6 +330,7 @@ export default function NaviScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {!guideStarted && (
       <NaverMapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
@@ -362,6 +369,7 @@ export default function NaviScreen() {
         ) : null}
         <TempPlaceMarker latitude={goalLat} longitude={goalLng} />
       </NaverMapView>
+      )}
 
       {/* 닫기 */}
       <Pressable
