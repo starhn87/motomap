@@ -2,9 +2,9 @@ export default {
   expo: {
     name: '모토맵',
     slug: 'ridemap',
-    // 1.2.0: 앱 안 이륜차 내비(KNSDK)·길찾기 — 전부 네이티브라 runtime 분리로
-    // 1.1.x 빌드가 이걸 참조하는 OTA를 받지 않게 한다
-    version: '1.2.0',
+    // 1.2.1: 안내 종료 후 백그라운드 GPS 해제(배터리) + 시작 멘트 생략 —
+    // 네이티브 수정이라 runtime 분리로 1.2.0 이하 빌드가 새 OTA 를 받지 않게 한다
+    version: '1.2.1',
     runtimeVersion: {
       policy: 'appVersion',
     },

@@ -75,11 +75,6 @@ public class KakaoNaviModule: Module {
       KNNaviPresenter.showNotice(message)
     }
 
-    AsyncFunction("stopGuide") {
-      KNNaviPresenter.stopGuide()
-    }
-
-
     AsyncFunction("changeGuideDestination") {
       (lng: Double, lat: Double, name: String, priority: Int, promise: Promise) in
       KNNaviPresenter.changeDestination(toLng: lng, lat: lat, name: name, priority: priority) {

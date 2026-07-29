@@ -2,12 +2,67 @@
 #import <KNSDK/KNSDK.h>
 #import <AVFoundation/AVFoundation.h>
 #import <UIKit/UIKit.h>
+#import <CoreLocation/CoreLocation.h>
+#import <objc/runtime.h>
+
+// KNSDK 는 초기화만으로 CLLocationManager 의 백그라운드 위치를 켜서, 안내를
+// 안 해도 앱이 백그라운드에서 GPS 를 계속 받는다(locationd 실측 — 밤새 배터리
+// 소모). KNGPSManager.backgroundUpdateType 은 문서(주행중=기본)와 달리 이를
+// 제어하지 못하고, 매니저 인스턴스는 SDK 내부(Swift)에 감춰져 ivar 스캔으로도
+// 안 잡힌다(실측 2연속 실패). 그래서 setter 자체를 스위즐한다:
+//  - 안내 중이 아니면 YES 설정을 무시하고, 켜려던 매니저를 기억해 둔다
+//  - 안내가 시작되면(setBackgroundLocationAllowed:YES) 기억한 매니저들에 YES 를
+//    적용하고, 끝나면 NO 로 되돌린다 — 화면 꺼짐 안내는 유지, 종료 후엔 차단
+static BOOL gBackgroundLocationAllowed = NO;
+static NSHashTable<CLLocationManager *> *gBackgroundRequesters;
+
+@interface CLLocationManager (MotoMapBackgroundGate)
+@end
+
+@implementation CLLocationManager (MotoMapBackgroundGate)
+- (void)mm_setAllowsBackgroundLocationUpdates:(BOOL)allows {
+  if (allows) {
+    [gBackgroundRequesters addObject:self];
+    if (!gBackgroundLocationAllowed) {
+      NSLog(@"[KNSDK] 백그라운드 위치 요청 차단(안내 중 아님)");
+      [self mm_setAllowsBackgroundLocationUpdates:NO]; // 스위즐 후 원본 구현
+      return;
+    }
+  }
+  [self mm_setAllowsBackgroundLocationUpdates:allows];
+}
+@end
+
+static void installBackgroundGate(void) {
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    gBackgroundRequesters = [NSHashTable weakObjectsHashTable];
+    Method orig = class_getInstanceMethod(CLLocationManager.class,
+                                          @selector(setAllowsBackgroundLocationUpdates:));
+    Method swz = class_getInstanceMethod(CLLocationManager.class,
+                                         @selector(mm_setAllowsBackgroundLocationUpdates:));
+    method_exchangeImplementations(orig, swz);
+  });
+}
 
 @implementation KNSDKBridge
+
++ (void)setBackgroundLocationAllowed:(BOOL)allowed {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    gBackgroundLocationAllowed = allowed;
+    for (CLLocationManager *manager in gBackgroundRequesters) {
+      // 스위즐 후의 mm_ 셀렉터가 원본 구현 — 게이트를 거치지 않고 직접 적용
+      [manager mm_setAllowsBackgroundLocationUpdates:allowed];
+    }
+    NSLog(@"[KNSDK] 백그라운드 위치 %@ (매니저 %lu개)", allowed ? @"허용" : @"차단",
+          (unsigned long)gBackgroundRequesters.count);
+  });
+}
 
 + (void)initializeWithAppKey:(NSString *)appKey
                clientVersion:(NSString *)clientVersion
                   completion:(void (^)(NSString *_Nullable))completion {
+  installBackgroundGate(); // SDK 가 첫 YES 를 설정하기 전에 걸어야 한다
   KNSDK *sdk = [KNSDK sharedInstance];
   if (sdk == nil) {
     completion(@"KNSDK 인스턴스를 가져오지 못했다");
@@ -27,6 +82,11 @@
               clientVersion:clientVersion
                  completion:^(KNError *_Nullable error) {
                    if (error == nil) {
+                     // 초기화만으로 백그라운드 위치 구독이 켜져, 안내를 안 해도
+                     // 앱이 백그라운드에서 GPS 를 계속 받는다(locationd 실측 —
+                     // 밤새 배터리 소모의 원인). 여기서 끄고, 안내 화면이 떠
+                     // 있는 동안만 켠다(KNNaviPresenter 가 올리고 내린다).
+                     [self setBackgroundLocationAllowed:NO];
                      completion(nil);
                      return;
                    }

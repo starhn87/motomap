@@ -27,9 +27,6 @@ NS_ASSUME_NONNULL_BEGIN
                       labels:(NSArray<NSString *> *)labels
                   completion:(void (^)(NSInteger pickedIndex))completion;
 
-// 안내를 종료한다(정상 종료 흐름 — onDismiss 가 불린다).
-+ (void)stopGuide;
-
 // 잠깐 떴다 사라지는 알림(버튼 없음, 1.8초).
 + (void)showNotice:(NSString *)message;
 

@@ -62,6 +62,11 @@ static __weak KNNaviViewController *gActiveNavi = nil;
   self.naviView = naviView;
   self.guidance = guidance;
 
+  // 안내가 떠 있는 동안만 백그라운드 위치를 허용한다 — 화면이 꺼지거나 다른
+  // 앱으로 전환해도 안내가 이어지는 기능. 평상시엔 꺼 둔다(KNSDKBridge 초기화
+  // 직후). finish 에서 다시 내린다.
+  [KNSDKBridge setBackgroundLocationAllowed:YES];
+
   [guidance startWithTrip:self.trip
                  priority:self.priority
              avoidOptions:KNRouteAvoidOption_None];
@@ -225,6 +230,8 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 - (BOOL)guidance:(KNGuidance *)aGuidance
     shouldPlayVoiceGuide:(KNGuide_Voice *)aVoiceGuide
           replaceSndData:(NSData **)aNewData {
+  // 안내 시작 멘트는 생략한다(사용자 결정) — 나머지 음성은 그대로 재생.
+  if (aVoiceGuide.voiceCode == KNVoiceCode_StartGuide) return NO;
   return YES;
 }
 
@@ -236,6 +243,9 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 
 - (void)finish {
   [self.guidance stop];
+  // 안내가 끝나면 백그라운드 위치를 다시 차단한다 — 종료 후에도 GPS 구독이
+  // 남아 밤새 배터리를 먹었다(locationd 실측). 도착 자동 종료도 이 경로다.
+  [KNSDKBridge setBackgroundLocationAllowed:NO];
   [self.naviView releaseView];
   self.naviView = nil;
   self.guidance = nil;
@@ -327,13 +337,6 @@ static __weak KNNaviViewController *gActiveNavi = nil;
     [top presentViewController:vc animated:YES completion:nil];
   });
 }
-
-+ (void)stopGuide {
-  dispatch_async(dispatch_get_main_queue(), ^{
-    [gActiveNavi finish];
-  });
-}
-
 
 + (void)showOptionsWithTitle:(NSString *)title
                       labels:(NSArray<NSString *> *)labels

@@ -12,6 +12,9 @@ NS_ASSUME_NONNULL_BEGIN
                clientVersion:(NSString *)clientVersion
                   completion:(void (^)(NSString *_Nullable errorMessage))completion;
 
+// 백그라운드 위치 허용 토글 — 안내 중에만 YES. 자세한 사연은 구현부 주석.
++ (void)setBackgroundLocationAllowed:(BOOL)allowed;
+
 // 이륜차 경로를 계산한다. 성공하면 distance(m)·duration(초)와
 // polyline([lng, lat, lng, lat, ...] 평면 배열, WGS84)이 채워진다.
 // vias 도 같은 평면 배열 형식(비면 nil 허용). priority 는 KNRoutePriority 원시값.
