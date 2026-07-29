@@ -16,13 +16,12 @@ import EmptyState from '@/components/ui/EmptyState';
 import Colors, { semantic } from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fetchMySubmissions } from '@/lib/api/mydata';
+import { fetchMySubmissions, type MySubmission } from '@/lib/api/mydata';
 import { fetchMyFeedback, type MyFeedback, type FeedbackType } from '@/lib/api/feedback';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/useAuthStore';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
-import type { Place } from '@/types';
 
 const FEEDBACK_LABEL: Record<FeedbackType, string> = {
   bug: '버그 신고',
@@ -69,13 +68,20 @@ export default function MySubmissionsScreen() {
     queryFn: fetchMyFeedback,
   });
 
-  const renderItem = ({ item }: { item: Place }) => {
+  const renderItem = ({ item }: { item: MySubmission }) => {
     const category = CATEGORIES[item.category];
+    const status = item.rejected
+      ? { label: '반려됨', color: semantic.danger }
+      : item.approved
+        ? { label: '승인됨', color: semantic.success }
+        : { label: '대기중', color: '#71717A' };
 
     return (
       <Pressable
         onPress={() => {
-          if (item.approved) {
+          if (item.rejected) {
+            toast.info('반려된 제보예요', item.rejectedReason ?? undefined);
+          } else if (item.approved) {
             // 지도의 장소 시트로 — 리뷰·상세가 그 안에 있다
             focusPlaceOnMap(item.id);
           } else {
@@ -97,24 +103,24 @@ export default function MySubmissionsScreen() {
               {category.label}
             </Text>
           </View>
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: item.approved ? `${semantic.success}20` : '#71717A20' },
-            ]}>
-            <Text
-              style={[
-                styles.statusText,
-                { color: item.approved ? semantic.success : '#71717A' },
-              ]}>
-              {item.approved ? '승인됨' : '대기중'}
-            </Text>
+          <View style={[styles.statusBadge, { backgroundColor: `${status.color}20` }]}>
+            <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
           </View>
         </View>
         <Text style={[styles.placeName, { color: colors.text }]}>{item.name}</Text>
         <Text style={[styles.placeAddress, { color: colors.textSecondary }]}>
           {item.address}
         </Text>
+        {item.rejected && !!item.rejectedReason && (
+          <View
+            style={[
+              styles.replyBox,
+              { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+            ]}>
+            <Text style={[styles.replyLabel, { color: colors.textSecondary }]}>반려 사유</Text>
+            <Text style={[styles.replyText, { color: colors.text }]}>{item.rejectedReason}</Text>
+          </View>
+        )}
         <Text style={[styles.date, { color: colors.textSecondary }]}>
           {new Date(item.createdAt).toLocaleDateString('ko-KR')}
         </Text>

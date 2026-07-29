@@ -3,7 +3,10 @@ import type { Place, Review } from '@/types';
 import { rowToPlace } from '@/lib/api/places';
 import { getCurrentUser } from '@/lib/auth';
 
-export async function fetchMySubmissions(): Promise<Place[]> {
+/** 내 제보 — 반려(soft delete)된 것도 사유와 함께 포함한다 */
+export type MySubmission = Place & { rejected: boolean; rejectedReason: string | null };
+
+export async function fetchMySubmissions(): Promise<MySubmission[]> {
   const user = await getCurrentUser();
   if (!user) return [];
 
@@ -11,7 +14,6 @@ export async function fetchMySubmissions(): Promise<Place[]> {
     .from('places')
     .select('*')
     .eq('submitted_by', user.id)
-    .is('deleted_at', null) // 반려(soft delete)된 제보는 목록에서 제외
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -24,7 +26,11 @@ export async function fetchMySubmissions(): Promise<Place[]> {
       longitude = row.location.coordinates?.[0] ?? 0;
       latitude = row.location.coordinates?.[1] ?? 0;
     }
-    return rowToPlace({ ...row, latitude, longitude });
+    return {
+      ...rowToPlace({ ...row, latitude, longitude }),
+      rejected: row.deleted_at != null,
+      rejectedReason: row.rejected_reason ?? null,
+    };
   });
 }
 
