@@ -121,7 +121,9 @@ export default function NaviScreen() {
         priority,
       );
       navigation.setOptions({ animation: 'none' });
-      router.navigate('/');
+      // navigate 는 이 화면을 스택에 남긴다 — 미리보기 지도(출발지 도트)가
+      // 살아남아 안내 종료 후 지도 위에 비쳤다(실측). replace 로 스택에서 뗀다.
+      router.replace('/');
     });
     // 경로 탐색 실패 시 시작 스피너만 되돌린다 (토스트는 전역 리스너가 띄운다)
     const failed = KakaoNavi.addListener('onGuideFailed', () => setStarting(false));
