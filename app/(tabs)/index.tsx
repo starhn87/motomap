@@ -518,7 +518,13 @@ export default function MapScreen() {
               styles.directionsButton,
               { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
             ]}>
-            <MaterialCommunityIcons name="arrow-right-top-bold" size={23} color={colors.tint} />
+            {/* 글리프의 세로 줄기가 왼쪽에 있어 시각 무게가 좌측으로 쏠린다 — 살짝 보정 */}
+            <MaterialCommunityIcons
+              name="arrow-right-top-bold"
+              size={23}
+              color={colors.tint}
+              style={{ marginLeft: 2 }}
+            />
           </Pressable>
         </View>
         <CategoryFilter />
@@ -626,7 +632,7 @@ const styles = StyleSheet.create({
   directionsButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
