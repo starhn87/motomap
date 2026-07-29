@@ -6,11 +6,20 @@
 //   등급: 1 좋음, 2 보통, 3 나쁨, 4 매우나쁨 (에어코리아 규격, 결측이면 null)
 //
 // TM 좌표 변환은 앱이 카카오 transcoord 로 수행해서 넘긴다 (카카오 키는 앱에 있음).
-// 측정소 데이터는 시간 단위 갱신이라 30분 메모리 캐시.
+// 측정소 데이터는 시간 단위 갱신이라 30분 캐시 — 메모리 캐시는 인스턴스가
+// 유휴로 내려갈 때마다 증발해 사실상 매번 미스였고(원 API 실측 10~26초),
+// air_cache 테이블(migration 029)로 지속화한다. 메모리는 1차 캐시로만 유지.
 // 필요한 secrets: DATA_GO_KR_KEY (공공데이터포털 인증키 — 에어코리아 2개 서비스 활용신청 필요)
 // 배포: JWT 검증 ON (앱이 anon 키로 호출 — weather-kr 과 동일)
 
+import { createClient } from 'npm:@supabase/supabase-js@2';
+
 const KEY = Deno.env.get('DATA_GO_KR_KEY');
+
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+);
 
 const cache = new Map<string, { at: number; body: string }>();
 const TTL = 30 * 60 * 1000;
@@ -37,6 +46,20 @@ Deno.serve(async (req) => {
   if (hit && Date.now() - hit.at < TTL) {
     return new Response(hit.body, {
       headers: { 'Content-Type': 'application/json', 'x-cache': 'HIT' },
+    });
+  }
+
+  // 2차: 지속 캐시 — 다른 인스턴스가 최근에 받아 둔 값
+  const { data: row } = await supabase
+    .from('air_cache')
+    .select('body, fetched_at')
+    .eq('key', cacheKey)
+    .maybeSingle();
+  if (row && Date.now() - new Date(row.fetched_at).getTime() < TTL) {
+    const body = JSON.stringify(row.body);
+    cache.set(cacheKey, { at: new Date(row.fetched_at).getTime(), body });
+    return new Response(body, {
+      headers: { 'Content-Type': 'application/json', 'x-cache': 'DB-HIT' },
     });
   }
 
@@ -76,15 +99,20 @@ Deno.serve(async (req) => {
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
-  const body = JSON.stringify({
+  const payload = {
     station,
     pm10: num(item.pm10Value),
     pm25: num(item.pm25Value),
     pm10Grade: num(item.pm10Grade),
     pm25Grade: num(item.pm25Grade),
     dataTime: item.dataTime ?? null,
-  });
+  };
+  const body = JSON.stringify(payload);
   cache.set(cacheKey, { at: Date.now(), body });
+  // 실패해도 응답은 그대로 — 캐시는 최선 노력
+  await supabase
+    .from('air_cache')
+    .upsert({ key: cacheKey, body: payload, fetched_at: new Date().toISOString() });
   return new Response(body, {
     headers: { 'Content-Type': 'application/json', 'x-cache': 'MISS' },
   });
