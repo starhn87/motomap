@@ -9,7 +9,7 @@ import { submitHazard } from '@/lib/api/hazards';
 import { fetchNearbyPlaces } from '@/lib/api/places';
 import { formatMeters } from '@/lib/api/directions';
 import { haversine } from '@/lib/distance';
-import { focusPlaceOnMap } from '@/lib/mapFocus';
+import { focusPlaceOnMap, followMyLocationOnMap } from '@/lib/mapFocus';
 import { toast } from '@/lib/toast';
 
 // 길안내 전역 이벤트 — 안내가 시작되면 /navi 화면은 지도로 빠져 언마운트되므로
@@ -83,6 +83,9 @@ async function nearbyPlaces() {
 async function handleGuideEnd() {
   const { goal, clear } = useGuideSession.getState();
   clear();
+  // 안내가 끝나도 라이더는 이동 중 — 지도가 내 위치를 따라간다.
+  // 드래그하면 SDK 가 따라가기를 알아서 푼다.
+  followMyLocationOnMap();
   if (!goal || (!goal.placeId && !goal.courseId)) return;
 
   let near = false;

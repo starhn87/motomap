@@ -24,7 +24,7 @@ export function useMapDeepLinks({
   /** 카카오 임시 핀을 띄우기 전 기존 장소 선택 해제 */
   clearSelection: () => void;
 }) {
-  const { focusPlaceId, focusTs, focusReviewId, fromCourseId, kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone } =
+  const { focusPlaceId, focusTs, focusReviewId, fromCourseId, kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, followTs } =
     useLocalSearchParams<{
       focusPlaceId?: string;
       focusTs?: string;
@@ -35,7 +35,18 @@ export function useMapDeepLinks({
       kakaoLat?: string;
       kakaoLng?: string;
       kakaoPhone?: string;
+      followTs?: string;
     }>();
+
+  // 안내 종료 직후 "내 위치 따라가기" (lib/mapFocus.followMyLocationOnMap) —
+  // 사용자가 지도를 드래그하면 SDK 가 알아서 따라가기를 푼다.
+  const handledFollowRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!followTs || !mapReady) return;
+    if (handledFollowRef.current === followTs) return;
+    handledFollowRef.current = followTs;
+    mapRef.current?.setLocationTrackingMode('Follow');
+  }, [followTs, mapReady, mapRef]);
 
   // 검색의 "일반 장소"(카카오 로컬) 선택 — DB 에 없는 임시 목적지
   const [tempPlace, setTempPlace] = useState<TempPlace | null>(null);

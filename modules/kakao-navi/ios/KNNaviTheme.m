@@ -10,7 +10,7 @@ static UIColor *MotoGray(void) {
   return [UIColor colorWithRed:0xA1 / 255.0 green:0xA1 / 255.0 blue:0xAA / 255.0 alpha:1];
 }
 
-static const CGFloat kSize = 48;    // 지도 위에서 과하지 않은 크기
+static const CGFloat kSize = 60;    // 네이버 지도 자차 수준 — 헬멧 쓴 시야에서도 잘 보이게(실주행 피드백)
 static const CGFloat kRingWidth = 4;
 
 @implementation KNNaviTheme

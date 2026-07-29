@@ -24,6 +24,7 @@
 @property(nonatomic, copy, nullable) void (^onStarted)(void);
 @property(nonatomic, assign) BOOL carThemeApplied;
 @property(nonatomic, assign) KNRoutePriority priority;
+@property(nonatomic, assign) BOOL arrivalPrompted;
 @end
 
 // 안내 화면 위 상호작용(액션시트·알림·목적지 변경)을 모듈 함수가 쓸 수 있도록
@@ -49,6 +50,8 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                                                   routeOption:self.priority
                                                   avoidOption:KNRouteAvoidOption_None];
   [naviView sndVolume:1.0f];
+  // 경로선을 혼잡도 색으로 — 줌을 빼도 교통 상황이 보인다(실주행 피드백)
+  [naviView trafficMode:YES];
   naviView.guideStateDelegate = self;
   naviView.stateDelegate = self;
   // 주의: [naviView carType:KNCarType_Bike] 를 부르면 자차 마커가 SDK 내장
@@ -204,6 +207,43 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 
 - (void)guidance:(KNGuidance *)aGuidance didUpdateLocation:(KNGuide_Location *)aLocationGuide {
   [self.naviView guidance:aGuidance didUpdateLocation:aLocationGuide];
+  [self maybePromptArrival:aGuidance locationGuide:aLocationGuide];
+}
+
+// 목적지 300m 안에 들어오면 종료 여부를 한 번 묻는다(실주행 피드백 — 도착
+// 직전에 안내가 갑자기 끝나는 것보다 낫다). 지나쳐 멀어져도 다시 묻지 않고,
+// 무응답이면 5초 뒤 스스로 사라진다 — 주행 중 조작을 강요하지 않는다.
+- (void)maybePromptArrival:(KNGuidance *)aGuidance
+             locationGuide:(KNGuide_Location *)aLocationGuide {
+  if (self.arrivalPrompted) return;
+  KNLocation *location = aLocationGuide.location;
+  KNRoute *route = aGuidance.routesOnGuide.firstObject;
+  if (location == nil || route == nil) return;
+  SInt32 remain = [route remainDistFromLocation:location];
+  if (remain <= 0 || remain > 300) return;
+  self.arrivalPrompted = YES;
+
+  UIAlertController *sheet =
+      [UIAlertController alertControllerWithTitle:@"곧 도착해요"
+                                          message:@"안내를 종료할까요?"
+                                   preferredStyle:UIAlertControllerStyleActionSheet];
+  __weak __typeof(self) weakSelf = self;
+  [sheet addAction:[UIAlertAction actionWithTitle:@"안내 종료"
+                                            style:UIAlertActionStyleDefault
+                                          handler:^(UIAlertAction *action) {
+                                            [weakSelf finish];
+                                          }]];
+  [sheet addAction:[UIAlertAction actionWithTitle:@"계속 안내"
+                                            style:UIAlertActionStyleCancel
+                                          handler:nil]];
+  [self presentViewController:sheet animated:YES completion:nil];
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)),
+                 dispatch_get_main_queue(), ^{
+                   __typeof(self) strongSelf = weakSelf;
+                   if (strongSelf != nil && strongSelf.presentedViewController == sheet) {
+                     [sheet dismissViewControllerAnimated:YES completion:nil];
+                   }
+                 });
 
   if (!self.carThemeApplied) {
     self.carThemeApplied = YES;

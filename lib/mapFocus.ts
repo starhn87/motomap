@@ -17,3 +17,12 @@ export function focusPlaceOnMap(
     },
   });
 }
+
+// 지도 탭에서 내 위치 따라가기 모드를 켠다 — 안내가 끝나도 라이더는 계속
+// 이동 중이므로 종료 직후 지도가 위치를 따라오게 한다(실주행 피드백).
+export function followMyLocationOnMap() {
+  router.navigate({
+    pathname: '/',
+    params: { followTs: String(Date.now()) },
+  });
+}
