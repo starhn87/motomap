@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import Animated, {
   useAnimatedStyle,
@@ -21,6 +21,8 @@ import Animated, {
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
+import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { updateAvatarUrl } from '@/lib/nickname';
 import { toast } from '@/lib/toast';
@@ -33,11 +35,14 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 function MenuItem({
   icon,
   label,
+  trailing,
   onPress,
   danger,
 }: {
   icon: React.ReactNode;
   label: string;
+  /** 오른쪽 끝 보조 텍스트 — 내 장소의 "설정됨/설정 안 됨" 같은 상태 표시 */
+  trailing?: string;
   onPress: () => void;
   danger?: boolean;
 }) {
@@ -69,6 +74,11 @@ function MenuItem({
         ]}>
         {label}
       </Text>
+      {trailing != null && (
+        <Text style={[styles.menuTrailing, { color: colors.textSecondary }]}>
+          {trailing}
+        </Text>
+      )}
     </AnimatedPressable>
   );
 }
@@ -85,6 +95,44 @@ function LoggedInContent() {
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
   // 뷰어에서 골랐지만 아직 적용하지 않은 사진 — 뷰어 안 미리보기로만 보인다
   const [pendingUri, setPendingUri] = useState<string | null>(null);
+
+  // 내 장소(집·회사) 관리 — 검색·길찾기의 바로가기와 같은 저장소.
+  // 변경·삭제의 명시적 진입점은 여기 하나다(롱프레스 같은 숨은 동작 없음).
+  const myPlaces = useMyPlacesStore((s) => s.places);
+  const loadMyPlaces = useMyPlacesStore((s) => s.load);
+  const saveMyPlace = useMyPlacesStore((s) => s.save);
+  const removeMyPlace = useMyPlacesStore((s) => s.remove);
+  useEffect(() => {
+    void loadMyPlaces();
+  }, [loadMyPlaces]);
+  const [editingSlot, setEditingSlot] = useState<MyPlaceSlot | null>(null);
+
+  const handleMyPlace = (slot: MyPlaceSlot) => {
+    const label = slot === 'home' ? '집' : '회사';
+    const saved = myPlaces[slot];
+    if (!saved) {
+      setEditingSlot(slot);
+      return;
+    }
+    Alert.alert(label, saved.name, [
+      { text: '변경', onPress: () => setEditingSlot(slot) },
+      { text: '삭제', style: 'destructive', onPress: () => void removeMyPlace(slot) },
+      { text: '취소', style: 'cancel' },
+    ]);
+  };
+
+  const handleSlotSelect = (point: Point, address?: string) => {
+    const slot = editingSlot;
+    setEditingSlot(null);
+    if (!slot || point === 'current') return;
+    void saveMyPlace(slot, {
+      name: point.name,
+      address: address ?? '',
+      latitude: point.latitude,
+      longitude: point.longitude,
+    });
+    toast.success(slot === 'home' ? '집을 저장했어요.' : '회사를 저장했어요.');
+  };
 
   const displayName = user.user_metadata?.name
     ?? user.user_metadata?.full_name
@@ -171,6 +219,19 @@ function LoggedInContent() {
       <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.menu}>
         <MenuItem icon={<Ionicons name="create-outline" size={20} color={colors.text} />} label="닉네임 변경" onPress={() => router.push('/edit-nickname')} />
         <MenuItem icon={<BikeIcon size={26} color={colors.text} />} label="내 바이크" onPress={() => router.push('/edit-bike')} />
+        {/* 장소명은 민감 정보라 설정 여부만 보여준다 */}
+        <MenuItem
+          icon={<Ionicons name="home-outline" size={20} color={colors.text} />}
+          label="집"
+          trailing={myPlaces.home ? '설정됨' : '설정 안 됨'}
+          onPress={() => handleMyPlace('home')}
+        />
+        <MenuItem
+          icon={<Ionicons name="business-outline" size={20} color={colors.text} />}
+          label="회사"
+          trailing={myPlaces.work ? '설정됨' : '설정 안 됨'}
+          onPress={() => handleMyPlace('work')}
+        />
         <MenuItem icon={<Ionicons name="star-outline" size={20} color={colors.text} />} label="즐겨찾기" onPress={() => router.push('/favorites')} />
         <MenuItem icon={<Ionicons name="document-text-outline" size={20} color={colors.text} />} label="내 제보 목록" onPress={() => router.push('/my-submissions')} />
         <MenuItem icon={<Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />} label="내 리뷰" onPress={() => router.push('/my-reviews')} />
@@ -221,6 +282,14 @@ function LoggedInContent() {
           }
         />
       )}
+
+      <PointSearchModal
+        visible={editingSlot !== null}
+        allowCurrent={false}
+        title={editingSlot === 'home' ? '집 설정' : '회사 설정'}
+        onClose={() => setEditingSlot(null)}
+        onSelect={handleSlotSelect}
+      />
     </>
   );
 }
@@ -379,5 +448,9 @@ const styles = StyleSheet.create({
   menuLabel: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  menuTrailing: {
+    fontSize: 13,
+    marginLeft: 'auto',
   },
 });
