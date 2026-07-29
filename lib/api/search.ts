@@ -7,6 +7,21 @@ export interface SearchResults {
   courses: RidingCourse[];
 }
 
+// 등록 장소와 카카오 일반 장소가 같은 곳인지 — 이름(정규화) 일치 + 좌표 근접.
+// 제보 폼이 카카오 좌표를 그대로 쓰므로 20m 이내는 이름이 조금 달라도 동일 장소다.
+const normName = (n: string) => n.replace(/\s/g, '').toLowerCase();
+export function isSamePlace(
+  p: { name: string; latitude: number; longitude: number },
+  k: { name: string; latitude: number; longitude: number },
+): boolean {
+  const dist = Math.hypot((p.latitude - k.latitude) * 111000, (p.longitude - k.longitude) * 88000);
+  if (dist > 150) return false;
+  if (dist < 20) return true;
+  const pn = normName(p.name);
+  const kn = normName(k.name);
+  return kn === pn || kn.includes(pn) || pn.includes(kn);
+}
+
 export async function searchAll(query: string): Promise<SearchResults> {
   const [placesRes, coursesRes] = await Promise.all([
     supabase.rpc('all_places', { category_filter: null }),

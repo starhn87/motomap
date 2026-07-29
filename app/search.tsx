@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
-import { searchAll } from '@/lib/api/search';
+import { isSamePlace, searchAll } from '@/lib/api/search';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
@@ -48,20 +48,6 @@ import type { Place } from '@/types';
 // 검색 전용 화면 — 입력 전에는 최근 검색·즐겨찾기·추천 목적지를 모아 보여주고,
 // 2자 이상 입력하면 통합 검색 결과로 전환된다. 장소 선택은 지도 탭의
 // focusPlaceId 파라미터(승인 푸시 딥링크와 같은 경로)로 전달한다.
-// 등록 장소와 카카오 일반 장소가 같은 곳인지 — 이름(정규화) 일치 + 좌표 근접.
-// 제보 폼이 카카오 좌표를 그대로 쓰므로 20m 이내는 이름이 조금 달라도 동일 장소다.
-const normName = (n: string) => n.replace(/\s/g, '').toLowerCase();
-function isSamePlace(
-  p: { name: string; latitude: number; longitude: number },
-  k: { name: string; latitude: number; longitude: number },
-): boolean {
-  const dist = Math.hypot((p.latitude - k.latitude) * 111000, (p.longitude - k.longitude) * 88000);
-  if (dist > 150) return false;
-  if (dist < 20) return true;
-  const pn = normName(p.name);
-  const kn = normName(k.name);
-  return kn === pn || kn.includes(pn) || pn.includes(kn);
-}
 
 // 최근 검색의 일반 장소가 그 사이 제보로 등록됐으면 등록 장소 항목으로 승격한다
 async function promoteRegisteredKakao(list: RecentSearch[]): Promise<RecentSearch[] | null> {

@@ -13,16 +13,24 @@ import { useEffect, useRef, useState } from 'react';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import CategoryIcon from '@/components/ui/CategoryIcon';
+import { CATEGORIES } from '@/constants/categories';
 import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
 import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import { isSamePlace, searchAll } from '@/lib/api/search';
 import type { NavTarget } from '@/lib/navigation';
+import type { Place } from '@/types';
 
 /** 길찾기 지점 — 좌표 있는 목적지 또는 '현재 위치' */
 export type Point = NavTarget | 'current';
 
-// 카카오 로컬 검색으로 지점을 고르는 모달. 입력 전에는 현재 위치·집·회사·
-// 최근 검색을 보여주고, 입력하면 검색 결과로 바뀐다. 길찾기의 출발지·도착지
-// 선택과 집/회사 '설정'(검색·설정 화면)이 함께 쓴다.
+// 검색 화면과 같은 재료: 등록 장소(카테고리 구분)를 앞에, 카카오 일반 장소를
+// 뒤에 — 이미 등록된 곳은 일반 목록에서 뺀다.
+type ResultItem = { kind: 'place'; place: Place } | { kind: 'kakao'; k: KakaoLocalResult };
+
+// 지점을 고르는 모달. 입력 전에는 현재 위치·집·회사·최근 검색을 보여주고,
+// 입력하면 등록 장소 + 카카오 로컬 검색 결과로 바뀐다. 길찾기·미리보기의
+// 지점 선택과 집/회사 '설정'(검색·설정 화면)이 함께 쓴다.
 export default function PointSearchModal({
   visible,
   allowCurrent,
@@ -45,7 +53,7 @@ export default function PointSearchModal({
   const colors = Colors[colorScheme ?? 'light'];
   const myPlaces = useMyPlacesStore((s) => s.places);
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<KakaoLocalResult[]>([]);
+  const [results, setResults] = useState<ResultItem[]>([]);
   const [searching, setSearching] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -66,7 +74,20 @@ export default function PointSearchModal({
     debounce.current = setTimeout(async () => {
       setSearching(true);
       try {
-        setResults(await searchKakaoLocal(text));
+        const [places, kakao] = await Promise.all([
+          searchAll(text).then((r) => r.places).catch(() => [] as Place[]),
+          searchKakaoLocal(text).catch(() => [] as KakaoLocalResult[]),
+        ]);
+        const kakaoOnly = kakao.filter(
+          (k) =>
+            !places.some((p) =>
+              isSamePlace(p, { name: k.placeName, latitude: k.latitude, longitude: k.longitude }),
+            ),
+        );
+        setResults([
+          ...places.map((place) => ({ kind: 'place' as const, place })),
+          ...kakaoOnly.map((k) => ({ kind: 'kakao' as const, k })),
+        ]);
       } finally {
         setSearching(false);
       }
@@ -100,7 +121,9 @@ export default function PointSearchModal({
 
         <FlatList
           data={results}
-          keyExtractor={(item, i) => `${item.placeName}-${i}`}
+          keyExtractor={(item, i) =>
+            item.kind === 'place' ? `place-${item.place.id}` : `kakao-${item.k.placeName}-${i}`
+          }
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             query.trim() ? null : (
@@ -173,31 +196,73 @@ export default function PointSearchModal({
               </>
             )
           }
+          ListFooterComponent={
+            results.some((r) => r.kind === 'kakao') ? (
+              <Text style={[styles.kakaoAttribution, { color: colors.textSecondary }]}>
+                장소 정보 제공: 카카오
+              </Text>
+            ) : null
+          }
           renderItem={({ item }) => (
-            <Pressable
-              onPress={() =>
-                onSelect(
-                  {
-                    name: item.placeName,
-                    latitude: item.latitude,
-                    longitude: item.longitude,
-                  },
-                  item.roadAddress || item.address,
-                )
-              }
-              style={[styles.resultRow, { borderBottomColor: colors.border }]}>
-              <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-              <View style={styles.resultTexts}>
-                <Text style={[styles.resultName, { color: colors.text }]} numberOfLines={1}>
-                  {item.placeName}
+            item.kind === 'place' ? (
+              <Pressable
+                onPress={() =>
+                  onSelect(
+                    {
+                      name: item.place.name,
+                      latitude: item.place.latitude,
+                      longitude: item.place.longitude,
+                      // 등록 장소는 id 를 실어 도착 후 리뷰 연결까지 이어지게 한다
+                      placeId: item.place.id,
+                    },
+                    item.place.address,
+                  )
+                }
+                style={[styles.resultRow, { borderBottomColor: colors.border }]}>
+                <CategoryIcon category={item.place.category} size={16} />
+                <View style={styles.resultTexts}>
+                  <Text style={[styles.resultName, { color: colors.text }]} numberOfLines={1}>
+                    {item.place.name}
+                  </Text>
+                  {!!item.place.address && (
+                    <Text
+                      style={[styles.resultAddress, { color: colors.textSecondary }]}
+                      numberOfLines={1}>
+                      {item.place.address}
+                    </Text>
+                  )}
+                </View>
+                <Text style={[styles.resultBadge, { color: CATEGORIES[item.place.category].color }]}>
+                  {CATEGORIES[item.place.category].label}
                 </Text>
-                <Text
-                  style={[styles.resultAddress, { color: colors.textSecondary }]}
-                  numberOfLines={1}>
-                  {item.roadAddress || item.address}
-                </Text>
-              </View>
-            </Pressable>
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={() =>
+                  onSelect(
+                    {
+                      name: item.k.placeName,
+                      latitude: item.k.latitude,
+                      longitude: item.k.longitude,
+                    },
+                    item.k.roadAddress || item.k.address,
+                  )
+                }
+                style={[styles.resultRow, { borderBottomColor: colors.border }]}>
+                <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+                <View style={styles.resultTexts}>
+                  <Text style={[styles.resultName, { color: colors.text }]} numberOfLines={1}>
+                    {item.k.placeName}
+                  </Text>
+                  <Text
+                    style={[styles.resultAddress, { color: colors.textSecondary }]}
+                    numberOfLines={1}>
+                    {item.k.roadAddress || item.k.address}
+                  </Text>
+                </View>
+                <Text style={[styles.resultBadge, { color: colors.textSecondary }]}>일반</Text>
+              </Pressable>
+            )
           )}
         />
       </View>
@@ -253,5 +318,15 @@ const styles = StyleSheet.create({
   },
   resultAddress: {
     fontSize: 13,
+  },
+  resultBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  kakaoAttribution: {
+    fontSize: 11,
+    textAlign: 'right',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
 });

@@ -195,7 +195,13 @@ export default function NaviScreen() {
     } else if (point === 'current') {
       return; // 도착지·경유지에 '현재 위치'는 모달에서 막지만 한 번 더 거른다
     } else if (field === 'goal') {
-      setGoal({ name: point.name, latitude: point.latitude, longitude: point.longitude });
+      // 등록 장소면 placeId 가 실려 와 도착 후 리뷰 연결이 이어진다
+      setGoal({
+        name: point.name,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        placeId: point.placeId,
+      });
     } else {
       setUserVias((prev) => prev.map((v, i) => (i === field ? point : v)));
     }
