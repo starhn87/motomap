@@ -1,6 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { initializeKakaoSDK } from '@react-native-kakao/core';
-import KakaoNavi from '@/modules/kakao-navi';
 import { registerGuideEvents } from '@/lib/guideEvents';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -73,10 +72,10 @@ function RootLayout() {
       initializeKakaoSDK(appKey).catch((err) => {
         console.warn('Failed to initialize Kakao SDK', err);
       });
-      // 카카오내비 SDK(KNSDK) — 앱 안 이륜차 길안내용. 인증 성공 여부만 남긴다.
-      KakaoNavi.initialize(appKey)
-        .then(() => console.log('[KNSDK] 인증 성공'))
-        .catch((err) => console.warn('[KNSDK] 인증 실패', err));
+      // KNSDK 는 여기서 초기화하지 않는다 — 초기화가 백그라운드 위치 구독을
+      // 켜서, 길안내를 안 해도 앱이 백그라운드에서 계속 GPS 를 받는다(실측:
+      // locationd 로그, 밤새 배터리 소모 사례). 내비 진입 시 lazy 초기화
+      // (lib/kakaoNaviInit.ts) — 내비를 안 쓴 세션은 SDK 위치가 아예 안 켜진다.
     }
   }, [initialize, loadMode]);
 

@@ -28,6 +28,7 @@ import KakaoNavi, {
   type RoutePriority,
 } from '@/modules/kakao-navi';
 import { sampleWaypoints } from '@/lib/navigation';
+import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
 import { useMapStore } from '@/stores/useMapStore';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import Colors, { semantic } from '@/constants/Colors';
@@ -177,6 +178,15 @@ export default function NaviScreen() {
     setLoading(true);
 
     (async () => {
+      // SDK 는 여기서 처음 초기화된다(lazy — 배터리 사유는 lib/kakaoNaviInit.ts)
+      try {
+        await ensureKakaoNaviReady();
+      } catch (err) {
+        if (!cancelled) {
+          toast.error('길안내를 준비할 수 없습니다', friendlyRouteError(err));
+        }
+        return;
+      }
       const requestVias = activeVias ?? effVias;
       // 실패 시 경유지를 줄여가며 재시도하는 사다리 — 축소는 사전 추림(20개)과
       // 같은 샘플러를 쓴다. 20413(도로 자체가 안 이어짐)은 경유지를 줄여도
