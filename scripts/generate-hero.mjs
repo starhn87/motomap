@@ -2,6 +2,9 @@
 // 두 장을 이어붙인 파노라마(2568x2778)를 한 장면으로 그린 뒤 반으로 자른다 —
 // 좌측: 카피 + 기능 리스트, 우측: 폰 목업이 경계에 걸쳐 두 장에 이어진다.
 //   node scripts/generate-hero.mjs
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import sharp from 'sharp';
 
 const W = 1284;
@@ -101,12 +104,13 @@ async function main() {
     .png()
     .toBuffer();
 
-  // 폰 목업 — 살짝 기울여 페이지 경계에 걸치고 하단으로 빠져나가게
-  const phone = await phoneMockup();
-  const rotated = await sharp(phone)
-    .rotate(8, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .png()
-    .toBuffer();
+  // 폰 목업 — 원근(화면이 카피 쪽을 향함) + 오른쪽 측면 두께 + 기울기는
+  // PIL 스크립트가 입힌다 (sharp 는 원근 변환이 없다)
+  const flatPath = join(tmpdir(), 'motomap-hero-phone-flat.png');
+  const tiltedPath = join(tmpdir(), 'motomap-hero-phone-3d.png');
+  await sharp(await phoneMockup()).toFile(flatPath);
+  execFileSync('python3', ['scripts/hero-phone-3d.py', flatPath, tiltedPath]);
+  const rotated = await sharp(tiltedPath).png().toBuffer();
   const meta = await sharp(rotated).metadata();
   // 폰 전체가 잘리지 않고 온전히 들어온다. 상단을 왼쪽으로 살짝 기울여
   // 좌하단 코너가 가장 왼쪽에 오게 하고, 그 좌하단만 1장 우하단에 걸친다.
