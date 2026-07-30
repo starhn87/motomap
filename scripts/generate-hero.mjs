@@ -73,7 +73,7 @@ async function main() {
   // three.js 실사 렌더(측면·버튼·베벨 포함)를 크기 맞춰 살짝 기울인다
   const rotated = await sharp('scripts/assets/hero-phone.png')
     .resize({ height: 2250 })
-    .rotate(-8, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .rotate(8, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
   const meta = await sharp(rotated).metadata();

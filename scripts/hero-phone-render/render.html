@@ -10,7 +10,7 @@
   import * as THREE from 'three';
   import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-  const W = 1700, H = 3400; // 출력 캔버스 (투명 배경)
+  const W = 2100, H = 4200; // 출력 캔버스 (투명 배경)
   const status = document.getElementById('status');
 
   // ── 지오메트리 도우미: 라운드 사각 Shape ─────────────────────────────
@@ -42,9 +42,9 @@
   const body = new THREE.Mesh(
     new THREE.ExtrudeGeometry(roundedRect(PW, PH, PR), {
       depth: PD, bevelEnabled: true, bevelThickness: 1.4, bevelSize: 1.2,
-      bevelSegments: 8, curveSegments: 48,
+      bevelSegments: 16, curveSegments: 72,
     }),
-    new THREE.MeshStandardMaterial({ color: 0xf0f0f2, metalness: 0.75, roughness: 0.32 }),
+    new THREE.MeshPhysicalMaterial({ color: 0xf0f0f2, metalness: 0.85, roughness: 0.26, clearcoat: 0.8, clearcoatRoughness: 0.22 }),
   );
   body.position.z = -PD - 1.4; // 전면(베벨 끝)이 z≈0
   scene.add(body);
@@ -89,8 +89,35 @@
   island.position.set(0, scrH / 2 - 4.6, FRONT + 0.04);
   scene.add(island);
 
+  // ── 화면 유리 반사 — 대각선으로 스치는 아주 옅은 하이라이트 ─────────
+  {
+    const c = document.createElement('canvas');
+    c.width = c.height = 512;
+    const g = c.getContext('2d');
+    const grad = g.createLinearGradient(0, 512, 512, 0);
+    grad.addColorStop(0.0, 'rgba(255,255,255,0)');
+    grad.addColorStop(0.42, 'rgba(255,255,255,0)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.10)');
+    grad.addColorStop(0.58, 'rgba(255,255,255,0)');
+    grad.addColorStop(1.0, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 512, 512);
+    const glassTex = new THREE.CanvasTexture(c);
+    const glass = new THREE.Mesh(
+      new THREE.ShapeGeometry(roundedRect(scrW, scrH, PR - 3.2), 48),
+      new THREE.MeshBasicMaterial({ map: glassTex, transparent: true, depthWrite: false }),
+    );
+    const uv = glass.geometry.attributes.uv;
+    for (let i = 0; i < uv.count; i++) {
+      uv.setXY(i, uv.getX(i) / scrW + 0.5, uv.getY(i) / scrH + 0.5);
+    }
+    uv.needsUpdate = true;
+    glass.position.z = FRONT + 0.05;
+    scene.add(glass);
+  }
+
   // ── 측면 버튼 (오른쪽 전원, 왼쪽 음량·액션) ──────────────────────────
-  const btnMat = new THREE.MeshStandardMaterial({ color: 0xe9e9ec, metalness: 0.8, roughness: 0.3 });
+  const btnMat = new THREE.MeshPhysicalMaterial({ color: 0xe9e9ec, metalness: 0.85, roughness: 0.26, clearcoat: 0.6 });
   function sideButton(x, y, len) {
     const b = new THREE.Mesh(new THREE.BoxGeometry(1.6, len, 2.4), btnMat);
     b.position.set(x, y, -PD / 2 - 1.4);
@@ -106,9 +133,11 @@
   cam.position.set(280, 8, 480);
   cam.lookAt(0, 0, -PD / 2);
 
-  const key = new THREE.DirectionalLight(0xffffff, 0.7);
-  key.position.set(150, 200, 300);
-  scene.add(key, new THREE.AmbientLight(0xffffff, 0.25));
+  const key = new THREE.DirectionalLight(0xffffff, 1.1);
+  key.position.set(320, 260, 220);
+  const rim = new THREE.DirectionalLight(0xffffff, 0.35);
+  rim.position.set(-200, -80, 260);
+  scene.add(key, rim, new THREE.AmbientLight(0xffffff, 0.2));
 
   renderer.render(scene, cam);
   status.textContent = 'rendered — saving…';
