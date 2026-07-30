@@ -80,7 +80,7 @@ async function main() {
 
   // 폰 전체가 잘리지 않고 온전히 — 좌하단이 1장 우하단에 넉넉히 걸치고
   // 몸통 대부분은 2장에 놓인다
-  const phoneLeft = 1040;
+  const phoneLeft = 920;
   const phoneTop = Math.round((H - meta.height) / 2);
 
   const panorama = await sharp(Buffer.from(panoramaSvg()))

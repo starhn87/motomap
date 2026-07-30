@@ -9,6 +9,7 @@
 <script type="module">
   import * as THREE from 'three';
   import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+  import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
   const W = 2100, H = 4200; // 출력 캔버스 (투명 배경)
   const status = document.getElementById('status');
@@ -33,6 +34,7 @@
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   renderer.setSize(W, H, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.18;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   document.body.appendChild(renderer.domElement);
   scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
@@ -44,7 +46,7 @@
       depth: PD, bevelEnabled: true, bevelThickness: 1.4, bevelSize: 1.2,
       bevelSegments: 16, curveSegments: 72,
     }),
-    new THREE.MeshPhysicalMaterial({ color: 0xf0f0f2, metalness: 0.85, roughness: 0.26, clearcoat: 0.8, clearcoatRoughness: 0.22 }),
+    new THREE.MeshPhysicalMaterial({ color: 0xf8f8f9, metalness: 0.8, roughness: 0.24, clearcoat: 0.8, clearcoatRoughness: 0.2 }),
   );
   body.position.z = -PD - 1.4; // 전면(베벨 끝)이 z≈0
   scene.add(body);
@@ -117,9 +119,10 @@
   }
 
   // ── 측면 버튼 (오른쪽 전원, 왼쪽 음량·액션) ──────────────────────────
-  const btnMat = new THREE.MeshPhysicalMaterial({ color: 0xe9e9ec, metalness: 0.85, roughness: 0.26, clearcoat: 0.6 });
+  const btnMat = new THREE.MeshPhysicalMaterial({ color: 0xf2f2f4, metalness: 0.8, roughness: 0.24, clearcoat: 0.7 });
   function sideButton(x, y, len) {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(1.6, len, 2.4), btnMat);
+    // 실물처럼 끝이 둥근 캡슐형 버튼
+    const b = new THREE.Mesh(new RoundedBoxGeometry(1.7, len, 2.3, 4, 0.8), btnMat);
     b.position.set(x, y, -PD / 2 - 1.4);
     scene.add(b);
   }
@@ -127,6 +130,16 @@
   sideButton(-PW / 2 - 0.6, 25, 11); // 음량 +
   sideButton(-PW / 2 - 0.6, 11, 11); // 음량 -
   sideButton(-PW / 2 - 0.6, 37, 6); // 액션
+
+  // ── 안테나 라인 — 실물 아이폰 측면 상·하단을 가로지르는 무광 절연 줄 ──
+  const antMat = new THREE.MeshStandardMaterial({ color: 0xdededf, metalness: 0.1, roughness: 0.75 });
+  for (const sx of [1, -1]) {
+    for (const y of [PH / 2 - 14, -PH / 2 + 14]) {
+      const line = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.6, PD + 2.0), antMat);
+      line.position.set(sx * (PW / 2 + 0.85), y, -PD / 2 - 1.4);
+      scene.add(line);
+    }
+  }
 
   // ── 카메라: 오른쪽 30도쯤 — 오른쪽 측면 두께와 전원 버튼이 뚜렷하다 ──
   const cam = new THREE.PerspectiveCamera(16, W / H, 1, 2000);
