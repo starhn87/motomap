@@ -70,23 +70,30 @@ async function main() {
     .png()
     .toBuffer();
 
-  // three.js 실사 렌더(측면·버튼·베벨 포함)를 크기 맞춰 살짝 기울인다
+  // three.js 실사 렌더(측면·버튼·베벨 포함)를 크게 키워 살짝 기울인다.
+  // 레퍼런스 구도: 폰이 2장을 가득 채우고 하단은 화면 밖으로 잘려나가며,
+  // 좌하단 부분이 1장 우하단에 걸친다.
   const rotated = await sharp('scripts/assets/hero-phone.png')
-    .resize({ height: 2250 })
+    .resize({ height: 2500 })
     .rotate(8, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
   const meta = await sharp(rotated).metadata();
-
-  // 폰 전체가 잘리지 않고 온전히 — 좌하단이 1장 우하단에 넉넉히 걸치고
-  // 몸통 대부분은 2장에 놓인다
-  const phoneLeft = 920;
-  const phoneTop = Math.round((H - meta.height) / 2);
+  const phoneLeft = 950;
+  const phoneTop = 500;
+  const visible = await sharp(rotated)
+    .extract({
+      left: 0,
+      top: 0,
+      width: Math.min(meta.width, PW - phoneLeft),
+      height: Math.min(meta.height, H - phoneTop),
+    })
+    .toBuffer();
 
   const panorama = await sharp(Buffer.from(panoramaSvg()))
     .composite([
       { input: icon, left: 120, top: 330 },
-      { input: rotated, left: phoneLeft, top: phoneTop },
+      { input: visible, left: phoneLeft, top: phoneTop },
     ])
     .png()
     .toBuffer();
