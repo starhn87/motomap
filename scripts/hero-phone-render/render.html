@@ -1,0 +1,117 @@
+<!doctype html>
+<meta charset="utf-8" />
+<style>body{margin:0;background:#333}canvas{width:400px!important;height:auto!important}</style>
+<div id="status">loading…</div>
+<script type="importmap">
+  { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                 "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+  import * as THREE from 'three';
+  import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+  const W = 1700, H = 3400; // 출력 캔버스 (투명 배경)
+  const status = document.getElementById('status');
+
+  // ── 지오메트리 도우미: 라운드 사각 Shape ─────────────────────────────
+  function roundedRect(w, h, r) {
+    const s = new THREE.Shape();
+    const x = -w / 2, y = -h / 2;
+    s.moveTo(x + r, y);
+    s.lineTo(x + w - r, y);
+    s.absarc(x + w - r, y + r, r, -Math.PI / 2, 0);
+    s.lineTo(x + w, y + h - r);
+    s.absarc(x + w - r, y + h - r, r, 0, Math.PI / 2);
+    s.lineTo(x + r, y + h);
+    s.absarc(x + r, y + h - r, r, Math.PI / 2, Math.PI);
+    s.lineTo(x, y + r);
+    s.absarc(x + r, y + r, r, Math.PI, Math.PI * 1.5);
+    return s;
+  }
+
+  const scene = new THREE.Scene();
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  renderer.setSize(W, H, false);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  document.body.appendChild(renderer.domElement);
+  scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+
+  // ── 폰 바디 (iPhone 15 비율, mm) ──────────────────────────────────────
+  const PW = 70.6, PH = 146.6, PD = 7.0, PR = 11;
+  const body = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(roundedRect(PW, PH, PR), {
+      depth: PD, bevelEnabled: true, bevelThickness: 1.4, bevelSize: 1.2,
+      bevelSegments: 8, curveSegments: 48,
+    }),
+    new THREE.MeshStandardMaterial({ color: 0xf0f0f2, metalness: 0.75, roughness: 0.32 }),
+  );
+  body.position.z = -PD - 1.4; // 전면(베벨 끝)이 z≈0
+  scene.add(body);
+
+  const FRONT = 0.05;
+
+  // ── 블랙 베젤 (화면 둘레 링) ─────────────────────────────────────────
+  const bezelOuter = roundedRect(PW - 2.6, PH - 2.6, PR - 1.6);
+  bezelOuter.holes.push(new THREE.Path(roundedRect(PW - 7.4, PH - 7.4, PR - 3.4).getPoints(48)));
+  const bezel = new THREE.Mesh(
+    new THREE.ShapeGeometry(bezelOuter, 48),
+    new THREE.MeshBasicMaterial({ color: 0x0a0a0b }),
+  );
+  bezel.position.z = FRONT + 0.02;
+  scene.add(bezel);
+
+  // ── 화면 (스크린샷 텍스처) ───────────────────────────────────────────
+  const shotTex = await new THREE.TextureLoader().loadAsync('/shot.png');
+  shotTex.colorSpace = THREE.SRGBColorSpace;
+  shotTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const scrW = PW - 7.0, scrH = PH - 7.0;
+  const screen = new THREE.Mesh(
+    new THREE.ShapeGeometry(roundedRect(scrW, scrH, PR - 3.2), 48),
+    new THREE.MeshBasicMaterial({ map: shotTex }),
+  );
+  // ShapeGeometry UV 는 좌표 기반 — 화면 크기에 맞게 정규화
+  {
+    const uv = screen.geometry.attributes.uv;
+    for (let i = 0; i < uv.count; i++) {
+      uv.setXY(i, uv.getX(i) / scrW + 0.5, uv.getY(i) / scrH + 0.5);
+    }
+    uv.needsUpdate = true;
+  }
+  screen.position.z = FRONT + 0.03;
+  scene.add(screen);
+
+  // ── 다이나믹 아일랜드 ────────────────────────────────────────────────
+  const island = new THREE.Mesh(
+    new THREE.ShapeGeometry(roundedRect(11.5, 3.4, 1.7), 24),
+    new THREE.MeshBasicMaterial({ color: 0x000000 }),
+  );
+  island.position.set(0, scrH / 2 - 4.6, FRONT + 0.04);
+  scene.add(island);
+
+  // ── 측면 버튼 (오른쪽 전원, 왼쪽 음량·액션) ──────────────────────────
+  const btnMat = new THREE.MeshStandardMaterial({ color: 0xe9e9ec, metalness: 0.8, roughness: 0.3 });
+  function sideButton(x, y, len) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(1.6, len, 2.4), btnMat);
+    b.position.set(x, y, -PD / 2 - 1.4);
+    scene.add(b);
+  }
+  sideButton(PW / 2 + 0.6, 14, 19); // 전원 (오른쪽)
+  sideButton(-PW / 2 - 0.6, 25, 11); // 음량 +
+  sideButton(-PW / 2 - 0.6, 11, 11); // 음량 -
+  sideButton(-PW / 2 - 0.6, 37, 6); // 액션
+
+  // ── 카메라: 오른쪽 30도쯤 — 오른쪽 측면 두께와 전원 버튼이 뚜렷하다 ──
+  const cam = new THREE.PerspectiveCamera(16, W / H, 1, 2000);
+  cam.position.set(280, 8, 480);
+  cam.lookAt(0, 0, -PD / 2);
+
+  const key = new THREE.DirectionalLight(0xffffff, 0.7);
+  key.position.set(150, 200, 300);
+  scene.add(key, new THREE.AmbientLight(0xffffff, 0.25));
+
+  renderer.render(scene, cam);
+  status.textContent = 'rendered — saving…';
+  const r = await fetch('/save', { method: 'POST', body: renderer.domElement.toDataURL('image/png') });
+  status.textContent = 'saved: ' + (await r.text());
+</script>
