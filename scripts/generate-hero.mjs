@@ -108,8 +108,9 @@ async function main() {
     .png()
     .toBuffer();
   const meta = await sharp(rotated).metadata();
-  const phoneLeft = 960; // 1장에 ~320px 걸친다
-  const phoneTop = 1000;
+  // 기울어진 폰의 좌하단 코너만 1장 우하단에 걸치고, 몸통은 2장을 채운다
+  const phoneLeft = 1164;
+  const phoneTop = 950;
   const visible = await sharp(rotated)
     .extract({
       left: 0,
