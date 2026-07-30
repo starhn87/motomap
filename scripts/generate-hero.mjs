@@ -2,9 +2,6 @@
 // 두 장을 이어붙인 파노라마(2568x2778)를 한 장면으로 그린 뒤 반으로 자른다 —
 // 좌측: 카피 + 기능 리스트, 우측: 폰 목업이 경계에 걸쳐 두 장에 이어진다.
 //   node scripts/generate-hero.mjs
-import { execFileSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import sharp from 'sharp';
 
 const W = 1284;
@@ -25,12 +22,13 @@ function panoramaSvg() {
     [AMBER, '이륜차 전용 앱 내 길안내'],
     [RED, '라이딩 날씨 · 실시간 유가'],
   ];
+  // 기능 리스트는 좌측 장 하단 블록 (레퍼런스 구도)
   const featureRows = features
     .map(
       ([color, label], i) => `
-      <circle cx="150" cy="${1360 + i * 150}" r="16" fill="${color}" />
-      <text x="212" y="${1360 + i * 150}" dominant-baseline="central"
-        font-family="${FONT}" font-size="56" font-weight="600" fill="#E7E7EA">${label}</text>`,
+      <circle cx="150" cy="${2130 + i * 155}" r="16" fill="${color}" />
+      <text x="212" y="${2130 + i * 155}" dominant-baseline="central"
+        font-family="${FONT}" font-size="58" font-weight="600" fill="#E7E7EA">${label}</text>`,
     )
     .join('');
   return `<svg width="${PW}" height="${H}" xmlns="http://www.w3.org/2000/svg">
@@ -104,23 +102,29 @@ async function main() {
     .png()
     .toBuffer();
 
-  // 폰 목업 — 원근(화면이 카피 쪽을 향함) + 오른쪽 측면 두께 + 기울기는
-  // PIL 스크립트가 입힌다 (sharp 는 원근 변환이 없다)
-  const flatPath = join(tmpdir(), 'motomap-hero-phone-flat.png');
-  const tiltedPath = join(tmpdir(), 'motomap-hero-phone-3d.png');
-  await sharp(await phoneMockup()).toFile(flatPath);
-  execFileSync('python3', ['scripts/hero-phone-3d.py', flatPath, tiltedPath]);
-  const rotated = await sharp(tiltedPath).png().toBuffer();
+  // 폰 목업 — 살짝 기울여 2장 중앙에 크게, 하단은 화면 밖으로 빠져나간다
+  // (레퍼런스 구도: 폰은 우측 장 안에, 두 장은 배경 그라데이션으로 이어진다)
+  const phone = await phoneMockup();
+  const rotated = await sharp(phone)
+    .rotate(-8, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
   const meta = await sharp(rotated).metadata();
-  // 폰 전체가 잘리지 않고 온전히 들어온다. 상단을 왼쪽으로 살짝 기울여
-  // 좌하단 코너가 가장 왼쪽에 오게 하고, 그 좌하단만 1장 우하단에 걸친다.
-  const phoneLeft = 1144;
-  const phoneTop = Math.round((H - meta.height) / 2);
+  const phoneLeft = W + Math.round((W - meta.width) / 2);
+  const phoneTop = 750;
+  const visible = await sharp(rotated)
+    .extract({
+      left: phoneLeft < W ? W - phoneLeft : 0,
+      top: 0,
+      width: Math.min(meta.width, PW - Math.max(phoneLeft, W)),
+      height: Math.min(meta.height, H - phoneTop),
+    })
+    .toBuffer();
 
   const panorama = await sharp(Buffer.from(panoramaSvg()))
     .composite([
       { input: icon, left: 120, top: 330 },
-      { input: rotated, left: phoneLeft, top: phoneTop },
+      { input: visible, left: Math.max(phoneLeft, W), top: phoneTop },
     ])
     .png()
     .toBuffer();
