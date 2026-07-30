@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -15,12 +15,13 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
+import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
+import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import { CATEGORIES } from '@/constants/categories';
 import { MARKER_IMAGES } from '@/constants/markerImages';
 import { isSamePlace, searchAll } from '@/lib/api/search';
 import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { addRecentSearch } from '@/lib/recentSearches';
-import { focusPlaceOnMap } from '@/lib/mapFocus';
 import type { Place } from '@/types';
 
 // 지도에 뿌리는 결과 상한 — 등록 장소가 광범위한 검색어(예: "카페")일 때
@@ -38,6 +39,11 @@ export default function SearchResultsScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const mapRef = useRef<NaverMapViewRef>(null);
+  // 결과에서 고른 장소 — 화면을 떠나지 않고 이 지도 위에서 상세 시트를 띄운다.
+  // 시트를 닫으면 결과 목록으로 돌아온다(네이버 지도식 복귀).
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [selectedTemp, setSelectedTemp] = useState<TempPlace | null>(null);
+  const detailOpen = selectedPlace !== null || selectedTemp !== null;
 
   // 검색 화면과 같은 쿼리 키 — 방금 친 검색이라 대부분 캐시로 즉시 뜬다
   const { data: results, isLoading } = useQuery({
@@ -91,11 +97,17 @@ export default function SearchResultsScreen() {
     });
   }, [items]);
 
-  // 선택은 기존 플로우로 — navigate('/') 가 스택을 걷어 검색·결과 화면이 함께 닫힌다
+  // 고르면 이 화면 안에서 상세 시트를 연다 — 지도 탭과 같은 시트를 재사용한다
   const pick = (item: ResultItem) => {
     if (item.kind === 'place') {
       void addRecentSearch({ type: 'place', place: item.place });
-      focusPlaceOnMap(item.place.id);
+      setSelectedPlace(item.place);
+      mapRef.current?.animateCameraTo({
+        latitude: item.place.latitude,
+        longitude: item.place.longitude,
+        zoom: 13,
+        duration: 500,
+      });
     } else {
       const { k } = item;
       void addRecentSearch({
@@ -106,16 +118,18 @@ export default function SearchResultsScreen() {
         longitude: k.longitude,
         phone: k.phone,
       });
-      router.navigate({
-        pathname: '/',
-        params: {
-          kakaoName: k.placeName,
-          kakaoAddress: k.roadAddress || k.address,
-          kakaoLat: String(k.latitude),
-          kakaoLng: String(k.longitude),
-          kakaoPhone: k.phone ?? '',
-          focusTs: String(Date.now()),
-        },
+      setSelectedTemp({
+        name: k.placeName,
+        address: k.roadAddress || k.address,
+        latitude: k.latitude,
+        longitude: k.longitude,
+        phone: k.phone || undefined,
+      });
+      mapRef.current?.animateCameraTo({
+        latitude: k.latitude,
+        longitude: k.longitude,
+        zoom: 13,
+        duration: 500,
       });
     }
   };
@@ -136,13 +150,14 @@ export default function SearchResultsScreen() {
         initialCamera={{ latitude: 36.4, longitude: 127.8, zoom: 6 }}>
         {items.map((item) =>
           item.kind === 'place' ? (
+            // 마커 원본이 5:7 물방울이라 비율 그대로 그린다(정사각으로 그리면 뭉개짐)
             <NaverMapMarkerOverlay
               key={`place-${item.place.id}`}
               latitude={item.place.latitude}
               longitude={item.place.longitude}
-              anchor={{ x: 0.5, y: 0.5 }}
-              width={40}
-              height={40}
+              anchor={{ x: 0.5, y: 1 }}
+              width={selectedPlace?.id === item.place.id ? 46 : 36}
+              height={selectedPlace?.id === item.place.id ? 64 : 50}
               image={MARKER_IMAGES[item.place.category]}
             />
           ) : (
@@ -173,6 +188,8 @@ export default function SearchResultsScreen() {
         <Ionicons name="search" size={16} color={colors.textSecondary} />
       </Pressable>
 
+      {/* 결과 목록 — 상세 시트가 열려 있는 동안은 내려둔다. 닫으면 복귀. */}
+      {!detailOpen && (
       <BottomSheet
         index={0}
         snapPoints={['35%', '72%']}
@@ -250,6 +267,13 @@ export default function SearchResultsScreen() {
           }
         />
       </BottomSheet>
+      )}
+
+      {/* 지도 탭과 같은 상세 시트 — 닫으면 결과 목록으로 돌아온다 */}
+      <PlaceBottomSheet place={selectedPlace} onClose={() => setSelectedPlace(null)} />
+      {selectedTemp && (
+        <TempPlaceSheet place={selectedTemp} onClose={() => setSelectedTemp(null)} />
+      )}
     </View>
   );
 }
