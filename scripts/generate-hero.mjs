@@ -42,18 +42,8 @@ function panoramaSvg() {
         <stop offset="0.55" stop-color="#1B1B1F" />
         <stop offset="1" stop-color="#26262C" />
       </linearGradient>
-      <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
-        <stop offset="0" stop-color="${AMBER}" stop-opacity="0.32" />
-        <stop offset="1" stop-color="${AMBER}" stop-opacity="0" />
-      </radialGradient>
     </defs>
     <rect width="${PW}" height="${H}" fill="url(#bg)" />
-    <!-- 배경 장식 — 은은한 주황 글로우와 원 (레퍼런스의 블롭 역할, 브랜드 톤으로) -->
-    <circle cx="2350" cy="420" r="820" fill="url(#glow)" />
-    <circle cx="1180" cy="2600" r="700" fill="url(#glow)" />
-    <circle cx="2460" cy="360" r="120" fill="${AMBER}" opacity="0.85" />
-    <circle cx="2210" cy="620" r="46" fill="${AMBER}" opacity="0.5" />
-    <circle cx="1310" cy="2380" r="58" fill="${AMBER}" opacity="0.4" />
     <!-- 카피 -->
     <text x="120" y="905" font-family="${FONT}" font-size="112" font-weight="800"
       fill="#FFFFFF">라이더를 위한</text>
@@ -66,15 +56,19 @@ function panoramaSvg() {
   </svg>`;
 }
 
-// 스크린샷을 화이트 바디 + 블랙 베젤 프레임에 넣은 폰 목업
+// 스크린샷을 화이트 바디 + 블랙 베젤 프레임에 넣은 폰 목업.
+// 오른쪽 측면 두께(실버 초승달)까지 한 이미지에 그려 원근 변환을 함께 받는다.
+// 2x 로 만들고 원근 스크립트가 마지막에 절반으로 줄인다(안티앨리어싱).
 async function phoneMockup() {
-  const shotW = 950;
+  const s = 2;
+  const shotW = 950 * s;
   const shotH = Math.round((shotW * 2778) / 1284);
-  const body = 18; // 화이트 바디 두께
-  const bezel = 12; // 화면 둘레 블랙 베젤
+  const body = 18 * s; // 화이트 바디 두께
+  const bezel = 12 * s; // 화면 둘레 블랙 베젤
+  const side = 26 * s; // 오른쪽 측면(두께) 폭
   const frameW = shotW + (body + bezel) * 2;
   const frameH = shotH + (body + bezel) * 2;
-  const radius = 140;
+  const radius = 140 * s;
 
   const shot = await sharp(`${OUT}/02-preview.png`)
     .resize(shotW, shotH)
@@ -90,10 +84,18 @@ async function phoneMockup() {
     .toBuffer();
 
   const frame = Buffer.from(
-    `<svg width="${frameW}" height="${frameH}">
+    `<svg width="${frameW + side}" height="${frameH}">
+      <defs>
+        <linearGradient id="side" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#E9E9ED" />
+          <stop offset="1" stop-color="#C1C1C8" />
+        </linearGradient>
+      </defs>
+      <!-- 같은 형태를 오른쪽으로 밀어 깐 실버 면 — 겹치고 남는 초승달이 측면이 된다 -->
+      <rect x="${side}" y="0" width="${frameW}" height="${frameH}" rx="${radius}" fill="url(#side)" />
       <rect width="${frameW}" height="${frameH}" rx="${radius}" fill="#F4F4F6" />
       <rect x="2" y="2" width="${frameW - 4}" height="${frameH - 4}" rx="${radius - 2}"
-        fill="none" stroke="#D4D4DA" stroke-width="3" />
+        fill="none" stroke="#D4D4DA" stroke-width="${2 * s}" />
       <rect x="${body}" y="${body}" width="${frameW - body * 2}" height="${frameH - body * 2}"
         rx="${radius - body}" fill="#0B0B0C" />
     </svg>`,
@@ -129,9 +131,9 @@ async function main() {
   const rotated = await sharp(tiltedPath).png().toBuffer();
   const meta = await sharp(rotated).metadata();
 
-  // 폰 전체가 잘리지 않고 온전히 — 좌하단 코너만 1장 우하단에 걸치고
+  // 폰 전체가 잘리지 않고 온전히 — 좌하단이 1장 우하단에 넉넉히 걸치고
   // 몸통 대부분은 2장에 놓인다
-  const phoneLeft = 1150;
+  const phoneLeft = 1040;
   const phoneTop = Math.round((H - meta.height) / 2);
 
   const panorama = await sharp(Buffer.from(panoramaSvg()))

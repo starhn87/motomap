@@ -1,8 +1,9 @@
-# 평면 폰 목업에 3D 느낌을 입힌다 — 화면을 왼쪽(카피 쪽)으로 살짝 돌린
-# 원근 변환 + 오른쪽 측면 두께(화이트 바디) + 기울기. generate-hero.mjs 가 호출한다.
-#   python3 scripts/hero-phone-3d.py <입력 평면 목업> <출력>
+# 평면 폰 목업(측면 포함)에 3D 원근을 입힌다 — 화면이 왼쪽(카피 쪽)을 향해
+# 돌아간 yaw: 왼쪽 가장자리는 수축(멀다), 오른쪽은 살짝 확대(가깝다).
+# 멀어지는 쪽에 음영을 깔고, 2x 입력을 마지막에 절반으로 줄여 계단을 없앤다.
+#   python3 scripts/hero-phone-3d.py <입력 평면 목업(2x)> <출력>
 import sys
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops
 
 
 def find_coeffs(dst, src):
@@ -32,23 +33,37 @@ def main():
     img = Image.open(src_path).convert('RGBA')
     w, h = img.size
 
-    # 왼쪽 가장자리를 안쪽·위아래로 수축 — 화면이 왼쪽을 향해 돌아간 원근
-    inset_x, inset_y = 78, 50
-    dst = [(inset_x, inset_y), (w, 0), (w, h), (inset_x, h - inset_y)]
+    # yaw 원근 — 왼쪽 수축, 오른쪽은 바깥으로 살짝 팽창
+    inset_x = round(w * 0.085)
+    inset_y = round(h * 0.024)
+    out_y = round(h * 0.012)
+    cw, ch = w, h + out_y * 2
+    dst = [
+        (inset_x, out_y + inset_y),
+        (w, 0),
+        (w, ch),
+        (inset_x, out_y + h - inset_y),
+    ]
     src = [(0, 0), (w, 0), (w, h), (0, h)]
-    persp = img.transform((w, h), Image.PERSPECTIVE, find_coeffs(dst, src), Image.BICUBIC)
+    persp = img.transform((cw, ch), Image.PERSPECTIVE, find_coeffs(dst, src), Image.BICUBIC)
 
-    # 오른쪽 측면 두께 — 화이트 바디의 옆면(밝은 실버)이 보이게 폰 뒤에 깐다
-    side = 30
-    canvas = Image.new('RGBA', (w + side + 4, h), (0, 0, 0, 0))
-    d = ImageDraw.Draw(canvas)
-    d.rounded_rectangle([w - 18, 4, w + side, h - 4], radius=22, fill=(214, 214, 220, 255))
-    d.rounded_rectangle([w + side - 4, 44, w + side, h - 44], radius=2, fill=(188, 188, 196, 255))
-    canvas.alpha_composite(persp, (0, 0))
+    # 멀어지는 왼쪽에 음영 — 폰 픽셀에만 (알파 마스크와 곱)
+    grad = Image.new('L', (cw, 1))
+    span = int(cw * 0.6)
+    for x in range(cw):
+        v = int(max(0.0, 1 - x / span) * 60) if x < span else 0
+        grad.putpixel((x, 0), v)
+    grad = grad.resize((cw, ch))
+    shade_mask = ImageChops.multiply(grad, persp.split()[3])
+    shade = Image.new('RGBA', (cw, ch), (0, 0, 0, 255))
+    shade.putalpha(shade_mask)
+    persp = Image.alpha_composite(persp, shade)
 
-    # 살짝 기울이기 (시계 방향 — 좌하단 코너가 가장 왼쪽에 오는 방향)
-    out = canvas.rotate(-8, expand=True, resample=Image.BICUBIC)
-    out.save(out_path)
+    # 살짝 기울이기 (시계 방향 — 좌하단 코너가 가장 왼쪽에 오는 방향) 후
+    # 절반 크기로 다운샘플 — 왜곡·회전 계단이 사라진다
+    tilted = persp.rotate(-8, expand=True, resample=Image.BICUBIC)
+    final = tilted.resize((tilted.width // 2, tilted.height // 2), Image.LANCZOS)
+    final.save(out_path)
 
 
 main()
