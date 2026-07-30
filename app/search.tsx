@@ -269,6 +269,12 @@ export default function SearchScreen() {
             value={query}
             onChangeText={setQuery}
             returnKeyType="search"
+            onSubmitEditing={() => {
+              // 엔터 — 등록·일반 가리지 않고 결과 전체를 지도로 본다
+              if (!searching) return;
+              Keyboard.dismiss();
+              router.push({ pathname: '/search-results' as any, params: { query: trimmed } });
+            }}
           />
           {query.length > 0 && (
             <Pressable onPress={() => setQuery('')} hitSlop={8}>

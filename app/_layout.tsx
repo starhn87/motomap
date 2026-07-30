@@ -141,6 +141,7 @@ function RootLayoutNav() {
             }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="search" options={{ headerShown: false, animation: 'none' }} />
+            <Stack.Screen name="search-results" options={{ headerShown: false }} />
             <Stack.Screen name="directions" options={{ title: '길찾기' }} />
             <Stack.Screen name="chat" options={{ headerShown: false }} />
             <Stack.Screen name="notifications" options={{ title: '알림' }} />
