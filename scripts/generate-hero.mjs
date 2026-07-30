@@ -1,7 +1,10 @@
 // README·앱스토어용 히어로 스크린샷 2장 생성 (각 1284x2778).
 // 두 장을 이어붙인 파노라마(2568x2778)를 한 장면으로 그린 뒤 반으로 자른다 —
-// 좌측: 카피 + 기능 리스트, 우측: 폰 목업이 경계에 걸쳐 두 장에 이어진다.
-//   node scripts/generate-hero.mjs
+// 좌측: 카피 + 기능 리스트, 우측: 3D 폰 목업(화이트)이 좌하단만 1장에 걸친다.
+//   node scripts/generate-hero.mjs   (원근 단계는 PIL: scripts/hero-phone-3d.py)
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import sharp from 'sharp';
 
 const W = 1284;
@@ -26,8 +29,8 @@ function panoramaSvg() {
   const featureRows = features
     .map(
       ([color, label], i) => `
-      <circle cx="150" cy="${2130 + i * 155}" r="16" fill="${color}" />
-      <text x="212" y="${2130 + i * 155}" dominant-baseline="central"
+      <circle cx="150" cy="${2100 + i * 150}" r="16" fill="${color}" />
+      <text x="212" y="${2100 + i * 150}" dominant-baseline="central"
         font-family="${FONT}" font-size="58" font-weight="600" fill="#E7E7EA">${label}</text>`,
     )
     .join('');
@@ -39,25 +42,38 @@ function panoramaSvg() {
         <stop offset="0.55" stop-color="#1B1B1F" />
         <stop offset="1" stop-color="#26262C" />
       </linearGradient>
+      <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0" stop-color="${AMBER}" stop-opacity="0.32" />
+        <stop offset="1" stop-color="${AMBER}" stop-opacity="0" />
+      </radialGradient>
     </defs>
     <rect width="${PW}" height="${H}" fill="url(#bg)" />
+    <!-- 배경 장식 — 은은한 주황 글로우와 원 (레퍼런스의 블롭 역할, 브랜드 톤으로) -->
+    <circle cx="2350" cy="420" r="820" fill="url(#glow)" />
+    <circle cx="1180" cy="2600" r="700" fill="url(#glow)" />
+    <circle cx="2460" cy="360" r="120" fill="${AMBER}" opacity="0.85" />
+    <circle cx="2210" cy="620" r="46" fill="${AMBER}" opacity="0.5" />
+    <circle cx="1310" cy="2380" r="58" fill="${AMBER}" opacity="0.4" />
     <!-- 카피 -->
     <text x="120" y="905" font-family="${FONT}" font-size="112" font-weight="800"
       fill="#FFFFFF">라이더를 위한</text>
     <text x="120" y="1065" font-family="${FONT}" font-size="112" font-weight="800"
       fill="${AMBER}">지도부터 길안내까지</text>
-    <!-- 기능 리스트 -->
+    <!-- 기능 리스트 + 마무리 문구 -->
     ${featureRows}
+    <text x="120" y="2600" font-family="${FONT}" font-size="46" font-weight="500"
+      fill="#9B9BA3">오늘도 안라무복, 모토맵과 함께</text>
   </svg>`;
 }
 
-// 스크린샷을 베젤 프레임에 넣은 폰 목업
+// 스크린샷을 화이트 바디 + 블랙 베젤 프레임에 넣은 폰 목업
 async function phoneMockup() {
-  const shotW = 980;
+  const shotW = 950;
   const shotH = Math.round((shotW * 2778) / 1284);
-  const bezel = 28;
-  const frameW = shotW + bezel * 2;
-  const frameH = shotH + bezel * 2;
+  const body = 18; // 화이트 바디 두께
+  const bezel = 12; // 화면 둘레 블랙 베젤
+  const frameW = shotW + (body + bezel) * 2;
+  const frameH = shotH + (body + bezel) * 2;
   const radius = 140;
 
   const shot = await sharp(`${OUT}/02-preview.png`)
@@ -65,7 +81,7 @@ async function phoneMockup() {
     .composite([
       {
         input: Buffer.from(
-          `<svg width="${shotW}" height="${shotH}"><rect width="${shotW}" height="${shotH}" rx="${radius - bezel}" fill="#fff"/></svg>`,
+          `<svg width="${shotW}" height="${shotH}"><rect width="${shotW}" height="${shotH}" rx="${radius - body - bezel}" fill="#fff"/></svg>`,
         ),
         blend: 'dest-in',
       },
@@ -75,14 +91,16 @@ async function phoneMockup() {
 
   const frame = Buffer.from(
     `<svg width="${frameW}" height="${frameH}">
-      <rect width="${frameW}" height="${frameH}" rx="${radius}" fill="#0A0A0B" />
-      <rect x="6" y="6" width="${frameW - 12}" height="${frameH - 12}" rx="${radius - 6}"
-        fill="none" stroke="#3A3A40" stroke-width="3" />
+      <rect width="${frameW}" height="${frameH}" rx="${radius}" fill="#F4F4F6" />
+      <rect x="2" y="2" width="${frameW - 4}" height="${frameH - 4}" rx="${radius - 2}"
+        fill="none" stroke="#D4D4DA" stroke-width="3" />
+      <rect x="${body}" y="${body}" width="${frameW - body * 2}" height="${frameH - body * 2}"
+        rx="${radius - body}" fill="#0B0B0C" />
     </svg>`,
   );
 
   return sharp(frame)
-    .composite([{ input: shot, left: bezel, top: bezel }])
+    .composite([{ input: shot, left: body + bezel, top: body + bezel }])
     .png()
     .toBuffer();
 }
@@ -102,29 +120,24 @@ async function main() {
     .png()
     .toBuffer();
 
-  // 폰 목업 — 살짝 기울여 2장 중앙에 크게, 하단은 화면 밖으로 빠져나간다
-  // (레퍼런스 구도: 폰은 우측 장 안에, 두 장은 배경 그라데이션으로 이어진다)
-  const phone = await phoneMockup();
-  const rotated = await sharp(phone)
-    .rotate(-8, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .png()
-    .toBuffer();
+  // 폰 목업 — 원근(화면이 카피 쪽을 향함) + 오른쪽 측면 두께 + 기울기는
+  // PIL 스크립트가 입힌다 (sharp 는 원근 변환이 없다)
+  const flatPath = join(tmpdir(), 'motomap-hero-phone-flat.png');
+  const tiltedPath = join(tmpdir(), 'motomap-hero-phone-3d.png');
+  await sharp(await phoneMockup()).toFile(flatPath);
+  execFileSync('python3', ['scripts/hero-phone-3d.py', flatPath, tiltedPath]);
+  const rotated = await sharp(tiltedPath).png().toBuffer();
   const meta = await sharp(rotated).metadata();
-  const phoneLeft = W + Math.round((W - meta.width) / 2);
-  const phoneTop = 750;
-  const visible = await sharp(rotated)
-    .extract({
-      left: phoneLeft < W ? W - phoneLeft : 0,
-      top: 0,
-      width: Math.min(meta.width, PW - Math.max(phoneLeft, W)),
-      height: Math.min(meta.height, H - phoneTop),
-    })
-    .toBuffer();
+
+  // 폰 전체가 잘리지 않고 온전히 — 좌하단 코너만 1장 우하단에 걸치고
+  // 몸통 대부분은 2장에 놓인다
+  const phoneLeft = 1150;
+  const phoneTop = Math.round((H - meta.height) / 2);
 
   const panorama = await sharp(Buffer.from(panoramaSvg()))
     .composite([
       { input: icon, left: 120, top: 330 },
-      { input: visible, left: Math.max(phoneLeft, W), top: phoneTop },
+      { input: rotated, left: phoneLeft, top: phoneTop },
     ])
     .png()
     .toBuffer();
