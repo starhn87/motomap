@@ -52,7 +52,7 @@ function panoramaSvg() {
 
 // 스크린샷을 베젤 프레임에 넣은 폰 목업
 async function phoneMockup() {
-  const shotW = 1040;
+  const shotW = 980;
   const shotH = Math.round((shotW * 2778) / 1284);
   const bezel = 28;
   const frameW = shotW + bezel * 2;
@@ -104,26 +104,19 @@ async function main() {
   // 폰 목업 — 살짝 기울여 페이지 경계에 걸치고 하단으로 빠져나가게
   const phone = await phoneMockup();
   const rotated = await sharp(phone)
-    .rotate(-8, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .rotate(8, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
   const meta = await sharp(rotated).metadata();
-  // 기울어진 폰의 좌하단 코너만 1장 우하단에 걸치고, 몸통은 2장을 채운다
-  const phoneLeft = 1164;
-  const phoneTop = 950;
-  const visible = await sharp(rotated)
-    .extract({
-      left: 0,
-      top: 0,
-      width: Math.min(meta.width, PW - phoneLeft),
-      height: Math.min(meta.height, H - phoneTop),
-    })
-    .toBuffer();
+  // 폰 전체가 잘리지 않고 온전히 들어온다. 상단을 왼쪽으로 살짝 기울여
+  // 좌하단 코너가 가장 왼쪽에 오게 하고, 그 좌하단만 1장 우하단에 걸친다.
+  const phoneLeft = 1144;
+  const phoneTop = Math.round((H - meta.height) / 2);
 
   const panorama = await sharp(Buffer.from(panoramaSvg()))
     .composite([
       { input: icon, left: 120, top: 330 },
-      { input: visible, left: phoneLeft, top: phoneTop },
+      { input: rotated, left: phoneLeft, top: phoneTop },
     ])
     .png()
     .toBuffer();
