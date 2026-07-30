@@ -170,9 +170,16 @@ export default function SearchResultsScreen() {
         )}
       </NaverMapView>
 
-      {/* 상단 검색어 바 — 탭하면 검색 화면으로 돌아가 수정한다 */}
+      {/* 상단 검색어 바 — 상세 시트가 열려 있으면 결과 목록으로, 아니면 검색 화면으로 */}
       <Pressable
-        onPress={() => router.back()}
+        onPress={() => {
+          if (detailOpen) {
+            setSelectedPlace(null);
+            setSelectedTemp(null);
+          } else {
+            router.back();
+          }
+        }}
         style={[
           styles.queryBar,
           {
