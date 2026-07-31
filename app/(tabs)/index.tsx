@@ -418,20 +418,30 @@ export default function MapScreen() {
   // 선택 강조는 별도 오버레이 마커가 맡는다 — selectedPlaceId 를 의존성에서 빼서
   // 마커 탭마다 클러스터 전체가 네이티브로 재전송·재계산되는 것을 막는다.
   // 선택된 장소는 별도 선택 마커가 뜨므로 목록에서 빼서 겹침(마커 2개)을 막는다.
+  // 줌이 충분하면 장소를 개별 마커로 그려 이름 캡션을 함께 보여준다(클러스터
+  // 마커는 캡션을 지원하지 않는다). 줌아웃하면 기존 클러스터로 돌아간다.
+  // 즐겨찾기 캡션은 이 기준(13)보다 더 줌아웃한 10까지 남는다(네이버 지도식).
+  const CAPTION_ZOOM = 13;
+  const FAV_CAPTION_MIN_ZOOM = 10;
+  const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
+  const captionMode = zoom >= CAPTION_ZOOM;
+
   const clusterMarkers = useMemo(
     () =>
-      places
-        .filter((place) => place.id !== selectedPlaceId)
-        .map((place) => ({
-          identifier: place.id,
-          latitude: place.latitude,
-          longitude: place.longitude,
-          image: MARKER_IMAGES[place.category],
-          // 마커 기본 앵커는 하단 중앙 — 꼬리 끝이 좌표를 찍는다
-          width: 36,
-          height: 50,
-        })),
-    [places, selectedPlaceId]
+      captionMode
+        ? []
+        : places
+            .filter((place) => place.id !== selectedPlaceId)
+            .map((place) => ({
+              identifier: place.id,
+              latitude: place.latitude,
+              longitude: place.longitude,
+              image: MARKER_IMAGES[place.category],
+              // 마커 기본 앵커는 하단 중앙 — 꼬리 끝이 좌표를 찍는다
+              width: 36,
+              height: 50,
+            })),
+    [captionMode, places, selectedPlaceId]
   );
 
   return (
@@ -488,8 +498,35 @@ export default function MapScreen() {
           />
         )}
 
-        {/* 즐겨찾기 마커 — 클러스터 밖 개별 오버레이라 줌과 무관하게 항상 보이고,
-            이름 캡션이 함께 뜬다. 겹치는 캡션은 SDK가 알아서 숨긴다. */}
+        {/* 장소 개별 마커 — 캡션 줌 이상에서 이름과 함께. 겹치는 지도 심벌(기본
+            POI 텍스트)과 캡션은 SDK 가 숨긴다. */}
+        {captionMode &&
+          places
+            .filter((p) => p.id !== selectedPlaceId)
+            .map((p) => (
+              <NaverMapMarkerOverlay
+                key={p.id}
+                latitude={p.latitude}
+                longitude={p.longitude}
+                image={MARKER_IMAGES[p.category]}
+                width={36}
+                height={50}
+                anchor={{ x: 0.5, y: 1 }}
+                zIndex={10}
+                isHideCollidedSymbols
+                isHideCollidedCaptions
+                caption={{
+                  text: p.name,
+                  textSize: 12,
+                  color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
+                  haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
+                }}
+                onTap={() => handleMarkerPress(p)}
+              />
+            ))}
+
+        {/* 즐겨찾기 마커 — 클러스터 밖 개별 오버레이라 줌과 무관하게 항상 보인다.
+            캡션은 일반(캡션 줌 13)보다 낮은 줌 10까지 남고, 강조색으로 띈다. */}
         {showFavorites &&
           (favoritePlaces ?? [])
             .filter((p) => p.id !== selectedPlaceId)
@@ -503,11 +540,13 @@ export default function MapScreen() {
                 height={50}
                 anchor={{ x: 0.5, y: 1 }}
                 zIndex={50}
+                isHideCollidedSymbols
                 isHideCollidedCaptions
                 caption={{
                   text: p.name,
-                  textSize: 12,
-                  color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
+                  textSize: 13,
+                  minZoom: FAV_CAPTION_MIN_ZOOM,
+                  color: colorScheme === 'dark' ? '#FBBF24' : '#B45309',
                   haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
                 }}
                 onTap={() => handleMarkerPress(p)}
