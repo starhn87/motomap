@@ -642,12 +642,12 @@ export default function MapScreen() {
           styles.favFab,
           {
             backgroundColor: colors.background,
-            borderColor: showFavorites ? '#FACC15' : colors.border,
+            borderColor: colors.border,
           },
         ]}>
         <Ionicons
           name={showFavorites ? 'star' : 'star-outline'}
-          size={22}
+          size={20}
           color={showFavorites ? '#FACC15' : colors.textSecondary}
         />
       </Pressable>
@@ -760,15 +760,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  // 날씨 FAB(top 158, left 16)와 같은 행의 오른쪽 끝
+  // 날씨 FAB(top 158, left 16, 52pt)와 같은 행의 오른쪽 끝 — 세로 중심을 맞춘다
   favFab: {
     position: 'absolute',
-    top: 158,
+    top: 162,
     right: 16,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 2.5,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
