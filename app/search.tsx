@@ -94,10 +94,14 @@ export default function SearchScreen() {
   // autoFocus 대신 화면 전환이 끝난 뒤 포커스 — 지도가 배경에 살아있는 채로
   // push 애니메이션과 키보드 상승이 겹치면 구형 기기에서 메인 스레드가 멈춘다
   // (Sentry AppHang, RCTTextInputComponentView didMoveToWindow).
-  useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => inputRef.current?.focus());
-    return () => task.cancel();
-  }, []);
+  // 첫 진입만이 아니라 재진입(결과 지도의 검색어 바로 돌아온 경우)에도 —
+  // 이 화면은 입력하러 오는 화면이라 바로 수정 모드가 되는 게 맞다.
+  useFocusEffect(
+    useCallback(() => {
+      const task = InteractionManager.runAfterInteractions(() => inputRef.current?.focus());
+      return () => task.cancel();
+    }, []),
+  );
   const [recent, setRecent] = useState<RecentSearch[]>([]);
 
   useEffect(() => {
