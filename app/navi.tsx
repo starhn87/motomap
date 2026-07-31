@@ -938,7 +938,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginLeft: 6,
-    paddingVertical: 2,
+    paddingTop: 2,
+    paddingBottom: 12,
   },
   routeClose: {
     width: 28,
