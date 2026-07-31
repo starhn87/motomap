@@ -195,11 +195,12 @@ export default function SearchResultsScreen() {
         <Ionicons name="search" size={16} color={colors.textSecondary} />
       </Pressable>
 
-      {/* 결과 목록 — 상세 시트가 열려 있는 동안은 내려둔다. 닫으면 복귀. */}
+      {/* 결과 목록 — 상세 시트가 열려 있는 동안은 내려둔다. 닫으면 복귀.
+          최소 스냅(88)은 핸들+결과 개수만 남기고 지도를 넓게 보는 용도. */}
       {!detailOpen && (
       <BottomSheet
-        index={0}
-        snapPoints={['35%', '72%']}
+        index={1}
+        snapPoints={[88, '35%', '72%']}
         animateOnMount={false}
         backgroundStyle={{ backgroundColor: colors.background }}
         handleIndicatorStyle={{ backgroundColor: colors.border }}>
