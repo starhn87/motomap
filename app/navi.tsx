@@ -671,7 +671,7 @@ export default function NaviScreen() {
                 pan={makeRowPan(userVias.length + 1)}
               />
             </View>
-            {/* 오른쪽 열 — 닫기는 상단(왼쪽 핸들과 멀리), 스왑은 세로 중앙 */}
+            {/* 오른쪽 열 — 닫기는 상단, 스왑은 최하단(닫기와 오터치 안 나게 멀리) */}
             <View style={styles.routeSide}>
               <Pressable onPress={() => router.back()} hitSlop={8} style={styles.routeClose}>
                 <Ionicons name="close" size={20} color={colors.text} />
@@ -686,7 +686,6 @@ export default function NaviScreen() {
                   color={colors.textSecondary}
                 />
               </Pressable>
-              <View style={styles.routeSideSpacer} />
             </View>
           </View>
         )
@@ -946,9 +945,6 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  routeSideSpacer: {
-    height: 28,
   },
   routeFields: {
     flex: 1,
