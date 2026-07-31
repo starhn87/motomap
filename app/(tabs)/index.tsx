@@ -31,6 +31,7 @@ import { useNearbyHazards } from '@/hooks/useHazards';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryFilter from '@/components/map/CategoryFilter';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { MARKER_IMAGES, MARKER_IMAGES_FAV } from '@/constants/markerImages';
 import { useQuery } from '@tanstack/react-query';
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
@@ -160,6 +161,7 @@ export default function MapScreen() {
   // 즐겨찾기 지도 표시 — 켜면 뷰포트·필터와 무관하게 즐겨찾기가 별 마커로 보인다.
   // 기존 클러스터 파이프라인에 합류시켜 탭·선택 강조가 그대로 동작한다.
   const showFavorites = useMapStore((s) => s.showFavorites);
+  const toggleShowFavorites = useMapStore((s) => s.toggleShowFavorites);
   const user = useAuthStore((s) => s.user);
   const { data: favoritePlaces } = useQuery({
     queryKey: ['favorites', 'places', user?.id],
@@ -566,6 +568,29 @@ export default function MapScreen() {
         <WeatherFab weather={weather} onPress={() => setWeatherOpen(true)} />
       )}
 
+      {/* 즐겨찾기 지도 표시 — 날씨 FAB와 같은 행 오른쪽 끝, 켜면 별이 채워진다 */}
+      <Pressable
+        onPress={() => {
+          if (!user) {
+            toast.info('로그인하면 즐겨찾기를 지도에서 볼 수 있어요');
+            return;
+          }
+          toggleShowFavorites();
+        }}
+        style={[
+          styles.favFab,
+          {
+            backgroundColor: colors.background,
+            borderColor: showFavorites ? '#FACC15' : colors.border,
+          },
+        ]}>
+        <Ionicons
+          name={showFavorites ? 'star' : 'star-outline'}
+          size={22}
+          color={showFavorites ? '#FACC15' : colors.textSecondary}
+        />
+      </Pressable>
+
       {gasMode && !gasZoomOk && stations.length === 0 && (
         <Animated.View
           entering={FadeIn.duration(200)}
@@ -673,6 +698,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  // 날씨 FAB(top 158, left 16)와 같은 행의 오른쪽 끝
+  favFab: {
+    position: 'absolute',
+    top: 158,
+    right: 16,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 5,
   },
   zoomHint: {
     position: 'absolute',
