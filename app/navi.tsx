@@ -299,9 +299,11 @@ export default function NaviScreen() {
     dragY.value = 0;
   }, [userVias, dragIndex, dragY]);
 
-  // 행 왼쪽 핸들의 팬 제스처 — 행 높이 격자로 드롭 슬롯을 정한다
-  const makeRowPan = (index: number) =>
+  // 행 왼쪽 핸들의 팬 제스처 — 행 높이 격자로 드롭 슬롯을 정한다.
+  // 빈 경유지 줄(enabled=false)은 옮길 내용이 없으니 드래그를 막는다.
+  const makeRowPan = (index: number, enabled = true) =>
     Gesture.Pan()
+      .enabled(enabled)
       .onStart(() => {
         dragIndex.value = index;
         dragY.value = 0;
@@ -635,7 +637,8 @@ export default function NaviScreen() {
                     rowCountSv={rowCountSv}
                     dragIndex={dragIndex}
                     dragY={dragY}
-                    pan={makeRowPan(i + 1)}
+                    pan={makeRowPan(i + 1, via !== null)}
+                    dragDisabled={via === null}
                   />
                 </View>
               ))}
@@ -807,6 +810,7 @@ function RouteFieldRow({
   dragIndex,
   dragY,
   pan,
+  dragDisabled,
 }: {
   icon: 'radiobox-marked' | 'circle-medium' | 'map-marker';
   value: string;
@@ -815,6 +819,8 @@ function RouteFieldRow({
   onRemove?: () => void;
   /** 도착지 행 오른쪽 끝의 경유지 추가 버튼 (경유지가 있을 때) */
   onAdd?: () => void;
+  /** 빈 경유지 줄 — 드래그가 꺼져 있음을 핸들 흐림으로 알린다 */
+  dragDisabled?: boolean;
   /** 재정렬 목록에서의 논리 인덱스 (출발 0 … 도착 마지막) */
   index: number;
   rowCountSv: SharedValue<number>;
@@ -863,6 +869,7 @@ function RouteFieldRow({
               name="unfold-more-horizontal"
               size={16}
               color={colors.textSecondary}
+              style={dragDisabled ? styles.routeHandleDisabled : undefined}
             />
           </View>
         </GestureDetector>
@@ -973,6 +980,9 @@ const styles = StyleSheet.create({
     paddingLeft: 2,
     alignSelf: 'stretch',
     justifyContent: 'center',
+  },
+  routeHandleDisabled: {
+    opacity: 0.3,
   },
   routeDivider: {
     height: StyleSheet.hairlineWidth,
