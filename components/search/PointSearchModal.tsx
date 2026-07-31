@@ -9,13 +9,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { CATEGORIES } from '@/constants/categories';
 import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { fetchFavoritePlaces } from '@/lib/api/favorites';
 import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { isSamePlace, searchAll } from '@/lib/api/search';
 import type { NavTarget } from '@/lib/navigation';
@@ -57,15 +60,32 @@ export default function PointSearchModal({
   const [searching, setSearching] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 즐겨찾기에서 고르기 — 별 버튼으로 켜면 제안 자리에 즐겨찾기 목록이 뜬다.
+  // 지도 탭과 같은 쿼리 키라 이미 받아둔 목록이 있으면 즉시 보인다.
+  const user = useAuthStore((s) => s.user);
+  const [showFavList, setShowFavList] = useState(false);
+  const { data: favorites } = useQuery({
+    queryKey: ['favorites', 'places', user?.id],
+    queryFn: fetchFavoritePlaces,
+    enabled: visible && allowSaved && !!user,
+  });
+  const favItems = useMemo<ResultItem[]>(
+    () => (favorites ?? []).map((place) => ({ kind: 'place' as const, place })),
+    [favorites],
+  );
+  const canShowFav = allowSaved && favItems.length > 0;
+
   useEffect(() => {
     if (!visible) {
       setQuery('');
       setResults([]);
+      setShowFavList(false);
     }
   }, [visible]);
 
   const handleChange = (text: string) => {
     setQuery(text);
+    if (text.trim()) setShowFavList(false); // 검색을 시작하면 즐겨찾기 목록은 접는다
     if (debounce.current) clearTimeout(debounce.current);
     if (!text.trim()) {
       setResults([]);
@@ -114,19 +134,29 @@ export default function PointSearchModal({
             />
             {searching && <ActivityIndicator size="small" color={colors.textSecondary} />}
           </View>
+          {/* 즐겨찾기에서 고르기 — 즐겨찾기가 있을 때만 노출 */}
+          {canShowFav && (
+            <Pressable onPress={() => setShowFavList((v) => !v)} hitSlop={8}>
+              <Ionicons
+                name={showFavList ? 'star' : 'star-outline'}
+                size={22}
+                color={showFavList ? '#FACC15' : colors.textSecondary}
+              />
+            </Pressable>
+          )}
           <Pressable onPress={onClose} hitSlop={8}>
             <Text style={[styles.modalCancel, { color: colors.text }]}>취소</Text>
           </Pressable>
         </View>
 
         <FlatList
-          data={results}
+          data={showFavList ? favItems : results}
           keyExtractor={(item, i) =>
             item.kind === 'place' ? `place-${item.place.id}` : `kakao-${item.k.placeName}-${i}`
           }
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
-            query.trim() ? null : (
+            query.trim() || showFavList ? null : (
               <>
                 {allowCurrent && (
                   <Pressable
@@ -197,7 +227,7 @@ export default function PointSearchModal({
             )
           }
           ListFooterComponent={
-            results.some((r) => r.kind === 'kakao') ? (
+            !showFavList && results.some((r) => r.kind === 'kakao') ? (
               <Text style={[styles.kakaoAttribution, { color: colors.textSecondary }]}>
                 장소 정보 제공: 카카오
               </Text>
