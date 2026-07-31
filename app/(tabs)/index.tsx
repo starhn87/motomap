@@ -420,9 +420,10 @@ export default function MapScreen() {
   // 선택된 장소는 별도 선택 마커가 뜨므로 목록에서 빼서 겹침(마커 2개)을 막는다.
   // 줌이 충분하면 장소를 개별 마커로 그려 이름 캡션을 함께 보여준다(클러스터
   // 마커는 캡션을 지원하지 않는다). 줌아웃하면 기존 클러스터로 돌아간다.
-  // 즐겨찾기 캡션은 이 기준(13)보다 더 줌아웃한 10까지 남는다(네이버 지도식).
-  const CAPTION_ZOOM = 13;
-  const FAV_CAPTION_MIN_ZOOM = 10;
+  // 즐겨찾기 캡션은 이 기준(12)보다 더 줌아웃한 8까지 남는다(네이버 지도식).
+  // 겹침은 SDK(isHideCollidedCaptions/Symbols)가 정리하므로 낮은 줌도 난잡하지 않다.
+  const CAPTION_ZOOM = 12;
+  const FAV_CAPTION_MIN_ZOOM = 8;
   const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
   const captionMode = zoom >= CAPTION_ZOOM;
 
@@ -526,7 +527,7 @@ export default function MapScreen() {
             ))}
 
         {/* 즐겨찾기 마커 — 클러스터 밖 개별 오버레이라 줌과 무관하게 항상 보인다.
-            캡션은 일반(캡션 줌 13)보다 낮은 줌 10까지 남고, 강조색으로 띈다. */}
+            캡션은 일반(캡션 줌 12)보다 낮은 줌 8까지 남는다. */}
         {showFavorites &&
           (favoritePlaces ?? [])
             .filter((p) => p.id !== selectedPlaceId)
@@ -546,7 +547,7 @@ export default function MapScreen() {
                   text: p.name,
                   textSize: 13,
                   minZoom: FAV_CAPTION_MIN_ZOOM,
-                  color: colorScheme === 'dark' ? '#FBBF24' : '#B45309',
+                  color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
                   haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
                 }}
                 onTap={() => handleMarkerPress(p)}
