@@ -14,6 +14,7 @@ export const CATEGORIES: Record<PlaceCategory, CategoryInfo> = {
   viewpoint: { label: '뷰포인트', color: '#EC4899' },
   gear_shop: { label: '용품점', color: '#0EA5E9' },
   camping: { label: '캠핑', color: '#F97316' },
+  car_wash: { label: '세차', color: '#14B8A6' },
 };
 
 export const CATEGORY_LIST = Object.entries(CATEGORIES).map(

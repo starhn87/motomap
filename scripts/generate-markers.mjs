@@ -21,6 +21,7 @@ const CATEGORIES = {
   viewpoint: '#EC4899',
   gear_shop: '#0EA5E9',
   camping: '#F97316',
+  car_wash: '#14B8A6',
   // 일반 장소(카카오 임시 핀) — 카테고리 없음, 중립 슬레이트
   general: '#475569',
 };
@@ -41,6 +42,8 @@ const ICONS = {
   gear_shop:
     'M18 6h-2c0-2.21-1.79-4-4-4S8 3.79 8 6H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-2c1.1 0 2 .9 2 2h-4c0-1.1.9-2 2-2zm0 6c-1.1 0-2-.9-2-2H8c0 2.21 1.79 4 4 4s4-1.79 4-4h-2c0 1.1-.9 2-2 2z',
   camping: 'M12 3 L23 20 H15.2 L12 14.6 L8.8 20 H1 Z',
+  car_wash:
+    'M17 5c.83 0 1.5-.67 1.5-1.5 0-1-1.5-2.7-1.5-2.7s-1.5 1.7-1.5 2.7c0 .83.67 1.5 1.5 1.5zm-5 0c.83 0 1.5-.67 1.5-1.5 0-1-1.5-2.7-1.5-2.7s-1.5 1.7-1.5 2.7c0 .83.67 1.5 1.5 1.5zM7 5c.83 0 1.5-.67 1.5-1.5C8.5 2.5 7 .8 7 .8S5.5 2.5 5.5 3.5C5.5 4.33 6.17 5 7 5zm11.92 3.01C18.72 7.42 18.16 7 17.5 7h-11c-.66 0-1.21.42-1.42 1.01L3 14v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 18c-.83 0-1.5-.67-1.5-1.5S5.67 15 6.5 15s1.5.67 1.5 1.5S7.33 18 6.5 18zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 13l1.5-4.5h11L19 13H5z',
   general: 'M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z',
 };
 
@@ -52,34 +55,31 @@ const ICON_SCALE = 0.75; // 24x24 아이콘을 배지(직경 26) 안에 — 아�
 const BADGE_CX = 20;
 const BADGE_CY = 18.5;
 
-// 즐겨찾기 뱃지 — 핀 우상단에 노란 별 (Material star, 24x24)
+// 즐겨찾기 별 (Material star, 24x24) — 네이버 지도처럼 아이콘 자리를 별이 차지한다
 const STAR_PATH =
   'M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z';
+const FAV_YELLOW = '#FACC15';
 
 for (const [category, color] of Object.entries(CATEGORIES)) {
   const tx = BADGE_CX - 12 * ICON_SCALE;
   const ty = BADGE_CY - 12 * ICON_SCALE;
   // 네이버 마커의 기본 앵커는 하단 중앙(0.5, 1) — 꼬리 끝이 곧 좌표이므로
   // 캔버스는 핀에 꽉 차게 만든다.
-  const pin = `
+  const pin = (iconPath, iconFill) => `
   <path d="${PIN_PATH}" fill="${color}" stroke="#FFFFFF" stroke-width="2"/>
   <circle cx="${BADGE_CX}" cy="${BADGE_CY}" r="13" fill="#FFFFFF"/>
   <g transform="translate(${tx} ${ty}) scale(${ICON_SCALE})">
-    <path d="${ICONS[category]}" fill="${color}"/>
+    <path d="${iconPath}" fill="${iconFill}"/>
   </g>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 56" width="120" height="168">${pin}
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 56" width="120" height="168">${pin(ICONS[category], color)}
 </svg>`;
   await sharp(Buffer.from(svg)).png().toFile(join(outDir, `${category}.png`));
   console.log(`${category}.png 생성`);
 
   if (category === 'general') continue; // 일반 장소는 즐겨찾기 대상이 아니다
 
-  // 즐겨찾기 변형 — 우상단 별 뱃지. 별이 핀 밖으로 살짝 나가므로 뷰박스를 넓힌다.
-  const favSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 48 60" width="144" height="180">${pin}
-  <circle cx="34" cy="4" r="9" fill="#FACC15" stroke="#FFFFFF" stroke-width="2"/>
-  <g transform="translate(28 -2) scale(0.5)">
-    <path d="${STAR_PATH}" fill="#FFFFFF"/>
-  </g>
+  // 즐겨찾기 변형 — 같은 핀에서 카테고리 아이콘 대신 노란 별
+  const favSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 56" width="120" height="168">${pin(STAR_PATH, FAV_YELLOW)}
 </svg>`;
   await sharp(Buffer.from(favSvg)).png().toFile(join(outDir, `${category}_fav.png`));
   console.log(`${category}_fav.png 생성`);

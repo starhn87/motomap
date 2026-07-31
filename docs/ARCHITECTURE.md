@@ -143,7 +143,7 @@ Sentry.wrap(
 
 ### 화면 구성 하이라이트
 
-- **지도 화면(`(tabs)/index.tsx`)** — `NaverMapView` 위에 오버레이를 쌓는다: 클러스터/마커(`PlaceMarker`), 사용자 위치(`UserLocationMarker`+`LocationPulse`). UI 레이어로 `SearchBar`·`CategoryFilter`·즐겨찾기 별 FAB(날씨 FAB 행 우측)·내 위치 버튼·`PlaceBottomSheet`(선택 장소). 카메라 이동(`onCameraChanged`)을 디바운스해 `usePlaces`를 재조회. 별 토글을 켜면 즐겨찾기 장소가 뷰포트·필터와 무관하게 별 뱃지 마커(`markers/*_fav.png`)로 클러스터 목록에 합류한다. 길안내 진입 시 경로 미리보기·옵션 선택은 `/navi` 화면이 맡는다.
+- **지도 화면(`(tabs)/index.tsx`)** — `NaverMapView` 위에 오버레이를 쌓는다: 클러스터/마커(`PlaceMarker`), 사용자 위치(`UserLocationMarker`+`LocationPulse`). UI 레이어로 `SearchBar`·`CategoryFilter`·즐겨찾기 별 FAB(날씨 FAB 행 우측)·내 위치 버튼·`PlaceBottomSheet`(선택 장소). 카메라 이동(`onCameraChanged`)을 디바운스해 `usePlaces`를 재조회. 별 토글을 켜면 즐겨찾기 장소가 뷰포트·필터·클러스터와 무관하게 개별 별 마커(`markers/*_fav.png`, 이름 캡션 포함)로 항상 표시된다. 길안내 진입 시 경로 미리보기·옵션 선택은 `/navi` 화면이 맡는다.
 
 ---
 
@@ -183,7 +183,7 @@ Sentry.wrap(
 
 ### 타입 (`types/index.ts`)
 
-- **`PlaceCategory`** = `cafe` · `restaurant` · `rest_stop` · `gas_station` · `repair_shop` · `viewpoint` · `gear_shop` · `camping` (8종, DB `places_category_check`와 일치)
+- **`PlaceCategory`** = `cafe` · `restaurant` · `rest_stop` · `gas_station` · `repair_shop` · `viewpoint` · `gear_shop` · `camping` · `car_wash` (9종, DB `places_category_check`와 일치)
 - **`Place`** — 좌표(lat/lng)·주소·전화·영업시간·주차정보·사진[]·태그[]·평점·리뷰수·`submittedBy`·`approved`
 - **`RidingCourse`** — 거리(km)·소요(분)·`coordinates [lng,lat][]`·`waypoints: Place[]`·평점
 - **`Review`** — `placeId`·`userId`·`userName`·`avatarUrl`·평점·내용·사진[]

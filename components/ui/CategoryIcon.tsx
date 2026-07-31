@@ -16,6 +16,7 @@ const GLYPHS: Record<PlaceCategory, { set: 'mi' | 'mci'; name: string }> = {
   viewpoint: { set: 'mi', name: 'photo-camera' },
   gear_shop: { set: 'mi', name: 'shopping-bag' },
   camping: { set: 'mci', name: 'tent' },
+  car_wash: { set: 'mi', name: 'local-car-wash' },
 };
 
 interface Props {

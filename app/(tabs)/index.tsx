@@ -173,13 +173,12 @@ export default function MapScreen() {
     [favoritePlaces],
   );
 
+  // 즐겨찾기는 클러스터에 넣지 않는다 — 줌아웃해도 묶이지 않고 이름 캡션과
+  // 함께 개별 마커로 항상 보인다(네이버 지도식). 뷰포트 목록과 겹치면 제외.
   const basePlaces = gasMode ? [] : (supabasePlaces ?? []);
   const places = useMemo(
-    () =>
-      showFavorites
-        ? [...basePlaces.filter((p) => !favIds.has(p.id)), ...(favoritePlaces ?? [])]
-        : basePlaces,
-    [basePlaces, showFavorites, favIds, favoritePlaces],
+    () => (showFavorites ? basePlaces.filter((p) => !favIds.has(p.id)) : basePlaces),
+    [basePlaces, showFavorites, favIds],
   );
   // 검색된 마커는 줌아웃해도 유지한다 — 기준점(gasSearchPoint)이 바뀔 때만 갱신
   const stations = gasMode ? (gasStations ?? []) : [];
@@ -423,20 +422,16 @@ export default function MapScreen() {
     () =>
       places
         .filter((place) => place.id !== selectedPlaceId)
-        .map((place) => {
-          const fav = showFavorites && favIds.has(place.id);
-          return {
-            identifier: place.id,
-            latitude: place.latitude,
-            longitude: place.longitude,
-            image: fav ? MARKER_IMAGES_FAV[place.category] : MARKER_IMAGES[place.category],
-            // 마커 기본 앵커는 하단 중앙 — 꼬리 끝이 좌표를 찍는다.
-            // 즐겨찾기 변형은 별 뱃지만큼 뷰박스가 넓어 비율대로 키운다.
-            width: fav ? 43 : 36,
-            height: fav ? 54 : 50,
-          };
-        }),
-    [places, selectedPlaceId, showFavorites, favIds]
+        .map((place) => ({
+          identifier: place.id,
+          latitude: place.latitude,
+          longitude: place.longitude,
+          image: MARKER_IMAGES[place.category],
+          // 마커 기본 앵커는 하단 중앙 — 꼬리 끝이 좌표를 찍는다
+          width: 36,
+          height: 50,
+        })),
+    [places, selectedPlaceId]
   );
 
   return (
@@ -493,6 +488,32 @@ export default function MapScreen() {
           />
         )}
 
+        {/* 즐겨찾기 마커 — 클러스터 밖 개별 오버레이라 줌과 무관하게 항상 보이고,
+            이름 캡션이 함께 뜬다. 겹치는 캡션은 SDK가 알아서 숨긴다. */}
+        {showFavorites &&
+          (favoritePlaces ?? [])
+            .filter((p) => p.id !== selectedPlaceId)
+            .map((p) => (
+              <NaverMapMarkerOverlay
+                key={p.id}
+                latitude={p.latitude}
+                longitude={p.longitude}
+                image={MARKER_IMAGES_FAV[p.category]}
+                width={36}
+                height={50}
+                anchor={{ x: 0.5, y: 1 }}
+                zIndex={50}
+                isHideCollidedCaptions
+                caption={{
+                  text: p.name,
+                  textSize: 12,
+                  color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
+                  haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
+                }}
+                onTap={() => handleMarkerPress(p)}
+              />
+            ))}
+
         {/* 선택된 장소 강조 — 클러스터 마커 위에 같은 이미지를 크게 얹는다 */}
         {selectedPlace && (
           <NaverMapMarkerOverlay
@@ -503,8 +524,8 @@ export default function MapScreen() {
                 ? MARKER_IMAGES_FAV[selectedPlace.category]
                 : MARKER_IMAGES[selectedPlace.category]
             }
-            width={showFavorites && favIds.has(selectedPlace.id) ? 50 : 42}
-            height={showFavorites && favIds.has(selectedPlace.id) ? 63 : 59}
+            width={42}
+            height={59}
             anchor={{ x: 0.5, y: 1 }}
             zIndex={100}
           />
