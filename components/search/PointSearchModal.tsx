@@ -134,16 +134,6 @@ export default function PointSearchModal({
             />
             {searching && <ActivityIndicator size="small" color={colors.textSecondary} />}
           </View>
-          {/* 즐겨찾기에서 고르기 — 즐겨찾기가 있을 때만 노출 */}
-          {canShowFav && (
-            <Pressable onPress={() => setShowFavList((v) => !v)} hitSlop={8}>
-              <Ionicons
-                name={showFavList ? 'star' : 'star-outline'}
-                size={22}
-                color={showFavList ? '#FACC15' : colors.textSecondary}
-              />
-            </Pressable>
-          )}
           <Pressable onPress={onClose} hitSlop={8}>
             <Text style={[styles.modalCancel, { color: colors.text }]}>취소</Text>
           </Pressable>
@@ -156,46 +146,71 @@ export default function PointSearchModal({
           }
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
-            query.trim() || showFavList ? null : (
+            query.trim() ? null : (
               <>
-                {allowCurrent && (
-                  <Pressable
-                    onPress={() => onSelect('current')}
-                    style={[styles.resultRow, { borderBottomColor: colors.border }]}>
-                    <Ionicons name="locate" size={16} color={colors.tint} />
-                    <Text style={[styles.resultName, { color: colors.text }]}>현재 위치</Text>
-                  </Pressable>
-                )}
+                {/* 바로가기 한 줄 — 현재 위치·집·회사·즐겨찾기.
+                    앞의 셋은 누르면 바로 선택되고, 즐겨찾기만 목록을 편다. */}
+                <View style={[styles.quickRow, { borderBottomColor: colors.border }]}>
+                  {allowCurrent && (
+                    <Pressable style={styles.quickItem} onPress={() => onSelect('current')}>
+                      <View style={[styles.quickIcon, { backgroundColor: colors.surfaceMuted }]}>
+                        <Ionicons name="locate" size={20} color={colors.tint} />
+                      </View>
+                      <Text style={[styles.quickLabel, { color: colors.text }]}>현위치</Text>
+                    </Pressable>
+                  )}
+                  {allowSaved &&
+                    (
+                      [
+                        ['home', 'home', '집'],
+                        ['work', 'business', '회사'],
+                      ] as const
+                    ).map(([slot, icon, label]) => {
+                      const saved = myPlaces[slot];
+                      if (!saved) return null;
+                      return (
+                        <Pressable
+                          key={slot}
+                          style={styles.quickItem}
+                          onPress={() =>
+                            onSelect(
+                              {
+                                name: saved.name,
+                                latitude: saved.latitude,
+                                longitude: saved.longitude,
+                              },
+                              saved.address,
+                            )
+                          }>
+                          <View style={[styles.quickIcon, { backgroundColor: colors.surfaceMuted }]}>
+                            <Ionicons name={icon} size={20} color={colors.tint} />
+                          </View>
+                          {/* 장소명은 민감 정보라 라벨만 보여준다 */}
+                          <Text style={[styles.quickLabel, { color: colors.text }]}>{label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  {canShowFav && (
+                    <Pressable
+                      style={styles.quickItem}
+                      onPress={() => setShowFavList((v) => !v)}>
+                      <View
+                        style={[
+                          styles.quickIcon,
+                          { backgroundColor: showFavList ? '#FACC15' : colors.surfaceMuted },
+                        ]}>
+                        <Ionicons
+                          name={showFavList ? 'star' : 'star-outline'}
+                          size={20}
+                          color={showFavList ? '#FFFFFF' : colors.tint}
+                        />
+                      </View>
+                      <Text style={[styles.quickLabel, { color: colors.text }]}>즐겨찾기</Text>
+                    </Pressable>
+                  )}
+                </View>
                 {allowSaved &&
-                  (
-                    [
-                      ['home', 'home', '집'],
-                      ['work', 'business', '회사'],
-                    ] as const
-                  ).map(([slot, icon, label]) => {
-                    const saved = myPlaces[slot];
-                    if (!saved) return null;
-                    return (
-                      <Pressable
-                        key={slot}
-                        onPress={() =>
-                          onSelect(
-                            {
-                              name: saved.name,
-                              latitude: saved.latitude,
-                              longitude: saved.longitude,
-                            },
-                            saved.address,
-                          )
-                        }
-                        style={[styles.resultRow, { borderBottomColor: colors.border }]}>
-                        <Ionicons name={icon} size={16} color={colors.tint} />
-                        {/* 장소명은 민감 정보라 라벨만 보여준다 */}
-                        <Text style={[styles.resultName, { color: colors.text }]}>{label}</Text>
-                      </Pressable>
-                    );
-                  })}
-                {allowSaved &&
+                  !showFavList &&
                   recents.map((r) => (
                     <Pressable
                       key={`${r.name}-${r.longitude}-${r.latitude}`}
@@ -328,6 +343,30 @@ const styles = StyleSheet.create({
   },
   modalCancel: {
     fontSize: 15,
+    fontWeight: '500',
+  },
+  quickRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  // 고정 폭 — 집·회사 미설정이나 비로그인으로 항목이 줄어도 왼쪽부터 차곡차곡
+  quickItem: {
+    width: 72,
+    alignItems: 'center',
+    gap: 6,
+  },
+  quickIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickLabel: {
+    fontSize: 12,
     fontWeight: '500',
   },
   resultRow: {
