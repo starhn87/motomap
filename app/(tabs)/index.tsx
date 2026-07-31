@@ -31,7 +31,10 @@ import { useNearbyHazards } from '@/hooks/useHazards';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryFilter from '@/components/map/CategoryFilter';
-import { MARKER_IMAGES } from '@/constants/markerImages';
+import { MARKER_IMAGES, MARKER_IMAGES_FAV } from '@/constants/markerImages';
+import { useQuery } from '@tanstack/react-query';
+import { fetchFavoritePlaces } from '@/lib/api/favorites';
+import { useAuthStore } from '@/stores/useAuthStore';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
 import CourseReturnChip from '@/components/map/CourseReturnChip';
 import GasStationMarker from '@/components/map/GasStationMarker';
@@ -154,7 +157,28 @@ export default function MapScreen() {
     };
   }, []);
 
-  const places = gasMode ? [] : (supabasePlaces ?? []);
+  // 즐겨찾기 지도 표시 — 켜면 뷰포트·필터와 무관하게 즐겨찾기가 별 마커로 보인다.
+  // 기존 클러스터 파이프라인에 합류시켜 탭·선택 강조가 그대로 동작한다.
+  const showFavorites = useMapStore((s) => s.showFavorites);
+  const user = useAuthStore((s) => s.user);
+  const { data: favoritePlaces } = useQuery({
+    queryKey: ['favorites', 'places', user?.id],
+    queryFn: fetchFavoritePlaces,
+    enabled: showFavorites && !!user,
+  });
+  const favIds = useMemo(
+    () => new Set((favoritePlaces ?? []).map((p) => p.id)),
+    [favoritePlaces],
+  );
+
+  const basePlaces = gasMode ? [] : (supabasePlaces ?? []);
+  const places = useMemo(
+    () =>
+      showFavorites
+        ? [...basePlaces.filter((p) => !favIds.has(p.id)), ...(favoritePlaces ?? [])]
+        : basePlaces,
+    [basePlaces, showFavorites, favIds, favoritePlaces],
+  );
   // 검색된 마커는 줌아웃해도 유지한다 — 기준점(gasSearchPoint)이 바뀔 때만 갱신
   const stations = gasMode ? (gasStations ?? []) : [];
   // 최저가 표시는 딱 하나 — 가격순(sort=1) 응답에서 최저가와 동가인 것 중 가장 가까운 곳
@@ -397,16 +421,20 @@ export default function MapScreen() {
     () =>
       places
         .filter((place) => place.id !== selectedPlaceId)
-        .map((place) => ({
-          identifier: place.id,
-          latitude: place.latitude,
-          longitude: place.longitude,
-          image: MARKER_IMAGES[place.category],
-          // 마커 기본 앵커는 하단 중앙 — 꼬리 끝이 좌표를 찍는다
-          width: 36,
-          height: 50,
-        })),
-    [places, selectedPlaceId]
+        .map((place) => {
+          const fav = showFavorites && favIds.has(place.id);
+          return {
+            identifier: place.id,
+            latitude: place.latitude,
+            longitude: place.longitude,
+            image: fav ? MARKER_IMAGES_FAV[place.category] : MARKER_IMAGES[place.category],
+            // 마커 기본 앵커는 하단 중앙 — 꼬리 끝이 좌표를 찍는다.
+            // 즐겨찾기 변형은 별 뱃지만큼 뷰박스가 넓어 비율대로 키운다.
+            width: fav ? 43 : 36,
+            height: fav ? 54 : 50,
+          };
+        }),
+    [places, selectedPlaceId, showFavorites, favIds]
   );
 
   return (
@@ -468,9 +496,13 @@ export default function MapScreen() {
           <NaverMapMarkerOverlay
             latitude={selectedPlace.latitude}
             longitude={selectedPlace.longitude}
-            image={MARKER_IMAGES[selectedPlace.category]}
-            width={42}
-            height={59}
+            image={
+              showFavorites && favIds.has(selectedPlace.id)
+                ? MARKER_IMAGES_FAV[selectedPlace.category]
+                : MARKER_IMAGES[selectedPlace.category]
+            }
+            width={showFavorites && favIds.has(selectedPlace.id) ? 50 : 42}
+            height={showFavorites && favIds.has(selectedPlace.id) ? 63 : 59}
             anchor={{ x: 0.5, y: 1 }}
             zIndex={100}
           />

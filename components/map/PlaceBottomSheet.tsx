@@ -243,10 +243,11 @@ function PlaceBottomSheet({
     <>
       <TouchableOpacity onPress={handleFavorite} style={styles.iconButton}>
         <Animated.View style={heartStyle}>
+          {/* 별 — 즐겨찾기 지도 표시(별 뱃지 마커·필터 칩)와 같은 시각 언어 */}
           <Ionicons
-            name={isFavorite ? 'heart' : 'heart-outline'}
+            name={isFavorite ? 'star' : 'star-outline'}
             size={26}
-            color={isFavorite ? semantic.danger : colors.textSecondary}
+            color={isFavorite ? '#FACC15' : colors.textSecondary}
           />
         </Animated.View>
       </TouchableOpacity>

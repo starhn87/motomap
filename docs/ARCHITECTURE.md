@@ -143,7 +143,7 @@ Sentry.wrap(
 
 ### 화면 구성 하이라이트
 
-- **지도 화면(`(tabs)/index.tsx`)** — `NaverMapView` 위에 오버레이를 쌓는다: 클러스터/마커(`PlaceMarker`), 사용자 위치(`UserLocationMarker`+`LocationPulse`). UI 레이어로 `SearchBar`·`CategoryFilter`·내 위치 버튼·`PlaceBottomSheet`(선택 장소). 카메라 이동(`onCameraChanged`)을 디바운스해 `usePlaces`를 재조회. 길안내 진입 시 경로 미리보기·옵션 선택은 `/navi` 화면이 맡는다.
+- **지도 화면(`(tabs)/index.tsx`)** — `NaverMapView` 위에 오버레이를 쌓는다: 클러스터/마커(`PlaceMarker`), 사용자 위치(`UserLocationMarker`+`LocationPulse`). UI 레이어로 `SearchBar`·`CategoryFilter`(+ 즐겨찾기 별 토글)·내 위치 버튼·`PlaceBottomSheet`(선택 장소). 카메라 이동(`onCameraChanged`)을 디바운스해 `usePlaces`를 재조회. 별 토글을 켜면 즐겨찾기 장소가 뷰포트·필터와 무관하게 별 뱃지 마커(`markers/*_fav.png`)로 클러스터 목록에 합류한다. 길안내 진입 시 경로 미리보기·옵션 선택은 `/navi` 화면이 맡는다.
 
 ---
 
