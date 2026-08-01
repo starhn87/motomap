@@ -576,6 +576,15 @@ export default function MapScreen() {
             height={44}
             anchor={{ x: 0.5, y: 1 }}
             zIndex={100}
+            isHideCollidedSymbols
+            // 선택 마커는 원래 마커를 대신 그리는 것이라 캡션도 함께 가져온다.
+            // 겹쳐도 숨기지 않는다 — 지금 보고 있는 곳의 이름은 늘 보여야 한다.
+            caption={{
+              text: selectedPlace.name,
+              textSize: 12,
+              color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
+              haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
+            }}
           />
         )}
 
