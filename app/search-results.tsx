@@ -37,6 +37,16 @@ const MAX_PLACES = 50;
 
 type ResultItem = { kind: 'place'; place: Place } | { kind: 'kakao'; k: KakaoLocalResult };
 
+// 상세 시트가 화면 아래를 덮으므로 카메라 중심을 남쪽으로 내려 고른 장소를
+// 시트 위 영역의 가운데에 둔다. 계수는 지도 탭((tabs)/index.tsx)과 같은 값 —
+// 이 근사식은 dp/타일 스케일이 섞여 있어 이론값(시트비율/2)이 아니라 실측으로
+// 맞춘 0.05 가 화면에서 제대로 앉는다.
+function sheetLatOffset(zoom: number, screenHeightDp: number, lat: number): number {
+  const latSpan =
+    (screenHeightDp / (256 * Math.pow(2, zoom))) * 360 * Math.cos((lat * Math.PI) / 180);
+  return latSpan * 0.05;
+}
+
 // 검색 결과 지도 화면 — 검색에서 엔터로 진입한다. 등록 장소든 일반 장소든
 // 관련 결과를 지도 마커 + 바텀시트 목록으로 한눈에 보여주고, 고르면 기존
 // 플로우(등록: 지도 탭 장소 시트 / 일반: 임시 핀)로 넘어간다.
@@ -119,7 +129,7 @@ export default function SearchResultsScreen() {
       void addRecentSearch({ type: 'place', place: item.place });
       setSelectedPlace(item.place);
       mapRef.current?.animateCameraTo({
-        latitude: item.place.latitude,
+        latitude: item.place.latitude - sheetLatOffset(13, screenH, item.place.latitude),
         longitude: item.place.longitude,
         zoom: 13,
         duration: 500,
@@ -142,7 +152,7 @@ export default function SearchResultsScreen() {
         phone: k.phone || undefined,
       });
       mapRef.current?.animateCameraTo({
-        latitude: k.latitude,
+        latitude: k.latitude - sheetLatOffset(13, screenH, k.latitude),
         longitude: k.longitude,
         zoom: 13,
         duration: 500,
