@@ -68,6 +68,10 @@ export function useVoiceSearch(onResult: (text: string, isFinal: boolean) => voi
     mine.current = true;
     // 말하는 동안 키보드가 화면을 덮고 있을 이유가 없다
     Keyboard.dismiss();
+    // 치던 검색어는 비우고 시작한다 — 말한 내용으로 갈아끼우는 동작이라
+    // 첫 중간 결과가 올 때까지 옛 글자가 남아 있으면 어색하다. 인식된 게
+    // 아직 없다는 뜻이므로 결과 콜백을 빈 문자열로 부른다(중간 결과 취급).
+    onResult('', false);
     // interimResults 로 말하는 중에도 인식 상태가 보인다
     ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: false });
   };
