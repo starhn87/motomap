@@ -315,6 +315,20 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 
 @implementation KNNaviPresenter
 
+// 앱의 키 윈도우. UIApplication.keyWindow 는 iOS 13 에서 폐기됐다 — 연결된
+// 모든 씬을 가로질러 하나를 돌려주기 때문. 씬 하나짜리 앱이라 결과는 같지만
+// 경고를 남기지 않도록 전경 씬에서 직접 찾는다.
++ (UIWindow *_Nullable)keyWindow {
+  for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+    if (![scene isKindOfClass:UIWindowScene.class]) continue;
+    if (scene.activationState != UISceneActivationStateForegroundActive) continue;
+    for (UIWindow *window in ((UIWindowScene *)scene).windows) {
+      if (window.isKeyWindow) return window;
+    }
+  }
+  return nil;
+}
+
 + (void)presentFromLng:(double)startLng
                    lat:(double)startLat
                  toLng:(double)goalLng
@@ -380,8 +394,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
               onDismiss:(void (^)(void))onDismiss
                 onError:(void (^)(NSString *_Nullable, NSString *))onError {
   dispatch_async(dispatch_get_main_queue(), ^{
-    UIWindow *window = UIApplication.sharedApplication.keyWindow;
-    UIViewController *top = window.rootViewController;
+    UIViewController *top = [self keyWindow].rootViewController;
     while (top.presentedViewController != nil) top = top.presentedViewController;
     if (top == nil) {
       onError(nil, @"화면을 띄울 뷰 컨트롤러를 찾지 못했다");
