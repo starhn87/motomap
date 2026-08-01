@@ -156,8 +156,8 @@ export default function SearchResultsScreen() {
               latitude={item.place.latitude}
               longitude={item.place.longitude}
               anchor={{ x: 0.5, y: 1 }}
-              width={selectedPlace?.id === item.place.id ? 40 : 32}
-              height={selectedPlace?.id === item.place.id ? 56 : 45}
+              width={selectedPlace?.id === item.place.id ? 38 : 32}
+              height={selectedPlace?.id === item.place.id ? 53 : 45}
               image={MARKER_IMAGES[item.place.category]}
             />
           ) : (
