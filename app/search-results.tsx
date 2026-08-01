@@ -1,7 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import BottomSheet, { BottomSheetFlatList } from '@gorhom/bottom-sheet';
@@ -72,6 +79,15 @@ export default function SearchResultsScreen() {
   }, [results, kakaoResults]);
 
   const loading = isLoading || kakaoLoading;
+
+  // 기본 스냅은 목록 높이에 맞추되 화면 절반까지만 — 결과가 두어 개뿐인데
+  // 억지로 50% 를 채우면 지도만 가린다. 행 68 + 핸들·헤더(62) + 어트리뷰션(40).
+  const { height: screenH } = useWindowDimensions();
+  const midSnap = useMemo(() => {
+    const content =
+      62 + items.length * 68 + (items.some((r) => r.kind === 'kakao') ? 40 : 0);
+    return Math.round(Math.max(180, Math.min(content, screenH * 0.5)));
+  }, [items, screenH]);
 
   // 결과 전체가 보이도록 카메라를 맞춘다 — 남쪽은 바텀시트가 덮는 만큼 더 벌린다
   useEffect(() => {
@@ -200,7 +216,7 @@ export default function SearchResultsScreen() {
       {!detailOpen && (
       <BottomSheet
         index={1}
-        snapPoints={[88, '50%', '85%']}
+        snapPoints={[88, midSnap, '85%']}
         animateOnMount={false}
         backgroundStyle={{ backgroundColor: colors.background }}
         handleIndicatorStyle={{ backgroundColor: colors.border }}>
