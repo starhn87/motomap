@@ -200,7 +200,7 @@ export default function SearchResultsScreen() {
       {!detailOpen && (
       <BottomSheet
         index={1}
-        snapPoints={[88, '35%', '72%']}
+        snapPoints={[88, '50%', '85%']}
         animateOnMount={false}
         backgroundStyle={{ backgroundColor: colors.background }}
         handleIndicatorStyle={{ backgroundColor: colors.border }}>
