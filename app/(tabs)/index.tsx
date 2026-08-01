@@ -32,7 +32,12 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryFilter from '@/components/map/CategoryFilter';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { MARKER_IMAGES, MARKER_IMAGES_FAV } from '@/constants/markerImages';
+import {
+  MARKER_IMAGES,
+  MARKER_IMAGES_FAV,
+  MARKER_IMAGES_CIRCLE,
+  MARKER_IMAGES_CIRCLE_FAV,
+} from '@/constants/markerImages';
 import { useQuery } from '@tanstack/react-query';
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -438,7 +443,8 @@ export default function MapScreen() {
               latitude: place.latitude,
               longitude: place.longitude,
               image: MARKER_IMAGES[place.category],
-              // 마커 기본 앵커는 하단 중앙 — 꼬리 끝이 좌표를 찍는다
+              // 클러스터 마커는 앵커 지정이 안 돼(ClusterMarkerProp) 하단 중앙 고정 —
+              // 꼬리 끝이 좌표를 찍는 핀을 그대로 쓴다. 원형은 개별 마커 전용.
               width: 36,
               height: 50,
             })),
@@ -499,8 +505,9 @@ export default function MapScreen() {
           />
         )}
 
-        {/* 장소 개별 마커 — 캡션 줌 이상에서 이름과 함께. 겹치는 지도 심벌(기본
-            POI 텍스트)과 캡션은 SDK 가 숨긴다. */}
+        {/* 장소 개별 마커 — 캡션 줌 이상에서 원형 마커 + 이름. 원은 핀보다 자리를
+            덜 차지해 몰린 지역도 덜 답답하다. 겹치는 지도 심벌(기본 POI 텍스트)과
+            캡션은 SDK 가 숨긴다. */}
         {captionMode &&
           places
             .filter((p) => p.id !== selectedPlaceId)
@@ -509,10 +516,10 @@ export default function MapScreen() {
                 key={p.id}
                 latitude={p.latitude}
                 longitude={p.longitude}
-                image={MARKER_IMAGES[p.category]}
-                width={36}
-                height={50}
-                anchor={{ x: 0.5, y: 1 }}
+                image={MARKER_IMAGES_CIRCLE[p.category]}
+                width={30}
+                height={30}
+                anchor={{ x: 0.5, y: 0.5 }}
                 zIndex={10}
                 isHideCollidedSymbols
                 isHideCollidedCaptions
@@ -536,10 +543,10 @@ export default function MapScreen() {
                 key={p.id}
                 latitude={p.latitude}
                 longitude={p.longitude}
-                image={MARKER_IMAGES_FAV[p.category]}
-                width={36}
-                height={50}
-                anchor={{ x: 0.5, y: 1 }}
+                image={MARKER_IMAGES_CIRCLE_FAV[p.category]}
+                width={30}
+                height={30}
+                anchor={{ x: 0.5, y: 0.5 }}
                 zIndex={50}
                 isHideCollidedSymbols
                 isHideCollidedCaptions
@@ -554,7 +561,8 @@ export default function MapScreen() {
               />
             ))}
 
-        {/* 선택된 장소 강조 — 클러스터 마커 위에 같은 이미지를 크게 얹는다 */}
+        {/* 선택된 장소 강조 — 원형 대신 핀으로 바꿔 얹는다. 크기만 키우는 것보다
+            대비가 커서 "이걸 골랐다"가 분명하다(네이버 지도식). */}
         {selectedPlace && (
           <NaverMapMarkerOverlay
             latitude={selectedPlace.latitude}

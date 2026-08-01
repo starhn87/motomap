@@ -83,5 +83,22 @@ for (const [category, color] of Object.entries(CATEGORIES)) {
 </svg>`;
   await sharp(Buffer.from(favSvg)).png().toFile(join(outDir, `${category}_fav.png`));
   console.log(`${category}_fav.png 생성`);
+
+  // 원형 변형 — 지도 탭에서 쓴다. 핀보다 차지 면적이 절반 이하라 마커가
+  // 몰린 지역도 덜 답답하고 캡션 놓을 자리가 넉넉해진다. 색을 채우고 아이콘을
+  // 흰색으로 빼야 작아져도 카테고리가 구분된다.
+  const circle = (iconPath) => {
+    const s = 0.62; // 24x24 아이콘 → 약 15px
+    const t = 18 - 12 * s;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="108" height="108">
+  <circle cx="18" cy="18" r="14" fill="${color}" stroke="#FFFFFF" stroke-width="2.5"/>
+  <g transform="translate(${t} ${t}) scale(${s})">
+    <path d="${iconPath}" fill="#FFFFFF"/>
+  </g>
+</svg>`;
+  };
+  await sharp(Buffer.from(circle(ICONS[category]))).png().toFile(join(outDir, `${category}_circle.png`));
+  await sharp(Buffer.from(circle(STAR_PATH))).png().toFile(join(outDir, `${category}_circle_fav.png`));
+  console.log(`${category}_circle.png / _circle_fav.png 생성`);
 }
 console.log('완료');

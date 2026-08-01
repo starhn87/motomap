@@ -26,3 +26,29 @@ export const MARKER_IMAGES_FAV: Record<PlaceCategory, any> = {
   camping: require('@/assets/images/markers/camping_fav.png'),
   car_wash: require('@/assets/images/markers/car_wash_fav.png'),
 };
+
+// 지도 탭의 개별 마커 — 원형(지름 30, 앵커 중앙). 핀보다 자리를 덜 차지해
+// 마커가 몰려도 덜 답답하다. 검색 결과 지도·임시 핀·선택 강조는 핀 그대로.
+export const MARKER_IMAGES_CIRCLE: Record<PlaceCategory, any> = {
+  cafe: require('@/assets/images/markers/cafe_circle.png'),
+  restaurant: require('@/assets/images/markers/restaurant_circle.png'),
+  rest_stop: require('@/assets/images/markers/rest_stop_circle.png'),
+  gas_station: require('@/assets/images/markers/gas_station_circle.png'),
+  repair_shop: require('@/assets/images/markers/repair_shop_circle.png'),
+  viewpoint: require('@/assets/images/markers/viewpoint_circle.png'),
+  gear_shop: require('@/assets/images/markers/gear_shop_circle.png'),
+  camping: require('@/assets/images/markers/camping_circle.png'),
+  car_wash: require('@/assets/images/markers/car_wash_circle.png'),
+};
+
+export const MARKER_IMAGES_CIRCLE_FAV: Record<PlaceCategory, any> = {
+  cafe: require('@/assets/images/markers/cafe_circle_fav.png'),
+  restaurant: require('@/assets/images/markers/restaurant_circle_fav.png'),
+  rest_stop: require('@/assets/images/markers/rest_stop_circle_fav.png'),
+  gas_station: require('@/assets/images/markers/gas_station_circle_fav.png'),
+  repair_shop: require('@/assets/images/markers/repair_shop_circle_fav.png'),
+  viewpoint: require('@/assets/images/markers/viewpoint_circle_fav.png'),
+  gear_shop: require('@/assets/images/markers/gear_shop_circle_fav.png'),
+  camping: require('@/assets/images/markers/camping_circle_fav.png'),
+  car_wash: require('@/assets/images/markers/car_wash_circle_fav.png'),
+};
