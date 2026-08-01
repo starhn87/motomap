@@ -2,6 +2,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -513,15 +514,34 @@ export default function NaviScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- isCourseMode 는 파라미터에서 파생돼 불변
   }, [route]);
 
-  const startGuide = () => {
-    if (!start || starting || courseOnly) return;
+  const launchGuide = () => {
     setStarting(true);
-    KakaoNavi.startGuide(start[0], start[1], goal.longitude, goal.latitude, goal.name, activeVias ?? flatVias, priority).catch(
+    KakaoNavi.startGuide(start![0], start![1], goal.longitude, goal.latitude, goal.name, activeVias ?? flatVias, priority).catch(
       (err) => {
         setStarting(false);
         toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(err));
       },
     );
+  };
+
+  const startGuide = () => {
+    if (!start || starting || courseOnly) return;
+    // 출발지를 따로 정했어도 실제 안내는 현재 위치에서 시작된다 — KNSDK 의
+    // 실주행 안내(KNGuidance)는 trip 의 출발지를 경로 계산에만 쓰고 주행은
+    // GPS 를 경로에 매칭해 진행한다(시뮬레이션은 KNSimulGuidance 로 별도).
+    // 미리보기 경로와 어긋나 보이므로 한 번 알리고 넘어간다.
+    if (startName) {
+      Alert.alert(
+        '안내는 현재 위치에서 시작해요',
+        `출발지로 정한 '${startName}'가 아니라 지금 계신 곳에서 안내가 시작됩니다. 위 경로는 미리 보기용이에요.`,
+        [
+          { text: '취소', style: 'cancel' },
+          { text: '안내 시작', onPress: launchGuide },
+        ],
+      );
+      return;
+    }
+    launchGuide();
   };
 
   // 폴리라인은 수천 좌표라 리렌더마다 새로 만들면 네이티브 브리지로 통째로
