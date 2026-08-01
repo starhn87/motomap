@@ -460,7 +460,8 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 19,
     fontWeight: '700',
-    marginBottom: 8,
+    marginTop: 18,
+    marginBottom: 10,
   },
   welcomeSub: {
     fontSize: 14,
