@@ -13,8 +13,8 @@ export default function TempPlaceMarker({ latitude, longitude }: Props) {
       latitude={latitude}
       longitude={longitude}
       image={require('@/assets/images/markers/general.png')}
-      width={36}
-      height={50}
+      width={32}
+      height={45}
       anchor={{ x: 0.5, y: 1 }}
       zIndex={90}
     />

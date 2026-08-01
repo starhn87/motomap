@@ -445,8 +445,8 @@ export default function MapScreen() {
               image: MARKER_IMAGES[place.category],
               // 클러스터 마커는 앵커 지정이 안 돼(ClusterMarkerProp) 하단 중앙 고정 —
               // 꼬리 끝이 좌표를 찍는 핀을 그대로 쓴다. 원형은 개별 마커 전용.
-              width: 36,
-              height: 50,
+              width: 32,
+              height: 45,
             })),
     [captionMode, places, selectedPlaceId]
   );
@@ -572,8 +572,8 @@ export default function MapScreen() {
                 ? MARKER_IMAGES_FAV[selectedPlace.category]
                 : MARKER_IMAGES[selectedPlace.category]
             }
-            width={42}
-            height={59}
+            width={38}
+            height={53}
             anchor={{ x: 0.5, y: 1 }}
             zIndex={100}
           />
