@@ -58,23 +58,23 @@ const ICON_SCALE = 0.75; // 24x24 아이콘을 배지(직경 26) 안에 — 아�
 const BADGE_CX = 20;
 const BADGE_CY = 18;
 
-// 즐겨찾기 별 (Material star, 24x24) — 네이버 지도처럼 아이콘 자리를 별이 차지한다
+// 즐겨찾기 별 (Material star, 24x24) — 아이콘 자리를 별이 차지한다
 const STAR_PATH =
   'M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z';
-const FAV_YELLOW = '#FACC15';
 
 for (const [category, color] of Object.entries(CATEGORIES)) {
   const tx = BADGE_CX - 12 * ICON_SCALE;
   const ty = BADGE_CY - 12 * ICON_SCALE;
   // 네이버 마커의 기본 앵커는 하단 중앙(0.5, 1) — 꼬리 끝이 곧 좌표이므로
   // 캔버스는 핀에 꽉 차게 만든다.
-  const pin = (iconPath, iconFill) => `
+  // 원형 마커와 같은 배색 — 색을 채우고 아이콘을 흰색으로 뺀다. 선택되면
+  // 크기·형태(꼬리)가 이미 바뀌므로 색까지 반전시킬 이유가 없다.
+  const pin = (iconPath) => `
   <path d="${PIN_PATH}" fill="${color}" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round"/>
-  <circle cx="${BADGE_CX}" cy="${BADGE_CY}" r="12.5" fill="#FFFFFF"/>
   <g transform="translate(${tx} ${ty}) scale(${ICON_SCALE})">
-    <path d="${iconPath}" fill="${iconFill}"/>
+    <path d="${iconPath}" fill="#FFFFFF"/>
   </g>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="120" height="138">${pin(ICONS[category], color)}
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="120" height="138">${pin(ICONS[category])}
 </svg>`;
   await sharp(Buffer.from(svg)).png().toFile(join(outDir, `${category}.png`));
   console.log(`${category}.png 생성`);
@@ -98,7 +98,7 @@ for (const [category, color] of Object.entries(CATEGORIES)) {
   if (category === 'general') continue; // 일반 장소는 즐겨찾기 대상이 아니다
 
   // 즐겨찾기 변형 — 같은 핀에서 카테고리 아이콘 대신 노란 별
-  const favSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="120" height="138">${pin(STAR_PATH, FAV_YELLOW)}
+  const favSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="120" height="138">${pin(STAR_PATH)}
 </svg>`;
   await sharp(Buffer.from(favSvg)).png().toFile(join(outDir, `${category}_fav.png`));
   await sharp(Buffer.from(circle(STAR_PATH))).png().toFile(join(outDir, `${category}_circle_fav.png`));
