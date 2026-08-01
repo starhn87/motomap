@@ -17,7 +17,8 @@
                                                     KNGuidance_VoiceGuideDelegate,
                                                     KNGuidance_CitsGuideDelegate>
 @property(nonatomic, strong, nullable) KNNaviView *naviView;
-@property(nonatomic, strong, nullable) KNDriveGuidance *guidance;
+// 실주행(KNDriveGuidance)과 미리보기(KNSimulGuidance)의 공통 상위 타입
+@property(nonatomic, strong, nullable) KNGuidance *guidance;
 @property(nonatomic, strong, nullable) KNTrip *trip;
 @property(nonatomic, copy, nullable) void (^onDismiss)(void);
 @property(nonatomic, copy, nullable) void (^onMenu)(NSInteger);
@@ -25,6 +26,9 @@
 @property(nonatomic, assign) BOOL carThemeApplied;
 @property(nonatomic, assign) KNRoutePriority priority;
 @property(nonatomic, assign) BOOL arrivalPrompted;
+// 경로 미리보기 — 실제 GPS 대신 경로를 따라 스스로 진행한다
+@property(nonatomic, assign) BOOL preview;
+@property(nonatomic, assign) BOOL previewNoticed;
 @end
 
 // 안내 화면 위 상호작용(액션시트·알림·목적지 변경)을 모듈 함수가 쓸 수 있도록
@@ -37,7 +41,10 @@ static __weak KNNaviViewController *gActiveNavi = nil;
   [super viewDidLoad];
   self.view.backgroundColor = UIColor.blackColor;
 
-  KNDriveGuidance *guidance = [[KNSDK sharedInstance] sharedGuidance];
+  // 미리보기는 시뮬레이션 안내로 — 실주행 안내는 차량 위치를 항상 실제 GPS 에
+  // 매칭하므로 정한 출발지에서 시작할 방법이 없다(카메라·위치 주입 API 없음).
+  KNGuidance *guidance = self.preview ? (KNGuidance *)[[KNSDK sharedInstance] sharedSimulGuidance]
+                                      : (KNGuidance *)[[KNSDK sharedInstance] sharedGuidance];
   guidance.guideStateDelegate = self;
   guidance.locationGuideDelegate = self;
   guidance.routeGuideDelegate = self;
@@ -67,8 +74,8 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 
   // 안내가 떠 있는 동안만 백그라운드 위치를 허용한다 — 화면이 꺼지거나 다른
   // 앱으로 전환해도 안내가 이어지는 기능. 평상시엔 꺼 둔다(KNSDKBridge 초기화
-  // 직후). finish 에서 다시 내린다.
-  [KNSDKBridge setBackgroundLocationAllowed:YES];
+  // 직후). finish 에서 다시 내린다. 미리보기는 GPS 를 쓰지 않으니 그대로 둔다.
+  if (!self.preview) [KNSDKBridge setBackgroundLocationAllowed:YES];
 
   [guidance startWithTrip:self.trip
                  priority:self.priority
@@ -98,6 +105,12 @@ static __weak KNNaviViewController *gActiveNavi = nil;
   [self.naviView resumeView];
 
   [self applyCarTheme];
+
+  // 스스로 달리는 화면을 실주행으로 오해하지 않게 한 번 알린다
+  if (self.preview && !self.previewNoticed) {
+    self.previewNoticed = YES;
+    [KNNaviPresenter showNotice:@"정한 출발지에서 경로를 미리 보여드려요. 실제 주행 안내가 아니에요."];
+  }
 }
 
 // 안내가 시작되거나 위치가 처음 잡히면 SDK 가 자차를 다시 그리면서
@@ -309,6 +322,8 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                   name:(NSString *)goalName
                   vias:(NSArray<NSNumber *> *_Nullable)flatVias
               priority:(NSInteger)priority
+    // 정한 출발지에서 경로를 훑어보는 미리보기면 YES
+               preview:(BOOL)preview
              onStarted:(void (^_Nullable)(void))onStarted
                 onMenu:(void (^_Nullable)(NSInteger))onMenu
              onDismiss:(void (^)(void))onDismiss
@@ -346,13 +361,20 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                                                     : @"경로를 찾지 못했다");
                                  return;
                                }
-                               [self presentWithTrip:trip priority:(KNRoutePriority)priority onStarted:onStarted onMenu:onMenu onDismiss:onDismiss onError:onError];
+                               [self presentWithTrip:trip
+                                            priority:(KNRoutePriority)priority
+                                             preview:preview
+                                           onStarted:onStarted
+                                              onMenu:onMenu
+                                           onDismiss:onDismiss
+                                             onError:onError];
                              }];
               }];
 }
 
 + (void)presentWithTrip:(KNTrip *)trip
                priority:(KNRoutePriority)priority
+                preview:(BOOL)preview
               onStarted:(void (^_Nullable)(void))onStarted
                  onMenu:(void (^_Nullable)(NSInteger))onMenu
               onDismiss:(void (^)(void))onDismiss
@@ -369,6 +391,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
     KNNaviViewController *vc = [[KNNaviViewController alloc] init];
     vc.trip = trip;
     vc.priority = priority;
+    vc.preview = preview;
     vc.onStarted = onStarted;
     vc.onMenu = onMenu;
     vc.onDismiss = onDismiss;

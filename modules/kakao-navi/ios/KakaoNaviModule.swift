@@ -51,11 +51,12 @@ public class KakaoNaviModule: Module {
 
     AsyncFunction("startGuide") {
       (startLng: Double, startLat: Double, goalLng: Double, goalLat: Double, goalName: String,
-       vias: [Double], priority: Int) in
+       vias: [Double], priority: Int, preview: Bool) in
       KNNaviPresenter.present(
         fromLng: startLng, lat: startLat, toLng: goalLng, lat: goalLat, name: goalName,
         vias: vias.map { NSNumber(value: $0) },
         priority: priority,
+        preview: preview,
         onStarted: { [weak self] in
           self?.sendEvent("onGuideStarted", [:])
         },

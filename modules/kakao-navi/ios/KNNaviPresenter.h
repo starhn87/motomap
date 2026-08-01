@@ -15,6 +15,8 @@ NS_ASSUME_NONNULL_BEGIN
                   name:(NSString *)goalName
                   vias:(NSArray<NSNumber *> *_Nullable)flatVias
               priority:(NSInteger)priority
+    // 정한 출발지에서 경로를 훑어보는 미리보기면 YES — 시뮬레이션 안내로 뜬다.
+               preview:(BOOL)preview
              onStarted:(void (^_Nullable)(void))onStarted
                 onMenu:(void (^_Nullable)(NSInteger menuId))onMenu
             onDismiss:(void (^)(void))onDismiss

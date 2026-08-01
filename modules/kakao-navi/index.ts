@@ -74,6 +74,10 @@ interface KakaoNaviModule {
   /**
    * 길안내를 네이티브 전체화면으로 띄운다. 결과는 이벤트로 온다.
    * vias 는 [lng, lat, lng, lat, ...] 평면 배열 — 없으면 빈 배열.
+   *
+   * preview: 정한 출발지에서 경로를 훑어보는 미리보기면 true — 시뮬레이션
+   * 안내로 뜬다. 실주행 안내는 차량 위치를 항상 실제 GPS 에 매칭하므로
+   * 현재 위치와 먼 출발지에서는 시작할 수 없다.
    */
   startGuide(
     startLng: number,
@@ -83,6 +87,7 @@ interface KakaoNaviModule {
     goalName: string,
     vias: number[],
     priority: RoutePriority,
+    preview: boolean,
   ): Promise<void>;
   addListener(
     event: 'onGuideStarted',

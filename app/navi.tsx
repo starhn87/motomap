@@ -42,6 +42,7 @@ import PointSearchModal, { type Point } from '@/components/search/PointSearchMod
 import { loadRecentSearches, recentTargets } from '@/lib/recentSearches';
 import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
 import { useMapStore } from '@/stores/useMapStore';
+import { haversine } from '@/lib/distance';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -67,6 +68,10 @@ const TRAFFIC_COLORS: Record<number, string> = {
 // 길찾기 경유지 상한 — 직접 고르는 지점이라 코스 샘플링(20개)과 별개다
 const MAX_USER_VIAS = 5;
 
+// 정한 출발지가 이보다 멀면 실주행이 아니라 경로 미리보기로 본다.
+// 걸어서 갈 만한 거리면 곧 그 자리에 서게 되므로 실주행이 맞다.
+const PREVIEW_MIN_METERS = 300;
+
 // 검색 모달이 어느 필드를 채우는 중인지 — 숫자는 경유지 인덱스
 type EditingField = 'start' | 'goal' | number;
 
@@ -90,6 +95,7 @@ export default function NaviScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const startGuideSession = useGuideSession((st) => st.start);
+  const userLocation = useMapStore((st) => st.userLocation);
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -356,6 +362,15 @@ export default function NaviScreen() {
     };
   }, [router, navigation, cid, goal, priority]);
 
+  // 정한 출발지가 지금 있는 곳에서 멀면 실주행 안내가 아니라 경로 미리보기다.
+  // 실주행 안내(KNGuidance)는 차량 위치를 늘 실제 GPS 에 매칭해서, 멀리 잡은
+  // 출발지는 무시되고 현재 위치에서 시작돼 버린다. 가까우면 그냥 실주행으로 —
+  // 어차피 출발지가 곧 현재 위치라 자연스럽게 맞는다.
+  const previewOnly =
+    !!startName && !!start && !!userLocation
+      ? haversine(userLocation, { latitude: start[1], longitude: start[0] }) > PREVIEW_MIN_METERS
+      : false;
+
   // 출발지 확보 — 지정돼 있으면 그대로(초기값), 아니면 현재 위치.
   // 지도 탭이 위치를 상시 추적 중이라 대개는 스토어 값으로 즉시 시작하고,
   // 없을 때만(권한 전 딥링크 등) 새 픽스를 기다린다. 상단 카드에서 출발지를
@@ -518,7 +533,7 @@ export default function NaviScreen() {
     setStarting(true);
     KakaoNavi.startGuide(
       start[0], start[1], goal.longitude, goal.latitude, goal.name,
-      activeVias ?? flatVias, priority,
+      activeVias ?? flatVias, priority, previewOnly,
     ).catch((err) => {
       setStarting(false);
       toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(err));
@@ -772,7 +787,11 @@ export default function NaviScreen() {
             <ActivityIndicator size="small" color={colors.background} />
           ) : (
             <Text style={[styles.startLabel, { color: colors.background }]}>
-              {courseOnly ? '코스 근처에서 시작할 수 있어요' : '안내 시작'}
+              {courseOnly
+                ? '코스 근처에서 시작할 수 있어요'
+                : previewOnly
+                  ? '경로 미리보기'
+                  : '안내 시작'}
             </Text>
           )}
         </Pressable>
