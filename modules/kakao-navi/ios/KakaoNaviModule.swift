@@ -1,5 +1,12 @@
 import ExpoModulesCore
 
+// KNSDK 코드를 reject 코드 뒤에 붙인다 — JS 는 문구가 아니라 이 코드로 분기한다
+// (예: E_KNSDK_ROUTE_20413). SDK 밖에서 난 실패는 접미사 없이 그대로.
+private func rejectCode(_ base: String, _ knCode: String?) -> String {
+  guard let knCode, !knCode.isEmpty else { return base }
+  return "\(base)_\(knCode)"
+}
+
 // 카카오내비 SDK 브리지. 우선 초기화(인증)만 노출해 앱 키·번들 ID 조합이
 // 통과하는지 확인한다 — 여기서 막히면 길안내 화면을 붙일 이유가 없다.
 // KNSDK 호출은 KNSDKBridge(ObjC)를 거친다. 이유는 그 헤더 주석 참고.
@@ -9,9 +16,9 @@ public class KakaoNaviModule: Module {
 
     AsyncFunction("initialize") { (appKey: String, promise: Promise) in
       let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-      KNSDKBridge.initialize(withAppKey: appKey, clientVersion: version) { errorMessage in
+      KNSDKBridge.initialize(withAppKey: appKey, clientVersion: version) { errorCode, errorMessage in
         if let errorMessage {
-          promise.reject("E_KNSDK_INIT", errorMessage)
+          promise.reject(rejectCode("E_KNSDK_INIT", errorCode), errorMessage)
         } else {
           promise.resolve(true)
         }
@@ -25,9 +32,9 @@ public class KakaoNaviModule: Module {
       KNSDKBridge.requestBikeRoute(
         fromLng: startLng, lat: startLat, toLng: goalLng, lat: goalLat,
         vias: vias.map { NSNumber(value: $0) }, priority: priority
-      ) { errorMessage, distance, duration, polyline in
+      ) { errorCode, errorMessage, distance, duration, polyline in
         if let errorMessage {
-          promise.reject("E_KNSDK_ROUTE", errorMessage)
+          promise.reject(rejectCode("E_KNSDK_ROUTE", errorCode), errorMessage)
         } else {
           promise.resolve([
             "distance": distance,
@@ -44,11 +51,12 @@ public class KakaoNaviModule: Module {
 
     AsyncFunction("startGuide") {
       (startLng: Double, startLat: Double, goalLng: Double, goalLat: Double, goalName: String,
-       vias: [Double], priority: Int) in
+       vias: [Double], priority: Int, keepStart: Bool) in
       KNNaviPresenter.present(
         fromLng: startLng, lat: startLat, toLng: goalLng, lat: goalLat, name: goalName,
         vias: vias.map { NSNumber(value: $0) },
         priority: priority,
+        keepStart: keepStart,
         onStarted: { [weak self] in
           self?.sendEvent("onGuideStarted", [:])
         },
@@ -58,8 +66,8 @@ public class KakaoNaviModule: Module {
         onDismiss: { [weak self] in
           self?.sendEvent("onGuideEnd", [:])
         },
-        onError: { [weak self] message in
-          self?.sendEvent("onGuideFailed", ["message": message])
+        onError: { [weak self] code, message in
+          self?.sendEvent("onGuideFailed", ["code": code as Any, "message": message])
         }
       )
     }
@@ -78,9 +86,9 @@ public class KakaoNaviModule: Module {
     AsyncFunction("changeGuideDestination") {
       (lng: Double, lat: Double, name: String, priority: Int, promise: Promise) in
       KNNaviPresenter.changeDestination(toLng: lng, lat: lat, name: name, priority: priority) {
-        errorMessage in
+        errorCode, errorMessage in
         if let errorMessage {
-          promise.reject("E_KNSDK_DEST", errorMessage)
+          promise.reject(rejectCode("E_KNSDK_DEST", errorCode), errorMessage)
         } else {
           promise.resolve(true)
         }

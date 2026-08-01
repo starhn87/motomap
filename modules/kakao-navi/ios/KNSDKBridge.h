@@ -7,10 +7,13 @@ NS_ASSUME_NONNULL_BEGIN
 // Swift 에서 `import KNSDK` 가 되지 않는다. ObjC 로 한 겹 감싸 필요한 것만 넘긴다.
 @interface KNSDKBridge : NSObject
 
-// 인증 성공이면 errorMessage 가 nil.
+// 인증 성공이면 errorMessage 가 nil. errorCode 는 KNError 의 코드 —
+// JS 가 문구가 아니라 코드로 분기할 수 있게 메시지와 분리해 넘긴다.
+// SDK 밖에서 난 실패(인스턴스 없음 등)는 코드 없이 메시지만 온다.
 + (void)initializeWithAppKey:(NSString *)appKey
                clientVersion:(NSString *)clientVersion
-                  completion:(void (^)(NSString *_Nullable errorMessage))completion;
+                  completion:(void (^)(NSString *_Nullable errorCode,
+                                       NSString *_Nullable errorMessage))completion;
 
 // 백그라운드 위치 허용 토글 — 안내 중에만 YES. 자세한 사연은 구현부 주석.
 + (void)setBackgroundLocationAllowed:(BOOL)allowed;
@@ -24,13 +27,17 @@ NS_ASSUME_NONNULL_BEGIN
                             lat:(double)goalLat
                            vias:(NSArray<NSNumber *> *_Nullable)flatVias
                        priority:(NSInteger)priority
-                     completion:(void (^)(NSString *_Nullable errorMessage,
+                     completion:(void (^)(NSString *_Nullable errorCode,
+                                          NSString *_Nullable errorMessage,
                                           NSInteger distance,
                                           NSInteger duration,
                                           NSArray<NSNumber *> *_Nullable polyline))completion;
 
 // [lng, lat, ...] 평면 배열을 KNPOI 경유지 목록으로 바꾼다. 비면 nil.
 + (NSArray *_Nullable)viasFromFlat:(NSArray<NSNumber *> *_Nullable)flatVias;
+
+// KNError 의 코드를 문자열로. 코드가 없으면 nil.
++ (NSString *_Nullable)errorCodeOf:(id _Nullable)knError;
 
 @end
 

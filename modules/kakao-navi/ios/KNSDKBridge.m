@@ -61,11 +61,11 @@ static void installBackgroundGate(void) {
 
 + (void)initializeWithAppKey:(NSString *)appKey
                clientVersion:(NSString *)clientVersion
-                  completion:(void (^)(NSString *_Nullable))completion {
+                  completion:(void (^)(NSString *_Nullable, NSString *_Nullable))completion {
   installBackgroundGate(); // SDK 가 첫 YES 를 설정하기 전에 걸어야 한다
   KNSDK *sdk = [KNSDK sharedInstance];
   if (sdk == nil) {
-    completion(@"KNSDK 인스턴스를 가져오지 못했다");
+    completion(nil, @"KNSDK 인스턴스를 가져오지 못했다");
     return;
   }
 
@@ -87,10 +87,10 @@ static void installBackgroundGate(void) {
                      // 밤새 배터리 소모의 원인). 여기서 끄고, 안내 화면이 떠
                      // 있는 동안만 켠다(KNNaviPresenter 가 올리고 내린다).
                      [self setBackgroundLocationAllowed:NO];
-                     completion(nil);
+                     completion(nil, nil);
                      return;
                    }
-                   completion([NSString stringWithFormat:@"[%@] %@", error.code, error.msg ?: @"알 수 없는 오류"]);
+                   completion([self errorCodeOf:error], error.msg ?: @"알 수 없는 오류");
                  }];
 }
 
@@ -100,11 +100,11 @@ static void installBackgroundGate(void) {
                             lat:(double)goalLat
                            vias:(NSArray<NSNumber *> *_Nullable)flatVias
                        priority:(NSInteger)priority
-                     completion:(void (^)(NSString *_Nullable, NSInteger, NSInteger,
-                                          NSArray<NSNumber *> *_Nullable))completion {
+                     completion:(void (^)(NSString *_Nullable, NSString *_Nullable, NSInteger,
+                                          NSInteger, NSArray<NSNumber *> *_Nullable))completion {
   KNSDK *sdk = [KNSDK sharedInstance];
   if (sdk == nil) {
-    completion(@"KNSDK 인스턴스를 가져오지 못했다", 0, 0, nil);
+    completion(nil, @"KNSDK 인스턴스를 가져오지 못했다", 0, 0, nil);
     return;
   }
 
@@ -120,8 +120,8 @@ static void installBackgroundGate(void) {
                     vias:[self viasFromFlat:flatVias]
               completion:^(KNError *_Nullable tripError, KNTrip *_Nullable trip) {
                 if (tripError != nil || trip == nil) {
-                  completion(tripError ? [NSString stringWithFormat:@"[%@] %@", tripError.code, tripError.msg ?: @"경로 생성 실패"]
-                                       : @"경로를 만들지 못했다",
+                  completion([self errorCodeOf:tripError],
+                             tripError ? (tripError.msg ?: @"경로 생성 실패") : @"경로를 만들지 못했다",
                              0, 0, nil);
                   return;
                 }
@@ -132,7 +132,8 @@ static void installBackgroundGate(void) {
                              completion:^(KNError *_Nullable routeError, NSArray<KNRoute *> *_Nullable routes) {
                                KNRoute *route = routes.firstObject;
                                if (routeError != nil || route == nil) {
-                                 completion(routeError ? [NSString stringWithFormat:@"[%@] %@", routeError.code, routeError.msg ?: @"경로 탐색 실패"]
+                                 completion([self errorCodeOf:routeError],
+                                            routeError ? (routeError.msg ?: @"경로 탐색 실패")
                                                        : @"경로를 찾지 못했다",
                                             0, 0, nil);
                                  return;
@@ -142,12 +143,21 @@ static void installBackgroundGate(void) {
                                NSArray<NSNumber *> *polyline =
                                    [self flattenPolyline:[route routePolylineWGS84] error:&convertError];
                                if (convertError != nil) {
-                                 completion(convertError, 0, 0, nil);
+                                 completion(nil, convertError, 0, 0, nil);
                                  return;
                                }
-                               completion(nil, route.totalDist, route.totalTime, polyline);
+                               completion(nil, nil, route.totalDist, route.totalTime, polyline);
                              }];
               }];
+}
+
+// KNError.code 는 문서상 타입이 고정돼 있지 않아(NSNumber/NSString 양쪽 관측)
+// 문자열로 통일해 넘긴다. JS 는 이걸 숫자로 파싱해 분기한다.
++ (NSString *_Nullable)errorCodeOf:(id _Nullable)knError {
+  if (knError == nil) return nil;
+  id code = [knError valueForKey:@"code"];
+  if (code == nil || code == NSNull.null) return nil;
+  return [NSString stringWithFormat:@"%@", code];
 }
 
 + (NSArray *_Nullable)viasFromFlat:(NSArray<NSNumber *> *_Nullable)flatVias {

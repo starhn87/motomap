@@ -25,11 +25,18 @@
 @property(nonatomic, assign) BOOL carThemeApplied;
 @property(nonatomic, assign) KNRoutePriority priority;
 @property(nonatomic, assign) BOOL arrivalPrompted;
+// 사용자가 출발지를 직접 정한 안내 — 자동 재탐색을 잠시 꺼 계획한 경로를
+// 지킨다. 실제로 그 경로에 올라타면 다시 켠다(guidance:didUpdateLocation:).
+@property(nonatomic, assign) BOOL keepPlannedRoute;
 @end
 
 // 안내 화면 위 상호작용(액션시트·알림·목적지 변경)을 모듈 함수가 쓸 수 있도록
 // 살아 있는 컨트롤러를 하나 기억한다.
 static __weak KNNaviViewController *gActiveNavi = nil;
+
+// 원 GPS 와 경로 매칭 위치가 이만큼 안쪽이면 경로에 올라탄 것으로 본다.
+// 도심 GPS 오차(20~30m)보다 넉넉하게 잡는다.
+static const double kOnRouteMeters = 50.0;
 
 @implementation KNNaviViewController
 
@@ -69,6 +76,12 @@ static __weak KNNaviViewController *gActiveNavi = nil;
   // 앱으로 전환해도 안내가 이어지는 기능. 평상시엔 꺼 둔다(KNSDKBridge 초기화
   // 직후). finish 에서 다시 내린다.
   [KNSDKBridge setBackgroundLocationAllowed:YES];
+
+  // 출발지를 직접 정한 안내는 자동 재탐색을 끈 채 시작한다. 켜 두면 SDK 가
+  // "경로 이탈"로 보고 현재 위치에서 즉시 재탐색해, 정한 출발지가 무시된다.
+  if (self.keepPlannedRoute) {
+    guidance.useAutoReroute = NO;
+  }
 
   [guidance startWithTrip:self.trip
                  priority:self.priority
@@ -207,6 +220,20 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 
 - (void)guidance:(KNGuidance *)aGuidance didUpdateLocation:(KNGuide_Location *)aLocationGuide {
   [self.naviView guidance:aGuidance didUpdateLocation:aLocationGuide];
+
+  // 계획한 경로를 지키는 중이라면, 실제로 그 경로 위에 올라선 순간부터는
+  // 평소처럼 재탐색이 돌아야 안전하다. 원 GPS 와 매칭된 위치가 가까우면
+  // (KATEC 은 미터 단위) 경로에 올라탄 것으로 본다.
+  if (self.keepPlannedRoute && aLocationGuide.gpsOrigin.valid) {
+    DoublePoint origin = aLocationGuide.gpsOrigin.pos;
+    DoublePoint matched = aLocationGuide.gpsMatched.pos;
+    double dx = origin.x - matched.x;
+    double dy = origin.y - matched.y;
+    if ((dx * dx + dy * dy) <= (kOnRouteMeters * kOnRouteMeters)) {
+      self.keepPlannedRoute = NO;
+      aGuidance.useAutoReroute = YES;
+    }
+  }
   [self maybePromptArrival:aGuidance locationGuide:aLocationGuide];
 }
 
@@ -308,13 +335,14 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                   name:(NSString *)goalName
                   vias:(NSArray<NSNumber *> *_Nullable)flatVias
               priority:(NSInteger)priority
+             keepStart:(BOOL)keepStart
              onStarted:(void (^_Nullable)(void))onStarted
                 onMenu:(void (^_Nullable)(NSInteger))onMenu
              onDismiss:(void (^)(void))onDismiss
-               onError:(void (^)(NSString *))onError {
+               onError:(void (^)(NSString *_Nullable, NSString *))onError {
   KNSDK *sdk = [KNSDK sharedInstance];
   if (sdk == nil) {
-    onError(@"KNSDK 인스턴스를 가져오지 못했다");
+    onError(nil, @"KNSDK 인스턴스를 가져오지 못했다");
     return;
   }
 
@@ -329,8 +357,8 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                     vias:[KNSDKBridge viasFromFlat:flatVias]
               completion:^(KNError *_Nullable tripError, KNTrip *_Nullable trip) {
                 if (tripError != nil || trip == nil) {
-                  onError(tripError ? [NSString stringWithFormat:@"[%@] %@", tripError.code, tripError.msg ?: @"경로 생성 실패"]
-                                    : @"경로를 만들지 못했다");
+                  onError([KNSDKBridge errorCodeOf:tripError],
+                          tripError ? (tripError.msg ?: @"경로 생성 실패") : @"경로를 만들지 못했다");
                   return;
                 }
 
@@ -340,33 +368,42 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                              completion:^(KNError *_Nullable routeError,
                                           NSArray<KNRoute *> *_Nullable routes) {
                                if (routeError != nil || routes.count == 0) {
-                                 onError(routeError ? [NSString stringWithFormat:@"[%@] %@", routeError.code, routeError.msg ?: @"경로 탐색 실패"]
+                                 onError([KNSDKBridge errorCodeOf:routeError],
+                                         routeError ? (routeError.msg ?: @"경로 탐색 실패")
                                                     : @"경로를 찾지 못했다");
                                  return;
                                }
-                               [self presentWithTrip:trip priority:(KNRoutePriority)priority onStarted:onStarted onMenu:onMenu onDismiss:onDismiss onError:onError];
+                               [self presentWithTrip:trip
+                                            priority:(KNRoutePriority)priority
+                                           keepStart:keepStart
+                                           onStarted:onStarted
+                                              onMenu:onMenu
+                                           onDismiss:onDismiss
+                                             onError:onError];
                              }];
               }];
 }
 
 + (void)presentWithTrip:(KNTrip *)trip
                priority:(KNRoutePriority)priority
+              keepStart:(BOOL)keepStart
               onStarted:(void (^_Nullable)(void))onStarted
                  onMenu:(void (^_Nullable)(NSInteger))onMenu
               onDismiss:(void (^)(void))onDismiss
-                onError:(void (^)(NSString *))onError {
+                onError:(void (^)(NSString *_Nullable, NSString *))onError {
   dispatch_async(dispatch_get_main_queue(), ^{
     UIWindow *window = UIApplication.sharedApplication.keyWindow;
     UIViewController *top = window.rootViewController;
     while (top.presentedViewController != nil) top = top.presentedViewController;
     if (top == nil) {
-      onError(@"화면을 띄울 뷰 컨트롤러를 찾지 못했다");
+      onError(nil, @"화면을 띄울 뷰 컨트롤러를 찾지 못했다");
       return;
     }
 
     KNNaviViewController *vc = [[KNNaviViewController alloc] init];
     vc.trip = trip;
     vc.priority = priority;
+    vc.keepPlannedRoute = keepStart;
     vc.onStarted = onStarted;
     vc.onMenu = onMenu;
     vc.onDismiss = onDismiss;
@@ -426,19 +463,19 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                            lat:(double)lat
                           name:(NSString *)name
                       priority:(NSInteger)priority
-                    completion:(void (^)(NSString *_Nullable))completion {
+                    completion:(void (^)(NSString *_Nullable, NSString *_Nullable))completion {
   dispatch_async(dispatch_get_main_queue(), ^{
     KNNaviViewController *navi = gActiveNavi;
     KNSDK *sdk = [KNSDK sharedInstance];
     if (navi == nil || navi.naviView == nil || sdk == nil) {
-      completion(@"안내 화면이 없다");
+      completion(nil, @"안내 화면이 없다");
       return;
     }
 
     // 출발점은 현 위치 — SDK 가 KATEC 으로 들고 있어 변환이 필요 없다
     KNGPSData *gps = [sdk sharedGpsManager].lastValidGpsData ?: [sdk sharedGpsManager].recentGpsData;
     if (gps == nil) {
-      completion(@"현재 위치를 아직 못 잡았다");
+      completion(nil, @"현재 위치를 아직 못 잡았다");
       return;
     }
     IntPoint startPos = IntPointMakeWithDoublePoint(gps.pos);
@@ -453,15 +490,15 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                 completion:^(KNError *_Nullable error, KNTrip *_Nullable trip) {
                   dispatch_async(dispatch_get_main_queue(), ^{
                     if (error != nil || trip == nil) {
-                      completion(error ? [NSString stringWithFormat:@"[%@] %@", error.code, error.msg ?: @"경로 생성 실패"]
-                                       : @"경로를 만들지 못했다");
+                      completion([KNSDKBridge errorCodeOf:error],
+                                 error ? (error.msg ?: @"경로 생성 실패") : @"경로를 만들지 못했다");
                       return;
                     }
                     trip.routeConfig = [[KNRouteConfiguration alloc] initWithCarType:KNCarType_Bike];
                     [navi.naviView guideNewDestinations:trip
                                                priority:(KNRoutePriority)priority
                                            avoidOptions:KNRouteAvoidOption_None];
-                    completion(nil);
+                    completion(nil, nil);
                   });
                 }];
   });

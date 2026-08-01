@@ -15,10 +15,12 @@ NS_ASSUME_NONNULL_BEGIN
                   name:(NSString *)goalName
                   vias:(NSArray<NSNumber *> *_Nullable)flatVias
               priority:(NSInteger)priority
+    // 사용자가 출발지를 직접 정한 안내면 YES — 계획한 경로를 지킨다.
+             keepStart:(BOOL)keepStart
              onStarted:(void (^_Nullable)(void))onStarted
                 onMenu:(void (^_Nullable)(NSInteger menuId))onMenu
             onDismiss:(void (^)(void))onDismiss
-              onError:(void (^)(NSString *message))onError;
+              onError:(void (^)(NSString *_Nullable code, NSString *message))onError;
 
 // ── 안내 화면 위 상호작용 (JS 가 내용을 채운다) ──────────────────────────
 
@@ -35,7 +37,8 @@ NS_ASSUME_NONNULL_BEGIN
                            lat:(double)lat
                           name:(NSString *)name
                       priority:(NSInteger)priority
-                    completion:(void (^)(NSString *_Nullable errorMessage))completion;
+                    completion:(void (^)(NSString *_Nullable errorCode,
+                                         NSString *_Nullable errorMessage))completion;
 
 @end
 

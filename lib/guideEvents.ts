@@ -126,9 +126,9 @@ async function handleGuideEnd() {
 /** 루트 레이아웃에서 1회 등록. 반환값은 해제 함수. */
 export function registerGuideEvents(): () => void {
   const end = KakaoNavi.addListener('onGuideEnd', () => void handleGuideEnd());
-  const failed = KakaoNavi.addListener('onGuideFailed', ({ message }) => {
+  const failed = KakaoNavi.addListener('onGuideFailed', ({ code, message }) => {
     useGuideSession.getState().clear();
-    toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(message));
+    toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(message, code));
   });
   // 커스텀 슬롯이 하나뿐이라 버튼 하나에서 1차 시트로 가른다
   const menu = KakaoNavi.addListener('onGuideMenu', ({ id }) => {
