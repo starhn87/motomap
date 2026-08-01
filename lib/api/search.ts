@@ -22,6 +22,21 @@ export function isSamePlace(
   return kn === pn || kn.includes(pn) || pn.includes(kn);
 }
 
+/**
+ * 검색어가 이 필드들에 걸리는지.
+ *
+ * 장소 이름의 띄어쓰기는 제보한 사람마다 다르다("더티트렁크" vs "더티 트렁크") —
+ * 공백을 지운 통짜끼리 비교해 그 차이를 없앤다. 여러 낱말을 친 경우엔
+ * 전부 들어 있기만 하면 걸리게 한다("파주 카페" → 파주·카페가 다 있는 곳).
+ */
+function matches(query: string, fields: (string | null | undefined)[]): boolean {
+  const hay = fields.filter(Boolean).join(' ').toLowerCase().replace(/\s/g, '');
+  const q = query.toLowerCase();
+  if (hay.includes(q.replace(/\s/g, ''))) return true;
+  const words = q.split(/\s+/).filter(Boolean);
+  return words.length > 1 && words.every((w) => hay.includes(w));
+}
+
 export async function searchAll(query: string): Promise<SearchResults> {
   const [placesRes, coursesRes] = await Promise.all([
     supabase.rpc('all_places', { category_filter: null }),
@@ -34,19 +49,11 @@ export async function searchAll(query: string): Promise<SearchResults> {
   ]);
 
   const places = (placesRes.data ?? [])
-    .filter((row: PlaceRow) =>
-      row.name.toLowerCase().includes(query.toLowerCase()) ||
-      row.address?.toLowerCase().includes(query.toLowerCase()) ||
-      (row.tags ?? []).some((t) => t.toLowerCase().includes(query.toLowerCase()))
-    )
+    .filter((row: PlaceRow) => matches(query, [row.name, row.address, ...(row.tags ?? [])]))
     .map(rowToPlace);
 
   const courses = (coursesRes.data ?? [])
-    .filter((row: any) =>
-      row.name.toLowerCase().includes(query.toLowerCase()) ||
-      row.description?.toLowerCase().includes(query.toLowerCase()) ||
-      (row.tags ?? []).some((t: string) => t.toLowerCase().includes(query.toLowerCase()))
-    )
+    .filter((row: any) => matches(query, [row.name, row.description, ...(row.tags ?? [])]))
     .map((row: any) => ({
       id: row.id,
       name: row.name,
