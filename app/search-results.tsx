@@ -186,7 +186,7 @@ export default function SearchResultsScreen() {
                 longitude={item.place.longitude}
                 anchor={isSelected ? { x: 0.5, y: 1 } : { x: 0.5, y: 0.5 }}
                 width={isSelected ? 38 : 30}
-                height={isSelected ? 49 : 30}
+                height={isSelected ? 44 : 30}
                 image={
                   isSelected
                     ? MARKER_IMAGES[item.place.category]

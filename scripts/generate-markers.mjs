@@ -47,14 +47,15 @@ const ICONS = {
   general: 'M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z',
 };
 
-// 슬림 물방울 핀 (40x52 뷰박스): 폭 36 원형 상단 + 아래로 뾰족한 꼬리, 흰 외곽선.
-// 꼬리는 원래보다 살짝 짧게 — 더 줄이면 물방울 실루엣이 무너진다(시안 비교).
+// 원 + 짧은 꼬리(네이버 지도식): 온전한 원에 아래로 꼬리만 돋는다. 선택 전
+// 원형 마커와 형태가 이어지고, 물방울보다 어깨가 안 뭉툭하다. 원호와 꼬리를
+// 한 패스로 그려 이음새 없이 흰 테두리가 바깥을 두른다.
 const PIN_PATH =
-  'M20 1.5 C9.8 1.5 2 9.3 2 19 C2 26 9 31 20 50 C31 31 38 26 38 19 C38 9.3 30.2 1.5 20 1.5 Z';
+  'M 11 31.23 A 16 16 0 1 1 29 31.23 L 20 42 Z';
 
 const ICON_SCALE = 0.75; // 24x24 아이콘을 배지(직경 26) 안에 — 아이콘 18px
 const BADGE_CX = 20;
-const BADGE_CY = 18.5;
+const BADGE_CY = 18;
 
 // 즐겨찾기 별 (Material star, 24x24) — 네이버 지도처럼 아이콘 자리를 별이 차지한다
 const STAR_PATH =
@@ -67,12 +68,12 @@ for (const [category, color] of Object.entries(CATEGORIES)) {
   // 네이버 마커의 기본 앵커는 하단 중앙(0.5, 1) — 꼬리 끝이 곧 좌표이므로
   // 캔버스는 핀에 꽉 차게 만든다.
   const pin = (iconPath, iconFill) => `
-  <path d="${PIN_PATH}" fill="${color}" stroke="#FFFFFF" stroke-width="2"/>
-  <circle cx="${BADGE_CX}" cy="${BADGE_CY}" r="13" fill="#FFFFFF"/>
+  <path d="${PIN_PATH}" fill="${color}" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round"/>
+  <circle cx="${BADGE_CX}" cy="${BADGE_CY}" r="12.5" fill="#FFFFFF"/>
   <g transform="translate(${tx} ${ty}) scale(${ICON_SCALE})">
     <path d="${iconPath}" fill="${iconFill}"/>
   </g>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 52" width="120" height="156">${pin(ICONS[category], color)}
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="120" height="138">${pin(ICONS[category], color)}
 </svg>`;
   await sharp(Buffer.from(svg)).png().toFile(join(outDir, `${category}.png`));
   console.log(`${category}.png 생성`);
@@ -96,7 +97,7 @@ for (const [category, color] of Object.entries(CATEGORIES)) {
   if (category === 'general') continue; // 일반 장소는 즐겨찾기 대상이 아니다
 
   // 즐겨찾기 변형 — 같은 핀에서 카테고리 아이콘 대신 노란 별
-  const favSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 52" width="120" height="156">${pin(STAR_PATH, FAV_YELLOW)}
+  const favSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="120" height="138">${pin(STAR_PATH, FAV_YELLOW)}
 </svg>`;
   await sharp(Buffer.from(favSvg)).png().toFile(join(outDir, `${category}_fav.png`));
   await sharp(Buffer.from(circle(STAR_PATH))).png().toFile(join(outDir, `${category}_circle_fav.png`));

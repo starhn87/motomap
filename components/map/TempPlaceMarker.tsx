@@ -18,7 +18,7 @@ export default function TempPlaceMarker({ latitude, longitude, circle }: Props) 
       longitude={longitude}
       image={circle ? GENERAL_MARKER_CIRCLE : require('@/assets/images/markers/general.png')}
       width={circle ? 30 : 32}
-      height={circle ? 30 : 42}
+      height={circle ? 30 : 37}
       anchor={circle ? { x: 0.5, y: 0.5 } : { x: 0.5, y: 1 }}
       zIndex={90}
     />
