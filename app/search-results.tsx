@@ -174,7 +174,7 @@ export default function SearchResultsScreen() {
         locale="ko"
         locationOverlay={{ isVisible: false }}
         initialCamera={{ latitude: 36.4, longitude: 127.8, zoom: 6 }}>
-        {/* 선택된 하나만 핀(5:7 물방울, 하단 앵커), 나머지는 원형 — 지도 탭과
+        {/* 선택된 하나만 핀(물방울, 하단 앵커), 나머지는 원형 — 지도 탭과
             같은 규칙이라 "핀 = 지금 보고 있는 곳"으로 읽힌다. */}
         {items.map((item) => {
           if (item.kind === 'place') {
@@ -186,7 +186,7 @@ export default function SearchResultsScreen() {
                 longitude={item.place.longitude}
                 anchor={isSelected ? { x: 0.5, y: 1 } : { x: 0.5, y: 0.5 }}
                 width={isSelected ? 38 : 30}
-                height={isSelected ? 53 : 30}
+                height={isSelected ? 46 : 30}
                 image={
                   isSelected
                     ? MARKER_IMAGES[item.place.category]
