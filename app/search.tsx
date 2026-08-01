@@ -17,6 +17,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition';
 
 import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
@@ -102,6 +106,63 @@ export default function SearchScreen() {
       return () => task.cancel();
     }, []),
   );
+  // 엔터·음성 인식이 공유하는 진입점 — 등록 장소든 아니든 결과를 지도로 본다
+  const openResults = useCallback((text: string) => {
+    const q = text.trim();
+    if (q.length < 2) return;
+    Keyboard.dismiss();
+    router.push({ pathname: '/search-results' as any, params: { query: q } });
+  }, []);
+
+  // 음성 검색 — 장갑을 낀 채로 타이핑하기 어려운 상황을 위한 입력 수단
+  const [listening, setListening] = useState(false);
+
+  useSpeechRecognitionEvent('start', () => setListening(true));
+  useSpeechRecognitionEvent('end', () => setListening(false));
+  useSpeechRecognitionEvent('result', (e) => {
+    const transcript = e.results[0]?.transcript ?? '';
+    if (!transcript) return;
+    setQuery(transcript);
+    // 최종 인식이면 바로 결과 지도로 — 말한 뒤 한 번 더 누르게 하지 않는다
+    if (e.isFinal) openResults(transcript);
+  });
+  useSpeechRecognitionEvent('error', (e) => {
+    setListening(false);
+    // 사용자가 멈췄거나 아무 말도 없었던 경우까지 알릴 필요는 없다
+    if (e.error === 'aborted' || e.error === 'no-speech') return;
+    if (e.error === 'not-allowed') {
+      toast.error('마이크·음성 인식 권한이 필요해요.');
+      return;
+    }
+    // 인식기 자체가 없는 환경(시뮬레이터 등)과 일시적 실패를 구분한다
+    if (e.error === 'service-not-allowed' || e.error === 'audio-capture') {
+      toast.error('이 기기에서는 음성 검색을 쓸 수 없어요.');
+      return;
+    }
+    toast.error('음성을 알아듣지 못했어요. 다시 시도해 주세요.');
+  });
+
+  // 화면을 벗어날 때 마이크를 놓지 않으면 녹음이 남는다
+  useEffect(() => {
+    return () => ExpoSpeechRecognitionModule.abort();
+  }, []);
+
+  const toggleVoice = async () => {
+    if (listening) {
+      ExpoSpeechRecognitionModule.stop();
+      return;
+    }
+    const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!granted) {
+      toast.error('설정에서 마이크·음성 인식 권한을 켜주세요.');
+      return;
+    }
+    setQuery('');
+    Keyboard.dismiss();
+    // interimResults 로 말하는 중에도 입력창이 따라 움직여 인식 상태가 보인다
+    ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: false });
+  };
+
   const [recent, setRecent] = useState<RecentSearch[]>([]);
 
   useEffect(() => {
@@ -268,23 +329,25 @@ export default function SearchScreen() {
           <TextInput
             ref={inputRef}
             style={[styles.input, { color: colors.text }]}
-            placeholder="장소, 코스 검색"
-            placeholderTextColor={colors.textSecondary}
+            placeholder={listening ? '듣고 있어요…' : '장소, 코스 검색'}
+            placeholderTextColor={listening ? colors.tint : colors.textSecondary}
             value={query}
             onChangeText={setQuery}
             returnKeyType="search"
-            onSubmitEditing={() => {
-              // 엔터 — 등록·일반 가리지 않고 결과 전체를 지도로 본다
-              if (!searching) return;
-              Keyboard.dismiss();
-              router.push({ pathname: '/search-results' as any, params: { query: trimmed } });
-            }}
+            onSubmitEditing={() => openResults(query)}
           />
           {query.length > 0 && (
-            <Pressable onPress={() => setQuery('')} hitSlop={8}>
+            <Pressable onPress={() => setQuery('')} hitSlop={8} style={styles.inputAction}>
               <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
             </Pressable>
           )}
+          <Pressable onPress={toggleVoice} hitSlop={8} style={styles.inputAction}>
+            <Ionicons
+              name={listening ? 'mic' : 'mic-outline'}
+              size={20}
+              color={listening ? colors.tint : colors.textSecondary}
+            />
+          </Pressable>
         </View>
       </View>
 
@@ -569,6 +632,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
+  },
+  inputAction: {
+    paddingLeft: 8,
   },
   listContent: {
     paddingBottom: 40,
