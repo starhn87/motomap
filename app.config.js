@@ -91,6 +91,15 @@ export default {
         },
       ],
       [
+        'expo-speech-recognition',
+        {
+          microphonePermission:
+            '장갑을 낀 채로도 검색할 수 있도록 음성 검색에 마이크를 사용합니다.',
+          speechRecognitionPermission:
+            '말한 내용을 검색어로 바꾸기 위해 음성 인식을 사용합니다.',
+        },
+      ],
+      [
         '@mj-studio/react-native-naver-map',
         {
           client_id: process.env.NAVER_MAP_CLIENT_ID,
