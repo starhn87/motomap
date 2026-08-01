@@ -175,7 +175,7 @@ export default function RecommendedPlaces() {
       {recent.length > 0 && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            새로 오픈
+            새로 추가
           </Text>
           {recent.map((p) => (
             <PlaceCard key={p.id} place={p} isNew />

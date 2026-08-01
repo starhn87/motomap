@@ -513,7 +513,7 @@ export default function SearchScreen() {
 
           {(recommended?.recent.length ?? 0) > 0 && (
             <>
-              {sectionTitle('새로 오픈')}
+              {sectionTitle('새로 추가')}
               {recommended!.recent.slice(0, 5).map((p) => placeRow(p, 'new'))}
             </>
           )}
