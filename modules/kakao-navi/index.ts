@@ -74,11 +74,6 @@ interface KakaoNaviModule {
   /**
    * 길안내를 네이티브 전체화면으로 띄운다. 결과는 이벤트로 온다.
    * vias 는 [lng, lat, lng, lat, ...] 평면 배열 — 없으면 빈 배열.
-   *
-   * keepStart: 사용자가 출발지를 직접 정했을 때 true. 자동 재탐색을 끈 채
-   * 시작해 정한 출발지에서 이어지는 경로를 지킨다(켜 두면 SDK 가 현재 위치를
-   * 경로 이탈로 보고 즉시 재탐색해 버린다). 실제로 경로에 올라타면 네이티브가
-   * 재탐색을 다시 켠다.
    */
   startGuide(
     startLng: number,
@@ -88,7 +83,6 @@ interface KakaoNaviModule {
     goalName: string,
     vias: number[],
     priority: RoutePriority,
-    keepStart: boolean,
   ): Promise<void>;
   addListener(
     event: 'onGuideStarted',

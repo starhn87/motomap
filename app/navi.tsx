@@ -516,12 +516,9 @@ export default function NaviScreen() {
   const startGuide = () => {
     if (!start || starting || courseOnly) return;
     setStarting(true);
-    // 출발지를 직접 정했으면 자동 재탐색을 끈 채 시작한다 — 켜 두면 SDK 가
-    // 현재 위치를 경로 이탈로 보고 즉시 재탐색해 정한 출발지가 무시된다.
-    // 실제로 경로에 올라타면 네이티브가 재탐색을 다시 켠다.
     KakaoNavi.startGuide(
       start[0], start[1], goal.longitude, goal.latitude, goal.name,
-      activeVias ?? flatVias, priority, !!startName,
+      activeVias ?? flatVias, priority,
     ).catch((err) => {
       setStarting(false);
       toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(err));

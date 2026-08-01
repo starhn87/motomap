@@ -15,8 +15,6 @@ NS_ASSUME_NONNULL_BEGIN
                   name:(NSString *)goalName
                   vias:(NSArray<NSNumber *> *_Nullable)flatVias
               priority:(NSInteger)priority
-    // 사용자가 출발지를 직접 정한 안내면 YES — 계획한 경로를 지킨다.
-             keepStart:(BOOL)keepStart
              onStarted:(void (^_Nullable)(void))onStarted
                 onMenu:(void (^_Nullable)(NSInteger menuId))onMenu
             onDismiss:(void (^)(void))onDismiss
