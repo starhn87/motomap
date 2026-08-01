@@ -27,8 +27,8 @@ export const MARKER_IMAGES_FAV: Record<PlaceCategory, any> = {
   car_wash: require('@/assets/images/markers/car_wash_fav.png'),
 };
 
-// 지도 탭의 개별 마커 — 원형(지름 30, 앵커 중앙). 핀보다 자리를 덜 차지해
-// 마커가 몰려도 덜 답답하다. 검색 결과 지도·임시 핀·선택 강조는 핀 그대로.
+// 선택되지 않은 마커의 기본형 — 원형(지름 30, 앵커 중앙). 핀보다 자리를 덜
+// 차지해 마커가 몰려도 덜 답답하다. 핀은 "선택된 것" 하나만 쓴다.
 export const MARKER_IMAGES_CIRCLE: Record<PlaceCategory, any> = {
   cafe: require('@/assets/images/markers/cafe_circle.png'),
   restaurant: require('@/assets/images/markers/restaurant_circle.png'),
@@ -52,3 +52,6 @@ export const MARKER_IMAGES_CIRCLE_FAV: Record<PlaceCategory, any> = {
   camping: require('@/assets/images/markers/camping_circle_fav.png'),
   car_wash: require('@/assets/images/markers/car_wash_circle_fav.png'),
 };
+
+// 일반 장소(카카오 임시 핀)의 원형 — 검색 결과 지도에서 선택 전 상태
+export const GENERAL_MARKER_CIRCLE = require('@/assets/images/markers/general_circle.png');

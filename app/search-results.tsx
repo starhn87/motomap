@@ -25,7 +25,7 @@ import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import { CATEGORIES } from '@/constants/categories';
-import { MARKER_IMAGES } from '@/constants/markerImages';
+import { MARKER_IMAGES, MARKER_IMAGES_CIRCLE } from '@/constants/markerImages';
 import { isSamePlace, searchAll } from '@/lib/api/search';
 import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { addRecentSearch } from '@/lib/recentSearches';
@@ -80,13 +80,13 @@ export default function SearchResultsScreen() {
 
   const loading = isLoading || kakaoLoading;
 
-  // 기본 스냅은 목록 높이에 맞추되 화면 절반까지만 — 결과가 두어 개뿐인데
-  // 억지로 50% 를 채우면 지도만 가린다. 행 68 + 핸들·헤더(62) + 어트리뷰션(40).
+  // 기본 스냅은 목록 높이에 맞추되 화면의 45% 까지만 — 결과가 두어 개뿐인데
+  // 억지로 채우면 지도만 가린다. 행 68 + 핸들·헤더(62) + 어트리뷰션(40).
   const { height: screenH } = useWindowDimensions();
   const midSnap = useMemo(() => {
     const content =
       62 + items.length * 68 + (items.some((r) => r.kind === 'kakao') ? 40 : 0);
-    return Math.round(Math.max(180, Math.min(content, screenH * 0.5)));
+    return Math.round(Math.max(180, Math.min(content, screenH * 0.45)));
   }, [items, screenH]);
 
   // 결과 전체가 보이도록 카메라를 맞춘다 — 남쪽은 바텀시트가 덮는 만큼 더 벌린다
@@ -164,26 +164,39 @@ export default function SearchResultsScreen() {
         locale="ko"
         locationOverlay={{ isVisible: false }}
         initialCamera={{ latitude: 36.4, longitude: 127.8, zoom: 6 }}>
-        {items.map((item) =>
-          item.kind === 'place' ? (
-            // 마커 원본이 5:7 물방울이라 비율 그대로 그린다(정사각으로 그리면 뭉개짐)
-            <NaverMapMarkerOverlay
-              key={`place-${item.place.id}`}
-              latitude={item.place.latitude}
-              longitude={item.place.longitude}
-              anchor={{ x: 0.5, y: 1 }}
-              width={selectedPlace?.id === item.place.id ? 38 : 32}
-              height={selectedPlace?.id === item.place.id ? 53 : 45}
-              image={MARKER_IMAGES[item.place.category]}
-            />
-          ) : (
+        {/* 선택된 하나만 핀(5:7 물방울, 하단 앵커), 나머지는 원형 — 지도 탭과
+            같은 규칙이라 "핀 = 지금 보고 있는 곳"으로 읽힌다. */}
+        {items.map((item) => {
+          if (item.kind === 'place') {
+            const isSelected = selectedPlace?.id === item.place.id;
+            return (
+              <NaverMapMarkerOverlay
+                key={`place-${item.place.id}`}
+                latitude={item.place.latitude}
+                longitude={item.place.longitude}
+                anchor={isSelected ? { x: 0.5, y: 1 } : { x: 0.5, y: 0.5 }}
+                width={isSelected ? 38 : 30}
+                height={isSelected ? 53 : 30}
+                image={
+                  isSelected
+                    ? MARKER_IMAGES[item.place.category]
+                    : MARKER_IMAGES_CIRCLE[item.place.category]
+                }
+              />
+            );
+          }
+          const isSelected =
+            selectedTemp?.latitude === item.k.latitude &&
+            selectedTemp?.longitude === item.k.longitude;
+          return (
             <TempPlaceMarker
               key={`kakao-${item.k.placeName}-${item.k.latitude}`}
               latitude={item.k.latitude}
               longitude={item.k.longitude}
+              circle={!isSelected}
             />
-          ),
-        )}
+          );
+        })}
       </NaverMapView>
 
       {/* 상단 검색어 바 — 상세 시트가 열려 있으면 결과 목록으로, 아니면 검색 화면으로 */}

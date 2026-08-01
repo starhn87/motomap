@@ -76,17 +76,9 @@ for (const [category, color] of Object.entries(CATEGORIES)) {
   await sharp(Buffer.from(svg)).png().toFile(join(outDir, `${category}.png`));
   console.log(`${category}.png 생성`);
 
-  if (category === 'general') continue; // 일반 장소는 즐겨찾기 대상이 아니다
-
-  // 즐겨찾기 변형 — 같은 핀에서 카테고리 아이콘 대신 노란 별
-  const favSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 56" width="120" height="168">${pin(STAR_PATH, FAV_YELLOW)}
-</svg>`;
-  await sharp(Buffer.from(favSvg)).png().toFile(join(outDir, `${category}_fav.png`));
-  console.log(`${category}_fav.png 생성`);
-
-  // 원형 변형 — 지도 탭에서 쓴다. 핀보다 차지 면적이 절반 이하라 마커가
-  // 몰린 지역도 덜 답답하고 캡션 놓을 자리가 넉넉해진다. 색을 채우고 아이콘을
-  // 흰색으로 빼야 작아져도 카테고리가 구분된다.
+  // 원형 변형 — 선택되지 않은 마커는 전부 이걸 쓴다(지도 탭·검색 결과 지도).
+  // 핀보다 차지 면적이 절반 이하라 마커가 몰린 지역도 덜 답답하고 캡션 놓을
+  // 자리가 넉넉해진다. 색을 채우고 아이콘을 흰색으로 빼야 작아져도 구분된다.
   const circle = (iconPath) => {
     const s = 0.62; // 24x24 아이콘 → 약 15px
     const t = 18 - 12 * s;
@@ -98,7 +90,15 @@ for (const [category, color] of Object.entries(CATEGORIES)) {
 </svg>`;
   };
   await sharp(Buffer.from(circle(ICONS[category]))).png().toFile(join(outDir, `${category}_circle.png`));
+  console.log(`${category}_circle.png 생성`);
+
+  if (category === 'general') continue; // 일반 장소는 즐겨찾기 대상이 아니다
+
+  // 즐겨찾기 변형 — 같은 핀에서 카테고리 아이콘 대신 노란 별
+  const favSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 56" width="120" height="168">${pin(STAR_PATH, FAV_YELLOW)}
+</svg>`;
+  await sharp(Buffer.from(favSvg)).png().toFile(join(outDir, `${category}_fav.png`));
   await sharp(Buffer.from(circle(STAR_PATH))).png().toFile(join(outDir, `${category}_circle_fav.png`));
-  console.log(`${category}_circle.png / _circle_fav.png 생성`);
+  console.log(`${category}_fav.png / _circle_fav.png 생성`);
 }
 console.log('완료');
