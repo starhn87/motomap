@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
+import Ionicons from '@expo/vector-icons/Ionicons';
+
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
@@ -76,14 +78,25 @@ export default function AddressSearchModal({ visible, onClose, onSelect }: Props
           </Pressable>
         </View>
 
-        <TextInput
-          style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-          placeholder="상호 또는 주소 (예: 카페 모토라드)"
-          placeholderTextColor={colors.textSecondary}
-          value={query}
-          onChangeText={setQuery}
-          autoFocus
-        />
+        <View
+          style={[
+            styles.inputRow,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}>
+          <TextInput
+            style={[styles.input, { color: colors.text }]}
+            placeholder="상호 또는 주소 (예: 카페 모토라드)"
+            placeholderTextColor={colors.textSecondary}
+            value={query}
+            onChangeText={setQuery}
+            autoFocus
+          />
+          {query.length > 0 && (
+            <Pressable onPress={() => setQuery('')} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+            </Pressable>
+          )}
+        </View>
 
         {loading ? (
           <ActivityIndicator style={{ marginTop: 32 }} color={colors.tint} />
@@ -128,13 +141,19 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 18, fontWeight: '700' },
   close: { fontSize: 15 },
-  input: {
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  input: {
+    flex: 1,
     paddingVertical: 12,
     fontSize: 15,
-    marginBottom: 8,
   },
   empty: { textAlign: 'center', marginTop: 40, fontSize: 14 },
   resultRow: { paddingVertical: 14, borderBottomWidth: 1 },

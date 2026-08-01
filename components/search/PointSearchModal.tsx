@@ -143,6 +143,12 @@ export default function PointSearchModal({
               style={[styles.searchInput, { color: colors.text }]}
             />
             {searching && <ActivityIndicator size="small" color={colors.textSecondary} />}
+            {query.length > 0 && (
+              // 지우면 결과·즐겨찾기 접힘까지 입력과 같은 경로로 되돌린다
+              <Pressable onPress={() => handleChange('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+              </Pressable>
+            )}
             <Pressable onPress={toggleVoice} hitSlop={8}>
               <Ionicons
                 name={listening ? 'mic' : 'mic-outline'}
