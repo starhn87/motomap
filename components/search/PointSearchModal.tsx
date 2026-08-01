@@ -143,7 +143,8 @@ export default function PointSearchModal({
               style={[styles.searchInput, { color: colors.text }]}
             />
             {searching && <ActivityIndicator size="small" color={colors.textSecondary} />}
-            {query.length > 0 && (
+            {/* 인식 중에는 숨긴다 — 다음 중간 결과가 어차피 덮어써서 지운 게 무의미하다 */}
+            {query.length > 0 && !listening && (
               // 지우면 결과·즐겨찾기 접힘까지 입력과 같은 경로로 되돌린다
               <Pressable onPress={() => handleChange('')} hitSlop={8}>
                 <Ionicons name="close-circle" size={18} color={colors.textSecondary} />

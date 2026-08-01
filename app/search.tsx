@@ -290,7 +290,8 @@ export default function SearchScreen() {
             returnKeyType="search"
             onSubmitEditing={() => openResults(query)}
           />
-          {query.length > 0 && (
+          {/* 인식 중에는 숨긴다 — 다음 중간 결과가 어차피 덮어써서 지운 게 무의미하다 */}
+          {query.length > 0 && !listening && (
             <Pressable onPress={() => setQuery('')} hitSlop={8} style={styles.inputAction}>
               <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
             </Pressable>
