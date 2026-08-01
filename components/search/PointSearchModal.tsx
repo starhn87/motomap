@@ -23,6 +23,7 @@ import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { isSamePlace, searchAll } from '@/lib/api/search';
 import type { NavTarget } from '@/lib/navigation';
 import type { Place } from '@/types';
+import { useVoiceSearch } from '@/hooks/useVoiceSearch';
 
 /** 길찾기 지점 — 좌표 있는 목적지 또는 '현재 위치' */
 export type Point = NavTarget | 'current';
@@ -114,6 +115,9 @@ export default function PointSearchModal({
     }, 300);
   };
 
+  // 음성 검색 — 인식된 말을 그대로 검색어로 태운다(디바운스·결과 처리는 동일)
+  const { listening, toggle: toggleVoice } = useVoiceSearch(handleChange);
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.modal, { backgroundColor: colors.background }]}>
@@ -127,12 +131,25 @@ export default function PointSearchModal({
             <TextInput
               value={query}
               onChangeText={handleChange}
-              placeholder={title ? `${title}: 장소, 주소 검색` : '장소, 주소 검색'}
-              placeholderTextColor={colors.textSecondary}
+              placeholder={
+                listening
+                  ? '듣고 있어요…'
+                  : title
+                    ? `${title}: 장소, 주소 검색`
+                    : '장소, 주소 검색'
+              }
+              placeholderTextColor={listening ? colors.tint : colors.textSecondary}
               autoFocus
               style={[styles.searchInput, { color: colors.text }]}
             />
             {searching && <ActivityIndicator size="small" color={colors.textSecondary} />}
+            <Pressable onPress={toggleVoice} hitSlop={8}>
+              <Ionicons
+                name={listening ? 'mic' : 'mic-outline'}
+                size={18}
+                color={listening ? colors.tint : colors.textSecondary}
+              />
+            </Pressable>
           </View>
           <Pressable onPress={onClose} hitSlop={8}>
             <Text style={[styles.modalCancel, { color: colors.text }]}>취소</Text>

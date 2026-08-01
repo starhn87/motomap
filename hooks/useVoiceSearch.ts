@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Keyboard } from 'react-native';
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
@@ -65,6 +66,8 @@ export function useVoiceSearch(onResult: (text: string, isFinal: boolean) => voi
       return;
     }
     mine.current = true;
+    // 말하는 동안 키보드가 화면을 덮고 있을 이유가 없다
+    Keyboard.dismiss();
     // interimResults 로 말하는 중에도 인식 상태가 보인다
     ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: false });
   };
