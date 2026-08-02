@@ -54,8 +54,7 @@ import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet'
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import HazardMarker from '@/components/map/HazardMarker';
 import HazardSheet from '@/components/map/HazardSheet';
-import { coordToSpot, coordToAddress, nearestPoi, searchKakaoLocal } from '@/lib/api/kakaoLocal';
-import * as Updates from 'expo-updates';
+import { coordToAddress, searchKakaoLocal } from '@/lib/api/kakaoLocal';
 import SearchEntry from '@/components/search/SearchEntry';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
@@ -65,18 +64,6 @@ import type { Place, RoadHazard } from '@/types';
 import type { GasStation } from '@/lib/api/gasStations';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-// 이 빌드(runtime)에 네이버 심벌 탭 네이티브 이벤트(onTapSymbol 패치)가 포함됐는지 —
-// 1.1.3 빌드부터 포함. 구 빌드는 이벤트가 안 오므로 지도 탭의 카카오 근사로 폴백한다.
-const SYMBOL_TAP_NATIVE = (() => {
-  const v = (Updates.runtimeVersion ?? '').split('.').map(Number);
-  const min = [1, 1, 3];
-  for (let i = 0; i < 3; i++) {
-    if ((v[i] ?? 0) > min[i]) return true;
-    if ((v[i] ?? 0) < min[i]) return false;
-  }
-  return true;
-})();
 
 // 짧은 거리 근사(m) — 재검색 버튼 노출 판정용 (한국 위도대 경도 1도 ≈ 88km)
 function approxMeters(a: SearchPoint, b: SearchPoint): number {
@@ -274,7 +261,7 @@ export default function MapScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setSelectedPlaceId]);
 
-  const handleMapTap = ({ latitude, longitude }: { latitude: number; longitude: number }) => {
+  const handleMapTap = () => {
     Keyboard.dismiss();
     // 1단계: 열려 있는 카드·시트가 있으면 닫기만 한다 (지도 앱 관례)
     if (selectedPlace || selectedStation || tempPlace) {
@@ -283,43 +270,10 @@ export default function MapScreen() {
       if (tempPlace) setTempPlace(null);
       return;
     }
-    // 2단계: 아무것도 없으면 탭 지점을 조회해 임시 카드를 띄운다.
-    // 근처에 지도 심볼로 뜨는 POI가 있으면 그 장소(좌표 포함)로 스냅하고,
-    // 없을 때만 주소·건물명으로 폴백. 주유소 모드에선 방해라 생략.
-    if (gasMode) return;
-    // 심볼 아이콘만이 아니라 그 아래 이름 라벨을 탭해도 같은 POI로 잡는다 —
-    // 심볼은 항상 이름보다 위(북쪽)에 그려지므로 검색 중심을 화면 10px 상당
-    // 북쪽으로 올리고, 반경은 줌에 따른 화면 22px 상당(35~70m)으로 잡는다.
-    // 심볼이 그려지지 않는 저줌(<14)에서는 스냅이 오탐만 만들므로 주소 폴백만 쓴다.
-    const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
-    const mPerPx = (156543.04 * Math.cos((latitude * Math.PI) / 180)) / Math.pow(2, zoom);
-    const searchLat = latitude + (10 * mPerPx) / 111320;
-    const radius = Math.min(70, Math.max(35, Math.round(22 * mPerPx)));
-    void (async () => {
-      const [poi, spot] = await Promise.all([
-        zoom >= 14 && !SYMBOL_TAP_NATIVE
-          ? nearestPoi(searchLat, longitude, radius)
-          : Promise.resolve(null),
-        coordToSpot(latitude, longitude),
-      ]);
-      if (poi) {
-        setTempPlace({
-          name: poi.placeName,
-          address: poi.roadAddress || poi.address,
-          latitude: poi.latitude,
-          longitude: poi.longitude,
-          phone: poi.phone || undefined,
-        });
-        return;
-      }
-      if (!spot) return;
-      setTempPlace({
-        name: spot.buildingName ?? '선택한 위치',
-        address: spot.address,
-        latitude,
-        longitude,
-      });
-    })();
+    // 빈 지도를 탭하는 것으로는 아무것도 고르지 않는다. 예전엔 그 좌표를
+    // 역지오코딩해 "선택한 위치" 카드를 띄웠는데, 도로에 붙지 않은 점이라
+    // 길안내가 대개 실패한다(카카오가 `Not found origin link` 로 거절 — 실측).
+    // 고르는 건 지도 심벌·등록 장소 마커·검색 결과에서만 일어난다.
   };
 
   // 네이버 지도가 그린 심벌(장소 아이콘·이름)을 탭 — 패치된 네이티브 이벤트라
