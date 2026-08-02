@@ -27,7 +27,6 @@ import { usePlaces } from '@/hooks/usePlaces';
 import { useGasStations, GAS_MIN_ZOOM, type SearchPoint } from '@/hooks/useGasStations';
 import { useWeather } from '@/hooks/useWeather';
 import { useUserLocation } from '@/hooks/useUserLocation';
-import { useGuideSession } from '@/lib/guideSession';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
 import { useNearbyHazards } from '@/hooks/useHazards';
 import Colors from '@/constants/Colors';
@@ -425,22 +424,10 @@ export default function MapScreen() {
     });
   };
 
-  // 안내 중에는 지도를 렌더에서 내린다. 안내 화면이 OverFullScreen 이라 이 탭이
-  // 뷰 계층에 남아, 안 보이는 채로 KNSDK 지도와 두 엔진이 동시에 그려진다.
-  // iOS 에는 렌더만 멈추는 API 가 없어(fpsLimit 은 Android 전용) 내리는 수밖에 없다.
-  const guiding = useGuideSession((st) => !!st.goal);
-  useEffect(() => {
-    // 지도를 내리면 ref 도 사라진다 — 다시 붙어 onInitialized 가 올 때까지
-    // 준비됨 상태를 내려 둔다(딥링크가 null ref 로 카메라를 만지지 않게).
-    if (guiding) setMapReady(false);
-  }, [guiding]);
-
-  // 언마운트했다 돌아오면 initialCamera 가 다시 쓰인다 — 마지막으로 보던 곳을
-  // 넘겨야 안내를 마치고 왔을 때 엉뚱한 데로 튀지 않는다.
   const initialCamera = {
-    latitude: mapCenter?.latitude ?? userLocation?.latitude ?? DEFAULT_CENTER[1],
-    longitude: mapCenter?.longitude ?? userLocation?.longitude ?? DEFAULT_CENTER[0],
-    zoom: mapCenter?.zoom ?? DEFAULT_ZOOM,
+    latitude: userLocation?.latitude ?? DEFAULT_CENTER[1],
+    longitude: userLocation?.longitude ?? DEFAULT_CENTER[0],
+    zoom: DEFAULT_ZOOM,
   };
 
   // 선택 강조는 별도 오버레이 마커가 맡는다 — selectedPlaceId 를 의존성에서 빼서
@@ -480,10 +467,6 @@ export default function MapScreen() {
       onLayout={(e) => {
         containerHeight.value = e.nativeEvent.layout.height;
       }}>
-      {guiding ? (
-        // 지도가 없는 동안 딥링크가 낡은 mapReady 를 믿고 카메라를 만지지 않게 한다
-        <View style={[styles.map, { backgroundColor: colors.background }]} />
-      ) : (
       <NaverMapView
         ref={mapRef}
         style={styles.map}
@@ -692,7 +675,6 @@ export default function MapScreen() {
           <HazardMarker key={h.id} hazard={h} onTap={() => setSelectedHazard(h)} />
         ))}
       </NaverMapView>
-      )}
 
 
       {courseReturn && selectedPlaceId === courseReturn.placeId && (
