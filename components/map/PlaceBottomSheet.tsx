@@ -24,6 +24,7 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 import { useRef, useEffect, useState, useCallback, memo } from 'react';
 
+import { APP_STORE_URL } from '@/constants/app';
 import Colors, { semantic } from '@/constants/Colors';
 import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -232,7 +233,7 @@ function PlaceBottomSheet({
     if (!displayPlace) return;
     try {
       await Share.share({
-        message: `${displayPlace.name}\n${displayPlace.address}\n\n모토맵 - 라이더를 위한 지도\nhttps://apps.apple.com/kr/app/id6773636183`,
+        message: `${displayPlace.name}\n${displayPlace.address}\n\n모토맵 - 라이더를 위한 지도\n${APP_STORE_URL}`,
       });
     } catch {
       // 공유 시트를 닫은 경우 등 — 무시

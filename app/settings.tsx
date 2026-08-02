@@ -7,8 +7,10 @@ import {
   Alert,
 } from 'react-native';
 import { router } from 'expo-router';
-import Constants from 'expo-constants';
 
+import Ionicons from '@expo/vector-icons/Ionicons';
+
+import { useAppUpdate } from '@/hooks/useAppUpdate';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 
@@ -61,6 +63,7 @@ function ThemeOption({
 
 
 export default function SettingsScreen() {
+  const { current, hasUpdate, openStore } = useAppUpdate();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -125,12 +128,24 @@ export default function SettingsScreen() {
             borderColor: colors.border,
           },
         ]}>
-        <View style={styles.infoRow}>
+        {/* 새 버전이 있으면 행 자체가 스토어로 가는 버튼이 된다. iOS 는 기본이
+            자동 업데이트라 대부분은 알아서 올라가므로, 꺼둔 사람에게만 조용히
+            알리는 정도로 둔다(팝업·강제 업데이트는 하지 않는다). */}
+        <Pressable
+          onPress={hasUpdate ? openStore : undefined}
+          disabled={!hasUpdate}
+          style={styles.infoRow}>
           <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>버전</Text>
-          <Text style={[styles.infoValue, { color: colors.text }]}>
-            {Constants.expoConfig?.version ?? '1.0.0'}
-          </Text>
-        </View>
+          <View style={styles.versionValue}>
+            <Text style={[styles.infoValue, { color: colors.text }]}>{current}</Text>
+            {hasUpdate && (
+              <>
+                <Text style={[styles.updateBadge, { color: colors.tint }]}>업데이트 있음</Text>
+                <Ionicons name="chevron-forward" size={15} color={colors.tint} />
+              </>
+            )}
+          </View>
+        </Pressable>
       </View>
 
       {user && (
@@ -257,6 +272,15 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 14,
+    fontWeight: '600',
+  },
+  versionValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  updateBadge: {
+    fontSize: 13,
     fontWeight: '600',
   },
   linkButton: {
