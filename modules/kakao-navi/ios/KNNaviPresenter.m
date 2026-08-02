@@ -25,7 +25,6 @@
 @property(nonatomic, copy, nullable) void (^onStarted)(void);
 @property(nonatomic, assign) BOOL carThemeApplied;
 @property(nonatomic, assign) KNRoutePriority priority;
-@property(nonatomic, assign) BOOL arrivalPrompted;
 // 경로 미리보기 — 실제 GPS 대신 경로를 따라 스스로 진행한다
 @property(nonatomic, assign) BOOL preview;
 @property(nonatomic, assign) BOOL previewNoticed;
@@ -221,44 +220,8 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 - (void)guidance:(KNGuidance *)aGuidance didUpdateLocation:(KNGuide_Location *)aLocationGuide {
   [self.naviView guidance:aGuidance didUpdateLocation:aLocationGuide];
 
-  [self maybePromptArrival:aGuidance locationGuide:aLocationGuide];
-}
-
-// 목적지 300m 안에 들어오면 종료 여부를 한 번 묻는다(실주행 피드백 — 도착
-// 직전에 안내가 갑자기 끝나는 것보다 낫다). 지나쳐 멀어져도 다시 묻지 않고,
-// 무응답이면 5초 뒤 스스로 사라진다 — 주행 중 조작을 강요하지 않는다.
-- (void)maybePromptArrival:(KNGuidance *)aGuidance
-             locationGuide:(KNGuide_Location *)aLocationGuide {
-  if (self.arrivalPrompted) return;
-  KNLocation *location = aLocationGuide.location;
-  KNRoute *route = aGuidance.routesOnGuide.firstObject;
-  if (location == nil || route == nil) return;
-  SInt32 remain = [route remainDistFromLocation:location];
-  if (remain <= 0 || remain > 300) return;
-  self.arrivalPrompted = YES;
-
-  UIAlertController *sheet =
-      [UIAlertController alertControllerWithTitle:@"곧 도착해요"
-                                          message:@"안내를 종료할까요?"
-                                   preferredStyle:UIAlertControllerStyleActionSheet];
-  __weak __typeof(self) weakSelf = self;
-  [sheet addAction:[UIAlertAction actionWithTitle:@"안내 종료"
-                                            style:UIAlertActionStyleDefault
-                                          handler:^(UIAlertAction *action) {
-                                            [weakSelf finish];
-                                          }]];
-  [sheet addAction:[UIAlertAction actionWithTitle:@"계속 안내"
-                                            style:UIAlertActionStyleCancel
-                                          handler:nil]];
-  [self presentViewController:sheet animated:YES completion:nil];
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)),
-                 dispatch_get_main_queue(), ^{
-                   __typeof(self) strongSelf = weakSelf;
-                   if (strongSelf != nil && strongSelf.presentedViewController == sheet) {
-                     [sheet dismissViewControllerAnimated:YES completion:nil];
-                   }
-                 });
-
+  // SDK 가 위치를 처음 잡을 때 자차를 기본 아이콘으로 되돌린다 — 한 번 다시 씌운다.
+  // (원래 도착 안내 함수 안에 묻혀 있어서 목적지 300m 안에 들어와야 실행됐다.)
   if (!self.carThemeApplied) {
     self.carThemeApplied = YES;
     [self applyCarTheme];
