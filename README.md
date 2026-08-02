@@ -19,15 +19,16 @@
 | 지도 | 경로 미리보기 | 길안내 |
 |:---:|:---:|:---:|
 | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/01-map.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/02-preview.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/03-guide.png" width="240"/> |
-| **실시간 유가** | **코스 탐색** | **길찾기** |
-| <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/04-gas.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/05-course.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/06-directions.png" width="240"/> |
+| **음성 검색** | **코스 탐색** | **실시간 유가** |
+| <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/06-voice.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/05-course.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/04-gas.png" width="240"/> |
 
 ## ✨ 주요 기능
 
 - 🧭 **길안내**: 카카오내비 SDK 이륜차 모드 턴바이턴. 미리보기에서 추천·시간·거리·큰길 4개 옵션의 경로를 교통 혼잡도 색으로 비교하고, 출발지·경유지(최대 5개, 드래그 정렬)·도착지를 그 자리에서 바꿔가며 고릅니다. 출발 전에는 경로의 비 소식과 노면 위험 제보를 경고합니다
 - 🗺️ **지도 + POI**: 네이버지도 기반 바이커 장소 탐색 (카페, 맛집, 휴게소, 주유소, 정비소, 뷰포인트, 용품점, 캠핑, 세차). 별 토글을 켜면 즐겨찾기가 이름과 함께 별 마커로 항상 표시됩니다
 - 📍 **일반 장소**: 지도의 가게 아이콘이나 이름을 탭하면 등록되지 않은 곳도 바로 카드가 뜨고 길안내와 제보로 이어집니다
-- 🔎 **통합 검색**: 등록 장소와 코스에 더해 일반 장소까지 검색하고, 엔터를 누르면 결과 전체를 지도 + 목록으로 봅니다. 집과 회사를 저장해두면 원터치로 길안내합니다
+- 🔎 **통합 검색**: 등록 장소와 코스에 더해 일반 장소까지 검색하고, 엔터를 누르면 결과 전체를 지도 + 목록으로 봅니다. 띄어쓰기가 달라도 찾아주고, 집과 회사를 저장해두면 원터치로 길안내합니다
+- 🎙️ **음성 검색**: 지도 검색바·검색 화면·길찾기 어디서든 마이크를 눌러 말하면 됩니다. 장갑을 낀 채 정차 중에 쓰라고 만든 기능입니다
 - 🌦️ **라이딩 날씨**: 기상청 단기예보 기반 라이딩 점수와 시간대별 강수확률, 미세먼지를 제공합니다. 길안내 전에 경로의 비 소식도 경고합니다
 - ⛽ **실시간 유가**: 오피넷 연동으로 주변 주유소 가격과 최저가를 표시합니다
 - 🙋 **장소·위험 제보**: 크라우드소싱으로 장소와 노면 위험(포트홀 등)을 제보합니다. (주소 검색, 사진 포함) AI가 먼저 심사하고 승인과 반려 사유, 건의 답변까지 내 제보 목록에서 추적합니다
@@ -56,7 +57,8 @@
 | 백엔드 | Supabase (Postgres + PostGIS + RLS + Edge Functions) |
 | 상태와 데이터 | Zustand, @tanstack/react-query |
 | 소셜 | @react-native-kakao/core |
-| 모니터링 | Sentry |
+| 모니터링 | Sentry (크래시·성능) |
+| 제품 분석 | PostHog (이벤트·퍼널·세션 리플레이, EU 리전) |
 | 배포 | EAS Build + Submit, expo-updates OTA |
 
 ## 📂 프로젝트 구조
@@ -120,6 +122,8 @@ npm run android
 | `KAKAO_NATIVE_APP_KEY` | 카카오 네이티브 앱 키 (KNSDK 길안내 인증) |
 | `EXPO_PUBLIC_KAKAO_REST_API_KEY` | 카카오 로컬 REST 키 (장소 검색과 지오코딩) |
 | `EXPO_PUBLIC_SENTRY_DSN` | Sentry DSN (선택) |
+| `EXPO_PUBLIC_POSTHOG_API_KEY` | PostHog 프로젝트 키 (선택 — 없으면 계측 전체가 무효화된다) |
+| `EXPO_PUBLIC_POSTHOG_HOST` | PostHog 호스트 (기본 `https://us.i.posthog.com`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | 시드 스크립트 전용 (선택) |
 
 > 로컬 EAS 명령(`eas build`/`submit`)은 `.env`를 자동 로드하지 않으므로, 클라우드 빌드용 키는 EAS 환경 변수에 등록되어 있습니다 (`eas env:list --environment production`). 날씨와 유가, AI 키는 앱이 아닌 Supabase Edge Function secrets에 있습니다.
