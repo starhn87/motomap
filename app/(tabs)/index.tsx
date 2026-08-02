@@ -39,9 +39,10 @@ import {
   MARKER_IMAGES_CIRCLE,
   MARKER_IMAGES_CIRCLE_FAV,
   GENERAL_MARKER_CIRCLE_FAV,
+  GENERAL_MARKER_FAV,
 } from '@/constants/markerImages';
 import { useQuery } from '@tanstack/react-query';
-import { fetchFavoritePlaces } from '@/lib/api/favorites';
+import { fetchFavoritePlaces, findGeneralFavorite } from '@/lib/api/favorites';
 import { useAuthStore } from '@/stores/useAuthStore';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
 import CourseReturnChip from '@/components/map/CourseReturnChip';
@@ -254,6 +255,12 @@ export default function MapScreen() {
       setSelectedPlace(null);
     },
   });
+
+  // 지금 고른 임시 장소가 즐겨찾기해 둔 일반 장소인지 — 마커를 핀으로 바꿀지 가른다
+  const selectedGeneralFav = useMemo(
+    () => (tempPlace ? findGeneralFavorite(favoritePlaces?.general ?? [], tempPlace) : undefined),
+    [tempPlace, favoritePlaces],
+  );
 
   const handleBottomSheetClose = useCallback(() => {
     setSelectedPlaceId(null);
@@ -567,7 +574,10 @@ export default function MapScreen() {
         {/* 등록되지 않은 일반 장소 즐겨찾기 — 카테고리가 없어 색으로 구분되지
             않는다(중립 회색 + 별). 탭하면 등록 장소 대신 임시 카드가 뜬다. */}
         {showFavorites &&
-          (favoritePlaces?.general ?? []).map((f) => (
+          (favoritePlaces?.general ?? [])
+            // 고른 것은 아래에서 핀으로 다시 그린다 — 안 빼면 원형 위에 핀이 겹친다
+            .filter((f) => !tempPlace || !findGeneralFavorite([f], tempPlace))
+            .map((f) => (
             <NaverMapMarkerOverlay
               key={`fav-general-${f.id}`}
               latitude={f.latitude}
@@ -637,10 +647,29 @@ export default function MapScreen() {
           />
         ))}
 
-        {/* 일반 장소(임시 목적지) 핀 — 카테고리 마커와 구분되는 전용 디자인 */}
-        {tempPlace && (
-          <TempPlaceMarker latitude={tempPlace.latitude} longitude={tempPlace.longitude} />
-        )}
+        {/* 일반 장소(임시 목적지) 핀 — 카테고리 마커와 구분되는 전용 디자인.
+            즐겨찾기한 곳이면 깃발 대신 별 핀으로: 등록 장소와 같은 규칙(원형=미선택,
+            핀=선택)이라야 "고른 것"이 한눈에 읽힌다. */}
+        {tempPlace &&
+          (selectedGeneralFav ? (
+            <NaverMapMarkerOverlay
+              latitude={tempPlace.latitude}
+              longitude={tempPlace.longitude}
+              image={GENERAL_MARKER_FAV}
+              width={38}
+              height={44}
+              anchor={{ x: 0.5, y: 1 }}
+              zIndex={100}
+              caption={{
+                text: tempPlace.name,
+                textSize: 13,
+                color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
+                haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
+              }}
+            />
+          ) : (
+            <TempPlaceMarker latitude={tempPlace.latitude} longitude={tempPlace.longitude} />
+          ))}
 
         {hazards.map((h) => (
           <HazardMarker key={h.id} hazard={h} onTap={() => setSelectedHazard(h)} />

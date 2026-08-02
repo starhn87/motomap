@@ -58,7 +58,9 @@ const ICON_SCALE = 0.75; // 24x24 아이콘을 배지(직경 26) 안에 — 아�
 const BADGE_CX = 20;
 const BADGE_CY = 18;
 
-// 즐겨찾기 별 (Material star, 24x24) — 아이콘 자리를 별이 차지한다
+// 즐겨찾기 별 (Material star, 24x24) — 아이콘 자리를 별이 차지한다.
+// 흰색이면 다른 카테고리 아이콘과 한눈에 안 갈려서 노란색으로 뺀다(앱의 별 색).
+const STAR_FILL = '#FACC15';
 const STAR_PATH =
   'M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z';
 
@@ -69,10 +71,10 @@ for (const [category, color] of Object.entries(CATEGORIES)) {
   // 캔버스는 핀에 꽉 차게 만든다.
   // 원형 마커와 같은 배색 — 색을 채우고 아이콘을 흰색으로 뺀다. 선택되면
   // 크기·형태(꼬리)가 이미 바뀌므로 색까지 반전시킬 이유가 없다.
-  const pin = (iconPath) => `
+  const pin = (iconPath, iconFill = '#FFFFFF') => `
   <path d="${PIN_PATH}" fill="${color}" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round"/>
   <g transform="translate(${tx} ${ty}) scale(${ICON_SCALE})">
-    <path d="${iconPath}" fill="#FFFFFF"/>
+    <path d="${iconPath}" fill="${iconFill}"/>
   </g>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="120" height="138">${pin(ICONS[category])}
 </svg>`;
@@ -82,13 +84,13 @@ for (const [category, color] of Object.entries(CATEGORIES)) {
   // 원형 변형 — 선택되지 않은 마커는 전부 이걸 쓴다(지도 탭·검색 결과 지도).
   // 핀보다 차지 면적이 절반 이하라 마커가 몰린 지역도 덜 답답하고 캡션 놓을
   // 자리가 넉넉해진다. 색을 채우고 아이콘을 흰색으로 빼야 작아져도 구분된다.
-  const circle = (iconPath) => {
+  const circle = (iconPath, iconFill = '#FFFFFF') => {
     const s = 0.62; // 24x24 아이콘 → 약 15px
     const t = 18 - 12 * s;
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="108" height="108">
   <circle cx="18" cy="18" r="14" fill="${color}" stroke="#FFFFFF" stroke-width="2.5"/>
   <g transform="translate(${t} ${t}) scale(${s})">
-    <path d="${iconPath}" fill="#FFFFFF"/>
+    <path d="${iconPath}" fill="${iconFill}"/>
   </g>
 </svg>`;
   };
@@ -98,10 +100,10 @@ for (const [category, color] of Object.entries(CATEGORIES)) {
   // 즐겨찾기 변형 — 같은 핀에서 카테고리 아이콘 대신 별.
   // 일반 장소(general)도 만든다 — 등록 장소가 아니어도 즐겨찾기할 수 있다.
   // 색은 중립 슬레이트 그대로라 "라이더 장소가 아님"이 색으로 구분된다.
-  const favSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="120" height="138">${pin(STAR_PATH)}
+  const favSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="120" height="138">${pin(STAR_PATH, STAR_FILL)}
 </svg>`;
   await sharp(Buffer.from(favSvg)).png().toFile(join(outDir, `${category}_fav.png`));
-  await sharp(Buffer.from(circle(STAR_PATH))).png().toFile(join(outDir, `${category}_circle_fav.png`));
+  await sharp(Buffer.from(circle(STAR_PATH, STAR_FILL))).png().toFile(join(outDir, `${category}_circle_fav.png`));
   console.log(`${category}_fav.png / _circle_fav.png 생성`);
 }
 console.log('완료');

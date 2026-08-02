@@ -57,3 +57,5 @@ export const MARKER_IMAGES_CIRCLE_FAV: Record<PlaceCategory, any> = {
 export const GENERAL_MARKER_CIRCLE = require('@/assets/images/markers/general_circle.png');
 // 등록되지 않은 곳도 즐겨찾기할 수 있다 — 색은 중립 그대로라 라이더 장소와 구분된다
 export const GENERAL_MARKER_CIRCLE_FAV = require('@/assets/images/markers/general_circle_fav.png');
+// 선택됐을 때의 핀. 등록 장소와 같은 규칙 — 원형은 미선택, 핀은 선택.
+export const GENERAL_MARKER_FAV = require('@/assets/images/markers/general_fav.png');
