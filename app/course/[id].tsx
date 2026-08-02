@@ -27,7 +27,7 @@ import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
 import { openCourseNavigation, useNavLaunching } from '@/lib/navigation';
 import { formatDistance, formatDuration } from '@/constants/course';
 import { CATEGORIES } from '@/constants/categories';
-import { MARKER_IMAGES } from '@/constants/markerImages';
+import { MARKER_IMAGES_CIRCLE } from '@/constants/markerImages';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -150,15 +150,17 @@ export default function CourseDetailScreen() {
               outlineWidth={2}
               outlineColor={colors.background}
             />
+            {/* 지도 탭과 같은 규칙 — 고르지 않은 장소는 원형. 원본이 정사각형이라
+                가로세로를 같게 줘야 찌그러지지 않는다(핀은 120x138 로 비율이 다르다). */}
             {nearbyPlaces.map(({ place }) => (
               <NaverMapMarkerOverlay
                 key={place.id}
                 latitude={place.latitude}
                 longitude={place.longitude}
-                image={MARKER_IMAGES[place.category]}
-                width={24}
-                height={34}
-                anchor={{ x: 0.5, y: 1 }}
+                image={MARKER_IMAGES_CIRCLE[place.category]}
+                width={30}
+                height={30}
+                anchor={{ x: 0.5, y: 0.5 }}
               />
             ))}
           </NaverMapView>
