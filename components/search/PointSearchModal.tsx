@@ -24,6 +24,8 @@ import { isSamePlace, searchAll } from '@/lib/api/search';
 import type { NavTarget } from '@/lib/navigation';
 import type { Place } from '@/types';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
+import { PostHogMaskView } from 'posthog-react-native';
+
 import { track } from '@/lib/analytics';
 
 /** 길찾기 지점 — 좌표 있는 목적지 또는 '현재 위치' */
@@ -32,6 +34,13 @@ export type Point = NavTarget | 'current';
 // 검색 화면과 같은 재료: 등록 장소(카테고리 구분)를 앞에, 카카오 일반 장소를
 // 뒤에 — 이미 등록된 곳은 일반 목록에서 뺀다.
 type ResultItem = { kind: 'place'; place: Place } | { kind: 'kakao'; k: KakaoLocalResult };
+
+// 리플레이에서 가릴지를 조건으로 가르는 래퍼. PostHogMaskView 는 무조건 가리므로
+// 그대로 쓸 수 없고, 레이아웃이 깨지지 않게 flex 를 이어준다.
+function Mask({ masked, children }: { masked: boolean; children: React.ReactNode }) {
+  if (!masked) return <>{children}</>;
+  return <PostHogMaskView style={{ flex: 1 }}>{children}</PostHogMaskView>;
+}
 
 // 지점을 고르는 모달. 입력 전에는 현재 위치·집·회사·최근 검색을 보여주고,
 // 입력하면 등록 장소 + 카카오 로컬 검색 결과로 바뀐다. 길찾기·미리보기의
@@ -176,6 +185,9 @@ export default function PointSearchModal({
           </Pressable>
         </View>
 
+        {/* 집·회사를 정하는 중이면 결과 목록에 사는 곳 주소가 그대로 뜬다.
+            리플레이는 화면을 통째로 찍으므로 목록째 가린다. */}
+        <Mask masked={!allowSaved}>
         <FlatList
           data={showFavList ? favItems : results}
           keyExtractor={(item, i) =>
@@ -347,6 +359,7 @@ export default function PointSearchModal({
             )
           )}
         />
+        </Mask>
       </View>
     </Modal>
   );

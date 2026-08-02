@@ -86,11 +86,20 @@ expo-router 는 `NavigationContainer` 를 노출하지 않아 PostHog 의 화면
 
 ## 세션 리플레이
 
-RN 은 **스크린샷 모드만** 지원한다 — 화면이 통째로 찍히므로 마스킹이 필수다.
+RN 은 **스크린샷 모드만** 지원한다 — 화면이 통째로 찍히므로 마스킹이 곧 방어선이다.
 
-- 로그인 화면(이메일·비밀번호)
-- 내 정보 탭의 닉네임·바이크
-- 집/회사 설정 다이얼로그
+**전역 설정**(`lib/analytics.ts`) — SDK 기본값도 true 지만 꺼지면 바로 유출이라 명시한다.
+`maskAllTextInputs` · `maskAllImages` · `maskAllSandboxedViews`.
+콘솔 로그(`captureLog`)는 끈다 — 진단은 Sentry 담당이라 리플레이에 실을 이유가 없다.
+
+**개별 마스킹**(`PostHogMaskView`) — 입력이 아닌 *표시* 텍스트는 위 설정으로 안 가려진다.
+
+- 내 정보 탭의 이름·이메일
+- 지점 검색 모달의 결과 목록 — 단, 집·회사를 정하는 중일 때만(`allowSaved === false`).
+  길찾기용 검색까지 가리면 리플레이를 볼 이유가 없어진다.
+
+**녹화 일시정지**(`pauseReplay`/`resumeReplay`) — 네이티브 `Alert` 은 RN 뷰 계층 밖이라
+마스킹이 닿지 않는다. 집·회사 이름을 띄우는 내 정보 탭의 Alert 이 유일한 대상이다.
 
 ## 사용자 식별
 

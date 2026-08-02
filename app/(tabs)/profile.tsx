@@ -25,7 +25,10 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
+import { PostHogMaskView } from 'posthog-react-native';
+
 import { updateAvatarUrl } from '@/lib/nickname';
+import { pauseReplay, resumeReplay } from '@/lib/analytics';
 import { toast } from '@/lib/toast';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import ImageViewer from '@/components/ui/ImageViewer';
@@ -115,10 +118,26 @@ function LoggedInContent() {
       setEditingSlot(slot);
       return;
     }
+    // 네이티브 Alert 은 RN 뷰 계층 밖이라 마스킹이 안 닿는다 — 이름이 뜨는
+    // 동안만 녹화를 끊고 어느 버튼으로 닫히든 다시 켠다.
+    pauseReplay();
     Alert.alert(label, saved.name, [
-      { text: '변경', onPress: () => setEditingSlot(slot) },
-      { text: '삭제', style: 'destructive', onPress: () => void removeMyPlace(slot) },
-      { text: '취소', style: 'cancel' },
+      {
+        text: '변경',
+        onPress: () => {
+          resumeReplay();
+          setEditingSlot(slot);
+        },
+      },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: () => {
+          resumeReplay();
+          void removeMyPlace(slot);
+        },
+      },
+      { text: '취소', style: 'cancel', onPress: resumeReplay },
     ]);
   };
 
@@ -209,12 +228,15 @@ function LoggedInContent() {
             {uploading ? <Text style={styles.avatarBadgeText}>...</Text> : <Ionicons name="camera" size={15} color="#18181B" />}
           </View>
         </Pressable>
-        <Text style={[styles.name, { color: colors.text }]}>
-          {displayName}
-        </Text>
-        <Text style={[styles.email, { color: colors.textSecondary }]}>
-          {user.email}
-        </Text>
+        {/* 리플레이는 화면을 통째로 찍는다 — 이름·이메일은 가린다 */}
+        <PostHogMaskView>
+          <Text style={[styles.name, { color: colors.text }]}>
+            {displayName}
+          </Text>
+          <Text style={[styles.email, { color: colors.textSecondary }]}>
+            {user.email}
+          </Text>
+        </PostHogMaskView>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.menu}>

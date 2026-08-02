@@ -16,8 +16,36 @@ const host = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
 const enabled = !!apiKey && !__DEV__;
 
 export const posthog = enabled
-  ? new PostHog(apiKey!, { host, enableSessionReplay: true })
+  ? new PostHog(apiKey!, {
+      host,
+      enableSessionReplay: true,
+      // RN 리플레이는 스크린샷 모드만 지원한다 — 화면이 통째로 찍히므로
+      // 마스킹이 곧 개인정보 방어선이다. 아래 셋은 SDK 기본값도 true 지만
+      // 실수로 꺼지면 바로 유출이라 의도를 코드에 남긴다.
+      sessionReplayConfig: {
+        maskAllTextInputs: true,
+        maskAllImages: true,
+        maskAllSandboxedViews: true,
+        // 콘솔 로그까지 리플레이에 실을 이유가 없다 — 진단은 Sentry 담당
+        captureLog: false,
+      },
+    })
   : null;
+
+/**
+ * 리플레이를 잠시 멈춘다.
+ *
+ * 네이티브 Alert 처럼 RN 뷰 계층 밖에 그려지는 것은 PostHogMaskView 로 가릴 수
+ * 없다. 집·회사 이름을 띄우는 자리처럼 가릴 수 없는 구간은 녹화를 끊는다.
+ */
+export function pauseReplay() {
+  void posthog?.stopSessionRecording();
+}
+
+export function resumeReplay() {
+  // 기존 세션을 이어서 재개한다 — 새 세션이 되면 리플레이가 조각난다
+  void posthog?.startSessionRecording(true);
+}
 
 // ── 이벤트 ────────────────────────────────────────────────────────────────
 
