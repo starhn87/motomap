@@ -17,7 +17,7 @@ import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fetchFavoritePlaces, type GeneralFavorite } from '@/lib/api/favorites';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { openNavigation } from '@/lib/navigation';
+import { focusPlaceOnMap } from '@/lib/mapFocus';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import type { Place } from '@/types';
 
@@ -70,10 +70,18 @@ export default function FavoritesScreen() {
         },
       ]}
       onPress={() =>
-        openNavigation({
-          name: fav.name,
-          latitude: fav.latitude,
-          longitude: fav.longitude,
+        // 바로 길안내로 튀지 않고 지도의 장소 카드를 먼저 보여준다 — 주소·전화를
+        // 확인하고 거기서 길안내로 이어가는 편이 자연스럽다.
+        router.navigate({
+          pathname: '/',
+          params: {
+            kakaoName: fav.name,
+            kakaoAddress: fav.address,
+            kakaoLat: String(fav.latitude),
+            kakaoLng: String(fav.longitude),
+            kakaoPhone: fav.phone ?? '',
+            focusTs: String(Date.now()),
+          },
         })
       }>
       <View style={styles.cardHeader}>
@@ -100,14 +108,7 @@ export default function FavoritesScreen() {
             opacity: pressed ? 0.8 : 1,
           },
         ]}
-        onPress={() =>
-          openNavigation({
-            name: item.name,
-            latitude: item.latitude,
-            longitude: item.longitude,
-            placeId: item.id,
-          })
-        }>
+        onPress={() => focusPlaceOnMap(item.id, { source: 'favorite' })}>
         <View style={styles.cardHeader}>
           <View
             style={[
