@@ -206,15 +206,20 @@ export default function SearchScreen() {
 
   const { data: recommended } = useRecommendedPlaces();
 
-  // 검색이 끝났는데 양쪽 모두 비었으면 한 번 남긴다 — 이탈 원인 1순위 후보라
-  // "무엇을 찾다 실패했는지"가 검색 개선의 출발점이 된다.
+  // 등록 장소가 0건이면 한 번 남긴다 — 카카오까지 0건일 때만 세면 거의 안 찍힌다
+  // (카카오는 웬만한 문자열에 뭐라도 돌려준다). 정작 알고 싶은 건 우리 DB 가
+  // 못 찾은 경우다. 함께 싣는 kakao_count 로 오타와 "제보할 곳"을 가른다.
   const reportedEmpty = useRef<string | null>(null);
   useEffect(() => {
     if (!searching || isLoading || kakaoResults === undefined) return;
-    const empty = (results?.places.length ?? 0) === 0 && kakaoOnly.length === 0;
-    if (!empty || reportedEmpty.current === trimmed) return;
+    const registered = results?.places.length ?? 0;
+    if (registered > 0 || reportedEmpty.current === trimmed) return;
     reportedEmpty.current = trimmed;
-    track.searchNoResults({ source: 'search_screen', query: trimmed });
+    track.searchNoResults({
+      source: 'search_screen',
+      query: trimmed,
+      kakao_count: kakaoOnly.length,
+    });
   }, [searching, isLoading, results, kakaoResults, kakaoOnly.length, trimmed]);
 
   const goToPlace = useCallback((place: Place) => {

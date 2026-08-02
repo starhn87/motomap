@@ -18,6 +18,9 @@ app_opened → place_viewed → navigation_started → navigation_ended(arrived)
 ```
 search_submitted → (search_no_results) → search_result_selected
 ```
+`search_no_results` 는 **등록 장소가 0건일 때** 나간다. 카카오 일반 장소까지 0건일 때만 세면
+거의 안 찍힌다 — 카카오는 웬만한 문자열에 뭐라도 돌려주기 때문이다. `kakao_count` 로 가른다:
+0 이면 검색어 자체가 안 걸린 것(오타), 1 이상이면 **실재하는데 우리 DB 에 없는 곳** = 제보 우선순위.
 
 **C. 기여**
 ```
@@ -31,7 +34,7 @@ place_submitted → 승인
 | 이벤트 | 속성 |
 | --- | --- |
 | `search_submitted` | `method`(typed·voice) · `source`(map_bar·search_screen·point_modal) · `query` |
-| `search_no_results` | `query` · `source` |
+| `search_no_results` | `query` · `source` · `kakao_count` |
 | `search_result_selected` | `result_type`(registered·kakao·course) · `rank` · `source` |
 | `category_filtered` | `category` |
 | `place_viewed` | `place_id` · `category` · `source` |
@@ -80,8 +83,7 @@ expo-router 는 `NavigationContainer` 를 노출하지 않아 PostHog 의 화면
 - **현재 위치 원좌표** — 라이더 동선이 그대로 남는다.
 - **리뷰 본문·채팅 내용·이메일·닉네임**
 
-`query` 는 보낸다. "무엇을 찾다 실패했는지"를 알아야 검색을 고칠 수 있고 그게 이 계측의 최대 실익이다
-(띄어쓰기 때문에 등록 장소가 안 잡히던 버그는 `search_no_results` 가 있었으면 바로 보였다).
+`query` 는 보낸다. "무엇을 찾다 실패했는지"를 알아야 검색을 고칠 수 있고 그게 이 계측의 최대 실익이다.
 위 예외만 지킨다.
 
 ## 세션 리플레이

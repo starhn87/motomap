@@ -83,7 +83,16 @@ export const track = {
     query?: string;
   }) => capture('search_submitted', p),
 
-  searchNoResults: (p: { source: SearchSource; query?: string }) =>
+  /**
+   * 등록 장소가 하나도 안 걸렸을 때. 카카오 일반 장소는 웬만한 문자열에 뭐라도
+   * 돌려주므로 "둘 다 0건"만 세면 거의 안 찍힌다 — 정작 알고 싶은 건 *우리 DB* 가
+   * 못 찾은 경우다.
+   *
+   * kakao_count 로 두 상황을 가른다:
+   *   0  → 검색어 자체가 안 걸림(오타·엉뚱한 말)
+   *   1+ → 실재하는 곳인데 우리에게 없음 = 제보 우선순위 목록
+   */
+  searchNoResults: (p: { source: SearchSource; query?: string; kakao_count: number }) =>
     capture('search_no_results', p),
 
   searchResultSelected: (p: {
