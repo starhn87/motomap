@@ -55,3 +55,5 @@ export const MARKER_IMAGES_CIRCLE_FAV: Record<PlaceCategory, any> = {
 
 // 일반 장소(카카오 임시 핀)의 원형 — 검색 결과 지도에서 선택 전 상태
 export const GENERAL_MARKER_CIRCLE = require('@/assets/images/markers/general_circle.png');
+// 등록되지 않은 곳도 즐겨찾기할 수 있다 — 색은 중립 그대로라 라이더 장소와 구분된다
+export const GENERAL_MARKER_CIRCLE_FAV = require('@/assets/images/markers/general_circle_fav.png');

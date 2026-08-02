@@ -95,9 +95,9 @@ for (const [category, color] of Object.entries(CATEGORIES)) {
   await sharp(Buffer.from(circle(ICONS[category]))).png().toFile(join(outDir, `${category}_circle.png`));
   console.log(`${category}_circle.png 생성`);
 
-  if (category === 'general') continue; // 일반 장소는 즐겨찾기 대상이 아니다
-
-  // 즐겨찾기 변형 — 같은 핀에서 카테고리 아이콘 대신 노란 별
+  // 즐겨찾기 변형 — 같은 핀에서 카테고리 아이콘 대신 별.
+  // 일반 장소(general)도 만든다 — 등록 장소가 아니어도 즐겨찾기할 수 있다.
+  // 색은 중립 슬레이트 그대로라 "라이더 장소가 아님"이 색으로 구분된다.
   const favSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 46" width="120" height="138">${pin(STAR_PATH)}
 </svg>`;
   await sharp(Buffer.from(favSvg)).png().toFile(join(outDir, `${category}_fav.png`));

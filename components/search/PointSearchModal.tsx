@@ -80,8 +80,23 @@ export default function PointSearchModal({
     queryFn: fetchFavoritePlaces,
     enabled: visible && allowSaved && !!user,
   });
+  // 등록 장소와 일반 장소를 함께 보여준다. 일반 즐겨찾기는 모양이 카카오 결과와
+  // 같아서(이름·주소·좌표·전화) 그 행을 그대로 재사용한다.
   const favItems = useMemo<ResultItem[]>(
-    () => (favorites ?? []).map((place) => ({ kind: 'place' as const, place })),
+    () => [
+      ...(favorites?.places ?? []).map((place) => ({ kind: 'place' as const, place })),
+      ...(favorites?.general ?? []).map((f) => ({
+        kind: 'kakao' as const,
+        k: {
+          placeName: f.name,
+          address: f.address,
+          roadAddress: f.address,
+          latitude: f.latitude,
+          longitude: f.longitude,
+          phone: f.phone ?? '',
+        },
+      })),
+    ],
     [favorites],
   );
   const canShowFav = allowSaved && favItems.length > 0;

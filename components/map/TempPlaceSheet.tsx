@@ -10,6 +10,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { openNavigation, useNavLaunching } from '@/lib/navigation';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { toast } from '@/lib/toast';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
 
 export interface TempPlace {
   name: string;
@@ -26,7 +28,8 @@ interface Props {
 }
 
 // 검색의 "일반 장소"(카카오 로컬 결과)를 골랐을 때 뜨는 경량 카드 — DB 장소가
-// 아니므로 리뷰·즐겨찾기 없이 길안내와 제보 진입만 제공한다.
+// 아니므로 리뷰는 없지만, 라이더 특화 장소가 아니어도 자주 가는 곳은 있으니
+// 즐겨찾기는 된다(migration 032). 길안내와 제보 진입도 함께 제공한다.
 export default function TempPlaceSheet({ place, onClose }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -35,6 +38,27 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
   const saveMyPlace = useMyPlacesStore((s) => s.save);
   const removeMyPlace = useMyPlacesStore((s) => s.remove);
+  const user = useAuthStore((st) => st.user);
+  const isFavorite = useIsGeneralFavorite(place);
+  const { mutateAsync: toggleFavorite, isPending: favPending } = useToggleGeneralFavorite();
+
+  const handleFavorite = async () => {
+    if (!user) {
+      toast.info('로그인이 필요합니다.');
+      return;
+    }
+    try {
+      await toggleFavorite({
+        name: place.name,
+        address: place.address,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        phone: place.phone,
+      });
+    } catch (error: any) {
+      toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
+    }
+  };
 
   useEffect(() => {
     void loadMyPlaces();
@@ -136,9 +160,24 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
             <Ionicons name="call-outline" size={20} color={colors.textSecondary} />
           </Pressable>
         )}
+        {/* 별은 즐겨찾기 전용. 집·회사 저장은 북마크로 갈라 둔다 — 예전엔 둘 다
+            별이라 "즐겨찾기하려는데 집/회사를 고르라 한다"는 오해가 있었다. */}
+        <Pressable
+          onPress={handleFavorite}
+          disabled={favPending}
+          hitSlop={8}
+          style={styles.saveButton}>
+          <Ionicons
+            name={isFavorite ? 'star' : 'star-outline'}
+            size={20}
+            color={isFavorite ? '#FACC15' : colors.textSecondary}
+          />
+        </Pressable>
         <Pressable onPress={handleSaveMyPlace} hitSlop={8} style={styles.saveButton}>
           <Ionicons
-            name={savedSlot === 'home' ? 'home' : savedSlot === 'work' ? 'business' : 'star-outline'}
+            name={
+              savedSlot === 'home' ? 'home' : savedSlot === 'work' ? 'business' : 'bookmark-outline'
+            }
             size={20}
             color={savedSlot ? colors.tint : colors.textSecondary}
           />

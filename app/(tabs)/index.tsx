@@ -38,6 +38,7 @@ import {
   MARKER_IMAGES_FAV,
   MARKER_IMAGES_CIRCLE,
   MARKER_IMAGES_CIRCLE_FAV,
+  GENERAL_MARKER_CIRCLE_FAV,
 } from '@/constants/markerImages';
 import { useQuery } from '@tanstack/react-query';
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
@@ -175,7 +176,7 @@ export default function MapScreen() {
     enabled: showFavorites && !!user,
   });
   const favIds = useMemo(
-    () => new Set((favoritePlaces ?? []).map((p) => p.id)),
+    () => new Set((favoritePlaces?.places ?? []).map((p) => p.id)),
     [favoritePlaces],
   );
 
@@ -538,7 +539,7 @@ export default function MapScreen() {
         {/* 즐겨찾기 마커 — 클러스터 밖 개별 오버레이라 줌과 무관하게 항상 보인다.
             캡션은 일반(캡션 줌 10)보다 낮은 줌 8까지 남는다. */}
         {showFavorites &&
-          (favoritePlaces ?? [])
+          (favoritePlaces?.places ?? [])
             .filter((p) => p.id !== selectedPlaceId)
             .map((p) => (
               <NaverMapMarkerOverlay
@@ -562,6 +563,40 @@ export default function MapScreen() {
                 onTap={() => handleMarkerPress(p)}
               />
             ))}
+
+        {/* 등록되지 않은 일반 장소 즐겨찾기 — 카테고리가 없어 색으로 구분되지
+            않는다(중립 회색 + 별). 탭하면 등록 장소 대신 임시 카드가 뜬다. */}
+        {showFavorites &&
+          (favoritePlaces?.general ?? []).map((f) => (
+            <NaverMapMarkerOverlay
+              key={`fav-general-${f.id}`}
+              latitude={f.latitude}
+              longitude={f.longitude}
+              image={GENERAL_MARKER_CIRCLE_FAV}
+              width={30}
+              height={30}
+              anchor={{ x: 0.5, y: 0.5 }}
+              zIndex={50}
+              isHideCollidedSymbols
+              isHideCollidedCaptions
+              caption={{
+                text: f.name,
+                textSize: 13,
+                minZoom: FAV_CAPTION_MIN_ZOOM,
+                color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
+                haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
+              }}
+              onTap={() =>
+                setTempPlace({
+                  name: f.name,
+                  address: f.address,
+                  latitude: f.latitude,
+                  longitude: f.longitude,
+                  phone: f.phone,
+                })
+              }
+            />
+          ))}
 
         {/* 선택된 장소 강조 — 원형 대신 핀으로 바꿔 얹는다. 크기만 키우는 것보다
             대비가 커서 "이걸 골랐다"가 분명하다(네이버 지도식). */}

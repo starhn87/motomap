@@ -536,7 +536,8 @@ export default function SearchScreen() {
             </>
           )}
 
-          {!!user && (favorites?.length ?? 0) > 0 && (
+          {!!user &&
+            ((favorites?.places.length ?? 0) + (favorites?.general.length ?? 0)) > 0 && (
             <>
               {sectionTitle(
                 '⭐ 즐겨찾기',
@@ -544,7 +545,35 @@ export default function SearchScreen() {
                   <Text style={[styles.sectionAction, { color: colors.tint }]}>더보기</Text>
                 </Pressable>,
               )}
-              {favorites!.slice(0, 5).map((p) => placeRow(p, 'fav'))}
+              {favorites!.places.slice(0, 5).map((p) => placeRow(p, 'fav'))}
+              {favorites!.general
+                .slice(0, Math.max(0, 5 - favorites!.places.length))
+                .map((f) => (
+                  <Pressable
+                    key={`fav-general-${f.id}`}
+                    onPress={() =>
+                      goToKakaoPlace(f.name, f.address, f.latitude, f.longitude, f.phone)
+                    }
+                    style={({ pressed }) => [
+                      styles.row,
+                      { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                    ]}>
+                    <View style={styles.rowIconWrap}>
+                      <Ionicons name="location-outline" size={20} color="#475569" />
+                    </View>
+                    <View style={styles.rowInfo}>
+                      <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
+                        {f.name}
+                      </Text>
+                      <Text
+                        style={[styles.rowSub, { color: colors.textSecondary }]}
+                        numberOfLines={1}>
+                        {f.address}
+                      </Text>
+                    </View>
+                    <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>일반</Text>
+                  </Pressable>
+                ))}
             </>
           )}
 

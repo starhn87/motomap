@@ -15,7 +15,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import Colors, { semantic } from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fetchFavoritePlaces } from '@/lib/api/favorites';
+import { fetchFavoritePlaces, type GeneralFavorite } from '@/lib/api/favorites';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { openNavigation } from '@/lib/navigation';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
@@ -48,7 +48,46 @@ export default function FavoritesScreen() {
     queryFn: fetchFavoritePlaces,
   });
 
-  const renderItem = ({ item }: { item: Place }) => {
+  // 등록 장소와 일반 장소를 한 목록으로 — 사용자에겐 둘 다 "내 즐겨찾기"다.
+  // 일반 장소는 카테고리·평점이 없어 뱃지 자리를 중립 라벨로 채운다.
+  type Row =
+    | { kind: 'place'; place: Place }
+    | { kind: 'general'; fav: GeneralFavorite };
+
+  const rows: Row[] = [
+    ...(places?.places ?? []).map((place) => ({ kind: 'place' as const, place })),
+    ...(places?.general ?? []).map((fav) => ({ kind: 'general' as const, fav })),
+  ];
+
+  const renderGeneral = ({ fav }: { fav: GeneralFavorite }) => (
+    <Pressable
+      style={({ pressed }) => [
+        styles.card,
+        {
+          backgroundColor: colors.surfaceElevated,
+          borderColor: colors.border,
+          opacity: pressed ? 0.8 : 1,
+        },
+      ]}
+      onPress={() =>
+        openNavigation({
+          name: fav.name,
+          latitude: fav.latitude,
+          longitude: fav.longitude,
+        })
+      }>
+      <View style={styles.cardHeader}>
+        <View style={[styles.categoryBadge, { backgroundColor: colors.surfaceMuted }]}>
+          <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
+          <Text style={[styles.categoryLabel, { color: colors.textSecondary }]}>일반</Text>
+        </View>
+      </View>
+      <Text style={[styles.placeName, { color: colors.text }]}>{fav.name}</Text>
+      <Text style={[styles.placeAddress, { color: colors.textSecondary }]}>{fav.address}</Text>
+    </Pressable>
+  );
+
+  const renderPlace = ({ item }: { item: Place }) => {
     const category = CATEGORIES[item.category];
 
     return (
@@ -99,11 +138,14 @@ export default function FavoritesScreen() {
     );
   };
 
+  const renderItem = ({ item }: { item: Row }) =>
+    item.kind === 'place' ? renderPlace({ item: item.place }) : renderGeneral(item);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {isLoading ? (
         <PlaceSkeletonList />
-      ) : !places?.length ? (
+      ) : rows.length === 0 ? (
         <EmptyState
           icon={<Ionicons name="star-outline" size={44} color={colors.textSecondary} />}
           title="즐겨찾기한 장소가 없습니다"
@@ -113,8 +155,10 @@ export default function FavoritesScreen() {
         />
       ) : (
         <FlatList
-          data={places}
-          keyExtractor={(item) => item.id}
+          data={rows}
+          keyExtractor={(item) =>
+            item.kind === 'place' ? `place-${item.place.id}` : `general-${item.fav.id}`
+          }
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
