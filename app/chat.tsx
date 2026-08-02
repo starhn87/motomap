@@ -37,6 +37,7 @@ import { useChatStore, type ChatMessage } from '@/stores/useChatStore';
 import { sendChat, type ChatPlaceCard, type ChatTurn } from '@/lib/api/chat';
 import { formatDistance, formatDuration } from '@/constants/course';
 import type { PlaceCategory } from '@/types';
+import { track } from '@/lib/analytics';
 
 // 타이핑 인디케이터 — 점 3개가 번갈아 튀어오른다
 function TypingDots({ color }: { color: string }) {
@@ -162,6 +163,10 @@ export default function ChatScreen() {
       const trimmed = text.trim();
       if (!trimmed || sending) return;
 
+      // 내용은 보내지 않는다 — 몇 번째 턴인지만(docs/analytics-events.md)
+      track.chatMessageSent({
+        turn_index: useChatStore.getState().messages.filter((m) => m.role === 'user').length,
+      });
       append({ role: 'user', content: trimmed });
       setInput('');
       setSending(true);
@@ -193,7 +198,7 @@ export default function ChatScreen() {
   );
 
   const goToPlace = (card: ChatPlaceCard) => {
-    focusPlaceOnMap(card.id);
+    focusPlaceOnMap(card.id, { source: 'chat' });
   };
 
   const handleNewChat = () => {

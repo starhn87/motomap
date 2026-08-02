@@ -54,6 +54,7 @@ import {
 } from '@/lib/api/directions';
 import { toast } from '@/lib/toast';
 import { useGuideSession } from '@/lib/guideSession';
+import { track } from '@/lib/analytics';
 
 // 혼잡도별 경로선 색 — 막힐수록 붉게. 원활은 기존 경로색, 정보 없음은 회색.
 // 서행은 semantic.warning(amber-600)보다 밝은 amber-500 — 지도 위 가시성 우선.
@@ -446,6 +447,13 @@ export default function NaviScreen() {
             toast.info('일부 경유지를 빼고 안내해요', '경로가 코스와 다를 수 있어요.');
           }
           setRoutes((prev) => ({ ...prev, [priority]: result }));
+          track.navigationPreviewed({
+            distance_m: result.distance,
+            duration_s: result.duration,
+            priority,
+            via_count: pairsFromFlat(tryVias).length,
+            has_custom_start: !!startName,
+          });
           return;
         } catch (err) {
           lastErr = err;
@@ -464,6 +472,10 @@ export default function NaviScreen() {
       }
       // 병렬로 받아둔 혼잡도 선만 남으면 "경로 없음"과 어긋난다 — 함께 지운다
       setTraffic((prev) => ({ ...prev, [priority]: undefined }));
+      track.routeFailed({
+        code: routeErrorCode(lastErr),
+        via_count: pairsFromFlat(requestVias).length,
+      });
       toast.error('경로를 찾을 수 없습니다', friendlyRouteError(lastErr));
     })().finally(() => {
       if (!cancelled) setLoading(false);
@@ -531,6 +543,12 @@ export default function NaviScreen() {
   const startGuide = () => {
     if (!start || starting || courseOnly) return;
     setStarting(true);
+    track.navigationStarted({
+      mode: previewOnly ? 'preview' : 'live',
+      priority,
+      via_count: pairsFromFlat(activeVias ?? flatVias).length,
+      distance_m: route?.distance,
+    });
     KakaoNavi.startGuide(
       start[0], start[1], goal.longitude, goal.latitude, goal.name,
       activeVias ?? flatVias, priority, previewOnly,

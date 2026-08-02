@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useCreateReview } from '@/hooks/useReviews';
 import { pickImages, uploadMultipleImages } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
+import { track } from '@/lib/analytics';
 import StarRating from './StarRating';
 import PhotoDragList from './PhotoDragList';
 
@@ -76,6 +77,11 @@ export default function ReviewForm({ placeId }: Props) {
         rating,
         content: content.trim(),
         photos: photoUrls,
+      });
+      track.reviewSubmitted({
+        target: 'place',
+        rating,
+        has_photo: photoUrls.length > 0,
       });
       setRating(0);
       setContent('');

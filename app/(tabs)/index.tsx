@@ -22,6 +22,7 @@ import Animated, {
 
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
+import { track } from '@/lib/analytics';
 import { usePlaces } from '@/hooks/usePlaces';
 import { useGasStations, GAS_MIN_ZOOM, type SearchPoint } from '@/hooks/useGasStations';
 import { useWeather } from '@/hooks/useWeather';
@@ -200,6 +201,7 @@ export default function MapScreen() {
 
   const handleMarkerPress = useCallback(
     (place: Place) => {
+      track.placeViewed({ place_id: place.id, category: place.category, source: 'map_marker' });
       setHighlightReview(null);
       setTempPlace(null);
       setSelectedPlaceId(place.id);

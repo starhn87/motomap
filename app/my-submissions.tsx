@@ -99,7 +99,7 @@ export default function MySubmissionsScreen() {
             toast.info('반려된 제보예요', item.rejectedReason ?? undefined);
           } else if (item.approved) {
             // 지도의 장소 시트로 — 리뷰·상세가 그 안에 있다
-            focusPlaceOnMap(item.id);
+            focusPlaceOnMap(item.id, { source: 'submission' });
           } else {
             toast.info('아직 검토 중인 제보예요', '승인되면 지도에서 볼 수 있어요.');
           }

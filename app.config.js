@@ -2,10 +2,9 @@ export default {
   expo: {
     name: '모토맵',
     slug: 'ridemap',
-    // 1.2.2: 음성 검색(expo-speech-recognition) + 지정 출발지 안내(자동 재탐색
-    // 제어) + 경로 에러 코드 구조화 + reanimated 4.2.3 — 모두 네이티브 변경이라
-    // runtime 을 분리해 1.2.1 이하 빌드가 새 OTA 를 받지 않게 한다
-    version: '1.2.2',
+    // 1.2.3: 제품 분석(PostHog) — 네이티브 모듈(expo-device·localization·
+    // 세션 리플레이)이 들어가 runtime 을 분리한다
+    version: '1.2.3',
     runtimeVersion: {
       policy: 'appVersion',
     },

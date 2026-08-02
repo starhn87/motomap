@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import * as Sentry from '@sentry/react-native';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
+import { identifyUser, resetUser } from '@/lib/analytics';
 import type { User, Session } from '@supabase/supabase-js';
 
 interface AuthStore {
@@ -37,6 +38,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
     supabase.auth.onAuthStateChange((_event, session) => {
       const user = session?.user ?? null;
       syncSentryUser(user);
+      if (user) identifyUser(user.id);
+      else resetUser();
       set({
         session,
         user,
@@ -48,6 +51,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     // 계정 전환 시 이전 사용자의 캐시(즐겨찾기·주행·리뷰 등)가 노출되지 않도록 비움
     queryClient.clear();
     syncSentryUser(null);
+    resetUser();
     set({ user: null, session: null });
   },
 }));

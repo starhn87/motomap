@@ -24,6 +24,9 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useThemeStore } from '@/stores/useThemeStore';
 import { useMapStore } from '@/stores/useMapStore';
 import { registerPushToken, setupNotificationTapHandling } from '@/lib/push';
+import { PostHogProvider } from 'posthog-react-native';
+
+import { posthog, useScreenTracking } from '@/lib/analytics';
 
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 if (sentryDsn) {
@@ -127,8 +130,10 @@ function RootLayoutNav() {
 
   // 알림 탭 → 해당 장소/코스로 이동 (Stack 마운트 이후 등록해야 내비게이션이 안전)
   useEffect(() => setupNotificationTapHandling(), []);
+  // expo-router 는 화면 자동 수집이 안 돼 경로를 직접 구독한다(lib/analytics 주석)
+  useScreenTracking();
 
-  return (
+  const tree = (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -165,6 +170,19 @@ function RootLayoutNav() {
       </QueryClientProvider>
       <Toast config={toastConfig} />
     </GestureHandlerRootView>
+  );
+
+  // 키가 없으면 클라이언트가 null 이라 Provider 없이 그대로 렌더한다 —
+  // 계측 미설정이 앱 동작에 영향을 주지 않아야 한다.
+  if (!posthog) return tree;
+  // 화면·터치 자동 수집은 끈다. 화면은 useScreenTracking 이 직접 보내고,
+  // 터치 전수는 퍼널에 안 걸리는 노이즈다(docs/analytics-events.md).
+  return (
+    <PostHogProvider
+      client={posthog}
+      autocapture={{ captureScreens: false, captureTouches: false }}>
+      {tree}
+    </PostHogProvider>
   );
 }
 

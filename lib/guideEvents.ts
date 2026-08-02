@@ -11,6 +11,7 @@ import { formatMeters } from '@/lib/api/directions';
 import { haversine } from '@/lib/distance';
 import { focusPlaceOnMap, followMyLocationOnMap } from '@/lib/mapFocus';
 import { toast } from '@/lib/toast';
+import { track } from '@/lib/analytics';
 
 // 길안내 전역 이벤트 — 안내가 시작되면 /navi 화면은 지도로 빠져 언마운트되므로
 // 종료·메뉴 처리는 화면이 아니라 여기(루트에서 1회 등록)가 맡는다.
@@ -86,7 +87,10 @@ async function handleGuideEnd() {
   // 안내가 끝나도 라이더는 이동 중 — 지도가 내 위치를 따라간다.
   // 드래그하면 SDK 가 따라가기를 알아서 푼다.
   followMyLocationOnMap();
-  if (!goal || (!goal.placeId && !goal.courseId)) return;
+  if (!goal) {
+    track.navigationEnded({ reason: 'cancelled' });
+    return;
+  }
 
   let near = false;
   try {
@@ -103,7 +107,9 @@ async function handleGuideEnd() {
   } catch {
     // 위치를 못 읽으면 조용히 넘어간다 — 제안을 못 띄울 뿐
   }
-  if (!near) return;
+  track.navigationEnded({ reason: near ? 'arrived' : 'cancelled' });
+  // 리뷰 제안은 등록 장소·코스일 때만 — 그 외 목적지는 조용히 끝낸다
+  if (!near || (!goal.placeId && !goal.courseId)) return;
 
   // 안내 화면 닫힘 애니메이션이 끝난 뒤 지도 위에서 띄운다
   setTimeout(() => {

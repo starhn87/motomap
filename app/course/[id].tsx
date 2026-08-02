@@ -294,7 +294,7 @@ export default function CourseDetailScreen() {
                 {nearbyPlaces.map(({ place, routeFraction }) => (
                   <Pressable
                     key={place.id}
-                    onPress={() => focusPlaceOnMap(place.id, { fromCourseId: id })}
+                    onPress={() => focusPlaceOnMap(place.id, { fromCourseId: id, source: 'course' })}
                     style={({ pressed }) => [
                       styles.nearbyCard,
                       {

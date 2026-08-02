@@ -1,0 +1,103 @@
+# 이벤트 계측 설계
+
+제품 분석은 **PostHog**, 설치 전 유입은 **App Store Connect App Analytics**, 크래시·성능은 **Sentry**가 맡는다.
+세 도구의 질문이 겹치지 않게 나눈다 — 어떻게 왔나(ASC) / 무엇을 했나(PostHog) / 왜 실패했나(Sentry).
+
+iOS는 ATT 이후 개별 사용자 어트리뷰션이 불가능하다. 앱 스토어 유입 경로는 어떤 SDK로도 알 수 없으니
+ASC 를 보고, 자체 채널(디스코드 등)만 딥링크 파라미터로 직접 구분한다.
+
+## 측정하는 퍼널
+
+**A. 발견 → 안내** — 앱의 존재 이유
+```
+app_opened → place_viewed → navigation_started → navigation_ended(arrived)
+```
+`place_viewed.source` 로 어느 발견 경로(검색·마커·즐겨찾기·AI챗)가 실제 주행까지 이어지는지 가른다.
+
+**B. 검색**
+```
+search_submitted → (search_no_results) → search_result_selected
+```
+
+**C. 기여**
+```
+place_submitted → 승인
+```
+
+## 이벤트
+
+### 발견
+
+| 이벤트 | 속성 |
+| --- | --- |
+| `search_submitted` | `method`(typed·voice) · `source`(map_bar·search_screen·point_modal) · `query` |
+| `search_no_results` | `query` · `source` |
+| `search_result_selected` | `result_type`(registered·kakao·course) · `rank` · `source` |
+| `category_filtered` | `category` |
+| `place_viewed` | `place_id` · `category` · `source` |
+
+`place_viewed.source`: `map_marker` · `search` · `search_results` · `favorite` · `chat` · `notification` · `course` · `submission`
+
+### 안내
+
+| 이벤트 | 속성 |
+| --- | --- |
+| `navigation_previewed` | `distance_m` · `duration_s` · `priority` · `via_count` · `has_custom_start` |
+| `navigation_started` | `mode`(live·preview) · `priority` · `via_count` · `distance_m` |
+| `navigation_ended` | `reason`(arrived·cancelled) |
+| `route_failed` | `code`(KNSDK 에러 코드) · `via_count` |
+
+### 참여·기여
+
+| 이벤트 | 속성 |
+| --- | --- |
+| `favorite_toggled` | `on` · `place_id` · `category` · `source` |
+| `place_submitted` | `category` |
+| `review_submitted` | `target`(place·course) · `rating` · `has_photo` |
+| `chat_message_sent` | `turn_index` |
+
+### 획득
+
+| 이벤트 | 속성 |
+| --- | --- |
+| `app_opened_from_link` | `campaign` · `source` |
+
+### 화면 조회
+
+expo-router 는 `NavigationContainer` 를 노출하지 않아 PostHog 의 화면 자동 수집(`captureScreens`)이
+동작하지 않는다(SDK 타입 주석에 명시). `useScreenTracking()` 이 `usePathname()` 을 구독해 직접 보낸다.
+동적 세그먼트는 값이 아니라 패턴으로 보낸다 — `/course/[id]` 지 `/course/abc-123` 이 아니다.
+
+## 넣지 않는 것
+
+- **버튼 클릭 전수** — 퍼널에 안 걸리는 클릭은 노이즈다. 필요해질 때 추가한다.
+- **크래시·성능** — Sentry 담당. 중복하면 양쪽 신뢰도가 떨어진다.
+
+## 절대 보내지 않는 것
+
+- **집·회사의 좌표와 이름** — 민감 장소는 라벨만 노출하는 앱 원칙을 계측에도 적용한다.
+  내 장소 설정 플로우에서 나는 `search_submitted` 는 `query` 를 뺀다.
+- **현재 위치 원좌표** — 라이더 동선이 그대로 남는다.
+- **리뷰 본문·채팅 내용·이메일·닉네임**
+
+`query` 는 보낸다. "무엇을 찾다 실패했는지"를 알아야 검색을 고칠 수 있고 그게 이 계측의 최대 실익이다
+(띄어쓰기 때문에 등록 장소가 안 잡히던 버그는 `search_no_results` 가 있었으면 바로 보였다).
+위 예외만 지킨다.
+
+## 세션 리플레이
+
+RN 은 **스크린샷 모드만** 지원한다 — 화면이 통째로 찍히므로 마스킹이 필수다.
+
+- 로그인 화면(이메일·비밀번호)
+- 내 정보 탭의 닉네임·바이크
+- 집/회사 설정 다이얼로그
+
+## 사용자 식별
+
+Supabase auth 의 user id 로 `identify()`. 비로그인은 익명 id 로 쌓다가 로그인 시 이어 붙인다(`alias`) —
+그래야 "가입 전 탐색 → 가입" 전환이 끊기지 않는다. 로그아웃 시 `reset()`.
+
+## 설정
+
+`EXPO_PUBLIC_POSTHOG_API_KEY` 가 없으면 계측 전체가 무효화된다(개발 중이거나 키 미설정 시 안전).
+개발 빌드(`__DEV__`)에서도 보내지 않는다 — Sentry 와 같은 이유로, 개발 노이즈가 실데이터를 오염시킨다.

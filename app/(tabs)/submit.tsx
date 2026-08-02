@@ -25,6 +25,7 @@ import { CATEGORY_LIST } from '@/constants/categories';
 import { submitPlace, checkPlaceDuplicate } from '@/lib/api/places';
 import { registerPushToken } from '@/lib/push';
 import { toast } from '@/lib/toast';
+import { track } from '@/lib/analytics';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import SubmitCourse from '@/components/submit/SubmitCourse';
 import SubmitFeedback from '@/components/submit/SubmitFeedback';
@@ -162,6 +163,8 @@ function SubmitPlace() {
         openingHours: openingHours.trim() || undefined,
         parkingInfo: parkingInfo.trim() || undefined,
       });
+
+      track.placeSubmitted({ category });
 
       // 권한 요청(모달)이 완료 토스트·폼 리셋을 가리면 "제보가 안 됐다"고 오해해
       // 중복 제보하게 되므로, 권한 흐름을 먼저 끝낸 뒤 완료 처리를 한다.

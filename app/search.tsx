@@ -35,6 +35,7 @@ import { haversine } from '@/lib/distance';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { useMapStore } from '@/stores/useMapStore';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
+import { track } from '@/lib/analytics';
 import {
   loadRecentSearches,
   addRecentSearch,
@@ -104,9 +105,10 @@ export default function SearchScreen() {
     }, []),
   );
   // 엔터·음성 인식이 공유하는 진입점 — 등록 장소든 아니든 결과를 지도로 본다
-  const openResults = useCallback((text: string) => {
+  const openResults = useCallback((text: string, method: 'typed' | 'voice' = 'typed') => {
     const q = text.trim();
     if (q.length < 2) return;
+    track.searchSubmitted({ method, source: 'search_screen', query: q });
     Keyboard.dismiss();
     router.push({ pathname: '/search-results' as any, params: { query: q } });
   }, []);
@@ -114,7 +116,7 @@ export default function SearchScreen() {
   // 음성 검색 — 인식된 말이 그대로 입력창에 들어가고, 끝나면 결과 지도로 넘어간다
   const { listening, toggle: toggleVoice } = useVoiceSearch((text, isFinal) => {
     setQuery(text);
-    if (isFinal) openResults(text);
+    if (isFinal) openResults(text, 'voice');
   });
 
   const [recent, setRecent] = useState<RecentSearch[]>([]);
@@ -204,10 +206,22 @@ export default function SearchScreen() {
 
   const { data: recommended } = useRecommendedPlaces();
 
+  // 검색이 끝났는데 양쪽 모두 비었으면 한 번 남긴다 — 이탈 원인 1순위 후보라
+  // "무엇을 찾다 실패했는지"가 검색 개선의 출발점이 된다.
+  const reportedEmpty = useRef<string | null>(null);
+  useEffect(() => {
+    if (!searching || isLoading || kakaoResults === undefined) return;
+    const empty = (results?.places.length ?? 0) === 0 && kakaoOnly.length === 0;
+    if (!empty || reportedEmpty.current === trimmed) return;
+    reportedEmpty.current = trimmed;
+    track.searchNoResults({ source: 'search_screen', query: trimmed });
+  }, [searching, isLoading, results, kakaoResults, kakaoOnly.length, trimmed]);
+
   const goToPlace = useCallback((place: Place) => {
     Keyboard.dismiss();
+    track.searchResultSelected({ result_type: 'registered', rank: 0, source: 'search_screen' });
     addRecentSearch({ type: 'place', place });
-    focusPlaceOnMap(place.id);
+    focusPlaceOnMap(place.id, { source: 'search' });
   }, []);
 
   const goToKakaoPlace = useCallback(

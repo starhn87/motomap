@@ -24,6 +24,7 @@ import { isSamePlace, searchAll } from '@/lib/api/search';
 import type { NavTarget } from '@/lib/navigation';
 import type { Place } from '@/types';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
+import { track } from '@/lib/analytics';
 
 /** 길찾기 지점 — 좌표 있는 목적지 또는 '현재 위치' */
 export type Point = NavTarget | 'current';
@@ -116,7 +117,19 @@ export default function PointSearchModal({
   };
 
   // 음성 검색 — 인식된 말을 그대로 검색어로 태운다(디바운스·결과 처리는 동일)
-  const { listening, toggle: toggleVoice } = useVoiceSearch(handleChange);
+  const { listening, toggle: toggleVoice } = useVoiceSearch((text, isFinal) => {
+    handleChange(text);
+    // allowSaved 가 false 인 유일한 경우가 집·회사 설정이다(호출부 3곳 확인:
+    // search·directions·navi). 민감 장소라 검색어는 계측에 싣지 않는다.
+    const isMyPlaceSetup = !allowSaved;
+    if (isFinal && text.trim()) {
+      track.searchSubmitted({
+        method: 'voice',
+        source: 'point_modal',
+        query: isMyPlaceSetup ? undefined : text.trim(),
+      });
+    }
+  });
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>

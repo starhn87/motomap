@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
+import { track } from '@/lib/analytics';
 
 // 지도 위 검색바 모양의 진입 버튼 — 탭하면 검색 전용 화면(/search)으로 전환된다.
 // 오른쪽 끝 마이크는 검색 화면을 거치지 않고 여기서 바로 말하기 위한 것.
@@ -17,6 +18,7 @@ export default function SearchEntry() {
     if (!isFinal) return;
     const q = text.trim();
     if (q.length < 2) return;
+    track.searchSubmitted({ method: 'voice', source: 'map_bar', query: q });
     router.push({ pathname: '/search-results' as any, params: { query: q } });
   });
 

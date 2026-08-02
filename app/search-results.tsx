@@ -29,6 +29,7 @@ import { MARKER_IMAGES, MARKER_IMAGES_CIRCLE } from '@/constants/markerImages';
 import { isSamePlace, searchAll } from '@/lib/api/search';
 import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { addRecentSearch } from '@/lib/recentSearches';
+import { track } from '@/lib/analytics';
 import type { Place } from '@/types';
 
 // 지도에 뿌리는 결과 상한 — 등록 장소가 광범위한 검색어(예: "카페")일 때
@@ -125,7 +126,14 @@ export default function SearchResultsScreen() {
 
   // 고르면 이 화면 안에서 상세 시트를 연다 — 지도 탭과 같은 시트를 재사용한다
   const pick = (item: ResultItem) => {
+    const rank = items.indexOf(item);
     if (item.kind === 'place') {
+      track.searchResultSelected({ result_type: 'registered', rank, source: 'search_screen' });
+      track.placeViewed({
+        place_id: item.place.id,
+        category: item.place.category,
+        source: 'search_results',
+      });
       void addRecentSearch({ type: 'place', place: item.place });
       setSelectedPlace(item.place);
       mapRef.current?.animateCameraTo({
@@ -135,6 +143,7 @@ export default function SearchResultsScreen() {
         duration: 500,
       });
     } else {
+      track.searchResultSelected({ result_type: 'kakao', rank, source: 'search_screen' });
       const { k } = item;
       void addRecentSearch({
         type: 'kakao',

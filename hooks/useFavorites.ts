@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { fetchFavorites, toggleFavorite } from '@/lib/api/favorites';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { track } from '@/lib/analytics';
 
 export function useFavorites() {
   const user = useAuthStore((s) => s.user);
@@ -25,9 +26,13 @@ export function useToggleFavorite() {
       const key = ['favorites', user?.id];
       await queryClient.cancelQueries({ queryKey: key });
       const prev = queryClient.getQueryData<string[]>(key);
+      const turningOn = !prev?.includes(placeId);
       queryClient.setQueryData<string[]>(key, (cur) =>
         cur?.includes(placeId) ? cur.filter((id) => id !== placeId) : [...(cur ?? []), placeId]
       );
+      // 호출부가 여러 화면이라 source 는 여기서 특정할 수 없다 — 장소 시트가
+      // 사실상 유일한 진입점이라 그 기준으로 둔다.
+      track.favoriteToggled({ on: turningOn, place_id: placeId, source: 'map_marker' });
       return { key, prev };
     },
     onError: (_error, _placeId, context) => {

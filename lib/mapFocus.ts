@@ -1,12 +1,16 @@
 import { router } from 'expo-router';
 
+import { track, type PlaceSource } from '@/lib/analytics';
+
 // 지도 탭으로 이동해 특정 장소를 선택·포커스한다.
 // focusTs 는 같은 장소를 연속 선택해도 지도 화면이 반응하도록 매번 다른 키를
 // 만드는 규약 — 호출처마다 흩어져 있던 것을 여기 한 곳으로 모은다.
 export function focusPlaceOnMap(
   placeId: string,
-  opts?: { reviewId?: string; fromCourseId?: string }
+  opts?: { reviewId?: string; fromCourseId?: string; source?: PlaceSource }
 ) {
+  // 장소에 닿은 경로를 남긴다 — 어느 발견 경로가 주행까지 이어지는지 가르는 축
+  track.placeViewed({ place_id: placeId, source: opts?.source ?? 'search' });
   router.navigate({
     pathname: '/',
     params: {

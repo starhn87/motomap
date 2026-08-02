@@ -10,6 +10,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { CATEGORY_LIST } from '@/constants/categories';
 import Colors from '@/constants/Colors';
 import { useMapStore } from '@/stores/useMapStore';
+import { track } from '@/lib/analytics';
 import type { PlaceCategory } from '@/types';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -76,6 +77,8 @@ export default function CategoryFilter() {
   const { activeFilter, setActiveFilter } = useMapStore();
 
   const handlePress = (key: PlaceCategory) => {
+    // 끄는 동작은 세지 않는다 — 무엇을 보려 했는지가 관심사다
+    if (activeFilter !== key) track.categoryFiltered({ category: key });
     setActiveFilter(activeFilter === key ? null : key);
   };
 

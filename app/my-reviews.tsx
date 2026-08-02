@@ -64,7 +64,7 @@ export default function MyReviewsScreen() {
   // 탭하면 지도의 해당 장소 시트가 펼쳐지고 이 리뷰로 스크롤·강조된다
   const renderItem = ({ item }: { item: any }) => (
     <Pressable
-      onPress={() => focusPlaceOnMap(item.placeId, { reviewId: item.id })}
+      onPress={() => focusPlaceOnMap(item.placeId, { reviewId: item.id, source: 'favorite' })}
       style={({ pressed }) => [
         styles.card,
         {

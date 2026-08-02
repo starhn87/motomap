@@ -82,7 +82,7 @@ export default function NotificationsScreen() {
 
   const handlePress = (item: AppNotification) => {
     if (item.data?.placeId) {
-      focusPlaceOnMap(item.data.placeId);
+      focusPlaceOnMap(item.data.placeId, { source: 'notification' });
     } else if (item.data?.courseId) {
       router.push(`/course/${item.data.courseId}`);
     }
