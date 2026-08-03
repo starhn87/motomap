@@ -13,6 +13,9 @@ import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
 import { useGasPricesAt } from '@/hooks/useGasStations';
+import { usePlaceHours } from '@/hooks/usePlaceHours';
+import { poiSourceKey } from '@/lib/api/placeHours';
+import OpenBadge from '@/components/place/OpenBadge';
 import { FUEL_LABELS, formatTradeAt } from '@/lib/api/gasStations';
 
 export interface TempPlace {
@@ -46,6 +49,13 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   // 주유소면 카테고리 필터를 켜지 않았어도 유가를 보여준다 — 즐겨찾기로 들어온
   // 단골 주유소도 이 카드로 오기 때문에 여기 한 곳이면 두 경로가 다 걸린다.
   const { data: gas, isLoading: gasLoading } = useGasPricesAt(place);
+  // 우리 DB 에 없는 장소라 영업시간은 구글에서 온다
+  const { data: placeHours } = usePlaceHours({
+    sourceKey: poiSourceKey(place.latitude, place.longitude),
+    name: place.name,
+    latitude: place.latitude,
+    longitude: place.longitude,
+  });
   const fuelPrices = (gas?.prices ?? []).filter((p) => p.prod in FUEL_LABELS);
 
   const handleFavorite = async () => {
@@ -157,6 +167,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
           <Text style={[styles.address, { color: colors.textSecondary }]} numberOfLines={1}>
             {place.address}
           </Text>
+          <OpenBadge hours={placeHours?.hours} businessStatus={placeHours?.businessStatus} />
         </View>
         {!!place.phone && (
           <Pressable

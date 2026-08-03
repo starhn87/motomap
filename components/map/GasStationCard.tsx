@@ -9,6 +9,8 @@ import { openNavigation } from '@/lib/navigation';
 import { FUEL_LABELS, formatTradeAt, type GasStation } from '@/lib/api/gasStations';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
+import { usePlaceHours } from '@/hooks/usePlaceHours';
+import OpenBadge from '@/components/place/OpenBadge';
 import { toast } from '@/lib/toast';
 
 interface Props {
@@ -20,6 +22,13 @@ export default function GasStationCard({ station, onClose }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { data: detail, isLoading } = useGasStationDetail(station.id);
+  // 오피넷은 영업시간을 주지 않는다 — 24시간이 아닌 주유소가 있어 구글로 메운다
+  const { data: openHours } = usePlaceHours({
+    sourceKey: `gas:${station.id}`,
+    name: station.name,
+    latitude: station.latitude,
+    longitude: station.longitude,
+  });
 
   // 주유소는 오피넷 데이터라 등록 장소가 아니다 — 일반 장소 즐겨찾기로 담는다
   // (migration 032). 자주 가는 주유소는 라이더에게 분명한 즐겨찾기 대상이다.
@@ -58,6 +67,7 @@ export default function GasStationCard({ station, onClose }: Props) {
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {station.name}
           </Text>
+          <OpenBadge hours={openHours?.hours} businessStatus={openHours?.businessStatus} />
           <View style={styles.badgeRow}>
             {!!station.brand && (
               <Text style={[styles.badge, { color: colors.textSecondary, borderColor: colors.border }]}>

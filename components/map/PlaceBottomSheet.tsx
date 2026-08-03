@@ -25,7 +25,8 @@ import BottomSheet, {
 import { useRef, useEffect, useState, useCallback, memo } from 'react';
 
 import { APP_STORE_URL } from '@/constants/app';
-import { describeOpenState, formatWeek, getOpenState } from '@/lib/hours';
+import { formatWeek } from '@/lib/hours';
+import OpenBadge from '@/components/place/OpenBadge';
 import Colors, { semantic } from '@/constants/Colors';
 import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -297,7 +298,6 @@ function PlaceBottomSheet({
   });
 
   // 구조화된 hours 가 있으면 요일별로, 없으면 사람이 쓴 원문을 그대로 보여준다
-  const openState = describeOpenState(getOpenState(displayPlace.hours));
   const weekLines = displayPlace.hours ? formatWeek(displayPlace.hours) : [];
   const hoursText = weekLines.join('\n') || displayPlace.openingHours;
 
@@ -374,28 +374,7 @@ function PlaceBottomSheet({
             )}
           </View>
 
-          {openState && (
-            <View style={styles.openRow}>
-              <View
-                style={[
-                  styles.openDot,
-                  { backgroundColor: openState.open ? '#22C55E' : '#EF4444' },
-                ]}
-              />
-              <Text
-                style={[
-                  styles.openText,
-                  { color: openState.open ? '#22C55E' : colors.textSecondary },
-                ]}>
-                {openState.text}
-              </Text>
-              {!!displayPlace.hours?.note && (
-                <Text style={[styles.openNote, { color: colors.textSecondary }]} numberOfLines={1}>
-                  · {displayPlace.hours.note}
-                </Text>
-              )}
-            </View>
-          )}
+          <OpenBadge hours={displayPlace.hours} note={displayPlace.hours?.note} />
 
           <View style={styles.addressRow}>
             <Text
@@ -660,25 +639,6 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 8,
-  },
-  openRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  openDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  openText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  openNote: {
-    flex: 1,
-    fontSize: 13,
   },
   addressRow: {
     flexDirection: 'row',
