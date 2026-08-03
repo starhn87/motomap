@@ -23,7 +23,7 @@ export default function GasStationCard({ station, onClose }: Props) {
   const colors = Colors[colorScheme ?? 'light'];
   const { data: detail, isLoading } = useGasStationDetail(station.id);
   // 오피넷은 영업시간을 주지 않는다 — 24시간이 아닌 주유소가 있어 구글로 메운다
-  const { data: openHours, isLoading: hoursLoading } = usePlaceHours({
+  const { data: openHours } = usePlaceHours({
     sourceKey: `gas:${station.id}`,
     name: station.name,
     latitude: station.latitude,
@@ -126,7 +126,6 @@ export default function GasStationCard({ station, onClose }: Props) {
       </View>
 
       <PlaceHoursBlock
-        loading={hoursLoading}
         hours={openHours?.hours}
         businessStatus={openHours?.businessStatus}
       />
