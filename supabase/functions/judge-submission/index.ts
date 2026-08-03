@@ -94,9 +94,46 @@ async function kakaoLookup(name: string, address: string) {
       address: d.address_name,
       matches_submitted_address:
         !!address && (d.road_address_name === address || d.address_name === address),
+      // 영업시간 대조용 좌표. 심사 프롬프트에는 싣지 않는다
+      lat: Number(d.y),
+      lng: Number(d.x),
     }));
   } catch {
     return null;
+  }
+}
+
+/**
+ * 제보된 영업시간을 구글과 대조한다. 참고용이다 — 어긋난다고 반려하지 않는다.
+ * 라이더 카페처럼 작은 가게는 현장에 다녀온 제보자가 구글보다 정확할 때가 많고,
+ * 구글에 영업시간이 아예 없는 장소도 흔하다.
+ */
+async function googleHoursEvidence(
+  record: Record<string, unknown>,
+  lat: number,
+  lng: number,
+): Promise<string | null> {
+  const submitted = record.hours ?? record.opening_hours;
+  if (!submitted) return null; // 제보에 영업시간이 없으면 대조할 것도 없다
+  if (!SB_URL || !SB_KEY) return null;
+
+  try {
+    const res = await fetch(`${SB_URL}/functions/v1/place-hours`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourceKey: `place:${record.id}`,
+        name: String(record.name ?? ''),
+        lat,
+        lng,
+      }),
+    });
+    if (!res.ok) return '(구글 조회 실패)';
+    const { hours } = await res.json();
+    if (!hours) return '구글에 영업시간 정보 없음 — 대조 불가';
+    return `제보 ${JSON.stringify(submitted)} / 구글 ${JSON.stringify(hours)}`;
+  } catch {
+    return '(구글 조회 실패)';
   }
 }
 
@@ -142,8 +179,16 @@ async function judge(table: string, record: Record<string, unknown>): Promise<{ 
         ? '(조회 실패)'
         : kakao.length === 0
           ? '미등록 (비상호 장소이거나 존재 불명)'
-          : JSON.stringify(kakao)),
+          // 좌표는 대조에만 쓰고 프롬프트에서는 뺀다
+          : JSON.stringify(kakao.map(({ lat, lng, ...rest }) => rest))),
     );
+
+    // 좌표는 카카오 첫 결과에서 빌린다 — places.location 은 PostGIS 라 REST 로 못 푼다
+    const spot = kakao?.[0];
+    if (spot && Number.isFinite(spot.lat) && Number.isFinite(spot.lng)) {
+      const hoursEvidence = await googleHoursEvidence(record, spot.lat, spot.lng);
+      if (hoursEvidence) evidenceParts.push('영업시간 대조(참고): ' + hoursEvidence);
+    }
 
     // 웹 조사 — 제보 텍스트에 근거가 없어도 유명 라이더 스팟은 여기서 드러난다
     const web = await webResearch(
@@ -170,7 +215,13 @@ async function judge(table: string, record: Record<string, unknown>): Promise<{ 
     output_config: { format: { type: 'json_schema', schema: VERDICT_SCHEMA } },
     messages: [{
       role: 'user',
-      content: `${table === 'places' ? '장소' : '라이딩 코스'} 제보를 심사하라.\n제보 내용: ${submitted}\n\n교차검증 자료:\n${evidence}`,
+      content:
+        `${table === 'places' ? '장소' : '라이딩 코스'} 제보를 심사하라.\n` +
+        `제보 내용: ${submitted}\n\n교차검증 자료:\n${evidence}\n\n` +
+        // 영업시간이 어긋난다고 반려하면 정확한 제보를 걸러내게 된다 — 작은
+        // 라이더 가게는 현장에 다녀온 제보자가 구글보다 정확할 때가 많다
+        `"영업시간 대조" 항목은 참고용이다. 이 항목만을 이유로 반려하지 말고, ` +
+        `장소 자체의 실재·적합성으로 판정하라. 어긋남이 눈에 띄면 근거에 한 줄 언급만 남겨라.`,
     }],
   });
 
