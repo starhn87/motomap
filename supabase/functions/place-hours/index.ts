@@ -117,14 +117,16 @@ async function fetchDetails(placeId: string) {
     {
       headers: {
         'X-Goog-Api-Key': GOOGLE_KEY,
-        'X-Goog-FieldMask': 'regularOpeningHours,businessStatus',
+        // 정규 영업시간이 비어 있고 currentOpeningHours(향후 7일)만 있는 장소가
+        // 있다. 둘 다 Pro 티어라 함께 받아도 요금은 같다
+        'X-Goog-FieldMask': 'regularOpeningHours,currentOpeningHours,businessStatus',
       },
     },
   );
   if (!res.ok) throw new Error(`구글 상세 ${res.status}`);
   const data = await res.json();
   return {
-    hours: toHours(data.regularOpeningHours),
+    hours: toHours(data.regularOpeningHours) ?? toHours(data.currentOpeningHours),
     businessStatus: data.businessStatus ?? null,
   };
 }
