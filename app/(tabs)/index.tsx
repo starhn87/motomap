@@ -50,6 +50,7 @@ import GasStationMarker from '@/components/map/GasStationMarker';
 import GasStationCard from '@/components/map/GasStationCard';
 import WeatherFab from '@/components/map/WeatherFab';
 import WeatherSheet from '@/components/map/WeatherSheet';
+import KakaoNavi from '@/modules/kakao-navi';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import HazardMarker from '@/components/map/HazardMarker';
@@ -366,6 +367,24 @@ export default function MapScreen() {
       duration: 600,
     });
   }, [userLocation]);
+
+  // 안내를 끝내고 돌아오면 지도는 안내를 시작할 때 보던 자리에 그대로 있다.
+  // 그 화면이 잠깐 비쳤다가 내 위치로 튀므로, 안내 화면이 닫히는 동안 미리
+  // 옮겨 둔다 — 애니메이션 없이 옮겨야 이동 자체가 안 보인다.
+  const userLocationRef = useRef(userLocation);
+  userLocationRef.current = userLocation;
+  useEffect(() => {
+    const sub = KakaoNavi.addListener('onGuideEnd', () => {
+      const loc = userLocationRef.current;
+      if (!loc) return;
+      mapRef.current?.animateCameraTo({
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        duration: 0,
+      });
+    });
+    return () => sub.remove();
+  }, []);
 
   const handleMyLocation = () => {
     if (!userLocation || !mapRef.current) return;
