@@ -1,5 +1,7 @@
 #import "KNNaviTheme.h"
 
+#import <KNSDK/KNMapRouteThemeDef.h>
+
 // 모토맵 경로선과 같은 초록(constants/Colors.ts 의 semantic.success).
 static UIColor *MotoGreen(void) {
   return [UIColor colorWithRed:0x22 / 255.0 green:0xC5 / 255.0 blue:0x5E / 255.0 alpha:1];
@@ -13,7 +15,67 @@ static UIColor *MotoGray(void) {
 static const CGFloat kSize = 56;    // 네이버 지도 자차 수준 — 헬멧 쓴 시야에서도 잘 보이게(실주행 피드백, 60은 과했음)
 static const CGFloat kRingWidth = 4;
 
+static UIColor *Hex(uint32_t rgb) {
+  return [UIColor colorWithRed:((rgb >> 16) & 0xFF) / 255.0
+                         green:((rgb >> 8) & 0xFF) / 255.0
+                          blue:(rgb & 0xFF) / 255.0
+                         alpha:1];
+}
+
+// KNRouteColors 의 색 프로퍼티가 assign(unsafe_unretained) 이라 우리가 살려
+// 두지 않으면 그리는 시점에 이미 해제돼 있다. static 으로 붙잡아 둔다.
+static KNRouteColors *RouteColors(UIColor *normal, UIColor *moderate, UIColor *heavy,
+                                  UIColor *veryHeavy, UIColor *unknown, UIColor *blocked) {
+  KNRouteColors *colors = [[KNRouteColors alloc] init];
+  colors.normal = normal;
+  colors.trafficJamModerate = moderate;
+  colors.trafficJamHeavy = heavy;
+  colors.trafficJamVeryHeavy = veryHeavy;
+  colors.unknown = unknown;
+  colors.blocked = blocked;
+  return colors;
+}
+
+// 테두리는 상단 배너와 같은 색이다. 밝은 혼잡도 색을 짙은 선이 감싸면 경로가
+// 지도에서 떠오르고, 화면 위아래가 한 톤으로 묶인다.
+static KNMapRouteTheme *RouteTheme(UIColor *stroke) {
+  static NSMutableArray *keepAlive;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{ keepAlive = [NSMutableArray array]; });
+
+  KNRouteColors *lines = RouteColors(MotoGreen(),   // 원활 — 미리보기 경로선과 같은 초록
+                                     Hex(0xF59E0B), // 서행
+                                     Hex(0xEF4444), // 정체
+                                     Hex(0xB91C1C), // 심각
+                                     MotoGray(),    // 정보 없음
+                                     Hex(0x6B7280)); // 통제
+  KNRouteColors *strokes = RouteColors(stroke, stroke, stroke, stroke, stroke, stroke);
+  [keepAlive addObject:lines];
+  [keepAlive addObject:strokes];
+
+  KNMapRouteTheme *theme = [[KNMapRouteTheme alloc] init];
+  theme.lineWidth = 14;
+  theme.strokeWidth = 4;
+  theme.lineColors = lines;
+  theme.strokeColors = strokes;
+  return theme;
+}
+
 @implementation KNNaviTheme
+
++ (KNMapRouteTheme *)routeThemeDay {
+  static KNMapRouteTheme *theme;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{ theme = RouteTheme(Hex(0x18181B)); });
+  return theme;
+}
+
++ (KNMapRouteTheme *)routeThemeNight {
+  static KNMapRouteTheme *theme;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{ theme = RouteTheme(Hex(0x0A0A0A)); });
+  return theme;
+}
 
 // 원 안에 위쪽을 향한 화살촉. 방향 회전은 SDK 가 처리한다.
 + (UIImage *)carImageWithAccent:(UIColor *)accent fill:(UIColor *)fill {

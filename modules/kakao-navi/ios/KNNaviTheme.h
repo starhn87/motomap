@@ -1,4 +1,5 @@
 #import <UIKit/UIKit.h>
+#import <KNSDK/KNMapRouteTheme.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -13,6 +14,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 // 자차 이미지의 기준점(중앙).
 + (CGPoint)carAnchor;
+
+// 주행 경로선 테마. SDK 는 테마를 통째로 갈아끼우는 API 만 열어 두어서
+// (읽어오는 getter 가 없다) 혼잡도 색까지 전부 우리가 정한다.
++ (KNMapRouteTheme *)routeThemeDay;
++ (KNMapRouteTheme *)routeThemeNight;
 
 @end
 

@@ -177,6 +177,12 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 - (void)applyCarTheme {
   KNNaviMapView *mapView = self.naviView.mapView;
   [mapView setCustomCarImages:[KNNaviTheme carImages] anchor:[KNNaviTheme carAnchor]];
+  // trafficMode 가 켜져 있어 실제로 그려지는 건 Traffic 테마지만, 꺼졌을 때를
+  // 위해 Drive 쪽도 같은 테마로 채운다
+  [mapView setRouteThemeDriveDay:[KNNaviTheme routeThemeDay]
+            routeThemeDriveNight:[KNNaviTheme routeThemeNight]
+            routeThemeTrafficDay:[KNNaviTheme routeThemeDay]
+          routeThemeTrafficNight:[KNNaviTheme routeThemeNight]];
 
   // setCustomCarImages 는 내부에서 trip.routeConfig.carType 을 읽어 이륜차(6)면
   // carImageType 을 2(내장 바이크 아이콘)로 강제한다 — 1.10.9 디스어셈블로 확인.
