@@ -118,8 +118,11 @@ static __weak KNNaviViewController *gActiveNavi = nil;
     [NSLayoutConstraint activateConstraints:@[
       [endButton.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor
                                                constant:-12],
-      [endButton.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor
-                                          constant:120],
+      // 배너 바닥에 직접 매단다 — 고정 여백은 배너 높이가 상태에 따라 달라지면
+      // 어긋난다. curDirView 는 SDK 가 frame 으로 배치하지만 그 프레임에서
+      // 자동 제약이 생성되므로, 배너가 다시 그려져도 따라 내려온다.
+      [endButton.topAnchor constraintEqualToAnchor:naviView.curDirView.bottomAnchor
+                                          constant:8],
       [endButton.widthAnchor constraintEqualToConstant:64],
       [endButton.heightAnchor constraintEqualToConstant:36],
     ]];
