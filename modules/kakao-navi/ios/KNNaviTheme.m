@@ -15,15 +15,26 @@ static UIColor *MotoGray(void) {
 static const CGFloat kSize = 56;    // 네이버 지도 자차 수준 — 헬멧 쓴 시야에서도 잘 보이게(실주행 피드백, 60은 과했음)
 static const CGFloat kRingWidth = 4;
 
+// KNRouteColors 가 색을 assign(unsafe_unretained) 으로 받는다. 매번 새 객체를
+// 만들어 넘기면 오토릴리즈 풀이 비워진 뒤 지도가 그릴 때 이미 해제된 색을
+// 건드려 죽는다 — 색을 캐시해 프로세스 수명 동안 살려 둔다.
 static UIColor *Hex(uint32_t rgb) {
-  return [UIColor colorWithRed:((rgb >> 16) & 0xFF) / 255.0
-                         green:((rgb >> 8) & 0xFF) / 255.0
-                          blue:(rgb & 0xFF) / 255.0
-                         alpha:1];
+  static NSMutableDictionary<NSNumber *, UIColor *> *cache;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{ cache = [NSMutableDictionary dictionary]; });
+
+  NSNumber *key = @(rgb);
+  UIColor *cached = cache[key];
+  if (cached) return cached;
+
+  UIColor *color = [UIColor colorWithRed:((rgb >> 16) & 0xFF) / 255.0
+                                   green:((rgb >> 8) & 0xFF) / 255.0
+                                    blue:(rgb & 0xFF) / 255.0
+                                   alpha:1];
+  cache[key] = color;
+  return color;
 }
 
-// KNRouteColors 의 색 프로퍼티가 assign(unsafe_unretained) 이라 우리가 살려
-// 두지 않으면 그리는 시점에 이미 해제돼 있다. static 으로 붙잡아 둔다.
 static KNRouteColors *RouteColors(UIColor *normal, UIColor *moderate, UIColor *heavy,
                                   UIColor *veryHeavy, UIColor *unknown, UIColor *blocked) {
   KNRouteColors *colors = [[KNRouteColors alloc] init];
@@ -43,11 +54,13 @@ static KNMapRouteTheme *RouteTheme(UIColor *stroke) {
   static dispatch_once_t once;
   dispatch_once(&once, ^{ keepAlive = [NSMutableArray array]; });
 
-  KNRouteColors *lines = RouteColors(MotoGreen(),   // 원활 — 미리보기 경로선과 같은 초록
+  // MotoGreen/MotoGray 도 호출마다 새 객체를 만든다. 같은 값을 Hex 캐시로 받아
+  // 수명 문제를 한 곳에서 끝낸다.
+  KNRouteColors *lines = RouteColors(Hex(0x22C55E), // 원활 — 미리보기 경로선과 같은 초록
                                      Hex(0xF59E0B), // 서행
                                      Hex(0xEF4444), // 정체
                                      Hex(0xB91C1C), // 심각
-                                     MotoGray(),    // 정보 없음
+                                     Hex(0xA1A1AA), // 정보 없음
                                      Hex(0x6B7280)); // 통제
   KNRouteColors *strokes = RouteColors(stroke, stroke, stroke, stroke, stroke, stroke);
   [keepAlive addObject:lines];
