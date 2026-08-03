@@ -84,7 +84,7 @@ export async function fetchGasStationDetail(id: string): Promise<GasStationDetai
 
 // 지도 POI·즐겨찾기의 이름이 주유소로 보이는지. 오피넷은 좌표 반경으로만 찾을 수
 // 있어서, 이름으로 먼저 거르지 않으면 아무 장소나 열 때마다 반경 조회가 나간다.
-const GAS_NAME = /주유소|오일뱅크|칼텍스|에너지|S-?OIL|알뜰/i;
+const GAS_NAME = /주유소|오일뱅크|칼텍스|S-?OIL|알뜰/i;
 
 export function looksLikeGasStation(name: string): boolean {
   return GAS_NAME.test(name);
