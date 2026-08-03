@@ -31,20 +31,9 @@ import SubmitCourse from '@/components/submit/SubmitCourse';
 import SubmitFeedback from '@/components/submit/SubmitFeedback';
 import SubmitHazard from '@/components/submit/SubmitHazard';
 import AddressSearchModal from '@/components/submit/AddressSearchModal';
+import TimeField from '@/components/submit/TimeField';
 import type { PlaceCategory } from '@/types';
 import { DAY_LABELS, WEEK, formatWeek, type DayKey, type Hours } from '@/lib/hours';
-
-// "9:00", "0900", "9" 를 다 받아준다 — 라이더가 장갑 끼고 치는 입력이다
-function normalizeTime(input: string): string | null {
-  const raw = input.trim();
-  if (!raw) return null;
-  const m = /^(\d{1,2})\s*[:.]?\s*(\d{2})?$/.exec(raw);
-  if (!m) return null;
-  const h = Number(m[1]);
-  const min = Number(m[2] ?? '0');
-  if (h > 24 || min > 59) return null;
-  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
-}
 
 /**
  * 폼 입력을 저장 형태로. hours(구조화)와 openingHours(사람이 읽는 원문)를 함께
@@ -56,8 +45,8 @@ function buildHours(
   closedDays: DayKey[],
   note: string,
 ): { hours?: Hours; openingHours?: string } {
-  const open = normalizeTime(openInput);
-  const close = normalizeTime(closeInput);
+  const open = openInput || null;
+  const close = closeInput || null;
   const span = open && close ? [{ open, close }] : null;
   const trimmedNote = note.trim();
   if (!span && closedDays.length === 0 && !trimmedNote) return {};
@@ -305,9 +294,9 @@ function SubmitPlace() {
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>영업시간</Text>
         <View style={styles.hoursRow}>
-          <TextInput style={[inputStyle, styles.timeInput]} placeholder="09:00" placeholderTextColor={colors.textSecondary} value={openAt} onChangeText={setOpenAt} keyboardType="numbers-and-punctuation" />
+          <TimeField label="09:00" value={openAt} onChange={setOpenAt} />
           <Text style={[styles.hoursDash, { color: colors.textSecondary }]}>~</Text>
-          <TextInput style={[inputStyle, styles.timeInput]} placeholder="22:00" placeholderTextColor={colors.textSecondary} value={closeAt} onChangeText={setCloseAt} keyboardType="numbers-and-punctuation" />
+          <TimeField label="22:00" value={closeAt} onChange={setCloseAt} />
         </View>
 
         <Text style={[styles.hoursHint, { color: colors.textSecondary }]}>쉬는 요일을 눌러주세요</Text>
@@ -407,7 +396,6 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 40 },
   sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: 16, marginBottom: 8 },
   hoursRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  timeInput: { flex: 1 },
   hoursDash: { fontSize: 15 },
   hoursHint: { fontSize: 12, marginTop: 12, marginBottom: 6 },
   dayRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
