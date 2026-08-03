@@ -13,7 +13,7 @@ interface Props {
 }
 
 // 구글이 주는 값. OPERATIONAL 은 평범한 영업 상태라 따로 표시할 게 없다.
-const STATUS_LABELS: Record<string, string> = {
+export const STATUS_LABELS: Record<string, string> = {
   CLOSED_TEMPORARILY: '임시 휴업',
   CLOSED_PERMANENTLY: '폐업',
 };

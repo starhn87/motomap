@@ -15,7 +15,7 @@ import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavor
 import { useGasPricesAt } from '@/hooks/useGasStations';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
 import { poiSourceKey } from '@/lib/api/placeHours';
-import OpenBadge from '@/components/place/OpenBadge';
+import PlaceHoursBlock from '@/components/place/PlaceHoursBlock';
 import { FUEL_LABELS, formatTradeAt } from '@/lib/api/gasStations';
 
 export interface TempPlace {
@@ -50,7 +50,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   // 단골 주유소도 이 카드로 오기 때문에 여기 한 곳이면 두 경로가 다 걸린다.
   const { data: gas, isLoading: gasLoading } = useGasPricesAt(place);
   // 우리 DB 에 없는 장소라 영업시간은 구글에서 온다
-  const { data: placeHours } = usePlaceHours({
+  const { data: placeHours, isLoading: hoursLoading } = usePlaceHours({
     sourceKey: poiSourceKey(place.latitude, place.longitude),
     name: place.name,
     latitude: place.latitude,
@@ -167,7 +167,6 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
           <Text style={[styles.address, { color: colors.textSecondary }]} numberOfLines={1}>
             {place.address}
           </Text>
-          <OpenBadge hours={placeHours?.hours} businessStatus={placeHours?.businessStatus} />
         </View>
         {!!place.phone && (
           <Pressable
@@ -203,6 +202,12 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
           <Ionicons name="close" size={20} color={colors.textSecondary} />
         </Pressable>
       </View>
+
+      <PlaceHoursBlock
+        loading={hoursLoading}
+        hours={placeHours?.hours}
+        businessStatus={placeHours?.businessStatus}
+      />
 
       {/* 주유소로 보이면 값이 오기 전에 자리를 잡아 둔다. 유종이 2개인 곳도 있어
           minHeight 로 높이를 고정해야 줄 수가 달라도 카드가 안 흔들린다. */}

@@ -10,7 +10,7 @@ import { FUEL_LABELS, formatTradeAt, type GasStation } from '@/lib/api/gasStatio
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
-import OpenBadge from '@/components/place/OpenBadge';
+import PlaceHoursBlock from '@/components/place/PlaceHoursBlock';
 import { toast } from '@/lib/toast';
 
 interface Props {
@@ -23,7 +23,7 @@ export default function GasStationCard({ station, onClose }: Props) {
   const colors = Colors[colorScheme ?? 'light'];
   const { data: detail, isLoading } = useGasStationDetail(station.id);
   // 오피넷은 영업시간을 주지 않는다 — 24시간이 아닌 주유소가 있어 구글로 메운다
-  const { data: openHours } = usePlaceHours({
+  const { data: openHours, isLoading: hoursLoading } = usePlaceHours({
     sourceKey: `gas:${station.id}`,
     name: station.name,
     latitude: station.latitude,
@@ -67,7 +67,6 @@ export default function GasStationCard({ station, onClose }: Props) {
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
             {station.name}
           </Text>
-          <OpenBadge hours={openHours?.hours} businessStatus={openHours?.businessStatus} />
           <View style={styles.badgeRow}>
             {!!station.brand && (
               <Text style={[styles.badge, { color: colors.textSecondary, borderColor: colors.border }]}>
@@ -125,6 +124,12 @@ export default function GasStationCard({ station, onClose }: Props) {
               </View>
             ))}
       </View>
+
+      <PlaceHoursBlock
+        loading={hoursLoading}
+        hours={openHours?.hours}
+        businessStatus={openHours?.businessStatus}
+      />
 
       <View style={styles.footer}>
         {isLoading ? (
