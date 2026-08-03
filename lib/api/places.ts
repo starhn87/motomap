@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { Place, PlaceCategory } from '@/types';
+import type { Hours } from '@/lib/hours';
 import { requireUser } from '@/lib/auth';
 
 // nearby_places / all_places RPC 가 반환하는 행 (PostGIS location 을 lat/lng 로 풀어서 준다)
@@ -17,6 +18,7 @@ export interface PlaceRow {
   review_count: number | null;
   tags: string[] | null;
   opening_hours: string | null;
+  hours: Hours | null;
   parking_info: string | null;
   submitted_by: string;
   approved: boolean;
@@ -40,6 +42,7 @@ interface SubmitPlaceParams {
   phone?: string;
   tags?: string[];
   openingHours?: string;
+  hours?: Hours;
   parkingInfo?: string;
 }
 
@@ -58,6 +61,7 @@ export function rowToPlace(row: PlaceRow): Place {
     reviewCount: row.review_count ?? 0,
     tags: row.tags ?? [],
     openingHours: row.opening_hours ?? undefined,
+    hours: row.hours ?? undefined,
     parkingInfo: row.parking_info ?? undefined,
     submittedBy: row.submitted_by,
     approved: row.approved,
@@ -138,6 +142,7 @@ export async function submitPlace(params: SubmitPlaceParams): Promise<void> {
     phone: params.phone,
     tags: params.tags ?? [],
     opening_hours: params.openingHours,
+    hours: params.hours,
     parking_info: params.parkingInfo,
     submitted_by: user.id,
   });

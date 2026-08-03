@@ -1,3 +1,5 @@
+import type { Hours } from '@/lib/hours';
+
 export type PlaceCategory =
   | 'cafe'
   | 'restaurant'
@@ -22,7 +24,10 @@ export interface Place {
   rating: number;
   reviewCount: number;
   tags: string[];
+  /** 사람이 쓴 원문 — 구조화가 못 담는 뉘앙스가 여기 있다 */
   openingHours?: string;
+  /** 구조화된 영업시간. 있으면 "지금 영업중"을 계산한다 */
+  hours?: Hours;
   parkingInfo?: string;
   submittedBy: string;
   approved: boolean;

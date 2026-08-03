@@ -32,6 +32,45 @@ import SubmitFeedback from '@/components/submit/SubmitFeedback';
 import SubmitHazard from '@/components/submit/SubmitHazard';
 import AddressSearchModal from '@/components/submit/AddressSearchModal';
 import type { PlaceCategory } from '@/types';
+import { DAY_LABELS, WEEK, formatWeek, type DayKey, type Hours } from '@/lib/hours';
+
+// "9:00", "0900", "9" 를 다 받아준다 — 라이더가 장갑 끼고 치는 입력이다
+function normalizeTime(input: string): string | null {
+  const raw = input.trim();
+  if (!raw) return null;
+  const m = /^(\d{1,2})\s*[:.]?\s*(\d{2})?$/.exec(raw);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2] ?? '0');
+  if (h > 24 || min > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+/**
+ * 폼 입력을 저장 형태로. hours(구조화)와 openingHours(사람이 읽는 원문)를 함께
+ * 만든다 — 원문은 hours 를 못 읽는 화면과 예전 데이터 표시 경로가 쓴다.
+ */
+function buildHours(
+  openInput: string,
+  closeInput: string,
+  closedDays: DayKey[],
+  note: string,
+): { hours?: Hours; openingHours?: string } {
+  const open = normalizeTime(openInput);
+  const close = normalizeTime(closeInput);
+  const span = open && close ? [{ open, close }] : null;
+  const trimmedNote = note.trim();
+  if (!span && closedDays.length === 0 && !trimmedNote) return {};
+
+  const hours: Hours = {};
+  for (const day of WEEK) {
+    hours[day] = closedDays.includes(day) ? [] : span;
+  }
+  if (trimmedNote) hours.note = trimmedNote;
+
+  const openingHours = [...formatWeek(hours), trimmedNote].filter(Boolean).join(' / ');
+  return { hours, openingHours: openingHours || undefined };
+}
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -90,7 +129,10 @@ function SubmitPlace() {
   const [addressDetail, setAddressDetail] = useState('');
   const [phone, setPhone] = useState('');
   const [tags, setTags] = useState('');
-  const [openingHours, setOpeningHours] = useState('');
+  const [openAt, setOpenAt] = useState('');
+  const [closeAt, setCloseAt] = useState('');
+  const [closedDays, setClosedDays] = useState<DayKey[]>([]);
+  const [hoursNote, setHoursNote] = useState('');
   const [parkingInfo, setParkingInfo] = useState('');
   const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -160,7 +202,7 @@ function SubmitPlace() {
         address: [address.trim(), addressDetail.trim()].filter(Boolean).join(' '),
         phone: phone.trim() || undefined,
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
-        openingHours: openingHours.trim() || undefined,
+        ...buildHours(openAt, closeAt, closedDays, hoursNote),
         parkingInfo: parkingInfo.trim() || undefined,
       });
 
@@ -181,7 +223,10 @@ function SubmitPlace() {
       setAddressDetail('');
       setPhone('');
       setTags('');
-      setOpeningHours('');
+      setOpenAt('');
+      setCloseAt('');
+      setClosedDays([]);
+      setHoursNote('');
       setParkingInfo('');
     } catch (error: any) {
       toast.error('제보에 실패했습니다.', error.message);
@@ -259,7 +304,39 @@ function SubmitPlace() {
         <TextInput style={inputStyle} placeholder="02-1234-5678" placeholderTextColor={colors.textSecondary} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>영업시간</Text>
-        <TextInput style={inputStyle} placeholder="09:00 - 22:00" placeholderTextColor={colors.textSecondary} value={openingHours} onChangeText={setOpeningHours} />
+        <View style={styles.hoursRow}>
+          <TextInput style={[inputStyle, styles.timeInput]} placeholder="09:00" placeholderTextColor={colors.textSecondary} value={openAt} onChangeText={setOpenAt} keyboardType="numbers-and-punctuation" />
+          <Text style={[styles.hoursDash, { color: colors.textSecondary }]}>~</Text>
+          <TextInput style={[inputStyle, styles.timeInput]} placeholder="22:00" placeholderTextColor={colors.textSecondary} value={closeAt} onChangeText={setCloseAt} keyboardType="numbers-and-punctuation" />
+        </View>
+
+        <Text style={[styles.hoursHint, { color: colors.textSecondary }]}>쉬는 요일을 눌러주세요</Text>
+        <View style={styles.dayRow}>
+          {WEEK.map((day) => {
+            const off = closedDays.includes(day);
+            return (
+              <Pressable
+                key={day}
+                onPress={() =>
+                  setClosedDays((prev) =>
+                    prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
+                  )
+                }
+                style={[
+                  styles.dayChip,
+                  {
+                    backgroundColor: off ? colors.tint : 'transparent',
+                    borderColor: off ? colors.tint : colors.border,
+                  },
+                ]}>
+                <Text style={[styles.dayChipText, { color: off ? colors.background : colors.textSecondary }]}>
+                  {DAY_LABELS[day]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <TextInput style={inputStyle} placeholder="특이사항 (예: 우천 휴무, 라스트오더 21:30)" placeholderTextColor={colors.textSecondary} value={hoursNote} onChangeText={setHoursNote} />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>주차 정보</Text>
         <TextInput style={inputStyle} placeholder="바이크 전용 주차 20대" placeholderTextColor={colors.textSecondary} value={parkingInfo} onChangeText={setParkingInfo} />
@@ -329,6 +406,19 @@ const styles = StyleSheet.create({
   tabLabel: { fontSize: 14, fontWeight: '700' },
   content: { padding: 20, paddingBottom: 40 },
   sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: 16, marginBottom: 8 },
+  hoursRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  timeInput: { flex: 1 },
+  hoursDash: { fontSize: 15 },
+  hoursHint: { fontSize: 12, marginTop: 12, marginBottom: 6 },
+  dayRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
+  dayChip: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  dayChipText: { fontSize: 13, fontWeight: '600' },
   categories: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   categoryChip: {
     gap: 5,
