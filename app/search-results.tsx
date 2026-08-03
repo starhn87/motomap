@@ -140,6 +140,9 @@ export default function SearchResultsScreen() {
         source: 'search_results',
       });
       void addRecentSearch({ type: 'place', place: item.place });
+      // 두 시트는 겹쳐 있다 — 하나를 열 때 다른 하나를 반드시 닫는다.
+      // 안 그러면 위 시트를 내렸을 때 아까 보던 카드가 뒤에서 드러난다.
+      setSelectedTemp(null);
       setSelectedPlace(item.place);
       mapRef.current?.animateCameraTo({
         latitude: item.place.latitude - sheetLatOffset(zoom, screenH, item.place.latitude),
@@ -158,6 +161,7 @@ export default function SearchResultsScreen() {
         longitude: k.longitude,
         phone: k.phone,
       });
+      setSelectedPlace(null);
       setSelectedTemp({
         name: k.placeName,
         address: k.roadAddress || k.address,
