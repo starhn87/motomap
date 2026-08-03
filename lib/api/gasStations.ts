@@ -47,6 +47,12 @@ export interface GasStationDetail {
   prices: { prod: string; price: number; tradeAt: string }[];
 }
 
+// 상세의 TRADE_DT/TM("20260714 175951") → "07.14 17:59 기준"
+export function formatTradeAt(tradeAt: string): string {
+  const m = tradeAt.match(/^\d{4}(\d{2})(\d{2})\s+(\d{2})(\d{2})/);
+  return m ? `${m[1]}.${m[2]} ${m[3]}:${m[4]} 기준` : '';
+}
+
 export async function fetchNearbyGasStations(params: {
   latitude: number;
   longitude: number;
@@ -74,4 +80,60 @@ export async function fetchGasStationDetail(id: string): Promise<GasStationDetai
   });
   if (error) throw new Error(`주유소 상세를 불러오지 못했습니다: ${error.message}`);
   return data as GasStationDetail;
+}
+
+// 지도 POI·즐겨찾기의 이름이 주유소로 보이는지. 오피넷은 좌표 반경으로만 찾을 수
+// 있어서, 이름으로 먼저 거르지 않으면 아무 장소나 열 때마다 반경 조회가 나간다.
+const GAS_NAME = /주유소|오일뱅크|칼텍스|에너지|S-?OIL|알뜰/i;
+
+export function looksLikeGasStation(name: string): boolean {
+  return GAS_NAME.test(name);
+}
+
+// "HD현대오일뱅크㈜직영 사평로주유소" 와 "현대오일뱅크(주) 사평로주유소" 를 같게 본다
+function normalizeName(name: string): string {
+  return name
+    .replace(/㈜|\(주\)|주식회사|직영|셀프/g, '')
+    .replace(/[\s·・.]/g, '')
+    .toLowerCase();
+}
+
+/**
+ * 좌표에 있는 주유소의 유가. 주유소 카테고리를 켜지 않고 POI 를 눌렀거나,
+ * 즐겨찾기에서 들어왔을 때도 가격이 보이도록 쓴다.
+ *
+ * 주유소가 아니거나 못 찾으면 null — 호출부는 그냥 아무것도 안 그리면 된다.
+ */
+export async function fetchGasPricesAt(place: {
+  name: string;
+  latitude: number;
+  longitude: number;
+}): Promise<GasStationDetail | null> {
+  // 반경은 오피넷 프록시의 하한이 500m 다
+  const nearby = await fetchNearbyGasStations({
+    latitude: place.latitude,
+    longitude: place.longitude,
+    radius: 500,
+  });
+  if (nearby.length === 0) return null;
+
+  const target = normalizeName(place.name);
+  const candidates = nearby
+    .map((station) => {
+      const name = normalizeName(station.name);
+      return {
+        station,
+        meters: Math.hypot(
+          (station.latitude - place.latitude) * 111000,
+          (station.longitude - place.longitude) * 88000,
+        ),
+        sameName: name.includes(target) || target.includes(name),
+      };
+    })
+    .sort((a, b) => a.meters - b.meters);
+
+  // 오피넷 좌표는 KATEC 변환을 거쳐 실제와 수십 m 어긋난다. 상호까지 맞으면
+  // 좀 더 멀어도 같은 곳으로 본다.
+  const hit = candidates.find((c) => c.meters < 150 || (c.sameName && c.meters < 300));
+  return hit ? fetchGasStationDetail(hit.station.id) : null;
 }

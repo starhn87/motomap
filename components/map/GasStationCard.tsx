@@ -6,7 +6,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useGasStationDetail } from '@/hooks/useGasStations';
 import { openNavigation } from '@/lib/navigation';
-import { FUEL_LABELS, type GasStation } from '@/lib/api/gasStations';
+import { FUEL_LABELS, formatTradeAt, type GasStation } from '@/lib/api/gasStations';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
 import { toast } from '@/lib/toast';
@@ -14,12 +14,6 @@ import { toast } from '@/lib/toast';
 interface Props {
   station: GasStation;
   onClose: () => void;
-}
-
-// 상세의 TRADE_DT/TM("20260714 175951") → "07.14 17:59 기준"
-function formatTradeAt(tradeAt: string): string {
-  const m = tradeAt.match(/^\d{4}(\d{2})(\d{2})\s+(\d{2})(\d{2})/);
-  return m ? `${m[1]}.${m[2]} ${m[3]}:${m[4]} 기준` : '';
 }
 
 export default function GasStationCard({ station, onClose }: Props) {

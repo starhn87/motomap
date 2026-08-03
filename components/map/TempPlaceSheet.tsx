@@ -1,5 +1,5 @@
 import { View, Text, Pressable, StyleSheet, Alert, Linking, ActivityIndicator } from 'react-native';
-import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInUp, FadeOutDown } from 'react-native-reanimated';
 import { router } from 'expo-router';
 
 import Colors from '@/constants/Colors';
@@ -12,6 +12,8 @@ import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
+import { useGasPricesAt } from '@/hooks/useGasStations';
+import { FUEL_LABELS, formatTradeAt } from '@/lib/api/gasStations';
 
 export interface TempPlace {
   name: string;
@@ -41,6 +43,10 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   const user = useAuthStore((st) => st.user);
   const isFavorite = useIsGeneralFavorite(place);
   const { mutateAsync: toggleFavorite, isPending: favPending } = useToggleGeneralFavorite();
+  // 주유소면 카테고리 필터를 켜지 않았어도 유가를 보여준다 — 즐겨찾기로 들어온
+  // 단골 주유소도 이 카드로 오기 때문에 여기 한 곳이면 두 경로가 다 걸린다.
+  const { data: gas } = useGasPricesAt(place);
+  const fuelPrices = (gas?.prices ?? []).filter((p) => p.prod in FUEL_LABELS);
 
   const handleFavorite = async () => {
     if (!user) {
@@ -187,6 +193,26 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         </Pressable>
       </View>
 
+      {/* 매칭 실패도 흔하니 로딩 자리는 잡지 않는다 — 값이 오면 그때 나타난다.
+          카드가 bottom 고정이라 위로만 자라서 버튼 자리는 흔들리지 않는다. */}
+      {fuelPrices.length > 0 && (
+        <Animated.View entering={FadeIn.duration(200)} style={styles.priceRows}>
+          {fuelPrices.map((p) => (
+            <View key={p.prod} style={styles.priceRow}>
+              <Text style={[styles.fuelLabel, { color: colors.textSecondary }]}>
+                {FUEL_LABELS[p.prod as keyof typeof FUEL_LABELS]}
+              </Text>
+              <Text style={[styles.fuelPrice, { color: colors.text }]}>
+                {p.price.toLocaleString()}원
+              </Text>
+            </View>
+          ))}
+          <Text style={[styles.tradeAt, { color: colors.textSecondary }]}>
+            {formatTradeAt(fuelPrices[0].tradeAt)}
+          </Text>
+        </Animated.View>
+      )}
+
       <View style={styles.actions}>
         <Pressable
           disabled={navLaunching}
@@ -251,6 +277,27 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 2,
+  },
+  priceRows: {
+    gap: 6,
+    marginTop: 14,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  fuelLabel: {
+    fontSize: 14,
+  },
+  fuelPrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  tradeAt: {
+    fontSize: 11,
+    textAlign: 'right',
   },
   actions: {
     flexDirection: 'row',

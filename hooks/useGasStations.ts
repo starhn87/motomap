@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import {
   fetchNearbyGasStations,
   fetchGasStationDetail,
+  fetchGasPricesAt,
+  looksLikeGasStation,
   type FuelCode,
 } from '@/lib/api/gasStations';
 
@@ -32,6 +34,18 @@ export function useGasStationDetail(id: string | null) {
     queryKey: ['gas-station', id],
     queryFn: () => fetchGasStationDetail(id!),
     enabled: !!id,
+    staleTime: 3 * 60 * 1000,
+  });
+}
+
+// 일반 장소 카드에 유가를 얹기 위한 조회 — 주유소로 보이는 이름일 때만 나간다.
+export function useGasPricesAt(
+  place: { name: string; latitude: number; longitude: number } | null,
+) {
+  return useQuery({
+    queryKey: ['gas-at', place?.latitude, place?.longitude, place?.name],
+    queryFn: () => fetchGasPricesAt(place!),
+    enabled: !!place && looksLikeGasStation(place.name),
     staleTime: 3 * 60 * 1000,
   });
 }
