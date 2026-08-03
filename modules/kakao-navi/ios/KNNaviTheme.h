@@ -17,8 +17,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 // 주행 경로선 테마. SDK 는 테마를 통째로 갈아끼우는 API 만 열어 두어서
 // (읽어오는 getter 가 없다) 혼잡도 색까지 전부 우리가 정한다.
+// 혼잡도 색이 들어간 테마 (trafficMode:YES 일 때 그려지는 쪽)
 + (KNMapRouteTheme *)routeThemeDay;
 + (KNMapRouteTheme *)routeThemeNight;
+// 혼잡도 없이 단색으로 그리는 테마
++ (KNMapRouteTheme *)driveThemeDay;
++ (KNMapRouteTheme *)driveThemeNight;
 
 @end
 

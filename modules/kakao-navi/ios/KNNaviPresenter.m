@@ -177,10 +177,10 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 - (void)applyCarTheme {
   KNNaviMapView *mapView = self.naviView.mapView;
   [mapView setCustomCarImages:[KNNaviTheme carImages] anchor:[KNNaviTheme carAnchor]];
-  // trafficMode 가 켜져 있어 실제로 그려지는 건 Traffic 테마지만, 꺼졌을 때를
-  // 위해 Drive 쪽도 같은 테마로 채운다
-  [mapView setRouteThemeDriveDay:[KNNaviTheme routeThemeDay]
-            routeThemeDriveNight:[KNNaviTheme routeThemeNight]
+  // trafficMode 가 켜져 있어 실제로 그려지는 건 Traffic 쪽이지만, 꺼졌을 때를
+  // 위해 Drive 쪽도 같은 외곽선으로 맞춰 둔다
+  [mapView setRouteThemeDriveDay:[KNNaviTheme driveThemeDay]
+            routeThemeDriveNight:[KNNaviTheme driveThemeNight]
             routeThemeTrafficDay:[KNNaviTheme routeThemeDay]
           routeThemeTrafficNight:[KNNaviTheme routeThemeNight]];
 

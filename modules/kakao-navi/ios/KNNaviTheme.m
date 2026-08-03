@@ -35,43 +35,28 @@ static UIColor *Hex(uint32_t rgb) {
   return color;
 }
 
-static KNRouteColors *RouteColors(UIColor *normal, UIColor *moderate, UIColor *heavy,
-                                  UIColor *veryHeavy, UIColor *unknown, UIColor *blocked) {
-  KNRouteColors *colors = [[KNRouteColors alloc] init];
-  colors.normal = normal;
-  colors.trafficJamModerate = moderate;
-  colors.trafficJamHeavy = heavy;
-  colors.trafficJamVeryHeavy = veryHeavy;
-  colors.unknown = unknown;
-  colors.blocked = blocked;
-  return colors;
-}
-
 // 테두리는 상단 배너와 같은 색이다. 밝은 혼잡도 색을 짙은 선이 감싸면 경로가
 // 지도에서 떠오르고, 화면 위아래가 한 톤으로 묶인다.
-static KNMapRouteTheme *RouteTheme(UIColor *stroke) {
+//
+// SDK 기본 테마를 받아 외곽선만 갈아끼운다. 통째로 만들면 혼잡도 색을 전부
+// 다시 정해야 하고, nonnull 인 alterRoute 를 빠뜨려 그리는 순간 죽는다(실증).
+static KNMapRouteTheme *RouteTheme(KNMapRouteTheme *base, UIColor *stroke) {
+  KNRouteColors *strokes = [KNRouteColors routeColors];
+  strokes.normal = stroke;
+  strokes.trafficJamModerate = stroke;
+  strokes.trafficJamHeavy = stroke;
+  strokes.trafficJamVeryHeavy = stroke;
+  strokes.unknown = stroke;
+  strokes.blocked = stroke;
+
+  // KNRouteColors 도 assign 으로 담긴다 — 테마와 함께 붙잡아 둔다
   static NSMutableArray *keepAlive;
   static dispatch_once_t once;
   dispatch_once(&once, ^{ keepAlive = [NSMutableArray array]; });
-
-  // MotoGreen/MotoGray 도 호출마다 새 객체를 만든다. 같은 값을 Hex 캐시로 받아
-  // 수명 문제를 한 곳에서 끝낸다.
-  KNRouteColors *lines = RouteColors(Hex(0x22C55E), // 원활 — 미리보기 경로선과 같은 초록
-                                     Hex(0xF59E0B), // 서행
-                                     Hex(0xEF4444), // 정체
-                                     Hex(0xB91C1C), // 심각
-                                     Hex(0xA1A1AA), // 정보 없음
-                                     Hex(0x6B7280)); // 통제
-  KNRouteColors *strokes = RouteColors(stroke, stroke, stroke, stroke, stroke, stroke);
-  [keepAlive addObject:lines];
   [keepAlive addObject:strokes];
 
-  KNMapRouteTheme *theme = [[KNMapRouteTheme alloc] init];
-  theme.lineWidth = 14;
-  theme.strokeWidth = 4;
-  theme.lineColors = lines;
-  theme.strokeColors = strokes;
-  return theme;
+  base.strokeColors = strokes;
+  return base;
 }
 
 @implementation KNNaviTheme
@@ -79,14 +64,28 @@ static KNMapRouteTheme *RouteTheme(UIColor *stroke) {
 + (KNMapRouteTheme *)routeThemeDay {
   static KNMapRouteTheme *theme;
   static dispatch_once_t once;
-  dispatch_once(&once, ^{ theme = RouteTheme(Hex(0x18181B)); });
+  dispatch_once(&once, ^{ theme = RouteTheme([KNMapRouteTheme trafficDay], Hex(0x18181B)); });
   return theme;
 }
 
 + (KNMapRouteTheme *)routeThemeNight {
   static KNMapRouteTheme *theme;
   static dispatch_once_t once;
-  dispatch_once(&once, ^{ theme = RouteTheme(Hex(0x0A0A0A)); });
+  dispatch_once(&once, ^{ theme = RouteTheme([KNMapRouteTheme trafficNight], Hex(0x0A0A0A)); });
+  return theme;
+}
+
++ (KNMapRouteTheme *)driveThemeDay {
+  static KNMapRouteTheme *theme;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{ theme = RouteTheme([KNMapRouteTheme driveDay], Hex(0x18181B)); });
+  return theme;
+}
+
++ (KNMapRouteTheme *)driveThemeNight {
+  static KNMapRouteTheme *theme;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{ theme = RouteTheme([KNMapRouteTheme driveNight], Hex(0x0A0A0A)); });
   return theme;
 }
 
