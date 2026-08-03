@@ -202,9 +202,11 @@ static __weak KNNaviViewController *gActiveNavi = nil;
   [self.naviView guidanceRouteChanged:aGuidance];
 }
 
+// 목적지에 닿아 안내 엔진이 끝나도 화면은 그대로 둔다 — 주행 중에 앱이 스스로
+// 화면을 걷어버리는 게 위험하다는 판단(사용자). 끝내는 건 라이더가 SDK 메뉴의
+// 안내 종료로 직접 한다(그건 naviViewGuideEnded 로 들어온다).
 - (void)guidanceGuideEnded:(KNGuidance *)aGuidance {
   [self.naviView guidanceGuideEnded:aGuidance isShowDriveResultDialog:NO];
-  [self finish];
 }
 
 - (void)guidance:(KNGuidance *)aGuidance
