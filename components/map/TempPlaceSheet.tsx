@@ -16,7 +16,7 @@ import { useGasPricesAt } from '@/hooks/useGasStations';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
 import { poiSourceKey } from '@/lib/api/placeHours';
 import PlaceHoursBlock from '@/components/place/PlaceHoursBlock';
-import { FUEL_LABELS, formatTradeAt } from '@/lib/api/gasStations';
+import { FUEL_LABELS, formatTradeAt, looksLikeGasStation } from '@/lib/api/gasStations';
 
 export interface TempPlace {
   name: string;
@@ -49,13 +49,18 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   // 주유소면 카테고리 필터를 켜지 않았어도 유가를 보여준다 — 즐겨찾기로 들어온
   // 단골 주유소도 이 카드로 오기 때문에 여기 한 곳이면 두 경로가 다 걸린다.
   const { data: gas, isLoading: gasLoading } = useGasPricesAt(place);
-  // 우리 DB 에 없는 장소라 영업시간은 구글에서 온다
-  const { data: placeHours } = usePlaceHours({
-    sourceKey: poiSourceKey(place.latitude, place.longitude),
-    name: place.name,
-    latitude: place.latitude,
-    longitude: place.longitude,
-  });
+  // 우리 DB 에 없는 장소라 영업시간은 구글에서 온다. 주유소는 빼는데, 요즘은
+  // 대부분 셀프에 24시간이라 알아봐야 나오는 게 없다(표본에서도 1/3만 잡혔다).
+  const { data: placeHours } = usePlaceHours(
+    looksLikeGasStation(place.name)
+      ? null
+      : {
+          sourceKey: poiSourceKey(place.latitude, place.longitude),
+          name: place.name,
+          latitude: place.latitude,
+          longitude: place.longitude,
+        },
+  );
   const fuelPrices = (gas?.prices ?? []).filter((p) => p.prod in FUEL_LABELS);
 
   const handleFavorite = async () => {
