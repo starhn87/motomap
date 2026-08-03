@@ -193,6 +193,7 @@ export default function SearchResultsScreen() {
                 key={`place-${item.place.id}`}
                 latitude={item.place.latitude}
                 longitude={item.place.longitude}
+                onTap={() => pick(item)}
                 anchor={isSelected ? { x: 0.5, y: 1 } : { x: 0.5, y: 0.5 }}
                 width={isSelected ? 38 : 30}
                 height={isSelected ? 44 : 30}
@@ -213,6 +214,7 @@ export default function SearchResultsScreen() {
               latitude={item.k.latitude}
               longitude={item.k.longitude}
               circle={!isSelected}
+              onTap={() => pick(item)}
             />
           );
         })}
