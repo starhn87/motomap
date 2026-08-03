@@ -1,5 +1,5 @@
 import { View, Text, Pressable, StyleSheet, Alert, Linking, ActivityIndicator } from 'react-native';
-import Animated, { FadeIn, FadeInUp, FadeOutDown } from 'react-native-reanimated';
+import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 import { router } from 'expo-router';
 
 import Colors from '@/constants/Colors';
@@ -45,7 +45,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   const { mutateAsync: toggleFavorite, isPending: favPending } = useToggleGeneralFavorite();
   // 주유소면 카테고리 필터를 켜지 않았어도 유가를 보여준다 — 즐겨찾기로 들어온
   // 단골 주유소도 이 카드로 오기 때문에 여기 한 곳이면 두 경로가 다 걸린다.
-  const { data: gas } = useGasPricesAt(place);
+  const { data: gas, isLoading: gasLoading } = useGasPricesAt(place);
   const fuelPrices = (gas?.prices ?? []).filter((p) => p.prod in FUEL_LABELS);
 
   const handleFavorite = async () => {
@@ -193,24 +193,35 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         </Pressable>
       </View>
 
-      {/* 매칭 실패도 흔하니 로딩 자리는 잡지 않는다 — 값이 오면 그때 나타난다.
-          카드가 bottom 고정이라 위로만 자라서 버튼 자리는 흔들리지 않는다. */}
-      {fuelPrices.length > 0 && (
-        <Animated.View entering={FadeIn.duration(200)} style={styles.priceRows}>
-          {fuelPrices.map((p) => (
-            <View key={p.prod} style={styles.priceRow}>
-              <Text style={[styles.fuelLabel, { color: colors.textSecondary }]}>
-                {FUEL_LABELS[p.prod as keyof typeof FUEL_LABELS]}
-              </Text>
-              <Text style={[styles.fuelPrice, { color: colors.text }]}>
-                {p.price.toLocaleString()}원
-              </Text>
-            </View>
-          ))}
+      {/* 주유소로 보이면 값이 오기 전에 자리를 잡아 둔다. 유종이 2개인 곳도 있어
+          minHeight 로 높이를 고정해야 줄 수가 달라도 카드가 안 흔들린다. */}
+      {(gasLoading || fuelPrices.length > 0) && (
+        <View style={styles.priceRows}>
+          {gasLoading
+            ? [0, 1, 2].map((i) => (
+                <View key={i} style={styles.priceRow}>
+                  <View
+                    style={[styles.skeleton, { width: 56, backgroundColor: colors.surfaceMuted }]}
+                  />
+                  <View
+                    style={[styles.skeleton, { width: 80, backgroundColor: colors.surfaceMuted }]}
+                  />
+                </View>
+              ))
+            : fuelPrices.map((p) => (
+                <View key={p.prod} style={styles.priceRow}>
+                  <Text style={[styles.fuelLabel, { color: colors.textSecondary }]}>
+                    {FUEL_LABELS[p.prod as keyof typeof FUEL_LABELS]}
+                  </Text>
+                  <Text style={[styles.fuelPrice, { color: colors.text }]}>
+                    {p.price.toLocaleString()}원
+                  </Text>
+                </View>
+              ))}
           <Text style={[styles.tradeAt, { color: colors.textSecondary }]}>
-            {formatTradeAt(fuelPrices[0].tradeAt)}
+            {gasLoading ? '' : formatTradeAt(fuelPrices[0].tradeAt)}
           </Text>
-        </Animated.View>
+        </View>
       )}
 
       <View style={styles.actions}>
@@ -281,22 +292,33 @@ const styles = StyleSheet.create({
   priceRows: {
     gap: 6,
     marginTop: 14,
+    // 3줄(20) + gap(6×3) + 기준 시각(14). 유종이 2개여도 이 높이를 지킨다
+    minHeight: 92,
   },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    // 스켈레톤과 실제 텍스트의 높이를 같게 못 박는다 (아래 lineHeight 와 한 쌍)
+    height: 20,
   },
   fuelLabel: {
     fontSize: 14,
+    lineHeight: 20,
   },
   fuelPrice: {
     fontSize: 16,
+    lineHeight: 20,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
+  skeleton: {
+    height: 14,
+    borderRadius: 7,
+  },
   tradeAt: {
     fontSize: 11,
+    lineHeight: 14,
     textAlign: 'right',
   },
   actions: {
