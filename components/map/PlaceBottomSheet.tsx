@@ -283,6 +283,23 @@ function PlaceBottomSheet({
     [handleIndicatorStyle]
   );
 
+  // 등록 장소라도 영업시간이 비어 있는 곳이 대부분이라(148곳 중 7곳) 구글로
+  // 메운다. 우리 데이터가 있으면 그게 우선 — 제보자가 직접 확인한 값이고,
+  // "우천 휴무" 처럼 구글이 모르는 사정이 담겨 있다.
+  //
+  // 아래 early return 보다 위에 있어야 한다. 시트가 닫힌 렌더에서만 훅이 빠지면
+  // 순서가 어긋나 React 가 터진다.
+  const { data: googleHours } = usePlaceHours(
+    !displayPlace || displayPlace.hours
+      ? null
+      : {
+          sourceKey: `place:${displayPlace.id}`,
+          name: displayPlace.name,
+          latitude: displayPlace.latitude,
+          longitude: displayPlace.longitude,
+        },
+  );
+
   if (!place || !displayPlace) return null;
 
   const distanceMeters = userLocation
@@ -298,19 +315,6 @@ function PlaceBottomSheet({
     return ha - hb;
   });
 
-  // 등록 장소라도 영업시간이 비어 있는 곳이 대부분이라(148곳 중 7곳) 구글로
-  // 메운다. 우리 데이터가 있으면 그게 우선 — 제보자가 직접 확인한 값이고,
-  // "우천 휴무" 처럼 구글이 모르는 사정이 담겨 있다.
-  const { data: googleHours } = usePlaceHours(
-    displayPlace.hours
-      ? null
-      : {
-          sourceKey: `place:${displayPlace.id}`,
-          name: displayPlace.name,
-          latitude: displayPlace.latitude,
-          longitude: displayPlace.longitude,
-        },
-  );
   const hours = displayPlace.hours ?? googleHours?.hours ?? undefined;
 
   // 구조화된 hours 가 있으면 요일별로, 없으면 사람이 쓴 원문을 그대로 보여준다
