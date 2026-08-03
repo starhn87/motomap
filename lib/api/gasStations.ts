@@ -87,8 +87,10 @@ export async function fetchGasStationDetail(id: string): Promise<GasStationDetai
 const GAS_NAME = /주유소|오일뱅크|칼텍스|S-?OIL|알뜰/i;
 
 export function looksLikeGasStation(name: string): boolean {
-  // LPG 는 이륜차와 무관하다 — 조회도 로딩 표시도 하지 않는다
-  if (/LPG/i.test(name)) return false;
+  // "GS칼텍스 LPG" 처럼 브랜드만 붙은 충전소는 브랜드에 걸려 조회가 나가고,
+  // 이륜차와 무관한 곳이라 로딩만 깜빡이다 만다. 다만 "○○주유소 LPG" 는
+  // 휘발유도 파는 겸업이라 살린다.
+  if (/LPG/i.test(name) && !/주유소/.test(name)) return false;
   return GAS_NAME.test(name);
 }
 
