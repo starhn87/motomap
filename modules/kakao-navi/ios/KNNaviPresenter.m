@@ -96,6 +96,35 @@ static __weak KNNaviViewController *gActiveNavi = nil;
   [naviView.menuView setCustomMenu:@[ motoItem ]];
   [naviView.menuView useGuideCancel:NO];
 
+  // 안내를 끝내려면 메뉴를 열어야 했다 — 주행 중에 두 단계는 많다. SDK 는 하단
+  // 바에 버튼을 얹는 API 를 주지 않지만(메뉴 항목과 경로 취소 토글뿐), 이 화면은
+  // 우리 뷰 컨트롤러라 그 위에 직접 그릴 수 있다.
+  //
+  // 자리는 우상단 — 회전 안내 배너 아래, 속도·과속 카메라가 뜨는 좌측을 피한다.
+  // 확인 팝업은 두지 않는다: 주행 중에 팝업을 띄우는 쪽이 더 위험하고, 실수로
+  // 눌러도 다시 시작하면 그만이다. 대신 손이 잘 안 가는 자리에 작게 둔다.
+  //
+  // 미리보기(시뮬레이션)에는 SDK 가 자체 종료 버튼을 이미 그려서 겹치지 않게 뺀다.
+  if (!self.preview) {
+    UIButton *endButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    endButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [endButton setTitle:@"종료" forState:UIControlStateNormal];
+    [endButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+    endButton.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
+    endButton.backgroundColor = [UIColor colorWithWhite:0 alpha:0.55];
+    endButton.layer.cornerRadius = 18;
+    [endButton addTarget:self action:@selector(finish) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:endButton];
+    [NSLayoutConstraint activateConstraints:@[
+      [endButton.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor
+                                               constant:-12],
+      [endButton.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor
+                                          constant:120],
+      [endButton.widthAnchor constraintEqualToConstant:64],
+      [endButton.heightAnchor constraintEqualToConstant:36],
+    ]];
+  }
+
   gActiveNavi = self;
 }
 
