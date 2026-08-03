@@ -57,6 +57,7 @@ export default function SearchResultsScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const mapRef = useRef<NaverMapViewRef>(null);
+  const zoomRef = useRef(13);
   // 결과에서 고른 장소 — 화면을 떠나지 않고 이 지도 위에서 상세 시트를 띄운다.
   // 시트를 닫으면 결과 목록으로 돌아온다(네이버 지도식 복귀).
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
@@ -125,7 +126,11 @@ export default function SearchResultsScreen() {
   }, [items]);
 
   // 고르면 이 화면 안에서 상세 시트를 연다 — 지도 탭과 같은 시트를 재사용한다
-  const pick = (item: ResultItem) => {
+  // 지도에서 마커를 눌렀을 때는 줌을 건드리지 않는다. 이미 그 지도를 보고 있는
+  // 사람에게 축척이 튀는 건 위치를 다시 파악하게 만든다 — 목록에서 고를 때만
+  // 결과가 잘 보이는 축척으로 맞춘다.
+  const pick = (item: ResultItem, keepZoom = false) => {
+    const zoom = keepZoom ? zoomRef.current : 13;
     const rank = items.indexOf(item);
     if (item.kind === 'place') {
       track.searchResultSelected({ result_type: 'registered', rank, source: 'search_screen' });
@@ -137,9 +142,9 @@ export default function SearchResultsScreen() {
       void addRecentSearch({ type: 'place', place: item.place });
       setSelectedPlace(item.place);
       mapRef.current?.animateCameraTo({
-        latitude: item.place.latitude - sheetLatOffset(13, screenH, item.place.latitude),
+        latitude: item.place.latitude - sheetLatOffset(zoom, screenH, item.place.latitude),
         longitude: item.place.longitude,
-        zoom: 13,
+        zoom,
         duration: 500,
       });
     } else {
@@ -161,9 +166,9 @@ export default function SearchResultsScreen() {
         phone: k.phone || undefined,
       });
       mapRef.current?.animateCameraTo({
-        latitude: k.latitude - sheetLatOffset(13, screenH, k.latitude),
+        latitude: k.latitude - sheetLatOffset(zoom, screenH, k.latitude),
         longitude: k.longitude,
-        zoom: 13,
+        zoom,
         duration: 500,
       });
     }
@@ -182,7 +187,10 @@ export default function SearchResultsScreen() {
         isShowZoomControls={false}
         locale="ko"
         locationOverlay={{ isVisible: false }}
-        initialCamera={{ latitude: 36.4, longitude: 127.8, zoom: 6 }}>
+        initialCamera={{ latitude: 36.4, longitude: 127.8, zoom: 6 }}
+        onCameraChanged={(e) => {
+          if (typeof e.zoom === 'number') zoomRef.current = e.zoom;
+        }}>
         {/* 선택된 하나만 핀(물방울, 하단 앵커), 나머지는 원형 — 지도 탭과
             같은 규칙이라 "핀 = 지금 보고 있는 곳"으로 읽힌다. */}
         {items.map((item) => {
@@ -193,7 +201,7 @@ export default function SearchResultsScreen() {
                 key={`place-${item.place.id}`}
                 latitude={item.place.latitude}
                 longitude={item.place.longitude}
-                onTap={() => pick(item)}
+                onTap={() => pick(item, true)}
                 anchor={isSelected ? { x: 0.5, y: 1 } : { x: 0.5, y: 0.5 }}
                 width={isSelected ? 38 : 30}
                 height={isSelected ? 44 : 30}
@@ -214,7 +222,7 @@ export default function SearchResultsScreen() {
               latitude={item.k.latitude}
               longitude={item.k.longitude}
               circle={!isSelected}
-              onTap={() => pick(item)}
+              onTap={() => pick(item, true)}
             />
           );
         })}
