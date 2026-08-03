@@ -299,15 +299,14 @@ function PlaceBottomSheet({
   // 구조화된 hours 가 있으면 요일별로, 없으면 사람이 쓴 원문을 그대로 보여준다
   const openState = describeOpenState(getOpenState(displayPlace.hours));
   const weekLines = displayPlace.hours ? formatWeek(displayPlace.hours) : [];
-  const hoursText =
-    [...weekLines, displayPlace.hours?.note].filter(Boolean).join('\n') ||
-    displayPlace.openingHours;
+  const hoursText = weekLines.join('\n') || displayPlace.openingHours;
 
   const infoCards = [
     hoursText && {
       icon: <Ionicons name="time-outline" size={16} color={colors.textSecondary} />,
       label: '영업시간',
       value: hoursText,
+      lines: 7,
     },
     displayPlace.parkingInfo && {
       icon: <MaterialIcons name="local-parking" size={16} color={colors.textSecondary} />,
@@ -319,7 +318,12 @@ function PlaceBottomSheet({
       label: '전화',
       value: displayPlace.phone,
     },
-  ].filter(Boolean) as Array<{ icon: React.ReactNode; label: string; value: string }>;
+  ].filter(Boolean) as Array<{
+    icon: React.ReactNode;
+    label: string;
+    value: string;
+    lines?: number;
+  }>;
 
   return (
     <>
@@ -507,7 +511,7 @@ function PlaceBottomSheet({
                   {card.icon}
                   <Text
                     style={[styles.infoCardValue, { color: colors.text }]}
-                    numberOfLines={2}>
+                    numberOfLines={card.lines ?? 2}>
                     {card.value}
                   </Text>
                 </View>
