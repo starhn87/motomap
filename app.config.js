@@ -2,9 +2,10 @@ export default {
   expo: {
     name: '모토맵',
     slug: 'ridemap',
-    // 1.2.3: 제품 분석(PostHog) — 네이티브 모듈(expo-device·localization·
-    // 세션 리플레이)이 들어가 runtime 을 분리한다
-    version: '1.2.3',
+    // 1.2.4: 안내 화면 손질 — 도착 팝업·자동 종료 제거(끝내는 건 라이더가),
+    // 종료 버튼 노출, 배너 색을 앱 색으로. 전부 KNNaviPresenter 네이티브라
+    // OTA 로는 못 나간다. 1.2.3 은 출시돼 train 이 닫혔다.
+    version: '1.2.4',
     runtimeVersion: {
       policy: 'appVersion',
     },
