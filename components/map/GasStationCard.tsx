@@ -83,18 +83,16 @@ export default function GasStationCard({ station, onClose }: Props) {
         {/* 제목 줄에 맞춰 묶는다 — 헤더가 flex-start 라 그냥 두면 두 줄짜리
             titleWrap 기준으로 앉아 제목보다 아래로 내려간다. */}
         <View style={styles.headerActions}>
-          <Pressable
-            onPress={handleFavorite}
-            disabled={favPending}
-            hitSlop={8}
-            style={styles.headerButton}>
+          {/* 여백은 padding 이 아니라 hitSlop 으로 — 아이콘이 줄 높이보다
+              커지면 잘린다 */}
+          <Pressable onPress={handleFavorite} disabled={favPending} hitSlop={12}>
             <Ionicons
               name={isFavorite ? 'star' : 'star-outline'}
               size={20}
               color={isFavorite ? '#FACC15' : colors.textSecondary}
             />
           </Pressable>
-          <Pressable onPress={onClose} hitSlop={8} style={styles.headerButton}>
+          <Pressable onPress={onClose} hitSlop={12}>
             <Ionicons name="close" size={20} color={colors.textSecondary} />
           </Pressable>
         </View>
@@ -204,10 +202,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     // 제목 한 줄 높이 — 아이콘이 제목과 같은 선에 앉는다
     height: 24,
-    gap: 4,
-  },
-  headerButton: {
-    padding: 4,
+    gap: 14,
+    marginLeft: 10,
   },
   priceRows: {
     gap: 6,
