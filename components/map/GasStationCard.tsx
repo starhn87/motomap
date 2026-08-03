@@ -7,6 +7,9 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useGasStationDetail } from '@/hooks/useGasStations';
 import { openNavigation } from '@/lib/navigation';
 import { FUEL_LABELS, type GasStation } from '@/lib/api/gasStations';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
+import { toast } from '@/lib/toast';
 
 interface Props {
   station: GasStation;
@@ -23,6 +26,30 @@ export default function GasStationCard({ station, onClose }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { data: detail, isLoading } = useGasStationDetail(station.id);
+
+  // 주유소는 오피넷 데이터라 등록 장소가 아니다 — 일반 장소 즐겨찾기로 담는다
+  // (migration 032). 자주 가는 주유소는 라이더에게 분명한 즐겨찾기 대상이다.
+  const user = useAuthStore((st) => st.user);
+  const isFavorite = useIsGeneralFavorite(station);
+  const { mutateAsync: toggleFavorite, isPending: favPending } = useToggleGeneralFavorite();
+
+  const handleFavorite = async () => {
+    if (!user) {
+      toast.info('로그인이 필요합니다.');
+      return;
+    }
+    try {
+      await toggleFavorite({
+        name: station.name,
+        // 주소는 상세에만 온다 — 아직 안 왔으면 빈 값으로 두고 이름·좌표로 담는다
+        address: detail?.address ?? '',
+        latitude: station.latitude,
+        longitude: station.longitude,
+      });
+    } catch (error: any) {
+      toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
+    }
+  };
 
   const prices = detail?.prices ?? [];
   const tradeAt = prices[0] ? formatTradeAt(prices[0].tradeAt) : '';
@@ -53,9 +80,24 @@ export default function GasStationCard({ station, onClose }: Props) {
             )}
           </View>
         </View>
-        <Pressable onPress={onClose} hitSlop={8} style={styles.closeButton}>
-          <Ionicons name="close" size={20} color={colors.textSecondary} />
-        </Pressable>
+        {/* 제목 줄에 맞춰 묶는다 — 헤더가 flex-start 라 그냥 두면 두 줄짜리
+            titleWrap 기준으로 앉아 제목보다 아래로 내려간다. */}
+        <View style={styles.headerActions}>
+          <Pressable
+            onPress={handleFavorite}
+            disabled={favPending}
+            hitSlop={8}
+            style={styles.headerButton}>
+            <Ionicons
+              name={isFavorite ? 'star' : 'star-outline'}
+              size={20}
+              color={isFavorite ? '#FACC15' : colors.textSecondary}
+            />
+          </Pressable>
+          <Pressable onPress={onClose} hitSlop={8} style={styles.headerButton}>
+            <Ionicons name="close" size={20} color={colors.textSecondary} />
+          </Pressable>
+        </View>
       </View>
 
       {/* 상세 로딩 중에도 3줄 높이를 예약해 카드가 늘어나며 밀리지 않게 한다 */}
@@ -137,6 +179,8 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 17,
     fontWeight: '700',
+    // 아이콘 줄 높이와 같게 — 이 값이 헤더 버튼 정렬의 기준이다
+    lineHeight: 24,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -155,7 +199,14 @@ const styles = StyleSheet.create({
     color: '#16A34A',
     borderColor: '#16A34A',
   },
-  closeButton: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // 제목 한 줄 높이 — 아이콘이 제목과 같은 선에 앉는다
+    height: 24,
+    gap: 4,
+  },
+  headerButton: {
     padding: 4,
   },
   priceRows: {
