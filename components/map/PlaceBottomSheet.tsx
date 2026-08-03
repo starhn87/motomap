@@ -327,6 +327,8 @@ function PlaceBottomSheet({
       label: '영업시간',
       value: hoursText,
       lines: 7,
+      // 요일마다 다른 곳은 2열 그리드의 좁은 칸에 우겨넣으면 답답하다
+      wide: weekLines.length > 1,
     },
     displayPlace.parkingInfo && {
       icon: <MaterialIcons name="local-parking" size={16} color={colors.textSecondary} />,
@@ -343,6 +345,7 @@ function PlaceBottomSheet({
     label: string;
     value: string;
     lines?: number;
+    wide?: boolean;
   }>;
 
   return (
@@ -509,9 +512,10 @@ function PlaceBottomSheet({
                   key={card.label}
                   style={[
                     styles.infoCard,
+                    card.wide && styles.infoCardWide,
                     { backgroundColor: colors.surface, borderColor: colors.border },
                   ]}>
-                  {card.icon}
+                  <View style={card.wide && styles.infoIconTop}>{card.icon}</View>
                   <Text
                     style={[styles.infoCardValue, { color: colors.text }]}
                     numberOfLines={card.lines ?? 2}>
@@ -729,9 +733,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
+  infoCardWide: {
+    flexBasis: '100%',
+    // 여러 줄이면 아이콘이 세로 중앙에 뜨는 게 어색하다 — 첫 줄에 붙인다
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+  },
+  infoIconTop: {
+    marginTop: 1,
+  },
   infoCardValue: {
     flex: 1,
     fontSize: 13,
+    lineHeight: 19,
     fontWeight: '600',
   },
   actionRow: {
