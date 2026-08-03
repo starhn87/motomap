@@ -96,6 +96,21 @@ static __weak KNNaviViewController *gActiveNavi = nil;
   [naviView.menuView setCustomMenu:@[ motoItem ]];
   [naviView.menuView useGuideCancel:NO];
 
+  // 상단 안내 배너 색 — SDK 가 정식으로 여는 유일한 커스터마이즈 지점이다.
+  // 기본 파랑은 흰 글자와의 명도 대비가 5:1 남짓이라 햇빛 아래에서 흐려진다.
+  // 앱의 텍스트 색(#18181B)이면 17:1 가까이 올라가고, 안내 화면만 카카오 파랑으로
+  // 튀지 않아 앱을 거쳐 들어온 화면처럼 이어진다.
+  // 야간은 더 어둡게(#0A0A0A) — 주간 색 그대로면 어두운 지도와 경계가 뭉개진다.
+  [naviView.curDirView
+      setBackgroundColor:[UIColor colorWithRed:0x18 / 255.0
+                                         green:0x18 / 255.0
+                                          blue:0x1B / 255.0
+                                         alpha:1.0]
+              nightColor:[UIColor colorWithRed:0x0A / 255.0
+                                         green:0x0A / 255.0
+                                          blue:0x0A / 255.0
+                                         alpha:1.0]];
+
   // 안내를 끝내려면 메뉴를 열어야 했다 — 주행 중에 두 단계는 많다. SDK 는 하단
   // 바에 버튼을 얹는 API 를 주지 않지만(메뉴 항목과 경로 취소 토글뿐), 이 화면은
   // 우리 뷰 컨트롤러라 그 위에 직접 그릴 수 있다.
