@@ -43,6 +43,8 @@ import { hasMapOverlayInStack } from '@/lib/mapFocus';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { loadRecentSearches, recentTargets } from '@/lib/recentSearches';
 import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
+import { useQueryClient } from '@tanstack/react-query';
+
 import { useMapStore } from '@/stores/useMapStore';
 import { haversine } from '@/lib/distance';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
@@ -106,6 +108,7 @@ export default function NaviScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const startGuideSession = useGuideSession((st) => st.start);
+  const queryClient = useQueryClient();
   const userLocation = useMapStore((st) => st.userLocation);
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
@@ -689,6 +692,8 @@ export default function NaviScreen() {
       const pl = visibleOnMap.places.find((x) => `place:${x.id}` === markerIdentifier);
       if (!pl) return;
       track.placeViewed({ place_id: pl.id, category: pl.category, source: 'route_preview' });
+      // 오버레이가 fetch 없이 바로 시트를 열도록 usePlace 캐시를 미리 채운다
+      queryClient.setQueryData(['place', pl.id], pl);
       // lat/lng 는 오버레이 초기 카메라용 — 장소 fetch 전 첫 프레임에 쓴다
       router.push({
         pathname: '/place-preview',
@@ -879,9 +884,11 @@ export default function NaviScreen() {
             <View style={styles.routeSide}>
               <Pressable
                 onPress={() => {
+                  // 닫기의 기대는 "다 접고 맨 지도로" — 지도 탭에 남아 있던
+                  // 장소 시트·카드도 함께 정리한다
+                  useMapStore.getState().requestMapReset();
                   // 오버레이(장소 상세 지도)를 거쳐 여기까지 왔다면 back 은
-                  // 오버레이→미리보기→… 를 되감을 뿐이다. 닫기의 기대는
-                  // "다 접고 지도로" — 탭 루트로 바로 나간다.
+                  // 오버레이→미리보기→… 를 되감을 뿐이다 — 탭 루트로 바로.
                   if (hasMapOverlayInStack()) {
                     router.dismissAll();
                   } else {

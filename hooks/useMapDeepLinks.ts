@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { coordToAddress } from '@/lib/api/kakaoLocal';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
@@ -29,6 +30,7 @@ export function useMapDeepLinks({
   /** 카카오 임시 핀을 띄우기 전 기존 장소 선택 해제 */
   clearSelection: () => void;
 }) {
+  const queryClient = useQueryClient();
   const { focusPlaceId, focusTs, focusReviewId, fromCourseId, kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, followTs } =
     useLocalSearchParams<{
       focusPlaceId?: string;
@@ -108,7 +110,11 @@ export function useMapDeepLinks({
     handledFocusIdRef.current = focusKey;
     let cancelled = false;
     (async () => {
-      const place = await fetchPlaceById(focusPlaceId);
+      // usePlace 와 같은 캐시 키 — 미리보기가 push 전에 심어 두면 왕복이 없다
+      const place = await queryClient.ensureQueryData({
+        queryKey: ['place', focusPlaceId],
+        queryFn: () => fetchPlaceById(focusPlaceId),
+      });
       if (place && !cancelled) {
         setHighlightReview(focusReviewId ? { id: focusReviewId, key: focusKey } : null);
         setCourseReturn(fromCourseId ? { courseId: fromCourseId, placeId: place.id } : null);
@@ -118,7 +124,7 @@ export function useMapDeepLinks({
     return () => {
       cancelled = true;
     };
-  }, [focusPlaceId, focusTs, focusReviewId, fromCourseId, mapReady, onSelectPlace]);
+  }, [focusPlaceId, focusTs, focusReviewId, fromCourseId, mapReady, onSelectPlace, queryClient]);
 
   return {
     tempPlace,

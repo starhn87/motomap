@@ -92,6 +92,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     lng?: string;
     kakaoLat?: string;
     kakaoLng?: string;
+    focusPlaceId?: string;
   }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -230,10 +231,13 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         latitude: place.latitude - sheetLatOffset(15, screenHeight, place.latitude),
         longitude: place.longitude,
         zoom: 15,
-        duration: 800,
+        // 오버레이는 initialCamera 가 이미 이 자리다 — 800ms 이동이 남아 있으면
+        // 그게 곧 "포커스 딜레이"로 보인다
+        duration: overlay ? 0 : 800,
       });
     },
-    [setSelectedPlaceId, screenHeight]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [setSelectedPlaceId, screenHeight, overlay]
   );
 
   // 라우트 파라미터(검색·푸시·내 리뷰·코스 근처 장소·카카오 일반 장소) 진입 처리
@@ -338,6 +342,22 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     });
   };
 
+  // 미리보기의 X 가 "맨 지도로 나가기"를 눌렀다 — 남아 있던 시트·카드를 접는다.
+  // 오버레이 인스턴스는 곧 언마운트되니 탭 인스턴스만 반응하면 된다.
+  const mapResetTs = useMapStore((st) => st.mapResetTs);
+  const didMountResetRef = useRef(false);
+  useEffect(() => {
+    if (!didMountResetRef.current) {
+      didMountResetRef.current = true;
+      return;
+    }
+    if (overlay) return;
+    handleBottomSheetClose();
+    setTempPlace(null);
+    setSelectedStation(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapResetTs]);
+
   // 오버레이로 떠 있는 동안은 "지도에서 보기"류 이동(focusPlaceOnMap)을 탭
   // 전환 대신 이 라우트의 파라미터 갱신으로 돌린다 — 근처 장소를 눌러도
   // 미리보기 스택이 살아 있어야 뒤로 가기가 성립한다.
@@ -437,7 +457,16 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const overlayLng = Number(overlayParams.lng ?? overlayParams.kakaoLng);
   const overlayTarget =
     overlay && Number.isFinite(overlayLat) && Number.isFinite(overlayLng)
-      ? { latitude: overlayLat, longitude: overlayLng, zoom: 15 }
+      ? {
+          // 선택 시 카메라가 앉는 자리와 같은 좌표로 시작해 딥링크의
+          // animateCameraTo 가 사실상 제자리걸음이 되게 한다. 등록 장소만
+          // 시트 오프셋을 받는다 — 일반 장소 카드는 보정 없이 중심이 규칙.
+          latitude: overlayParams.focusPlaceId
+            ? overlayLat - sheetLatOffset(15, screenHeight, overlayLat)
+            : overlayLat,
+          longitude: overlayLng,
+          zoom: 15,
+        }
       : null;
   const initialCamera = overlayTarget ?? {
     latitude: userLocation?.latitude ?? DEFAULT_CENTER[1],
