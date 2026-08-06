@@ -146,7 +146,9 @@ function RootLayoutNav() {
                 />
               ),
             }}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            {/* freezeOnBlur 금지: 검색 등이 위에 떠 있는 동안에도 지도 탭의
+                effect(카메라 선이동·커튼)가 제때 돌아야 한다 */}
+            <Stack.Screen name="(tabs)" options={{ headerShown: false, freezeOnBlur: false }} />
             <Stack.Screen name="search" options={{ headerShown: false, animation: 'none' }} />
             <Stack.Screen name="search-results" options={{ headerShown: false }} />
             <Stack.Screen name="directions" options={{ title: '길찾기' }} />

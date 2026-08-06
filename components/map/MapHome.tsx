@@ -63,7 +63,7 @@ import HazardSheet from '@/components/map/HazardSheet';
 import { coordToAddress, searchKakaoLocal } from '@/lib/api/kakaoLocal';
 import SearchEntry from '@/components/search/SearchEntry';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { router , useLocalSearchParams } from 'expo-router';
+import { router , useLocalSearchParams , useFocusEffect } from 'expo-router';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { toast } from '@/lib/toast';
 import type { Place, RoadHazard } from '@/types';
@@ -384,16 +384,37 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 그림이다(HUD 로 실증 — 그 순간 카메라 이동 로그가 없었다). 서페이스가 새
   // 프레임을 그릴 때까지 배경색으로 덮었다가 걷는다.
   const [returnCurtain, setReturnCurtain] = useState(false);
+  const returnCurtainRef = useRef(false);
   const pendingFocus = useMapStore((st) => st.pendingFocus);
   useEffect(() => {
     if (overlay || !pendingFocus || !mapReady) return;
+    returnCurtainRef.current = true;
     setReturnCurtain(true);
     handleSearchSelect(pendingFocus.place);
     useMapStore.getState().clearPendingFocus();
-    const timer = setTimeout(() => setReturnCurtain(false), 350);
+    // 안전 상한 — 화면 복귀 감지가 어긋나도 이 시점엔 무조건 걷는다
+    const timer = setTimeout(() => {
+      returnCurtainRef.current = false;
+      setReturnCurtain(false);
+    }, 1500);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingFocus, mapReady, overlay]);
+
+  // 커튼은 "이 화면이 실제로 드러난 뒤" 걷어야 한다. 탭 시각 기준의 고정
+  // 타이머는 노출 시점과 어긋나(전환 지연·서페이스 재개가 겹쳐) 옛 프레임이
+  // 커튼보다 오래 살았다 — 복귀를 기준으로 500ms: 서페이스가 새 카메라를
+  // 그려낼 시간을 화면이 보이는 동안 커튼이 벌어 준다.
+  useFocusEffect(
+    useCallback(() => {
+      if (!returnCurtainRef.current) return;
+      const timer = setTimeout(() => {
+        returnCurtainRef.current = false;
+        setReturnCurtain(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }, []),
+  );
 
   // 미리보기의 X 가 "맨 지도로 나가기"를 눌렀다 — 남아 있던 시트·카드를 접는다.
   // 오버레이 인스턴스는 곧 언마운트되니 탭 인스턴스만 반응하면 된다.
