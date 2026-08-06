@@ -28,6 +28,8 @@ import { useGasStations, GAS_MIN_ZOOM, type SearchPoint } from '@/hooks/useGasSt
 import { useWeather } from '@/hooks/useWeather';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
+import { useIsFocused } from '@react-navigation/native';
+
 import { registerMapTabCamera, setMapFocusOverride } from '@/lib/mapFocus';
 import { logCam } from '@/lib/camDebug';
 import CameraDebugHud from '@/components/map/CameraDebugHud';
@@ -385,37 +387,41 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 프레임을 그릴 때까지 배경색으로 덮었다가 걷는다.
   const camLogThrottleRef = useRef(0);
   const [returnCurtain, setReturnCurtain] = useState(false);
-  const returnCurtainRef = useRef(false);
+  // 복귀를 기다리는 포커스 — HUD 실측: detach 된 네이버 지도는 카메라 명령을
+  // 버린다(전환 전에 duration 0 을 두 발 쏴도 복귀 시점 카메라는 그대로 내
+  // 위치였다). 그러니 이동은 화면이 다시 붙은 "뒤"에 쏘고, 그때까지 커튼으로
+  // 가린다. 커튼 렌더는 freezeOnBlur:false 라 blur 중에도 커밋된다.
+  const heldFocusRef = useRef<Place | null>(null);
+  const isFocusedNow = useIsFocused();
   const pendingFocus = useMapStore((st) => st.pendingFocus);
   useEffect(() => {
     if (overlay || !pendingFocus || !mapReady) return;
-    returnCurtainRef.current = true;
+    useMapStore.getState().clearPendingFocus();
+    if (isFocusedNow) {
+      // 같은 화면 안(시트의 근처 장소 등) — 지도가 붙어 있으니 바로 이동
+      handleSearchSelect(pendingFocus.place);
+      return;
+    }
+    heldFocusRef.current = pendingFocus.place;
     setReturnCurtain(true);
     logCam('curtain-on');
-    handleSearchSelect(pendingFocus.place);
-    useMapStore.getState().clearPendingFocus();
-    // 안전 상한 — 화면 복귀 감지가 어긋나도 이 시점엔 무조건 걷는다
-    const timer = setTimeout(() => {
-      returnCurtainRef.current = false;
-      setReturnCurtain(false);
-    }, 1500);
-    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingFocus, mapReady, overlay]);
 
-  // 커튼은 "이 화면이 실제로 드러난 뒤" 걷어야 한다. 탭 시각 기준의 고정
-  // 타이머는 노출 시점과 어긋나(전환 지연·서페이스 재개가 겹쳐) 옛 프레임이
-  // 커튼보다 오래 살았다 — 복귀를 기준으로 500ms: 서페이스가 새 카메라를
-  // 그려낼 시간을 화면이 보이는 동안 커튼이 벌어 준다.
   useFocusEffect(
     useCallback(() => {
-      if (!returnCurtainRef.current) return;
+      const held = heldFocusRef.current;
+      if (!held) return;
+      heldFocusRef.current = null;
+      // 화면이 붙었다 — 이제 명령이 먹는다. 커튼 뒤에서 즉시 이동시키고,
+      // 서페이스가 새 프레임을 그릴 시간을 준 뒤 걷는다.
+      handleSearchSelect(held);
       const timer = setTimeout(() => {
-        returnCurtainRef.current = false;
         setReturnCurtain(false);
         logCam('curtain-off');
-      }, 500);
+      }, 400);
       return () => clearTimeout(timer);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
 
