@@ -212,6 +212,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   const handleMarkerPress = useCallback(
     (place: Place) => {
+      followingRef.current = false;
       track.placeViewed({ place_id: place.id, category: place.category, source: 'map_marker' });
       setHighlightReview(null);
       setTempPlace(null);
@@ -231,6 +232,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   const handleSearchSelect = useCallback(
     (place: Place) => {
+      // 따라가기가 켜져 있으면 다음 위치 갱신이 카메라를 도로 내 위치로 끌고
+      // 간다 — 장소를 보러 가는 순간 풀어야 한다(안내 종료 직후 검색에서 실증)
+      followingRef.current = false;
       setSelectedPlaceId(place.id);
       setSelectedPlace(place);
       mapRef.current?.animateCameraTo({
@@ -263,6 +267,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     },
     onSelectPlace: handleSearchSelect,
     clearSelection: () => {
+      followingRef.current = false;
       setSelectedPlaceId(null);
       setSelectedPlace(null);
     },
