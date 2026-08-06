@@ -674,7 +674,12 @@ export default function NaviScreen() {
   }) => {
     router.push({
       pathname: '/place-preview',
-      params: { name: caption, lat: String(latitude), lng: String(longitude) },
+      params: {
+        kakaoName: caption,
+        kakaoLat: String(latitude),
+        kakaoLng: String(longitude),
+        focusTs: String(Date.now()),
+      },
     });
   };
 
@@ -683,10 +688,9 @@ export default function NaviScreen() {
       const pl = visibleOnMap.places.find((x) => `place:${x.id}` === markerIdentifier);
       if (!pl) return;
       track.placeViewed({ place_id: pl.id, category: pl.category, source: 'route_preview' });
-      // 좌표를 같이 넘긴다 — 장소 fetch 를 기다리지 않고 카메라가 바로 앉도록
       router.push({
         pathname: '/place-preview',
-        params: { placeId: pl.id, lat: String(pl.latitude), lng: String(pl.longitude) },
+        params: { focusPlaceId: pl.id, focusTs: String(Date.now()) },
       });
       return;
     }
@@ -695,11 +699,12 @@ export default function NaviScreen() {
     router.push({
       pathname: '/place-preview',
       params: {
-        name: f.name,
-        lat: String(f.latitude),
-        lng: String(f.longitude),
-        address: f.address,
-        phone: f.phone ?? '',
+        kakaoName: f.name,
+        kakaoAddress: f.address,
+        kakaoLat: String(f.latitude),
+        kakaoLng: String(f.longitude),
+        kakaoPhone: f.phone ?? '',
+        focusTs: String(Date.now()),
       },
     });
   };

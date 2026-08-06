@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
+
+import { coordToAddress } from '@/lib/api/kakaoLocal';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 
 import { fetchPlaceById } from '@/hooks/usePlace';
@@ -70,6 +72,17 @@ export function useMapDeepLinks({
     };
     clearSelection();
     setTempPlace(place);
+    // 주소 없이 오는 경우가 있다(미리보기의 기본 POI 탭) — 역지오코딩으로 채운다
+    if (!place.address) {
+      void coordToAddress(place.latitude, place.longitude).then((address) => {
+        if (!address) return;
+        setTempPlace((prev) =>
+          prev && prev.name === place.name && prev.latitude === place.latitude
+            ? { ...prev, address }
+            : prev,
+        );
+      });
+    }
     mapRef.current?.animateCameraTo({
       latitude: place.latitude,
       longitude: place.longitude,
