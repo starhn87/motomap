@@ -3,6 +3,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { coordToAddress } from '@/lib/api/kakaoLocal';
+import { logCam } from '@/lib/camDebug';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 
 import { fetchPlaceById } from '@/hooks/usePlace';
@@ -85,6 +86,7 @@ export function useMapDeepLinks({
         );
       });
     }
+    logCam('kakao-deeplink');
     mapRef.current?.animateCameraTo({
       latitude: place.latitude,
       longitude: place.longitude,

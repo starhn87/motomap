@@ -29,6 +29,8 @@ import { useWeather } from '@/hooks/useWeather';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
 import { registerMapTabCamera, setMapFocusOverride } from '@/lib/mapFocus';
+import { logCam } from '@/lib/camDebug';
+import CameraDebugHud from '@/components/map/CameraDebugHud';
 import { useNearbyHazards } from '@/hooks/useHazards';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -160,6 +162,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       return;
     }
     didCenterOnUserRef.current = true;
+    logCam('first-fix');
     mapRef.current?.animateCameraTo({
       latitude: userLocation.latitude,
       longitude: userLocation.longitude,
@@ -212,6 +215,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   const handleMarkerPress = useCallback(
     (place: Place) => {
+      logCam('marker');
       followingRef.current = false;
       track.placeViewed({ place_id: place.id, category: place.category, source: 'map_marker' });
       setHighlightReview(null);
@@ -232,6 +236,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   const handleSearchSelect = useCallback(
     (place: Place) => {
+      logCam('search-select');
       // 따라가기가 켜져 있으면 다음 위치 갱신이 카메라를 도로 내 위치로 끌고
       // 간다 — 장소를 보러 가는 순간 풀어야 한다(안내 종료 직후 검색에서 실증)
       followingRef.current = false;
@@ -358,6 +363,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   useEffect(() => {
     if (overlay) return;
     registerMapTabCamera((place) => {
+      logCam('native-direct');
       followingRef.current = false;
       mapRef.current?.animateCameraTo({
         latitude: place.latitude - sheetLatOffset(15, screenHeight, place.latitude),
@@ -449,6 +455,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const followingRef = useRef(false);
   useEffect(() => {
     if (!followingRef.current || !userLocation) return;
+    logCam('follow');
     mapRef.current?.animateCameraTo({
       latitude: userLocation.latitude,
       longitude: userLocation.longitude,
@@ -468,6 +475,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       void (async () => {
         const pos = await Location.getLastKnownPositionAsync();
         if (!pos) return;
+        logCam('guide-end');
         mapRef.current?.animateCameraTo({
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
@@ -480,6 +488,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   const handleMyLocation = () => {
     if (!userLocation || !mapRef.current) return;
+    logCam('my-loc');
     // 내 위치를 지도 중앙으로 이동(현재 줌 유지)
     mapRef.current.animateCameraTo({
       latitude: userLocation.latitude,
@@ -804,6 +813,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         </Animated.View>
       )}
 
+      {!overlay && <CameraDebugHud />}
       {!overlay && weather && (
         <WeatherFab weather={weather} onPress={() => setWeatherOpen(true)} />
       )}
