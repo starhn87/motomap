@@ -4,7 +4,7 @@
 
 type Listener = (lines: string[]) => void;
 
-const MAX = 4;
+const MAX = 7;
 let lines: string[] = [];
 let listener: Listener | null = null;
 

@@ -383,6 +383,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 내 위치)이 남는다. 카메라는 이미 옮겨졌어도 드러나는 첫 프레임들은 그 옛
   // 그림이다(HUD 로 실증 — 그 순간 카메라 이동 로그가 없었다). 서페이스가 새
   // 프레임을 그릴 때까지 배경색으로 덮었다가 걷는다.
+  const camLogThrottleRef = useRef(0);
   const [returnCurtain, setReturnCurtain] = useState(false);
   const returnCurtainRef = useRef(false);
   const pendingFocus = useMapStore((st) => st.pendingFocus);
@@ -390,6 +391,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     if (overlay || !pendingFocus || !mapReady) return;
     returnCurtainRef.current = true;
     setReturnCurtain(true);
+    logCam('curtain-on');
     handleSearchSelect(pendingFocus.place);
     useMapStore.getState().clearPendingFocus();
     // 안전 상한 — 화면 복귀 감지가 어긋나도 이 시점엔 무조건 걷는다
@@ -411,6 +413,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       const timer = setTimeout(() => {
         returnCurtainRef.current = false;
         setReturnCurtain(false);
+        logCam('curtain-off');
       }, 500);
       return () => clearTimeout(timer);
     }, []),
@@ -604,6 +607,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         onTapMap={handleMapTap}
         onTapSymbol={handleSymbolTap}
         onCameraChanged={(e) => {
+          // 진단: 네이티브 카메라가 "실제로" 비춘 좌표 — JS 명령과 별개의 사실
+          if (!overlay) {
+            const now = Date.now();
+            if (now - camLogThrottleRef.current > 250) {
+              camLogThrottleRef.current = now;
+              logCam(`cam ${e.latitude.toFixed(3)},${e.longitude.toFixed(3)} ${e.reason ?? '?'}`);
+            }
+          }
           // 드래그하면 따라가기 해제 (프로그램 이동 'Developer' 는 유지)
           if (e.reason === 'Gesture') followingRef.current = false;
           if (cameraTimerRef.current) clearTimeout(cameraTimerRef.current);
@@ -846,7 +857,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       {returnCurtain && (
         <Animated.View
           exiting={FadeOut.duration(180)}
-          style={[styles.returnCurtain, { backgroundColor: colors.background }]}
+          // 진단용 색 — 커튼이 화면에 실제로 나오는지 육안 확인용. 확정 후 배경색으로.
+          style={[styles.returnCurtain, { backgroundColor: 'rgba(220,38,38,0.45)' }]}
         />
       )}
       {!overlay && <CameraDebugHud />}
