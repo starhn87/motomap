@@ -41,6 +41,7 @@ import KakaoNavi, {
 import { sampleWaypoints, type NavTarget } from '@/lib/navigation';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { loadRecentSearches, recentTargets } from '@/lib/recentSearches';
+import { coordToAddress } from '@/lib/api/kakaoLocal';
 import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
 import { useMapStore } from '@/stores/useMapStore';
 import { haversine } from '@/lib/distance';
@@ -584,7 +585,8 @@ export default function NaviScreen() {
   const { data: allPlaces } = usePlaces(null, null, !guideStarted);
   const { data: favorites } = useFavorites();
   const [previewPlace, setPreviewPlace] = useState<Place | null>(null);
-  const [previewFav, setPreviewFav] = useState<TempPlace | null>(null);
+  // 즐겨찾기 별 핀(favId 있음) 또는 지도 기본 POI(favId 없음) — 카드는 같다
+  const [previewFav, setPreviewFav] = useState<(TempPlace & { favId?: string }) | null>(null);
   // 화면에 보이는 영역(SW + delta). 카메라가 멈출 때만 갱신된다
   // 위아래 카드가 지도를 덮는 픽셀 — 카메라 핏이 이 값만큼 경로를 밀어 넣는다
   const topCardH = useRef(240);
@@ -643,7 +645,9 @@ export default function NaviScreen() {
   // 클러스터 마커는 앵커 지정이 안 돼 핀(하단 중앙 고정)을 쓴다 — 지도 탭과 동일.
   const previewClusterMarkers = useMemo(
     () => [
-      ...visibleOnMap.places.map((pl) => ({
+      ...visibleOnMap.places
+        .filter((pl) => pl.id !== previewPlace?.id)
+        .map((pl) => ({
         identifier: `place:${pl.id}`,
         latitude: pl.latitude,
         longitude: pl.longitude,
@@ -653,7 +657,9 @@ export default function NaviScreen() {
         width: 32,
         height: 37,
       })),
-      ...visibleOnMap.favs.map((f) => ({
+      ...visibleOnMap.favs
+        .filter((f) => f.id !== previewFav?.favId)
+        .map((f) => ({
         identifier: `fav:${f.id}`,
         latitude: f.latitude,
         longitude: f.longitude,
@@ -662,8 +668,31 @@ export default function NaviScreen() {
         height: 37,
       })),
     ],
-    [visibleOnMap, favoriteIds],
+    [visibleOnMap, favoriteIds, previewPlace, previewFav],
   );
+
+  // 지도 기본 POI 탭 — 지도 탭과 같은 관례로 경량 카드를 띄운다. 주소는
+  // 심벌 이벤트에 없어 역지오코딩으로 뒤에서 채운다.
+  const handleSymbolTap = ({
+    latitude,
+    longitude,
+    caption,
+  }: {
+    latitude: number;
+    longitude: number;
+    caption: string;
+  }) => {
+    setPreviewPlace(null);
+    setPreviewFav({ name: caption, address: '', latitude, longitude });
+    void coordToAddress(latitude, longitude).then((address) => {
+      if (!address) return;
+      setPreviewFav((prev) =>
+        prev && prev.name === caption && prev.latitude === latitude
+          ? { ...prev, address }
+          : prev,
+      );
+    });
+  };
 
   const handleClusterLeafTap = (markerIdentifier: string) => {
     if (markerIdentifier.startsWith('place:')) {
@@ -683,6 +712,7 @@ export default function NaviScreen() {
       latitude: f.latitude,
       longitude: f.longitude,
       phone: f.phone ?? undefined,
+      favId: f.id,
     });
   };
 
@@ -728,6 +758,7 @@ export default function NaviScreen() {
           },
         ]}
         onTapClusterLeaf={({ markerIdentifier }) => handleClusterLeafTap(markerIdentifier)}
+        onTapSymbol={handleSymbolTap}
         initialCamera={{ latitude: goal.latitude, longitude: goal.longitude, zoom: 12 }}>
         {start && (
           // 출발점 도트 — children 커스텀 뷰는 캡처용 네이티브 뷰가 화면에
@@ -754,6 +785,34 @@ export default function NaviScreen() {
             outlineColor="#FFFFFF"
           />
         ) : null}
+        {/* 선택된 장소는 클러스터에서 빠지고 큰 핀으로 — 지도 탭과 같은 규칙 */}
+        {previewPlace && (
+          <NaverMapMarkerOverlay
+            latitude={previewPlace.latitude}
+            longitude={previewPlace.longitude}
+            anchor={{ x: 0.5, y: 1 }}
+            width={38}
+            height={44}
+            image={
+              favoriteIds.has(previewPlace.id)
+                ? MARKER_IMAGES_FAV[previewPlace.category]
+                : MARKER_IMAGES[previewPlace.category]
+            }
+          />
+        )}
+        {previewFav &&
+          (previewFav.favId ? (
+            <NaverMapMarkerOverlay
+              latitude={previewFav.latitude}
+              longitude={previewFav.longitude}
+              anchor={{ x: 0.5, y: 1 }}
+              width={38}
+              height={44}
+              image={GENERAL_MARKER_FAV}
+            />
+          ) : (
+            <TempPlaceMarker latitude={previewFav.latitude} longitude={previewFav.longitude} />
+          ))}
         <TempPlaceMarker latitude={goal.latitude} longitude={goal.longitude} />
       </NaverMapView>
       )}

@@ -56,7 +56,7 @@ interface Props {
   highlightReview?: { id: string; key: string } | null;
 }
 
-const SNAP_POINTS = ['28%', '45%', '100%'];
+const SNAP_POINTS = ['20%', '45%', '100%'];
 // 헤더 바(safe-area 제외) 높이. spacer 계산에 쓰는 고정값.
 const PAGE_HEADER_HEIGHT = 56;
 // 드래그 핸들 영역 높이 (paddingVertical 12*2 + 인디케이터 4)
