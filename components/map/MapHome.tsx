@@ -9,7 +9,7 @@ import {
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { NaverMapView, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
-import Animated, {
+import Animated, { FadeOut,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -378,11 +378,20 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   // 화면 전환 전에 도착하는 선행 포커스 — 검색·근처 장소가 쏜다. params 딥링크가
   // 같은 장소를 한 번 더 처리하지만 캐시 히트 + 같은 좌표(duration 0)라 무해하다.
+  //
+  // 커튼: 스택 아래에 있던 지도 서페이스는 그리기를 멈춰 버퍼에 옛 프레임(대개
+  // 내 위치)이 남는다. 카메라는 이미 옮겨졌어도 드러나는 첫 프레임들은 그 옛
+  // 그림이다(HUD 로 실증 — 그 순간 카메라 이동 로그가 없었다). 서페이스가 새
+  // 프레임을 그릴 때까지 배경색으로 덮었다가 걷는다.
+  const [returnCurtain, setReturnCurtain] = useState(false);
   const pendingFocus = useMapStore((st) => st.pendingFocus);
   useEffect(() => {
     if (overlay || !pendingFocus || !mapReady) return;
+    setReturnCurtain(true);
     handleSearchSelect(pendingFocus.place);
     useMapStore.getState().clearPendingFocus();
+    const timer = setTimeout(() => setReturnCurtain(false), 350);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingFocus, mapReady, overlay]);
 
@@ -813,6 +822,12 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         </Animated.View>
       )}
 
+      {returnCurtain && (
+        <Animated.View
+          exiting={FadeOut.duration(180)}
+          style={[styles.returnCurtain, { backgroundColor: colors.background }]}
+        />
+      )}
       {!overlay && <CameraDebugHud />}
       {!overlay && weather && (
         <WeatherFab weather={weather} onPress={() => setWeatherOpen(true)} />
@@ -922,6 +937,11 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  returnCurtain: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 50,
+    elevation: 50,
   },
   searchAndFilter: {
     position: 'absolute',
