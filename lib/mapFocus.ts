@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 
 import { track, type PlaceSource } from '@/lib/analytics';
 import { queryClient } from '@/lib/queryClient';
+import { useMapStore } from '@/stores/useMapStore';
 import type { Place } from '@/types';
 
 type FocusOverride = (
@@ -48,6 +49,9 @@ export function focusPlaceOnMap(
   // "내 위치를 거쳐 간다"로 보였다 — 캐시 히트면 그 구간이 없다.
   if (opts?.place) {
     queryClient.setQueryData(['place', placeId], opts.place);
+    // 전환 전에 지도 탭이 카메라·선택을 먼저 옮겨 두게 한다 — 검색 화면이 아직
+    // 덮고 있는 사이에 끝나야 드러나는 첫 프레임이 곧 그 장소다
+    useMapStore.getState().requestFocusPlace(opts.place);
   }
   if (focusOverride) {
     focusOverride(placeId, opts);
