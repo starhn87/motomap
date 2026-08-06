@@ -14,6 +14,15 @@ type FocusOverride = (
 // "지도에서 보기"는 탭 전환이 아니라 오버레이 자신을 갱신해야 스택이 산다.
 let focusOverride: FocusOverride | null = null;
 
+// 지도 탭이 등록하는 "카메라만 즉시" 핸들. 스택 아래 화면은 expo-router 가
+// freeze 해 두므로 스토어·effect 로는 전환 전에 아무것도 실행시킬 수 없다 —
+// 네이티브 지도 명령만이 동결을 뚫는다(뷰와 ref 는 freeze 와 무관하게 산다).
+let mapTabCamera: ((place: Place) => void) | null = null;
+
+export function registerMapTabCamera(handler: ((place: Place) => void) | null) {
+  mapTabCamera = handler;
+}
+
 export function setMapFocusOverride(override: FocusOverride | null) {
   focusOverride = override;
 }
@@ -65,11 +74,11 @@ export function focusPlaceOnMap(
 
   if (opts?.place) {
     queryClient.setQueryData(['place', placeId], opts.place);
-    // 지도 탭에 먼저 카메라·선택을 옮기게 하고, 그 이동이 네이티브 지도에
-    // 실제로 적용될 시간을 벌고 나서 화면을 전환한다. 커밋과 동시에 pop 을
-    // 시작하면 브리지·지도 렌더의 몇 프레임 동안 옛 카메라(대개 내 위치)가
-    // 드러나는 게 기기에서 계속 보였다. 그 사이는 검색 화면이 가리고 있다.
+    // 카메라는 네이티브로 즉시 — frozen 상태에서도 명령이 나간다. 선택 상태
+    // (시트·마커)는 스토어로 넘겨 해동 직후 그리게 한다.
+    mapTabCamera?.(opts.place);
     useMapStore.getState().requestFocusPlace(opts.place);
+    // 네이티브 지도가 이동을 삼킬 시간을 주고 나서 화면을 걷는다
     setTimeout(navigate, 120);
     return;
   }

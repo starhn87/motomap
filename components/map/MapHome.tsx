@@ -28,7 +28,7 @@ import { useGasStations, GAS_MIN_ZOOM, type SearchPoint } from '@/hooks/useGasSt
 import { useWeather } from '@/hooks/useWeather';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
-import { setMapFocusOverride } from '@/lib/mapFocus';
+import { registerMapTabCamera, setMapFocusOverride } from '@/lib/mapFocus';
 import { useNearbyHazards } from '@/hooks/useHazards';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -352,6 +352,23 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       );
     });
   };
+
+  // freeze 를 뚫는 카메라 핸들 — 검색 화면이 지도를 덮고 있는 동안에도 네이티브
+  // 명령은 통하므로, 전환이 시작되기 전에 카메라가 이미 그 장소에 가 있다.
+  useEffect(() => {
+    if (overlay) return;
+    registerMapTabCamera((place) => {
+      followingRef.current = false;
+      mapRef.current?.animateCameraTo({
+        latitude: place.latitude - sheetLatOffset(15, screenHeight, place.latitude),
+        longitude: place.longitude,
+        zoom: 15,
+        duration: 0,
+      });
+    });
+    return () => registerMapTabCamera(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overlay, screenHeight]);
 
   // 화면 전환 전에 도착하는 선행 포커스 — 검색·근처 장소가 쏜다. params 딥링크가
   // 같은 장소를 한 번 더 처리하지만 캐시 히트 + 같은 좌표(duration 0)라 무해하다.
