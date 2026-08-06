@@ -39,6 +39,7 @@ import KakaoNavi, {
   type RoutePriority,
 } from '@/modules/kakao-navi';
 import { sampleWaypoints, type NavTarget } from '@/lib/navigation';
+import { hasMapOverlayInStack } from '@/lib/mapFocus';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { loadRecentSearches, recentTargets } from '@/lib/recentSearches';
 import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
@@ -876,7 +877,19 @@ export default function NaviScreen() {
             </View>
             {/* 오른쪽 열 — 닫기는 상단, 스왑은 최하단(닫기와 오터치 안 나게 멀리) */}
             <View style={styles.routeSide}>
-              <Pressable onPress={() => router.back()} hitSlop={8} style={styles.routeClose}>
+              <Pressable
+                onPress={() => {
+                  // 오버레이(장소 상세 지도)를 거쳐 여기까지 왔다면 back 은
+                  // 오버레이→미리보기→… 를 되감을 뿐이다. 닫기의 기대는
+                  // "다 접고 지도로" — 탭 루트로 바로 나간다.
+                  if (hasMapOverlayInStack()) {
+                    router.dismissAll();
+                  } else {
+                    router.back();
+                  }
+                }}
+                hitSlop={8}
+                style={styles.routeClose}>
                 <Ionicons name="close" size={20} color={colors.text} />
               </Pressable>
               <Pressable

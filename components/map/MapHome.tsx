@@ -149,7 +149,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   // 최초 1회: 지도가 준비되고 내 위치를 확보하면 카메라를 내 위치로 이동
   useEffect(() => {
-    if (!mapReady || !userLocation || didCenterOnUserRef.current) return;
+    // 오버레이는 보러 온 장소가 주인공이다 — 위치가 도착했다고 카메라를 내
+    // 위치로 뺏으면 장소→내 위치→장소로 두 번 튄다(실기기 보고)
+    if (overlay || !mapReady || !userLocation || didCenterOnUserRef.current) return;
     didCenterOnUserRef.current = true;
     mapRef.current?.animateCameraTo({
       latitude: userLocation.latitude,

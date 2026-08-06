@@ -15,6 +15,23 @@ export function setMapFocusOverride(override: FocusOverride | null) {
   focusOverride = override;
 }
 
+// 지도 오버레이(place-preview)가 스택에 살아 있는 동안 0 보다 크다.
+// 오버레이를 거쳐 열린 미리보기의 X 는 스택을 되감지 않고 지도 탭으로 바로
+// 나가야 해서(오버레이→미리보기→오버레이… 순회 방지) 이 값으로 가른다.
+let overlayDepth = 0;
+
+export function pushMapOverlayDepth() {
+  overlayDepth += 1;
+}
+
+export function popMapOverlayDepth() {
+  overlayDepth = Math.max(0, overlayDepth - 1);
+}
+
+export function hasMapOverlayInStack(): boolean {
+  return overlayDepth > 0;
+}
+
 // 지도 탭으로 이동해 특정 장소를 선택·포커스한다.
 // focusTs 는 같은 장소를 연속 선택해도 지도 화면이 반응하도록 매번 다른 키를
 // 만드는 규약 — 호출처마다 흩어져 있던 것을 여기 한 곳으로 모은다.
