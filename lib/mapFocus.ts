@@ -1,6 +1,8 @@
 import { router } from 'expo-router';
 
 import { track, type PlaceSource } from '@/lib/analytics';
+import { queryClient } from '@/lib/queryClient';
+import type { Place } from '@/types';
 
 type FocusOverride = (
   placeId: string,
@@ -37,10 +39,16 @@ export function hasMapOverlayInStack(): boolean {
 // 만드는 규약 — 호출처마다 흩어져 있던 것을 여기 한 곳으로 모은다.
 export function focusPlaceOnMap(
   placeId: string,
-  opts?: { reviewId?: string; fromCourseId?: string; source?: PlaceSource }
+  opts?: { reviewId?: string; fromCourseId?: string; source?: PlaceSource; place?: Place }
 ) {
   // 장소에 닿은 경로를 남긴다 — 어느 발견 경로가 주행까지 이어지는지 가르는 축
   track.placeViewed({ place_id: placeId, source: opts?.source ?? 'search' });
+  // 호출처가 장소를 통째로 들고 있으면 캐시부터 채운다. 지도 쪽 딥링크가
+  // 이걸 다시 fetch 하는 동안 이전 카메라(대개 내 위치)가 비치는 게
+  // "내 위치를 거쳐 간다"로 보였다 — 캐시 히트면 그 구간이 없다.
+  if (opts?.place) {
+    queryClient.setQueryData(['place', placeId], opts.place);
+  }
   if (focusOverride) {
     focusOverride(placeId, opts);
     return;

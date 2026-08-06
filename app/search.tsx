@@ -226,7 +226,7 @@ export default function SearchScreen() {
     Keyboard.dismiss();
     track.searchResultSelected({ result_type: 'registered', rank: 0, source: 'search_screen' });
     addRecentSearch({ type: 'place', place });
-    focusPlaceOnMap(place.id, { source: 'search' });
+    focusPlaceOnMap(place.id, { source: 'search', place });
   }, []);
 
   const goToKakaoPlace = useCallback(
