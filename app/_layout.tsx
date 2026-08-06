@@ -147,7 +147,15 @@ function RootLayoutNav() {
               ),
             }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="search" options={{ headerShown: false, animation: 'none' }} />
+            {/* transparentModal: 검색이 떠 있는 동안 아래 지도 화면을 detach 하지
+                않는다. 일반 push 는 지도 서페이스를 재워 마지막 프레임(대개 내
+                위치)이 버퍼에 남고, 복귀 전환에서 그 스테일 프레임이 먼저 비쳤다
+                — 카메라를 언제 옮겨도 소용없던 "잠깐 내 위치"의 정체(HUD 실증:
+                그 순간 카메라 이동 로그가 없었다). 배경이 불투명이라 보기엔 같다. */}
+            <Stack.Screen
+              name="search"
+              options={{ headerShown: false, animation: 'none', presentation: 'transparentModal' }}
+            />
             <Stack.Screen name="search-results" options={{ headerShown: false }} />
             <Stack.Screen name="directions" options={{ title: '길찾기' }} />
             <Stack.Screen name="chat" options={{ headerShown: false }} />
