@@ -61,7 +61,7 @@ import HazardSheet from '@/components/map/HazardSheet';
 import { coordToAddress, searchKakaoLocal } from '@/lib/api/kakaoLocal';
 import SearchEntry from '@/components/search/SearchEntry';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { router } from 'expo-router';
+import { router , useLocalSearchParams } from 'expo-router';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { toast } from '@/lib/toast';
 import type { Place, RoadHazard } from '@/types';
@@ -86,6 +86,13 @@ function sheetLatOffset(zoom: number, screenHeightDp: number, lat: number): numb
 // overlay: 스택 위에 오버레이로 떴을 때(place-preview) — 뒤로가기 버튼이 붙고,
 // 닫으면 이전 화면(경로 미리보기 등)으로 돌아간다. 탭에서는 false.
 export default function MapHome({ overlay = false }: { overlay?: boolean }) {
+  // 초기 카메라용 좌표 — 딥링크 처리(useMapDeepLinks)와 별개로 첫 프레임에 필요
+  const overlayParams = useLocalSearchParams<{
+    lat?: string;
+    lng?: string;
+    kakaoLat?: string;
+    kakaoLng?: string;
+  }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { userLocation, selectedPlaceId, activeFilter, setSelectedPlaceId } =
@@ -422,7 +429,15 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     });
   };
 
-  const initialCamera = {
+  // 오버레이는 딥링크 좌표를 이미 안다 — 기본 위치에서 800ms 카메라 이동을
+  // 기다리지 말고 처음부터 그 자리에서 뜬다(전환 체감의 대부분이 이 이동이었다)
+  const overlayLat = Number(overlayParams.lat ?? overlayParams.kakaoLat);
+  const overlayLng = Number(overlayParams.lng ?? overlayParams.kakaoLng);
+  const overlayTarget =
+    overlay && Number.isFinite(overlayLat) && Number.isFinite(overlayLng)
+      ? { latitude: overlayLat, longitude: overlayLng, zoom: 15 }
+      : null;
+  const initialCamera = overlayTarget ?? {
     latitude: userLocation?.latitude ?? DEFAULT_CENTER[1],
     longitude: userLocation?.longitude ?? DEFAULT_CENTER[0],
     zoom: DEFAULT_ZOOM,
@@ -685,42 +700,47 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         />
       )}
 
-      <Animated.View entering={FadeIn.duration(300)} style={styles.searchAndFilter}>
-        <View style={styles.searchRow}>
-          {overlay && (
+      {overlay ? (
+        /* 오버레이는 "이 장소가 뭔지 보고 돌아오는" 화면 — 검색·필터·길찾기는
+           지도 탭의 일이라 걷어내고 뒤로가기만 남긴다 */
+        <Pressable
+          onPress={() => router.back()}
+          style={[
+            styles.backButton,
+            styles.backButtonOverlay,
+            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+          ]}>
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
+        </Pressable>
+      ) : (
+        <Animated.View entering={FadeIn.duration(300)} style={styles.searchAndFilter}>
+          <View style={styles.searchRow}>
+            <SearchEntry />
             <Pressable
-              onPress={() => router.back()}
+              onPress={() => router.push('/directions')}
               style={[
-                styles.backButton,
+                styles.directionsButton,
                 { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
               ]}>
-              <Ionicons name="chevron-back" size={22} color={colors.text} />
+              {/* 글리프의 세로 줄기가 왼쪽에 있어 시각 무게가 좌측으로 쏠린다 — 살짝 보정 */}
+              <MaterialCommunityIcons
+                name="arrow-right-top-bold"
+                size={23}
+                color={colors.tint}
+                style={{ marginLeft: 2 }}
+              />
             </Pressable>
-          )}
-          <SearchEntry />
-          <Pressable
-            onPress={() => router.push('/directions')}
-            style={[
-              styles.directionsButton,
-              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-            ]}>
-            {/* 글리프의 세로 줄기가 왼쪽에 있어 시각 무게가 좌측으로 쏠린다 — 살짝 보정 */}
-            <MaterialCommunityIcons
-              name="arrow-right-top-bold"
-              size={23}
-              color={colors.tint}
-              style={{ marginLeft: 2 }}
-            />
-          </Pressable>
-        </View>
-        <CategoryFilter />
-      </Animated.View>
+          </View>
+          <CategoryFilter />
+        </Animated.View>
+      )}
 
-      {weather && (
+      {!overlay && weather && (
         <WeatherFab weather={weather} onPress={() => setWeatherOpen(true)} />
       )}
 
       {/* 즐겨찾기 지도 표시 — 날씨 FAB와 같은 행 오른쪽 끝, 켜면 별이 채워진다 */}
+      {!overlay && (
       <Pressable
         onPress={() => {
           if (!user) {
@@ -742,6 +762,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           color={showFavorites ? '#FACC15' : colors.textSecondary}
         />
       </Pressable>
+      )}
 
       {gasMode && !gasZoomOk && stations.length === 0 && (
         <Animated.View
@@ -845,6 +866,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  backButtonOverlay: {
+    position: 'absolute',
+    // 검색바와 같은 상단 기준(60) — 화면마다 눈높이가 안 바뀐다
+    top: 60,
+    left: 16,
+    zIndex: 5,
+    elevation: 5,
   },
   directionsButton: {
     width: 44,

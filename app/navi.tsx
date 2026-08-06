@@ -688,9 +688,15 @@ export default function NaviScreen() {
       const pl = visibleOnMap.places.find((x) => `place:${x.id}` === markerIdentifier);
       if (!pl) return;
       track.placeViewed({ place_id: pl.id, category: pl.category, source: 'route_preview' });
+      // lat/lng 는 오버레이 초기 카메라용 — 장소 fetch 전 첫 프레임에 쓴다
       router.push({
         pathname: '/place-preview',
-        params: { focusPlaceId: pl.id, focusTs: String(Date.now()) },
+        params: {
+          focusPlaceId: pl.id,
+          focusTs: String(Date.now()),
+          lat: String(pl.latitude),
+          lng: String(pl.longitude),
+        },
       });
       return;
     }
