@@ -32,7 +32,7 @@ import { openNavigation } from '@/lib/navigation';
 import { toast } from '@/lib/toast';
 import { formatDistance } from '@/constants/course';
 import { haversine } from '@/lib/distance';
-import { focusPlaceOnMap } from '@/lib/mapFocus';
+import { useQueryClient } from '@tanstack/react-query';
 import { useMapStore } from '@/stores/useMapStore';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
 import { track } from '@/lib/analytics';
@@ -222,19 +222,36 @@ export default function SearchScreen() {
     });
   }, [searching, isLoading, results, kakaoResults, kakaoOnly.length, trimmed]);
 
+  // 지도 탭 "복귀"가 아니라 오버레이 지도를 새로 띄운다. 스택 아래로 갔던
+  // 네이버 지도는 카메라 명령을 버리고 blur 중 UI 커밋도 화면에 안 실려서
+  // (HUD 실측) 복귀 직후엔 반드시 옛 화면이 비쳤다 — 새 인스턴스는
+  // initialCamera 가 곧 장소 좌표라 첫 프레임부터 그 자리다.
+  const queryClient = useQueryClient();
+
   const goToPlace = useCallback((place: Place) => {
     Keyboard.dismiss();
     track.searchResultSelected({ result_type: 'registered', rank: 0, source: 'search_screen' });
+    track.placeViewed({ place_id: place.id, category: place.category, source: 'search' });
     addRecentSearch({ type: 'place', place });
-    focusPlaceOnMap(place.id, { source: 'search', place });
+    queryClient.setQueryData(['place', place.id], place);
+    router.push({
+      pathname: '/place-preview',
+      params: {
+        focusPlaceId: place.id,
+        lat: String(place.latitude),
+        lng: String(place.longitude),
+        focusTs: String(Date.now()),
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const goToKakaoPlace = useCallback(
     (name: string, address: string, latitude: number, longitude: number, phone?: string) => {
       Keyboard.dismiss();
       addRecentSearch({ type: 'kakao', name, address, latitude, longitude, phone });
-      router.navigate({
-        pathname: '/',
+      router.push({
+        pathname: '/place-preview',
         params: {
           kakaoName: name,
           kakaoAddress: address,
