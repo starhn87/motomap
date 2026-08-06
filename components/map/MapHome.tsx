@@ -29,8 +29,6 @@ import { useWeather } from '@/hooks/useWeather';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
 import { setMapFocusOverride } from '@/lib/mapFocus';
-import { logCam } from '@/lib/camDebug';
-import CameraDebugHud from '@/components/map/CameraDebugHud';
 import { useNearbyHazards } from '@/hooks/useHazards';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -162,7 +160,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       return;
     }
     didCenterOnUserRef.current = true;
-    logCam('first-fix');
     mapRef.current?.animateCameraTo({
       latitude: userLocation.latitude,
       longitude: userLocation.longitude,
@@ -215,7 +212,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   const handleMarkerPress = useCallback(
     (place: Place) => {
-      logCam('marker');
       followingRef.current = false;
       track.placeViewed({ place_id: place.id, category: place.category, source: 'map_marker' });
       setHighlightReview(null);
@@ -236,7 +232,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   const handleSearchSelect = useCallback(
     (place: Place) => {
-      logCam('search-select');
       // 따라가기가 켜져 있으면 다음 위치 갱신이 카메라를 도로 내 위치로 끌고
       // 간다 — 장소를 보러 가는 순간 풀어야 한다(안내 종료 직후 검색에서 실증)
       followingRef.current = false;
@@ -249,7 +244,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         // 마지막 보던 화면에서 장소로 날아가는 애니메이션 — 이동을 감추는 게
         // 아니라 보여주는 게 의도다. 딥링크는 detach 특성상 늘 화면 복귀 후에
         // 실행되므로 출발점은 자연히 "검색 전 마지막 카메라"가 된다.
-        duration: 900,
+        // Fly: 축소됐다 내려앉는 포물선 — 먼 거리 이동용 커브.
+        duration: 1100,
+        easing: 'Fly',
       });
     },
     [setSelectedPlaceId, screenHeight]
@@ -365,7 +362,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 내 위치)이 남는다. 카메라는 이미 옮겨졌어도 드러나는 첫 프레임들은 그 옛
   // 그림이다(HUD 로 실증 — 그 순간 카메라 이동 로그가 없었다). 서페이스가 새
   // 프레임을 그릴 때까지 배경색으로 덮었다가 걷는다.
-  const camLogThrottleRef = useRef(0);
 
   // 미리보기의 X 가 "맨 지도로 나가기"를 눌렀다 — 남아 있던 시트·카드를 접는다.
   // 오버레이 인스턴스는 곧 언마운트되니 탭 인스턴스만 반응하면 된다.
@@ -436,7 +432,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const followingRef = useRef(false);
   useEffect(() => {
     if (!followingRef.current || !userLocation) return;
-    logCam('follow');
     mapRef.current?.animateCameraTo({
       latitude: userLocation.latitude,
       longitude: userLocation.longitude,
@@ -456,7 +451,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       void (async () => {
         const pos = await Location.getLastKnownPositionAsync();
         if (!pos) return;
-        logCam('guide-end');
         mapRef.current?.animateCameraTo({
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
@@ -469,7 +463,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   const handleMyLocation = () => {
     if (!userLocation || !mapRef.current) return;
-    logCam('my-loc');
     // 내 위치를 지도 중앙으로 이동(현재 줌 유지)
     mapRef.current.animateCameraTo({
       latitude: userLocation.latitude,
@@ -555,14 +548,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         onTapMap={handleMapTap}
         onTapSymbol={handleSymbolTap}
         onCameraChanged={(e) => {
-          // 진단: 네이티브 카메라가 "실제로" 비춘 좌표 — JS 명령과 별개의 사실
-          if (!overlay) {
-            const now = Date.now();
-            if (now - camLogThrottleRef.current > 250) {
-              camLogThrottleRef.current = now;
-              logCam(`cam ${e.latitude.toFixed(3)},${e.longitude.toFixed(3)} ${e.reason ?? '?'}`);
-            }
-          }
           // 드래그하면 따라가기 해제 (프로그램 이동 'Developer' 는 유지)
           if (e.reason === 'Gesture') followingRef.current = false;
           if (cameraTimerRef.current) clearTimeout(cameraTimerRef.current);
@@ -802,7 +787,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         </Animated.View>
       )}
 
-      {!overlay && <CameraDebugHud />}
       {!overlay && weather && (
         <WeatherFab weather={weather} onPress={() => setWeatherOpen(true)} />
       )}

@@ -3,7 +3,6 @@ import { useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { coordToAddress } from '@/lib/api/kakaoLocal';
-import { logCam } from '@/lib/camDebug';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 
 import { fetchPlaceById } from '@/hooks/usePlace';
@@ -86,13 +85,13 @@ export function useMapDeepLinks({
         );
       });
     }
-    logCam('kakao-deeplink');
     mapRef.current?.animateCameraTo({
       latitude: place.latitude,
       longitude: place.longitude,
       zoom: 15,
       // 마지막 보던 화면에서 날아가는 애니메이션 (등록 장소와 같은 규칙)
-      duration: 900,
+      duration: 1100,
+      easing: 'Fly',
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, focusTs, mapReady]);
