@@ -165,6 +165,7 @@ function RootLayoutNav() {
               name="navi"
               options={{ headerShown: false, animation: 'fade' }}
             />
+            <Stack.Screen name="place-preview" options={{ headerShown: false }} />
           </Stack>
         </ThemeProvider>
       </QueryClientProvider>
