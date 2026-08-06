@@ -58,7 +58,8 @@ export type PlaceSource =
   | 'chat'
   | 'notification'
   | 'course'
-  | 'submission';
+  | 'submission'
+  | 'route_preview';
 
 export type SearchSource = 'map_bar' | 'search_screen' | 'point_modal';
 

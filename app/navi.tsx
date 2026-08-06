@@ -2,6 +2,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   Pressable,
   StyleSheet,
   Text,
@@ -44,6 +45,16 @@ import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
 import { useMapStore } from '@/stores/useMapStore';
 import { haversine } from '@/lib/distance';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
+import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
+import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
+import { usePlaces } from '@/hooks/usePlaces';
+import { useFavorites } from '@/hooks/useFavorites';
+import {
+  MARKER_IMAGES,
+  MARKER_IMAGES_FAV,
+  GENERAL_MARKER_FAV,
+} from '@/constants/markerImages';
+import type { Place } from '@/types';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import {
@@ -525,14 +536,20 @@ export default function NaviScreen() {
     }
     const latSpan = Math.max(maxLat - minLat, 0.01);
     const lngSpan = Math.max(maxLng - minLng, 0.01);
+    // 카드 밖에 남는 세로 밴드에 경로가 통째로 들어가야 한다. 카드 높이는
+    // 화면 픽셀이라, 경로 폭과 무관하게 "가려지는 비율"로 환산해 벌린다.
+    const screenH = Dimensions.get('window').height;
+    const topH = isCourseMode ? insets.top + 60 : topCardH.current;
+    const bottomH = bottomCardH.current;
+    const visibleFrac = Math.max(0.25, (screenH - topH - bottomH) / screenH);
+    const fullSpan = latSpan / visibleFrac;
     mapRef.current?.animateCameraWithTwoCoords({
       coord1: {
-        latitude: minLat - latSpan * 0.45,
+        latitude: minLat - fullSpan * (bottomH / screenH) - latSpan * 0.04,
         longitude: minLng - lngSpan * 0.1,
       },
       coord2: {
-        // 북쪽은 경로 편집 카드가 덮는 만큼 더 벌린다 (코스 안내에는 카드가 없다)
-        latitude: maxLat + latSpan * (isCourseMode ? 0.1 : 0.35),
+        latitude: maxLat + fullSpan * (topH / screenH) + latSpan * 0.04,
         longitude: maxLng + lngSpan * 0.1,
       },
       duration: 700,
@@ -562,6 +579,23 @@ export default function NaviScreen() {
   // 재전송된다 — 경로가 바뀔 때만 변환하고, 혼잡도 색 경로가 있으면 단색용
   // coords 는 아예 만들지 않는다.
   const trafficParts = traffic[priority];
+  // 경로 주변의 등록 장소·즐겨찾기 — "가는 길에 들를 곳"을 미리보기에서 보여준다.
+  // 탭하면 시트가 미리보기 위로 열리고, 닫으면 경로·옵션 상태 그대로 돌아온다.
+  const { data: allPlaces } = usePlaces(null, null, !guideStarted);
+  const { data: favorites } = useFavorites();
+  const [previewPlace, setPreviewPlace] = useState<Place | null>(null);
+  const [previewFav, setPreviewFav] = useState<TempPlace | null>(null);
+  // 화면에 보이는 영역(SW + delta). 카메라가 멈출 때만 갱신된다
+  // 위아래 카드가 지도를 덮는 픽셀 — 카메라 핏이 이 값만큼 경로를 밀어 넣는다
+  const topCardH = useRef(240);
+  const bottomCardH = useRef(300);
+  const [viewport, setViewport] = useState<{
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  } | null>(null);
+
   const coords = useMemo(
     () =>
       route && route.polyline.length >= 4 && !trafficParts
@@ -569,6 +603,89 @@ export default function NaviScreen() {
         : null,
     [route, trafficParts],
   );
+  // 화면에 보이는 장소·즐겨찾기만 그린다 — 전량을 뿌리면 전국 뷰에서 마커가
+  // 수백 개가 되고, 뷰포트 기준이면 카메라가 멈출 때만 다시 거른다.
+  const visibleOnMap = useMemo(() => {
+    if (!viewport) return { places: [], favs: [] };
+    // 가장자리 걸친 마커가 뚝 사라지지 않게 10% 여유
+    const latPad = viewport.latitudeDelta * 0.1;
+    const lngPad = viewport.longitudeDelta * 0.1;
+    const south = viewport.latitude - latPad;
+    const north = viewport.latitude + viewport.latitudeDelta + latPad;
+    const west = viewport.longitude - lngPad;
+    const east = viewport.longitude + viewport.longitudeDelta + lngPad;
+    const inView = (lat: number, lng: number) =>
+      lat >= south && lat <= north && lng >= west && lng <= east;
+
+    // 출발·도착·경유지 자리는 이미 전용 마커가 있다 — 같은 곳이면 겹치니 뺀다
+    const anchors: { latitude: number; longitude: number }[] = [
+      { latitude: goal.latitude, longitude: goal.longitude },
+      ...(start ? [{ latitude: start[1], longitude: start[0] }] : []),
+      ...userVias.filter((v): v is NavTarget => !!v),
+    ];
+    const isAnchor = (lat: number, lng: number) =>
+      anchors.some(
+        (a) => Math.hypot((a.latitude - lat) * 111000, (a.longitude - lng) * 88000) < 60,
+      );
+
+    const places = (allPlaces ?? []).filter(
+      (pl) => !isAnchor(pl.latitude, pl.longitude) && inView(pl.latitude, pl.longitude),
+    );
+    const favs = (favorites?.general ?? []).filter(
+      (f) => !isAnchor(f.latitude, f.longitude) && inView(f.latitude, f.longitude),
+    );
+    return { places, favs };
+  }, [viewport, allPlaces, favorites, goal, start, userVias]);
+  const favoriteIds = useMemo(() => new Set(favorites?.placeIds ?? []), [favorites]);
+
+  // 개별 마커 onTap 은 이 화면에서 이벤트가 JS 로 올라오지 않았다(실측).
+  // 지도 탭이 쓰는 클러스터 + onTapClusterLeaf 경로가 검증돼 있어 그대로 따른다.
+  // 클러스터 마커는 앵커 지정이 안 돼 핀(하단 중앙 고정)을 쓴다 — 지도 탭과 동일.
+  const previewClusterMarkers = useMemo(
+    () => [
+      ...visibleOnMap.places.map((pl) => ({
+        identifier: `place:${pl.id}`,
+        latitude: pl.latitude,
+        longitude: pl.longitude,
+        image: favoriteIds.has(pl.id)
+          ? MARKER_IMAGES_FAV[pl.category]
+          : MARKER_IMAGES[pl.category],
+        width: 32,
+        height: 37,
+      })),
+      ...visibleOnMap.favs.map((f) => ({
+        identifier: `fav:${f.id}`,
+        latitude: f.latitude,
+        longitude: f.longitude,
+        image: GENERAL_MARKER_FAV,
+        width: 32,
+        height: 37,
+      })),
+    ],
+    [visibleOnMap, favoriteIds],
+  );
+
+  const handleClusterLeafTap = (markerIdentifier: string) => {
+    if (markerIdentifier.startsWith('place:')) {
+      const pl = visibleOnMap.places.find((x) => `place:${x.id}` === markerIdentifier);
+      if (!pl) return;
+      track.placeViewed({ place_id: pl.id, category: pl.category, source: 'route_preview' });
+      setPreviewFav(null);
+      setPreviewPlace(pl);
+      return;
+    }
+    const f = visibleOnMap.favs.find((x) => `fav:${x.id}` === markerIdentifier);
+    if (!f) return;
+    setPreviewPlace(null);
+    setPreviewFav({
+      name: f.name,
+      address: f.address,
+      latitude: f.latitude,
+      longitude: f.longitude,
+      phone: f.phone ?? undefined,
+    });
+  };
+
   const pathParts = useMemo(
     () =>
       trafficParts?.map((p) => ({
@@ -595,6 +712,22 @@ export default function NaviScreen() {
         // 위치 오버레이를 강제로 끈다 — 재활용된 지도 뷰가 지도 탭의 오버레이
         // 상태를 물려받아 고아 위치 마커가 화면에 남았다(실기기 영상으로 확정)
         locationOverlay={{ isVisible: false }}
+        // 미리보기라고 지도를 잠글 이유가 없다 — 확대해서 경로 주변을 살피는 화면이다
+        isZoomGesturesEnabled
+        isScrollGesturesEnabled
+        isRotateGesturesEnabled
+        isTiltGesturesEnabled
+        onCameraIdle={(e) => setViewport(e.region)}
+        clusters={[
+          {
+            markers: previewClusterMarkers,
+            screenDistance: 70,
+            minZoom: 1,
+            maxZoom: 16,
+            animate: true,
+          },
+        ]}
+        onTapClusterLeaf={({ markerIdentifier }) => handleClusterLeafTap(markerIdentifier)}
         initialCamera={{ latitude: goal.latitude, longitude: goal.longitude, zoom: 12 }}>
         {start && (
           // 출발점 도트 — children 커스텀 뷰는 캡처용 네이티브 뷰가 화면에
@@ -639,6 +772,9 @@ export default function NaviScreen() {
         !guideStarted && (
           /* 경로 편집 카드 — 필드를 탭하면 그 지점을 바꾸고 경로를 다시 그린다 */
           <View
+            onLayout={(e) => {
+              topCardH.current = e.nativeEvent.layout.y + e.nativeEvent.layout.height;
+            }}
             style={[
               styles.routeCard,
               {
@@ -730,6 +866,9 @@ export default function NaviScreen() {
 
       {/* 하단: 목적지 + 옵션 + 경로 정보 + 시작 */}
       <View
+        onLayout={(e) => {
+          bottomCardH.current = e.nativeEvent.layout.height;
+        }}
         style={[
           styles.card,
           {
@@ -832,6 +971,14 @@ export default function NaviScreen() {
         onClose={() => setEditing(null)}
         onSelect={handleFieldSelect}
       />
+
+      {/* 경로 주변 장소 상세 — 오버레이라 닫으면 미리보기 상태가 그대로다 */}
+      {!guideStarted && (
+        <PlaceBottomSheet place={previewPlace} onClose={() => setPreviewPlace(null)} />
+      )}
+      {!guideStarted && previewFav && (
+        <TempPlaceSheet place={previewFav} onClose={() => setPreviewFav(null)} />
+      )}
     </View>
   );
 }
