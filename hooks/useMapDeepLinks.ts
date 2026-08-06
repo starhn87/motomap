@@ -91,9 +91,8 @@ export function useMapDeepLinks({
       latitude: place.latitude,
       longitude: place.longitude,
       zoom: 15,
-      // 검색에서 돌아오며 불린다 — 복귀 전환이 가리는 사이 끝나야 이전 카메라가
-      // 안 비친다 (등록 장소 쪽과 같은 이유)
-      duration: 0,
+      // 마지막 보던 화면에서 날아가는 애니메이션 (등록 장소와 같은 규칙)
+      duration: 900,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, focusTs, mapReady]);

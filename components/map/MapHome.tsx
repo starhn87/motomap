@@ -28,9 +28,7 @@ import { useGasStations, GAS_MIN_ZOOM, type SearchPoint } from '@/hooks/useGasSt
 import { useWeather } from '@/hooks/useWeather';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
-import { useIsFocused } from '@react-navigation/native';
-
-import { registerMapTabCamera, setMapFocusOverride } from '@/lib/mapFocus';
+import { setMapFocusOverride } from '@/lib/mapFocus';
 import { logCam } from '@/lib/camDebug';
 import CameraDebugHud from '@/components/map/CameraDebugHud';
 import { useNearbyHazards } from '@/hooks/useHazards';
@@ -248,10 +246,10 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         latitude: place.latitude - sheetLatOffset(15, screenHeight, place.latitude),
         longitude: place.longitude,
         zoom: 15,
-        // 즉시 이동 — 이 함수는 검색·딥링크로 "다른 화면에서 돌아오며" 불린다.
-        // 복귀 전환이 지도를 가리는 사이 끝나야 하고, 800ms 를 남기면 이전
-        // 카메라(대개 내 위치)가 먼저 보였다가 흘러가는 게 그대로 노출된다.
-        duration: 0,
+        // 마지막 보던 화면에서 장소로 날아가는 애니메이션 — 이동을 감추는 게
+        // 아니라 보여주는 게 의도다. 딥링크는 detach 특성상 늘 화면 복귀 후에
+        // 실행되므로 출발점은 자연히 "검색 전 마지막 카메라"가 된다.
+        duration: 900,
       });
     },
     [setSelectedPlaceId, screenHeight]
@@ -360,24 +358,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     });
   };
 
-  // freeze 를 뚫는 카메라 핸들 — 검색 화면이 지도를 덮고 있는 동안에도 네이티브
-  // 명령은 통하므로, 전환이 시작되기 전에 카메라가 이미 그 장소에 가 있다.
-  useEffect(() => {
-    if (overlay) return;
-    registerMapTabCamera((place) => {
-      logCam('native-direct');
-      followingRef.current = false;
-      mapRef.current?.animateCameraTo({
-        latitude: place.latitude - sheetLatOffset(15, screenHeight, place.latitude),
-        longitude: place.longitude,
-        zoom: 15,
-        duration: 0,
-      });
-    });
-    return () => registerMapTabCamera(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlay, screenHeight]);
-
   // 화면 전환 전에 도착하는 선행 포커스 — 검색·근처 장소가 쏜다. params 딥링크가
   // 같은 장소를 한 번 더 처리하지만 캐시 히트 + 같은 좌표(duration 0)라 무해하다.
   //
@@ -386,44 +366,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 그림이다(HUD 로 실증 — 그 순간 카메라 이동 로그가 없었다). 서페이스가 새
   // 프레임을 그릴 때까지 배경색으로 덮었다가 걷는다.
   const camLogThrottleRef = useRef(0);
-  const [returnCurtain, setReturnCurtain] = useState(false);
-  // 복귀를 기다리는 포커스 — HUD 실측: detach 된 네이버 지도는 카메라 명령을
-  // 버린다(전환 전에 duration 0 을 두 발 쏴도 복귀 시점 카메라는 그대로 내
-  // 위치였다). 그러니 이동은 화면이 다시 붙은 "뒤"에 쏘고, 그때까지 커튼으로
-  // 가린다. 커튼 렌더는 freezeOnBlur:false 라 blur 중에도 커밋된다.
-  const heldFocusRef = useRef<Place | null>(null);
-  const isFocusedNow = useIsFocused();
-  const pendingFocus = useMapStore((st) => st.pendingFocus);
-  useEffect(() => {
-    if (overlay || !pendingFocus || !mapReady) return;
-    useMapStore.getState().clearPendingFocus();
-    if (isFocusedNow) {
-      // 같은 화면 안(시트의 근처 장소 등) — 지도가 붙어 있으니 바로 이동
-      handleSearchSelect(pendingFocus.place);
-      return;
-    }
-    heldFocusRef.current = pendingFocus.place;
-    setReturnCurtain(true);
-    logCam('curtain-on');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingFocus, mapReady, overlay]);
-
-  useFocusEffect(
-    useCallback(() => {
-      const held = heldFocusRef.current;
-      if (!held) return;
-      heldFocusRef.current = null;
-      // 화면이 붙었다 — 이제 명령이 먹는다. 커튼 뒤에서 즉시 이동시키고,
-      // 서페이스가 새 프레임을 그릴 시간을 준 뒤 걷는다.
-      handleSearchSelect(held);
-      const timer = setTimeout(() => {
-        setReturnCurtain(false);
-        logCam('curtain-off');
-      }, 400);
-      return () => clearTimeout(timer);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
-  );
 
   // 미리보기의 X 가 "맨 지도로 나가기"를 눌렀다 — 남아 있던 시트·카드를 접는다.
   // 오버레이 인스턴스는 곧 언마운트되니 탭 인스턴스만 반응하면 된다.
@@ -860,13 +802,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         </Animated.View>
       )}
 
-      {returnCurtain && (
-        <Animated.View
-          exiting={FadeOut.duration(180)}
-          // 진단용 색 — 커튼이 화면에 실제로 나오는지 육안 확인용. 확정 후 배경색으로.
-          style={[styles.returnCurtain, { backgroundColor: 'rgba(220,38,38,0.45)' }]}
-        />
-      )}
       {!overlay && <CameraDebugHud />}
       {!overlay && weather && (
         <WeatherFab weather={weather} onPress={() => setWeatherOpen(true)} />
@@ -976,11 +911,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  returnCurtain: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 50,
-    elevation: 50,
   },
   searchAndFilter: {
     position: 'absolute',
