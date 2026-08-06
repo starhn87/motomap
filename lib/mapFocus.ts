@@ -47,25 +47,33 @@ export function focusPlaceOnMap(
   // 호출처가 장소를 통째로 들고 있으면 캐시부터 채운다. 지도 쪽 딥링크가
   // 이걸 다시 fetch 하는 동안 이전 카메라(대개 내 위치)가 비치는 게
   // "내 위치를 거쳐 간다"로 보였다 — 캐시 히트면 그 구간이 없다.
-  if (opts?.place) {
-    queryClient.setQueryData(['place', placeId], opts.place);
-    // 전환 전에 지도 탭이 카메라·선택을 먼저 옮겨 두게 한다 — 검색 화면이 아직
-    // 덮고 있는 사이에 끝나야 드러나는 첫 프레임이 곧 그 장소다
-    useMapStore.getState().requestFocusPlace(opts.place);
-  }
   if (focusOverride) {
     focusOverride(placeId, opts);
     return;
   }
-  router.navigate({
-    pathname: '/',
-    params: {
-      focusPlaceId: placeId,
-      focusTs: String(Date.now()),
-      ...(opts?.reviewId ? { focusReviewId: opts.reviewId } : {}),
-      ...(opts?.fromCourseId ? { fromCourseId: opts.fromCourseId } : {}),
-    },
-  });
+
+  const navigate = () =>
+    router.navigate({
+      pathname: '/',
+      params: {
+        focusPlaceId: placeId,
+        focusTs: String(Date.now()),
+        ...(opts?.reviewId ? { focusReviewId: opts.reviewId } : {}),
+        ...(opts?.fromCourseId ? { fromCourseId: opts.fromCourseId } : {}),
+      },
+    });
+
+  if (opts?.place) {
+    queryClient.setQueryData(['place', placeId], opts.place);
+    // 지도 탭에 먼저 카메라·선택을 옮기게 하고, 그 이동이 네이티브 지도에
+    // 실제로 적용될 시간을 벌고 나서 화면을 전환한다. 커밋과 동시에 pop 을
+    // 시작하면 브리지·지도 렌더의 몇 프레임 동안 옛 카메라(대개 내 위치)가
+    // 드러나는 게 기기에서 계속 보였다. 그 사이는 검색 화면이 가리고 있다.
+    useMapStore.getState().requestFocusPlace(opts.place);
+    setTimeout(navigate, 120);
+    return;
+  }
+  navigate();
 }
 
 // 지도 탭에서 내 위치 따라가기 모드를 켠다 — 안내가 끝나도 라이더는 계속
