@@ -153,6 +153,12 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     // 오버레이는 보러 온 장소가 주인공이다 — 위치가 도착했다고 카메라를 내
     // 위치로 뺏으면 장소→내 위치→장소로 두 번 튄다(실기기 보고)
     if (overlay || !mapReady || !userLocation || didCenterOnUserRef.current) return;
+    // 딥링크 포커스를 들고 태어났다면(콜드 스타트 직후 검색 → 장소) 초기
+    // 센터링 자체를 포기한다 — 내 위치를 경유했다가 장소로 가는 게 이것이었다
+    if (overlayParams.focusPlaceId || overlayParams.kakaoLat) {
+      didCenterOnUserRef.current = true;
+      return;
+    }
     didCenterOnUserRef.current = true;
     mapRef.current?.animateCameraTo({
       latitude: userLocation.latitude,
@@ -231,13 +237,13 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         latitude: place.latitude - sheetLatOffset(15, screenHeight, place.latitude),
         longitude: place.longitude,
         zoom: 15,
-        // 오버레이는 initialCamera 가 이미 이 자리다 — 800ms 이동이 남아 있으면
-        // 그게 곧 "포커스 딜레이"로 보인다
-        duration: overlay ? 0 : 800,
+        // 즉시 이동 — 이 함수는 검색·딥링크로 "다른 화면에서 돌아오며" 불린다.
+        // 복귀 전환이 지도를 가리는 사이 끝나야 하고, 800ms 를 남기면 이전
+        // 카메라(대개 내 위치)가 먼저 보였다가 흘러가는 게 그대로 노출된다.
+        duration: 0,
       });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [setSelectedPlaceId, screenHeight, overlay]
+    [setSelectedPlaceId, screenHeight]
   );
 
   // 라우트 파라미터(검색·푸시·내 리뷰·코스 근처 장소·카카오 일반 장소) 진입 처리

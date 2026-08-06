@@ -56,7 +56,9 @@ interface Props {
   highlightReview?: { id: string; key: string } | null;
 }
 
-const SNAP_POINTS = ['10%', '45%', '100%'];
+// 최소 스냅은 비율이 아니라 고정 높이 — 지도 탭에서는 하단 탭바(~83pt)가
+// 시트 아래를 덮으므로, 핸들·제목·X 가 탭바 위로 온전히 나오는 만큼 잡는다
+const SNAP_POINTS = [145, '45%', '100%'];
 // 헤더 바(safe-area 제외) 높이. spacer 계산에 쓰는 고정값.
 const PAGE_HEADER_HEIGHT = 56;
 // 드래그 핸들 영역 높이 (paddingVertical 12*2 + 인디케이터 4)
