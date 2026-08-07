@@ -2,7 +2,7 @@ import { Alert } from 'react-native';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 
-import KakaoNavi, { MOTOMAP_MENU_ID, friendlyRouteError } from '@/modules/kakao-navi';
+import KakaoNavi, { HAZARD_BUTTON_ID, MOTOMAP_MENU_ID, friendlyRouteError } from '@/modules/kakao-navi';
 import { useGuideSession } from '@/lib/guideSession';
 import { HAZARD_LIST } from '@/constants/hazards';
 import { submitHazard } from '@/lib/api/hazards';
@@ -19,15 +19,19 @@ import { track } from '@/lib/analytics';
 
 // 주행 중 위험 제보 — 유형 고르면 현 위치로 바로 제보
 async function reportHazard() {
+  // 위치는 버튼을 누른 "순간"에 찍는다. 타입을 고른 뒤에 찍으면 시트를 보며
+  // 달린 5~10초(시속 60km 면 100m+)까지 오차에 들어간다 — 위험 지점과의
+  // 간격은 어차피 지나친 뒤 누르는 물리적 지연만큼만 남긴다.
+  const posPromise = Location.getCurrentPositionAsync({
+    accuracy: Location.Accuracy.Balanced,
+  });
   const picked = await KakaoNavi.showGuideOptions(
     '노면 위험 제보',
     HAZARD_LIST.map((h) => h.label),
   );
   if (picked < 0) return;
   try {
-    const pos = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
+    const pos = await posPromise;
     await submitHazard({
       type: HAZARD_LIST[picked].key,
       latitude: pos.coords.latitude,
@@ -138,6 +142,12 @@ export function registerGuideEvents(): () => void {
   });
   // 커스텀 슬롯이 하나뿐이라 버튼 하나에서 1차 시트로 가른다
   const menu = KakaoNavi.addListener('onGuideMenu', ({ id }) => {
+    // 전용 위험 버튼 — 1차 시트를 건너뛰고 타입 선택으로 직행 (구빌드에는
+    // 버튼이 없어 이 id 가 올 일도 없다)
+    if (id === HAZARD_BUTTON_ID) {
+      void reportHazard();
+      return;
+    }
     if (id !== MOTOMAP_MENU_ID) return;
     void (async () => {
       const picked = await KakaoNavi.showGuideOptions('모토맵', [

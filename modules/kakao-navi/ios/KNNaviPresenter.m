@@ -154,9 +154,35 @@ static __weak KNNaviViewController *gActiveNavi = nil;
       [endButton.widthAnchor constraintEqualToConstant:64],
       [endButton.heightAnchor constraintEqualToConstant:36],
     ]];
+
+    // 위험 제보 — 메뉴(1차 시트)를 거치지 않는 지름길. 라이딩 중 제보는 탭이
+    // 곧 비용이라 "버튼 → 타입 시트" 두 번으로 끝낸다. 좌측은 속도·과속 카메라
+    // UI 가 쓰므로 종료 버튼 아래 세로로 붙인다. 탭 처리(위치 캡처·시트)는 JS
+    // (guideEvents)가 기존 메뉴 이벤트 채널(id 101)로 받는다.
+    UIButton *hazardButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    hazardButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [hazardButton setTitle:@"위험 제보" forState:UIControlStateNormal];
+    [hazardButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+    hazardButton.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
+    hazardButton.backgroundColor = [UIColor colorWithWhite:0 alpha:0.55];
+    hazardButton.layer.cornerRadius = 18;
+    [hazardButton addTarget:self
+                     action:@selector(hazardTapped)
+           forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:hazardButton];
+    [NSLayoutConstraint activateConstraints:@[
+      [hazardButton.trailingAnchor constraintEqualToAnchor:endButton.trailingAnchor],
+      [hazardButton.topAnchor constraintEqualToAnchor:endButton.bottomAnchor constant:8],
+      [hazardButton.widthAnchor constraintEqualToConstant:84],
+      [hazardButton.heightAnchor constraintEqualToConstant:36],
+    ]];
   }
 
   gActiveNavi = self;
+}
+
+- (void)hazardTapped {
+  if (self.onMenu != nil) self.onMenu(101);
 }
 
 - (void)viewDidAppear:(BOOL)animated {

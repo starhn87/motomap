@@ -23,6 +23,9 @@ export type RoutePriority = (typeof ROUTE_PRIORITIES)[number]['value'];
 /** 안내 화면 커스텀 메뉴 버튼 id — 네이티브(KNNaviPresenter.m) 등록 값과 짝 */
 export const MOTOMAP_MENU_ID = 100;
 
+/** 안내 화면의 전용 위험 제보 버튼 id (KNNaviPresenter.m 의 hazardTapped 와 짝) */
+export const HAZARD_BUTTON_ID = 101;
+
 /** [lng, lat, ...] 평면 배열(브리지 wire 포맷) → [lng, lat] 쌍 배열 */
 export function pairsFromFlat(flat: number[]): [number, number][] {
   const pairs: [number, number][] = [];
