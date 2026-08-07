@@ -36,7 +36,7 @@ import { toast } from '@/lib/toast';
 type Editing = 'origin' | 'dest' | MyPlaceSlot | number;
 
 // 경유지 상한 — 미리보기(/navi)의 편집 카드와 같은 값
-const MAX_VIAS = 5;
+const MAX_VIAS = 3;
 
 export default function DirectionsScreen() {
   const colorScheme = useColorScheme();

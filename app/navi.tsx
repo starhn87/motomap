@@ -79,7 +79,7 @@ const TRAFFIC_COLORS: Record<number, string> = {
 };
 
 // 길찾기 경유지 상한 — 직접 고르는 지점이라 코스 샘플링(20개)과 별개다
-const MAX_USER_VIAS = 5;
+const MAX_USER_VIAS = 3;
 
 // 정한 출발지가 이보다 멀면 실주행이 아니라 경로 미리보기로 본다.
 // 걸어서 갈 만한 거리면 곧 그 자리에 서게 되므로 실주행이 맞다.
