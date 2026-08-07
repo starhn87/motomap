@@ -156,9 +156,10 @@ static __weak KNNaviViewController *gActiveNavi = nil;
     ]];
 
     // 위험 제보 — 메뉴(1차 시트)를 거치지 않는 지름길. 라이딩 중 제보는 탭이
-    // 곧 비용이라 "버튼 → 타입 시트" 두 번으로 끝낸다. 좌측은 속도·과속 카메라
-    // UI 가 쓰므로 종료 버튼 아래 세로로 붙인다. 탭 처리(위치 캡처·시트)는 JS
-    // (guideEvents)가 기존 메뉴 이벤트 채널(id 101)로 받는다.
+    // 곧 비용이라 "버튼 → 타입 시트" 두 번으로 끝낸다. 종료 옆에 두면 오터치
+    // 한 번에 안내가 끝나므로 좌측 하단으로 뗀다 — 급하게 누르는 버튼이라
+    // 엄지가 닿는 하단이 맞고, 속도·과속 카메라 UI(좌측 상단)와도 안 겹친다.
+    // 탭 처리(위치 캡처·시트)는 JS(guideEvents)가 메뉴 이벤트 채널(id 101)로 받는다.
     UIButton *hazardButton = [UIButton buttonWithType:UIButtonTypeSystem];
     hazardButton.translatesAutoresizingMaskIntoConstraints = NO;
     [hazardButton setTitle:@"위험 제보" forState:UIControlStateNormal];
@@ -171,8 +172,11 @@ static __weak KNNaviViewController *gActiveNavi = nil;
            forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:hazardButton];
     [NSLayoutConstraint activateConstraints:@[
-      [hazardButton.trailingAnchor constraintEqualToAnchor:endButton.trailingAnchor],
-      [hazardButton.topAnchor constraintEqualToAnchor:endButton.bottomAnchor constant:8],
+      [hazardButton.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor
+                                                 constant:12],
+      // 하단 정보 바(bottomView) 위에 매단다 — 바 높이가 상태에 따라 달라져도 따라온다
+      [hazardButton.bottomAnchor constraintEqualToAnchor:naviView.bottomView.topAnchor
+                                                constant:-12],
       [hazardButton.widthAnchor constraintEqualToConstant:84],
       [hazardButton.heightAnchor constraintEqualToConstant:36],
     ]];
