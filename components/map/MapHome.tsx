@@ -53,7 +53,6 @@ import WeatherFab from '@/components/map/WeatherFab';
 import WeatherSheet from '@/components/map/WeatherSheet';
 import * as Location from 'expo-location';
 
-import KakaoNavi from '@/modules/kakao-navi';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import HazardMarker from '@/components/map/HazardMarker';
@@ -265,7 +264,20 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     mapRef,
     onFollow: () => {
       followingRef.current = true;
-      handleMyLocation();
+      // 안내 중엔 위치 구독이 멈춰 스토어가 출발지에 얼어 있다 — 스토어를
+      // 그대로 쓰면(handleMyLocation) 카메라가 출발지로 되돌아갔다가 구독
+      // 재개 후에야 현재 위치로 끌려온다(실주행 증상). KNSDK 가 주행 내내
+      // 갱신해 둔 시스템 캐시로 마커와 카메라를 한 번에 되돌린다.
+      void (async () => {
+        const pos = await Location.getLastKnownPositionAsync();
+        if (!pos) return;
+        const coords = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        };
+        useMapStore.getState().setUserLocation(coords);
+        mapRef.current?.animateCameraTo({ ...coords, duration: 0 });
+      })();
     },
     onSelectPlace: handleSearchSelect,
     clearSelection: () => {
@@ -438,28 +450,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       duration: 600,
     });
   }, [userLocation]);
-
-  // 안내를 끝내고 돌아오면 지도는 안내를 시작할 때 보던 자리에 그대로 있다.
-  // 그 화면이 잠깐 비쳤다가 내 위치로 튀므로, 안내 화면이 닫히는 동안 미리
-  // 옮겨 둔다 — 애니메이션 없이 옮겨야 이동 자체가 안 보인다.
-  //
-  // 스토어의 userLocation 은 못 쓴다. 안내 중에는 우리 위치 구독을 통째로
-  // 멈춰 두기 때문에(useUserLocation) 값이 출발지에 머물러 있다. 대신 KNSDK 가
-  // 주행 내내 갱신해 둔 시스템 캐시를 읽는다 — 디스크 조회라 즉시 돌아온다.
-  useEffect(() => {
-    const sub = KakaoNavi.addListener('onGuideEnd', () => {
-      void (async () => {
-        const pos = await Location.getLastKnownPositionAsync();
-        if (!pos) return;
-        mapRef.current?.animateCameraTo({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          duration: 0,
-        });
-      })();
-    });
-    return () => sub.remove();
-  }, []);
 
   const handleMyLocation = () => {
     if (!userLocation || !mapRef.current) return;
