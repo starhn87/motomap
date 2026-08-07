@@ -244,7 +244,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         // 아니라 보여주는 게 의도다. 딥링크는 detach 특성상 늘 화면 복귀 후에
         // 실행되므로 출발점은 자연히 "검색 전 마지막 카메라"가 된다.
         // Fly: 축소됐다 내려앉는 포물선 — 먼 거리 이동용 커브.
-        duration: 1100,
+        // 1100 은 급하게 느껴졌다 — 포물선이 눈에 담기게 조금 느긋하게
+        duration: 1600,
         easing: 'Fly',
       });
     },

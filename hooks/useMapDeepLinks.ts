@@ -90,7 +90,8 @@ export function useMapDeepLinks({
       longitude: place.longitude,
       zoom: 15,
       // 마지막 보던 화면에서 날아가는 애니메이션 (등록 장소와 같은 규칙)
-      duration: 1100,
+      // 1100 은 급하게 느껴졌다 — 포물선이 눈에 담기게 조금 느긋하게
+      duration: 1600,
       easing: 'Fly',
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
