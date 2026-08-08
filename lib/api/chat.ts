@@ -31,9 +31,10 @@ export interface ChatResponse {
 export async function sendChat(
   messages: ChatTurn[],
   location?: { latitude: number; longitude: number } | null,
+  bike?: string | null,
 ): Promise<ChatResponse> {
   const { data, error } = await supabase.functions.invoke('moto-chat', {
-    body: { messages, location: location ?? undefined },
+    body: { messages, location: location ?? undefined, bike: bike ?? undefined },
   });
   if (error) throw new Error(`추천을 불러오지 못했습니다: ${error.message}`);
   if (data?.error) throw new Error(data.error);

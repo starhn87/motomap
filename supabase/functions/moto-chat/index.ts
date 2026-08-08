@@ -201,9 +201,19 @@ Deno.serve(async (req) => {
 
 ${datasetText}`;
 
-    const variableBlock = loc
+    let variableBlock = loc
       ? buildNearbySummary(places, courses, loc)
       : '사용자 위치: 미제공 (위치 기반 질문이면 지역을 되물어라)';
+
+    // 내 바이크 — 있으면 추천의 결을 맞춘다. 주의: 자동차전용도로 통행 불가는
+    // 배기량과 무관하게 한국의 모든 이륜차 공통이므로, 그걸 특정 기종의 특성
+    // 처럼 말하면 틀린 소리가 된다. 지침에 명시해 오도를 막는다.
+    const bike = typeof body.bike === 'string' && body.bike.trim() ? body.bike.trim().slice(0, 60) : null;
+    if (bike) {
+      variableBlock += `\n\n사용자 바이크: ${bike}
+- 확실한 근거가 있을 때만 기종을 반영해라(예: 소배기량이면 장거리 고속 순항이 부담, 크루저면 순항 위주 코스, 오프로드 지향이면 임도 언급 등). 근거가 약하면 기종을 언급하지 마라.
+- 자동차전용도로 통행 불가는 배기량·기종과 무관하게 모든 이륜차에 적용된다 — 이를 특정 기종의 제약이나 특화처럼 말하지 마라.`;
+    }
 
     const res = await anthropic.messages.create({
       model: MODEL,

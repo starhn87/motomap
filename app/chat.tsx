@@ -35,6 +35,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useMapStore } from '@/stores/useMapStore';
 import { useChatStore, type ChatMessage } from '@/stores/useChatStore';
 import { sendChat, type ChatPlaceCard, type ChatTurn } from '@/lib/api/chat';
+import { useMyBike } from '@/lib/bike';
 import { formatDistance, formatDuration } from '@/constants/course';
 import type { PlaceCategory } from '@/types';
 import { track } from '@/lib/analytics';
@@ -151,6 +152,8 @@ export default function ChatScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const userLocation = useMapStore((s) => s.userLocation);
+  // 등록해 둔 기종이 있으면 추천의 결을 맞춘다 (미등록이면 그냥 빠진다)
+  const { model: myBikeModel } = useMyBike();
 
   // 대화는 전역 스토어에 산다 — 화면을 나가거나 앱이 백그라운드에 가도 유지되고,
   // 전송 중에 나가도 응답이 스토어에 도착해 재진입 시 이어 볼 수 있다.
@@ -175,7 +178,7 @@ export default function ChatScreen() {
         const history: ChatTurn[] = useChatStore
           .getState()
           .messages.map((m) => ({ role: m.role, content: m.content }));
-        const res = await sendChat(history, userLocation);
+        const res = await sendChat(history, userLocation, myBikeModel);
         append({
           role: 'assistant',
           content: res.reply,
