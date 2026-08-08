@@ -243,7 +243,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
                         mine && styles.fuelMine,
                       ]}>
                       {FUEL_LABELS[p.prod as keyof typeof FUEL_LABELS]}
-                      {mine ? ' · 내 바이크' : ''}
+                      {mine ? ' (내 바이크)' : ''}
                     </Text>
                     <Text style={[styles.fuelPrice, { color: mine ? colors.tint : colors.text }]}>
                       {p.price.toLocaleString()}원
