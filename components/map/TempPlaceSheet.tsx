@@ -17,6 +17,7 @@ import { usePlaceHours } from '@/hooks/usePlaceHours';
 import { poiSourceKey } from '@/lib/api/placeHours';
 import PlaceHoursBlock from '@/components/place/PlaceHoursBlock';
 import { FUEL_LABELS, formatTradeAt, looksLikeGasStation } from '@/lib/api/gasStations';
+import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
 
 export interface TempPlace {
   name: string;
@@ -62,6 +63,9 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         },
   );
   const fuelPrices = (gas?.prices ?? []).filter((p) => p.prod in FUEL_LABELS);
+  const { spec: myBike } = useMyBike();
+  const myProd = myFuelProd(myBike);
+  const tankCost = fullTankCost(myBike, fuelPrices);
 
   const handleFavorite = async () => {
     if (!user) {
@@ -228,18 +232,34 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
                   />
                 </View>
               ))
-            : fuelPrices.map((p) => (
-                <View key={p.prod} style={styles.priceRow}>
-                  <Text style={[styles.fuelLabel, { color: colors.textSecondary }]}>
-                    {FUEL_LABELS[p.prod as keyof typeof FUEL_LABELS]}
-                  </Text>
-                  <Text style={[styles.fuelPrice, { color: colors.text }]}>
-                    {p.price.toLocaleString()}원
-                  </Text>
-                </View>
-              ))}
+            : fuelPrices.map((p) => {
+                const mine = p.prod === myProd;
+                return (
+                  <View key={p.prod} style={styles.priceRow}>
+                    <Text
+                      style={[
+                        styles.fuelLabel,
+                        { color: mine ? colors.tint : colors.textSecondary },
+                        mine && styles.fuelMine,
+                      ]}>
+                      {FUEL_LABELS[p.prod as keyof typeof FUEL_LABELS]}
+                      {mine ? ' · 내 바이크' : ''}
+                    </Text>
+                    <Text style={[styles.fuelPrice, { color: mine ? colors.tint : colors.text }]}>
+                      {p.price.toLocaleString()}원
+                    </Text>
+                  </View>
+                );
+              })}
           <Text style={[styles.tradeAt, { color: colors.textSecondary }]}>
-            {gasLoading ? '' : formatTradeAt(fuelPrices[0].tradeAt)}
+            {gasLoading
+              ? ''
+              : [
+                  tankCost ? `가득 약 ${tankCost.toLocaleString()}원 (${myBike!.tankL}L)` : null,
+                  formatTradeAt(fuelPrices[0].tradeAt),
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
           </Text>
         </View>
       )}
@@ -331,6 +351,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
+  },
+  fuelMine: {
+    fontWeight: '700',
   },
   skeleton: {
     height: 14,

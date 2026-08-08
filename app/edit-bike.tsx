@@ -17,6 +17,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { getProfile, updateBikeModel } from '@/lib/nickname';
 import { searchBikeModels } from '@/constants/bikes';
+import { getBikeSpec } from '@/lib/bike';
 import { toast } from '@/lib/toast';
 
 // 마이 바이크 — 기종 자기 신고. 리뷰에 "OO 라이더" 뱃지로 표시된다.
@@ -132,6 +133,40 @@ export default function EditBikeScreen() {
         </ScrollView>
       )}
 
+      {(() => {
+        // 도감 카드 — 고른 기종의 제원. 등록이 곧 보상이 되도록 고르는 즉시 보여준다
+        const spec = getBikeSpec(model);
+        if (!spec) return null;
+        const rows = [
+          spec.cc ? ['배기량', `${spec.cc}cc`] : null,
+          spec.category ? ['유형', spec.category] : null,
+          spec.fuelGrade ? ['유종', spec.fuelGrade === 'premium' ? '고급휘발유' : '일반휘발유'] : null,
+          spec.electric ? ['구동', '전기'] : null,
+          spec.tankL ? ['연료탱크', `${spec.tankL}L`] : null,
+          spec.seatMm ? ['시트고', `${spec.seatMm}mm`] : null,
+          spec.weightKg ? ['중량', `${spec.weightKg}kg`] : null,
+          spec.powerPs ? ['최고출력', `${spec.powerPs}PS`] : null,
+        ].filter((r): r is [string, string] => !!r);
+        if (rows.length === 0) return null;
+        return (
+          <View
+            style={[
+              styles.specCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}>
+            {rows.map(([label, value]) => (
+              <View key={label} style={styles.specRow}>
+                <Text style={[styles.specLabel, { color: colors.textSecondary }]}>{label}</Text>
+                <Text style={[styles.specValue, { color: colors.text }]}>{value}</Text>
+              </View>
+            ))}
+            <Text style={[styles.specSource, { color: colors.textSecondary }]}>
+              배출가스 인증 자료 기준 · 연식에 따라 다를 수 있어요
+            </Text>
+          </View>
+        );
+      })()}
+
       <Text style={[styles.hint, { color: colors.textSecondary }]}>
         입력하면 인기 기종이 자동완성돼요. 목록에 없는 기종은 그대로 입력해도 됩니다.
         등록하면 내가 쓴 리뷰에 기종 뱃지가 표시돼요.
@@ -179,6 +214,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
+  },
+  specCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 12,
+    gap: 6,
+  },
+  specRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  specLabel: {
+    fontSize: 13,
+  },
+  specValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  specSource: {
+    fontSize: 11,
+    marginTop: 4,
   },
   hint: {
     fontSize: 12,

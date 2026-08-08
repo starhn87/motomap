@@ -9,6 +9,7 @@ import { openNavigation } from '@/lib/navigation';
 import { FUEL_LABELS, formatTradeAt, type GasStation } from '@/lib/api/gasStations';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
+import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
 import { toast } from '@/lib/toast';
 
 interface Props {
@@ -20,6 +21,9 @@ export default function GasStationCard({ station, onClose }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { data: detail, isLoading } = useGasStationDetail(station.id);
+  // 내 바이크를 등록했으면 그 유종을 강조하고 가득 주유비를 보여준다
+  const { spec: myBike } = useMyBike();
+  const myProd = myFuelProd(myBike);
 
   // 주유소는 오피넷 데이터라 등록 장소가 아니다 — 일반 장소 즐겨찾기로 담는다
   // (migration 032). 자주 가는 주유소는 라이더에게 분명한 즐겨찾기 대상이다.
@@ -104,16 +108,34 @@ export default function GasStationCard({ station, onClose }: Props) {
           : (prices.length > 0
               ? prices.filter((p) => p.prod in FUEL_LABELS)
               : [{ prod: 'B027', price: station.price, tradeAt: '' }]
-            ).map((p) => (
-              <View key={p.prod} style={styles.priceRow}>
-                <Text style={[styles.fuelLabel, { color: colors.textSecondary }]}>
-                  {FUEL_LABELS[p.prod as keyof typeof FUEL_LABELS] ?? p.prod}
-                </Text>
-                <Text style={[styles.fuelPrice, { color: colors.text }]}>
-                  {p.price.toLocaleString()}원
-                </Text>
-              </View>
-            ))}
+            ).map((p) => {
+              const mine = p.prod === myProd;
+              return (
+                <View key={p.prod} style={styles.priceRow}>
+                  <Text
+                    style={[
+                      styles.fuelLabel,
+                      { color: mine ? colors.tint : colors.textSecondary },
+                      mine && styles.fuelMine,
+                    ]}>
+                    {FUEL_LABELS[p.prod as keyof typeof FUEL_LABELS] ?? p.prod}
+                    {mine ? ' · 내 바이크' : ''}
+                  </Text>
+                  <Text style={[styles.fuelPrice, { color: mine ? colors.tint : colors.text }]}>
+                    {p.price.toLocaleString()}원
+                  </Text>
+                </View>
+              );
+            })}
+        {!isLoading && (() => {
+          const cost = fullTankCost(myBike, prices);
+          if (!cost) return null;
+          return (
+            <Text style={[styles.tankCost, { color: colors.textSecondary }]}>
+              가득 약 {cost.toLocaleString()}원 · 탱크 {myBike!.tankL}L 기준
+            </Text>
+          );
+        })()}
       </View>
 
       <View style={styles.footer}>
@@ -225,6 +247,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
+  },
+  fuelMine: {
+    fontWeight: '700',
+  },
+  tankCost: {
+    fontSize: 12,
+    textAlign: 'right',
+    marginTop: 2,
   },
   footer: {
     flexDirection: 'row',

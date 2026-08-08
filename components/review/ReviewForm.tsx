@@ -1,10 +1,12 @@
-import { View, Text, TextInput, StyleSheet, ActivityIndicator, Keyboard} from 'react-native';
+import { View, Text, TextInput, StyleSheet, ActivityIndicator, Keyboard, Pressable } from 'react-native';
+import { router } from 'expo-router';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState } from 'react';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useMyBike } from '@/lib/bike';
 import { useCreateReview } from '@/hooks/useReviews';
 import { pickImages, uploadMultipleImages } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
@@ -17,6 +19,9 @@ interface Props {
 }
 
 export default function ReviewForm({ placeId }: Props) {
+  // 바이크 미등록이면 폼 아래에서 한 번 권한다 — 리뷰에 기종 뱃지가 붙는
+  // 순간이라 등록의 보상이 가장 눈에 보이는 자리다
+  const { model: myBikeModel } = useMyBike();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -119,6 +124,16 @@ export default function ReviewForm({ placeId }: Props) {
       {/* 사진 추가·정렬 영역 */}
       <PhotoDragList uris={imageUris} onChange={setImageUris} onAdd={handleAddPhotos} max={5} loading={picking} />
 
+      {!myBikeModel && (
+        <Pressable
+          onPress={() => router.push('/edit-bike')}
+          style={({ pressed }) => [styles.bikeNudge, { opacity: pressed ? 0.6 : 1 }]}>
+          <Text style={[styles.bikeNudgeText, { color: colors.textSecondary }]}>
+            내 바이크를 등록하면 리뷰에 기종이 함께 표시돼요 →
+          </Text>
+        </Pressable>
+      )}
+
       <TouchableOpacity
         onPress={handleSubmit}
         disabled={submitting}
@@ -138,6 +153,12 @@ export default function ReviewForm({ placeId }: Props) {
 }
 
 const styles = StyleSheet.create({
+  bikeNudge: {
+    marginTop: 2,
+  },
+  bikeNudgeText: {
+    fontSize: 12,
+  },
   container: {
     gap: 12,
   },
