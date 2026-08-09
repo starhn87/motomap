@@ -5,6 +5,10 @@
 // 단기예보(3시간 주기)에 초단기예보(매시간 발표, 향후 6시간)를 병합한다 — 네이버가
 // 가까운 시간대를 매시간 갱신하는 것과 같은 방식. 기온(T1H)·강수형태(PTY)·하늘(SKY)은
 // 초단기가 덮어쓰고, 강수확률(POP)은 초단기에 없어 단기예보 값을 유지한다.
+// 현재 시간대는 초단기실황(매시 정시 관측)으로 한 번 더 덮는다 — "지금"은 예보가
+// 아니라 관측이어야 네이버·아이폰과 맞는다. 초단기예보는 다음 정시부터라 매시
+// 45~59분엔 현재 슬롯이 갱신 밖이고, 단기예보는 발표 직후 45분간 현재 정시 슬롯
+// 자체가 없다(발표시각+1h부터 제공) — 실황이 두 공백을 모두 메운다.
 //
 // GET ?lat=&lng= 또는 POST {lat, lng}  →  { base: "202607171700", hours: [{ date, time, tmp, pop, pty, sky, wsd, reh }] }
 //   pty(강수형태): 0 없음, 1 비, 2 비/눈, 3 눈, 4 소나기
@@ -87,6 +91,24 @@ function ultraBaseDateTime(): { date: string; time: string } {
   };
 }
 
+// 최근 초단기실황 발표분 — 매시 정시 관측, 제공 여유 15분 (스펙상 +10분, KST 기준)
+function ncstBaseDateTime(): { date: string; time: string } {
+  const kst = new Date(Date.now() + 9 * 3600 * 1000);
+  let h = kst.getUTCHours();
+  let day = kst;
+  if (kst.getUTCMinutes() < 15) {
+    if (h === 0) {
+      day = new Date(kst.getTime() - 86400000);
+      h = 24;
+    }
+    h -= 1;
+  }
+  return {
+    date: day.toISOString().slice(0, 10).replaceAll('-', ''),
+    time: String(h).padStart(2, '0') + '00',
+  };
+}
+
 interface Hour {
   date: string;
   time: string;
@@ -120,7 +142,8 @@ Deno.serve(async (req) => {
   const { nx, ny } = toGrid(lat, lng);
   const base = baseDateTime();
   const ultra = ultraBaseDateTime();
-  const cacheKey = `${nx},${ny},${base.date}${base.time},${ultra.date}${ultra.time}`;
+  const ncst = ncstBaseDateTime();
+  const cacheKey = `${nx},${ny},${base.date}${base.time},${ultra.date}${ultra.time},${ncst.date}${ncst.time}`;
   const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < TTL) {
     return new Response(hit.body, {
@@ -135,9 +158,13 @@ Deno.serve(async (req) => {
   const ultraApi =
     `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtFcst` +
     `${common}&numOfRows=100&base_date=${ultra.date}&base_time=${ultra.time}`;
-  const [res, ultraRes] = await Promise.all([
+  const ncstApi =
+    `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst` +
+    `${common}&numOfRows=10&base_date=${ncst.date}&base_time=${ncst.time}`;
+  const [res, ultraRes, ncstRes] = await Promise.all([
     fetch(api),
     fetch(ultraApi).catch(() => null),
+    fetch(ncstApi).catch(() => null),
   ]);
   if (!res.ok) return Response.json({ error: `upstream ${res.status}` }, { status: 502 });
   const data = await res.json().catch(() => null);
@@ -149,10 +176,13 @@ Deno.serve(async (req) => {
       { status: 502 },
     );
   }
-  // 초단기는 실패해도 단기만으로 응답한다
+  // 초단기·실황은 실패해도 단기만으로 응답한다
   const ultraData = ultraRes?.ok ? await ultraRes.json().catch(() => null) : null;
   const ultraItems: { category: string; fcstDate: string; fcstTime: string; fcstValue: string }[] =
     ultraData?.response?.body?.items?.item ?? [];
+  const ncstData = ncstRes?.ok ? await ncstRes.json().catch(() => null) : null;
+  const ncstItems: { category: string; obsrValue: string }[] =
+    ncstData?.response?.body?.items?.item ?? [];
 
   // (날짜, 시각)별로 카테고리를 모아 시간 행으로 변환 — 앞 24시간만
   const byTime = new Map<string, Partial<Record<string, string>>>();
@@ -171,8 +201,14 @@ Deno.serve(async (req) => {
     const cat = ULTRA_MAP[it.category];
     if (!cat) continue;
     const k = `${it.fcstDate}${it.fcstTime}`;
-    const row = byTime.get(k);
-    if (!row) continue; // 단기예보 범위 밖 시간은 무시
+    // 단기예보는 발표 직후 45분간 현재 정시 슬롯이 없다(발표시각+1h부터 제공) —
+    // 초단기가 커버하는 시간대는 행을 만들어 "지금"이 다음 시간대로 밀리지 않게 한다.
+    // POP 은 초단기에 없어 비게 되는데, 아래에서 직후 슬롯 값을 빌린다.
+    let row = byTime.get(k);
+    if (!row) {
+      row = {};
+      byTime.set(k, row);
+    }
     row[cat] = cat === 'PTY' ? (ULTRA_PTY[it.fcstValue] ?? it.fcstValue) : it.fcstValue;
     ultraCovered.add(k);
   }
@@ -182,28 +218,52 @@ Deno.serve(async (req) => {
     kstNow.toISOString().slice(0, 10).replaceAll('-', '') +
     String(kstNow.getUTCHours()).padStart(2, '0') +
     '00';
-  const hours: Hour[] = [...byTime.entries()]
+  // 실황(관측) 병합 — 현재 정시 슬롯의 기온·강수형태·바람·습도를 관측값으로 덮는다.
+  // 하늘상태(SKY)는 실황에 없어 예보 값을 유지한다. 관측 기준 시각이 현재 정시일
+  // 때만 적용 — 정시 직후(제공 전)엔 이전 시각 관측이라 슬롯과 안 맞는다.
+  let ncstCovered = false;
+  const NCST_MAP: Record<string, string> = { T1H: 'TMP', PTY: 'PTY', WSD: 'WSD', REH: 'REH' };
+  if (ncstItems.length && `${ncst.date}${ncst.time}` === nowKey) {
+    let row = byTime.get(nowKey);
+    if (!row) {
+      row = {};
+      byTime.set(nowKey, row);
+    }
+    for (const it of ncstItems) {
+      const cat = NCST_MAP[it.category];
+      if (!cat) continue;
+      row[cat] = cat === 'PTY' ? (ULTRA_PTY[it.obsrValue] ?? it.obsrValue) : it.obsrValue;
+    }
+    ncstCovered = true;
+  }
+  const rows = [...byTime.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .filter(([k]) => k >= nowKey)
-    .slice(0, 24)
-    .map(([k, r]) => {
-      const pty = Number(r.PTY ?? 0);
-      let pop = Number(r.POP ?? 0);
-      // 초단기(레이더 실황 기반)가 "강수 없음"으로 갱신한 시간대에 3시간 전
-      // 단기예보의 확률을 남겨두면 "갬인데 60%"라는 모순으로 보인다 — 네이버처럼
-      // 확률도 0으로 정합화한다.
-      if (ultraCovered.has(k) && pty === 0) pop = 0;
-      return {
-        date: k.slice(0, 8),
-        time: k.slice(8, 12),
-        tmp: r.TMP != null ? Number(r.TMP) : null,
-        pop,
-        pty,
-        sky: Number(r.SKY ?? 1),
-        wsd: r.WSD != null ? Number(r.WSD) : null,
-        reh: r.REH != null ? Number(r.REH) : null,
-      };
-    });
+    .slice(0, 24);
+  // 초단기·실황으로 생성된 행은 POP(실황 생성이면 SKY 도)이 없다 — 직후 슬롯 값을
+  // 빌린다 (인접 시각끼리 거의 같아 공백 표시나 "맑음" 폴백보다 자연스럽다)
+  for (let i = rows.length - 2; i >= 0; i--) {
+    if (rows[i][1].POP == null) rows[i][1].POP = rows[i + 1][1].POP;
+    if (rows[i][1].SKY == null) rows[i][1].SKY = rows[i + 1][1].SKY;
+  }
+  const hours: Hour[] = rows.map(([k, r]) => {
+    const pty = Number(r.PTY ?? 0);
+    let pop = Number(r.POP ?? 0);
+    // 초단기(레이더 실황 기반)나 관측이 "강수 없음"으로 갱신한 시간대에 3시간 전
+    // 단기예보의 확률을 남겨두면 "갬인데 60%"라는 모순으로 보인다 — 네이버처럼
+    // 확률도 0으로 정합화한다.
+    if ((ultraCovered.has(k) || (ncstCovered && k === nowKey)) && pty === 0) pop = 0;
+    return {
+      date: k.slice(0, 8),
+      time: k.slice(8, 12),
+      tmp: r.TMP != null ? Number(r.TMP) : null,
+      pop,
+      pty,
+      sky: Number(r.SKY ?? 1),
+      wsd: r.WSD != null ? Number(r.WSD) : null,
+      reh: r.REH != null ? Number(r.REH) : null,
+    };
+  });
 
   const body = JSON.stringify({ base: `${base.date}${base.time}`, nx, ny, hours });
   cache.set(cacheKey, { at: Date.now(), body });
