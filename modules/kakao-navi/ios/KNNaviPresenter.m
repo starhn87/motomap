@@ -3,6 +3,7 @@
 #import "KNSDKBridge.h"
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
+#import <KNSDK/KNMapView.h>
 
 // 안내 화면을 담는 뷰 컨트롤러. 델리게이트를 받아야 해서 별도 클래스로 둔다.
 // KNNaviView 는 KNGuidance 를 스스로 구독하지 않는다. 가이드 델리게이트를 여기서
@@ -15,13 +16,15 @@
                                                     KNGuidance_RouteGuideDelegate,
                                                     KNGuidance_SafetyGuideDelegate,
                                                     KNGuidance_VoiceGuideDelegate,
-                                                    KNGuidance_CitsGuideDelegate>
+                                                    KNGuidance_CitsGuideDelegate,
+                                                    KNMapPOIEventListener>
 @property(nonatomic, strong, nullable) KNNaviView *naviView;
 // 실주행(KNDriveGuidance)과 미리보기(KNSimulGuidance)의 공통 상위 타입
 @property(nonatomic, strong, nullable) KNGuidance *guidance;
 @property(nonatomic, strong, nullable) KNTrip *trip;
 @property(nonatomic, copy, nullable) void (^onDismiss)(void);
 @property(nonatomic, copy, nullable) void (^onMenu)(NSInteger);
+@property(nonatomic, copy, nullable) void (^onPoiTap)(NSString *, double, double);
 @property(nonatomic, copy, nullable) void (^onStarted)(void);
 @property(nonatomic, assign) BOOL carThemeApplied;
 @property(nonatomic, assign) KNRoutePriority priority;
@@ -189,8 +192,54 @@ static __weak KNNaviViewController *gActiveNavi = nil;
   if (self.onMenu != nil) self.onMenu(101);
 }
 
+// KNNaviMapView 는 내부 KNMapView 를 노출하지 않는다 — 서브뷰 트리에서 찾는다.
+// 문서화되지 않은 접근이라 SDK 업데이트로 못 찾게 될 수 있지만, 그 경우
+// POI 탭 기능만 조용히 빠질 뿐 다른 동작에는 영향이 없다.
+- (KNMapView *)findInnerMapViewIn:(UIView *)view depth:(int)depth {
+  if (depth > 6) return nil;
+  for (UIView *sub in view.subviews) {
+    if ([sub isKindOfClass:[KNMapView class]]) return (KNMapView *)sub;
+    KNMapView *found = [self findInnerMapViewIn:sub depth:depth + 1];
+    if (found != nil) return found;
+  }
+  return nil;
+}
+
+- (void)attachPoiListener {
+  KNMapView *inner = [self findInnerMapViewIn:self.naviView.mapView depth:0];
+  // eventListener 는 weak — self(화면과 수명 동일)를 그대로 걸어도 안전하다
+  inner.poiProperties.eventListener = self;
+}
+
+// 지도 POI(상호·건물) 탭 — 이름·KATEC 좌표가 온다. WGS84 로 바꿔 JS 로 넘긴다.
+- (void)mapView:(KNMapView *)aMapView
+ onSingleTapped:(SInt64)aPOIId
+        poiName:(NSArray *)aPOIName
+     coordinate:(FloatPoint)aCoordinate {
+  if (self.onPoiTap == nil) return;
+  KNSDK *sdk = [KNSDK sharedInstance];
+  if (sdk == nil) return;
+  DoublePoint wgs = [sdk convertKATECToWGS84WithX:(SInt32)lround(aCoordinate.x)
+                                                y:(SInt32)lround(aCoordinate.y)];
+  NSString *name = [aPOIName componentsJoinedByString:@" "] ?: @"";
+  self.onPoiTap(name, wgs.x, wgs.y);  // (경도, 위도)
+}
+
+- (void)mapView:(KNMapView *)aMapView
+ onDoubleTapped:(SInt64)aPOIId
+        poiName:(NSArray *)aPOIName
+     coordinate:(FloatPoint)aCoordinate {
+}
+
+- (void)mapView:(KNMapView *)aMapView
+  onLongPressed:(SInt64)aPOIId
+        poiName:(NSArray *)aPOIName
+     coordinate:(FloatPoint)aCoordinate {
+}
+
 - (void)viewDidAppear:(BOOL)animated {
   [super viewDidAppear:animated];
+  [self attachPoiListener];
   [self.naviView resumeView];
 
   [self applyCarTheme];
@@ -401,6 +450,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                preview:(BOOL)preview
              onStarted:(void (^_Nullable)(void))onStarted
                 onMenu:(void (^_Nullable)(NSInteger))onMenu
+              onPoiTap:(void (^_Nullable)(NSString *, double, double))onPoiTap
              onDismiss:(void (^)(void))onDismiss
                onError:(void (^)(NSString *_Nullable, NSString *))onError {
   KNSDK *sdk = [KNSDK sharedInstance];
@@ -441,6 +491,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                                              preview:preview
                                            onStarted:onStarted
                                               onMenu:onMenu
+                                            onPoiTap:onPoiTap
                                            onDismiss:onDismiss
                                              onError:onError];
                              }];
@@ -452,6 +503,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                 preview:(BOOL)preview
               onStarted:(void (^_Nullable)(void))onStarted
                  onMenu:(void (^_Nullable)(NSInteger))onMenu
+               onPoiTap:(void (^_Nullable)(NSString *, double, double))onPoiTap
               onDismiss:(void (^)(void))onDismiss
                 onError:(void (^)(NSString *_Nullable, NSString *))onError {
   dispatch_async(dispatch_get_main_queue(), ^{
@@ -468,6 +520,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
     vc.preview = preview;
     vc.onStarted = onStarted;
     vc.onMenu = onMenu;
+    vc.onPoiTap = onPoiTap;
     vc.onDismiss = onDismiss;
     // FullScreen 은 밑 화면을 뷰 계층에서 떼어내 네비게이션 전환(지도로 미리
     // 이동)이 걷힐 때까지 보류된다 — 그래서 닫힐 때 이전 화면이 비쳤다(실측).

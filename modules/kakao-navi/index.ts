@@ -109,6 +109,11 @@ interface KakaoNaviModule {
     event: 'onGuideMenu',
     listener: (payload: { id: number }) => void,
   ): { remove: () => void };
+  /** 안내 지도의 기본 POI(상호·건물) 탭 — 이름은 빈 문자열일 수 있다 */
+  addListener(
+    event: 'onGuidePoiTap',
+    listener: (payload: { name: string; latitude: number; longitude: number }) => void,
+  ): { remove: () => void };
   /** 안내 화면 위 액션시트. 고른 인덱스, 취소면 -1 */
   showGuideOptions(title: string, labels: string[]): Promise<number>;
   /** 안내 화면 위에 잠깐 떴다 사라지는 알림 */
