@@ -127,6 +127,9 @@ function AppHeader({ title, colorScheme }: { title: string; colorScheme: 'light'
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  // 상단 토스트가 노치·Dynamic Island 에 붙지 않게 — 라이브러리 기본(40)은 고정값이라
+  // 기기별 안전 영역을 못 따라간다
+  const insets = useSafeAreaInsets();
 
   // 알림 탭 → 해당 장소/코스로 이동 (Stack 마운트 이후 등록해야 내비게이션이 안전)
   useEffect(() => setupNotificationTapHandling(), []);
@@ -171,7 +174,7 @@ function RootLayoutNav() {
           </Stack>
         </ThemeProvider>
       </QueryClientProvider>
-      <Toast config={toastConfig} />
+      <Toast config={toastConfig} topOffset={insets.top + 8} />
     </GestureHandlerRootView>
   );
 
