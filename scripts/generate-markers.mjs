@@ -106,4 +106,30 @@ for (const [category, color] of Object.entries(CATEGORIES)) {
   await sharp(Buffer.from(circle(STAR_PATH, STAR_FILL))).png().toFile(join(outDir, `${category}_circle_fav.png`));
   console.log(`${category}_fav.png / _circle_fav.png 생성`);
 }
+
+// 내 위치 마커 — UserLocationMarker 가 children(뷰 캡처) 대신 쓰는 정적 이미지.
+// 캡처 마커는 캡처용 네이티브 뷰가 고아로 남아 화면을 떠도는 잔상 버그가 있는데
+// (CLAUDE.md), 위치 마커는 위치 갱신마다 다시 그려져 가장 잘 걸린다 — 실기기
+// 길안내 화면 위에 뜬 잔상으로 재확인(2026-08). 기존 뷰 구성(halo·흰 테두리
+// 도트·방향 화살표, 80dp)을 그대로 재현한다. @3x = 240px.
+const USER_BLUE = '#2D8CFF';
+const userLocationSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="240" height="240">
+  <defs>
+    <filter id="dotShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.5"/>
+      <feOffset dy="1"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.3"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="40" cy="40" r="20" fill="rgba(45,140,255,0.18)"/>
+  <path d="M40 18 L47 30 L33 30 Z" fill="#FFFFFF"/>
+  <path d="M40 21 L44 28 L36 28 Z" fill="${USER_BLUE}"/>
+  <g filter="url(#dotShadow)">
+    <circle cx="40" cy="40" r="9" fill="#FFFFFF"/>
+    <circle cx="40" cy="40" r="6" fill="${USER_BLUE}"/>
+  </g>
+</svg>`;
+await sharp(Buffer.from(userLocationSvg)).png().toFile(join(outDir, 'user_location.png'));
+console.log('user_location.png 생성');
 console.log('완료');

@@ -530,6 +530,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         mapType="Basic"
         isNightModeEnabled={colorScheme === 'dark'}
         isShowLocationButton={false}
+        // SDK 자체 위치 오버레이 차단 — 커스텀 마커와 별개의 유령 마커가 뜬다.
+        // 다른 지도 화면들과 같은 방어인데 여기만 빠져 있었다.
+        locationOverlay={{ isVisible: false }}
         isShowCompass
         isShowScaleBar={false}
         isShowZoomControls={false}

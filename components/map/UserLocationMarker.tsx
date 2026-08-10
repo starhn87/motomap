@@ -1,13 +1,12 @@
-import { View, StyleSheet } from 'react-native';
 import { NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
-
-// 네이버 블루 기반 고정 색상 (테마 tint와 무관)
-const USER_LOCATION_BLUE = '#2D8CFF';
-const USER_LOCATION_HALO = 'rgba(45, 140, 255, 0.18)';
 
 /**
  * 내 위치 마커: 파란 점 + 흰 테두리, 옅은 halo, heading 방향 정삼각형 화살표.
- * 마커는 정적 비트맵으로 캡처되므로 순수 View로 그린다(폰트 아이콘 캡처 타이밍 회피).
+ *
+ * children(뷰 캡처)이 아니라 정적 이미지로 그린다 — 캡처 마커는 캡처용 네이티브
+ * 뷰가 고아로 남아 화면을 떠도는 잔상 버그가 있고(CLAUDE.md), 위치 마커는 위치
+ * 갱신마다 다시 그려져 가장 잘 걸린다(실기기에서 길안내 화면 위 잔상으로 확인).
+ * 이미지 생성: node scripts/generate-markers.mjs
  */
 export function UserLocationMarker({
   latitude,
@@ -26,71 +25,8 @@ export function UserLocationMarker({
       width={80}
       height={80}
       angle={heading}
-      isFlatEnabled>
-      <View collapsable={false} style={styles.container}>
-        <View style={styles.halo} />
-        <View style={styles.arrowOutline} />
-        <View style={styles.arrowInner} />
-        <View style={styles.dot} />
-      </View>
-    </NaverMapMarkerOverlay>
+      isFlatEnabled
+      image={require('@/assets/images/markers/user_location.png')}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: 80,
-    height: 80,
-  },
-  halo: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: USER_LOCATION_HALO,
-  },
-  arrowOutline: {
-    position: 'absolute',
-    top: 18,
-    left: 33,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 7,
-    borderRightWidth: 7,
-    borderBottomWidth: 12,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: '#FFFFFF',
-  },
-  arrowInner: {
-    position: 'absolute',
-    top: 21,
-    left: 36,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 4,
-    borderRightWidth: 4,
-    borderBottomWidth: 7,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: USER_LOCATION_BLUE,
-  },
-  dot: {
-    position: 'absolute',
-    top: 31,
-    left: 31,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: USER_LOCATION_BLUE,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-});
