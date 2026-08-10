@@ -12,6 +12,7 @@ import {
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -25,6 +26,7 @@ export default function EditBikeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  const queryClient = useQueryClient();
   const [model, setModel] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,6 +53,9 @@ export default function EditBikeScreen() {
     setSaving(true);
     try {
       await updateBikeModel(model);
+      // 유가 강조·가득 주유비·리뷰 유도가 useMyBike 캐시(staleTime 30분)를 읽는다 —
+      // 무효화하지 않으면 바꾼 기종이 세션 내내 반영되지 않는다
+      void queryClient.invalidateQueries({ queryKey: ['my-bike'] });
       toast.success(
         model.trim() ? '내 바이크가 등록되었습니다.' : '내 바이크가 해제되었습니다.',
       );
