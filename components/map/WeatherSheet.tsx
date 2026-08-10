@@ -129,7 +129,10 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
     enabled: latitude != null && longitude != null,
     staleTime: 30 * 60 * 1000,
   });
-  const warnings = warningsForRegion(allWarnings, regionParts ?? null);
+  const warnings = warningsForRegion(allWarnings, regionParts ?? null)
+    // 경보를 앞으로 — 자리가 좁아 대표 하나만 보여주고 나머지는 +N
+    .sort((a, b) => Number(b.level === '경보') - Number(a.level === '경보'));
+  const topWarning = warnings[0];
 
   // 미세먼지 — 측정소 데이터가 시간 단위라 30분 캐시면 충분
   const { data: air } = useQuery({
@@ -215,26 +218,6 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
       }}
       handleIndicatorStyle={{ backgroundColor: colors.tabIconDefault }}>
       <BottomSheetView style={styles.content}>
-        {/* 발효 중인 기상특보 — 경보는 위험색, 주의보는 주의색 */}
-        {warnings.length > 0 && (
-          <View style={styles.warningsRow}>
-            {warnings.map((w) => {
-              const c = w.level === '경보' ? semantic.danger : semantic.warning;
-              return (
-                <View
-                  key={w.type + w.level}
-                  style={[styles.warningChip, { backgroundColor: c + '1A', borderColor: c + '55' }]}>
-                  <Feather name="alert-triangle" size={13} color={c} />
-                  <Text style={[styles.warningText, { color: c }]}>
-                    {w.type}
-                    {w.level} 발효 중
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
         {/* 등급 헤더 */}
         <View style={styles.gradeRow}>
           <Text style={styles.gradeEmoji}>{weather.current.emoji}</Text>
@@ -246,6 +229,33 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
               <Text style={[styles.gradeScore, { color: colors.textSecondary }]}>
                 {weather.score}점
               </Text>
+              {/* 발효 중인 특보 — 점수 줄 우측 끝. 조회가 늦어도 이 줄 높이는
+                  이미 있어서 나타날 때 레이아웃 시프트가 없다 */}
+              {topWarning && (
+                <View
+                  style={[
+                    styles.warningChip,
+                    {
+                      backgroundColor:
+                        (topWarning.level === '경보' ? semantic.danger : semantic.warning) + '1A',
+                    },
+                  ]}>
+                  <Feather
+                    name="alert-triangle"
+                    size={12}
+                    color={topWarning.level === '경보' ? semantic.danger : semantic.warning}
+                  />
+                  <Text
+                    style={[
+                      styles.warningText,
+                      { color: topWarning.level === '경보' ? semantic.danger : semantic.warning },
+                    ]}>
+                    {topWarning.type}
+                    {topWarning.level}
+                    {warnings.length > 1 ? ` +${warnings.length - 1}` : ''}
+                  </Text>
+                </View>
+              )}
             </View>
             <Text style={[styles.gradeComment, { color: colors.text }]}>{weather.comment}</Text>
           </View>
@@ -329,23 +339,18 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     gap: 16,
   },
-  warningsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 10,
-  },
   warningChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    alignSelf: 'center',
+    marginLeft: 'auto',
+    gap: 4,
+    borderRadius: 11,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   warningText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   gradeRow: {
