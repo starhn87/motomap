@@ -24,7 +24,7 @@ import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { track } from '@/lib/analytics';
 import { usePlaces } from '@/hooks/usePlaces';
-import { useGasStations, GAS_MIN_ZOOM, type SearchPoint } from '@/hooks/useGasStations';
+import { useGasStations, type SearchPoint } from '@/hooks/useGasStations';
 import { useWeather } from '@/hooks/useWeather';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
@@ -111,7 +111,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 지도 이동에 연동하지 않는 수동 갱신 모델 — 필터 진입 시 1회 검색하고, 이후에는
   // "현 지도에서 재검색" 버튼으로만 기준점을 옮긴다 (최저가 표시 고정 + 호출 절약).
   const gasMode = activeFilter === 'gas_station';
-  const gasZoomOk = (mapCenter?.zoom ?? DEFAULT_ZOOM) >= GAS_MIN_ZOOM;
   const [selectedStation, setSelectedStation] = useState<GasStation | null>(null);
   const [gasSearchPoint, setGasSearchPoint] = useState<SearchPoint | null>(null);
 
@@ -142,10 +141,12 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       setGasSearchPoint(null);
       return;
     }
-    if (!gasSearchPoint && mapCenter && gasZoomOk) {
+    // 줌 레벨과 무관하게 검색한다 — 오피넷 반경 상한(5km) 탓에 축소 지도에서는
+    // 중심 주변만 커버되지만, 아무것도 안 뜨는 것보다 낫다(실사용 피드백).
+    if (!gasSearchPoint && mapCenter) {
       setGasSearchPoint({ latitude: mapCenter.latitude, longitude: mapCenter.longitude });
     }
-  }, [gasMode, gasSearchPoint, mapCenter, gasZoomOk]);
+  }, [gasMode, gasSearchPoint, mapCenter]);
 
   // 최초 1회: 지도가 준비되고 내 위치를 확보하면 카메라를 내 위치로 이동
   useEffect(() => {
@@ -207,7 +208,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 기준점에서 지도를 충분히 움직였을 때만 재검색 버튼 노출
   const gasMoved =
     gasMode && gasSearchPoint && mapCenter ? approxMeters(mapCenter, gasSearchPoint) > 300 : false;
-  const showGasRefresh = gasMode && gasZoomOk && !!gasSearchPoint && (gasMoved || gasFetching);
+  const showGasRefresh = gasMode && !!gasSearchPoint && (gasMoved || gasFetching);
 
   const handleMarkerPress = useCallback(
     (place: Place) => {
@@ -810,15 +811,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       </Pressable>
       )}
 
-      {gasMode && !gasZoomOk && stations.length === 0 && (
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          style={[styles.zoomHint, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          <Text style={[styles.zoomHintText, { color: colors.text }]}>
-            지도를 확대하면 주변 주유소 유가가 보여요
-          </Text>
-        </Animated.View>
-      )}
 
       {showGasRefresh && (
         <AnimatedPressable
@@ -951,24 +943,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
     zIndex: 5,
-  },
-  zoomHint: {
-    position: 'absolute',
-    top: 170,
-    alignSelf: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  zoomHintText: {
-    fontSize: 13,
-    fontWeight: '600',
   },
   gasRefreshButton: {
     position: 'absolute',

@@ -8,9 +8,6 @@ import {
   type FuelCode,
 } from '@/lib/api/gasStations';
 
-// 오피넷 반경 상한이 5km 라, 너무 축소된 지도에서는 검색 의미가 없다 — 이 줌 미만이면 검색 비활성
-export const GAS_MIN_ZOOM = 11.5;
-
 export interface SearchPoint {
   latitude: number;
   longitude: number;
