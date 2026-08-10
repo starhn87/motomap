@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { useCallback } from 'react';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
@@ -10,7 +10,7 @@ import { fetchAirQuality, AIR_GRADE_LABEL, AIR_GRADE_COLOR } from '@/lib/api/air
 import { sunEvents, type SunEvent } from '@/lib/sun';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fetchWeatherWarnings, warningsForRegion, type RidingWeather } from '@/lib/api/weather';
+import { fetchWeatherWarnings, warningsForRegion, WARNING_RIDER_TIPS, type RidingWeather } from '@/lib/api/weather';
 
 interface Props {
   weather: RidingWeather;
@@ -134,6 +134,15 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
     .sort((a, b) => Number(b.level === '경보') - Number(a.level === '경보'));
   const topWarning = warnings[0];
 
+  // 칩 탭 — 발효 특보 전체와 특보별 라이딩 유의사항을 안내한다
+  const showWarningDetail = () => {
+    const list = warnings.map((w) => `· ${w.type}${w.level}`).join('\n');
+    const tips = [...new Set(warnings.map((w) => w.type))]
+      .flatMap((t) => (WARNING_RIDER_TIPS[t] ? [`${t}: ${WARNING_RIDER_TIPS[t]}`] : []))
+      .join('\n\n');
+    Alert.alert('발효 중인 기상특보', list + (tips ? `\n\n${tips}` : ''));
+  };
+
   // 미세먼지 — 측정소 데이터가 시간 단위라 30분 캐시면 충분
   const { data: air } = useQuery({
     queryKey: ['air-quality', latitude?.toFixed(2), longitude?.toFixed(2)],
@@ -232,7 +241,9 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
               {/* 발효 중인 특보 — 점수 줄 우측 끝. 조회가 늦어도 이 줄 높이는
                   이미 있어서 나타날 때 레이아웃 시프트가 없다 */}
               {topWarning && (
-                <View
+                <Pressable
+                  onPress={showWarningDetail}
+                  hitSlop={8}
                   style={[
                     styles.warningChip,
                     {
@@ -254,7 +265,7 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
                     {topWarning.level}
                     {warnings.length > 1 ? ` +${warnings.length - 1}` : ''}
                   </Text>
-                </View>
+                </Pressable>
               )}
             </View>
             <Text style={[styles.gradeComment, { color: colors.text }]}>{weather.comment}</Text>
