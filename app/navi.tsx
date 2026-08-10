@@ -66,6 +66,7 @@ import {
 } from '@/lib/api/directions';
 import { toast } from '@/lib/toast';
 import { useGuideSession } from '@/lib/guideSession';
+import { markGuideStarted } from '@/lib/guideEvents';
 import { track } from '@/lib/analytics';
 
 // 혼잡도별 경로선 색 — 막힐수록 붉게. 원활은 기존 경로색, 정보 없음은 회색.
@@ -166,6 +167,8 @@ export default function NaviScreen() {
   const [traffic, setTraffic] = useState<Partial<Record<RoutePriority, TrafficPart[]>>>({});
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  // 시작 계측 속성 — 탭 시점에 담아 두고 onGuideStarted 리스너가 찍는다
+  const startTrackRef = useRef<Parameters<typeof track.navigationStarted>[0] | null>(null);
   // 현재 위치에서 도로가 이어지지 않는 원거리 코스(예: 육지→제주)는
   // 코스 출발지 기준 미리보기로 폴백한다. 이때 안내 시작은 막는다.
   const [courseOnly, setCourseOnly] = useState(false);
@@ -351,6 +354,11 @@ export default function NaviScreen() {
   // 처리는 이 화면이 언마운트된 뒤에도 살아 있도록 전역(lib/guideEvents)이 맡는다.
   useEffect(() => {
     const started = KakaoNavi.addListener('onGuideStarted', () => {
+      if (startTrackRef.current) {
+        track.navigationStarted(startTrackRef.current);
+        // 비정상 종료 정산용 마커 — 정상 종료(guideEvents)가 지운다
+        void markGuideStarted(startTrackRef.current.mode);
+      }
       startGuideSession(
         {
           latitude: goal.latitude,
@@ -562,12 +570,15 @@ export default function NaviScreen() {
   const startGuide = () => {
     if (!start || starting || courseOnly) return;
     setStarting(true);
-    track.navigationStarted({
+    // 계측은 실제 시작 신호(onGuideStarted)에서 찍는다 — 여기서 찍으면 경로
+    // 탐색 실패까지 "시작"으로 세어 완주율 분모가 부푼다. 리스너 useEffect 와
+    // 렌더 시점이 달라 속성은 ref 로 넘긴다.
+    startTrackRef.current = {
       mode: previewOnly ? 'preview' : 'live',
       priority,
       via_count: pairsFromFlat(activeVias ?? flatVias).length,
       distance_m: route?.distance,
-    });
+    };
     KakaoNavi.startGuide(
       start[0], start[1], goal.longitude, goal.latitude, goal.name,
       activeVias ?? flatVias, priority, previewOnly,

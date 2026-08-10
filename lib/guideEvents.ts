@@ -1,4 +1,5 @@
 import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 
@@ -16,6 +17,23 @@ import { track } from '@/lib/analytics';
 // 길안내 전역 이벤트 — 안내가 시작되면 /navi 화면은 지도로 빠져 언마운트되므로
 // 종료·메뉴 처리는 화면이 아니라 여기(루트에서 1회 등록)가 맡는다.
 // 안내 맥락(목적지·옵션)은 useGuideSession 에서 읽는다.
+
+// 안내 중 앱이 죽으면(강제 종료·크래시) navigation_ended 가 유실된다 — 시작 때
+// 마커를 남기고 정상 종료 때 지운다. 다음 실행에서 마커가 남아 있으면 비정상
+// 종료였던 것이므로 늦게나마 'abandoned' 로 정산해 완주율 분모를 지킨다.
+const GUIDE_ACTIVE_KEY = 'guide-active';
+
+/** 안내가 실제로 시작된 순간(onGuideStarted) 호출 — navi 화면이 부른다 */
+export async function markGuideStarted(mode: 'live' | 'preview') {
+  await AsyncStorage.setItem(GUIDE_ACTIVE_KEY, mode);
+}
+
+async function reconcileAbandonedGuide() {
+  const mode = await AsyncStorage.getItem(GUIDE_ACTIVE_KEY);
+  if (!mode) return;
+  await AsyncStorage.removeItem(GUIDE_ACTIVE_KEY);
+  track.navigationEnded({ reason: 'abandoned', mode: mode === 'preview' ? 'preview' : 'live' });
+}
 
 // 주행 중 위험 제보 — 유형 고르면 현 위치로 바로 제보
 async function reportHazard() {
@@ -88,6 +106,7 @@ async function nearbyPlaces() {
 async function handleGuideEnd() {
   const { goal, clear } = useGuideSession.getState();
   clear();
+  void AsyncStorage.removeItem(GUIDE_ACTIVE_KEY); // 정상 종료 — 정산 대상 아님
   // 안내가 끝나도 라이더는 이동 중 — 지도가 내 위치를 따라간다.
   // 드래그하면 SDK 가 따라가기를 알아서 푼다.
   followMyLocationOnMap();
@@ -135,6 +154,8 @@ async function handleGuideEnd() {
 
 /** 루트 레이아웃에서 1회 등록. 반환값은 해제 함수. */
 export function registerGuideEvents(): () => void {
+  // 앱 시작 시점 = 직전 실행이 어떻게 끝났든 안내는 이미 없다 — 남은 마커를 정산
+  void reconcileAbandonedGuide();
   const end = KakaoNavi.addListener('onGuideEnd', () => void handleGuideEnd());
   const failed = KakaoNavi.addListener('onGuideFailed', ({ code, message }) => {
     useGuideSession.getState().clear();

@@ -122,7 +122,9 @@ export const track = {
     distance_m?: number;
   }) => capture('navigation_started', p),
 
-  navigationEnded: (p: { reason: 'arrived' | 'cancelled' }) =>
+  // abandoned = 안내 중 앱이 죽어(강제 종료·크래시) 종료를 못 찍은 세션을
+  // 다음 실행 때 정산한 것 — 그때만 mode 를 함께 남긴다
+  navigationEnded: (p: { reason: 'arrived' | 'cancelled' | 'abandoned'; mode?: 'live' | 'preview' }) =>
     capture('navigation_ended', p),
 
   routeFailed: (p: { code: number | null; via_count: number }) =>

@@ -107,14 +107,19 @@ const [wauCur = 0, wauPrev = 0] = wau[0] ?? [];
 const [liveCur = 0, livePrev = 0] = liveNav[0] ?? [];
 const arrived = endReasons.find(([r]) => r === 'arrived')?.[1] ?? 0;
 const cancelled = endReasons.find(([r]) => r === 'cancelled')?.[1] ?? 0;
+// abandoned = 안내 중 앱 강제 종료·크래시를 다음 실행 때 정산한 것 (runtime 1.2.4 OTA 이후)
+const abandoned = endReasons.find(([r]) => r === 'abandoned')?.[1] ?? 0;
 
 const lines = [];
 lines.push(`# 주간 다이제스트 (${kstDay(7)} ~ ${kstDay(0)})`);
 lines.push('');
 lines.push(`**활성 사용자(WAU)**: ${wauCur} (전주 ${wauPrev}, ${delta(wauCur, wauPrev)})`);
 lines.push(`**실주행(live 길안내)**: ${liveCur} (전주 ${livePrev}, ${delta(liveCur, livePrev)})`);
-if (arrived + cancelled > 0) {
-  lines.push(`**길안내 완주율**: ${Math.round((arrived / (arrived + cancelled)) * 100)}% (도착 ${arrived} / 중도 종료 ${cancelled})`);
+const endedTotal = arrived + cancelled + abandoned;
+if (endedTotal > 0) {
+  lines.push(
+    `**길안내 완주율**: ${Math.round((arrived / endedTotal) * 100)}% (도착 ${arrived} · 중도 종료 ${cancelled} · 비정상 종료 ${abandoned})`,
+  );
 }
 lines.push('');
 lines.push('| 이벤트 | 이번 주 | 전주 | 증감 |');
