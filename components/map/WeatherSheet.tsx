@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
-import { useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { useCallback, useState } from 'react';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
@@ -10,7 +10,8 @@ import { fetchAirQuality, AIR_GRADE_LABEL, AIR_GRADE_COLOR } from '@/lib/api/air
 import { sunEvents, type SunEvent } from '@/lib/sun';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fetchWeatherWarnings, warningsForRegion, WARNING_RIDER_TIPS, type RidingWeather } from '@/lib/api/weather';
+import { fetchWeatherWarnings, warningsForRegion, type RidingWeather } from '@/lib/api/weather';
+import WarningDetailModal from '@/components/map/WarningDetailModal';
 
 interface Props {
   weather: RidingWeather;
@@ -134,14 +135,8 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
     .sort((a, b) => Number(b.level === '경보') - Number(a.level === '경보'));
   const topWarning = warnings[0];
 
-  // 칩 탭 — 발효 특보 전체와 특보별 라이딩 유의사항을 안내한다
-  const showWarningDetail = () => {
-    const list = warnings.map((w) => `· ${w.type}${w.level}`).join('\n');
-    const tips = [...new Set(warnings.map((w) => w.type))]
-      .flatMap((t) => (WARNING_RIDER_TIPS[t] ? [`${t}: ${WARNING_RIDER_TIPS[t]}`] : []))
-      .join('\n\n');
-    Alert.alert('발효 중인 기상특보', list + (tips ? `\n\n${tips}` : ''));
-  };
+  // 칩 탭 — 발효 특보 전체와 라이딩 유의사항을 카드 모달로
+  const [warningDetailOpen, setWarningDetailOpen] = useState(false);
 
   // 미세먼지 — 측정소 데이터가 시간 단위라 30분 캐시면 충분
   const { data: air } = useQuery({
@@ -242,7 +237,7 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
                   이미 있어서 나타날 때 레이아웃 시프트가 없다 */}
               {topWarning && (
                 <Pressable
-                  onPress={showWarningDetail}
+                  onPress={() => setWarningDetailOpen(true)}
                   hitSlop={8}
                   style={[
                     styles.warningChip,
@@ -340,6 +335,9 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
           {region ?? '현재 지도 위치'} 기준 · 기상청 단기예보 · 에어코리아
         </Text>
       </BottomSheetView>
+      {warningDetailOpen && (
+        <WarningDetailModal warnings={warnings} onClose={() => setWarningDetailOpen(false)} />
+      )}
     </BottomSheet>
   );
 }
