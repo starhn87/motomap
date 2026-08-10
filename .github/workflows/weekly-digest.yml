@@ -1,0 +1,39 @@
+# 주간 운영 다이제스트 — PostHog 지표를 이슈로 정리한다 (scripts/weekly-digest.mjs).
+# 지난 다이제스트 이슈는 닫아서 weekly-digest 라벨의 열린 이슈가 항상 최신 1개만 남는다.
+# 필요한 repo secrets: POSTHOG_API_KEY (Personal API Key, Query Read), POSTHOG_PROJECT_ID
+name: weekly-digest
+
+on:
+  schedule:
+    - cron: '0 0 * * 1' # 매주 월요일 09:00 KST
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: PostHog 지표 조회
+        run: node scripts/weekly-digest.mjs > digest.md
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
+      - name: 이슈 생성 (이전 다이제스트는 닫기)
+        run: |
+          gh label create weekly-digest --description "주간 운영 다이제스트" --color 8B5CF6 --force
+          gh issue list --repo "$GITHUB_REPOSITORY" --label weekly-digest --state open \
+            --json number --jq '.[].number' \
+            | xargs -I{} gh issue close {} --repo "$GITHUB_REPOSITORY" --comment "새 다이제스트로 대체"
+          TITLE=$(head -1 digest.md | sed 's/^# //')
+          tail -n +2 digest.md > body.md
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" \
+            --body-file body.md --label weekly-digest
+        env:
+          GH_TOKEN: ${{ github.token }}
