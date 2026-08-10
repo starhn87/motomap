@@ -339,15 +339,18 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     gap: 16,
   },
+  // absolute — 행 레이아웃에 참여하지 않아 늦게 나타나도 행 높이가 변할 수 없다
   warningChip: {
+    position: 'absolute',
+    right: 0,
+    top: '50%',
+    height: 20,
+    transform: [{ translateY: -10 }],
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'center',
-    marginLeft: 'auto',
     gap: 4,
-    borderRadius: 11,
+    borderRadius: 10,
     paddingHorizontal: 8,
-    paddingVertical: 3,
   },
   warningText: {
     fontSize: 12,
