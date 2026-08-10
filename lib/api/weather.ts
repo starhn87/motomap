@@ -225,35 +225,85 @@ const SIDO_SHORT: Record<string, string> = {
   제주특별자치도: '제주',
 };
 
+// "강원특별자치도"/"강원도"/"강원" 을 같은 키로 — 통보문은 구명칭·축약이 섞인다
+function sidoKeyOf(name: string): string {
+  // "자치도"는 통보문의 "전북자치도" 같은 준말 대응 (정식명은 SIDO_SHORT 가 먼저 잡는다)
+  return SIDO_SHORT[name] ?? name.replace(/(특별자치도|특별자치시|자치도|특별시|광역시|도)$/, '');
+}
+
+// 괄호 안 내용 제거 — "신안(흑산면제외)" → "신안". 하위 행정단위 부기를 걷어내
+// 항목 자체의 표기만 남긴다.
+function stripParens(s: string): string {
+  let depth = 0;
+  let out = '';
+  for (const ch of s) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    else if (depth === 0) out += ch;
+  }
+  return out;
+}
+
+// 최상위 쉼표로 지역 토큰 분리 — 괄호 안 쉼표("경기도(수원시, 성남시)")는 유지
+function splitTopLevel(s: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of s) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth = Math.max(0, depth - 1);
+    if (ch === ',' && depth === 0) {
+      if (cur.trim()) out.push(cur.trim());
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
 /**
  * 전국 특보 중 이 지역에 발효 중인 것만 고른다.
- * 통보문 표기 규칙: 시/도 단독("경기도")이면 전역, 괄호 열거("경기도(수원시, ...)")면
- * 그 시군구만, "제외" 열거("경기도(광주시 제외)")면 나머지 전역.
+ * 통보문 표기(실측): 시/도 단독("서울특별시")이면 전역, 괄호 열거는 세부 특보구역
+ * ("강원도(속초산지, 양양평지)")이거나 시군구("경기도(수원시, ...)"), "제외" 열거
+ * ("경기도(광주시 제외)")면 나머지 전역. 세부구역이 "속초산지"처럼 접미사가 붙어
+ * 시군구 정식명으로는 안 걸리므로 어간("속초")으로 대조한다.
  */
 export function warningsForRegion(
   warnings: WeatherWarning[],
   parts: { sido: string; sigungu: string } | null,
 ): WeatherWarning[] {
   if (!parts) return [];
-  const { sido } = parts;
-  // 카카오 2depth 는 일반구가 있는 시에서 "수원시 팔달구"처럼 온다 — 통보문은 시 단위
-  const sigungu = parts.sigungu.split(' ')[0];
-  const short = SIDO_SHORT[sido] ?? sido.slice(0, 2);
+  // 카카오 2depth 는 일반구가 있는 시에서 "수원시 팔달구"처럼 온다 — 시 단위 첫 토큰의 어간만
+  const stem = parts.sigungu.split(' ')[0].replace(/(시|군|구)$/, '');
+  const myKey = sidoKeyOf(parts.sido);
+  const stemOk = stem.length >= 2;
   return warnings.filter((w) => {
-    const r = w.regions;
-    // 시군구가 직접 언급되면 그게 답 — "수원시 제외" 부정 표기만 걸러낸다
-    if (sigungu && r.includes(sigungu)) {
-      return !new RegExp(`${sigungu}[^,)]*제외`).test(r);
-    }
-    for (const name of [sido, short]) {
-      const i = r.indexOf(name);
-      if (i < 0) continue;
-      const start = i + name.length;
-      if (r[start] !== '(') return true; // 시/도 전역
-      const end = r.indexOf(')', start);
-      const inner = r.slice(start + 1, end === -1 ? undefined : end);
-      // 제외 열거면 적용(우리 시군구는 위에서 안 걸렸음), 포함 열거면 미적용
-      return inner.includes('제외');
+    for (const token of splitTopLevel(w.regions)) {
+      const m = token.match(/^([^(]+?)\s*(?:\((.*)\))?$/);
+      if (!m) continue;
+      const head = m[1].trim();
+      const inner = m[2];
+      if (sidoKeyOf(head) === myKey) {
+        if (inner == null) return true; // 시/도 전역
+        // "제외"는 두 층위다: 항목 수준("광주시 제외" — 시/도 전역에서 그 항목만 빼기)과
+        // 하위 괄호 안("신안(흑산면제외)" — 그 시군구는 포함이되 일부 면만 빼기).
+        // 항목 괄호 밖의 '제외'만 제외 열거로 판정한다.
+        const entries = splitTopLevel(inner);
+        const exclusion = entries.some((e) => stripParens(e).includes('제외'));
+        if (exclusion) {
+          const excluded =
+            stemOk &&
+            entries.some((e) => stripParens(e).includes('제외') && e.includes(stem));
+          if (!excluded) return true;
+        } else if (stemOk && entries.some((e) => e.includes(stem))) {
+          return true;
+        }
+        continue;
+      }
+      // 시/도 없이 지역명 직접 표기("울릉도.독도" 등)
+      if (stemOk && head.includes(stem)) return true;
     }
     return false;
   });
