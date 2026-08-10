@@ -6,9 +6,11 @@
 // 필요한 환경변수:
 //   POSTHOG_API_KEY    — Personal API Key (scope: Query Read). 앱의 phc_ 수집 키가 아니다.
 //   POSTHOG_PROJECT_ID — 프로젝트 숫자 ID (Settings → Project)
-//   POSTHOG_HOST       — 기본 https://us.posthog.com (US 클라우드 private API)
+//   POSTHOG_HOST       — 기본 https://eu.posthog.com. 이 프로젝트는 EU 클라우드다
+//                        (.env 의 EXPO_PUBLIC_POSTHOG_HOST=eu.i.posthog.com — 수집은
+//                        *.i.posthog.com, private API 는 eu.posthog.com 으로 나뉜다)
 
-const HOST = process.env.POSTHOG_HOST ?? 'https://us.posthog.com';
+const HOST = process.env.POSTHOG_HOST ?? 'https://eu.posthog.com';
 const KEY = process.env.POSTHOG_API_KEY;
 const PROJECT = process.env.POSTHOG_PROJECT_ID;
 
