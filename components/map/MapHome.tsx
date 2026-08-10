@@ -24,7 +24,7 @@ import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { track } from '@/lib/analytics';
 import { usePlaces } from '@/hooks/usePlaces';
-import { useGasStations, type SearchPoint } from '@/hooks/useGasStations';
+import { useGasStations, type SearchPoint, type GasSearchSpec } from '@/hooks/useGasStations';
 import { useWeather } from '@/hooks/useWeather';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
@@ -100,7 +100,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const { heading } = useUserLocation();
 
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
-  const { height: screenHeight } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; zoom: number } | null>(null);
   const mapRef = useRef<NaverMapViewRef>(null);
   const cameraTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -108,17 +108,18 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const didCenterOnUserRef = useRef(false);
 
   // 주유소 필터는 DB 대신 오피넷 실시간 유가 레이어를 켠다.
-  // 지도 이동에 연동하지 않는 수동 갱신 모델 — 필터 진입 시 1회 검색하고, 이후에는
-  // "현 지도에서 재검색" 버튼으로만 기준점을 옮긴다 (최저가 표시 고정 + 호출 절약).
+  // 수동 갱신 모델(필터 진입 1회 + "현 지도에서 재검색" 버튼)은 유지하되, 검색
+  // 커버리지는 네이버 지도처럼 그 시점의 화면 영역을 따른다 — 확대하면 좁고
+  // 정확하게, 축소하면 5km 원 격자로 화면을 채운다 (계산은 useGasStations).
   const gasMode = activeFilter === 'gas_station';
   const [selectedStation, setSelectedStation] = useState<GasStation | null>(null);
-  const [gasSearchPoint, setGasSearchPoint] = useState<SearchPoint | null>(null);
+  const [gasSearchSpec, setGasSearchSpec] = useState<GasSearchSpec | null>(null);
 
   const { data: supabasePlaces } = usePlaces(activeFilter, mapCenter, !gasMode);
   const { data: hazards = [] } = useNearbyHazards(mapCenter);
   const [selectedHazard, setSelectedHazard] = useState<RoadHazard | null>(null);
   const { data: gasStations, isFetching: gasFetching } = useGasStations(
-    gasSearchPoint,
+    gasSearchSpec,
     gasMode && mapReady,
   );
 
@@ -134,19 +135,17 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     if (weatherOpen) void refetchWeather();
   }, [weatherOpen, refetchWeather]);
 
-  // 필터 진입 시 현재 지도 중심으로 최초 1회 검색, 필터를 벗어나면 초기화
+  // 필터 진입 시 현재 화면 기준으로 최초 1회 검색, 필터를 벗어나면 초기화
   useEffect(() => {
     if (!gasMode) {
       setSelectedStation(null);
-      setGasSearchPoint(null);
+      setGasSearchSpec(null);
       return;
     }
-    // 줌 레벨과 무관하게 검색한다 — 오피넷 반경 상한(5km) 탓에 축소 지도에서는
-    // 중심 주변만 커버되지만, 아무것도 안 뜨는 것보다 낫다(실사용 피드백).
-    if (!gasSearchPoint && mapCenter) {
-      setGasSearchPoint({ latitude: mapCenter.latitude, longitude: mapCenter.longitude });
+    if (!gasSearchSpec && mapCenter) {
+      setGasSearchSpec({ ...mapCenter, widthDp: screenWidth, heightDp: screenHeight });
     }
-  }, [gasMode, gasSearchPoint, mapCenter]);
+  }, [gasMode, gasSearchSpec, mapCenter, screenWidth, screenHeight]);
 
   // 최초 1회: 지도가 준비되고 내 위치를 확보하면 카메라를 내 위치로 이동
   useEffect(() => {
@@ -205,10 +204,13 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         .filter((s) => s.price === stations[0].price)
         .reduce((a, b) => (a.distance <= b.distance ? a : b)).id
     : null;
-  // 기준점에서 지도를 충분히 움직였을 때만 재검색 버튼 노출
+  // 기준점에서 충분히 움직였거나 줌이 바뀌어(커버 영역이 달라짐) 재검색 버튼 노출
   const gasMoved =
-    gasMode && gasSearchPoint && mapCenter ? approxMeters(mapCenter, gasSearchPoint) > 300 : false;
-  const showGasRefresh = gasMode && !!gasSearchPoint && (gasMoved || gasFetching);
+    gasMode && gasSearchSpec && mapCenter
+      ? approxMeters(mapCenter, gasSearchSpec) > 300 ||
+        Math.abs(mapCenter.zoom - gasSearchSpec.zoom) > 0.5
+      : false;
+  const showGasRefresh = gasMode && !!gasSearchSpec && (gasMoved || gasFetching);
 
   const handleMarkerPress = useCallback(
     (place: Place) => {
@@ -819,7 +821,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           onPress={() => {
             if (!mapCenter) return;
             setSelectedStation(null);
-            setGasSearchPoint({ latitude: mapCenter.latitude, longitude: mapCenter.longitude });
+            setGasSearchSpec({ ...mapCenter, widthDp: screenWidth, heightDp: screenHeight });
           }}
           style={[
             styles.gasRefreshButton,
