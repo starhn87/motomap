@@ -183,6 +183,82 @@ export async function checkRouteWeather(
   }
 }
 
+// ── 기상특보 ──────────────────────────────────────────────────────────────
+
+export interface WeatherWarning {
+  /** 특보 종류 — "폭염", "호우", "강풍", "태풍" 등 */
+  type: string;
+  level: '경보' | '주의보';
+  /** 통보문의 발효 지역 원문 — "서울특별시, 경기도(수원시, ...)" */
+  regions: string;
+}
+
+/** 전국 발효 특보 (EF weather-warnings, 10분 캐시). 실패해도 시트가 떠야 하니 빈 배열. */
+export async function fetchWeatherWarnings(): Promise<WeatherWarning[]> {
+  try {
+    const { data, error } = await supabase.functions.invoke('weather-warnings');
+    if (error) return [];
+    return data?.warnings ?? [];
+  } catch {
+    return [];
+  }
+}
+
+// 통보문의 축약 시/도 표기 ("경기", "전남") 대응
+const SIDO_SHORT: Record<string, string> = {
+  서울특별시: '서울',
+  부산광역시: '부산',
+  대구광역시: '대구',
+  인천광역시: '인천',
+  광주광역시: '광주',
+  대전광역시: '대전',
+  울산광역시: '울산',
+  세종특별자치시: '세종',
+  경기도: '경기',
+  강원특별자치도: '강원',
+  충청북도: '충북',
+  충청남도: '충남',
+  전북특별자치도: '전북',
+  전라남도: '전남',
+  경상북도: '경북',
+  경상남도: '경남',
+  제주특별자치도: '제주',
+};
+
+/**
+ * 전국 특보 중 이 지역에 발효 중인 것만 고른다.
+ * 통보문 표기 규칙: 시/도 단독("경기도")이면 전역, 괄호 열거("경기도(수원시, ...)")면
+ * 그 시군구만, "제외" 열거("경기도(광주시 제외)")면 나머지 전역.
+ */
+export function warningsForRegion(
+  warnings: WeatherWarning[],
+  parts: { sido: string; sigungu: string } | null,
+): WeatherWarning[] {
+  if (!parts) return [];
+  const { sido } = parts;
+  // 카카오 2depth 는 일반구가 있는 시에서 "수원시 팔달구"처럼 온다 — 통보문은 시 단위
+  const sigungu = parts.sigungu.split(' ')[0];
+  const short = SIDO_SHORT[sido] ?? sido.slice(0, 2);
+  return warnings.filter((w) => {
+    const r = w.regions;
+    // 시군구가 직접 언급되면 그게 답 — "수원시 제외" 부정 표기만 걸러낸다
+    if (sigungu && r.includes(sigungu)) {
+      return !new RegExp(`${sigungu}[^,)]*제외`).test(r);
+    }
+    for (const name of [sido, short]) {
+      const i = r.indexOf(name);
+      if (i < 0) continue;
+      const start = i + name.length;
+      if (r[start] !== '(') return true; // 시/도 전역
+      const end = r.indexOf(')', start);
+      const inner = r.slice(start + 1, end === -1 ? undefined : end);
+      // 제외 열거면 적용(우리 시군구는 위에서 안 걸렸음), 포함 열거면 미적용
+      return inner.includes('제외');
+    }
+    return false;
+  });
+}
+
 interface KmaHour {
   date: string; // "20260717"
   time: string; // "1800"

@@ -64,6 +64,28 @@ export async function coordToAddress(latitude: number, longitude: number): Promi
 }
 
 
+// 좌표의 시/도·시군구 — 기상특보 지역 매칭용 ("경기도" + "수원시" 형태).
+// 표시용 coordToRegion 과 달리 특보 통보문의 지역 표기와 대조할 두 단계가 필요하다.
+export async function coordToRegionParts(
+  latitude: number,
+  longitude: number,
+): Promise<{ sido: string; sigungu: string } | null> {
+  if (!REST_KEY) return null;
+  const url = `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${longitude}&y=${latitude}`;
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `KakaoAK ${REST_KEY}` },
+    });
+    if (!res.ok) return null;
+    const docs = (await res.json()).documents ?? [];
+    const doc = docs.find((d: any) => d.region_type === 'H') ?? docs[0];
+    if (!doc?.region_1depth_name) return null;
+    return { sido: doc.region_1depth_name, sigungu: doc.region_2depth_name ?? '' };
+  } catch {
+    return null;
+  }
+}
+
 // 좌표의 행정동 이름 — "중구 명동" 형태 (날씨 기준 위치 표기용)
 export async function coordToRegion(latitude: number, longitude: number): Promise<string | null> {
   if (!REST_KEY) return null;

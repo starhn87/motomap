@@ -5,12 +5,12 @@ import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
 import { useQuery } from '@tanstack/react-query';
 import Feather from '@expo/vector-icons/Feather';
-import { coordToRegion } from '@/lib/api/kakaoLocal';
+import { coordToRegion, coordToRegionParts } from '@/lib/api/kakaoLocal';
 import { fetchAirQuality, AIR_GRADE_LABEL, AIR_GRADE_COLOR } from '@/lib/api/air';
 import { sunEvents, type SunEvent } from '@/lib/sun';
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import type { RidingWeather } from '@/lib/api/weather';
+import { fetchWeatherWarnings, warningsForRegion, type RidingWeather } from '@/lib/api/weather';
 
 interface Props {
   weather: RidingWeather;
@@ -116,6 +116,21 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
     staleTime: 30 * 60 * 1000,
   });
 
+  // 기상특보 — 전국 발효 특보(10분 캐시)를 받아 이 지역 것만 추린다.
+  // 폭염·호우·강풍은 라이딩 가부에 직결되는데 단기예보에는 안 실린다.
+  const { data: allWarnings = [] } = useQuery({
+    queryKey: ['weather-warnings'],
+    queryFn: fetchWeatherWarnings,
+    staleTime: 10 * 60 * 1000,
+  });
+  const { data: regionParts } = useQuery({
+    queryKey: ['weather-region-parts', latitude?.toFixed(2), longitude?.toFixed(2)],
+    queryFn: () => coordToRegionParts(latitude!, longitude!),
+    enabled: latitude != null && longitude != null,
+    staleTime: 30 * 60 * 1000,
+  });
+  const warnings = warningsForRegion(allWarnings, regionParts ?? null);
+
   // 미세먼지 — 측정소 데이터가 시간 단위라 30분 캐시면 충분
   const { data: air } = useQuery({
     queryKey: ['air-quality', latitude?.toFixed(2), longitude?.toFixed(2)],
@@ -200,6 +215,26 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
       }}
       handleIndicatorStyle={{ backgroundColor: colors.tabIconDefault }}>
       <BottomSheetView style={styles.content}>
+        {/* 발효 중인 기상특보 — 경보는 위험색, 주의보는 주의색 */}
+        {warnings.length > 0 && (
+          <View style={styles.warningsRow}>
+            {warnings.map((w) => {
+              const c = w.level === '경보' ? semantic.danger : semantic.warning;
+              return (
+                <View
+                  key={w.type + w.level}
+                  style={[styles.warningChip, { backgroundColor: c + '1A', borderColor: c + '55' }]}>
+                  <Feather name="alert-triangle" size={13} color={c} />
+                  <Text style={[styles.warningText, { color: c }]}>
+                    {w.type}
+                    {w.level} 발효 중
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* 등급 헤더 */}
         <View style={styles.gradeRow}>
           <Text style={styles.gradeEmoji}>{weather.current.emoji}</Text>
@@ -293,6 +328,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 24,
     gap: 16,
+  },
+  warningsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10,
+  },
+  warningChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  warningText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   gradeRow: {
     flexDirection: 'row',
