@@ -28,6 +28,7 @@ import { APP_STORE_URL } from '@/constants/app';
 import { formatWeek } from '@/lib/hours';
 import OpenBadge from '@/components/place/OpenBadge';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
+import { usePlaceRideCount } from '@/hooks/usePlaceRides';
 import Colors, { semantic } from '@/constants/Colors';
 import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -301,6 +302,8 @@ function PlaceBottomSheet({
           longitude: displayPlace.longitude,
         },
   );
+  // 이 장소로 라이딩한 횟수 (역시 early return 위 — 훅 순서)
+  const rideCount = usePlaceRideCount(displayPlace?.id);
 
   if (!place || !displayPlace) return null;
 
@@ -422,6 +425,13 @@ function PlaceBottomSheet({
               <Feather name="share-2" size={19} color={colors.tint} />
             </TouchableOpacity>
           </View>
+
+          {/* 실제 도착한 라이딩 수 — 사회적 증거. 0이면 빈 자리 없이 생략 */}
+          {rideCount > 0 && (
+            <Text style={[styles.rideCount, { color: colors.textSecondary }]}>
+              🏍️ 라이더들이 {rideCount}번 달려온 곳이에요
+            </Text>
+          )}
 
           {/* 출발/도착 — 시트 안 액션 행. 접힌 스냅에서도 보이도록 상단에 둔다 */}
           <View style={styles.actionRow}>
@@ -685,6 +695,10 @@ const styles = StyleSheet.create({
   distance: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  rideCount: {
+    fontSize: 13,
+    marginBottom: 8,
   },
   shareButton: {
     paddingLeft: 2,

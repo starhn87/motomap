@@ -11,6 +11,7 @@ import { fetchNearbyPlaces } from '@/lib/api/places';
 import { formatMeters } from '@/lib/api/directions';
 import { haversine } from '@/lib/distance';
 import { focusPlaceOnMap, followMyLocationOnMap } from '@/lib/mapFocus';
+import { recordPlaceRides } from '@/lib/api/rides';
 import { toast } from '@/lib/toast';
 import { track } from '@/lib/analytics';
 
@@ -104,7 +105,7 @@ async function nearbyPlaces() {
 // 안내 종료 — 목적지 400m 이내면 도착으로 보고 리뷰를 제안한다.
 // 안내 화면이 걷힐 때 밑에는 이미 지도가 있으므로 화면 전환은 필요 없다.
 async function handleGuideEnd() {
-  const { goal, clear } = useGuideSession.getState();
+  const { goal, viaPlaceIds, clear } = useGuideSession.getState();
   clear();
   void AsyncStorage.removeItem(GUIDE_ACTIVE_KEY); // 정상 종료 — 정산 대상 아님
   // 안내가 끝나도 라이더는 이동 중 — 지도가 내 위치를 따라간다.
@@ -115,22 +116,30 @@ async function handleGuideEnd() {
     return;
   }
 
-  let near = false;
+  let dist: number | null = null;
   try {
     const pos =
       (await Location.getLastKnownPositionAsync()) ??
       (await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       }));
-    near =
-      haversine(
-        { latitude: pos.coords.latitude, longitude: pos.coords.longitude },
-        goal,
-      ) < 400;
+    dist = haversine(
+      { latitude: pos.coords.latitude, longitude: pos.coords.longitude },
+      goal,
+    );
   } catch {
     // 위치를 못 읽으면 조용히 넘어간다 — 제안을 못 띄울 뿐
   }
+  const near = dist !== null && dist < 400;
   track.navigationEnded({ reason: near ? 'arrived' : 'cancelled' });
+  // 도착지 300m 안에서 끝난 라이딩만 장소 통계에 센다 — 도착지와, 지나온
+  // 등록 장소 경유지에 각각 1회 (완주했으면 경유지도 지난 것으로 본다)
+  if (dist !== null && dist <= 300) {
+    void recordPlaceRides([
+      ...(goal.placeId ? [{ place_id: goal.placeId, role: 'goal' as const }] : []),
+      ...viaPlaceIds.map((id) => ({ place_id: id, role: 'via' as const })),
+    ]);
+  }
   // 리뷰 제안은 등록 장소·코스일 때만 — 그 외 목적지는 조용히 끝낸다
   if (!near || (!goal.placeId && !goal.courseId)) return;
 

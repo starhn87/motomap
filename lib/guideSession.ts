@@ -17,7 +17,9 @@ interface GuideGoal {
 interface GuideSessionStore {
   goal: GuideGoal | null;
   priority: RoutePriority;
-  start: (goal: GuideGoal, priority: RoutePriority) => void;
+  /** 이 라이딩의 경유지 중 등록 장소들 — 도착 시 장소별 라이딩 횟수에 함께 센다 */
+  viaPlaceIds: string[];
+  start: (goal: GuideGoal, priority: RoutePriority, viaPlaceIds?: string[]) => void;
   /** 안내 중 목적지 변경(근처 장소) — 도착 판정·리뷰 연결이 새 목적지를 본다 */
   changeGoal: (goal: GuideGoal) => void;
   clear: () => void;
@@ -26,7 +28,8 @@ interface GuideSessionStore {
 export const useGuideSession = create<GuideSessionStore>((set) => ({
   goal: null,
   priority: 0,
-  start: (goal, priority) => set({ goal, priority }),
+  viaPlaceIds: [],
+  start: (goal, priority, viaPlaceIds = []) => set({ goal, priority, viaPlaceIds }),
   changeGoal: (goal) => set({ goal }),
-  clear: () => set({ goal: null, priority: 0 }),
+  clear: () => set({ goal: null, priority: 0, viaPlaceIds: [] }),
 }));

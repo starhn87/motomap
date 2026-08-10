@@ -368,6 +368,8 @@ export default function NaviScreen() {
           courseId: cid,
         },
         priority,
+        // 등록 장소 경유지 — 도착하면 경유지에도 라이딩 1회를 센다
+        userVias.flatMap((v) => (v?.placeId ? [v.placeId] : [])),
       );
       // 오버레이(출발 도트·경로선)를 먼저 정상 해제시키고 화면을 뗀다
       setGuideStarted(true);
@@ -382,7 +384,7 @@ export default function NaviScreen() {
       started.remove();
       failed.remove();
     };
-  }, [router, navigation, cid, goal, priority]);
+  }, [router, navigation, cid, goal, priority, userVias]);
 
   // 정한 출발지가 지금 있는 곳에서 멀면 실주행 안내가 아니라 경로 미리보기다.
   // 실주행 안내(KNGuidance)는 차량 위치를 늘 실제 GPS 에 매칭해서, 멀리 잡은
