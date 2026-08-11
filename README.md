@@ -65,17 +65,17 @@
 
 ```mermaid
 flowchart TD
-  R(["라이더"]) --> MAP["지도 · 검색 · 코스 · 유가<br/>네이버 지도 SDK"]
-  R --> NAVI["길안내 — 카카오내비 KNSDK<br/>이륜차 모드 · 네이티브 브리지"]
-  MAP <-->|"장소 · 코스 · 리뷰 · 즐겨찾기"| DB[("Supabase<br/>Postgres + PostGIS + RLS")]
+  R(["라이더"]) --> NAVI["길안내 — 카카오내비 KNSDK<br/>이륜차 모드"]
+  R --> MAP["지도 · 검색 · 코스 · 유가<br/>네이버 지도 SDK"]
+  MK["moto-kr 기종 데이터셋"] -->|"sync 스크립트"| MAP
   NAVI -->|"위험 제보 · 도착 기록"| DB
+  MAP <-->|"장소 · 코스 · 리뷰 · 즐겨찾기"| DB[("Supabase<br/>Postgres + PostGIS + RLS")]
   MAP --> EF["Edge Functions 프록시"]
+  DB -->|"제보 · 건의 INSERT 트리거"| DC["Discord 알림"]
   EF --> KMA["기상청 예보 · 실황 · 특보<br/>에어코리아 미세먼지"]
   EF --> OPI["오피넷 실시간 유가"]
   EF --> GGL["구글 Places 영업시간"]
   EF --> CL["Claude API<br/>제보 AI 심사 · 추천 챗"]
-  DB -->|"제보 · 건의 INSERT 트리거"| DC["Discord 알림"]
-  MK["moto-kr 기종 데이터셋"] -->|"sync 스크립트"| MAP
 ```
 
 > 🧭 **코드 레벨 아키텍처**(레이어, 데이터 흐름, 상태, DB 스키마)는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 참조.
