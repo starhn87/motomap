@@ -6,6 +6,8 @@
 // 필요한 환경변수:
 //   POSTHOG_API_KEY    — Personal API Key (scope: Query Read). 앱의 phc_ 수집 키가 아니다.
 //   POSTHOG_PROJECT_ID — 프로젝트 숫자 ID (Settings → Project)
+//   SUPABASE_URL       — 미등록 도착지 섹션용 (없으면 그 섹션만 조용히 빠진다)
+//   SUPABASE_ANON_KEY  — 위와 함께. 집계 RPC 만 부르므로 anon 으로 충분하다
 //   POSTHOG_HOST       — 기본 https://eu.posthog.com. 이 프로젝트는 EU 클라우드다
 //                        (.env 의 EXPO_PUBLIC_POSTHOG_HOST=eu.i.posthog.com — 수집은
 //                        *.i.posthog.com, private API 는 eu.posthog.com 으로 나뉜다)
@@ -27,6 +29,25 @@ async function hogql(query) {
   });
   if (!res.ok) throw new Error(`PostHog ${res.status}: ${await res.text()}`);
   return (await res.json()).results ?? [];
+}
+
+// 라이더가 도착했지만 아직 등록 안 된 곳 (Supabase, 누적). 등록하면 목록에서
+// 자연히 빠지므로 그대로 시드 할 일 목록이 된다. 실패하면 섹션만 생략한다.
+async function unregisteredSpots() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) return [];
+  try {
+    const res = await fetch(`${url}/rest/v1/rpc/unregistered_ride_spots`, {
+      method: 'POST',
+      headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_limit: 5 }),
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
 }
 
 // 창은 실행 시각 기준 rolling — 이번 주 [now-7d, now), 전주 [now-14d, now-7d).
@@ -63,7 +84,8 @@ function kstDay(offset) {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
 }
 
-const [wau, counts, liveNav, endReasons, misses] = await Promise.all([
+const [unregistered, wau, counts, liveNav, endReasons, misses] = await Promise.all([
+  unregisteredSpots(),
   // WAU — 어떤 이벤트든 남긴 고유 사용자 (화면 조회 포함)
   hogql(`
     SELECT
@@ -139,6 +161,18 @@ if (misses.length === 0) {
   lines.push('');
   lines.push('_카카오에는 있는데 등록 장소에 없던 검색 — 시드·제보 우선순위_');
 }
+lines.push('');
+lines.push('## 라이더가 다녀왔는데 아직 등록 안 된 곳');
+if (unregistered.length === 0) {
+  lines.push('아직 없음');
+} else {
+  lines.push('| 장소 | 도착 | 라이더 |');
+  lines.push('|---|---:|---:|');
+  for (const s of unregistered) lines.push(`| ${s.name} | ${s.rides} | ${s.riders} |`);
+  lines.push('');
+  lines.push('_길안내로 실제 도착한 곳(누적) — 검색만 한 것보다 강한 등록 후보 신호. 등록하면 목록에서 빠진다_');
+}
+
 lines.push('');
 lines.push(`_기준: 실행 시각으로부터 최근 7일 vs 그 전 7일 (rolling) · ${new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 16).replace('T', ' ')} KST 생성_`);
 

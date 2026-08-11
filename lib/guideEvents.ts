@@ -138,6 +138,18 @@ async function handleGuideEnd() {
     void recordPlaceRides([
       ...(goal.placeId ? [{ place_id: goal.placeId, role: 'goal' as const }] : []),
       ...viaPlaceIds.map((id) => ({ place_id: id, role: 'via' as const })),
+      // 등록 장소도 코스도 아니면 일반 장소 도착 — 표시용이 아니라 "라이더가
+      // 갔는데 아직 등록 안 된 곳" 신호로만 남긴다(037)
+      ...(!goal.placeId && !goal.courseId && goal.name.trim()
+        ? [
+            {
+              role: 'goal' as const,
+              name: goal.name.trim(),
+              latitude: goal.latitude,
+              longitude: goal.longitude,
+            },
+          ]
+        : []),
     ]);
   }
   // 리뷰 제안은 등록 장소·코스일 때만 — 그 외 목적지는 조용히 끝낸다

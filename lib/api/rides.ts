@@ -5,10 +5,14 @@ import { getProfile } from '@/lib/nickname';
 // 장소별 라이딩 기록 — 길안내를 그 장소(도착지/경유지)로 마치고 도착지 300m
 // 안에서 끝났을 때 1회. 기록은 로그인 라이더만(RLS), 집계 조회는 누구나(RPC).
 
-export interface PlaceRide {
-  place_id: string;
-  role: 'goal' | 'via';
-}
+/**
+ * 기록 대상 — 등록 장소는 place_id 로, 일반 장소는 이름+좌표로 남긴다(037).
+ * 일반 장소분은 앱에 표시하지 않는다: 진입 경로마다 좌표가 미세하게 달라
+ * 사람 간 집계가 과소계상된다. 미등록 장소 발굴(주간 다이제스트) 전용이다.
+ */
+export type PlaceRide =
+  | { role: 'goal' | 'via'; place_id: string }
+  | { role: 'goal' | 'via'; name: string; latitude: number; longitude: number };
 
 export interface RideBike {
   model: string;

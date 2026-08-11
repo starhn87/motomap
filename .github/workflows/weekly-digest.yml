@@ -2,6 +2,7 @@
 # 지난 다이제스트 이슈는 닫아서 weekly-digest 라벨의 열린 이슈가 항상 최신 1개만 남는다.
 # 이슈 생성 후 Claude 가 분석 코멘트를 단다 (scripts/digest-insights.mjs — 키 없으면 조용히 생략).
 # 필요한 repo secrets: POSTHOG_API_KEY (Personal API Key, Query Read), POSTHOG_PROJECT_ID,
+#                      SUPABASE_URL·SUPABASE_ANON_KEY (미등록 도착지 섹션, 선택),
 #                      ANTHROPIC_API_KEY (인사이트 코멘트용, 선택)
 name: weekly-digest
 
@@ -27,6 +28,10 @@ jobs:
         env:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
+          # 미등록 도착지 섹션용 — 집계 RPC 만 부르므로 anon 키로 충분하다
+          # (service_role 을 CI 에 두면 사고 시 DB 전체가 열린다)
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       - name: 이슈 생성 (이전 다이제스트는 닫기)
         run: |
           gh label create weekly-digest --description "주간 운영 다이제스트" --color 8B5CF6 --force
