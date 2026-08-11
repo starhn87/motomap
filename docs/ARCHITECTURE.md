@@ -251,6 +251,7 @@ Sentry.wrap(
 | `033_structured_hours.sql` | 영업시간 구조화(`hours` jsonb) — "지금 영업중" 계산용, 원문 텍스트는 유지 |
 | `034_google_place_cache.sql` | 구글 Places 응답 캐시 — place_id 무기한·콘텐츠 30일(약관 상한) |
 | `035_place_rides.sql` | `place_rides` — 도착지 300m 안에서 끝난 라이딩을 장소별 카운트(도착지·경유지, 로그인 라이더만) |
+| `036_place_ride_bikes.sql` | `place_rides.bike_model`(라이딩 시점 기종 스냅샷 + 백필) + `place_ride_summary`/`my_ride_stats` RPC. 원시 행 select 는 본인 것만으로 축소 — user_id·장소·시각이 전부 공개면 특정인의 이동 이력이 된다. 공개 집계는 SECURITY DEFINER 함수가 담당 |
 
 ---
 

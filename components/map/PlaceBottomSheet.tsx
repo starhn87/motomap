@@ -28,7 +28,7 @@ import { APP_STORE_URL } from '@/constants/app';
 import { formatWeek } from '@/lib/hours';
 import OpenBadge from '@/components/place/OpenBadge';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
-import { usePlaceRideCount } from '@/hooks/usePlaceRides';
+import { usePlaceRideSummary } from '@/hooks/usePlaceRides';
 import Colors, { semantic } from '@/constants/Colors';
 import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -302,8 +302,8 @@ function PlaceBottomSheet({
           longitude: displayPlace.longitude,
         },
   );
-  // 이 장소로 라이딩한 횟수 (역시 early return 위 — 훅 순서)
-  const rideCount = usePlaceRideCount(displayPlace?.id);
+  // 이 장소로 라이딩한 횟수와 다녀간 기종 (역시 early return 위 — 훅 순서)
+  const rides = usePlaceRideSummary(displayPlace?.id);
 
   if (!place || !displayPlace) return null;
 
@@ -427,10 +427,28 @@ function PlaceBottomSheet({
           </View>
 
           {/* 실제 도착한 라이딩 수 — 사회적 증거. 0이면 빈 자리 없이 생략 */}
-          {rideCount > 0 && (
-            <Text style={[styles.rideCount, { color: colors.textSecondary }]}>
-              🏍️ 라이더들이 {rideCount}번 달려온 곳이에요
-            </Text>
+          {rides.total > 0 && (
+            <View style={styles.rideBlock}>
+              <Text style={[styles.rideCount, { color: colors.textSecondary }]}>
+                🏍️ 라이더들이 {rides.total}번 달려온 곳이에요
+              </Text>
+              {/* 어떤 바이크로들 왔는지 — 같은 기종 라이더에게 가장 실감나는 정보다.
+                  라이더가 한 명뿐인 기종은 숫자를 빼서 "1"이 나열되지 않게 한다 */}
+              {rides.bikes.length > 0 && (
+                <View style={styles.rideBikes}>
+                  {rides.bikes.map((b) => (
+                    <View
+                      key={b.model}
+                      style={[styles.rideBikeChip, { backgroundColor: colors.surfaceMuted }]}>
+                      <Text style={[styles.rideBikeText, { color: colors.text }]}>
+                        {b.model}
+                        {b.riders > 1 ? ` ${b.riders}` : ''}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
           )}
 
           {/* 출발/도착 — 시트 안 액션 행. 접힌 스냅에서도 보이도록 상단에 둔다 */}
@@ -696,9 +714,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  rideBlock: {
+    gap: 6,
+    marginBottom: 8,
+  },
   rideCount: {
     fontSize: 13,
-    marginBottom: 8,
+  },
+  rideBikes: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  rideBikeChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 11,
+  },
+  rideBikeText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   shareButton: {
     paddingLeft: 2,

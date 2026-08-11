@@ -19,6 +19,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { getProfile, updateBikeModel } from '@/lib/nickname';
 import { searchBikeModels } from '@/constants/bikes';
 import { getBikeSpec } from '@/lib/bike';
+import { useMyRideStats } from '@/hooks/usePlaceRides';
 import { toast } from '@/lib/toast';
 
 // 마이 바이크 — 기종 자기 신고. 리뷰에 "OO 라이더" 뱃지로 표시된다.
@@ -27,6 +28,7 @@ export default function EditBikeScreen() {
   const colors = Colors[colorScheme ?? 'light'];
 
   const queryClient = useQueryClient();
+  const myRides = useMyRideStats();
   const [model, setModel] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -172,6 +174,29 @@ export default function EditBikeScreen() {
         );
       })()}
 
+      {/* 라이딩 기록 — 길안내로 실제 도착한 것만 쌓인다. 기종은 라이딩 시점 값이라
+          바이크를 바꿔도 과거 기록은 그대로다 */}
+      {myRides.rides > 0 && (
+        <View
+          style={[
+            styles.ridesCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}>
+          <Text style={[styles.ridesMain, { color: colors.text }]}>
+            🏍️ 지금까지 {myRides.places}곳 · {myRides.rides}번 라이딩
+          </Text>
+          {(() => {
+            const mine = myRides.bikes.find((b) => b.model === model.trim())?.rides ?? 0;
+            if (mine === 0) return null;
+            return (
+              <Text style={[styles.ridesSub, { color: colors.textSecondary }]}>
+                지금 등록한 기종으로 {mine}번
+              </Text>
+            );
+          })()}
+        </View>
+      )}
+
       <Text style={[styles.hint, { color: colors.textSecondary }]}>
         입력하면 인기 기종이 자동완성돼요. 목록에 없는 기종은 그대로 입력해도 됩니다.
         등록하면 내가 쓴 리뷰에 기종 뱃지가 표시돼요.
@@ -243,6 +268,21 @@ const styles = StyleSheet.create({
   specSource: {
     fontSize: 11,
     marginTop: 4,
+  },
+  ridesCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 4,
+    gap: 4,
+  },
+  ridesMain: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  ridesSub: {
+    fontSize: 12,
   },
   hint: {
     fontSize: 12,
