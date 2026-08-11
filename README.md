@@ -45,7 +45,7 @@
 | 앱 | React Native 0.81 / Expo SDK 54 / TypeScript |
 | 라우팅 | expo-router (typed routes) |
 | 지도 | @mj-studio/react-native-naver-map (+ 심벌 탭 패치, patch-package) |
-| 길안내 | 카카오내비 SDK(KNSDK) 이륜차 모드 — 네이티브 모듈 직접 브리징 (`modules/kakao-navi/`) |
+| 길안내 | 카카오내비 SDK(KNSDK) 이륜차 모드: 네이티브 모듈 직접 브리징 (`modules/kakao-navi/`) |
 | 교통 혼잡도 | 카카오모빌리티 길찾기 REST (미리보기 경로선 색칠) |
 | 위치 | expo-location (현재 위치 표시) |
 | 검색과 지오코딩 | 카카오 로컬 API |
@@ -85,7 +85,7 @@ flowchart TD
 ```
 app/                  expo-router 파일 기반 라우팅
   (tabs)/             탭 (index 지도, courses 탐색, submit 제보, profile 내 정보)
-  navi.tsx            경로 미리보기 — 옵션 비교, 교통색, 경유지 편집 → 길안내 시작
+  navi.tsx            경로 미리보기: 옵션 비교, 교통색, 경유지 편집 → 길안내 시작
   directions.tsx      길찾기 (출발지·경유지·도착지)
   search.tsx          통합 검색 (장소, 코스, 일반 장소, 내 장소)
   search-results.tsx  검색 결과 지도 (마커 + 목록)
@@ -139,7 +139,7 @@ npm run android
 | `KAKAO_NATIVE_APP_KEY` | 카카오 네이티브 앱 키 (KNSDK 길안내 인증) |
 | `EXPO_PUBLIC_KAKAO_REST_API_KEY` | 카카오 로컬 REST 키 (장소 검색과 지오코딩) |
 | `EXPO_PUBLIC_SENTRY_DSN` | Sentry DSN (선택) |
-| `EXPO_PUBLIC_POSTHOG_API_KEY` | PostHog 프로젝트 키 (선택 — 없으면 계측 전체가 무효화된다) |
+| `EXPO_PUBLIC_POSTHOG_API_KEY` | PostHog 프로젝트 키 (선택: 없으면 계측 전체가 무효화된다) |
 | `EXPO_PUBLIC_POSTHOG_HOST` | PostHog 호스트 (기본 `https://us.i.posthog.com`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | 시드 스크립트 전용 (선택) |
 
