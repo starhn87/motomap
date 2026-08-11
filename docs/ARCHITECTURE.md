@@ -244,6 +244,13 @@ Sentry.wrap(
 | `026_fix_vote_hazard_ambiguity.sql` | `vote_hazard` 파라미터를 `p_` 접두사로 재생성 — 이름이 `hazard_votes.hazard_id` 와 같아 `ON CONFLICT` 자리에서 ambiguous 로 실패했다 |
 | `027_review_likes.sql` | `review_likes` + `reviews.like_count`(트리거 유지) + 좋아요 시 리뷰 작성자에게 알림·푸시 — 본인이 누른 건 제외. "내가 눌렀는지"는 RLS 가 본인 행만 돌려주는 성질로 판별(별도 쿼리 없음) |
 | `028_fix_review_like_search_path.sql` | 027 두 함수의 `search_path` 를 `public` 으로 — 빈 값이면 reviews UPDATE 로 이어지는 기존 트리거가 스키마 없는 참조를 못 찾아 42P01 로 실패한다 |
+| `029_air_cache.sql` | 에어코리아 응답 DB 캐시 — EF 메모리 캐시는 유휴 시 증발해 사실상 매번 미스였다(원 API 10~26초) |
+| `030_feedback_select_own.sql` | 건의 본인 행 select 정책 — 내 제보 목록에서 답변 조회 |
+| `031_add_car_wash_category.sql` | `places_category_check`에 `car_wash`(세차) 추가 |
+| `032_favorite_general_places.sql` | 등록되지 않은 일반 장소(카카오)도 즐겨찾기 |
+| `033_structured_hours.sql` | 영업시간 구조화(`hours` jsonb) — "지금 영업중" 계산용, 원문 텍스트는 유지 |
+| `034_google_place_cache.sql` | 구글 Places 응답 캐시 — place_id 무기한·콘텐츠 30일(약관 상한) |
+| `035_place_rides.sql` | `place_rides` — 도착지 300m 안에서 끝난 라이딩을 장소별 카운트(도착지·경유지, 로그인 라이더만) |
 
 ---
 
@@ -262,7 +269,11 @@ Sentry.wrap(
 | Claude API | `supabase/functions/judge-submission` | 제보 AI 판정 — 트리거가 EF 호출 → 카카오 교차검증 + 웹 조사 → `claude-opus-4-8` 판정 → 디스코드에 근거·반려 안내 문구·[승인]/[반려] 버튼 발송. 제보자용 반려 문구는 `ai_reject_reason`에 저장 |
 | 디스코드 봇 심사·답변 | `supabase/functions/discord-interactions` | Interactions Endpoint(Ed25519 검증). 판정 메시지의 [승인]/[반려] 버튼 → 즉시 처리 + 원 메시지 업데이트, 건의 메시지의 [답변하기] 버튼 → 인풋 모달 → `feedback.reply` 저장(021 트리거가 건의자 알림·푸시). secrets: `DISCORD_PUBLIC_KEY`. 발송은 judge-submission·021 트리거가 봇 API(`DISCORD_BOT_TOKEN`/`DISCORD_CHANNEL_ID`, vault 는 `discord_bot_token`/`discord_channel_id`) — 봇 미설정 시 웹훅 폴백. JWT 검증 OFF |
 | 원클릭 심사 (폴백) | `supabase/functions/moderate` | 봇 미설정 시 웹훅 메시지의 승인·반려 링크(HMAC 서명) 탭 = 즉시 처리. 크롤러 방어는 봇 UA 필터+HEAD 무시+`<>` 임베드 억제. 반려 시 `ai_reject_reason`→`rejected_reason` 복사. JWT 검증 OFF. ⚠️ EF는 HTML 응답 불가(게이트웨이가 text/plain+CSP sandbox 로 강제) — 응답은 JSON |
-| 오피넷 유가 | `supabase/functions/gas-stations` + `lib/api/gasStations.ts`, `hooks/useGasStations.ts` | 주유소 필터 시 실시간 유가 레이어 — EF가 키 은닉·KATEC↔WGS84 변환·3분 캐시, 앱은 가격 마커(최저가 강조)+상세 카드. 주의: 오피넷 인증 파라미터는 `code=`(문서의 certkey 아님), 브랜드 필드는 aroundAll `POLL_DIV_CD`/detailById `POLL_DIV_CO`로 상이, 반경 최대 5km(줌 게이트 `GAS_MIN_ZOOM`) |
+| 오피넷 유가 | `supabase/functions/gas-stations` + `lib/api/gasStations.ts`, `hooks/useGasStations.ts` | 주유소 필터 시 실시간 유가 레이어 — EF가 키 은닉·KATEC↔WGS84 변환·3분 캐시, 앱은 가격 마커(최저가 강조)+상세 카드. 주의: 오피넷 인증 파라미터는 `code=`(문서의 certkey 아님), 브랜드 필드는 aroundAll `POLL_DIV_CD`/detailById `POLL_DIV_CO`로 상이, 반경 최대 5km — 검색 커버리지는 뷰포트 적응(확대 시 화면 맞춤 반경 1콜, 축소 시 5km 원 최대 3×3 타일 병합·중복 제거) |
+| 기상청 날씨·특보 | `supabase/functions/weather-kr`·`weather-warnings` + `lib/api/weather.ts` | 시간대별 예보(단기+초단기 병합)와 "지금" 관측(초단기실황), 전국 특보 통보문 파싱(지역 매칭은 클라이언트 — 세부구역·제외 표기 대응). 네이버·아이폰과 같은 원천 |
+| 에어코리아 미세먼지 | `supabase/functions/air-kr` (+029 DB 캐시) | 최근접 측정소 PM10/PM2.5 실시간 등급 — 원 API가 10~26초라 DB 캐시 필수 |
+| 구글 Places 영업시간 | `supabase/functions/place-hours` + `hooks/usePlaceHours.ts` | 영업시간 폴백(등록 데이터 우선) — 캐시는 place_id 무기한·콘텐츠 30일(약관 상한, 034) |
+| AI 추천 챗 | `supabase/functions/moto-chat` + `app/chat.tsx` | 등록 장소·코스 안에서만 추천하는 대화형 도우미 — 위치·내 바이크 컨텍스트 반영 |
 | Sentry | `app/_layout.tsx`, `metro.config.js` | 에러·세션 추적 |
 | moto-kr 데이터셋 | `constants/bikes.ts` ← `scripts/sync-bike-models.mjs` (`npm run sync:bikes`) | 기종 자동완성 목록의 단일 원본은 [moto-kr](https://github.com/starhn87/moto-kr) (KENCIS 인증 기반) — bikes.ts 는 생성 파일이므로 직접 수정 금지, 기종 변경은 moto-kr mapping 에 기여 후 동기화 |
 
