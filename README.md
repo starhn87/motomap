@@ -65,7 +65,7 @@
 
 ```mermaid
 flowchart TD
-  R(["라이더"]) --> NAVI["길안내 — 카카오내비 KNSDK<br/>이륜차 모드"]
+  R(["라이더"]) --> NAVI["길안내: 카카오내비 KNSDK<br/>이륜차 모드"]
   R --> MAP["지도 · 검색 · 코스 · 유가<br/>네이버 지도 SDK"]
   MK["moto-kr 기종 데이터셋"] -->|"sync 스크립트"| MAP
   NAVI -->|"위험 제보 · 도착 기록"| DB
