@@ -61,6 +61,25 @@
 | 제품 분석 | PostHog (이벤트·퍼널·세션 리플레이, EU 리전) |
 | 배포 | EAS Build + Submit, expo-updates OTA |
 
+## 🏗️ 아키텍처
+
+```mermaid
+flowchart TD
+  R(["라이더"]) --> MAP["지도 · 검색 · 코스 · 유가<br/>네이버 지도 SDK"]
+  R --> NAVI["길안내 — 카카오내비 KNSDK<br/>이륜차 모드 · 네이티브 브리지"]
+  MAP <-->|"장소 · 코스 · 리뷰 · 즐겨찾기"| DB[("Supabase<br/>Postgres + PostGIS + RLS")]
+  NAVI -->|"위험 제보 · 도착 기록"| DB
+  MAP --> EF["Edge Functions 프록시"]
+  EF --> KMA["기상청 예보 · 실황 · 특보<br/>에어코리아 미세먼지"]
+  EF --> OPI["오피넷 실시간 유가"]
+  EF --> GGL["구글 Places 영업시간"]
+  EF --> CL["Claude API<br/>제보 AI 심사 · 추천 챗"]
+  DB -->|"제보 · 건의 INSERT 트리거"| DC["Discord 알림"]
+  MK["moto-kr 기종 데이터셋"] -->|"sync 스크립트"| MAP
+```
+
+> 🧭 **코드 레벨 아키텍처**(레이어, 데이터 흐름, 상태, DB 스키마)는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 참조.
+
 ## 📂 프로젝트 구조
 
 ```
@@ -84,11 +103,9 @@ hooks/                React Query 훅 (usePlaces, useCourses, useNotifications, 
 stores/               Zustand (auth, chat, map, myPlaces)
 patches/              네이버맵 심벌 탭 네이티브 패치 (postinstall 자동 적용)
 supabase/
-  migrations/         스키마 마이그레이션 (001 ~ 030, SQL Editor에서 순서대로 실행)
+  migrations/         스키마 마이그레이션 (SQL Editor에서 번호 순서대로 실행)
   functions/          Edge Functions (judge-submission, weather-kr, air-kr, gas-stations, moto-chat, ...)
 ```
-
-> 🧭 **코드 레벨 아키텍처**(레이어, 데이터 흐름, 상태, DB 스키마)는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 참조.
 
 ## 🚀 개발 환경 설정
 
