@@ -631,26 +631,28 @@ export default function NaviScreen() {
     const inView = (lat: number, lng: number) =>
       lat >= south && lat <= north && lng >= west && lng <= east;
 
-    // 출발·도착·경유지 자리는 이미 전용 마커가 있다 — 같은 곳이면 겹치니 뺀다
-    const anchors: { latitude: number; longitude: number }[] = [
-      { latitude: goal.latitude, longitude: goal.longitude },
-      ...(start ? [{ latitude: start[1], longitude: start[0] }] : []),
-      ...userVias.filter((v): v is NavTarget => !!v),
-    ];
-    const isAnchor = (lat: number, lng: number) =>
-      anchors.some(
-        (a) => Math.hypot((a.latitude - lat) * 111000, (a.longitude - lng) * 88000) < 60,
-      );
-
-    const places = (allPlaces ?? []).filter(
-      (pl) => !isAnchor(pl.latitude, pl.longitude) && inView(pl.latitude, pl.longitude),
-    );
-    const favs = (favorites?.general ?? []).filter(
-      (f) => !isAnchor(f.latitude, f.longitude) && inView(f.latitude, f.longitude),
-    );
+    // 등록 장소·즐겨찾기는 경로 지점(출발·경유·도착)이어도 저 자신의 마커로
+    // 보인다 — 정체성은 이 레이어가, 역할은 위에 겹치는 출발 도트·경유지
+    // 번호(중앙 앵커라 핀 발치에 얹힌다)가 맡는다. 예전엔 겹침을 피해 뺐는데,
+    // 그러면 도착지가 즐겨찾기한 카페여도 중립 핀으로만 보였다(실사용 피드백).
+    const places = (allPlaces ?? []).filter((pl) => inView(pl.latitude, pl.longitude));
+    const favs = (favorites?.general ?? []).filter((f) => inView(f.latitude, f.longitude));
     return { places, favs };
-  }, [viewport, allPlaces, favorites, goal, start, userVias]);
+  }, [viewport, allPlaces, favorites]);
   const favoriteIds = useMemo(() => new Set(favorites?.placeIds ?? []), [favorites]);
+
+  // 도착지 자리에 등록 장소·즐겨찾기 마커가 이미 있으면 슬레이트 핀은 접는다 —
+  // 하단 앵커 핀 두 장이 같은 좌표에 겹치면 위 것만 보여 그리는 의미가 없고,
+  // 그 장소의 진짜 마커가 정체성을 더 잘 말해 준다. 10m: 같은 DB 좌표만 매칭
+  // (더 넓히면 옆 가게 핀을 도착지로 오독할 수 있다).
+  const goalCovered = useMemo(() => {
+    const near = (lat: number, lng: number) =>
+      Math.hypot((lat - goal.latitude) * 111000, (lng - goal.longitude) * 88000) < 10;
+    return (
+      visibleOnMap.places.some((pl) => pl.id === goal.placeId || near(pl.latitude, pl.longitude)) ||
+      visibleOnMap.favs.some((f) => near(f.latitude, f.longitude))
+    );
+  }, [visibleOnMap, goal]);
 
   // 개별 마커 onTap 은 이 화면에서 이벤트가 JS 로 올라오지 않았다(실측).
   // 지도 탭이 쓰는 클러스터 + onTapClusterLeaf 경로가 검증돼 있어 그대로 따른다.
@@ -829,7 +831,9 @@ export default function NaviScreen() {
             image={VIA_MARKERS[Math.min(i, VIA_MARKERS.length - 1)]}
           />
         ))}
-        <TempPlaceMarker latitude={goal.latitude} longitude={goal.longitude} />
+        {!goalCovered && (
+          <TempPlaceMarker latitude={goal.latitude} longitude={goal.longitude} />
+        )}
       </NaverMapView>
       )}
 
