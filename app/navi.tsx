@@ -51,6 +51,7 @@ import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import { usePlaces } from '@/hooks/usePlaces';
 import { useFavorites } from '@/hooks/useFavorites';
 import {
+  BLANK_MARKER,
   VIA_MARKERS,
   MARKER_IMAGES,
   MARKER_IMAGES_FAV,
@@ -819,6 +820,46 @@ export default function NaviScreen() {
             outlineColor="#FFFFFF"
           />
         ) : null}
+        {/* 이름 캡션 — 클러스터 마커는 캡션을 지원하지 않아(ClusterMarkerProp)
+            같은 좌표에 투명 마커 + caption 만 얹는다. 탭은 클러스터 leaf 가 계속
+            받는다(이 화면은 개별 마커 onTap 이 JS 로 안 올라온다, 실측).
+            줌 기준·스타일은 지도 탭과 동일 — 장소 10, 즐겨찾기 8 부터. */}
+        {[
+          ...visibleOnMap.places.map((pl) => ({
+            key: `cap-place:${pl.id}`,
+            latitude: pl.latitude,
+            longitude: pl.longitude,
+            name: pl.name,
+            minZoom: 10,
+            textSize: 12,
+          })),
+          ...visibleOnMap.favs.map((f) => ({
+            key: `cap-fav:${f.id}`,
+            latitude: f.latitude,
+            longitude: f.longitude,
+            name: f.name,
+            minZoom: 8,
+            textSize: 13,
+          })),
+        ].map((c) => (
+          <NaverMapMarkerOverlay
+            key={c.key}
+            latitude={c.latitude}
+            longitude={c.longitude}
+            width={4}
+            height={4}
+            anchor={{ x: 0.5, y: 0.5 }}
+            image={BLANK_MARKER}
+            isHideCollidedCaptions
+            caption={{
+              text: c.name,
+              textSize: c.textSize,
+              minZoom: c.minZoom,
+              color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
+              haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
+            }}
+          />
+        ))}
         {viaMarkers.map((v, i) => (
           <NaverMapMarkerOverlay
             key={`via-${i}-${v.latitude}-${v.longitude}`}
