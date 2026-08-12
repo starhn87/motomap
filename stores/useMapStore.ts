@@ -12,11 +12,14 @@ interface Location {
 
 interface MapStore {
   userLocation: Location | null;
+  /** 마지막으로 본 지도 중심(카메라 idle 시 갱신) — 검색이 "지금 보는 지역" 우선 정렬에 쓴다 */
+  mapCenter: Location | null;
   selectedPlaceId: string | null;
   activeFilter: PlaceCategory | null;
   /** 즐겨찾기 지도 표시 — 켜면 즐겨찾기 장소가 별 뱃지 마커로 항상 보인다 */
   showFavorites: boolean;
   setUserLocation: (location: Location) => void;
+  setMapCenter: (center: Location) => void;
   setSelectedPlaceId: (id: string | null) => void;
   setActiveFilter: (filter: PlaceCategory | null) => void;
   toggleShowFavorites: () => void;
@@ -29,12 +32,14 @@ interface MapStore {
 
 export const useMapStore = create<MapStore>((set) => ({
   userLocation: null,
+  mapCenter: null,
   selectedPlaceId: null,
   activeFilter: null,
   showFavorites: false,
   mapResetTs: 0,
   requestMapReset: () => set({ mapResetTs: Date.now() }),
   setUserLocation: (location) => set({ userLocation: location }),
+  setMapCenter: (center) => set({ mapCenter: center }),
   setSelectedPlaceId: (id) => set({ selectedPlaceId: id }),
   setActiveFilter: (filter) => set({ activeFilter: filter }),
   toggleShowFavorites: () =>

@@ -17,7 +17,12 @@ export interface KakaoLocalResult {
 
 // 카카오 로컬 키워드 검색 — 상호·주소로 장소를 찾아 좌표까지 반환한다.
 // 네이버 지오코딩(정확한 주소만)과 달리 상호로도 검색되어 제보 UX에 적합.
-export async function searchKakaoLocal(query: string): Promise<KakaoLocalResult[]> {
+export async function searchKakaoLocal(
+  query: string,
+  /** 있으면 이 좌표 주변을 우선한다 — 카카오는 x,y 를 주면 정확도 정렬에 거리를
+      반영한다(radius 는 안 준다: 하드 필터가 아니라 우선순위만 올리는 게 목적) */
+  near?: { latitude: number; longitude: number },
+): Promise<KakaoLocalResult[]> {
   const q = query.trim();
   if (!q) return [];
   if (!REST_KEY) {
@@ -25,7 +30,8 @@ export async function searchKakaoLocal(query: string): Promise<KakaoLocalResult[
     return [];
   }
 
-  const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=15`;
+  const bias = near ? `&x=${near.longitude}&y=${near.latitude}` : '';
+  const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=15${bias}`;
   try {
     const res = await fetch(url, {
       headers: { Authorization: `KakaoAK ${REST_KEY}` },

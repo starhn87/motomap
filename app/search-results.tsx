@@ -26,7 +26,7 @@ import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import { CATEGORIES } from '@/constants/categories';
 import { MARKER_IMAGES, MARKER_IMAGES_CIRCLE } from '@/constants/markerImages';
-import { isSamePlace, searchAll } from '@/lib/api/search';
+import { isSamePlace, searchAll, useSearchAnchor } from '@/lib/api/search';
 import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { addRecentSearch } from '@/lib/recentSearches';
 import { track } from '@/lib/analytics';
@@ -65,14 +65,15 @@ export default function SearchResultsScreen() {
   const detailOpen = selectedPlace !== null || selectedTemp !== null;
 
   // 검색 화면과 같은 쿼리 키 — 방금 친 검색이라 대부분 캐시로 즉시 뜬다
+  const { near, key: nearKey } = useSearchAnchor();
   const { data: results, isLoading } = useQuery({
-    queryKey: ['search', query],
-    queryFn: () => searchAll(query),
+    queryKey: ['search', query, nearKey],
+    queryFn: () => searchAll(query, near),
     enabled: !!query,
   });
   const { data: kakaoResults, isLoading: kakaoLoading } = useQuery({
-    queryKey: ['search-kakao', query],
-    queryFn: () => searchKakaoLocal(query),
+    queryKey: ['search-kakao', query, nearKey],
+    queryFn: () => searchKakaoLocal(query, near),
     enabled: !!query,
   });
 

@@ -554,6 +554,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
               longitude: e.longitude,
               zoom: e.zoom ?? 12,
             });
+            // 검색의 "지금 보는 지역" 우선 정렬용 — 오버레이 인스턴스도 같은
+            // 핸들러라, 마지막으로 보인 지도가 자연스럽게 기준이 된다
+            useMapStore.getState().setMapCenter({ latitude: e.latitude, longitude: e.longitude });
           }, 200);
         }}
         clusters={[

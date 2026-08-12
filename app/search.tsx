@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
-import { isSamePlace, searchAll } from '@/lib/api/search';
+import { isSamePlace, searchAll, useSearchAnchor } from '@/lib/api/search';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
@@ -177,16 +177,18 @@ export default function SearchScreen() {
   const trimmed = query.trim();
   const searching = trimmed.length >= 2;
 
+  // 지금 보는 지도 주변을 우선 — 같은 "강릉 카페"라도 보고 있는 지역 것이 먼저
+  const { near, key: nearKey } = useSearchAnchor();
   const { data: results, isLoading } = useQuery({
-    queryKey: ['search', trimmed],
-    queryFn: () => searchAll(trimmed),
+    queryKey: ['search', trimmed, nearKey],
+    queryFn: () => searchAll(trimmed, near),
     enabled: searching,
   });
 
   // "일반 장소" — DB(라이더 특화 장소)에 없는 곳도 카카오 로컬로 찾아 목적지로 쓸 수 있게
   const { data: kakaoResults } = useQuery({
-    queryKey: ['search-kakao', trimmed],
-    queryFn: () => searchKakaoLocal(trimmed),
+    queryKey: ['search-kakao', trimmed, nearKey],
+    queryFn: () => searchKakaoLocal(trimmed, near),
     enabled: searching,
   });
 

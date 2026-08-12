@@ -20,6 +20,7 @@ import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
 import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import { useMapStore } from '@/stores/useMapStore';
 import { isSamePlace, searchAll } from '@/lib/api/search';
 import type { NavTarget } from '@/lib/navigation';
 import type { Place } from '@/types';
@@ -120,9 +121,12 @@ export default function PointSearchModal({
     debounce.current = setTimeout(async () => {
       setSearching(true);
       try {
+        // 지금 보는 지도(없으면 내 위치) 주변 우선 — 통합 검색과 같은 기준
+        const st = useMapStore.getState();
+        const near = st.mapCenter ?? st.userLocation ?? undefined;
         const [places, kakao] = await Promise.all([
-          searchAll(text).then((r) => r.places).catch(() => [] as Place[]),
-          searchKakaoLocal(text).catch(() => [] as KakaoLocalResult[]),
+          searchAll(text, near).then((r) => r.places).catch(() => [] as Place[]),
+          searchKakaoLocal(text, near).catch(() => [] as KakaoLocalResult[]),
         ]);
         const kakaoOnly = kakao.filter(
           (k) =>

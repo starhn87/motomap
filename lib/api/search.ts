@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { useMapStore } from '@/stores/useMapStore';
 import type { Place, RidingCourse } from '@/types';
 import { rowToPlace, type PlaceRow } from '@/lib/api/places';
 
@@ -37,7 +38,12 @@ function matches(query: string, fields: (string | null | undefined)[]): boolean 
   return words.length > 1 && words.every((w) => hay.includes(w));
 }
 
-export async function searchAll(query: string): Promise<SearchResults> {
+export async function searchAll(
+  query: string,
+  /** 있으면 이 좌표(보통 지금 보는 지도 중심)에서 가까운 순으로 정렬한다.
+      이름 매칭을 통과한 결과끼리의 순위라 관련성은 이미 확보돼 있다. */
+  near?: { latitude: number; longitude: number },
+): Promise<SearchResults> {
   const [placesRes, coursesRes] = await Promise.all([
     supabase.rpc('all_places', { category_filter: null }),
     supabase
@@ -48,9 +54,19 @@ export async function searchAll(query: string): Promise<SearchResults> {
       .order('created_at', { ascending: false }),
   ]);
 
+  const distTo = near
+    ? (lat: number, lng: number) =>
+        Math.hypot((lat - near.latitude) * 111000, (lng - near.longitude) * 88000)
+    : null;
+
   const places = (placesRes.data ?? [])
     .filter((row: PlaceRow) => matches(query, [row.name, row.address, ...(row.tags ?? [])]))
     .map(rowToPlace);
+  if (distTo) {
+    places.sort(
+      (a: Place, b: Place) => distTo(a.latitude, a.longitude) - distTo(b.latitude, b.longitude),
+    );
+  }
 
   const courses = (coursesRes.data ?? [])
     .filter((row: any) => matches(query, [row.name, row.description, ...(row.tags ?? [])]))
@@ -73,5 +89,33 @@ export async function searchAll(query: string): Promise<SearchResults> {
       createdAt: row.created_at,
     }));
 
+  if (distTo) {
+    // 코스는 경로 시작점 기준 — 가까운 지역 코스가 먼저 온다
+    courses.sort((a: RidingCourse, b: RidingCourse) => {
+      const ca = a.coordinates[0];
+      const cb = b.coordinates[0];
+      if (!ca || !cb) return ca ? -1 : cb ? 1 : 0;
+      return distTo(ca[1], ca[0]) - distTo(cb[1], cb[0]);
+    });
+  }
+
   return { places, courses };
+}
+
+/**
+ * 검색 기준점 — 마지막으로 본 지도 중심, 없으면 내 위치. 세 검색 화면(통합 검색·
+ * 검색 결과·지점 모달)이 같은 기준을 쓰도록 여기 한곳에 둔다. 반환의 key 는
+ * react-query 캐시 키용 근사값(±1km) — 미세한 지도 이동마다 재검색하지 않는다.
+ */
+export function useSearchAnchor(): {
+  near: { latitude: number; longitude: number } | undefined;
+  key: string;
+} {
+  const mapCenter = useMapStore((s) => s.mapCenter);
+  const userLocation = useMapStore((s) => s.userLocation);
+  const near = mapCenter ?? userLocation ?? undefined;
+  return {
+    near,
+    key: near ? `${near.latitude.toFixed(2)},${near.longitude.toFixed(2)}` : 'none',
+  };
 }
