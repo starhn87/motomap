@@ -107,6 +107,20 @@ for (const [category, color] of Object.entries(CATEGORIES)) {
   console.log(`${category}_fav.png / _circle_fav.png 생성`);
 }
 
+// 경유지 마커 — 출발 도트와 같은 파랑 계열("내가 찍은 경로 지점")에 순번을 얹어
+// 도착 핀(슬레이트)과 구분한다. 경유지는 최대 3개(navi 의 MAX_USER_VIAS).
+// 여기도 children 캡처가 아니라 정적 이미지여야 한다(잔상 버그, CLAUDE.md).
+const VIA_BLUE = '#2563EB';
+for (const n of [1, 2, 3]) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="84" height="84">
+  <circle cx="14" cy="14" r="11" fill="${VIA_BLUE}" stroke="#FFFFFF" stroke-width="2.5"/>
+  <text x="14" y="14" fill="#FFFFFF" font-family="Helvetica, Arial, sans-serif" font-size="14"
+        font-weight="bold" text-anchor="middle" dominant-baseline="central">${n}</text>
+</svg>`;
+  await sharp(Buffer.from(svg)).png().toFile(join(outDir, `via_${n}.png`));
+  console.log(`via_${n}.png 생성`);
+}
+
 // 내 위치 마커 — UserLocationMarker 가 children(뷰 캡처) 대신 쓰는 정적 이미지.
 // 캡처 마커는 캡처용 네이티브 뷰가 고아로 남아 화면을 떠도는 잔상 버그가 있는데
 // (CLAUDE.md), 위치 마커는 위치 갱신마다 다시 그려져 가장 잘 걸린다 — 실기기

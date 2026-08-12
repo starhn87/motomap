@@ -59,3 +59,11 @@ export const GENERAL_MARKER_CIRCLE = require('@/assets/images/markers/general_ci
 export const GENERAL_MARKER_CIRCLE_FAV = require('@/assets/images/markers/general_circle_fav.png');
 // 선택됐을 때의 핀. 등록 장소와 같은 규칙 — 원형은 미선택, 핀은 선택.
 export const GENERAL_MARKER_FAV = require('@/assets/images/markers/general_fav.png');
+
+// 경유지 순번 마커 — 출발 도트와 같은 파랑 계열에 번호(navi 의 MAX_USER_VIAS = 3).
+// 4번째부터는 마지막 이미지를 재사용한다(경유지 상한이 늘어나도 깨지지 않게).
+export const VIA_MARKERS = [
+  require('@/assets/images/markers/via_1.png'),
+  require('@/assets/images/markers/via_2.png'),
+  require('@/assets/images/markers/via_3.png'),
+];

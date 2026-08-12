@@ -51,6 +51,7 @@ import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import { usePlaces } from '@/hooks/usePlaces';
 import { useFavorites } from '@/hooks/useFavorites';
 import {
+  VIA_MARKERS,
   MARKER_IMAGES,
   MARKER_IMAGES_FAV,
   GENERAL_MARKER_FAV,
@@ -654,6 +655,19 @@ export default function NaviScreen() {
   // 개별 마커 onTap 은 이 화면에서 이벤트가 JS 로 올라오지 않았다(실측).
   // 지도 탭이 쓰는 클러스터 + onTapClusterLeaf 경로가 검증돼 있어 그대로 따른다.
   // 클러스터 마커는 앵커 지정이 안 돼 핀(하단 중앙 고정)을 쓴다 — 지도 탭과 동일.
+  // 지도에 표시할 경유지 — 실제로 요청에 쓰인 것만 그린다. 20412(도로와 안 이어짐)
+  // 폴백으로 줄어든 경우 빠진 지점은 들르지 않으므로 마커도 없어야 한다.
+  // 코스 모드의 경유지는 코스 경로선 자체라 점을 찍으면 오히려 어지럽다.
+  const viaMarkers = useMemo(() => {
+    if (isCourseMode) return [];
+    const flat = activeVias ?? effVias;
+    const out: { latitude: number; longitude: number }[] = [];
+    for (let i = 0; i + 1 < flat.length; i += 2) {
+      out.push({ longitude: flat[i], latitude: flat[i + 1] });
+    }
+    return out;
+  }, [isCourseMode, activeVias, effVias]);
+
   const previewClusterMarkers = useMemo(
     () => [
       ...visibleOnMap.places.map((pl) => ({
@@ -803,6 +817,18 @@ export default function NaviScreen() {
             outlineColor="#FFFFFF"
           />
         ) : null}
+        {viaMarkers.map((v, i) => (
+          <NaverMapMarkerOverlay
+            key={`via-${i}-${v.latitude}-${v.longitude}`}
+            latitude={v.latitude}
+            longitude={v.longitude}
+            width={26}
+            height={26}
+            anchor={{ x: 0.5, y: 0.5 }}
+            zIndex={80}
+            image={VIA_MARKERS[Math.min(i, VIA_MARKERS.length - 1)]}
+          />
+        ))}
         <TempPlaceMarker latitude={goal.latitude} longitude={goal.longitude} />
       </NaverMapView>
       )}
