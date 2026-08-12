@@ -58,9 +58,10 @@ export async function searchAll(
     ? (lat: number, lng: number) =>
         Math.hypot((lat - near.latitude) * 111000, (lng - near.longitude) * 88000)
     : null;
-  // "지금 보는 지역"의 실질 반경 — 라이딩 생활권 기준 50km(강릉이면 양양·동해까지).
-  // 정렬만으로는 전국 매칭이 꼬리로 딸려 와 소용이 없었다(실사용 피드백).
-  const SEARCH_RADIUS_M = 50_000;
+  // "지금 보는 지역"의 실질 반경 — 시 단위 생활권 20km(강릉이면 주문진·정동진까지).
+  // 처음 50km 로 잡았더니 여전히 멀게 느껴진다는 피드백에 좁혔다. 정렬만으로는
+  // 전국 매칭이 꼬리로 딸려 와 소용이 없었던 것도 실사용 피드백.
+  const SEARCH_RADIUS_M = 20_000;
 
   let places = (placesRes.data ?? [])
     .filter((row: PlaceRow) => matches(query, [row.name, row.address, ...(row.tags ?? [])]))
