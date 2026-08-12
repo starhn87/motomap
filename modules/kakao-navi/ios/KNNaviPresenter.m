@@ -328,14 +328,20 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 
 - (void)guidanceOutOfRoute:(KNGuidance *)aGuidance {
   [self.naviView guidanceOutOfRoute:aGuidance];
+  // 경로 이탈 시 SDK 가 자차를 매칭 해제(off) 상태로 다시 그리면서 커스텀
+  // 이미지를 기본 아이콘으로 되돌린다 — 실기기에서 "기본 위치 아이콘"이
+  // 오솔길(이탈) 주행 중 두 차례 목격된 바로 그 지점. 되돌릴 때마다 재적용한다.
+  [self applyCarTheme];
 }
 
 - (void)guidanceRouteUnchanged:(KNGuidance *)aGuidance {
   [self.naviView guidanceRouteUnchanged:aGuidance];
+  [self applyCarTheme]; // 이탈 판정이 "경로 유지"로 끝나도 자차는 다시 그려졌다
 }
 
 - (void)guidance:(KNGuidance *)aGuidance routeUnchangedWithError:(KNError *)aError {
   [self.naviView guidance:aGuidance routeUnchangedWithError:aError];
+  [self applyCarTheme]; // 재탐색 실패(예: 오솔길이라 경로 없음)로 끝난 뒤에도 동일
 }
 
 - (void)guidanceRouteChanged:(KNGuidance *)aGuidance
@@ -345,6 +351,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                   toLocation:(KNLocation *)aToLocation
                       reason:(KNGuideRouteChangeReason)aChangeReason {
   [self.naviView guidanceRouteChanged:aGuidance];
+  [self applyCarTheme]; // 재탐색으로 새 경로가 깔릴 때도 자차·경로 테마가 리셋된다
 }
 
 // 목적지에 닿아 안내 엔진이 끝나도 화면은 그대로 둔다 — 주행 중에 앱이 스스로
