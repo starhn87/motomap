@@ -336,13 +336,9 @@ export default function SearchScreen() {
         ) : (
           <FlatList
             data={[
-              // 내 위치를 알면 등록 장소는 가까운 순으로
-              ...((userLocation
-                ? [...(results?.places ?? [])].sort(
-                    (a, b) => haversine(userLocation, a) - haversine(userLocation, b)
-                  )
-                : (results?.places ?? [])
-              ).map((p) => ({ type: 'place' as const, data: p }))),
+              // 정렬은 searchAll 이 지도 중심(없으면 내 위치) 기준으로 이미 했다 —
+              // 여기서 내 위치로 다시 정렬하면 "보고 있는 지역" 우선이 무효가 된다
+              ...((results?.places ?? []).map((p) => ({ type: 'place' as const, data: p }))),
               ...(results?.courses.map((c) => ({ type: 'course' as const, data: c })) ?? []),
               ...(kakaoOnly.length
                 ? [

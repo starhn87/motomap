@@ -58,17 +58,24 @@ export async function searchAll(
     ? (lat: number, lng: number) =>
         Math.hypot((lat - near.latitude) * 111000, (lng - near.longitude) * 88000)
     : null;
+  // "지금 보는 지역"의 실질 반경 — 라이딩 생활권 기준 50km(강릉이면 양양·동해까지).
+  // 정렬만으로는 전국 매칭이 꼬리로 딸려 와 소용이 없었다(실사용 피드백).
+  const SEARCH_RADIUS_M = 50_000;
 
-  const places = (placesRes.data ?? [])
+  let places = (placesRes.data ?? [])
     .filter((row: PlaceRow) => matches(query, [row.name, row.address, ...(row.tags ?? [])]))
     .map(rowToPlace);
   if (distTo) {
     places.sort(
       (a: Place, b: Place) => distTo(a.latitude, a.longitude) - distTo(b.latitude, b.longitude),
     );
+    // 반경 안만 남긴다 — 단, 주변에 하나도 없으면 전국 결과를 거리순 그대로 둔다
+    // ("부산 카페"처럼 지역을 명시한 검색이 빈손이 되지 않게)
+    const within = places.filter((p: Place) => distTo(p.latitude, p.longitude) <= SEARCH_RADIUS_M);
+    if (within.length > 0) places = within;
   }
 
-  const courses = (coursesRes.data ?? [])
+  let courses = (coursesRes.data ?? [])
     .filter((row: any) => matches(query, [row.name, row.description, ...(row.tags ?? [])]))
     .map((row: any) => ({
       id: row.id,
@@ -90,13 +97,14 @@ export async function searchAll(
     }));
 
   if (distTo) {
-    // 코스는 경로 시작점 기준 — 가까운 지역 코스가 먼저 온다
-    courses.sort((a: RidingCourse, b: RidingCourse) => {
-      const ca = a.coordinates[0];
-      const cb = b.coordinates[0];
-      if (!ca || !cb) return ca ? -1 : cb ? 1 : 0;
-      return distTo(ca[1], ca[0]) - distTo(cb[1], cb[0]);
-    });
+    // 코스는 경로 시작점 기준 — 같은 반경·폴백 규칙
+    const courseDist = (c: RidingCourse) => {
+      const p = c.coordinates[0];
+      return p ? distTo(p[1], p[0]) : Number.POSITIVE_INFINITY;
+    };
+    courses.sort((a: RidingCourse, b: RidingCourse) => courseDist(a) - courseDist(b));
+    const within = courses.filter((c: RidingCourse) => courseDist(c) <= SEARCH_RADIUS_M);
+    if (within.length > 0) courses = within;
   }
 
   return { places, courses };
