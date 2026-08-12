@@ -26,7 +26,7 @@ import PointSearchModal, { type Point } from '@/components/search/PointSearchMod
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import { searchKakaoLocal, coordToRegion, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { openNavigation } from '@/lib/navigation';
 import { toast } from '@/lib/toast';
@@ -185,6 +185,14 @@ export default function SearchScreen() {
     enabled: searching,
   });
 
+  // 정렬 기준을 화면에 말해 준다 — "무슨 순서지?"가 안 생기게 지역명으로 안내
+  const { data: anchorRegion } = useQuery({
+    queryKey: ['search-anchor-region', nearKey],
+    queryFn: () => coordToRegion(near!.latitude, near!.longitude),
+    enabled: !!near && searching,
+    staleTime: 30 * 60 * 1000,
+  });
+
   // "일반 장소" — DB(라이더 특화 장소)에 없는 곳도 카카오 로컬로 찾아 목적지로 쓸 수 있게
   const { data: kakaoResults } = useQuery({
     queryKey: ['search-kakao', trimmed, nearKey],
@@ -274,8 +282,10 @@ export default function SearchScreen() {
             {place.name}
           </Text>
           <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
-            {userLocation
-              ? `${formatDistance(haversine(userLocation, place) / 1000)} · ${place.address}`
+            {near
+              ? // 정렬 기준(지도 중심)과 같은 기준으로 — 내 위치 거리를 쓰면
+                // 목록이 뒤죽박죽으로 보인다(정렬은 지도, 숫자는 내 위치였던 버그)
+                `${formatDistance(haversine(near, place) / 1000)} · ${place.address}`
               : place.address}
           </Text>
         </View>
@@ -335,6 +345,16 @@ export default function SearchScreen() {
           <ActivityIndicator size="small" color={colors.tint} style={{ marginTop: 32 }} />
         ) : (
           <FlatList
+            ListHeaderComponent={
+              near &&
+              ((results?.places.length ?? 0) > 0 ||
+                (results?.courses.length ?? 0) > 0 ||
+                kakaoOnly.length > 0) ? (
+                <Text style={[styles.anchorNotice, { color: colors.textSecondary }]}>
+                  📍 {anchorRegion ?? '지금 보는 지도'} 주변 결과부터 보여드려요
+                </Text>
+              ) : null
+            }
             data={[
               // 정렬은 searchAll 이 지도 중심(없으면 내 위치) 기준으로 이미 했다 —
               // 여기서 내 위치로 다시 정렬하면 "보고 있는 지역" 우선이 무효가 된다
@@ -694,6 +714,12 @@ const styles = StyleSheet.create({
   sectionAction: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  anchorNotice: {
+    fontSize: 12,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 2,
   },
   row: {
     flexDirection: 'row',
