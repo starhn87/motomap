@@ -5,7 +5,7 @@ export default {
     // 1.2.4: 안내 화면 손질 — 도착 팝업·자동 종료 제거(끝내는 건 라이더가),
     // 종료 버튼 노출, 배너 색을 앱 색으로. 전부 KNNaviPresenter 네이티브라
     // OTA 로는 못 나간다. 1.2.3 은 출시돼 train 이 닫혔다.
-    version: '1.2.4',
+    version: '1.2.5',
     runtimeVersion: {
       policy: 'appVersion',
     },
