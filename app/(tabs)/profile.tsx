@@ -228,8 +228,9 @@ function LoggedInContent() {
             {uploading ? <Text style={styles.avatarBadgeText}>...</Text> : <Ionicons name="camera" size={15} color="#18181B" />}
           </View>
         </Pressable>
-        {/* 리플레이는 화면을 통째로 찍는다 — 이름·이메일은 가린다 */}
-        <PostHogMaskView>
+        {/* 리플레이는 화면을 통째로 찍는다 — 이름·이메일은 가린다.
+            래퍼가 정렬 문맥을 끊으므로 가운데 정렬을 직접 준다. */}
+        <PostHogMaskView style={{ alignItems: 'center' }}>
           <Text style={[styles.name, { color: colors.text }]}>
             {displayName}
           </Text>
