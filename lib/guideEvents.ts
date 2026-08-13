@@ -102,60 +102,48 @@ async function nearbyPlaces() {
   }
 }
 
-// 안내 종료 — 목적지 400m 이내면 도착으로 보고 리뷰를 제안한다.
-// 안내 화면이 걷힐 때 밑에는 이미 지도가 있으므로 화면 전환은 필요 없다.
-async function handleGuideEnd() {
-  const { goal, viaPlaceIds, clear } = useGuideSession.getState();
-  clear();
-  void AsyncStorage.removeItem(GUIDE_ACTIVE_KEY); // 정상 종료 — 정산 대상 아님
-  // 안내가 끝나도 라이더는 이동 중 — 지도가 내 위치를 따라간다.
-  // 드래그하면 SDK 가 따라가기를 알아서 푼다.
-  followMyLocationOnMap();
-  if (!goal) {
-    track.navigationEnded({ reason: 'cancelled' });
-    return;
-  }
+type GuideGoal = NonNullable<ReturnType<typeof useGuideSession.getState>['goal']>;
 
-  let dist: number | null = null;
+// 종료 지점에서 목적지까지의 거리(m). 위치를 못 읽으면 null — 제안을 못 띄울 뿐
+async function distanceToGoal(goal: GuideGoal): Promise<number | null> {
   try {
     const pos =
       (await Location.getLastKnownPositionAsync()) ??
       (await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       }));
-    dist = haversine(
+    return haversine(
       { latitude: pos.coords.latitude, longitude: pos.coords.longitude },
       goal,
     );
   } catch {
-    // 위치를 못 읽으면 조용히 넘어간다 — 제안을 못 띄울 뿐
+    return null;
   }
-  const near = dist !== null && dist < 400;
-  track.navigationEnded({ reason: near ? 'arrived' : 'cancelled' });
-  // 도착지 300m 안에서 끝난 라이딩만 장소 통계에 센다 — 도착지와, 지나온
-  // 등록 장소 경유지에 각각 1회 (완주했으면 경유지도 지난 것으로 본다)
-  if (dist !== null && dist <= 300) {
-    void recordPlaceRides([
-      ...(goal.placeId ? [{ place_id: goal.placeId, role: 'goal' as const }] : []),
-      ...viaPlaceIds.map((id) => ({ place_id: id, role: 'via' as const })),
-      // 등록 장소도 코스도 아니면 일반 장소 도착 — 표시용이 아니라 "라이더가
-      // 갔는데 아직 등록 안 된 곳" 신호로만 남긴다(037)
-      ...(!goal.placeId && !goal.courseId && goal.name.trim()
-        ? [
-            {
-              role: 'goal' as const,
-              name: goal.name.trim(),
-              latitude: goal.latitude,
-              longitude: goal.longitude,
-            },
-          ]
-        : []),
-    ]);
-  }
-  // 리뷰 제안은 등록 장소·코스일 때만 — 그 외 목적지는 조용히 끝낸다
-  if (!near || (!goal.placeId && !goal.courseId)) return;
+}
 
-  // 안내 화면 닫힘 애니메이션이 끝난 뒤 지도 위에서 띄운다
+// 도착지 300m 안에서 끝난 라이딩만 장소 통계에 센다 — 도착지와, 지나온
+// 등록 장소 경유지에 각각 1회 (완주했으면 경유지도 지난 것으로 본다)
+function recordArrival(goal: GuideGoal, viaPlaceIds: string[]) {
+  void recordPlaceRides([
+    ...(goal.placeId ? [{ place_id: goal.placeId, role: 'goal' as const }] : []),
+    ...viaPlaceIds.map((id) => ({ place_id: id, role: 'via' as const })),
+    // 등록 장소도 코스도 아니면 일반 장소 도착 — 표시용이 아니라 "라이더가
+    // 갔는데 아직 등록 안 된 곳" 신호로만 남긴다(037)
+    ...(!goal.placeId && !goal.courseId && goal.name.trim()
+      ? [
+          {
+            role: 'goal' as const,
+            name: goal.name.trim(),
+            latitude: goal.latitude,
+            longitude: goal.longitude,
+          },
+        ]
+      : []),
+  ]);
+}
+
+// 도착 리뷰 제안 — 안내 화면 닫힘 애니메이션이 끝난 뒤 지도 위에서 띄운다
+function suggestReview(goal: GuideGoal) {
   setTimeout(() => {
     Alert.alert(`${goal.name} 도착!`, '어떠셨나요? 리뷰를 남겨보세요.', [
       { text: '나중에', style: 'cancel' },
@@ -171,6 +159,28 @@ async function handleGuideEnd() {
       },
     ]);
   }, 500);
+}
+
+// 안내 종료 — 목적지 400m 이내면 도착으로 보고 리뷰를 제안한다.
+// 안내 화면이 걷힐 때 밑에는 이미 지도가 있으므로 화면 전환은 필요 없다.
+async function handleGuideEnd() {
+  const { goal, viaPlaceIds, clear } = useGuideSession.getState();
+  clear();
+  void AsyncStorage.removeItem(GUIDE_ACTIVE_KEY); // 정상 종료 — 정산 대상 아님
+  // 안내가 끝나도 라이더는 이동 중 — 지도가 내 위치를 따라간다.
+  // 드래그하면 SDK 가 따라가기를 알아서 푼다.
+  followMyLocationOnMap();
+  if (!goal) {
+    track.navigationEnded({ reason: 'cancelled' });
+    return;
+  }
+
+  const dist = await distanceToGoal(goal);
+  const near = dist !== null && dist < 400;
+  track.navigationEnded({ reason: near ? 'arrived' : 'cancelled' });
+  if (dist !== null && dist <= 300) recordArrival(goal, viaPlaceIds);
+  // 리뷰 제안은 등록 장소·코스일 때만 — 그 외 목적지는 조용히 끝낸다
+  if (near && (goal.placeId || goal.courseId)) suggestReview(goal);
 }
 
 /** 루트 레이아웃에서 1회 등록. 반환값은 해제 함수. */
