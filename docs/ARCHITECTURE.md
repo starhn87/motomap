@@ -252,6 +252,8 @@ Sentry.wrap(
 | `034_google_place_cache.sql` | 구글 Places 응답 캐시 — place_id 무기한·콘텐츠 30일(약관 상한) |
 | `035_place_rides.sql` | `place_rides` — 도착지 300m 안에서 끝난 라이딩을 장소별 카운트(도착지·경유지, 로그인 라이더만) |
 | `036_place_ride_bikes.sql` | `place_rides.bike_model`(라이딩 시점 기종 스냅샷 + 백필) + `place_ride_summary`/`my_ride_stats` RPC. 원시 행 select 는 본인 것만으로 축소 — user_id·장소·시각이 전부 공개면 특정인의 이동 이력이 된다. 공개 집계는 SECURITY DEFINER 함수가 담당 |
+| `037_unregistered_ride_spots.sql` | `place_rides.place_id` nullable + 이름·좌표 — 미등록 목적지 도착 기록. 앱 표시는 없고 주간 다이제스트의 시드 발굴 신호(1km 격자 집계 RPC)로만 쓴다 |
+| `038_broadcast_notice.sql` | `broadcast_notice(title, body, data)` — 전체 가입자 공지(알림 행 + 푸시, Expo 100건 청크). execute 를 운영자(SQL Editor)로만 제한, 클라이언트 키로는 호출 불가. `data.url` 이면 알림 탭 시 앱 내 딥링크 |
 
 ---
 

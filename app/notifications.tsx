@@ -85,6 +85,9 @@ export default function NotificationsScreen() {
       focusPlaceOnMap(item.data.placeId, { source: 'notification' });
     } else if (item.data?.courseId) {
       router.push(`/course/${item.data.courseId}`);
+    } else if (item.data?.url?.startsWith('/')) {
+      // 공지의 앱 내 딥링크 — 새 기능 공지가 해당 화면으로 바로 잇는다
+      router.push(item.data.url as never);
     }
   };
 
@@ -143,7 +146,9 @@ export default function NotificationsScreen() {
                   { opacity: pressed ? 0.8 : 1 },
                 ]}>
                 <View style={styles.itemIcon}>
-                  {item.type === 'feedback_reply' ? (
+                  {item.type === 'notice' ? (
+                    <Ionicons name="megaphone-outline" size={20} color={colors.tint} />
+                  ) : item.type === 'feedback_reply' ? (
                     <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.tint} />
                   ) : item.type.startsWith('course') ? (
                     <MaterialCommunityIcons name="road-variant" size={20} color={colors.tint} />
