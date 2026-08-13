@@ -25,7 +25,7 @@ import { useMapStore } from '@/stores/useMapStore';
 import { approxMeters } from '@/lib/distance';
 import { track } from '@/lib/analytics';
 import { usePlaces } from '@/hooks/usePlaces';
-import { useGasStations, type SearchPoint, type GasSearchSpec } from '@/hooks/useGasStations';
+import { useGasStations, type GasSearchSpec } from '@/hooks/useGasStations';
 import { useWeather } from '@/hooks/useWeather';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
