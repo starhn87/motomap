@@ -22,10 +22,9 @@ import Animated, { FadeOut,
 
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
-import { approxMeters } from '@/lib/distance';
 import { track } from '@/lib/analytics';
 import { usePlaces } from '@/hooks/usePlaces';
-import { useGasStations, type GasSearchSpec } from '@/hooks/useGasStations';
+import { useGasLayer } from '@/hooks/useGasLayer';
 import { useWeather } from '@/hooks/useWeather';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
@@ -65,7 +64,6 @@ import { router , useLocalSearchParams , useFocusEffect } from 'expo-router';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { toast } from '@/lib/toast';
 import type { Place, RoadHazard } from '@/types';
-import type { GasStation } from '@/lib/api/gasStations';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -103,21 +101,21 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const [mapReady, setMapReady] = useState(false);
   const didCenterOnUserRef = useRef(false);
 
-  // 주유소 필터는 DB 대신 오피넷 실시간 유가 레이어를 켠다.
-  // 수동 갱신 모델(필터 진입 1회 + "현 지도에서 재검색" 버튼)은 유지하되, 검색
-  // 커버리지는 네이버 지도처럼 그 시점의 화면 영역을 따른다 — 확대하면 좁고
-  // 정확하게, 축소하면 5km 원 격자로 화면을 채운다 (계산은 useGasStations).
+  // 주유소 필터는 DB 대신 오피넷 실시간 유가 레이어를 켠다 — 상태 일체는 훅이 맡는다
   const gasMode = activeFilter === 'gas_station';
-  const [selectedStation, setSelectedStation] = useState<GasStation | null>(null);
-  const [gasSearchSpec, setGasSearchSpec] = useState<GasSearchSpec | null>(null);
+  const {
+    stations,
+    cheapestId,
+    gasFetching,
+    showGasRefresh,
+    selectedStation,
+    setSelectedStation,
+    refreshHere: refreshGasHere,
+  } = useGasLayer({ active: gasMode, mapCenter, mapReady, screenWidth, screenHeight });
 
   const { data: supabasePlaces } = usePlaces(activeFilter, mapCenter, !gasMode);
   const { data: hazards = [] } = useNearbyHazards(mapCenter);
   const [selectedHazard, setSelectedHazard] = useState<RoadHazard | null>(null);
-  const { data: gasStations, isFetching: gasFetching } = useGasStations(
-    gasSearchSpec,
-    gasMode && mapReady,
-  );
 
   // 라이딩 날씨 — 내 위치 우선, 없으면 지도 중심 기준
   const weatherLat = userLocation?.latitude ?? mapCenter?.latitude;
@@ -130,18 +128,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   useEffect(() => {
     if (weatherOpen) void refetchWeather();
   }, [weatherOpen, refetchWeather]);
-
-  // 필터 진입 시 현재 화면 기준으로 최초 1회 검색, 필터를 벗어나면 초기화
-  useEffect(() => {
-    if (!gasMode) {
-      setSelectedStation(null);
-      setGasSearchSpec(null);
-      return;
-    }
-    if (!gasSearchSpec && mapCenter) {
-      setGasSearchSpec({ ...mapCenter, widthDp: screenWidth, heightDp: screenHeight });
-    }
-  }, [gasMode, gasSearchSpec, mapCenter, screenWidth, screenHeight]);
 
   // 최초 1회: 지도가 준비되고 내 위치를 확보하면 카메라를 내 위치로 이동
   useEffect(() => {
@@ -192,22 +178,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     () => (showFavorites ? basePlaces.filter((p) => !favIds.has(p.id)) : basePlaces),
     [basePlaces, showFavorites, favIds],
   );
-  // 검색된 마커는 줌아웃해도 유지한다 — 기준점(gasSearchPoint)이 바뀔 때만 갱신
-  const stations = gasMode ? (gasStations ?? []) : [];
-  // 최저가 표시는 딱 하나 — 가격순(sort=1) 응답에서 최저가와 동가인 것 중 가장 가까운 곳
-  const cheapestId = stations.length
-    ? stations
-        .filter((s) => s.price === stations[0].price)
-        .reduce((a, b) => (a.distance <= b.distance ? a : b)).id
-    : null;
-  // 기준점에서 충분히 움직였거나 줌이 바뀌어(커버 영역이 달라짐) 재검색 버튼 노출
-  const gasMoved =
-    gasMode && gasSearchSpec && mapCenter
-      ? approxMeters(mapCenter, gasSearchSpec) > 300 ||
-        Math.abs(mapCenter.zoom - gasSearchSpec.zoom) > 0.5
-      : false;
-  const showGasRefresh = gasMode && !!gasSearchSpec && (gasMoved || gasFetching);
-
   const handleMarkerPress = useCallback(
     (place: Place) => {
       followingRef.current = false;
@@ -817,11 +787,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         <AnimatedPressable
           entering={FadeIn.duration(200)}
           disabled={gasFetching}
-          onPress={() => {
-            if (!mapCenter) return;
-            setSelectedStation(null);
-            setGasSearchSpec({ ...mapCenter, widthDp: screenWidth, heightDp: screenHeight });
-          }}
+          onPress={refreshGasHere}
           style={[
             styles.gasRefreshButton,
             { backgroundColor: colors.background, borderColor: colors.border },
