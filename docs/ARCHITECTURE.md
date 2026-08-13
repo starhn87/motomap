@@ -134,7 +134,7 @@ Sentry.wrap(
 | `/legal/[type]` | 설정 | 약관·개인정보·위치 문서 (`type` 동적) |
 | `/search-results` | 검색에서 엔터 | 검색 결과 지도 — 등록(카테고리 마커)·일반(중립 핀) 결과를 지도 + 바텀시트 목록으로, 선택 시 기존 포커스 플로우 |
 | `/course/[id]` | 코스 목록·검색 | 코스 상세 + 리뷰 + 지도 미리보기 |
-| `/navi` | 길안내 버튼(장소·코스·길찾기) | 경로 미리보기 — 옵션(추천·시간·거리·큰길)별 경로 지도 표시 → KNSDK 안내 시작. 코스 안내가 아니면 상단 카드에서 출발지·경유지(최대 5)·도착지 편집·스왑·드래그 재정렬 |
+| `/navi` | 길안내 버튼(장소·코스·길찾기) | 경로 미리보기 — 옵션(추천·시간·거리·큰길)별 경로 지도 표시 → KNSDK 안내 시작. 코스 안내가 아니면 상단 카드에서 출발지·경유지(최대 3)·도착지 편집·스왑·드래그 재정렬 |
 | `/directions` | 지도 탭 검색바 옆 버튼, 장소 상세 [출발] | 길찾기 — 출발지·경유지(최대 5)·도착지 검색(카카오 로컬)·스왑 → 미리보기(경유지 전달) |
 
 ### 인증 게이팅
@@ -264,13 +264,13 @@ Sentry.wrap(
 | 네이버 Directions | `scripts/recalc-course-routes.mjs` (`EXPO_PUBLIC_NAVER_CLIENT_ID/SECRET`) | 코스 경로 재계산 폴백(스크립트 전용 — 앱 코드에서는 제거) |
 | 네이버 Geocoding | `lib/geocode.ts` | 주소→좌표 (코스 제보 fallback) |
 | 카카오 로컬 검색 | `lib/api/kakaoLocal.ts` (`EXPO_PUBLIC_KAKAO_REST_API_KEY`) | 제보 주소 검색 (상호+주소→좌표) |
-| 앱 안 길안내 | `lib/navigation.ts` + `app/navi.tsx` + `modules/kakao-navi/` | KNSDK 이륜차 턴바이턴. 출발 전 날씨·노면 위험 확인 후 진입 |
+| 앱 안 길안내 | `lib/navigation.ts` + `app/navi.tsx`(+`components/navi/`, `hooks/useBikeRoutes.ts`) + `modules/kakao-navi/` | KNSDK 이륜차 턴바이턴. 출발 전 날씨·노면 위험 확인 후 진입. 미리보기 지도·경로 확보(옵션 캐시·경유지 축소 사다리)는 분리된 컴포넌트·훅이 맡는다 |
 | Supabase Storage | `lib/uploadImage.ts` | 리뷰·제보 사진 (`ridemap-media` 버킷, base64 업로드) |
 | Expo Push | `lib/push.ts` + migration 006/008 | 제보(장소·코스) 승인 푸시 — 토큰은 `push_tokens`, 발송은 DB 트리거(pg_net→Expo Push API). 권한 요청은 제보 직후에만 |
 | Claude API | `supabase/functions/judge-submission` | 제보 AI 판정 — 트리거가 EF 호출 → 카카오 교차검증 + 웹 조사 → `claude-opus-4-8` 판정 → 디스코드에 근거·반려 안내 문구·[승인]/[반려] 버튼 발송. 제보자용 반려 문구는 `ai_reject_reason`에 저장 |
 | 디스코드 봇 심사·답변 | `supabase/functions/discord-interactions` | Interactions Endpoint(Ed25519 검증). 판정 메시지의 [승인]/[반려] 버튼 → 즉시 처리 + 원 메시지 업데이트, 건의 메시지의 [답변하기] 버튼 → 인풋 모달 → `feedback.reply` 저장(021 트리거가 건의자 알림·푸시). secrets: `DISCORD_PUBLIC_KEY`. 발송은 judge-submission·021 트리거가 봇 API(`DISCORD_BOT_TOKEN`/`DISCORD_CHANNEL_ID`, vault 는 `discord_bot_token`/`discord_channel_id`) — 봇 미설정 시 웹훅 폴백. JWT 검증 OFF |
 | 원클릭 심사 (폴백) | `supabase/functions/moderate` | 봇 미설정 시 웹훅 메시지의 승인·반려 링크(HMAC 서명) 탭 = 즉시 처리. 크롤러 방어는 봇 UA 필터+HEAD 무시+`<>` 임베드 억제. 반려 시 `ai_reject_reason`→`rejected_reason` 복사. JWT 검증 OFF. ⚠️ EF는 HTML 응답 불가(게이트웨이가 text/plain+CSP sandbox 로 강제) — 응답은 JSON |
-| 오피넷 유가 | `supabase/functions/gas-stations` + `lib/api/gasStations.ts`, `hooks/useGasStations.ts` | 주유소 필터 시 실시간 유가 레이어 — EF가 키 은닉·KATEC↔WGS84 변환·3분 캐시, 앱은 가격 마커(최저가 강조)+상세 카드. 주의: 오피넷 인증 파라미터는 `code=`(문서의 certkey 아님), 브랜드 필드는 aroundAll `POLL_DIV_CD`/detailById `POLL_DIV_CO`로 상이, 반경 최대 5km — 검색 커버리지는 뷰포트 적응(확대 시 화면 맞춤 반경 1콜, 축소 시 5km 원 최대 3×3 타일 병합·중복 제거) |
+| 오피넷 유가 | `supabase/functions/gas-stations` + `lib/api/gasStations.ts`, `hooks/useGasStations.ts`·`useGasLayer.ts` | 주유소 필터 시 실시간 유가 레이어 — EF가 키 은닉·KATEC↔WGS84 변환·3분 캐시, 앱은 가격 마커(최저가 강조)+상세 카드. 주의: 오피넷 인증 파라미터는 `code=`(문서의 certkey 아님), 브랜드 필드는 aroundAll `POLL_DIV_CD`/detailById `POLL_DIV_CO`로 상이, 반경 최대 5km — 검색 커버리지는 뷰포트 적응(확대 시 화면 맞춤 반경 1콜, 축소 시 5km 원 최대 3×3 타일 병합·중복 제거) |
 | 기상청 날씨·특보 | `supabase/functions/weather-kr`·`weather-warnings` + `lib/api/weather.ts` | 시간대별 예보(단기+초단기 병합)와 "지금" 관측(초단기실황), 전국 특보 통보문 파싱(지역 매칭은 클라이언트 — 세부구역·제외 표기 대응). 네이버·아이폰과 같은 원천 |
 | 에어코리아 미세먼지 | `supabase/functions/air-kr` (+029 DB 캐시) | 최근접 측정소 PM10/PM2.5 실시간 등급 — 원 API가 10~26초라 DB 캐시 필수 |
 | 구글 Places 영업시간 | `supabase/functions/place-hours` + `hooks/usePlaceHours.ts` | 영업시간 폴백(등록 데이터 우선) — 캐시는 place_id 무기한·콘텐츠 30일(약관 상한, 034) |
