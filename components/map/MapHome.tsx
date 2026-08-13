@@ -22,6 +22,7 @@ import Animated, { FadeOut,
 
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
+import { approxMeters } from '@/lib/distance';
 import { track } from '@/lib/analytics';
 import { usePlaces } from '@/hooks/usePlaces';
 import { useGasStations, type SearchPoint, type GasSearchSpec } from '@/hooks/useGasStations';
@@ -67,11 +68,6 @@ import type { Place, RoadHazard } from '@/types';
 import type { GasStation } from '@/lib/api/gasStations';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-// 짧은 거리 근사(m) — 재검색 버튼 노출 판정용 (한국 위도대 경도 1도 ≈ 88km)
-function approxMeters(a: SearchPoint, b: SearchPoint): number {
-  return Math.hypot((a.latitude - b.latitude) * 111000, (a.longitude - b.longitude) * 88000);
-}
 
 // 장소 선택 시 하단 시트(첫 스냅 28%)가 마커를 가리지 않도록 카메라 중심을 남쪽으로
 // 내려 마커를 화면 중심 살짝 위(≈45% 지점)에 둔다 — 상단 검색바·카테고리(≈18%)와

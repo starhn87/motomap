@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
+import { approxMeters } from '@/lib/distance';
+
 import {
   fetchNearbyGasStations,
   fetchGasStationDetail,
@@ -92,10 +94,7 @@ export function useGasStations(spec: GasSearchSpec | null, enabled: boolean, pro
       return [...byId.values()]
         .map((s) => ({
           ...s,
-          distance: Math.hypot(
-            (s.latitude - spec!.latitude) * 111000,
-            (s.longitude - spec!.longitude) * 88000,
-          ),
+          distance: approxMeters(s, spec!),
         }))
         .sort((a, b) => a.price - b.price || a.distance - b.distance);
     },

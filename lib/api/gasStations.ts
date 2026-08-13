@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { approxMeters } from '@/lib/distance';
 
 // 오피넷 유가 프록시(Edge Function gas-stations) 클라이언트.
 // 유가는 DB places 와 별개의 실시간 레이어 — 주유소 카테고리 필터가 켜졌을 때만 조회한다.
@@ -127,10 +128,7 @@ export async function fetchGasPricesAt(place: {
       const name = normalizeName(station.name);
       return {
         station,
-        meters: Math.hypot(
-          (station.latitude - place.latitude) * 111000,
-          (station.longitude - place.longitude) * 88000,
-        ),
+        meters: approxMeters(station, place),
         sameName: name.includes(target) || target.includes(name),
       };
     })

@@ -5,13 +5,14 @@ import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
 import { useQuery } from '@tanstack/react-query';
 import Feather from '@expo/vector-icons/Feather';
-import { coordToRegion, coordToRegionParts } from '@/lib/api/kakaoLocal';
+import { coordToRegion } from '@/lib/api/kakaoLocal';
 import { fetchAirQuality, AIR_GRADE_LABEL, AIR_GRADE_COLOR } from '@/lib/api/air';
 import { sunEvents, type SunEvent } from '@/lib/sun';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fetchWeatherWarnings, warningsForRegion, type RidingWeather } from '@/lib/api/weather';
+import type { RidingWeather } from '@/lib/api/weather';
 import WarningDetailModal from '@/components/map/WarningDetailModal';
+import { useWeatherWarnings } from '@/hooks/useWeatherWarnings';
 
 interface Props {
   weather: RidingWeather;
@@ -117,22 +118,8 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
     staleTime: 30 * 60 * 1000,
   });
 
-  // 기상특보 — 전국 발효 특보(10분 캐시)를 받아 이 지역 것만 추린다.
-  // 폭염·호우·강풍은 라이딩 가부에 직결되는데 단기예보에는 안 실린다.
-  const { data: allWarnings = [] } = useQuery({
-    queryKey: ['weather-warnings'],
-    queryFn: fetchWeatherWarnings,
-    staleTime: 10 * 60 * 1000,
-  });
-  const { data: regionParts } = useQuery({
-    queryKey: ['weather-region-parts', latitude?.toFixed(2), longitude?.toFixed(2)],
-    queryFn: () => coordToRegionParts(latitude!, longitude!),
-    enabled: latitude != null && longitude != null,
-    staleTime: 30 * 60 * 1000,
-  });
-  const warnings = warningsForRegion(allWarnings, regionParts ?? null)
-    // 경보를 앞으로 — 자리가 좁아 대표 하나만 보여주고 나머지는 +N
-    .sort((a, b) => Number(b.level === '경보') - Number(a.level === '경보'));
+  // 기상특보 — 매칭·정렬까지 훅이 끝내 준다. 대표 하나만 칩에, 전체는 모달에.
+  const warnings = useWeatherWarnings(latitude, longitude);
   const topWarning = warnings[0];
 
   // 칩 탭 — 발효 특보 전체와 라이딩 유의사항을 카드 모달로

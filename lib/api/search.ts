@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { useMapStore } from '@/stores/useMapStore';
+import { approxMeters } from '@/lib/distance';
 import type { Place, RidingCourse } from '@/types';
 import { rowToPlace, type PlaceRow } from '@/lib/api/places';
 
@@ -15,7 +15,7 @@ export function isSamePlace(
   p: { name: string; latitude: number; longitude: number },
   k: { name: string; latitude: number; longitude: number },
 ): boolean {
-  const dist = Math.hypot((p.latitude - k.latitude) * 111000, (p.longitude - k.longitude) * 88000);
+  const dist = approxMeters(p, k);
   if (dist > 150) return false;
   if (dist < 20) return true;
   const pn = normName(p.name);
@@ -55,8 +55,7 @@ export async function searchAll(
   ]);
 
   const distTo = near
-    ? (lat: number, lng: number) =>
-        Math.hypot((lat - near.latitude) * 111000, (lng - near.longitude) * 88000)
+    ? (lat: number, lng: number) => approxMeters({ latitude: lat, longitude: lng }, near)
     : null;
   // "지금 보는 지역"의 실질 반경 — 시 단위 생활권 20km(강릉이면 주문진·정동진까지).
   // 처음 50km 로 잡았더니 여전히 멀게 느껴진다는 피드백에 좁혔다. 정렬만으로는
@@ -111,20 +110,3 @@ export async function searchAll(
   return { places, courses };
 }
 
-/**
- * 검색 기준점 — 마지막으로 본 지도 중심, 없으면 내 위치. 세 검색 화면(통합 검색·
- * 검색 결과·지점 모달)이 같은 기준을 쓰도록 여기 한곳에 둔다. 반환의 key 는
- * react-query 캐시 키용 근사값(±1km) — 미세한 지도 이동마다 재검색하지 않는다.
- */
-export function useSearchAnchor(): {
-  near: { latitude: number; longitude: number } | undefined;
-  key: string;
-} {
-  const mapCenter = useMapStore((s) => s.mapCenter);
-  const userLocation = useMapStore((s) => s.userLocation);
-  const near = mapCenter ?? userLocation ?? undefined;
-  return {
-    near,
-    key: near ? `${near.latitude.toFixed(2)},${near.longitude.toFixed(2)}` : 'none',
-  };
-}

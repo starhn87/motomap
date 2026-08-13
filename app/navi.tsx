@@ -46,7 +46,7 @@ import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useMapStore } from '@/stores/useMapStore';
-import { haversine } from '@/lib/distance';
+import { approxMeters, haversine } from '@/lib/distance';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import { usePlaces } from '@/hooks/usePlaces';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -648,7 +648,7 @@ export default function NaviScreen() {
   // (더 넓히면 옆 가게 핀을 도착지로 오독할 수 있다).
   const goalCovered = useMemo(() => {
     const near = (lat: number, lng: number) =>
-      Math.hypot((lat - goal.latitude) * 111000, (lng - goal.longitude) * 88000) < 10;
+      approxMeters({ latitude: lat, longitude: lng }, goal) < 10;
     return (
       visibleOnMap.places.some((pl) => pl.id === goal.placeId || near(pl.latitude, pl.longitude)) ||
       visibleOnMap.favs.some((f) => near(f.latitude, f.longitude))
