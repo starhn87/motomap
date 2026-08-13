@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { View, Text, StyleSheet, Share, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, Share, ActivityIndicator, Linking, Pressable } from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -343,7 +343,7 @@ function PlaceBottomSheet({
       icon: <Ionicons name="call-outline" size={16} color={colors.textSecondary} />,
       label: '전화',
       value: displayPlace.phone,
-      onPress: () => void Linking.openURL(`tel:${displayPlace.phone}`),
+      onPress: () => Linking.openURL(`tel:${displayPlace.phone}`).catch(() => {}),
     },
   ].filter(Boolean) as Array<{
     icon: React.ReactNode;
@@ -540,25 +540,26 @@ function PlaceBottomSheet({
 
           {infoCards.length > 0 && (
             <View style={styles.infoGrid}>
+              {/* RNGH Touchable 은 flexBasis 를 잇지 못해 카드 폭이 무너진다(실측
+                  2회) — 레이아웃이 View 와 동일한 RN Pressable 로 카드째 감싼다 */}
               {infoCards.map((card) => (
-                <TouchableOpacity
+                <Pressable
                   key={card.label}
                   disabled={!card.onPress}
                   onPress={card.onPress}
-                  activeOpacity={0.6}
-                  style={[
+                  style={({ pressed }) => [
                     styles.infoCard,
                     card.wide && styles.infoCardWide,
                     { backgroundColor: colors.surface, borderColor: colors.border },
+                    pressed && { opacity: 0.6 },
                   ]}>
                   <View style={card.wide && styles.infoIconTop}>{card.icon}</View>
                   <Text
-                    // 탭 가능한 카드(전화)는 링크 색으로 걸 수 있음을 알린다
-                    style={[styles.infoCardValue, { color: card.onPress ? colors.tint : colors.text }]}
+                    style={[styles.infoCardValue, { color: colors.text }]}
                     numberOfLines={card.lines ?? 2}>
                     {card.value}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
           )}
