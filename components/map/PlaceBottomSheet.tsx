@@ -1,7 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { View, Text, StyleSheet, Share , ActivityIndicator
-} from 'react-native';
+import { View, Text, StyleSheet, Share, ActivityIndicator, Linking } from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -344,6 +343,7 @@ function PlaceBottomSheet({
       icon: <Ionicons name="call-outline" size={16} color={colors.textSecondary} />,
       label: '전화',
       value: displayPlace.phone,
+      onPress: () => void Linking.openURL(`tel:${displayPlace.phone}`),
     },
   ].filter(Boolean) as Array<{
     icon: React.ReactNode;
@@ -351,6 +351,7 @@ function PlaceBottomSheet({
     value: string;
     lines?: number;
     wide?: boolean;
+    onPress?: () => void;
   }>;
 
   return (
@@ -540,8 +541,11 @@ function PlaceBottomSheet({
           {infoCards.length > 0 && (
             <View style={styles.infoGrid}>
               {infoCards.map((card) => (
-                <View
+                <TouchableOpacity
                   key={card.label}
+                  disabled={!card.onPress}
+                  onPress={card.onPress}
+                  activeOpacity={0.6}
                   style={[
                     styles.infoCard,
                     card.wide && styles.infoCardWide,
@@ -549,11 +553,12 @@ function PlaceBottomSheet({
                   ]}>
                   <View style={card.wide && styles.infoIconTop}>{card.icon}</View>
                   <Text
-                    style={[styles.infoCardValue, { color: colors.text }]}
+                    // 탭 가능한 카드(전화)는 링크 색으로 걸 수 있음을 알린다
+                    style={[styles.infoCardValue, { color: card.onPress ? colors.tint : colors.text }]}
                     numberOfLines={card.lines ?? 2}>
                     {card.value}
                   </Text>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
