@@ -52,6 +52,7 @@ set -a; . ./.env; set +a
 - **KNSDK 안내 지도 POI 탭**: `KNNaviMapView`는 공개 API 3개뿐이지만, 내부에 품은 `KNMapView`에는 `poiProperties.eventListener`(POI 탭 → 이름+KATEC 좌표)가 있다 — 서브뷰 트리 순회로 찾아 등록한다(`KNNaviPresenter.m attachPoiListener`, 문서화 안 된 접근이라 SDK 업데이트 시 재확인, 실패 시 기능만 조용히 빠짐). KATEC↔WGS84 변환은 SDK 제공(`convertKATECToWGS84WithX:y:`).
 - **KNSDK 경로 테마**: `KNMapRouteTheme`을 `alloc/init`으로 만들면 **안내 진입 시 죽는다** — `alterRoute`가 `nonnull`인데 비어 있어 대안 경로를 그리는 순간 터진다(2026-08 실증). 반드시 `+[KNMapRouteTheme trafficDay/trafficNight/driveDay/driveNight]`를 base로 받아 필요한 프로퍼티만 갈아끼운다. 그리고 `KNMapRouteTheme`·`KNRouteColors`의 색 프로퍼티는 전부 **`assign`(unsafe_unretained)** 이라, 넘긴 `UIColor`/`KNRouteColors`를 따로 붙잡아 두지 않으면 오토릴리즈 풀이 비워진 뒤 해제된 메모리를 참조한다(`KNNaviTheme.m`의 static 캐시 참고). 혼잡도 색(초록=원활, 노랑=서행, 빨강=정체)은 내비 공통 약속이라 건드리지 않는다 — 외곽선만 앱 색으로.
 - **reanimated**: `Animated.View`는 `pointerEvents="box-only"`를 무시한다(plain `View`에서만 적용됨).
+- **RNGH Touchable**: `react-native-gesture-handler`의 `TouchableOpacity`는 `flexBasis` 퍼센트 그리드의 자식으로 두면 카드 폭이 무너진다 — 그리드 자식으로도, 안쪽 `flex:1` 래퍼로도 실패(2026-08 시뮬 실측 2회). 그리드 카드 터치는 RN core `Pressable`로(바텀시트 콘텐츠 안에서도 탭 정상 도달 확인).
 
 ## 문서 동기화
 기능·구조·외부 연동이 바뀌면 README(주요 기능·기술 스택·아키텍처 다이어그램)와 docs/ARCHITECTURE.md(외부 연동·마이그레이션 표)를 **같은 작업에서 함께 갱신**한다. 코드만 바꾸고 문서를 미루지 않는다.
