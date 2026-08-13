@@ -381,6 +381,7 @@ const styles = StyleSheet.create({
   },
   profileHeader: {
     alignItems: 'center',
+    gap: 14,
     marginBottom: 32,
     marginTop: 12,
   },
