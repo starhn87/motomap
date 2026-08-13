@@ -1,29 +1,9 @@
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Dimensions,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-  type SharedValue,
-} from 'react-native-reanimated';
-import {
-  NaverMapView,
-  NaverMapPathOverlay,
-  NaverMapMultiPathOverlay,
-  NaverMapMarkerOverlay,
-  type NaverMapViewRef,
-} from '@mj-studio/react-native-naver-map';
+import { Gesture } from 'react-native-gesture-handler';
+import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 
@@ -32,54 +12,25 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import KakaoNavi, {
   ROUTE_PRIORITIES,
   friendlyRouteError,
-  latLngsFromFlat,
   pairsFromFlat,
-  routeErrorCode,
-  type BikeRoute,
-  type RoutePriority,
 } from '@/modules/kakao-navi';
-import { sampleWaypoints, type NavTarget } from '@/lib/navigation';
+import type { NavTarget } from '@/lib/navigation';
 import { hasMapOverlayInStack } from '@/lib/mapFocus';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { loadRecentSearches, recentTargets } from '@/lib/recentSearches';
-import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
-import { useQueryClient } from '@tanstack/react-query';
 
 import { useMapStore } from '@/stores/useMapStore';
-import { approxMeters, haversine } from '@/lib/distance';
-import TempPlaceMarker from '@/components/map/TempPlaceMarker';
-import { usePlaces } from '@/hooks/usePlaces';
-import { useFavorites } from '@/hooks/useFavorites';
-import {
-  BLANK_MARKER,
-  VIA_MARKERS,
-  MARKER_IMAGES,
-  MARKER_IMAGES_FAV,
-  GENERAL_MARKER_FAV,
-} from '@/constants/markerImages';
-import type { Place } from '@/types';
-import Colors, { semantic } from '@/constants/Colors';
+import { haversine } from '@/lib/distance';
+import PreviewMap from '@/components/navi/PreviewMap';
+import RouteFieldRow, { ROW_H, nearestSlot } from '@/components/navi/RouteFieldRow';
+import { useBikeRoutes } from '@/hooks/useBikeRoutes';
+import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import {
-  fetchBikeTraffic,
-  formatMeters,
-  formatSeconds,
-  type TrafficPart,
-} from '@/lib/api/directions';
+import { formatMeters, formatSeconds } from '@/lib/api/directions';
 import { toast } from '@/lib/toast';
 import { useGuideSession } from '@/lib/guideSession';
 import { markGuideStarted } from '@/lib/guideEvents';
 import { track } from '@/lib/analytics';
-
-// 혼잡도별 경로선 색 — 막힐수록 붉게. 원활은 기존 경로색, 정보 없음은 회색.
-// 서행은 semantic.warning(amber-600)보다 밝은 amber-500 — 지도 위 가시성 우선.
-const TRAFFIC_COLORS: Record<number, string> = {
-  4: semantic.success, // 원활
-  3: '#F59E0B', // 서행
-  2: semantic.danger, // 지체
-  1: '#B91C1C', // 정체
-  0: '#9CA3AF', // 정보 없음
-};
 
 // 길찾기 경유지 상한 — 직접 고르는 지점이라 코스 샘플링(20개)과 별개다
 const MAX_USER_VIAS = 3;
@@ -91,17 +42,6 @@ const PREVIEW_MIN_METERS = 300;
 // 검색 모달이 어느 필드를 채우는 중인지 — 숫자는 경유지 인덱스
 type EditingField = 'start' | 'goal' | number;
 
-// 경로 편집 카드의 행 높이 — 드래그 타깃 계산이 이 값의 균일 격자에 기댄다
-// (+ 버튼은 divider 위에 떠 있어 세로 공간을 차지하지 않는다)
-const ROW_H = 44;
-
-// 드래그 중인 행의 현재 y 에 가장 가까운 슬롯 — 드롭 타깃이자,
-// 다른 행들이 실시간으로 비켜줄 기준이다.
-function nearestSlot(curY: number, rowCount: number) {
-  'worklet';
-  return Math.max(0, Math.min(rowCount - 1, Math.round(curY / ROW_H)));
-}
-
 // 길안내 진입 화면 — 경로 미리보기와 옵션 선택을 겸한다.
 // 옵션별 경로를 지도에 그려 보여주고, 고르면 그 옵션으로 KNSDK 안내를 시작한다.
 // 미리보기도 안내와 같은 KNSDK 엔진을 쓰므로 여기서 본 경로가 곧 안내 경로다.
@@ -111,7 +51,6 @@ export default function NaviScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const startGuideSession = useGuideSession((st) => st.start);
-  const queryClient = useQueryClient();
   const userLocation = useMapStore((st) => st.userLocation);
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
@@ -132,8 +71,6 @@ export default function NaviScreen() {
     pid?: string;
     cid?: string;
   }>();
-
-  const mapRef = useRef<NaverMapViewRef>(null);
 
   // 도착지 — 파라미터는 초기값일 뿐, 상단 카드에서 바꿀 수 있다.
   // 바꾸면 placeId(도착 후 리뷰 연결)는 원래 장소 것이라 함께 버린다.
@@ -163,23 +100,26 @@ export default function NaviScreen() {
   // 네이티브 마커(출발 도트)가 재활용 과정에서 지도 탭에 남을 수 있다(실기기
   // 보고). 안내 화면이 위를 덮은 뒤라 사용자에게는 보이지 않는 전환이다.
   const [guideStarted, setGuideStarted] = useState(false);
-  const [priority, setPriority] = useState<RoutePriority>(0);
-  const [routes, setRoutes] = useState<Partial<Record<RoutePriority, BikeRoute>>>({});
-  // 옵션별 혼잡 구간(경로선 색칠용). 없으면 SDK 선형을 단색으로 그린다.
-  const [traffic, setTraffic] = useState<Partial<Record<RoutePriority, TrafficPart[]>>>({});
-  const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   // 시작 계측 속성 — 탭 시점에 담아 두고 onGuideStarted 리스너가 찍는다
   const startTrackRef = useRef<Parameters<typeof track.navigationStarted>[0] | null>(null);
-  // 현재 위치에서 도로가 이어지지 않는 원거리 코스(예: 육지→제주)는
-  // 코스 출발지 기준 미리보기로 폴백한다. 이때 안내 시작은 막는다.
-  const [courseOnly, setCourseOnly] = useState(false);
-  // 20412(경유지가 도로와 안 이어짐)로 경유지를 줄여 성공한 경우의 경유지.
-  // 안내 시작도 이 목록을 그대로 쓴다.
-  const [activeVias, setActiveVias] = useState<number[] | null>(null);
 
   const courseVias: number[] = vias ? JSON.parse(vias) : [];
   const isCourseMode = !!cid || courseVias.length > 0;
+
+  // 지점 → 경로: 옵션별 캐시·경유지 축소 사다리·코스 폴백은 훅이 맡는다
+  const {
+    priority,
+    setPriority,
+    route,
+    trafficParts,
+    loading,
+    courseOnly,
+    activeVias,
+    effVias,
+    flatVias,
+    resetRoutes,
+  } = useBikeRoutes({ start, startName, goal, userVias, courseVias, isCourseMode });
 
   useEffect(() => {
     if (isCourseMode) return; // 편집 카드가 없으니 모달도 안 뜬다
@@ -187,23 +127,6 @@ export default function NaviScreen() {
       setRecents(recentTargets(entries).map((r) => r.target)),
     );
   }, [isCourseMode]);
-  const flatVias = isCourseMode
-    ? courseVias
-    : userVias.flatMap((p) => (p ? [p.longitude, p.latitude] : []));
-  // 폴백 시: 첫 경유지(코스 출발지)가 출발점이 되고 나머지가 경유지로 남는다
-  const effStart: [number, number] | null = courseOnly
-    ? [flatVias[0], flatVias[1]]
-    : start;
-  const effVias = courseOnly ? flatVias.slice(2) : flatVias;
-  const route = routes[priority];
-
-  // 지점이 바뀌면 옵션별 캐시가 전부 낡는다 — 경로·혼잡도를 비워 재조회를 태운다
-  const resetRoutes = () => {
-    setRoutes({});
-    setTraffic({});
-    setActiveVias(null);
-  };
-
   const handleFieldSelect = (point: Point) => {
     const field = editing;
     setEditing(null);
@@ -433,144 +356,6 @@ export default function NaviScreen() {
     };
   }, [router, start]);
 
-  // 선택된 옵션의 경로 확보 (옵션별 캐시).
-  // 20412 는 경유지 좌표가 도로에 스냅되지 않는 경우라, 경유지를
-  // [전체 → 코스 출발지만 → 없음] 순으로 줄여가며 재시도한다.
-  useEffect(() => {
-    if (!effStart || routes[priority]) return;
-    let cancelled = false;
-    setLoading(true);
-
-    (async () => {
-      // SDK 는 여기서 처음 초기화된다(lazy — 배터리 사유는 lib/kakaoNaviInit.ts)
-      try {
-        await ensureKakaoNaviReady();
-      } catch (err) {
-        if (!cancelled) {
-          toast.error('길안내를 준비할 수 없습니다', friendlyRouteError(err));
-        }
-        return;
-      }
-      const requestVias = activeVias ?? effVias;
-      // 실패 시 경유지를 줄여가며 재시도하는 사다리 — 축소는 사전 추림(20개)과
-      // 같은 샘플러를 쓴다. 20413(도로 자체가 안 이어짐)은 경유지를 줄여도
-      // 소용없으니 바로 중단한다.
-      const viaPairs = pairsFromFlat(requestVias);
-      const ladder = [viaPairs.length, 12, 5, 1, 0]
-        .filter((n, i, arr) => n <= viaPairs.length && arr.indexOf(n) === i)
-        .map((n) => (n === 0 ? [] : sampleWaypoints(viaPairs, n).flat()));
-
-      let lastErr: unknown = null;
-      for (const tryVias of ladder) {
-        try {
-          const result = await KakaoNavi.requestBikeRoute(
-            effStart[0], effStart[1], goal.longitude, goal.latitude, tryVias, priority,
-          );
-          if (cancelled) return;
-          if (tryVias.length < requestVias.length) {
-            setActiveVias(tryVias);
-            toast.info('일부 경유지를 빼고 안내해요', '경로가 코스와 다를 수 있어요.');
-          }
-          setRoutes((prev) => ({ ...prev, [priority]: result }));
-          track.navigationPreviewed({
-            distance_m: result.distance,
-            duration_s: result.duration,
-            priority,
-            via_count: pairsFromFlat(tryVias).length,
-            has_custom_start: !!startName,
-          });
-          return;
-        } catch (err) {
-          lastErr = err;
-          if (routeErrorCode(err) === 20413) break;
-        }
-      }
-      if (cancelled) return;
-
-      // 현재 위치 출발이 막힌 코스 안내는 코스 출발지 기준으로 재시도
-      if (!courseOnly && isCourseMode && flatVias.length >= 2) {
-        setRoutes({});
-        setTraffic({});
-        setCourseOnly(true);
-        toast.info('코스 출발지 기준으로 보여드려요', '현재 위치에서 이어지는 도로가 없어요.');
-        return;
-      }
-      // 병렬로 받아둔 혼잡도 선만 남으면 "경로 없음"과 어긋난다 — 함께 지운다
-      setTraffic((prev) => ({ ...prev, [priority]: undefined }));
-      track.routeFailed({
-        code: routeErrorCode(lastErr),
-        via_count: pairsFromFlat(requestVias).length,
-      });
-      toast.error('경로를 찾을 수 없습니다', friendlyRouteError(lastErr));
-    })().finally(() => {
-      if (!cancelled) setLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias·userVias·courseOnly 에서 파생
-  }, [effStart?.[0], effStart?.[1], priority, routes, goal.longitude, goal.latitude, vias, userVias, courseOnly, activeVias]);
-
-  // 혼잡 구간 색칠 — 같은 엔진인 REST 로 같은 조건을 조회한다. 경유지가 없으면
-  // 입력이 이미 확정이라 SDK 경로 요청과 병렬로 바로 쏘고(색칠이 SDK 왕복만큼
-  // 빨라진다), 경유지가 있으면 사다리가 경유지를 줄일 수 있어 경로 확정을
-  // 기다린다. 경로 useEffect 안에서 부르면 setRoutes 가 deps(routes)를 바꿔
-  // cleanup 이 돌고 응답이 cancelled 에 막혀 버려진다(실측). 실패하면 단색 그대로.
-  useEffect(() => {
-    if (!effStart || traffic[priority]) return;
-    if (effVias.length > 0 && !route) return;
-    let cancelled = false;
-    fetchBikeTraffic(effStart, [goal.longitude, goal.latitude], pairsFromFlat(activeVias ?? effVias), priority)
-      .then((parts) => {
-        if (!cancelled) setTraffic((prev) => ({ ...prev, [priority]: parts }));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias·userVias·courseOnly 에서 파생
-  }, [effStart?.[0], effStart?.[1], route, priority, goal.longitude, goal.latitude, activeVias]);
-
-  // 경로가 바뀌면 전체가 보이도록 카메라를 맞춘다.
-  // 남쪽은 하단 카드가 덮는 만큼 더 벌린다.
-  useEffect(() => {
-    if (!route || route.polyline.length < 4) return;
-    let minLat = Infinity;
-    let maxLat = -Infinity;
-    let minLng = Infinity;
-    let maxLng = -Infinity;
-    for (let i = 0; i + 1 < route.polyline.length; i += 2) {
-      const lng = route.polyline[i];
-      const lat = route.polyline[i + 1];
-      if (lng < minLng) minLng = lng;
-      if (lng > maxLng) maxLng = lng;
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
-    }
-    const latSpan = Math.max(maxLat - minLat, 0.01);
-    const lngSpan = Math.max(maxLng - minLng, 0.01);
-    // 카드 밖에 남는 세로 밴드에 경로가 통째로 들어가야 한다. 카드 높이는
-    // 화면 픽셀이라, 경로 폭과 무관하게 "가려지는 비율"로 환산해 벌린다.
-    const screenH = Dimensions.get('window').height;
-    const topH = isCourseMode ? insets.top + 60 : topCardH.current;
-    const bottomH = bottomCardH.current;
-    const visibleFrac = Math.max(0.25, (screenH - topH - bottomH) / screenH);
-    const fullSpan = latSpan / visibleFrac;
-    mapRef.current?.animateCameraWithTwoCoords({
-      coord1: {
-        latitude: minLat - fullSpan * (bottomH / screenH) - latSpan * 0.04,
-        longitude: minLng - lngSpan * 0.1,
-      },
-      coord2: {
-        latitude: maxLat + fullSpan * (topH / screenH) + latSpan * 0.04,
-        longitude: maxLng + lngSpan * 0.1,
-      },
-      duration: 700,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- isCourseMode 는 파라미터에서 파생돼 불변
-  }, [route]);
-
   const startGuide = () => {
     if (!start || starting || courseOnly) return;
     setStarting(true);
@@ -592,72 +377,11 @@ export default function NaviScreen() {
     });
   };
 
-  // 폴리라인은 수천 좌표라 리렌더마다 새로 만들면 네이티브 브리지로 통째로
-  // 재전송된다 — 경로가 바뀔 때만 변환하고, 혼잡도 색 경로가 있으면 단색용
-  // coords 는 아예 만들지 않는다.
-  const trafficParts = traffic[priority];
-  // 경로 주변의 등록 장소·즐겨찾기 — "가는 길에 들를 곳"을 미리보기에서 보여준다.
-  // 탭하면 시트가 미리보기 위로 열리고, 닫으면 경로·옵션 상태 그대로 돌아온다.
-  const { data: allPlaces } = usePlaces(null, null, !guideStarted);
-  const { data: favorites } = useFavorites();
-  // 화면에 보이는 영역(SW + delta). 카메라가 멈출 때만 갱신된다
-  // 위아래 카드가 지도를 덮는 픽셀 — 카메라 핏이 이 값만큼 경로를 밀어 넣는다
+  // 위아래 카드가 지도를 덮는 픽셀 — PreviewMap 의 카메라 핏이 이 값만큼
+  // 경로를 밀어 넣는다. onLayout 으로 실측해 채운다.
   const topCardH = useRef(240);
   const bottomCardH = useRef(300);
-  const [viewport, setViewport] = useState<{
-    latitude: number;
-    longitude: number;
-    latitudeDelta: number;
-    longitudeDelta: number;
-  } | null>(null);
 
-  const coords = useMemo(
-    () =>
-      route && route.polyline.length >= 4 && !trafficParts
-        ? latLngsFromFlat(route.polyline)
-        : null,
-    [route, trafficParts],
-  );
-  // 화면에 보이는 장소·즐겨찾기만 그린다 — 전량을 뿌리면 전국 뷰에서 마커가
-  // 수백 개가 되고, 뷰포트 기준이면 카메라가 멈출 때만 다시 거른다.
-  const visibleOnMap = useMemo(() => {
-    if (!viewport) return { places: [], favs: [] };
-    // 가장자리 걸친 마커가 뚝 사라지지 않게 10% 여유
-    const latPad = viewport.latitudeDelta * 0.1;
-    const lngPad = viewport.longitudeDelta * 0.1;
-    const south = viewport.latitude - latPad;
-    const north = viewport.latitude + viewport.latitudeDelta + latPad;
-    const west = viewport.longitude - lngPad;
-    const east = viewport.longitude + viewport.longitudeDelta + lngPad;
-    const inView = (lat: number, lng: number) =>
-      lat >= south && lat <= north && lng >= west && lng <= east;
-
-    // 등록 장소·즐겨찾기는 경로 지점(출발·경유·도착)이어도 저 자신의 마커로
-    // 보인다 — 정체성은 이 레이어가, 역할은 위에 겹치는 출발 도트·경유지
-    // 번호(중앙 앵커라 핀 발치에 얹힌다)가 맡는다. 예전엔 겹침을 피해 뺐는데,
-    // 그러면 도착지가 즐겨찾기한 카페여도 중립 핀으로만 보였다(실사용 피드백).
-    const places = (allPlaces ?? []).filter((pl) => inView(pl.latitude, pl.longitude));
-    const favs = (favorites?.general ?? []).filter((f) => inView(f.latitude, f.longitude));
-    return { places, favs };
-  }, [viewport, allPlaces, favorites]);
-  const favoriteIds = useMemo(() => new Set(favorites?.placeIds ?? []), [favorites]);
-
-  // 도착지 자리에 등록 장소·즐겨찾기 마커가 이미 있으면 슬레이트 핀은 접는다 —
-  // 하단 앵커 핀 두 장이 같은 좌표에 겹치면 위 것만 보여 그리는 의미가 없고,
-  // 그 장소의 진짜 마커가 정체성을 더 잘 말해 준다. 10m: 같은 DB 좌표만 매칭
-  // (더 넓히면 옆 가게 핀을 도착지로 오독할 수 있다).
-  const goalCovered = useMemo(() => {
-    const near = (lat: number, lng: number) =>
-      approxMeters({ latitude: lat, longitude: lng }, goal) < 10;
-    return (
-      visibleOnMap.places.some((pl) => pl.id === goal.placeId || near(pl.latitude, pl.longitude)) ||
-      visibleOnMap.favs.some((f) => near(f.latitude, f.longitude))
-    );
-  }, [visibleOnMap, goal]);
-
-  // 개별 마커 onTap 은 이 화면에서 이벤트가 JS 로 올라오지 않았다(실측).
-  // 지도 탭이 쓰는 클러스터 + onTapClusterLeaf 경로가 검증돼 있어 그대로 따른다.
-  // 클러스터 마커는 앵커 지정이 안 돼 핀(하단 중앙 고정)을 쓴다 — 지도 탭과 동일.
   // 지도에 표시할 경유지 — 실제로 요청에 쓰인 것만 그린다. 20412(도로와 안 이어짐)
   // 폴백으로 줄어든 경우 빠진 지점은 들르지 않으므로 마커도 없어야 한다.
   // 코스 모드의 경유지는 코스 경로선 자체라 점을 찍으면 오히려 어지럽다.
@@ -671,211 +395,19 @@ export default function NaviScreen() {
     return out;
   }, [isCourseMode, activeVias, effVias]);
 
-  const previewClusterMarkers = useMemo(
-    () => [
-      ...visibleOnMap.places.map((pl) => ({
-        identifier: `place:${pl.id}`,
-        latitude: pl.latitude,
-        longitude: pl.longitude,
-        image: favoriteIds.has(pl.id)
-          ? MARKER_IMAGES_FAV[pl.category]
-          : MARKER_IMAGES[pl.category],
-        width: 32,
-        height: 37,
-      })),
-      ...visibleOnMap.favs.map((f) => ({
-        identifier: `fav:${f.id}`,
-        latitude: f.latitude,
-        longitude: f.longitude,
-        image: GENERAL_MARKER_FAV,
-        width: 32,
-        height: 37,
-      })),
-    ],
-    [visibleOnMap, favoriteIds],
-  );
-
-  // 탭하면 그 장소가 선택된 지도 화면을 통째로 오버레이한다(/place-preview).
-  // 뒤로 가면 이 미리보기가 경로·옵션 그대로 남아 있다 — 스택이 지켜 준다.
-  const handleSymbolTap = ({
-    latitude,
-    longitude,
-    caption,
-  }: {
-    latitude: number;
-    longitude: number;
-    caption: string;
-  }) => {
-    router.push({
-      pathname: '/place-preview',
-      params: {
-        kakaoName: caption,
-        kakaoLat: String(latitude),
-        kakaoLng: String(longitude),
-        focusTs: String(Date.now()),
-      },
-    });
-  };
-
-  const handleClusterLeafTap = (markerIdentifier: string) => {
-    if (markerIdentifier.startsWith('place:')) {
-      const pl = visibleOnMap.places.find((x) => `place:${x.id}` === markerIdentifier);
-      if (!pl) return;
-      track.placeViewed({ place_id: pl.id, category: pl.category, source: 'route_preview' });
-      // 오버레이가 fetch 없이 바로 시트를 열도록 usePlace 캐시를 미리 채운다
-      queryClient.setQueryData(['place', pl.id], pl);
-      // lat/lng 는 오버레이 초기 카메라용 — 장소 fetch 전 첫 프레임에 쓴다
-      router.push({
-        pathname: '/place-preview',
-        params: {
-          focusPlaceId: pl.id,
-          focusTs: String(Date.now()),
-          lat: String(pl.latitude),
-          lng: String(pl.longitude),
-        },
-      });
-      return;
-    }
-    const f = visibleOnMap.favs.find((x) => `fav:${x.id}` === markerIdentifier);
-    if (!f) return;
-    router.push({
-      pathname: '/place-preview',
-      params: {
-        kakaoName: f.name,
-        kakaoAddress: f.address,
-        kakaoLat: String(f.latitude),
-        kakaoLng: String(f.longitude),
-        kakaoPhone: f.phone ?? '',
-        focusTs: String(Date.now()),
-      },
-    });
-  };
-
-  const pathParts = useMemo(
-    () =>
-      trafficParts?.map((p) => ({
-        coords: p.coords,
-        color: TRAFFIC_COLORS[p.state] ?? semantic.success,
-        outlineColor: '#FFFFFF',
-      })),
-    [trafficParts],
-  );
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {!guideStarted && (
-      <NaverMapView
-        ref={mapRef}
-        style={StyleSheet.absoluteFill}
-        mapType="Basic"
-        isNightModeEnabled={colorScheme === 'dark'}
-        isShowLocationButton={false}
-        isShowCompass={false}
-        isShowScaleBar={false}
-        isShowZoomControls={false}
-        locale="ko"
-        // 위치 오버레이를 강제로 끈다 — 재활용된 지도 뷰가 지도 탭의 오버레이
-        // 상태를 물려받아 고아 위치 마커가 화면에 남았다(실기기 영상으로 확정)
-        locationOverlay={{ isVisible: false }}
-        // 미리보기라고 지도를 잠글 이유가 없다 — 확대해서 경로 주변을 살피는 화면이다
-        isZoomGesturesEnabled
-        isScrollGesturesEnabled
-        isRotateGesturesEnabled
-        isTiltGesturesEnabled
-        onCameraIdle={(e) => setViewport(e.region)}
-        clusters={[
-          {
-            markers: previewClusterMarkers,
-            screenDistance: 70,
-            minZoom: 1,
-            maxZoom: 16,
-            animate: true,
-          },
-        ]}
-        onTapClusterLeaf={({ markerIdentifier }) => handleClusterLeafTap(markerIdentifier)}
-        onTapSymbol={handleSymbolTap}
-        initialCamera={{ latitude: goal.latitude, longitude: goal.longitude, zoom: 12 }}>
-        {start && (
-          // 출발점 도트 — children 커스텀 뷰는 캡처용 네이티브 뷰가 화면에
-          // 고아로 남는 문제가 있어(실기기: 좌표에 안 붙고 떠다니는 잔상)
-          // 정적 이미지로 그린다.
-          <NaverMapMarkerOverlay
-            latitude={start[1]}
-            longitude={start[0]}
-            width={18}
-            height={18}
-            anchor={{ x: 0.5, y: 0.5 }}
-            image={require('@/assets/images/origin-dot.png')}
-          />
-        )}
-        {pathParts ? (
-          // 혼잡도 색 경로 — 선형도 색과 같은 REST 응답 것을 쓴다(색·선 불일치 방지)
-          <NaverMapMultiPathOverlay pathParts={pathParts} width={6} outlineWidth={2} />
-        ) : coords ? (
-          <NaverMapPathOverlay
-            coords={coords}
-            width={6}
-            color={semantic.success}
-            outlineWidth={2}
-            outlineColor="#FFFFFF"
-          />
-        ) : null}
-        {/* 이름 캡션 — 클러스터 마커는 캡션을 지원하지 않아(ClusterMarkerProp)
-            같은 좌표에 투명 마커 + caption 만 얹는다. 탭은 클러스터 leaf 가 계속
-            받는다(이 화면은 개별 마커 onTap 이 JS 로 안 올라온다, 실측).
-            줌 기준·스타일은 지도 탭과 동일 — 장소 10, 즐겨찾기 8 부터. */}
-        {[
-          ...visibleOnMap.places.map((pl) => ({
-            key: `cap-place:${pl.id}`,
-            latitude: pl.latitude,
-            longitude: pl.longitude,
-            name: pl.name,
-            minZoom: 10,
-            textSize: 12,
-          })),
-          ...visibleOnMap.favs.map((f) => ({
-            key: `cap-fav:${f.id}`,
-            latitude: f.latitude,
-            longitude: f.longitude,
-            name: f.name,
-            minZoom: 8,
-            textSize: 13,
-          })),
-        ].map((c) => (
-          <NaverMapMarkerOverlay
-            key={c.key}
-            latitude={c.latitude}
-            longitude={c.longitude}
-            width={4}
-            height={4}
-            anchor={{ x: 0.5, y: 0.5 }}
-            image={BLANK_MARKER}
-            isHideCollidedCaptions
-            caption={{
-              text: c.name,
-              textSize: c.textSize,
-              minZoom: c.minZoom,
-              color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
-              haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
-            }}
-          />
-        ))}
-        {viaMarkers.map((v, i) => (
-          <NaverMapMarkerOverlay
-            key={`via-${i}-${v.latitude}-${v.longitude}`}
-            latitude={v.latitude}
-            longitude={v.longitude}
-            width={26}
-            height={26}
-            anchor={{ x: 0.5, y: 0.5 }}
-            zIndex={80}
-            image={VIA_MARKERS[Math.min(i, VIA_MARKERS.length - 1)]}
-          />
-        ))}
-        {!goalCovered && (
-          <TempPlaceMarker latitude={goal.latitude} longitude={goal.longitude} />
-        )}
-      </NaverMapView>
+        <PreviewMap
+          start={start}
+          goal={goal}
+          viaMarkers={viaMarkers}
+          route={route}
+          trafficParts={trafficParts}
+          isCourseMode={isCourseMode}
+          topCardH={topCardH}
+          bottomCardH={bottomCardH}
+        />
       )}
 
       {isCourseMode ? (
@@ -1110,112 +642,6 @@ export default function NaviScreen() {
   );
 }
 
-function RouteFieldRow({
-  icon,
-  value,
-  placeholder,
-  onPress,
-  onRemove,
-  onAdd,
-  index,
-  rowCountSv,
-  dragIndex,
-  dragY,
-  pan,
-  dragDisabled,
-}: {
-  icon: 'radiobox-marked' | 'circle-medium' | 'map-marker';
-  value: string;
-  placeholder?: string;
-  onPress: () => void;
-  onRemove?: () => void;
-  /** 도착지 행 오른쪽 끝의 경유지 추가 버튼 (경유지가 있을 때) */
-  onAdd?: () => void;
-  /** 빈 경유지 줄 — 드래그가 꺼져 있음을 핸들 흐림으로 알린다 */
-  dragDisabled?: boolean;
-  /** 재정렬 목록에서의 논리 인덱스 (출발 0 … 도착 마지막) */
-  index: number;
-  rowCountSv: SharedValue<number>;
-  dragIndex: SharedValue<number>;
-  dragY: SharedValue<number>;
-  pan: ReturnType<typeof Gesture.Pan>;
-}) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  // 드래그 중인 행은 손가락을 따라 떠오르고, 나머지 행은 드래그 행이
-  // 지날 슬롯을 실시간으로 비켜준다(네이버 지도식). 놓으면 그 순서로 재배열.
-  const animatedStyle = useAnimatedStyle(() => {
-    const from = dragIndex.value;
-    if (from === index) {
-      return {
-        transform: [{ translateY: dragY.value }, { scale: 1.03 }],
-        zIndex: 10,
-        opacity: 0.95,
-      };
-    }
-    if (from < 0) {
-      // 드래그 종료 상태는 애니메이션 없이 즉시 제자리 — 재배열 커밋과 같은
-      // 프레임에 확정돼야 드롭 후 잔여 슬라이드가 안 생긴다
-      return {
-        transform: [{ translateY: 0 }, { scale: 1 }],
-        zIndex: 0,
-        opacity: 1,
-      };
-    }
-    const target = nearestSlot(from * ROW_H + dragY.value, rowCountSv.value);
-    let shift = 0;
-    if (from < index && index <= target) shift = -ROW_H; // 드래그 행이 내려와 내 자리를 차지
-    else if (target <= index && index < from) shift = ROW_H; // 드래그 행이 올라와 내 자리를 차지
-    return {
-      transform: [{ translateY: withTiming(shift, { duration: 150 }) }, { scale: 1 }],
-      zIndex: 0,
-      opacity: 1,
-    };
-  });
-  return (
-    <Animated.View style={animatedStyle}>
-      <View style={styles.routeFieldRow}>
-        <GestureDetector gesture={pan}>
-          <View style={styles.routeFieldHandle} collapsable={false}>
-            <MaterialCommunityIcons
-              name="unfold-more-horizontal"
-              size={16}
-              color={colors.textSecondary}
-              style={dragDisabled ? styles.routeHandleDisabled : undefined}
-            />
-          </View>
-        </GestureDetector>
-        <Pressable onPress={onPress} style={styles.routeFieldMain}>
-          <MaterialCommunityIcons name={icon} size={15} color={colors.textSecondary} />
-          <Text
-            style={[
-              styles.routeFieldValue,
-              { color: value ? colors.text : colors.textSecondary },
-            ]}
-            numberOfLines={1}>
-            {value || placeholder}
-          </Text>
-        </Pressable>
-        {onRemove && (
-          <Pressable
-            onPress={onRemove}
-            hitSlop={8}
-            style={[styles.routeCircleButton, { borderColor: colors.border }]}>
-            <MaterialCommunityIcons name="minus" size={14} color={colors.textSecondary} />
-          </Pressable>
-        )}
-        {onAdd && (
-          <Pressable
-            onPress={onAdd}
-            hitSlop={8}
-            style={[styles.routeCircleButton, { borderColor: colors.border }]}>
-            <MaterialCommunityIcons name="plus" size={14} color={colors.textSecondary} />
-          </Pressable>
-        )}
-      </View>
-    </Animated.View>
-  );
-}
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -1269,33 +695,6 @@ const styles = StyleSheet.create({
   routeFields: {
     flex: 1,
   },
-  routeFieldRow: {
-    // 높이 고정 — 드래그 재정렬의 슬롯 계산(ROW_H)이 이 값에 기댄다
-    height: ROW_H,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  routeFieldMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    alignSelf: 'stretch',
-  },
-  routeFieldValue: {
-    flex: 1,
-    fontSize: 14.5,
-    fontWeight: '500',
-  },
-  routeFieldHandle: {
-    paddingRight: 8,
-    paddingLeft: 2,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-  },
-  routeHandleDisabled: {
-    opacity: 0.3,
-  },
   routeDivider: {
     height: StyleSheet.hairlineWidth,
     marginLeft: 26,
@@ -1314,16 +713,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  // 행 오른쪽 끝의 ⊖·⊕ — 같은 테두리 원형으로 시각 언어를 맞춘다
-  routeCircleButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 5,
   },
   routeActionButton: {
     width: 32,
