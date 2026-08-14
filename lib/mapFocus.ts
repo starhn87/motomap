@@ -68,6 +68,21 @@ export function focusPlaceOnMap(
   });
 }
 
+// 지도 탭으로 이동해 등록되지 않은 일반 장소를 연다 — 지도 딥링크의
+// kakao* 경로(useMapDeepLinks)가 좌표 포커스와 일반 장소 카드를 띄운다.
+// 라이딩 기록의 미등록 목적지처럼 이름·좌표만 남은 곳도 지도로 이어 준다.
+export function focusPointOnMap(point: { name: string; latitude: number; longitude: number }) {
+  router.navigate({
+    pathname: '/',
+    params: {
+      kakaoName: point.name,
+      kakaoLat: String(point.latitude),
+      kakaoLng: String(point.longitude),
+      focusTs: String(Date.now()),
+    },
+  });
+}
+
 // 지도 탭에서 내 위치 따라가기 모드를 켠다 — 안내가 끝나도 라이더는 계속
 // 이동 중이므로 종료 직후 지도가 위치를 따라오게 한다(실주행 피드백).
 export function followMyLocationOnMap() {

@@ -67,6 +67,9 @@ export interface MyRidePlace {
   /** 등록 장소면 id, 미등록 일반 장소면 null */
   placeId: string | null;
   name: string;
+  /** 미등록 장소의 기록 좌표 — 지도 포커스용 (등록 장소는 null, id 로 간다) */
+  latitude: number | null;
+  longitude: number | null;
   goals: number;
   vias: number;
   total: number;
@@ -81,7 +84,7 @@ export interface MyRidePlace {
 export async function fetchMyRides(): Promise<MyRidePlace[]> {
   const { data, error } = await supabase
     .from('place_rides')
-    .select('place_id, name, role, created_at, places(name)')
+    .select('place_id, name, latitude, longitude, role, created_at, places(name)')
     .order('created_at', { ascending: false })
     .limit(1000);
   if (error || !data) return [];
@@ -94,6 +97,8 @@ export async function fetchMyRides(): Promise<MyRidePlace[]> {
     const cur = byPlace.get(key) ?? {
       placeId: r.place_id ?? null,
       name,
+      latitude: r.latitude ?? null,
+      longitude: r.longitude ?? null,
       goals: 0,
       vias: 0,
       total: 0,

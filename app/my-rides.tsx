@@ -3,7 +3,7 @@ import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from '
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { focusPlaceOnMap } from '@/lib/mapFocus';
+import { focusPlaceOnMap, focusPointOnMap } from '@/lib/mapFocus';
 import { useMyRides } from '@/hooks/usePlaceRides';
 import EmptyState from '@/components/ui/EmptyState';
 import type { MyRidePlace } from '@/lib/api/rides';
@@ -44,17 +44,24 @@ export default function MyRidesScreen() {
   }
 
   const renderItem = ({ item }: { item: MyRidePlace }) => {
-    const registered = !!item.placeId;
     const detail = [
       item.goals > 0 ? `도착 ${item.goals}` : null,
       item.vias > 0 ? `경유 ${item.vias}` : null,
     ]
       .filter(Boolean)
       .join(' · ');
+    // 등록 장소는 그 장소로, 미등록 목적지도 기록된 좌표의 일반 장소 카드로 —
+    // 어느 행이든 탭하면 지도에서 그 자리를 보여준다
+    const openOnMap = () => {
+      if (item.placeId) {
+        focusPlaceOnMap(item.placeId, { source: 'my_rides' });
+      } else if (item.latitude != null && item.longitude != null) {
+        focusPointOnMap({ name: item.name, latitude: item.latitude, longitude: item.longitude });
+      }
+    };
     return (
       <Pressable
-        disabled={!registered}
-        onPress={() => focusPlaceOnMap(item.placeId!, { source: 'my_rides' })}
+        onPress={openOnMap}
         style={({ pressed }) => [
           styles.row,
           { backgroundColor: colors.surface, borderColor: colors.border },
@@ -69,10 +76,7 @@ export default function MyRidesScreen() {
           </Text>
         </View>
         <Text style={[styles.rowCount, { color: colors.text }]}>{item.total}회</Text>
-        {/* 등록 장소만 지도로 이어진다 — 미등록 일반 장소는 기록 당시 이름뿐 */}
-        {registered && (
-          <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-        )}
+        <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
       </Pressable>
     );
   };
