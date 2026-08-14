@@ -195,25 +195,28 @@ Sentry.wrap(
 
 | 테이블 | 출처 | 비고 |
 |---|---|---|
-| `places` | 원격(마이그레이션 외) | `location` PostGIS `POINT(lng lat)`, `places_category_check`(8종, 004 `gear_shop` · 011 `camping` 추가) |
-| `courses` | 원격 | `coordinates` jsonb |
-| `reviews` · `course_reviews` | 원격 | `profiles` 조인(닉네임·아바타) |
-| `favorites` | 원격 | (user_id, place_id) |
-| `profiles` | 원격 (+002) | `deleted_at` 소프트 삭제 플래그 |
-| `reports` | **001** | target_type·reason·status, (reporter,target) 유니크 |
-| `blocks` | **001** | (blocker, blocked) 유니크 + self-block 방지 |
-| `feedback` | 원격 | type(bug/feature/general) |
+| `places` | 운영 기준선 | `location` PostGIS `POINT(lng lat)`, `places_category_check` 9종 |
+| `courses` | 운영 기준선 | `coordinates` jsonb |
+| `reviews` · `course_reviews` | 운영 기준선 | `profiles` 조인(닉네임·아바타) |
+| `favorites` | 운영 기준선 | (user_id, place_id) |
+| `profiles` | 운영 기준선 | `deleted_at` 소프트 삭제 플래그 |
+| `reports` | 운영 기준선 (이력 001) | target_type·reason·status, (reporter,target) 유니크 |
+| `blocks` | 운영 기준선 (이력 001) | (blocker, blocked) 유니크 + self-block 방지 |
+| `feedback` | 운영 기준선 | type(bug/feature/general) |
 
 **RPC 함수:**
 - `nearby_places(lat, lng, radius_meters, category_filter)` — PostGIS 반경 + 카테고리 질의
 - `all_places(category_filter)` — 카테고리 질의(전체)
 - `delete_my_account()` (SECURITY DEFINER, 002) — 프로필 익명화 + `deleted_at` 설정
 
-> 📌 `places`/`courses`/`reviews`/`course_reviews`/`favorites`/`profiles`의 **CREATE는 마이그레이션 파일에 없다** — 원격 Supabase에서 직접 생성됐고, 위 컬럼은 `lib/api/*`에서 역추론한 것이다. 마이그레이션 001·002·004는 그 위에 reports/blocks·계정 탈퇴·gear_shop을 얹는다(003 `rides`는 주행 기능 제거로 현재 미사용).
+> 📌 원격에서 직접 생성됐던 초기 테이블까지 `20260814142438_remote_schema_baseline.sql`에 캡처했다. 새 로컬 환경은 이 파일 하나로 2026-08-14 운영 스키마를 재현하고, 이후 마이그레이션만 순서대로 적용한다.
 
 **RLS** — reports/blocks는 "본인 행만" 정책(select/insert/update/delete가 `auth.uid()` 기준).
 
-### 마이그레이션 요약 (`supabase/migrations/`)
+### 마이그레이션 요약
+
+활성 기준선은 `supabase/migrations/20260814142438_remote_schema_baseline.sql`이다.
+아래 파일은 기준선에 흡수된 과거 변경 이력으로, `supabase/migration_history/`에 보존하며 CLI는 실행하지 않는다.
 
 | 파일 | 내용 |
 |---|---|
