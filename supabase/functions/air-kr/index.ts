@@ -12,7 +12,7 @@
 // 필요한 secrets: DATA_GO_KR_KEY (공공데이터포털 인증키 — 에어코리아 2개 서비스 활용신청 필요)
 // 배포: JWT 검증 ON (앱이 anon 키로 호출 — weather-kr 과 동일)
 
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.111.0';
 
 const KEY = Deno.env.get('DATA_GO_KR_KEY');
 

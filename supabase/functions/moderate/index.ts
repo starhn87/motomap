@@ -42,7 +42,7 @@ function page(status: number, result: string, detail = ''): Response {
   });
 }
 
-async function sb(path: string, init?: RequestInit) {
+function sb(path: string, init?: RequestInit) {
   return fetch(`${SB_URL}/rest/v1/${path}`, {
     ...init,
     headers: {

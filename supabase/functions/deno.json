@@ -1,0 +1,14 @@
+{
+  "nodeModulesDir": "none",
+  "lock": {
+    "path": "./deno.lock"
+  },
+  "lint": {
+    "rules": {
+      "exclude": ["no-import-prefix"]
+    }
+  },
+  "tasks": {
+    "check": "deno lint . && deno check --frozen */index.ts"
+  }
+}

@@ -21,8 +21,8 @@ const PUBLIC_KEY = Deno.env.get('DISCORD_PUBLIC_KEY');
 const SB_URL = Deno.env.get('SUPABASE_URL');
 const SB_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-function hexToBytes(hex: string): Uint8Array {
-  const out = new Uint8Array(hex.length / 2);
+function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
+  const out = new Uint8Array(new ArrayBuffer(hex.length / 2));
   for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
   return out;
 }
@@ -50,7 +50,7 @@ async function verifySignature(req: Request, rawBody: string): Promise<boolean> 
   }
 }
 
-async function sb(path: string, init?: RequestInit) {
+function sb(path: string, init?: RequestInit) {
   return fetch(`${SB_URL}/rest/v1/${path}`, {
     ...init,
     headers: {

@@ -39,7 +39,11 @@ Deno.serve(async (req) => {
     return json({ error: 'JSON body 필요' }, 400);
   }
 
-  if (address.length < 2 || address.length > 150 || /[\u0000-\u001f\u007f]/.test(address)) {
+  const hasControlCharacter = [...address].some((char) => {
+    const code = char.charCodeAt(0);
+    return code <= 31 || code === 127;
+  });
+  if (address.length < 2 || address.length > 150 || hasControlCharacter) {
     return json({ error: '유효한 주소 필요' }, 400);
   }
 

@@ -8,6 +8,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "typecheck:functions": "npx --yes deno@2.9.5 task --config supabase/functions/deno.json check",
     "seed:bike-cafes": "node scripts/seed-bike-cafes.mjs",
     "sync:bikes": "node scripts/sync-bike-models.mjs",
     "postinstall": "patch-package"

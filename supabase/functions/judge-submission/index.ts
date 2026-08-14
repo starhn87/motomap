@@ -13,7 +13,7 @@
 //   DISCORD_BOT_TOKEN + DISCORD_CHANNEL_ID (봇 버튼 발송 — 없으면 웹훅 링크로 폴백)
 //   (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 는 자동 주입)
 // 배포 시 "Enforce JWT verification" 은 끈다 — 인증은 x-judge-secret 헤더로 한다.
-import Anthropic from 'npm:@anthropic-ai/sdk';
+import Anthropic from 'npm:@anthropic-ai/sdk@0.116.0';
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 
@@ -78,7 +78,17 @@ const SYSTEM = `너는 "모토맵"(한국 오토바이 라이더용 지도 앱)�
   가능하다는 근거(커뮤니티 후기, 이륜차 이용 정황, 제보 설명의 구체 경험)가 있으면
   승인 근거가 된다. 바이크 출입 금지가 확인되면 반려.`;
 
-async function kakaoLookup(name: string, address: string) {
+interface KakaoEvidence {
+  place_name: string;
+  category: string;
+  road_address: string;
+  address: string;
+  matches_submitted_address: boolean;
+  lat: number;
+  lng: number;
+}
+
+async function kakaoLookup(name: string, address: string): Promise<KakaoEvidence[] | null> {
   if (!KAKAO_KEY) return null;
   try {
     const res = await fetch(
@@ -164,7 +174,7 @@ async function webResearch(prompt: string): Promise<string> {
 }
 
 async function judge(table: string, record: Record<string, unknown>): Promise<{ v: Verdict; evidence: string }> {
-  let evidenceParts: string[] = [];
+  const evidenceParts: string[] = [];
   let submitted = '';
 
   if (table === 'places') {
@@ -180,7 +190,7 @@ async function judge(table: string, record: Record<string, unknown>): Promise<{ 
         : kakao.length === 0
           ? '미등록 (비상호 장소이거나 존재 불명)'
           // 좌표는 대조에만 쓰고 프롬프트에서는 뺀다
-          : JSON.stringify(kakao.map(({ lat, lng, ...rest }) => rest))),
+          : JSON.stringify(kakao.map(({ lat: _lat, lng: _lng, ...rest }) => rest))),
     );
 
     // 좌표는 카카오 첫 결과에서 빌린다 — places.location 은 PostGIS 라 REST 로 못 푼다
