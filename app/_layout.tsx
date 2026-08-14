@@ -1,6 +1,7 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { initializeKakaoSDK } from '@react-native-kakao/core';
 import { registerGuideEvents } from '@/lib/guideEvents';
+import { checkStoreUpdate } from '@/lib/updateCheck';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
@@ -63,6 +64,12 @@ function RootLayout() {
   // 길안내 전역 이벤트 — 안내 중에는 /navi 화면이 지도로 빠져 언마운트되므로
   // 종료(도착 리뷰 제안)·메뉴(위험 제보 등) 처리는 루트에서 상시 구독한다.
   useEffect(() => registerGuideEvents(), []);
+
+  // 스토어에 새 버전이 있으면 안내 — 첫 화면(지도) 로딩과 겹치지 않게 잠시 미룬다
+  useEffect(() => {
+    const t = setTimeout(() => void checkStoreUpdate(), 3000);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     initialize();
