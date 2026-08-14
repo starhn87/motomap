@@ -5,7 +5,6 @@ import {
   Text,
   Pressable,
   FlatList,
-  Alert,
   RefreshControl,
 } from 'react-native';
 import { Image as RNImage } from 'expo-image';
@@ -14,6 +13,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useBlockedUsers, useUnblockUser } from '@/hooks/useBlocks';
 import { toast } from '@/lib/toast';
+import { appAlert } from '@/lib/dialog';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import type { BlockedUser } from '@/lib/api/blocks';
 import EmptyState from '@/components/ui/EmptyState';
@@ -39,7 +39,7 @@ export default function BlockedUsersScreen() {
   const { mutateAsync: unblock } = useUnblockUser();
 
   const handleUnblock = (user: BlockedUser) => {
-    Alert.alert(
+    appAlert(
       '차단 해제',
       `${user.nickname}님의 차단을 해제하시겠습니까?`,
       [

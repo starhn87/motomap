@@ -1,6 +1,7 @@
-import { Alert } from 'react-native';
 import { create } from 'zustand';
 import { router } from 'expo-router';
+
+import { appAlert } from '@/lib/dialog';
 
 import { useMapStore } from '@/stores/useMapStore';
 import { fetchNearbyHazards, fetchHazardsNearCourse } from '@/lib/api/hazards';
@@ -84,7 +85,7 @@ async function confirmRouteWeather(
       ? warning.regions.join(', ')
       : `경로 위 ${warning.count}개 지점`;
   return new Promise((resolve) => {
-    Alert.alert(
+    appAlert(
       '경로 날씨 주의',
       `${where}에 ${warning.worstCondition} 소식이 있어요${popText}. 노면이 미끄러울 수 있으니 주의하세요. 그래도 출발할까요?`,
       [
@@ -151,7 +152,7 @@ async function confirmHazards(hazards: RoadHazard[]): Promise<boolean> {
   const summary = [...counts.entries()].map(([label, n]) => `${label} ${n}곳`).join(', ');
 
   return new Promise((resolve) => {
-    Alert.alert(
+    appAlert(
       '경로 주의 구간',
       `경로 주변에 ${summary}이 제보돼 있어요. 감속해서 지나가세요. 그래도 출발할까요?`,
       [

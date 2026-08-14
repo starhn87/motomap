@@ -11,7 +11,6 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 // eslint 참고: TypingDots 의 훅은 고정 3개 점에만 쓰여 순서가 안정적이다
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -30,6 +29,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
+import { appAlert } from '@/lib/dialog';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useMapStore } from '@/stores/useMapStore';
@@ -205,7 +205,7 @@ export default function ChatScreen() {
   };
 
   const handleNewChat = () => {
-    Alert.alert('새 대화', '지금까지의 대화를 지우고 새로 시작할까요?', [
+    appAlert('새 대화', '지금까지의 대화를 지우고 새로 시작할까요?', [
       { text: '취소', style: 'cancel' },
       { text: '새로 시작', style: 'destructive', onPress: clear },
     ]);

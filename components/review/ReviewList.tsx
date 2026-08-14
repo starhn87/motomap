@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Image as RNImage } from 'expo-image';
 import { TouchableOpacity } from 'react-native-gesture-handler';
@@ -21,6 +20,7 @@ import { useToggleReviewLike, useReviews, useUpdateReview, useDeleteReview } fro
 import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
 import { pickImages, uploadImage } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
+import { appAlert } from '@/lib/dialog';
 import ReportSheet from '@/components/report/ReportSheet';
 import ImageViewer from '@/components/ui/ImageViewer';
 import HighlightPulse from '@/components/ui/HighlightPulse';
@@ -84,7 +84,7 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
   }
 
   const handleBlock = (userId: string, userName: string) => {
-    Alert.alert(
+    appAlert(
       `${userName} 차단`,
       '이 사용자의 리뷰가 더 이상 표시되지 않습니다.',
       [
@@ -171,7 +171,7 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert('리뷰 삭제', '정말 삭제하시겠습니까?', [
+    appAlert('리뷰 삭제', '정말 삭제하시겠습니까?', [
       { text: '취소', style: 'cancel' },
       {
         text: '삭제',

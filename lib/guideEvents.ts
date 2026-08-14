@@ -1,6 +1,7 @@
-import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+
+import { appAlert } from '@/lib/dialog';
 import * as Location from 'expo-location';
 
 import KakaoNavi, { HAZARD_BUTTON_ID, MOTOMAP_MENU_ID, friendlyRouteError } from '@/modules/kakao-navi';
@@ -145,7 +146,7 @@ function recordArrival(goal: GuideGoal, viaPlaceIds: string[]) {
 // 도착 리뷰 제안 — 안내 화면 닫힘 애니메이션이 끝난 뒤 지도 위에서 띄운다
 function suggestReview(goal: GuideGoal) {
   setTimeout(() => {
-    Alert.alert(`${goal.name} 도착!`, '어떠셨나요? 리뷰를 남겨보세요.', [
+    appAlert(`${goal.name} 도착!`, '어떠셨나요? 리뷰를 남겨보세요.', [
       { text: '나중에', style: 'cancel' },
       {
         text: '리뷰 남기기',

@@ -32,21 +32,6 @@ export const posthog = enabled
     })
   : null;
 
-/**
- * 리플레이를 잠시 멈춘다.
- *
- * 네이티브 Alert 처럼 RN 뷰 계층 밖에 그려지는 것은 PostHogMaskView 로 가릴 수
- * 없다. 집·회사 이름을 띄우는 자리처럼 가릴 수 없는 구간은 녹화를 끊는다.
- */
-export function pauseReplay() {
-  void posthog?.stopSessionRecording();
-}
-
-export function resumeReplay() {
-  // 기존 세션을 이어서 재개한다 — 새 세션이 되면 리플레이가 조각난다
-  void posthog?.startSessionRecording(true);
-}
-
 // ── 이벤트 ────────────────────────────────────────────────────────────────
 
 /** 장소를 어느 경로로 만났는지 — 발견 경로별 주행 전환을 가르는 축 */

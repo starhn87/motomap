@@ -4,7 +4,6 @@ import {
   Text,
   Pressable,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 
@@ -18,6 +17,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useThemeStore } from '@/stores/useThemeStore';
 import { deleteAccount } from '@/lib/api/account';
 import { toast } from '@/lib/toast';
+import { appAlert } from '@/lib/dialog';
 
 type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -70,7 +70,7 @@ export default function SettingsScreen() {
   const { mode, setMode } = useThemeStore();
 
   const handleDeleteAccount = () => {
-    Alert.alert(
+    appAlert(
       '회원 탈퇴',
       '탈퇴 시 계정 정보가 익명 처리되며, 프로필 사진과 닉네임이 제거됩니다.\n\n작성하신 리뷰와 제보는 유지될 수 있습니다.',
       [
@@ -79,7 +79,7 @@ export default function SettingsScreen() {
           text: '탈퇴하기',
           style: 'destructive',
           onPress: () => {
-            Alert.alert(
+            appAlert(
               '정말 탈퇴하시겠습니까?',
               '이 작업은 되돌릴 수 없습니다.',
               [

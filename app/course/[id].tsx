@@ -7,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Keyboard,
 } from 'react-native';
 import { useState } from 'react';
@@ -32,6 +31,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { toast } from '@/lib/toast';
+import { appAlert } from '@/lib/dialog';
 import type { RoadHazard } from '@/types';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
 import StarRating from '@/components/review/StarRating';
@@ -465,7 +465,7 @@ export default function CourseDetailScreen() {
                                 <Text style={[styles.actionText, { color: colors.tint }]}>수정</Text>
                               </Pressable>
                               <Pressable onPress={() => {
-                                Alert.alert('리뷰 삭제', '정말 삭제하시겠습니까?', [
+                                appAlert('리뷰 삭제', '정말 삭제하시겠습니까?', [
                                   { text: '취소', style: 'cancel' },
                                   { text: '삭제', style: 'destructive', onPress: () => removeReview(review.id) },
                                 ]);
@@ -479,7 +479,7 @@ export default function CourseDetailScreen() {
                                 <Text style={[styles.actionText, { color: colors.textSecondary }]}>신고</Text>
                               </Pressable>
                               <Pressable onPress={() => {
-                                Alert.alert(
+                                appAlert(
                                   `${review.userName} 차단`,
                                   '이 사용자의 리뷰가 더 이상 표시되지 않습니다.',
                                   [

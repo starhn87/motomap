@@ -1,4 +1,4 @@
-import { View, Text, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Linking, ActivityIndicator } from 'react-native';
 import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 import { router } from 'expo-router';
 
@@ -10,13 +10,13 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { openNavigation, useNavLaunching } from '@/lib/navigation';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { toast } from '@/lib/toast';
+import { appAlert } from '@/lib/dialog';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
 import { useGasPricesAt } from '@/hooks/useGasStations';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
 import { poiSourceKey } from '@/lib/api/placeHours';
 import PlaceHoursBlock from '@/components/place/PlaceHoursBlock';
-import CallModal from '@/components/ui/CallModal';
 import { FUEL_LABELS, formatTradeAt, looksLikeGasStation } from '@/lib/api/gasStations';
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
 
@@ -39,8 +39,6 @@ interface Props {
 // 즐겨찾기는 된다(migration 032). 길안내와 제보 진입도 함께 제공한다.
 export default function TempPlaceSheet({ place, onClose }: Props) {
   const colorScheme = useColorScheme();
-  // 전화 확인 카드 — 시스템 Alert 의 가로 버튼이 비좁아 세로 카드로 연다
-  const [callOpen, setCallOpen] = useState(false);
   const colors = Colors[colorScheme ?? 'light'];
   const navLaunching = useNavLaunching((s) => s.launching);
   const myPlaces = useMyPlacesStore((s) => s.places);
@@ -104,7 +102,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   const handleSaveMyPlace = () => {
     if (savedSlot) {
       const isHome = savedSlot === 'home';
-      Alert.alert(isHome ? '집으로 저장된 장소' : '회사로 저장된 장소', place.name, [
+      appAlert(isHome ? '집으로 저장된 장소' : '회사로 저장된 장소', place.name, [
         { text: '취소', style: 'cancel' },
         {
           text: isHome ? '회사로 변경' : '집으로 변경',
@@ -125,7 +123,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
       ]);
       return;
     }
-    Alert.alert('내 장소로 저장', `${place.name}\n검색 화면에서 바로 길안내할 수 있어요.`, [
+    appAlert('내 장소로 저장', `${place.name}\n검색 화면에서 바로 길안내할 수 있어요.`, [
       { text: '취소', style: 'cancel' },
       {
         text: '집으로',
@@ -167,7 +165,6 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   };
 
   return (
-    <>
     <Animated.View
       entering={FadeInUp.duration(300)}
       exiting={FadeOutDown.duration(200)}
@@ -182,7 +179,10 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
           </Text>
         </View>
         {!!place.phone && (
-          <Pressable onPress={() => setCallOpen(true)} hitSlop={8} style={styles.saveButton}>
+          <Pressable
+            onPress={() => void Linking.openURL(`tel:${place.phone}`)}
+            hitSlop={8}
+            style={styles.saveButton}>
             <Ionicons name="call-outline" size={20} color={colors.textSecondary} />
           </Pressable>
         )}
@@ -290,10 +290,6 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         </Pressable>
       </View>
     </Animated.View>
-    {callOpen && !!place.phone && (
-      <CallModal name={place.name} phone={place.phone} onClose={() => setCallOpen(false)} />
-    )}
-    </>
   );
 }
 

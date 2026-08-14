@@ -19,6 +19,7 @@ import Toast from 'react-native-toast-message';
 
 import { queryClient } from '@/lib/queryClient';
 import { toastConfig } from '@/components/ui/toastConfig';
+import DialogHost from '@/components/ui/DialogHost';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useThemeStore } from '@/stores/useThemeStore';
@@ -175,6 +176,7 @@ function RootLayoutNav() {
         </ThemeProvider>
       </QueryClientProvider>
       <Toast config={toastConfig} topOffset={insets.top + 8} />
+      <DialogHost />
     </GestureHandlerRootView>
   );
 

@@ -6,7 +6,6 @@ import {
   Text,
   Pressable,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -28,8 +27,8 @@ import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { PostHogMaskView } from 'posthog-react-native';
 
 import { updateAvatarUrl } from '@/lib/nickname';
-import { pauseReplay, resumeReplay } from '@/lib/analytics';
 import { toast } from '@/lib/toast';
+import { appAlert } from '@/lib/dialog';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import ImageViewer from '@/components/ui/ImageViewer';
 import BikeIcon from '@/components/ui/BikeIcon';
@@ -118,27 +117,12 @@ function LoggedInContent() {
       setEditingSlot(slot);
       return;
     }
-    // 네이티브 Alert 은 RN 뷰 계층 밖이라 마스킹이 안 닿는다 — 이름이 뜨는
-    // 동안만 녹화를 끊고 어느 버튼으로 닫히든 다시 켠다.
-    pauseReplay();
-    Alert.alert(label, saved.name, [
-      {
-        text: '변경',
-        onPress: () => {
-          resumeReplay();
-          setEditingSlot(slot);
-        },
-      },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: () => {
-          resumeReplay();
-          void removeMyPlace(slot);
-        },
-      },
-      { text: '취소', style: 'cancel', onPress: resumeReplay },
-    ]);
+    // 집·회사 이름은 민감 정보 — 앱 다이얼로그라 리플레이 마스킹이 닿는다
+    appAlert(label, saved.name, [
+      { text: '변경', onPress: () => setEditingSlot(slot) },
+      { text: '삭제', style: 'destructive', onPress: () => void removeMyPlace(slot) },
+      { text: '취소', style: 'cancel' },
+    ], { maskMessage: true });
   };
 
   const handleSlotSelect = (point: Point, address?: string) => {
@@ -201,7 +185,7 @@ function LoggedInContent() {
   };
 
   const handleSignOut = () => {
-    Alert.alert('로그아웃', '정말 로그아웃하시겠습니까?', [
+    appAlert('로그아웃', '정말 로그아웃하시겠습니까?', [
       { text: '취소', style: 'cancel' },
       { text: '로그아웃', style: 'destructive', onPress: signOut },
     ]);
