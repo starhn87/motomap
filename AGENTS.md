@@ -1,0 +1,57 @@
+# 모토맵
+
+오토바이 라이더용 지도 앱 (Expo / React Native, iOS·Android). 지도에서 라이더 친화 장소(카페·정비소·용품점·주유소·뷰포인트 등)를 찾고 검색·코스·리뷰·즐겨찾기를 관리한다.
+
+## 핵심 명령
+
+```bash
+npm start                    # Expo 개발 서버 (라이브러리 교체 후엔 expo start -c 로 캐시 클리어)
+npx tsc --noEmit             # 타입체크 — lint/test 스크립트 없음. 편집 후 항상 실행 (exit 0 확인)
+node scripts/seed-*.mjs      # Supabase 시드 (스크립트가 .env 를 직접 로드)
+```
+
+### EAS 빌드 / 배포 — `.env` 주입 필수
+클라우드 빌드도 로컬 EAS CLI도 로컬 `.env`를 자동으로 안 읽는다. `app.config.js` 평가에서 `KAKAO_NATIVE_APP_KEY` 등이 비면 실패하므로 **항상 셸에 주입**한다:
+```bash
+set -a; . ./.env; set +a
+```
+- **OTA (JS만 변경 — 대부분의 작업)**:
+  `eas update --channel production --platform ios --message "..."`
+  - `--platform ios` **필수** — 기본(`all`)은 `web`(output static) 번들에서 `window is not defined`로 export 실패한다.
+  - runtime version이 빌드와 일치해야 적용됨 (app.config `version` ↔ `runtimeVersion: { policy: 'appVersion' }`).
+  - 사용자 적용: 앱 **완전 종료 → 재실행(다운로드) → 다시 재실행(적용)**. expo-updates는 cold start에 받아두고 다음 실행에 적용한다.
+- **새 빌드 (네이티브/플러그인/expo-updates 설정 변경 시만)**: `eas build -p ios --profile production`
+- **submit**: `eas submit -p ios --id <buildId> --profile production` (ASC API key는 EAS 서버에 등록돼 있어 `--non-interactive` 가능)
+- ⚠️ expo-updates 이전에 빌드된 바이너리는 OTA를 못 받는다(channel/runtime이 `None`). OTA를 받으려면 expo-updates 포함 빌드를 설치해야 함.
+
+## 아키텍처
+- **라우팅**: expo-router (`app/`). 탭은 `app/(tabs)/`, 그 외 `app/course`, `app/ride`, `app/legal`.
+- **상태**: 전역은 zustand (`stores/`), 서버 상태/캐싱은 react-query (`hooks/`).
+- **백엔드**: Supabase (`lib/supabase.ts`, `lib/api/*`). PostGIS — `places.location`은 `POINT(lng lat)`. 카테고리는 `places_category_check` 제약을 받는다(추가 시 마이그레이션 필요, `supabase/migrations/`).
+- **지도**: `@mj-studio/react-native-naver-map`.
+- **바텀시트**: `@gorhom/bottom-sheet` v5.
+- **애니메이션**: `react-native-reanimated` v4 + `react-native-gesture-handler`.
+- **OTA**: expo-updates (channel `production`, runtime `1.1.0`).
+- 동적 설정은 `app.config.js`(키는 `process.env`), 빌드 프로필/채널/submit은 `eas.json`.
+
+## 개발 원칙
+- **불필요한 추상화는 지양한다.** 때로는 코드 중복이 낫다 — 성급한 추상화보다, 패턴이 충분히 분명해진 뒤에 추상화한다.
+- **좋은 코드는 읽기 쉽고 유지보수하기 좋은 코드다.** 영리함보다 명료함을 택한다.
+- **백문이불여일견.** 추측하지 말고 직접 확인한다(실행·로그·테스트·코드 읽기). 말로 설명하기보다 동작하는 코드·결과로 보여준다.
+- **AI에게 외주를 맡기지 않는다.** 설계와 판단의 주도권, 최종 책임은 사람에게 있다. Codex는 선택지와 근거·트레이드오프를 제시하고, 결정과 검토는 사람의 몫이다.
+
+## 코드 스타일
+- 불필요한 `useMemo`/`useCallback` 지양 — 실측상 실효 있을 때만. 정적 값은 모듈 상수, 단순 핸들러는 일반 함수.
+- 주석은 한국어. 주변 코드의 밀도·네이밍·관용구에 맞춘다.
+
+## 주의점 (hard-won gotchas)
+- **@gorhom/bottom-sheet**: `BottomSheet`에 `animateOnMount={false}`를 둬야 첫 확장 시 마운트 레이아웃 계산 타이밍과 제스처가 안 엉킨다(빼면 마커 탭 직후 첫 확장이 비결정적으로 튕김). 콘텐츠 패닝 + 스크롤은 빠른 드래그에서 충돌 소지가 있는 라이브러리 한계.
+- **@mj-studio naver-map**: `NaverMapMarkerOverlay`는 children을 **정적 비트맵으로 한 번 캡처**한다 → 폰트 아이콘은 캡처 타이밍 때문에 안 보일 수 있으니 순수 `View`로 그린다. 그 캡처용 네이티브 뷰가 화면에 **고아로 남는 잔상 버그**가 있다(실기기: 좌표에 안 붙고 줌과 무관하게 떠다님, 화면 언마운트로도 안 사라짐) — 단순한 마커는 children 대신 **정적 이미지(`image={require(...)}`)**로 그린다. 마커 `onTap`은 불안정. `coordinateToScreen({latitude,longitude})`는 동작(DP 좌표). `onCameraChanged`의 `reason`은 `'Developer' | 'Gesture' | 'Control' | 'Location'` — 프로그램 이동(`animateCameraTo`='Developer')과 사용자 드래그('Gesture')를 구분할 때 쓴다. `animateCameraTo`의 `zoom`은 옵션. 지도 기본 심벌 탭(`onTapSymbol`)은 라이브러리 미노출이라 **patch-package로 자가 패치**(`patches/`) — 네이티브 3층(spec·iOS·Android) 수정이므로 새 빌드에만 반영되고, 라이브러리 업그레이드 시 패치 재검토 필요. JS는 `SYMBOL_TAP_NATIVE`(runtime ≥ 1.1.3)로 구빌드 폴백 분기. 마커는 정적 오버레이라 고빈도 크기 변경 애니메이션은 텍스처 재생성 폭주로 워치독 킬을 부른다(실증됨, 금지). 클러스터(집계) 마커 외형은 JS 미노출(width/height만) — 커스텀하려면 양 플랫폼 updater 패치가 필요하다(2026-07 시도 후 롤백, `8244bf9` 참고).
+- **naver-map 위치 표시**: 내 위치는 커스텀 `UserLocationMarker` 로 그린다 — **`setLocationTrackingMode` 금지**. 트래킹 모드를 켜면 SDK 자체 위치 오버레이(도트+삼각+halo)가 추가로 떠서 어긋난 위치에 유령 마커가 생긴다(1.2.1 실기기 영상으로 확정, 원인 추적에 수정 5회 소요). 따라가기는 카메라 추적(`animateCameraTo` + 위치 구독 + 제스처 해제)으로.
+- **reanimated**: `Animated.View`는 `pointerEvents="box-only"`를 무시한다(plain `View`에서만 적용됨).
+
+## 커밋
+변경은 최소 논리 단위로 준비하되, 커밋과 푸시는 각각 실행 직전에 반드시 사용자에게 허락을 받는다. main에 직접, 무관한 변경은 제외하고 영어 conventional commit을 사용한다. Codex 작업의 커밋 메시지는 끝에 `Co-authored-by: Codex <noreply@openai.com>`를 정확히 한 번 넣는다. Codex 작업에 Anthropic/Claude 이름이나 이메일을 절대 사용하지 않는다.
+
+## 검증
+편집 후 `npx tsc --noEmit`로 타입체크(exit 0). 전용 테스트 러너는 아직 없음.
