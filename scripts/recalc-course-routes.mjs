@@ -24,8 +24,8 @@ loadEnv();
 
 const URL = process.env.EXPO_PUBLIC_SUPABASE_URL.replace(/\/$/, '');
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const NAVER_ID = process.env.EXPO_PUBLIC_NAVER_CLIENT_ID;
-const NAVER_SECRET = process.env.EXPO_PUBLIC_NAVER_CLIENT_SECRET;
+const NAVER_ID = process.env.NAVER_CLOUD_CLIENT_ID;
+const NAVER_SECRET = process.env.NAVER_CLOUD_CLIENT_SECRET;
 const KAKAO_KEY = process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY;
 const DRY = process.argv.includes('--dry');
 

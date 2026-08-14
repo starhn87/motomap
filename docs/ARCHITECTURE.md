@@ -265,8 +265,8 @@ Sentry.wrap(
 |---|---|---|
 | 네이버 지도 SDK | `@mj-studio/react-native-naver-map`, app.config `NAVER_MAP_CLIENT_ID` | 지도 렌더·마커·경로선. `patches/`로 심벌 탭 노출(새 빌드에만 반영) |
 | 카카오모빌리티 길찾기 | `lib/api/directions.ts`, `EXPO_PUBLIC_KAKAO_REST_API_KEY` | 미리보기 경로선의 **혼잡도 색칠**(`car_type=7`, 다중 경유지 POST의 `traffic_state`). 경로 자체는 같은 엔진인 KNSDK 가 뽑고, REST 실패 시 단색 폴백. 일 10,000건 무료 |
-| 네이버 Directions | `scripts/recalc-course-routes.mjs` (`EXPO_PUBLIC_NAVER_CLIENT_ID/SECRET`) | 코스 경로 재계산 폴백(스크립트 전용 — 앱 코드에서는 제거) |
-| 네이버 Geocoding | `lib/geocode.ts` | 주소→좌표 (코스 제보 fallback) |
+| 네이버 Geocoding | `supabase/functions/naver-geocode` + `lib/geocode.ts` | 코스 제보의 수동 주소 입력 폴백. API secret은 Edge Function에만 두고 입력·호출량 제한 적용 |
+| 네이버 Directions | `scripts/recalc-course-routes.mjs` (`NAVER_CLOUD_CLIENT_ID/SECRET`) | 코스 경로 재계산 폴백(스크립트 전용 — 앱 코드에서는 제거) |
 | 카카오 로컬 검색 | `lib/api/kakaoLocal.ts` (`EXPO_PUBLIC_KAKAO_REST_API_KEY`) | 제보 주소 검색 (상호+주소→좌표) |
 | 앱 안 길안내 | `lib/navigation.ts` + `app/navi.tsx`(+`components/navi/`, `hooks/useBikeRoutes.ts`) + `modules/kakao-navi/` | KNSDK 이륜차 턴바이턴. 출발 전 날씨·노면 위험 확인 후 진입. 미리보기 지도·경로 확보(옵션 캐시·경유지 축소 사다리)는 분리된 컴포넌트·훅이 맡는다 |
 | Supabase Storage | `lib/uploadImage.ts` | 리뷰·제보 사진 (`ridemap-media` 버킷, base64 업로드) |

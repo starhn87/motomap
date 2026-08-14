@@ -5,8 +5,8 @@
 // 필요 환경변수 (.env):
 //   EXPO_PUBLIC_SUPABASE_URL
 //   SUPABASE_SERVICE_ROLE_KEY
-//   EXPO_PUBLIC_NAVER_CLIENT_ID
-//   EXPO_PUBLIC_NAVER_CLIENT_SECRET
+//   NAVER_CLOUD_CLIENT_ID
+//   NAVER_CLOUD_CLIENT_SECRET
 //   ADMIN_USER_ID                    (선택: submitted_by에 넣을 Supabase 유저 UUID)
 
 import { readFileSync } from 'node:fs';
@@ -32,14 +32,14 @@ loadEnv();
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const NAVER_ID = process.env.EXPO_PUBLIC_NAVER_CLIENT_ID;
-const NAVER_SECRET = process.env.EXPO_PUBLIC_NAVER_CLIENT_SECRET;
+const NAVER_ID = process.env.NAVER_CLOUD_CLIENT_ID;
+const NAVER_SECRET = process.env.NAVER_CLOUD_CLIENT_SECRET;
 const ADMIN_USER_ID = process.env.ADMIN_USER_ID || null;
 
 if (!SUPABASE_URL || !SERVICE_KEY || !NAVER_ID || !NAVER_SECRET) {
   console.error('[ERROR] 필수 환경변수 누락');
   console.error('  EXPO_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,');
-  console.error('  EXPO_PUBLIC_NAVER_CLIENT_ID, EXPO_PUBLIC_NAVER_CLIENT_SECRET');
+  console.error('  NAVER_CLOUD_CLIENT_ID, NAVER_CLOUD_CLIENT_SECRET');
   process.exit(1);
 }
 

@@ -23,8 +23,8 @@ for (const line of readFileSync(join(root, '.env'), 'utf8').split('\n')) {
 const VERIFY_ONLY = process.argv.includes('--verify');
 const BASE = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const NAVER_ID = process.env.EXPO_PUBLIC_NAVER_CLIENT_ID;
-const NAVER_SECRET = process.env.EXPO_PUBLIC_NAVER_CLIENT_SECRET;
+const NAVER_ID = process.env.NAVER_CLOUD_CLIENT_ID;
+const NAVER_SECRET = process.env.NAVER_CLOUD_CLIENT_SECRET;
 
 // 좌표는 [lng, lat]. 순환 코스는 시작 = 끝.
 const COURSES = [
