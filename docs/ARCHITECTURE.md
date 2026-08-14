@@ -277,7 +277,7 @@ Sentry.wrap(
 | 오피넷 유가 | `supabase/functions/gas-stations` + `lib/api/gasStations.ts`, `hooks/useGasStations.ts`·`useGasLayer.ts` | 주유소 필터 시 실시간 유가 레이어 — EF가 키 은닉·KATEC↔WGS84 변환·3분 캐시, 앱은 가격 마커(최저가 강조)+상세 카드. 주의: 오피넷 인증 파라미터는 `code=`(문서의 certkey 아님), 브랜드 필드는 aroundAll `POLL_DIV_CD`/detailById `POLL_DIV_CO`로 상이, 반경 최대 5km — 검색 커버리지는 뷰포트 적응(확대 시 화면 맞춤 반경 1콜, 축소 시 5km 원 최대 3×3 타일 병합·중복 제거) |
 | 기상청 날씨·특보 | `supabase/functions/weather-kr`·`weather-warnings` + `lib/api/weather.ts` | 시간대별 예보(단기+초단기 병합)와 "지금" 관측(초단기실황), 전국 특보 통보문 파싱(지역 매칭은 클라이언트 — 세부구역·제외 표기 대응). 네이버·아이폰과 같은 원천 |
 | 에어코리아 미세먼지 | `supabase/functions/air-kr` (+029 DB 캐시) | 최근접 측정소 PM10/PM2.5 실시간 등급 — 원 API가 10~26초라 DB 캐시 필수 |
-| 구글 Places 영업시간 | `supabase/functions/place-hours` + `hooks/usePlaceHours.ts` | 영업시간 폴백(등록 데이터 우선) — 캐시는 place_id 무기한·콘텐츠 30일(약관 상한, 034) |
+| 구글 Places 영업시간 | `supabase/functions/place-hours` + `hooks/usePlaceHours.ts` | 영업시간 폴백(등록 데이터 우선) — 캐시는 place_id 무기한·콘텐츠 30일(약관 상한, 034). 등록 장소는 DB 원본으로 검증하고 일반 POI 키는 좌표+상호에서 서버가 재생성하며, 5분/일일 호출 제한으로 Google 비용·캐시 오염 방어 |
 | AI 추천 챗 | `supabase/functions/moto-chat` + `app/chat.tsx` | 등록 장소·코스 안에서만 추천하는 대화형 도우미 — 위치·내 바이크 컨텍스트 반영. 본문·턴 길이 상한과 5분/일일 호출 제한으로 Anthropic 비용 공격 방어 (`RATE_LIMIT_SALT` secret 필요) |
 | Sentry | `app/_layout.tsx`, `metro.config.js` | 에러·세션 추적 |
 | moto-kr 데이터셋 | `constants/bikes.ts` ← `scripts/sync-bike-models.mjs` (`npm run sync:bikes`) | 기종 자동완성 목록의 단일 원본은 [moto-kr](https://github.com/starhn87/moto-kr) (KENCIS 인증 기반) — bikes.ts 는 생성 파일이므로 직접 수정 금지, 기종 변경은 moto-kr mapping 에 기여 후 동기화 |
