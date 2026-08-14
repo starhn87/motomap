@@ -177,24 +177,30 @@ export default function EditBikeScreen() {
       {/* 라이딩 기록 — 길안내로 실제 도착한 것만 쌓인다. 기종은 라이딩 시점 값이라
           바이크를 바꿔도 과거 기록은 그대로다 */}
       {myRides.rides > 0 && (
-        <View
-          style={[
+        <Pressable
+          onPress={() => router.push('/my-rides')}
+          style={({ pressed }) => [
             styles.ridesCard,
             { backgroundColor: colors.surface, borderColor: colors.border },
+            pressed && { opacity: 0.8 },
           ]}>
-          <Text style={[styles.ridesMain, { color: colors.text }]}>
-            🏍️ 지금까지 {myRides.places}곳 · {myRides.rides}번 라이딩
-          </Text>
-          {(() => {
-            const mine = myRides.bikes.find((b) => b.model === model.trim())?.rides ?? 0;
-            if (mine === 0) return null;
-            return (
-              <Text style={[styles.ridesSub, { color: colors.textSecondary }]}>
-                지금 등록한 기종으로 {mine}번
-              </Text>
-            );
-          })()}
-        </View>
+          <View style={styles.ridesBody}>
+            <Text style={[styles.ridesMain, { color: colors.text }]}>
+              🏍️ 지금까지 {myRides.places}곳 · {myRides.rides}번 라이딩
+            </Text>
+            {(() => {
+              const mine = myRides.bikes.find((b) => b.model === model.trim())?.rides ?? 0;
+              if (mine === 0) return null;
+              return (
+                <Text style={[styles.ridesSub, { color: colors.textSecondary }]}>
+                  지금 등록한 기종으로 {mine}번
+                </Text>
+              );
+            })()}
+          </View>
+          {/* 어디를 몇 번 갔는지는 라이딩 기록 화면에서 — 탭 어포던스 */}
+          <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+        </Pressable>
       )}
 
       <Text style={[styles.hint, { color: colors.textSecondary }]}>
@@ -270,11 +276,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   ridesCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginTop: 4,
+  },
+  ridesBody: {
+    flex: 1,
     gap: 4,
   },
   ridesMain: {

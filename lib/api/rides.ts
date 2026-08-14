@@ -62,6 +62,55 @@ export interface MyRideStats {
 
 export const EMPTY_MY_RIDE_STATS: MyRideStats = { rides: 0, places: 0, bikes: [] };
 
+/** 장소별 내 라이딩 — 라이딩 기록 화면의 한 행 */
+export interface MyRidePlace {
+  /** 등록 장소면 id, 미등록 일반 장소면 null */
+  placeId: string | null;
+  name: string;
+  goals: number;
+  vias: number;
+  total: number;
+  /** 마지막으로 간 날 (ISO) */
+  lastAt: string;
+}
+
+/**
+ * 어디를 몇 번 갔는지 — 내 원시 기록(RLS 로 본인 행만)을 장소별로 묶는다.
+ * 등록 장소명은 조인으로 현재 이름을, 미등록 장소는 기록 당시 이름을 쓴다.
+ */
+export async function fetchMyRides(): Promise<MyRidePlace[]> {
+  const { data, error } = await supabase
+    .from('place_rides')
+    .select('place_id, name, role, created_at, places(name)')
+    .order('created_at', { ascending: false })
+    .limit(1000);
+  if (error || !data) return [];
+  const byPlace = new Map<string, MyRidePlace>();
+  for (const r of data as any[]) {
+    const name = r.places?.name ?? r.name ?? '이름 없는 장소';
+    // 미등록 장소는 이름으로 묶는다 — 같은 곳을 여러 번 가면 좌표가 미세하게
+    // 달라도 이름은 같다(내 기록이라 진입 경로가 하나뿐인 것도 한몫)
+    const key = r.place_id ?? `pt:${name}`;
+    const cur = byPlace.get(key) ?? {
+      placeId: r.place_id ?? null,
+      name,
+      goals: 0,
+      vias: 0,
+      total: 0,
+      lastAt: r.created_at,
+    };
+    cur.total += 1;
+    if (r.role === 'via') cur.vias += 1;
+    else cur.goals += 1;
+    byPlace.set(key, cur);
+  }
+  // 많이 간 곳 먼저, 동률이면 최근에 간 곳 먼저 (조회가 created_at 내림차순이라
+  // lastAt 은 처음 만든 행의 값이 곧 최신이다)
+  return [...byPlace.values()].sort(
+    (a, b) => b.total - a.total || b.lastAt.localeCompare(a.lastAt),
+  );
+}
+
 /** 내 라이딩 통계 — 내 바이크 화면의 기록 카드 */
 export async function fetchMyRideStats(): Promise<MyRideStats> {
   const { data, error } = await supabase.rpc('my_ride_stats');

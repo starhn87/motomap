@@ -3,10 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import {
   fetchPlaceRideSummary,
   fetchMyRideStats,
+  fetchMyRides,
   EMPTY_RIDE_SUMMARY,
   EMPTY_MY_RIDE_STATS,
   type PlaceRideSummary,
   type MyRideStats,
+  type MyRidePlace,
 } from '@/lib/api/rides';
 import { useAuthStore } from '@/stores/useAuthStore';
 
@@ -31,4 +33,15 @@ export function useMyRideStats(): MyRideStats {
     staleTime: 5 * 60 * 1000,
   });
   return data ?? EMPTY_MY_RIDE_STATS;
+}
+
+/** 어디를 몇 번 갔는지 — 라이딩 기록 화면의 장소별 목록 */
+export function useMyRides() {
+  const user = useAuthStore((s) => s.user);
+  return useQuery<MyRidePlace[]>({
+    queryKey: ['my-rides', user?.id],
+    queryFn: fetchMyRides,
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
 }

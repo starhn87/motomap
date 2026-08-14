@@ -44,7 +44,8 @@ export type PlaceSource =
   | 'notification'
   | 'course'
   | 'submission'
-  | 'route_preview';
+  | 'route_preview'
+  | 'my_rides';
 
 export type SearchSource = 'map_bar' | 'search_screen' | 'point_modal';
 

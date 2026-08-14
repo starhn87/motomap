@@ -161,6 +161,7 @@ function RootLayoutNav() {
             <Stack.Screen name="settings" options={{ title: '설정' }} />
             <Stack.Screen name="edit-nickname" options={{ title: '닉네임 변경' }} />
             <Stack.Screen name="edit-bike" options={{ title: '내 바이크' }} />
+            <Stack.Screen name="my-rides" options={{ title: '라이딩 기록' }} />
             <Stack.Screen name="favorites" options={{ title: '즐겨찾기' }} />
             <Stack.Screen name="my-submissions" options={{ title: '내 제보 목록' }} />
             <Stack.Screen name="my-reviews" options={{ title: '내 리뷰' }} />
