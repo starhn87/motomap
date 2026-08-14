@@ -31,6 +31,11 @@ import { toast } from '@/lib/toast';
 import { useGuideSession } from '@/lib/guideSession';
 import { markGuideStarted } from '@/lib/guideEvents';
 import { track } from '@/lib/analytics';
+import {
+  parseNaviParams,
+  type NaviRouteParams,
+  type ParsedNaviParams,
+} from '@/lib/naviParams';
 
 // 길찾기 경유지 상한 — 직접 고르는 지점이라 코스 샘플링(20개)과 별개다
 const MAX_USER_VIAS = 3;
@@ -48,6 +53,21 @@ type EditingField = 'start' | 'goal' | number;
 // 코스 안내가 아니면 상단 카드에서 출발지·경유지·도착지를 바로 바꿀 수 있다
 // (코스 경유지는 지오메트리 좌표 수십 개라 편집 대상이 아니다).
 export default function NaviScreen() {
+  const params = useLocalSearchParams<NaviRouteParams>();
+  const initial = parseNaviParams(params);
+  return initial ? <NaviContent initial={initial} /> : <InvalidNaviParams />;
+}
+
+function InvalidNaviParams() {
+  const router = useRouter();
+  useEffect(() => {
+    toast.error('길안내 정보를 확인할 수 없습니다');
+    router.replace('/');
+  }, [router]);
+  return null;
+}
+
+function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   const router = useRouter();
   const navigation = useNavigation();
   const startGuideSession = useGuideSession((st) => st.start);
@@ -55,40 +75,18 @@ export default function NaviScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { lng, lat, name, vias, uvias, slng, slat, sname, pid, cid } = useLocalSearchParams<{
-    lng: string;
-    lat: string;
-    name?: string;
-    /** JSON "[lng,lat,...]" — 코스 안내의 경유지 */
-    vias?: string;
-    /** JSON NavTarget[] — 길찾기 페이지에서 미리 고른 경유지(편집 가능) */
-    uvias?: string;
-    /** 출발지 지정(길찾기) — 없으면 현재 위치에서 출발 */
-    slng?: string;
-    slat?: string;
-    sname?: string;
-    /** 도착 후 리뷰 연결 — 등록 장소 id / 코스 id */
-    pid?: string;
-    cid?: string;
-  }>();
+  const { courseVias, courseId } = initial;
 
   // 도착지 — 파라미터는 초기값일 뿐, 상단 카드에서 바꿀 수 있다.
   // 바꾸면 placeId(도착 후 리뷰 연결)는 원래 장소 것이라 함께 버린다.
-  const [goal, setGoal] = useState<NavTarget>({
-    name: name ?? '목적지',
-    latitude: Number(lat),
-    longitude: Number(lng),
-    placeId: pid,
-  });
-  const [start, setStart] = useState<[number, number] | null>(
-    slng && slat ? [Number(slng), Number(slat)] : null,
-  ); // [lng, lat]
+  const [goal, setGoal] = useState<NavTarget>(initial.goal);
+  const [start, setStart] = useState<[number, number] | null>(initial.start); // [lng, lat]
   // 지정 출발지의 이름 — null 이면 현재 위치 출발
-  const [startName, setStartName] = useState<string | null>(sname ?? null);
+  const [startName, setStartName] = useState<string | null>(initial.startName);
   // 길찾기 경유지(편집 가능) — 코스 경유지(vias 파라미터)와 별개.
   // null 은 + 로 만든 빈 줄: 탭해서 채우기 전까지 경로에는 안 들어간다.
   const [userVias, setUserVias] = useState<(NavTarget | null)[]>(
-    uvias ? JSON.parse(uvias) : [],
+    initial.userVias,
   );
   const [editing, setEditing] = useState<EditingField | null>(null);
   // 지점 검색 모달의 최근 검색 제안 — 검색·길찾기 화면과 같은 저장소를 공유한다
@@ -104,8 +102,7 @@ export default function NaviScreen() {
   // 시작 계측 속성 — 탭 시점에 담아 두고 onGuideStarted 리스너가 찍는다
   const startTrackRef = useRef<Parameters<typeof track.navigationStarted>[0] | null>(null);
 
-  const courseVias: number[] = vias ? JSON.parse(vias) : [];
-  const isCourseMode = !!cid || courseVias.length > 0;
+  const isCourseMode = !!courseId || courseVias.length > 0;
 
   // 지점 → 경로: 옵션별 캐시·경유지 축소 사다리·코스 폴백은 훅이 맡는다
   const {
@@ -290,7 +287,7 @@ export default function NaviScreen() {
           longitude: goal.longitude,
           name: goal.name,
           placeId: goal.placeId,
-          courseId: cid,
+          courseId,
         },
         priority,
         // 등록 장소 경유지 — 도착하면 경유지에도 라이딩 1회를 센다
@@ -309,7 +306,7 @@ export default function NaviScreen() {
       started.remove();
       failed.remove();
     };
-  }, [router, navigation, cid, goal, priority, userVias]);
+  }, [router, navigation, courseId, goal, priority, userVias]);
 
   // 정한 출발지가 지금 있는 곳에서 멀면 실주행 안내가 아니라 경로 미리보기다.
   // 실주행 안내(KNGuidance)는 차량 위치를 늘 실제 GPS 에 매칭해서, 멀리 잡은
