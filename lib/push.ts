@@ -29,6 +29,14 @@ function routeFromNotification(data: Record<string, unknown> | undefined) {
       });
     } else if (data.type === 'course_approved' && typeof data.courseId === 'string') {
       router.push(`/course/${data.courseId}`);
+    } else if (data.type === 'notice') {
+      // 공지는 운영자가 data.url을 넣었으면 해당 앱 화면으로, 없으면 본문을
+      // 확인할 수 있는 알림 목록으로 보낸다.
+      router.push(
+        typeof data.url === 'string' && /^\/(?!\/)/.test(data.url)
+          ? (data.url as never)
+          : '/notifications',
+      );
     } else if (
       data.type === 'place_rejected' ||
       data.type === 'course_rejected' ||
