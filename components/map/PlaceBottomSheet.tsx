@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { View, Text, StyleSheet, Share, ActivityIndicator, Linking, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Share, ActivityIndicator, Pressable } from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TouchableOpacity } from 'react-native-gesture-handler';
+import CallModal from '@/components/ui/CallModal';
 import Feather from '@expo/vector-icons/Feather';
 import BottomSheet, {
   BottomSheetScrollView,
@@ -195,6 +196,8 @@ function PlaceBottomSheet({
   // 손가락 떼는 동작이 헤더 버튼(✕/뒤로) 탭으로 처리돼 시트가 닫히는 문제가 있었다.
   // 헤더가 나타난 뒤 잠깐 동안 터치를 비활성화해 우발적 탭을 막는다.
   const [headerReady, setHeaderReady] = useState(false);
+  // 전화 확인 카드 — 시스템 Alert 의 가로 버튼이 비좁아 세로 카드로 연다
+  const [callOpen, setCallOpen] = useState(false);
   useEffect(() => {
     if (!isExpanded) {
       setHeaderReady(false);
@@ -343,7 +346,7 @@ function PlaceBottomSheet({
       icon: <Ionicons name="call-outline" size={16} color={colors.textSecondary} />,
       label: '전화',
       value: displayPlace.phone,
-      onPress: () => Linking.openURL(`tel:${displayPlace.phone}`).catch(() => {}),
+      onPress: () => setCallOpen(true),
     },
   ].filter(Boolean) as Array<{
     icon: React.ReactNode;
@@ -614,6 +617,14 @@ function PlaceBottomSheet({
           </View>
         </BottomSheetScrollView>
       </BottomSheet>
+
+      {callOpen && !!displayPlace.phone && (
+        <CallModal
+          name={displayPlace.name}
+          phone={displayPlace.phone}
+          onClose={() => setCallOpen(false)}
+        />
+      )}
 
       {/* 헤더 바: 바텀시트와 별개의 레이어. 확장(페이지) 시에만 화면 상단에 고정 표시 */}
       {isExpanded && (
