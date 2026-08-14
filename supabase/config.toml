@@ -371,6 +371,16 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# 외부 서비스·서명 링크가 직접 호출하며, 각 함수가 자체 서명을 검증한다.
+[functions.discord-interactions]
+verify_jwt = false
+
+[functions.judge-submission]
+verify_jwt = false
+
+[functions.moderate]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
