@@ -143,7 +143,7 @@ npm run android
 | `EXPO_PUBLIC_POSTHOG_HOST` | PostHog 호스트 (기본 `https://us.i.posthog.com`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | 시드 스크립트 전용 (선택) |
 
-> 로컬 EAS 명령(`eas build`/`submit`)은 `.env`를 자동 로드하지 않으므로, 클라우드 빌드용 키는 EAS 환경 변수에 등록되어 있습니다 (`eas env:list --environment production`). 날씨와 유가, AI 키는 앱이 아닌 Supabase Edge Function secrets에 있습니다.
+> 로컬 EAS 명령(`eas build`/`submit`)은 `.env`를 자동 로드하지 않으므로, 클라우드 빌드용 키는 EAS 환경 변수에 등록되어 있습니다 (`eas env:list --environment production`). 날씨와 유가, AI 키는 앱이 아닌 Supabase Edge Function secrets에 있습니다. 유료 API 호출 제한의 요청자 키 HMAC에는 별도 `RATE_LIMIT_SALT` secret을 사용합니다.
 
 ## 📦 빌드 & 배포 (EAS)
 

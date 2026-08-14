@@ -255,6 +255,7 @@ Sentry.wrap(
 | `036_place_ride_bikes.sql` | `place_rides.bike_model`(라이딩 시점 기종 스냅샷 + 백필) + `place_ride_summary`/`my_ride_stats` RPC. 원시 행 select 는 본인 것만으로 축소 — user_id·장소·시각이 전부 공개면 특정인의 이동 이력이 된다. 공개 집계는 SECURITY DEFINER 함수가 담당 |
 | `037_unregistered_ride_spots.sql` | `place_rides.place_id` nullable + 이름·좌표 — 미등록 목적지 도착 기록. 앱 표시는 없고 주간 다이제스트의 시드 발굴 신호(1km 격자 집계 RPC)로만 쓴다 |
 | `038_broadcast_notice.sql` | `broadcast_notice(title, body, data)` — 전체 가입자 공지(알림 행 + 푸시, Expo 100건 청크). execute 를 운영자(SQL Editor)로만 제한, 클라이언트 키로는 호출 불가. `data.url` 이면 알림 탭 시 앱 내 딥링크 |
+| `20260814133044_edge_rate_limits.sql` | 외부 유료 API용 원자적 고정 윈도우 호출 제한. 요청자 식별자는 `RATE_LIMIT_SALT`로 HMAC 처리해 원문 IP·user_id를 저장하지 않고, 테이블·RPC는 `service_role`만 접근 |
 
 ---
 
@@ -277,7 +278,7 @@ Sentry.wrap(
 | 기상청 날씨·특보 | `supabase/functions/weather-kr`·`weather-warnings` + `lib/api/weather.ts` | 시간대별 예보(단기+초단기 병합)와 "지금" 관측(초단기실황), 전국 특보 통보문 파싱(지역 매칭은 클라이언트 — 세부구역·제외 표기 대응). 네이버·아이폰과 같은 원천 |
 | 에어코리아 미세먼지 | `supabase/functions/air-kr` (+029 DB 캐시) | 최근접 측정소 PM10/PM2.5 실시간 등급 — 원 API가 10~26초라 DB 캐시 필수 |
 | 구글 Places 영업시간 | `supabase/functions/place-hours` + `hooks/usePlaceHours.ts` | 영업시간 폴백(등록 데이터 우선) — 캐시는 place_id 무기한·콘텐츠 30일(약관 상한, 034) |
-| AI 추천 챗 | `supabase/functions/moto-chat` + `app/chat.tsx` | 등록 장소·코스 안에서만 추천하는 대화형 도우미 — 위치·내 바이크 컨텍스트 반영 |
+| AI 추천 챗 | `supabase/functions/moto-chat` + `app/chat.tsx` | 등록 장소·코스 안에서만 추천하는 대화형 도우미 — 위치·내 바이크 컨텍스트 반영. 본문·턴 길이 상한과 5분/일일 호출 제한으로 Anthropic 비용 공격 방어 (`RATE_LIMIT_SALT` secret 필요) |
 | Sentry | `app/_layout.tsx`, `metro.config.js` | 에러·세션 추적 |
 | moto-kr 데이터셋 | `constants/bikes.ts` ← `scripts/sync-bike-models.mjs` (`npm run sync:bikes`) | 기종 자동완성 목록의 단일 원본은 [moto-kr](https://github.com/starhn87/moto-kr) (KENCIS 인증 기반) — bikes.ts 는 생성 파일이므로 직접 수정 금지, 기종 변경은 moto-kr mapping 에 기여 후 동기화 |
 

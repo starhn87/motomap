@@ -34,7 +34,12 @@ export async function sendChat(
   bike?: string | null,
 ): Promise<ChatResponse> {
   const { data, error } = await supabase.functions.invoke('moto-chat', {
-    body: { messages, location: location ?? undefined, bike: bike ?? undefined },
+    // 서버도 다시 검증하지만, 오래 대화해도 불필요한 이전 턴을 전송하지 않는다.
+    body: {
+      messages: messages.slice(-10),
+      location: location ?? undefined,
+      bike: bike ?? undefined,
+    },
   });
   if (error) throw new Error(`추천을 불러오지 못했습니다: ${error.message}`);
   if (data?.error) throw new Error(data.error);

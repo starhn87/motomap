@@ -397,6 +397,7 @@ export default function ChatScreen() {
             placeholderTextColor={colors.textSecondary}
             value={input}
             onChangeText={setInput}
+            maxLength={1000}
             onSubmitEditing={() => send(input)}
             returnKeyType="send"
             editable={!sending}

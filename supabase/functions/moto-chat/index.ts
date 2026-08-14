@@ -9,15 +9,22 @@
 // - 구조화 출력(tool 강제)으로 placeId/courseId 를 받아 실존 항목만 카드로 반환 —
 //   목록에 없는 id 는 버려져 환각이 사용자에게 닿지 않는다.
 //
-// secrets: ANTHROPIC_API_KEY (judge-submission 과 공유), SUPABASE_URL/SERVICE_ROLE_KEY(자동)
+// secrets: ANTHROPIC_API_KEY (judge-submission 과 공유), RATE_LIMIT_SALT,
+//          SUPABASE_URL/ANON_KEY/SERVICE_ROLE_KEY(자동)
 
 import Anthropic from 'npm:@anthropic-ai/sdk@0.39.0';
+import { enforceRateLimits } from '../_shared/rateLimit.ts';
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') ?? '' });
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
 const MODEL = 'claude-haiku-4-5-20251001';
+const MAX_BODY_BYTES = 32_000;
+const MAX_TURNS = 10;
+const MAX_USER_CHARS = 1_000;
+const MAX_TURN_CHARS = 2_000;
+const MAX_HISTORY_CHARS = 12_000;
 
 interface PlaceRow {
   id: string;
@@ -162,21 +169,51 @@ function json(body: unknown, status = 200): Response {
 }
 
 Deno.serve(async (req) => {
+  if (req.method !== 'POST') return json({ error: 'POST 요청만 지원합니다.' }, 405);
+
+  try {
+    // 짧은 폭주와 장기 비용 공격을 각각 막는다. 로그인 여부와 무관하게 적용된다.
+    const limited = await enforceRateLimits(req, [
+      { scope: 'moto-chat-burst', limit: 15, windowSeconds: 5 * 60 },
+      { scope: 'moto-chat-daily', limit: 100, windowSeconds: 24 * 60 * 60 },
+    ]);
+    if (limited) return limited;
+  } catch (e) {
+    console.error('moto-chat rate limit error', e);
+    return json({ error: '추천 서비스를 준비하지 못했습니다.' }, 503);
+  }
+
   let body: {
     messages?: { role: 'user' | 'assistant'; content: string }[];
     location?: { latitude: number; longitude: number };
+    bike?: string;
   };
   try {
-    body = await req.json();
+    const raw = await req.text();
+    if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) {
+      return json({ error: '대화 내용이 너무 깁니다.' }, 413);
+    }
+    body = JSON.parse(raw);
   } catch {
     return json({ error: 'JSON body 필요' }, 400);
   }
 
-  const messages = (body.messages ?? []).filter(
-    (m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string',
+  const sourceMessages = Array.isArray(body.messages) ? body.messages : [];
+  const messages = sourceMessages.slice(-MAX_TURNS).filter(
+    (m) =>
+      (m.role === 'user' || m.role === 'assistant') &&
+      typeof m.content === 'string' &&
+      m.content.trim().length > 0,
   );
   if (!messages.length || messages[messages.length - 1].role !== 'user') {
     return json({ error: 'user 메시지로 끝나는 messages 필요' }, 400);
+  }
+  if (
+    messages.some((m) => m.content.length > MAX_TURN_CHARS) ||
+    messages[messages.length - 1].content.length > MAX_USER_CHARS ||
+    messages.reduce((sum, m) => sum + m.content.length, 0) > MAX_HISTORY_CHARS
+  ) {
+    return json({ error: '대화 내용이 너무 깁니다.' }, 413);
   }
 
   try {
@@ -222,7 +259,7 @@ ${datasetText}`;
         { type: 'text', text: fixedBlock, cache_control: { type: 'ephemeral' } },
         { type: 'text', text: variableBlock },
       ],
-      messages: messages.slice(-10),
+      messages,
       tools: [RECOMMEND_TOOL],
       tool_choice: { type: 'tool', name: 'recommend' },
     });
