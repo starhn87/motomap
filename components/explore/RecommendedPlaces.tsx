@@ -36,7 +36,7 @@ function PlaceCard({ place, isNew }: { place: Place; isNew?: boolean }) {
         <View style={styles.headerRight}>
           {isNew && (
             <View style={styles.newBadge}>
-              <Text style={styles.newText}>NEW</Text>
+              <Text style={styles.newText}>신규</Text>
             </View>
           )}
           {place.rating > 0 && (

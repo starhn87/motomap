@@ -494,7 +494,7 @@ export default function EditBikeScreen() {
         <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <BikeIcon size={54} color={colors.tint} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>첫 바이크를 차고에 들여보세요</Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>기종과 애칭을 등록하면 리뷰와 라이딩 기록에 내 정체성이 남아요.</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>기종과 애칭을 등록하면 리뷰와 주행 기록에 내 정체성이 남아요.</Text>
           <Pressable onPress={openNew} style={[styles.emptyButton, { backgroundColor: colors.tint }]}>
             <Text style={[styles.emptyButtonText, { color: colors.background }]}>내 바이크 등록</Text>
           </Pressable>
@@ -523,8 +523,8 @@ export default function EditBikeScreen() {
             pressed && { opacity: 0.75 },
           ]}>
           <View>
-            <Text style={[styles.passportLabel, { color: colors.textSecondary }]}>라이딩 패스포트</Text>
-            <Text style={[styles.passportValue, { color: colors.text }]}>{rideStats.places}곳 · {rideStats.rides}번 라이딩</Text>
+            <Text style={[styles.passportLabel, { color: colors.textSecondary }]}>나의 주행 기록</Text>
+            <Text style={[styles.passportValue, { color: colors.text }]}>{rideStats.places}곳 · {rideStats.rides}번 주행</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
         </Pressable>

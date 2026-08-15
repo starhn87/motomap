@@ -47,9 +47,9 @@ export default function MyBikeHero() {
           <BikeIcon size={36} color={colors.tint} />
         </View>
         <View style={styles.emptyBody}>
-          <Text style={[styles.eyebrow, { color: colors.tint }]}>MY BIKE</Text>
+          <Text style={[styles.eyebrow, { color: colors.tint }]}>내 바이크</Text>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>내 라이더 프로필을 완성해보세요</Text>
-          <Text style={[styles.description, { color: colors.textSecondary }]}>기종을 등록하면 리뷰와 라이딩 기록에 내 바이크의 이야기가 쌓여요.</Text>
+          <Text style={[styles.description, { color: colors.textSecondary }]}>기종을 등록하면 리뷰와 주행 기록에 내 바이크의 이야기가 쌓여요.</Text>
         </View>
         <Pressable
           onPress={() => router.push('/edit-bike')}
@@ -83,7 +83,7 @@ export default function MyBikeHero() {
           )}
         </View>
         <View style={styles.titleBody}>
-          <Text style={[styles.eyebrow, { color: colors.tint }]}>MY GARAGE{garage?.length ? ` · ${garage.length}` : ''}</Text>
+          <Text style={[styles.eyebrow, { color: colors.tint }]}>내 차고{garage?.length ? ` · ${garage.length}` : ''}</Text>
           <Text style={[styles.model, { color: colors.text }]} numberOfLines={2}>
             {activeBike?.nickname || displayModel}
           </Text>
@@ -117,13 +117,13 @@ export default function MyBikeHero() {
         }}
         style={({ pressed }) => [styles.passportRow, pressed && { opacity: 0.65 }]}>
         <View>
-          <Text style={[styles.passportLabel, { color: colors.textSecondary }]}>라이딩 패스포트</Text>
+          <Text style={[styles.passportLabel, { color: colors.textSecondary }]}>나의 주행 기록</Text>
           {rides.rides > 0 ? (
             <Text style={[styles.passportValue, { color: colors.text }]}>
-              {rides.places}곳 · {rides.rides}번 라이딩
+              {rides.places}곳 · {rides.rides}번 주행
             </Text>
           ) : (
-            <Text style={[styles.passportValue, { color: colors.text }]}>첫 라이딩을 기다리고 있어요</Text>
+            <Text style={[styles.passportValue, { color: colors.text }]}>첫 주행을 기다리고 있어요</Text>
           )}
         </View>
         {rides.rides > 0 && <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />}

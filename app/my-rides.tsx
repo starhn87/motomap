@@ -79,7 +79,7 @@ export default function MyRidesScreen() {
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <EmptyState
           icon={<Text style={styles.emptyEmoji}>🏍️</Text>}
-          title="아직 라이딩 기록이 없습니다"
+          title="아직 주행 기록이 없습니다"
           hint="길안내로 도착하면 자동으로 기록돼요."
         />
       </View>
@@ -95,7 +95,7 @@ export default function MyRidesScreen() {
   const milestones = getCategoryMilestones(visibleRides);
 
   const sharePassport = async () => {
-    const subject = selectedBike ? `${selectedBike} 라이딩 패스포트` : '나의 라이딩 패스포트';
+    const subject = selectedBike ? `${selectedBike} 주행 기록` : '나의 주행 기록';
     const result = await Share.share({
       title: subject,
       message: `${subject}\n모토맵에서 ${visibleRides.length}곳을 ${totalRides}번 달렸어요 🏍️\n\n모토맵 - 라이더를 위한 지도\n${APP_STORE_URL}`,
@@ -161,13 +161,13 @@ export default function MyRidesScreen() {
           <View style={[styles.passport, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.passportTop}>
               <View style={styles.passportTitleBody}>
-                <Text style={[styles.passportEyebrow, { color: colors.tint }]}>RIDING PASSPORT</Text>
+                <Text style={[styles.passportEyebrow, { color: colors.tint }]}>나의 주행 기록</Text>
                 <Text style={[styles.passportTitle, { color: colors.text }]} numberOfLines={2}>
                   {selectedBike ?? '모든 바이크'}
                 </Text>
               </View>
               <Pressable
-                accessibilityLabel="라이딩 패스포트 공유"
+                accessibilityLabel="주행 기록 공유"
                 hitSlop={10}
                 onPress={() => void sharePassport()}
                 style={({ pressed }) => [
@@ -186,7 +186,7 @@ export default function MyRidesScreen() {
               <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
               <View>
                 <Text style={[styles.statValue, { color: colors.text }]}>{totalRides}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>라이딩</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>주행</Text>
               </View>
             </View>
             {milestones.length > 0 && (
