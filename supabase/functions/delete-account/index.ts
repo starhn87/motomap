@@ -42,12 +42,13 @@ Deno.serve(async (req) => {
   try {
     // Auth 삭제 전에 사용자가 올린 파일을 Storage API로 지운다. SQL로 metadata만
     // 지우면 실제 파일이 고아로 남으므로 반드시 API를 사용한다.
-    const [profile, reviews, hazards] = await Promise.all([
+    const [profile, reviews, hazards, bikes] = await Promise.all([
       admin.from('profiles').select('avatar_url').eq('id', user.id).maybeSingle(),
       admin.from('reviews').select('photos').eq('user_id', user.id),
       admin.from('road_hazards').select('photo').eq('reported_by', user.id),
+      admin.from('user_bikes').select('photo_url').eq('user_id', user.id),
     ]);
-    for (const result of [profile, reviews, hazards]) {
+    for (const result of [profile, reviews, hazards, bikes]) {
       if (result.error) throw result.error;
     }
 
@@ -62,6 +63,10 @@ Deno.serve(async (req) => {
     }
     for (const hazard of hazards.data ?? []) {
       const path = mediaPath(hazard.photo);
+      if (path) paths.add(path);
+    }
+    for (const bike of bikes.data ?? []) {
+      const path = mediaPath(bike.photo_url);
       if (path) paths.add(path);
     }
 

@@ -3,6 +3,9 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from '@/lib/supabase';
 
+const MEDIA_BUCKET = 'ridemap-media';
+const MEDIA_PATH_MARKER = `/storage/v1/object/public/${MEDIA_BUCKET}/`;
+
 // 크롭 UI 없음 — 아바타는 표시 단계에서 원형으로 중앙 크롭되므로
 // 선택 시 잘라내기를 강제할 이유가 없다
 export async function pickImage(): Promise<string | null> {
@@ -40,15 +43,29 @@ export async function uploadImage(uri: string, folder: string): Promise<string> 
   });
 
   const { error } = await supabase.storage
-    .from('ridemap-media')
+    .from(MEDIA_BUCKET)
     .upload(fileName, decode(base64), {
       contentType,
     });
 
   if (error) throw error;
 
-  const { data } = supabase.storage.from('ridemap-media').getPublicUrl(fileName);
+  const { data } = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(fileName);
   return data.publicUrl;
+}
+
+/** 이 앱의 공개 미디어 URL이면 Storage 객체를 지운다. 다른 URL은 건드리지 않는다. */
+export async function removeUploadedImage(url: string | null | undefined): Promise<void> {
+  if (!url) return;
+  try {
+    const pathname = new URL(url).pathname;
+    const markerIndex = pathname.indexOf(MEDIA_PATH_MARKER);
+    if (markerIndex < 0) return;
+    const path = decodeURIComponent(pathname.slice(markerIndex + MEDIA_PATH_MARKER.length));
+    await supabase.storage.from(MEDIA_BUCKET).remove([path]);
+  } catch {
+    // DB 저장·삭제는 이미 끝난 뒤 호출한다. 고아 파일 정리 실패가 UI를 되돌리면 안 된다.
+  }
 }
 
 export async function uploadMultipleImages(

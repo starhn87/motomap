@@ -102,7 +102,7 @@ export const LEGAL_DOCS: Record<LegalDocType, { title: string; content: string }
 
 선택 항목
 · 프로필 사진 (등록 시)
-· 바이크 기종 (등록 시, 작성한 리뷰에 뱃지로 공개)
+· 바이크 기종·애칭·연식·색상·사진 (등록 시, 작성 당시 기종만 리뷰 뱃지로 공개)
 · 제보·리뷰에 포함한 사진과 내용
 
 자동 수집 정보
