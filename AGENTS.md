@@ -51,7 +51,7 @@ set -a; . ./.env; set +a
 - **reanimated**: `Animated.View`는 `pointerEvents="box-only"`를 무시한다(plain `View`에서만 적용됨).
 
 ## 커밋
-변경은 최소 논리 단위로 준비하되, 커밋과 푸시는 각각 실행 직전에 반드시 사용자에게 허락을 받는다. main에 직접, 무관한 변경은 제외하고 영어 conventional commit을 사용한다. Codex 작업의 커밋 메시지는 끝에 `Co-authored-by: Codex <noreply@openai.com>`를 정확히 한 번 넣는다. Codex 작업에 Anthropic/Claude 이름이나 이메일을 절대 사용하지 않는다.
+변경은 최소 논리 단위로 준비하고 검증이 끝난 적절한 시점에 스스로 커밋한다. 푸시는 실행 직전에 반드시 사용자에게 허락을 받는다. main에 직접, 무관한 변경은 제외하고 영어 conventional commit을 사용한다. Codex 작업의 커밋 메시지는 끝에 `Co-authored-by: Codex <noreply@openai.com>`를 정확히 한 번 넣는다. Codex 작업에 Anthropic/Claude 이름이나 이메일을 절대 사용하지 않는다.
 
 ## 검증
 편집 후 `npx tsc --noEmit`로 타입체크(exit 0). 전용 테스트 러너는 아직 없음.
