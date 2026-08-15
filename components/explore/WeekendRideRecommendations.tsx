@@ -7,22 +7,13 @@ import Colors from '@/constants/Colors';
 import { formatDistance, formatDuration, seasonalBadge } from '@/constants/course';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useCourseLibrary } from '@/hooks/useCourseLibrary';
-import { useWeather } from '@/hooks/useWeather';
 import { track } from '@/lib/analytics';
 import { haversine } from '@/lib/distance';
-import type { RidingWeather } from '@/lib/api/weather';
 import { useMapStore } from '@/stores/useMapStore';
 import type { RidingCourse } from '@/types';
 
-export interface WeekendWeatherDetails {
-  weather: RidingWeather;
-  latitude: number;
-  longitude: number;
-}
-
 interface Props {
   courses: RidingCourse[];
-  onWeatherPress: (details: WeekendWeatherDetails) => void;
 }
 
 function startDistance(course: RidingCourse, latitude: number, longitude: number): number | null {
@@ -34,16 +25,12 @@ function startDistance(course: RidingCourse, latitude: number, longitude: number
   );
 }
 
-export default function WeekendRideRecommendations({ courses, onWeatherPress }: Props) {
+export default function WeekendRideRecommendations({ courses }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const userLocation = useMapStore((state) => state.userLocation);
   const mapCenter = useMapStore((state) => state.mapCenter);
   const anchor = userLocation ?? mapCenter;
-  const { data: weather, isLoading: weatherLoading } = useWeather(
-    anchor?.latitude,
-    anchor?.longitude,
-  );
   const { data: courseLibrary } = useCourseLibrary();
   const tracked = useRef(false);
 
@@ -68,51 +55,22 @@ export default function WeekendRideRecommendations({ courses, onWeatherPress }: 
     .slice(0, 3);
 
   useEffect(() => {
-    if (tracked.current || recommendations.length === 0 || (anchor && weatherLoading)) return;
+    if (tracked.current || recommendations.length === 0) return;
     tracked.current = true;
     track.weekendRideOpened({
-      has_weather: !!weather,
       recommendation_count: recommendations.length,
     });
-  }, [anchor, recommendations.length, weather, weatherLoading]);
+  }, [recommendations.length]);
 
   if (recommendations.length === 0) return null;
 
   return (
     <View style={styles.container}>
       <View style={styles.headingRow}>
-        <View style={styles.headingCopy}>
-          <Text style={[styles.eyebrow, { color: colors.tint }]}>WEEKEND RIDE</Text>
+        <View>
+          <Text style={[styles.eyebrow, { color: colors.tint }]}>주말 추천 코스</Text>
           <Text style={[styles.title, { color: colors.text }]}>이번 주말, 어디로 달릴까요?</Text>
         </View>
-        {weather && anchor && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${userLocation ? '현재 위치' : '지도 지역'} 날씨 상세 보기`}
-            hitSlop={6}
-            onPress={() => {
-              track.weekendWeatherOpened({ location_source: userLocation ? 'user' : 'map' });
-              onWeatherPress({
-                weather,
-                latitude: anchor.latitude,
-                longitude: anchor.longitude,
-              });
-            }}
-            style={({ pressed }) => [
-              styles.weatherBadge,
-              { backgroundColor: `${weather.gradeColor}16`, borderColor: `${weather.gradeColor}55` },
-              pressed && { opacity: 0.65 },
-            ]}>
-            <Text style={styles.weatherEmoji}>{weather.current.emoji}</Text>
-            <View style={styles.weatherCopy}>
-              <Text style={[styles.weatherLabel, { color: weather.gradeColor }]}>
-                {userLocation ? '현재 위치' : '지도 지역'} · 라이딩 {weather.grade}
-              </Text>
-              <Text style={[styles.weatherMeta, { color: colors.textSecondary }]}>{weather.current.temp}° · 강수 {weather.current.pop}%</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={15} color={weather.gradeColor} />
-          </Pressable>
-        )}
       </View>
 
       <ScrollView
@@ -176,9 +134,7 @@ export default function WeekendRideRecommendations({ courses, onWeatherPress }: 
           );
         })}
       </ScrollView>
-      {!weather && (
-        <Text style={[styles.helper, { color: colors.textSecondary }]}>계절·거리·라이더 평가를 바탕으로 골랐어요.</Text>
-      )}
+      <Text style={[styles.helper, { color: colors.textSecondary }]}>계절·거리·라이더 평가를 바탕으로 골랐어요.</Text>
     </View>
   );
 }
@@ -188,14 +144,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   headingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    gap: 12,
     marginBottom: 11,
-  },
-  headingCopy: {
-    flex: 1,
   },
   eyebrow: {
     fontSize: 10,
@@ -206,30 +155,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 19,
     fontWeight: '800',
-  },
-  weatherBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 0,
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 11,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-  },
-  weatherEmoji: {
-    fontSize: 17,
-  },
-  weatherCopy: {
-    flexShrink: 1,
-  },
-  weatherLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  weatherMeta: {
-    fontSize: 9,
-    marginTop: 1,
   },
   cardRow: {
     gap: 10,

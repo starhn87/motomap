@@ -17,10 +17,7 @@ import { useCourses } from '@/hooks/useCourses';
 import { formatDistance, formatDuration, seasonalBadge } from '@/constants/course';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import RecommendedPlaces from '@/components/explore/RecommendedPlaces';
-import WeekendRideRecommendations, {
-  type WeekendWeatherDetails,
-} from '@/components/explore/WeekendRideRecommendations';
-import WeatherSheet from '@/components/map/WeatherSheet';
+import WeekendRideRecommendations from '@/components/explore/WeekendRideRecommendations';
 import type { RidingCourse } from '@/types';
 
 type Segment = 'courses' | 'places';
@@ -46,7 +43,6 @@ export default function ExploreScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [segment, setSegment] = useState<Segment>('courses');
-  const [weatherDetails, setWeatherDetails] = useState<WeekendWeatherDetails | null>(null);
   const { data: courses, isLoading, refetch, isRefetching } = useCourses();
 
   // 코스 소요 시간 필터 — 서로 배타적인 구간(1시간 이내, 1~2시간, 2시간 이상)이라
@@ -194,10 +190,7 @@ export default function ExploreScreen() {
             renderItem={renderCourse}
             ListHeaderComponent={
               <View>
-                <WeekendRideRecommendations
-                  courses={courses}
-                  onWeatherPress={setWeatherDetails}
-                />
+                <WeekendRideRecommendations courses={courses} />
                 {tripChips.length > 0 && (
                   <View style={styles.tripChipRow}>
                     {tripChips.map((chip) => {
@@ -247,14 +240,6 @@ export default function ExploreScreen() {
         )
       ) : (
         <RecommendedPlaces />
-      )}
-      {weatherDetails && (
-        <WeatherSheet
-          weather={weatherDetails.weather}
-          latitude={weatherDetails.latitude}
-          longitude={weatherDetails.longitude}
-          onClose={() => setWeatherDetails(null)}
-        />
       )}
     </View>
   );
