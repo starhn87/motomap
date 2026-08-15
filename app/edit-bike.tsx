@@ -17,7 +17,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { getProfile, updateBikeModel } from '@/lib/nickname';
-import { searchBikeModels } from '@/constants/bikes';
+import { canonicalBikeModel, searchBikeModels } from '@/constants/bikes';
 import { getBikeSpec } from '@/lib/bike';
 import { useMyRideStats } from '@/hooks/usePlaceRides';
 import { toast } from '@/lib/toast';
@@ -59,8 +59,9 @@ export default function EditBikeScreen() {
     if (saving) return;
     setSaving(true);
     try {
-      await updateBikeModel(model);
-      const next = model.trim();
+      const entered = model.trim();
+      const next = canonicalBikeModel(entered) ?? entered;
+      await updateBikeModel(next);
       const spec = getBikeSpec(next);
       const action =
         next === initialModel
@@ -72,7 +73,7 @@ export default function EditBikeScreen() {
               : 'registered';
       track.bikeSetupSaved({
         action,
-        canonical: !!spec,
+        canonical: !!canonicalBikeModel(next),
         category: spec?.category,
       });
       // 유가 강조·가득 주유비·리뷰 유도가 useMyBike 캐시(staleTime 30분)를 읽는다 —

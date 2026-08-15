@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { canonicalBikeModel } from '@/constants/bikes';
 import { requireUser, getCurrentUser } from '@/lib/auth';
 
 const ADJECTIVES = [
@@ -76,9 +77,11 @@ export async function getProfile(): Promise<{
 // 마이 바이크 기종 저장 (빈 문자열이면 해제)
 export async function updateBikeModel(model: string): Promise<void> {
   const user = await requireUser();
+  const trimmed = model.trim();
+  const canonical = canonicalBikeModel(trimmed) ?? trimmed;
   const { error } = await supabase
     .from('profiles')
-    .update({ bike_model: model.trim() || null })
+    .update({ bike_model: canonical || null })
     .eq('id', user.id);
   if (error) throw error;
 }

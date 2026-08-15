@@ -2,14 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 
 import type { FuelCode } from '@/lib/api/gasStations';
 
-import { BIKE_SPECS, type BikeSpec } from '@/constants/bikes';
+import { BIKE_SPECS, canonicalBikeModel, type BikeSpec } from '@/constants/bikes';
 import { getProfile } from '@/lib/nickname';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 /** 등록한 기종의 스펙. 자유 입력 기종이거나 스펙이 없는 기종이면 undefined. */
 export function getBikeSpec(model: string | null | undefined): BikeSpec | undefined {
   if (!model) return undefined;
-  return BIKE_SPECS[model.trim()];
+  return BIKE_SPECS[canonicalBikeModel(model) ?? model.trim()];
 }
 
 /** 내 바이크가 넣는 유종 코드. 미등록·스펙 없음이면 null — 강조하지 않는다. */
@@ -46,6 +46,7 @@ export function useMyBike() {
     enabled: !!user,
     staleTime: 30 * 60 * 1000,
   });
-  const model = data ?? null;
+  // 구버전에서 별칭 그대로 저장한 값도 화면과 연동 기능에서는 canonical로 다룬다.
+  const model = data ? (canonicalBikeModel(data) ?? data) : null;
   return { model, spec: getBikeSpec(model), isLoading };
 }

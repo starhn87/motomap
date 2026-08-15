@@ -31,7 +31,7 @@ if (!Array.isArray(models) || models.length < 500) {
   throw new Error(`데이터셋 이상: models ${models?.length}개 — 동기화 중단`);
 }
 
-const esc = (s) => s.replace(/'/g, "\\'");
+const esc = (s) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
 // 앱이 실제로 쓰는 필드만 담는다 — 전부 옵션(채움률 65~80%)
 const specLine = (m) => {
@@ -50,6 +50,13 @@ const specLine = (m) => {
 
 const names = models.map((m) => `  '${esc(m.nameKo)}',`).join('\n');
 const specLines = models.map(specLine).filter(Boolean);
+const normalize = (s) => s.trim().toLowerCase().replace(/[\s·._-]+/g, '');
+const searchLines = models.map((m) => {
+  const terms = [
+    ...new Set([m.nameKo, m.model, ...(m.aliases ?? [])].map(normalize).filter(Boolean)),
+  ];
+  return `  ['${esc(m.nameKo)}', '${esc(terms.join(' '))}'],`;
+});
 
 const out = `// 내 바이크 기종 목록·스펙 — moto-kr 데이터셋에서 생성된 파일이다.
 // ⚠️ 직접 수정하지 말 것. 기종 추가·수정은 https://github.com/starhn87/moto-kr 의
@@ -84,11 +91,31 @@ export const BIKE_SPECS: Record<string, BikeSpec> = {
 ${specLines.join('\n')}
 };
 
-// 공백·대소문자 무시 부분 일치 검색 (최대 limit개)
+// 인증 데이터의 표기 별칭을 검색과 저장 정규화에 함께 쓴다. 예를 들어
+// "BMW C 400 GT"를 찾아도 화면과 DB에는 canonical 이름 "BMW C400GT"가 남는다.
+const BIKE_SEARCH_INDEX: [model: string, normalizedTerms: string][] = [
+${searchLines.join('\n')}
+];
+
+function normalizeBikeTerm(value: string): string {
+  return value.trim().toLowerCase().replace(/[\\s·._-]+/g, '');
+}
+
+/** 정확한 이름·별칭이면 canonical 기종명을, 자유 입력이면 null을 반환한다. */
+export function canonicalBikeModel(value: string): string | null {
+  const q = normalizeBikeTerm(value);
+  if (!q) return null;
+  const exact = BIKE_SEARCH_INDEX.filter(([, terms]) => terms.split(' ').includes(q));
+  return exact.length === 1 ? exact[0][0] : null;
+}
+
+// 이름·별칭의 공백·대소문자 무시 부분 일치 검색 (canonical 이름, 최대 limit개)
 export function searchBikeModels(query: string, limit = 15): string[] {
-  const q = query.trim().toLowerCase().replace(/\\s+/g, '');
+  const q = normalizeBikeTerm(query);
   if (!q) return [];
-  return BIKE_MODELS.filter((m) => m.toLowerCase().replace(/\\s+/g, '').includes(q)).slice(0, limit);
+  return BIKE_SEARCH_INDEX.filter(([, terms]) => terms.includes(q))
+    .map(([model]) => model)
+    .slice(0, limit);
 }
 `;
 
