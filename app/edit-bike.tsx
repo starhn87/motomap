@@ -479,7 +479,7 @@ export default function EditBikeScreen() {
       contentContainerStyle={styles.listContent}>
       <View style={styles.listHeading}>
         <View style={styles.listTitleBody}>
-          <Text style={[styles.listTitle, { color: colors.text }]}>내 차고</Text>
+          <Text style={[styles.listTitle, { color: colors.text }]}>내 바이크</Text>
           <Text style={[styles.listSubtitle, { color: colors.textSecondary }]}>지금 타는 바이크와 함께 쌓인 기록을 관리해요.</Text>
         </View>
         <Pressable

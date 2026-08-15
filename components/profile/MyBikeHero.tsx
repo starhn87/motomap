@@ -83,7 +83,7 @@ export default function MyBikeHero() {
           )}
         </View>
         <View style={styles.titleBody}>
-          <Text style={[styles.eyebrow, { color: colors.tint }]}>내 차고{garage?.length ? ` · ${garage.length}` : ''}</Text>
+          <Text style={[styles.eyebrow, { color: colors.tint }]}>내 바이크{garage?.length ? ` · ${garage.length}` : ''}</Text>
           <Text style={[styles.model, { color: colors.text }]} numberOfLines={2}>
             {activeBike?.nickname || displayModel}
           </Text>
