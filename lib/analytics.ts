@@ -95,6 +95,10 @@ export const track = {
 
   searchAreaRefreshed: () => capture('search_area_refreshed'),
 
+  courseSaved: (p: { on: boolean }) => capture('course_saved', p),
+
+  courseCompleted: (p: { course_id: string }) => capture('course_completed', p),
+
   categoryFiltered: (p: { category: string }) => capture('category_filtered', p),
 
   placeViewed: (p: { place_id: string; category?: string; source: PlaceSource }) =>

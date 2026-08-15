@@ -15,6 +15,7 @@ import { focusPlaceOnMap, followMyLocationOnMap } from '@/lib/mapFocus';
 import { recordPlaceRides } from '@/lib/api/rides';
 import { toast } from '@/lib/toast';
 import { track } from '@/lib/analytics';
+import { recordCourseCompletion } from '@/lib/api/courseLibrary';
 
 // 길안내 전역 이벤트 — 안내가 시작되면 /navi 화면은 지도로 빠져 언마운트되므로
 // 종료·메뉴 처리는 화면이 아니라 여기(루트에서 1회 등록)가 맡는다.
@@ -141,12 +142,21 @@ function recordArrival(goal: GuideGoal, viaPlaceIds: string[]) {
         ]
       : []),
   ]);
+  if (goal.courseId) {
+    void recordCourseCompletion(goal.courseId)
+      .then((inserted) => {
+        if (inserted) track.courseCompleted({ course_id: goal.courseId! });
+      })
+      .catch(() => {
+        // 완주 기록 실패가 안내 종료와 리뷰 제안을 방해하면 안 된다.
+      });
+  }
 }
 
 // 도착 리뷰 제안 — 안내 화면 닫힘 애니메이션이 끝난 뒤 지도 위에서 띄운다
 function suggestReview(goal: GuideGoal) {
   setTimeout(() => {
-    appAlert(`${goal.name} 도착!`, '어떠셨나요? 리뷰를 남겨보세요.', [
+    appAlert(goal.courseId ? `${goal.name} 완주!` : `${goal.name} 도착!`, '어떠셨나요? 리뷰를 남겨보세요.', [
       { text: '나중에', style: 'cancel' },
       {
         text: '리뷰 남기기',

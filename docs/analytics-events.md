@@ -47,6 +47,8 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `search_area_refreshed` | - |
 | `category_filtered` | `category` |
 | `place_viewed` | `place_id` · `category` · `source` |
+| `course_saved` | `on` |
+| `course_completed` | `course_id` |
 
 `place_viewed.source`: `map_marker` · `search` · `search_results` · `favorite` · `chat` · `notification` · `course` · `submission`
 
