@@ -240,7 +240,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         </View>
       )}
 
-      {hoursExpanded && (
+      {canLoadHours && hoursExpanded && (
         <PlaceHoursBlock
           hours={placeHours?.hours}
           businessStatus={placeHours?.businessStatus}
