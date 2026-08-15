@@ -9,6 +9,8 @@ export interface SearchResults {
   courses: RidingCourse[];
 }
 
+export const SEARCH_RADIUS_M = 20_000;
+
 // 등록 장소와 카카오 일반 장소가 같은 곳인지 — 이름(정규화) 일치 + 좌표 근접.
 // 제보 폼이 카카오 좌표를 그대로 쓰므로 20m 이내는 이름이 조금 달라도 동일 장소다.
 const normName = (n: string) => n.replace(/\s/g, '').toLowerCase();
@@ -90,6 +92,8 @@ export async function searchAll(
   /** 있으면 이 좌표(보통 지금 보는 지도 중심)에서 가까운 순으로 정렬한다.
       이름 매칭을 통과한 결과끼리의 순위라 관련성은 이미 확보돼 있다. */
   near?: { latitude: number; longitude: number },
+  /** true면 반경 밖 결과로 폴백하지 않는다 — 결과 지도의 '이 지역' 범위용 */
+  nearOnly = false,
 ): Promise<SearchResults> {
   const [placesRes, coursesRes] = await Promise.all([
     supabase.rpc('all_places', { category_filter: null }),
@@ -107,8 +111,6 @@ export async function searchAll(
   // "지금 보는 지역"의 실질 반경 — 시 단위 생활권 20km(강릉이면 주문진·정동진까지).
   // 처음 50km 로 잡았더니 여전히 멀게 느껴진다는 피드백에 좁혔다. 정렬만으로는
   // 전국 매칭이 꼬리로 딸려 와 소용이 없었던 것도 실사용 피드백.
-  const SEARCH_RADIUS_M = 20_000;
-
   let places: { place: Place; score: number }[] = (placesRes.data ?? []).flatMap(
     (row: PlaceRow) => {
       const score = matchScore(query, {
@@ -132,7 +134,7 @@ export async function searchAll(
     const within = places.filter(
       (result) => distTo(result.place.latitude, result.place.longitude) <= SEARCH_RADIUS_M,
     );
-    if (within.length > 0) places = within;
+    if (nearOnly || within.length > 0) places = within;
   }
   const matchedPlaces = places.map((result) => result.place);
 
@@ -177,7 +179,7 @@ export async function searchAll(
     };
     courses.sort((a: RidingCourse, b: RidingCourse) => courseDist(a) - courseDist(b));
     const within = courses.filter((c: RidingCourse) => courseDist(c) <= SEARCH_RADIUS_M);
-    if (within.length > 0) courses = within;
+    if (nearOnly || within.length > 0) courses = within;
   }
 
   return { places: matchedPlaces, courses };

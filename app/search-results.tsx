@@ -1,9 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -18,7 +20,7 @@ import {
   type NaverMapViewRef,
 } from '@mj-studio/react-native-naver-map';
 
-import Colors from '@/constants/Colors';
+import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
@@ -26,18 +28,36 @@ import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import { CATEGORIES } from '@/constants/categories';
 import { MARKER_IMAGES, MARKER_IMAGES_CIRCLE } from '@/constants/markerImages';
-import { isSamePlace, searchAll } from '@/lib/api/search';
+import { isSamePlace, searchAll, SEARCH_RADIUS_M } from '@/lib/api/search';
 import { useSearchAnchor } from '@/hooks/useSearchAnchor';
 import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { addRecentSearch } from '@/lib/recentSearches';
 import { track } from '@/lib/analytics';
-import type { Place } from '@/types';
+import { describeOpenState, getOpenState } from '@/lib/hours';
+import { formatDistance, formatDuration } from '@/constants/course';
+import { approxMeters } from '@/lib/distance';
+import type { Place, RidingCourse } from '@/types';
 
 // 지도에 뿌리는 결과 상한 — 등록 장소가 광범위한 검색어(예: "카페")일 때
 // 마커 폭주를 막는다. 목록도 같은 상한을 쓴다.
 const MAX_PLACES = 50;
 
-type ResultItem = { kind: 'place'; place: Place } | { kind: 'kakao'; k: KakaoLocalResult };
+type ResultItem =
+  | { kind: 'place'; place: Place }
+  | { kind: 'course'; course: RidingCourse }
+  | { kind: 'kakao'; k: KakaoLocalResult };
+
+type SearchFilter = 'open' | 'parking' | 'rating';
+
+const FILTERS: { key: SearchFilter; label: string }[] = [
+  { key: 'open', label: '영업 중' },
+  { key: 'parking', label: '주차 정보' },
+  { key: 'rating', label: '평점 4+' },
+];
+
+function hasParkingInfo(place: Place): boolean {
+  return !!place.parkingInfo?.trim() || place.tags.some((tag) => /주차/.test(tag));
+}
 
 // 상세 시트가 화면 아래를 덮으므로 카메라 중심을 남쪽으로 내려 고른 장소를
 // 시트 위 영역의 가운데에 둔다. 계수는 지도 탭((tabs)/index.tsx)과 같은 값 —
@@ -64,33 +84,67 @@ export default function SearchResultsScreen() {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [selectedTemp, setSelectedTemp] = useState<TempPlace | null>(null);
   const detailOpen = selectedPlace !== null || selectedTemp !== null;
+  const [filters, setFilters] = useState<SearchFilter[]>([]);
 
-  // 검색 화면과 같은 쿼리 키 — 방금 친 검색이라 대부분 캐시로 즉시 뜬다
-  const { near, key: nearKey } = useSearchAnchor();
+  // 첫 검색은 검색 화면과 같은 기준점이라 캐시로 즉시 뜬다. 이후에는 이 지도에서
+  // 직접 범위를 바꾸거나 전국으로 넓힐 수 있다.
+  const { near: initialNear } = useSearchAnchor();
+  const [scope, setScope] = useState<'near' | 'all'>(initialNear ? 'near' : 'all');
+  const [searchNear, setSearchNear] = useState(initialNear);
+  const [canSearchArea, setCanSearchArea] = useState(false);
+  const cameraCenterRef = useRef(initialNear);
+  const activeNear = scope === 'near' ? searchNear : undefined;
+  const nearKey = activeNear
+    ? `${activeNear.latitude.toFixed(3)},${activeNear.longitude.toFixed(3)}`
+    : 'all';
+
+  useEffect(() => {
+    if (!searchNear && initialNear) {
+      setSearchNear(initialNear);
+      cameraCenterRef.current = initialNear;
+      setScope('near');
+    }
+  }, [initialNear, searchNear]);
+
   const { data: results, isLoading } = useQuery({
     queryKey: ['search', query, nearKey],
-    queryFn: () => searchAll(query, near),
+    queryFn: () => searchAll(query, activeNear, scope === 'near'),
     enabled: !!query,
   });
   const { data: kakaoResults, isLoading: kakaoLoading } = useQuery({
     queryKey: ['search-kakao', query, nearKey],
-    queryFn: () => searchKakaoLocal(query, near),
+    queryFn: () => searchKakaoLocal(query, activeNear),
     enabled: !!query,
   });
 
   const items = useMemo<ResultItem[]>(() => {
-    const places = (results?.places ?? []).slice(0, MAX_PLACES);
+    const places = (results?.places ?? []).filter((place) => {
+      if (filters.includes('open') && getOpenState(place.hours).status !== 'open') return false;
+      if (filters.includes('parking') && !hasParkingInfo(place)) return false;
+      if (filters.includes('rating') && (place.rating < 4 || place.reviewCount === 0)) return false;
+      return true;
+    }).slice(0, MAX_PLACES);
+    // 코스·카카오 결과에는 영업시간/주차/평점의 같은 필드가 없다. 필터를 켰을 때
+    // 섞어 보여주면 필터가 고장 난 것처럼 보이므로 등록 장소만 남긴다.
+    const courses = filters.length === 0 ? (results?.courses ?? []) : [];
     const kakaoOnly = (kakaoResults ?? []).filter(
       (k) =>
+        filters.length === 0 &&
+        (!activeNear ||
+          approxMeters(
+            { latitude: k.latitude, longitude: k.longitude },
+            activeNear,
+          ) <= SEARCH_RADIUS_M) &&
         !places.some((p) =>
           isSamePlace(p, { name: k.placeName, latitude: k.latitude, longitude: k.longitude }),
         ),
     );
     return [
       ...places.map((place) => ({ kind: 'place' as const, place })),
+      ...courses.map((course) => ({ kind: 'course' as const, course })),
       ...kakaoOnly.map((k) => ({ kind: 'kakao' as const, k })),
     ];
-  }, [results, kakaoResults]);
+  }, [results, kakaoResults, filters, activeNear]);
 
   const loading = isLoading || kakaoLoading;
 
@@ -105,12 +159,15 @@ export default function SearchResultsScreen() {
 
   // 결과 전체가 보이도록 카메라를 맞춘다 — 남쪽은 바텀시트가 덮는 만큼 더 벌린다
   useEffect(() => {
-    if (items.length === 0) return;
+    const mapped = items.filter(
+      (item): item is Exclude<ResultItem, { kind: 'course' }> => item.kind !== 'course',
+    );
+    if (mapped.length === 0) return;
     let minLat = Infinity;
     let maxLat = -Infinity;
     let minLng = Infinity;
     let maxLng = -Infinity;
-    for (const item of items) {
+    for (const item of mapped) {
       const lat = item.kind === 'place' ? item.place.latitude : item.k.latitude;
       const lng = item.kind === 'place' ? item.place.longitude : item.k.longitude;
       if (lat < minLat) minLat = lat;
@@ -134,6 +191,12 @@ export default function SearchResultsScreen() {
   const pick = (item: ResultItem, keepZoom = false) => {
     const zoom = keepZoom ? zoomRef.current : 13;
     const rank = items.indexOf(item);
+    if (item.kind === 'course') {
+      track.searchResultSelected({ result_type: 'course', rank, source: 'search_screen' });
+      void addRecentSearch({ type: 'course', id: item.course.id, name: item.course.name });
+      router.push(`/course/${item.course.id}`);
+      return;
+    }
     if (item.kind === 'place') {
       track.searchResultSelected({ result_type: 'registered', rank, source: 'search_screen' });
       track.placeViewed({
@@ -196,10 +259,13 @@ export default function SearchResultsScreen() {
         initialCamera={{ latitude: 36.4, longitude: 127.8, zoom: 6 }}
         onCameraChanged={(e) => {
           if (typeof e.zoom === 'number') zoomRef.current = e.zoom;
+          cameraCenterRef.current = { latitude: e.latitude, longitude: e.longitude };
+          if (e.reason === 'Gesture' && scope === 'near') setCanSearchArea(true);
         }}>
         {/* 선택된 하나만 핀(물방울, 하단 앵커), 나머지는 원형 — 지도 탭과
             같은 규칙이라 "핀 = 지금 보고 있는 곳"으로 읽힌다. */}
         {items.map((item) => {
+          if (item.kind === 'course') return null;
           if (item.kind === 'place') {
             const isSelected = selectedPlace?.id === item.place.id;
             return (
@@ -259,32 +325,125 @@ export default function SearchResultsScreen() {
         <Ionicons name="search" size={16} color={colors.textSecondary} />
       </Pressable>
 
+      <View
+        style={[
+          styles.scopeBar,
+          {
+            top: insets.top + 62,
+            backgroundColor: colors.background,
+            borderColor: colors.border,
+          },
+        ]}>
+        {(['near', 'all'] as const).map((value) => {
+          const selected = scope === value;
+          return (
+            <Pressable
+              key={value}
+              onPress={() => {
+                if (scope === value) return;
+                setScope(value);
+                setCanSearchArea(false);
+                track.searchScopeChanged({ scope: value });
+                if (value === 'near' && cameraCenterRef.current) {
+                  setSearchNear(cameraCenterRef.current);
+                }
+              }}
+              style={[styles.scopeOption, selected && { backgroundColor: colors.tint }]}>
+              <Text
+                style={[
+                  styles.scopeText,
+                  { color: selected ? colors.background : colors.textSecondary },
+                ]}>
+                {value === 'near' ? '이 지역' : '전국'}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {canSearchArea && cameraCenterRef.current && !detailOpen && (
+        <Pressable
+          onPress={() => {
+            setSearchNear(cameraCenterRef.current);
+            setCanSearchArea(false);
+            track.searchAreaRefreshed();
+          }}
+          style={({ pressed }) => [
+            styles.searchAreaButton,
+            {
+              top: insets.top + 108,
+              backgroundColor: colors.background,
+              borderColor: colors.border,
+            },
+            pressed && { opacity: 0.75 },
+          ]}>
+          <Ionicons name="refresh" size={15} color={colors.text} />
+          <Text style={[styles.searchAreaText, { color: colors.text }]}>이 지역에서 다시 검색</Text>
+        </Pressable>
+      )}
+
       {/* 결과 목록 — 상세 시트가 열려 있는 동안은 내려둔다. 닫으면 복귀.
           최소 스냅(88)은 핸들+결과 개수만 남기고 지도를 넓게 보는 용도. */}
       {!detailOpen && (
-      <BottomSheet
-        index={1}
-        snapPoints={[88, midSnap, '85%']}
-        animateOnMount={false}
-        backgroundStyle={{ backgroundColor: colors.background }}
-        handleIndicatorStyle={{ backgroundColor: colors.border }}>
-        <BottomSheetFlatList
+        <BottomSheet
+          index={1}
+          snapPoints={[88, midSnap, '85%']}
+          animateOnMount={false}
+          backgroundStyle={{ backgroundColor: colors.background }}
+          handleIndicatorStyle={{ backgroundColor: colors.border }}>
+          <BottomSheetFlatList
           data={items}
           keyExtractor={(item: ResultItem, i: number) =>
-            item.kind === 'place' ? `place-${item.place.id}` : `kakao-${item.k.placeName}-${i}`
+            item.kind === 'place'
+              ? `place-${item.place.id}`
+              : item.kind === 'course'
+                ? `course-${item.course.id}`
+                : `kakao-${item.k.placeName}-${i}`
           }
           contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
           ListHeaderComponent={
-            <Text style={[styles.countText, { color: colors.textSecondary }]}>
-              {loading ? '검색 중…' : `검색 결과 ${items.length}개`}
-            </Text>
+            <View>
+              <Text style={[styles.countText, { color: colors.textSecondary }]}>
+                {loading ? '검색 중…' : `검색 결과 ${items.length}개`}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterRow}>
+                {FILTERS.map((filter) => {
+                  const selected = filters.includes(filter.key);
+                  return (
+                    <Pressable
+                      key={filter.key}
+                      onPress={() => {
+                        track.searchFilterToggled({ filter: filter.key, on: !selected });
+                        setFilters((current) =>
+                          current.includes(filter.key)
+                            ? current.filter((key) => key !== filter.key)
+                            : [...current, filter.key],
+                        );
+                      }}
+                      style={[
+                        styles.filterChip,
+                        { borderColor: selected ? colors.tint : colors.border },
+                        selected && { backgroundColor: colors.tint },
+                      ]}>
+                      {selected && <Ionicons name="checkmark" size={14} color={colors.background} />}
+                      <Text style={[styles.filterText, { color: selected ? colors.background : colors.text }]}>
+                        {filter.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
           }
           ListEmptyComponent={
             loading ? (
               <ActivityIndicator style={styles.empty} color={colors.textSecondary} />
             ) : (
               <Text style={[styles.empty, { color: colors.textSecondary }]}>
-                검색 결과가 없습니다
+                {filters.length > 0 ? '선택한 조건에 맞는 장소가 없습니다' : '검색 결과가 없습니다'}
               </Text>
             )
           }
@@ -297,26 +456,67 @@ export default function SearchResultsScreen() {
           }
           renderItem={({ item }: { item: ResultItem }) =>
             item.kind === 'place' ? (
+              (() => {
+                const open = describeOpenState(getOpenState(item.place.hours));
+                return (
+                  <Pressable
+                    onPress={() => pick(item)}
+                    style={[styles.row, { borderBottomColor: colors.border }]}>
+                    <CategoryIcon category={item.place.category} size={18} />
+                    <View style={styles.rowTexts}>
+                      <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
+                        {item.place.name}
+                      </Text>
+                      {!!item.place.address && (
+                        <Text
+                          style={[styles.rowAddress, { color: colors.textSecondary }]}
+                          numberOfLines={1}>
+                          {item.place.address}
+                        </Text>
+                      )}
+                      <View style={styles.rowMeta}>
+                        {open && (
+                          <Text style={[styles.rowMetaText, { color: open.open ? semantic.success : colors.textSecondary }]}>
+                            {open.text}
+                          </Text>
+                        )}
+                        {item.place.reviewCount > 0 && (
+                          <Text style={[styles.rowMetaText, { color: colors.textSecondary }]}>
+                            ★ {item.place.rating.toFixed(1)} ({item.place.reviewCount})
+                          </Text>
+                        )}
+                        {hasParkingInfo(item.place) && (
+                          <Text style={[styles.rowMetaText, { color: colors.textSecondary }]}>주차 정보</Text>
+                        )}
+                      </View>
+                    </View>
+                    <Text
+                      style={[styles.rowBadge, { color: CATEGORIES[item.place.category].color }]}>
+                      {CATEGORIES[item.place.category].label}
+                    </Text>
+                  </Pressable>
+                );
+              })()
+            ) : item.kind === 'course' ? (
               <Pressable
                 onPress={() => pick(item)}
                 style={[styles.row, { borderBottomColor: colors.border }]}>
-                <CategoryIcon category={item.place.category} size={18} />
+                <MaterialCommunityIcons name="road-variant" size={19} color={colors.tint} />
                 <View style={styles.rowTexts}>
                   <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-                    {item.place.name}
+                    {item.course.name}
                   </Text>
-                  {!!item.place.address && (
-                    <Text
-                      style={[styles.rowAddress, { color: colors.textSecondary }]}
-                      numberOfLines={1}>
-                      {item.place.address}
-                    </Text>
-                  )}
+                  <Text style={[styles.rowAddress, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {[item.course.routeName, item.course.description].filter(Boolean).join(' · ')}
+                  </Text>
+                  <Text style={[styles.rowMetaText, { color: colors.textSecondary }]}>
+                    {formatDistance(item.course.distance)} · {formatDuration(item.course.duration)}
+                    {item.course.reviewCount > 0
+                      ? ` · ★ ${item.course.rating.toFixed(1)} (${item.course.reviewCount})`
+                      : ''}
+                  </Text>
                 </View>
-                <Text
-                  style={[styles.rowBadge, { color: CATEGORIES[item.place.category].color }]}>
-                  {CATEGORIES[item.place.category].label}
-                </Text>
+                <Text style={[styles.rowBadge, { color: colors.tint }]}>코스</Text>
               </Pressable>
             ) : (
               <Pressable
@@ -337,8 +537,8 @@ export default function SearchResultsScreen() {
               </Pressable>
             )
           }
-        />
-      </BottomSheet>
+          />
+        </BottomSheet>
       )}
 
       {/* 지도 탭과 같은 상세 시트 — 닫으면 결과 목록으로 돌아온다 */}
@@ -368,6 +568,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
+    zIndex: 3,
   },
   queryText: {
     flex: 1,
@@ -381,6 +582,68 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     paddingHorizontal: 20,
     paddingBottom: 8,
+  },
+  scopeBar: {
+    position: 'absolute',
+    left: 16,
+    flexDirection: 'row',
+    padding: 3,
+    borderWidth: 1,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+    zIndex: 2,
+  },
+  scopeOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 9,
+  },
+  scopeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  searchAreaButton: {
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderRadius: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+    zIndex: 2,
+  },
+  searchAreaText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  filterRow: {
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  filterChip: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderRadius: 17,
+  },
+  filterText: {
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   row: {
     flexDirection: 'row',
@@ -400,6 +663,15 @@ const styles = StyleSheet.create({
   },
   rowAddress: {
     fontSize: 13,
+  },
+  rowMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  rowMetaText: {
+    fontSize: 11.5,
+    fontWeight: '600',
   },
   rowBadge: {
     fontSize: 12,

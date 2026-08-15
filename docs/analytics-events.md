@@ -42,6 +42,9 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `search_submitted` | `method`(typed·voice) · `source`(map_bar·search_screen·point_modal) · `query` |
 | `search_no_results` | `query` · `source` · `kakao_count` |
 | `search_result_selected` | `result_type`(registered·kakao·course) · `rank` · `source` |
+| `search_filter_toggled` | `filter`(open·parking·rating) · `on` |
+| `search_scope_changed` | `scope`(near·all) |
+| `search_area_refreshed` | - |
 | `category_filtered` | `category` |
 | `place_viewed` | `place_id` · `category` · `source` |
 

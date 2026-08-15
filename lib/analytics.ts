@@ -88,6 +88,13 @@ export const track = {
     source: SearchSource;
   }) => capture('search_result_selected', p),
 
+  searchFilterToggled: (p: { filter: 'open' | 'parking' | 'rating'; on: boolean }) =>
+    capture('search_filter_toggled', p),
+
+  searchScopeChanged: (p: { scope: 'near' | 'all' }) => capture('search_scope_changed', p),
+
+  searchAreaRefreshed: () => capture('search_area_refreshed'),
+
   categoryFiltered: (p: { category: string }) => capture('category_filtered', p),
 
   placeViewed: (p: { place_id: string; category?: string; source: PlaceSource }) =>
