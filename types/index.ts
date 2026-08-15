@@ -88,7 +88,6 @@ export interface RoadHazard {
   address: string | null;
   latitude: number;
   longitude: number;
-  reportedBy: string;
   createdAt: string;
   lastConfirmedAt: string;
   confirmCount: number;

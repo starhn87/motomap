@@ -11,7 +11,6 @@ interface HazardRow {
   address: string | null;
   latitude: number;
   longitude: number;
-  reported_by: string;
   created_at: string;
   last_confirmed_at: string;
   confirm_count: number;
@@ -28,7 +27,6 @@ function rowToHazard(row: HazardRow): RoadHazard {
     address: row.address,
     latitude: row.latitude,
     longitude: row.longitude,
-    reportedBy: row.reported_by,
     createdAt: row.created_at,
     lastConfirmedAt: row.last_confirmed_at,
     confirmCount: row.confirm_count,
