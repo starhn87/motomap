@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { approxMeters } from '@/lib/distance';
 import type { Place, RidingCourse } from '@/types';
 import { rowToPlace, type PlaceRow } from '@/lib/api/places';
-import { CATEGORIES } from '@/constants/categories';
+import { rowToCourse } from '@/lib/api/courses';
 
 export interface SearchResults {
   places: Place[];
@@ -34,10 +34,10 @@ export function isSamePlace(
  * 전부 들어 있기만 하면 걸리게 한다("파주 카페" → 파주·카페가 다 있는 곳).
  */
 const SEARCH_SYNONYMS: Record<string, string[]> = {
-  바이크샵: ['바이크샵', '바이크사', '오토바이샵', '정비', '수리'],
-  오토바이샵: ['오토바이샵', '바이크샵', '바이크사', '정비', '수리'],
-  오토바이센터: ['오토바이센터', '바이크사', '정비', '수리'],
-  정비소: ['정비소', '바이크사', '정비', '수리'],
+  바이크샵: ['바이크샵', '바이크사', '오토바이샵', '정비'],
+  오토바이샵: ['오토바이샵', '바이크샵', '바이크사', '정비'],
+  오토바이센터: ['오토바이센터', '바이크사', '정비'],
+  정비소: ['정비소', '바이크사', '정비'],
   세차장: ['세차장', '세차'],
   바이크주차: ['바이크주차', '오토바이주차', '주차'],
   오토바이주차: ['오토바이주차', '바이크주차', '주차'],
@@ -54,37 +54,8 @@ function alternatives(word: string): string[] {
   return (SEARCH_SYNONYMS[compact(word)] ?? [word]).map(compact);
 }
 
-/** 관련성 점수. null이면 검색어와 무관하다. 거리는 같은 점수 안에서만 순위를 가른다. */
-function matchScore(
-  query: string,
-  fields: {
-    name: string;
-    address?: string | null;
-    tags?: string[] | null;
-    extra?: (string | null | undefined)[];
-  },
-): number | null {
-  const trimmed = query.trim();
-  if (!trimmed) return 0;
-
-  const q = compact(trimmed);
-  const name = compact(fields.name);
-  const address = compact(fields.address ?? '');
-  const tags = (fields.tags ?? []).map(compact);
-  const extra = (fields.extra ?? []).filter(Boolean).map((value) => compact(value!));
-  const all = [name, address, ...tags, ...extra].join(' ');
-  const words = trimmed.split(/\s+/).filter(Boolean);
-  const allWordsMatch = words.every((word) => alternatives(word).some((alt) => all.includes(alt)));
-  if (!allWordsMatch && !all.includes(q)) return null;
-
-  if (name === q) return 100;
-  if (name.startsWith(q)) return 90;
-  if (name.includes(q)) return 80;
-  if (tags.some((tag) => tag === q)) return 70;
-  if (tags.some((tag) => tag.includes(q))) return 60;
-  if (extra.some((value) => value === q)) return 55;
-  if (address.includes(q)) return 45;
-  return 35;
+function searchTermGroups(query: string): string[][] {
+  return query.split(/\s+/).filter(Boolean).map(alternatives);
 }
 
 export async function searchAll(
@@ -95,92 +66,43 @@ export async function searchAll(
   /** true면 반경 밖 결과로 폴백하지 않는다 — 결과 지도의 '이 지역' 범위용 */
   nearOnly = false,
 ): Promise<SearchResults> {
-  const [placesRes, coursesRes] = await Promise.all([
-    supabase.rpc('all_places', { category_filter: null }),
-    supabase
-      .from('courses')
-      .select('*')
-      .eq('approved', true)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false }),
-  ]);
-
-  const distTo = near
-    ? (lat: number, lng: number) => approxMeters({ latitude: lat, longitude: lng }, near)
-    : null;
-  // "지금 보는 지역"의 실질 반경 — 시 단위 생활권 20km(강릉이면 주문진·정동진까지).
-  // 처음 50km 로 잡았더니 여전히 멀게 느껴진다는 피드백에 좁혔다. 정렬만으로는
-  // 전국 매칭이 꼬리로 딸려 와 소용이 없었던 것도 실사용 피드백.
-  let places: { place: Place; score: number }[] = (placesRes.data ?? []).flatMap(
-    (row: PlaceRow) => {
-      const score = matchScore(query, {
-        name: row.name,
-        address: row.address,
-        tags: row.tags,
-        extra: [CATEGORIES[row.category].label],
-      });
-      return score === null ? [] : [{ place: rowToPlace(row), score }];
-    },
-  );
-  places.sort((a, b) => b.score - a.score);
-  if (distTo) {
-    places.sort(
-      (a, b) =>
-        b.score - a.score ||
-        distTo(a.place.latitude, a.place.longitude) - distTo(b.place.latitude, b.place.longitude),
-    );
-    // 반경 안만 남긴다 — 단, 주변에 하나도 없으면 전국 결과를 거리순 그대로 둔다
-    // ("부산 카페"처럼 지역을 명시한 검색이 빈손이 되지 않게)
-    const within = places.filter(
-      (result) => distTo(result.place.latitude, result.place.longitude) <= SEARCH_RADIUS_M,
-    );
-    if (nearOnly || within.length > 0) places = within;
-  }
-  const matchedPlaces = places.map((result) => result.place);
-
-  let courses = (coursesRes.data ?? [])
-    .map((row: any) => ({
-      row,
-      score: matchScore(query, {
-        name: row.name,
-        tags: row.tags,
-        extra: [row.description, row.section_from, row.section_to, row.route_name],
-      }),
-    }))
-    .filter((result: { row: any; score: number | null }): result is { row: any; score: number } =>
-      result.score !== null,
-    )
-    .sort((a, b) => b.score - a.score)
-    .map(({ row }) => row)
-    .map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      description: row.description ?? '',
-      distance: Number(row.distance),
-      duration: row.duration,
-      coordinates: row.coordinates ?? [],
-      sectionFrom: row.section_from ?? null,
-      sectionTo: row.section_to ?? null,
-      routeName: row.route_name ?? null,
-      routeGeometry: row.route_geometry ?? null,
-      waypoints: [],
-      tags: row.tags ?? [],
-      createdBy: row.created_by,
-      rating: Number(row.rating) || 0,
-      reviewCount: row.review_count ?? 0,
-      createdAt: row.created_at,
-    }));
-
-  if (distTo) {
-    // 코스는 경로 시작점 기준 — 같은 반경·폴백 규칙
-    const courseDist = (c: RidingCourse) => {
-      const p = c.coordinates[0];
-      return p ? distTo(p[1], p[0]) : Number.POSITIVE_INFINITY;
+  const trimmed = query.trim();
+  // 최근 검색의 일반 장소를 등록 장소로 승격하는 1회성 전체 조회 경로. 실제 검색은
+  // 2자 이상에서만 실행되므로 아래 RPC의 결과 상한과 분리한다.
+  if (!trimmed) {
+    const [placesRes, coursesRes] = await Promise.all([
+      supabase.rpc('all_places', { category_filter: null }),
+      supabase
+        .from('courses')
+        .select('*')
+        .eq('approved', true)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false }),
+    ]);
+    if (placesRes.error) throw placesRes.error;
+    if (coursesRes.error) throw coursesRes.error;
+    return {
+      places: (placesRes.data ?? []).map((row: PlaceRow) => rowToPlace(row)),
+      courses: (coursesRes.data ?? []).map(rowToCourse),
     };
-    courses.sort((a: RidingCourse, b: RidingCourse) => courseDist(a) - courseDist(b));
-    const within = courses.filter((c: RidingCourse) => courseDist(c) <= SEARCH_RADIUS_M);
-    if (nearOnly || within.length > 0) courses = within;
   }
 
-  return { places: matchedPlaces, courses };
+  const sharedParams = {
+    p_query: trimmed,
+    p_term_groups: searchTermGroups(trimmed),
+    p_lat: near?.latitude ?? null,
+    p_lng: near?.longitude ?? null,
+    p_radius_meters: SEARCH_RADIUS_M,
+    p_near_only: nearOnly,
+  };
+  const [placesRes, coursesRes] = await Promise.all([
+    supabase.rpc('search_places_v2', { ...sharedParams, p_limit: 50 }),
+    supabase.rpc('search_courses_v2', { ...sharedParams, p_limit: 30 }),
+  ]);
+  if (placesRes.error) throw placesRes.error;
+  if (coursesRes.error) throw coursesRes.error;
+  return {
+    places: (placesRes.data ?? []).map((row: PlaceRow) => rowToPlace(row)),
+    courses: (coursesRes.data ?? []).map(rowToCourse),
+  };
 }
