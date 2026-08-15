@@ -68,6 +68,8 @@ const EVENTS = [
   ['favorite_toggled', '즐겨찾기 토글'],
   ['review_submitted', '리뷰 작성'],
   ['place_submitted', '장소 제보'],
+  ['bike_setup_saved', '내 바이크 저장'],
+  ['bike_ride_history_opened', '라이딩 기록 조회'],
   ['chat_message_sent', 'AI 챗 메시지'],
   ['app_opened_from_link', '링크 유입'],
 ];

@@ -132,6 +132,17 @@ export const track = {
     has_photo: boolean;
   }) => capture('review_submitted', p),
 
+  bikeSetupViewed: (p: { has_bike: boolean }) => capture('bike_setup_viewed', p),
+
+  bikeSetupSaved: (p: {
+    action: 'registered' | 'updated' | 'removed' | 'unchanged';
+    canonical: boolean;
+    category?: string;
+  }) => capture('bike_setup_saved', p),
+
+  bikeRideHistoryOpened: (p: { source: 'bike_setup' | 'profile' | 'bike_hero' }) =>
+    capture('bike_ride_history_opened', p),
+
   chatMessageSent: (p: { turn_index: number }) => capture('chat_message_sent', p),
 
   appOpenedFromLink: (p: { campaign?: string; source?: string }) =>

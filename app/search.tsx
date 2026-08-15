@@ -233,9 +233,11 @@ export default function SearchScreen() {
     });
   }, [searching, isLoading, results, kakaoResults, kakaoOnly.length, trimmed]);
 
-  const goToPlace = useCallback((place: Place) => {
+  const goToPlace = useCallback((place: Place, rank?: number) => {
     Keyboard.dismiss();
-    track.searchResultSelected({ result_type: 'registered', rank: 0, source: 'search_screen' });
+    if (rank !== undefined) {
+      track.searchResultSelected({ result_type: 'registered', rank, source: 'search_screen' });
+    }
     addRecentSearch({ type: 'place', place });
     // 지도 탭으로 돌아가 마지막 보던 화면에서 장소로 날아간다(딥링크가 복귀 후
     // 실행돼 이동이 눈에 보인다 — 감추지 않는 게 의도)
@@ -243,8 +245,18 @@ export default function SearchScreen() {
   }, []);
 
   const goToKakaoPlace = useCallback(
-    (name: string, address: string, latitude: number, longitude: number, phone?: string) => {
+    (
+      name: string,
+      address: string,
+      latitude: number,
+      longitude: number,
+      phone?: string,
+      rank?: number,
+    ) => {
       Keyboard.dismiss();
+      if (rank !== undefined) {
+        track.searchResultSelected({ result_type: 'kakao', rank, source: 'search_screen' });
+      }
       addRecentSearch({ type: 'kakao', name, address, latitude, longitude, phone });
       router.navigate({
         pathname: '/',
@@ -261,18 +273,21 @@ export default function SearchScreen() {
     [],
   );
 
-  const goToCourse = useCallback((courseId: string, courseName: string) => {
+  const goToCourse = useCallback((courseId: string, courseName: string, rank?: number) => {
     Keyboard.dismiss();
+    if (rank !== undefined) {
+      track.searchResultSelected({ result_type: 'course', rank, source: 'search_screen' });
+    }
     addRecentSearch({ type: 'course', id: courseId, name: courseName });
     router.push(`/course/${courseId}`);
   }, []);
 
-  const placeRow = (place: Place, keyPrefix: string) => {
+  const placeRow = (place: Place, keyPrefix: string, rank?: number) => {
     const cat = CATEGORIES[place.category];
     return (
       <Pressable
         key={`${keyPrefix}-${place.id}`}
-        onPress={() => goToPlace(place)}
+        onPress={() => goToPlace(place, rank)}
         style={({ pressed }) => [
           styles.row,
           { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
@@ -384,7 +399,7 @@ export default function SearchScreen() {
                 검색 결과가 없습니다
               </Text>
             }
-            renderItem={({ item }) =>
+            renderItem={({ item, index }) =>
               item.type === 'kakao-header' ? (
                 sectionTitle('일반 장소')
               ) : item.type === 'kakao-footer' ? (
@@ -396,7 +411,16 @@ export default function SearchScreen() {
                   const k = item.data as KakaoLocalResult;
                   return (
                     <Pressable
-                      onPress={() => goToKakaoPlace(k.placeName, k.roadAddress || k.address, k.latitude, k.longitude, k.phone)}
+                      onPress={() =>
+                        goToKakaoPlace(
+                          k.placeName,
+                          k.roadAddress || k.address,
+                          k.latitude,
+                          k.longitude,
+                          k.phone,
+                          index - 1,
+                        )
+                      }
                       style={({ pressed }) => [
                         styles.row,
                         { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
@@ -415,10 +439,10 @@ export default function SearchScreen() {
                   );
                 })()
               ) : item.type === 'place' ? (
-                placeRow(item.data as Place, 'result')
+                placeRow(item.data as Place, 'result', index)
               ) : (
                 <Pressable
-                  onPress={() => goToCourse(item.data.id, item.data.name)}
+                  onPress={() => goToCourse(item.data.id, item.data.name, index)}
                   style={({ pressed }) => [
                     styles.row,
                     { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },

@@ -21,6 +21,7 @@ import { searchBikeModels } from '@/constants/bikes';
 import { getBikeSpec } from '@/lib/bike';
 import { useMyRideStats } from '@/hooks/usePlaceRides';
 import { toast } from '@/lib/toast';
+import { track } from '@/lib/analytics';
 
 // 마이 바이크 — 기종 자기 신고. 리뷰에 "OO 라이더" 뱃지로 표시된다.
 export default function EditBikeScreen() {
@@ -30,6 +31,7 @@ export default function EditBikeScreen() {
   const queryClient = useQueryClient();
   const myRides = useMyRideStats();
   const [model, setModel] = useState('');
+  const [initialModel, setInitialModel] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   // 자동완성 — 목록에서 고른 직후에는 드롭다운을 다시 열지 않는다
@@ -40,11 +42,14 @@ export default function EditBikeScreen() {
   useEffect(() => {
     (async () => {
       const profile = await getProfile();
-      if (profile?.bike_model) {
-        setModel(profile.bike_model);
+      const current = profile?.bike_model?.trim() ?? '';
+      if (current) {
+        setModel(current);
         // 저장된 기종은 이미 확정된 값 — 재진입 시 자기 자신이 드롭다운에 뜨지 않게
         setPicked(true);
       }
+      setInitialModel(current);
+      track.bikeSetupViewed({ has_bike: !!current });
       setLoading(false);
     })();
   }, []);
@@ -55,6 +60,21 @@ export default function EditBikeScreen() {
     setSaving(true);
     try {
       await updateBikeModel(model);
+      const next = model.trim();
+      const spec = getBikeSpec(next);
+      const action =
+        next === initialModel
+          ? 'unchanged'
+          : !next
+            ? 'removed'
+            : initialModel
+              ? 'updated'
+              : 'registered';
+      track.bikeSetupSaved({
+        action,
+        canonical: !!spec,
+        category: spec?.category,
+      });
       // 유가 강조·가득 주유비·리뷰 유도가 useMyBike 캐시(staleTime 30분)를 읽는다 —
       // 무효화하지 않으면 바꾼 기종이 세션 내내 반영되지 않는다
       void queryClient.invalidateQueries({ queryKey: ['my-bike'] });
@@ -178,7 +198,10 @@ export default function EditBikeScreen() {
           바이크를 바꿔도 과거 기록은 그대로다 */}
       {myRides.rides > 0 && (
         <Pressable
-          onPress={() => router.push('/my-rides')}
+          onPress={() => {
+            track.bikeRideHistoryOpened({ source: 'bike_setup' });
+            router.push('/my-rides');
+          }}
           style={({ pressed }) => [
             styles.ridesCard,
             { backgroundColor: colors.surface, borderColor: colors.border },

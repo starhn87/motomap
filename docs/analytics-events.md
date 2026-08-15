@@ -27,6 +27,12 @@ search_submitted → (search_no_results) → search_result_selected
 place_submitted → 승인
 ```
 
+**D. 내 바이크 정체성**
+```
+bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
+```
+모델명은 보내지 않는다. 등록 전환과 정규 기종 매칭 여부, 넓은 바이크 유형만 본다.
+
 ## 이벤트
 
 ### 발견
@@ -59,6 +65,14 @@ place_submitted → 승인
 | `review_submitted` | `target`(place·course) · `rating` · `has_photo` |
 | `chat_message_sent` | `turn_index` |
 
+### 내 바이크
+
+| 이벤트 | 속성 |
+| --- | --- |
+| `bike_setup_viewed` | `has_bike` |
+| `bike_setup_saved` | `action`(registered·updated·removed·unchanged) · `canonical` · `category` |
+| `bike_ride_history_opened` | `source`(bike_setup·profile·bike_hero) |
+
 ### 획득
 
 | 이벤트 | 속성 |
@@ -82,6 +96,7 @@ expo-router 는 `NavigationContainer` 를 노출하지 않아 PostHog 의 화면
   내 장소 설정 플로우에서 나는 `search_submitted` 는 `query` 를 뺀다.
 - **현재 위치 원좌표** — 라이더 동선이 그대로 남는다.
 - **리뷰 본문·채팅 내용·이메일·닉네임**
+- **바이크 모델명** — 정규 목록 여부와 넓은 유형만 보낸다.
 
 `query` 는 보낸다. "무엇을 찾다 실패했는지"를 알아야 검색을 고칠 수 있고 그게 이 계측의 최대 실익이다.
 위 예외만 지킨다.
