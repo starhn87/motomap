@@ -66,15 +66,16 @@ export default function RiderPlaceFacts({ placeId }: { placeId: string }) {
                 ]}>
                 {definition.label}
               </Text>
-              {!!fact?.confirmations && (
-                <Text
-                  style={[
-                    styles.count,
-                    { color: selected ? colors.tint : colors.textSecondary },
-                  ]}>
-                  {fact.confirmations}
-                </Text>
-              )}
+              <Text
+                style={[
+                  styles.count,
+                  {
+                    color: selected ? colors.tint : colors.textSecondary,
+                    opacity: fact?.confirmations ? 1 : 0,
+                  },
+                ]}>
+                {fact?.confirmations ?? 0}
+              </Text>
             </Pressable>
           );
         })}
@@ -115,6 +116,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   count: {
+    width: 18,
+    textAlign: 'right',
     fontSize: 11,
     fontWeight: '800',
   },

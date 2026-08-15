@@ -17,6 +17,8 @@ import { useGasPricesAt } from '@/hooks/useGasStations';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
 import { poiSourceKey } from '@/lib/api/placeHours';
 import PlaceHoursBlock from '@/components/place/PlaceHoursBlock';
+import OpenBadge from '@/components/place/OpenBadge';
+import { formatWeek } from '@/lib/hours';
 import { FUEL_LABELS, formatTradeAt, looksLikeGasStation } from '@/lib/api/gasStations';
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
 
@@ -63,6 +65,10 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
           longitude: place.longitude,
         },
   );
+  const [hoursExpanded, setHoursExpanded] = useState(false);
+  const canLoadHours = !looksLikeGasStation(place.name);
+  const hasHoursDetails = formatWeek(placeHours?.hours ?? {}).length > 0;
+  useEffect(() => setHoursExpanded(false), [place.latitude, place.longitude]);
   const fuelPrices = (gas?.prices ?? []).filter((p) => p.prod in FUEL_LABELS);
   const { spec: myBike } = useMyBike();
   const myProd = myFuelProd(myBike);
@@ -213,10 +219,34 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         </Pressable>
       </View>
 
-      <PlaceHoursBlock
-        hours={placeHours?.hours}
-        businessStatus={placeHours?.businessStatus}
-      />
+      {canLoadHours && (
+        <View style={styles.hoursSummary}>
+          <View style={styles.hoursStatus}>
+            <OpenBadge
+              hours={placeHours?.hours}
+              businessStatus={placeHours?.businessStatus}
+              inline
+            />
+          </View>
+          <View style={styles.hoursToggleSlot}>
+            {hasHoursDetails && (
+              <Pressable onPress={() => setHoursExpanded((expanded) => !expanded)} hitSlop={8}>
+                <Text style={[styles.hoursToggle, { color: colors.tint }]}>
+                  {hoursExpanded ? '접기' : '시간표'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      )}
+
+      {hoursExpanded && (
+        <PlaceHoursBlock
+          hours={placeHours?.hours}
+          businessStatus={placeHours?.businessStatus}
+          showStatus={false}
+        />
+      )}
 
       {/* 주유소로 보이면 값이 오기 전에 자리를 잡아 둔다. 유종이 2개인 곳도 있어
           minHeight 로 높이를 고정해야 줄 수가 달라도 카드가 안 흔들린다. */}
@@ -372,9 +402,10 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    paddingVertical: 12,
+    height: 44,
     borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   secondaryButton: {
     backgroundColor: 'transparent',
@@ -382,6 +413,24 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 14,
+    fontWeight: '700',
+  },
+  hoursSummary: {
+    minHeight: 20,
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  hoursStatus: {
+    flex: 1,
+    minWidth: 0,
+  },
+  hoursToggleSlot: {
+    width: 52,
+    alignItems: 'flex-end',
+  },
+  hoursToggle: {
+    fontSize: 12,
     fontWeight: '700',
   },
 });

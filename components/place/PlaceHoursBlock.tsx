@@ -8,6 +8,7 @@ import OpenBadge, { STATUS_LABELS } from '@/components/place/OpenBadge';
 interface Props {
   hours?: Hours | null;
   businessStatus?: string | null;
+  showStatus?: boolean;
 }
 
 /**
@@ -16,7 +17,7 @@ interface Props {
  * 기다리는 동안 자리를 잡거나 스켈레톤을 깔지 않는다. 구글에 영업시간이 없는
  * 장소가 오히려 흔해서, 결국 사라질 자리를 매번 깜빡이는 게 노이즈가 된다.
  */
-export default function PlaceHoursBlock({ hours, businessStatus }: Props) {
+export default function PlaceHoursBlock({ hours, businessStatus, showStatus = true }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -27,7 +28,9 @@ export default function PlaceHoursBlock({ hours, businessStatus }: Props) {
 
   return (
     <View style={styles.block}>
-      <OpenBadge hours={hours} businessStatus={businessStatus} note={hours?.note} />
+      {showStatus && (
+        <OpenBadge hours={hours} businessStatus={businessStatus} note={hours?.note} />
+      )}
       {lines.map((line) => (
         <Text key={line} style={[styles.line, { color: colors.textSecondary }]}>
           {line}

@@ -329,14 +329,6 @@ function PlaceBottomSheet({
   const hoursText = [scheduleText, hours?.note].filter(Boolean).join('\n');
 
   const infoCards = [
-    hoursText && {
-      icon: <Ionicons name="time-outline" size={16} color={colors.textSecondary} />,
-      label: '영업시간',
-      value: hoursText,
-      lines: 7,
-      // 요일마다 다른 곳은 2열 그리드의 좁은 칸에 우겨넣으면 답답하다
-      wide: weekLines.length > 1,
-    },
     displayPlace.parkingInfo && {
       icon: <MaterialIcons name="local-parking" size={16} color={colors.textSecondary} />,
       label: '주차',
@@ -347,6 +339,15 @@ function PlaceBottomSheet({
       label: '전화',
       value: displayPlace.phone,
       onPress: () => Linking.openURL(`tel:${displayPlace.phone}`).catch(() => {}),
+    },
+    hoursText && {
+      icon: <Ionicons name="time-outline" size={16} color={colors.textSecondary} />,
+      label: '영업시간',
+      value: hoursText,
+      lines: 7,
+      // 비동기로 들어와도 이미 보이던 주차·전화 카드의 위치는 바꾸지 않는다.
+      // 요일마다 다른 곳은 2열 그리드의 좁은 칸에 우겨넣으면 답답하다.
+      wide: weekLines.length > 1,
     },
   ].filter(Boolean) as Array<{
     icon: React.ReactNode;
@@ -423,31 +424,6 @@ function PlaceBottomSheet({
               <Feather name="share-2" size={19} color={colors.tint} />
             </TouchableOpacity>
           </View>
-
-          {/* 실제 도착한 라이딩 수 — 사회적 증거. 0이면 빈 자리 없이 생략 */}
-          {rides.total > 0 && (
-            <View style={styles.rideBlock}>
-              <Text style={[styles.rideCount, { color: colors.textSecondary }]}>
-                🏍️ 라이더들이 {rides.total}번 달려온 곳이에요
-              </Text>
-              {/* 어떤 바이크로들 왔는지 — 같은 기종 라이더에게 가장 실감나는 정보다.
-                  라이더가 한 명뿐인 기종은 숫자를 빼서 "1"이 나열되지 않게 한다 */}
-              {rides.bikes.length > 0 && (
-                <View style={styles.rideBikes}>
-                  {rides.bikes.map((b) => (
-                    <View
-                      key={b.model}
-                      style={[styles.rideBikeChip, { backgroundColor: colors.surfaceMuted }]}>
-                      <Text style={[styles.rideBikeText, { color: colors.text }]}>
-                        {b.model}
-                        {b.riders > 1 ? ` ${b.riders}` : ''}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
 
           {/* 출발/도착 — 시트 안 액션 행. 접힌 스냅에서도 보이도록 상단에 둔다 */}
           <View style={styles.actionRow}>
@@ -541,6 +517,30 @@ function PlaceBottomSheet({
                   </View>
                 );
               })}
+            </View>
+          )}
+
+          {/* 비동기로 오는 사회적 증거는 주요 액션 아래에 둔다. 응답이 늦어도
+              출발·도착 버튼은 움직이지 않는다. 0이면 빈 자리 없이 생략한다. */}
+          {rides.total > 0 && (
+            <View style={styles.rideBlock}>
+              <Text style={[styles.rideCount, { color: colors.textSecondary }]}>
+                🏍️ 라이더들이 {rides.total}번 달려온 곳이에요
+              </Text>
+              {rides.bikes.length > 0 && (
+                <View style={styles.rideBikes}>
+                  {rides.bikes.map((b) => (
+                    <View
+                      key={b.model}
+                      style={[styles.rideBikeChip, { backgroundColor: colors.surfaceMuted }]}>
+                      <Text style={[styles.rideBikeText, { color: colors.text }]}>
+                        {b.model}
+                        {b.riders > 1 ? ` ${b.riders}` : ''}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           )}
 
