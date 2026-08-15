@@ -30,6 +30,7 @@ import { CATEGORIES } from '@/constants/categories';
 import { MARKER_IMAGES, MARKER_IMAGES_CIRCLE } from '@/constants/markerImages';
 import { isSamePlace, searchAll, SEARCH_RADIUS_M } from '@/lib/api/search';
 import { useSearchAnchor } from '@/hooks/useSearchAnchor';
+import { useBikePlaceMatches } from '@/hooks/useRiderInsights';
 import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { addRecentSearch } from '@/lib/recentSearches';
 import { track } from '@/lib/analytics';
@@ -47,12 +48,13 @@ type ResultItem =
   | { kind: 'course'; course: RidingCourse }
   | { kind: 'kakao'; k: KakaoLocalResult };
 
-type SearchFilter = 'open' | 'parking' | 'rating';
+type SearchFilter = 'open' | 'parking' | 'rating' | 'bike';
 
 const FILTERS: { key: SearchFilter; label: string }[] = [
   { key: 'open', label: '영업 중' },
   { key: 'parking', label: '주차 정보' },
   { key: 'rating', label: '평점 4+' },
+  { key: 'bike', label: '내 바이크 추천' },
 ];
 
 function hasParkingInfo(place: Place): boolean {
@@ -116,12 +118,16 @@ export default function SearchResultsScreen() {
     queryFn: () => searchKakaoLocal(query, activeNear),
     enabled: !!query,
   });
+  const bikeMatches = useBikePlaceMatches(
+    (results?.places ?? []).map((place) => place.id),
+  );
 
   const items = useMemo<ResultItem[]>(() => {
     const places = (results?.places ?? []).filter((place) => {
       if (filters.includes('open') && getOpenState(place.hours).status !== 'open') return false;
       if (filters.includes('parking') && !hasParkingInfo(place)) return false;
       if (filters.includes('rating') && (place.rating < 4 || place.reviewCount === 0)) return false;
+      if (filters.includes('bike') && !bikeMatches.data?.[place.id]) return false;
       return true;
     }).slice(0, MAX_PLACES);
     // 코스·카카오 결과에는 영업시간/주차/평점의 같은 필드가 없다. 필터를 켰을 때
@@ -144,9 +150,12 @@ export default function SearchResultsScreen() {
       ...courses.map((course) => ({ kind: 'course' as const, course })),
       ...kakaoOnly.map((k) => ({ kind: 'kakao' as const, k })),
     ];
-  }, [results, kakaoResults, filters, activeNear]);
+  }, [results, kakaoResults, filters, activeNear, bikeMatches.data]);
 
-  const loading = isLoading || kakaoLoading;
+  const loading =
+    isLoading ||
+    kakaoLoading ||
+    (filters.includes('bike') && (bikeMatches.isLoading || bikeMatches.bikesLoading));
 
   // 기본 스냅은 목록 높이에 맞추되 화면의 45% 까지만 — 결과가 두어 개뿐인데
   // 억지로 채우면 지도만 가린다. 행 68 + 핸들·헤더(62) + 어트리뷰션(40).
@@ -410,7 +419,9 @@ export default function SearchResultsScreen() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.filterRow}>
-                {FILTERS.map((filter) => {
+                {FILTERS.filter(
+                  (filter) => filter.key !== 'bike' || !!bikeMatches.activeBike,
+                ).map((filter) => {
                   const selected = filters.includes(filter.key);
                   return (
                     <Pressable
@@ -443,7 +454,11 @@ export default function SearchResultsScreen() {
               <ActivityIndicator style={styles.empty} color={colors.textSecondary} />
             ) : (
               <Text style={[styles.empty, { color: colors.textSecondary }]}>
-                {filters.length > 0 ? '선택한 조건에 맞는 장소가 없습니다' : '검색 결과가 없습니다'}
+                {filters.includes('bike')
+                  ? '같은 기종·유형 라이더의 추천 기록이 아직 없습니다'
+                  : filters.length > 0
+                    ? '선택한 조건에 맞는 장소가 없습니다'
+                    : '검색 결과가 없습니다'}
               </Text>
             )
           }
@@ -487,6 +502,13 @@ export default function SearchResultsScreen() {
                         )}
                         {hasParkingInfo(item.place) && (
                           <Text style={[styles.rowMetaText, { color: colors.textSecondary }]}>주차 정보</Text>
+                        )}
+                        {bikeMatches.data?.[item.place.id] && (
+                          <Text style={[styles.rowMetaText, { color: colors.tint }]}>
+                            {bikeMatches.data[item.place.id].kind === 'same_model'
+                              ? `같은 기종 ${bikeMatches.data[item.place.id].exactRiders}명`
+                              : `같은 유형 ${bikeMatches.data[item.place.id].supporters}명`}
+                          </Text>
                         )}
                       </View>
                     </View>

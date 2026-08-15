@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { usePathname } from 'expo-router';
 import PostHog from 'posthog-react-native';
 
+import type { RiderFactCode } from '@/constants/riderFacts';
+
 // 제품 분석 — 어떤 경로로 장소를 찾아 실제로 달리는지, 어디서 이탈하는지.
 // 설계와 금지 항목은 docs/analytics-events.md 참고. 크래시·성능은 Sentry 담당이라
 // 여기서 중복 수집하지 않는다.
@@ -88,7 +90,7 @@ export const track = {
     source: SearchSource;
   }) => capture('search_result_selected', p),
 
-  searchFilterToggled: (p: { filter: 'open' | 'parking' | 'rating'; on: boolean }) =>
+  searchFilterToggled: (p: { filter: 'open' | 'parking' | 'rating' | 'bike'; on: boolean }) =>
     capture('search_filter_toggled', p),
 
   searchScopeChanged: (p: { scope: 'near' | 'all' }) => capture('search_scope_changed', p),
@@ -164,6 +166,15 @@ export const track = {
     action: 'added' | 'edited' | 'activated' | 'removed';
     bike_count: number;
   }) => capture('bike_garage_changed', p),
+
+  riderFactToggled: (p: { fact: RiderFactCode; on: boolean }) =>
+    capture('rider_fact_toggled', p),
+
+  bikeRecommendationsViewed: (p: { recommendation_count: number }) =>
+    capture('bike_recommendations_viewed', p),
+
+  bikeRecommendationSelected: (p: { match: 'same_model' | 'same_category' }) =>
+    capture('bike_recommendation_selected', p),
 
   chatMessageSent: (p: { turn_index: number }) => capture('chat_message_sent', p),
 

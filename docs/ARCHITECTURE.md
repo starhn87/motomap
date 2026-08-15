@@ -174,6 +174,8 @@ Sentry.wrap(
 | 코스 | `['courses']` · `['courses','detail', id]` |
 | 리뷰 / 코스리뷰 | `['reviews', placeId]` · `['course-reviews', courseId]` |
 | 즐겨찾기 | `['favorites', userId]` |
+| 라이더 장소 정보 | `['place-rider-facts', placeId, userId]` |
+| 내 바이크 장소 매칭 | `['bike-place-matches', userId, bikeId, model, category, placeIds]` |
 | 차단 | `['blocks','ids', userId]` · `['blocks','users', userId]` |
 
 > `useUserLocation`은 react-query가 아니다 — expo-location으로 권한·현재 위치·방향(heading)을 watch하고 `useMapStore.setUserLocation()`에 흘려보낸다.
@@ -203,11 +205,17 @@ Sentry.wrap(
 | `reports` | 운영 기준선 (이력 001) | target_type·reason·status, (reporter,target) 유니크 |
 | `blocks` | 운영 기준선 (이력 001) | (blocker, blocked) 유니크 + self-block 방지 |
 | `feedback` | 운영 기준선 | type(bug/feature/general) |
+| `user_bikes` | `20260815115054` | 여러 바이크와 활성 바이크, `profiles.bike_model` 호환 mirror |
+| `place_rides` | 운영 기준선 + 후속 migration | 도착 시점 기종·유형 스냅샷, 원시 행은 본인만 조회 |
+| `place_rider_fact_votes` | `20260815120500` | 장소 편의 정보 1인 1표, 원시 행 비공개·집계 RPC만 노출 |
 
 **RPC 함수:**
 - `nearby_places(lat, lng, radius_meters, category_filter)` — PostGIS 반경 + 카테고리 질의
 - `all_places(category_filter)` — 카테고리 질의(전체)
 - `delete_my_account()` (SECURITY DEFINER, 002) — 프로필 익명화 + `deleted_at` 설정
+- `get_place_rider_facts(place_id)` — 승인 장소의 라이더 정보별 확인 수와 내 확인 여부
+- `toggle_place_rider_fact(place_id, fact_code)` — 로그인 사용자의 장소 정보 1표 토글
+- `bike_place_matches_v1(place_ids, bike_category)` — 활성 기종·유형과 맞는 장소를 최소 2명 익명 집계로 반환
 
 > 📌 원격에서 직접 생성됐던 초기 테이블까지 `20260814142438_remote_schema_baseline.sql`에 캡처했다. 새 로컬 환경은 이 파일 하나로 2026-08-14 운영 스키마를 재현하고, 이후 마이그레이션만 순서대로 적용한다.
 

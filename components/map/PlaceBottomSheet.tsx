@@ -41,6 +41,7 @@ import { useMapStore } from '@/stores/useMapStore';
 import { usePlace } from '@/hooks/usePlace';
 import ReviewList from '@/components/review/ReviewList';
 import ReviewForm from '@/components/review/ReviewForm';
+import RiderPlaceFacts from '@/components/place/RiderPlaceFacts';
 import PhotoStrip from '@/components/map/PhotoStrip';
 import NearbyPlaces from '@/components/map/NearbyPlaces';
 import { useReviews } from '@/hooks/useReviews';
@@ -537,6 +538,8 @@ function PlaceBottomSheet({
               })}
             </View>
           )}
+
+          <RiderPlaceFacts placeId={displayPlace.id} />
 
           {infoCards.length > 0 && (
             <View style={styles.infoGrid}>

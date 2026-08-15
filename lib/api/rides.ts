@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { getProfile } from '@/lib/nickname';
+import { BIKE_SPECS, canonicalBikeModel } from '@/constants/bikes';
 import type { PlaceCategory } from '@/types';
 
 // 장소별 라이딩 기록 — 길안내를 그 장소(도착지/경유지)로 마치고 도착지 300m
@@ -40,9 +41,13 @@ export async function recordPlaceRides(rides: PlaceRide[]) {
     if (!user) return;
     // 그때 탄 바이크를 함께 남긴다 — 나중에 기종을 바꿔도 과거 기록은 그대로여야 한다
     const bike_model = (await getProfile())?.bike_model ?? null;
+    const bikeKey = bike_model
+      ? canonicalBikeModel(bike_model) ?? bike_model.trim()
+      : null;
+    const bike_category = bikeKey ? BIKE_SPECS[bikeKey]?.category ?? null : null;
     await supabase
       .from('place_rides')
-      .insert(rides.map((r) => ({ ...r, user_id: user.id, bike_model })));
+      .insert(rides.map((r) => ({ ...r, user_id: user.id, bike_model, bike_category })));
   } catch {
     // 테이블 미생성·네트워크 실패 등 — 카운트 하나 빠질 뿐이다
   }

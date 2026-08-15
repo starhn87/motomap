@@ -42,7 +42,7 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `search_submitted` | `method`(typed·voice) · `source`(map_bar·search_screen·point_modal) · `query` |
 | `search_no_results` | `query` · `source` · `kakao_count` |
 | `search_result_selected` | `result_type`(registered·kakao·course) · `rank` · `source` |
-| `search_filter_toggled` | `filter`(open·parking·rating) · `on` |
+| `search_filter_toggled` | `filter`(open·parking·rating·bike) · `on` |
 | `search_scope_changed` | `scope`(near·all) |
 | `search_area_refreshed` | - |
 | `category_filtered` | `category` |
@@ -80,6 +80,14 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `bike_ride_history_opened` | `source`(bike_setup·profile·bike_hero) |
 | `bike_passport_shared` | `scope`(all·bike) · `places` · `rides` |
 | `bike_garage_changed` | `action`(added·edited·activated·removed) · `bike_count` |
+| `bike_recommendations_viewed` | `recommendation_count` |
+| `bike_recommendation_selected` | `match`(same_model·same_category) |
+
+### 라이더 장소 정보
+
+| 이벤트 | 속성 |
+| --- | --- |
+| `rider_fact_toggled` | `fact`(편의 정보 코드) · `on` |
 
 ### 획득
 
@@ -105,6 +113,7 @@ expo-router 는 `NavigationContainer` 를 노출하지 않아 PostHog 의 화면
 - **현재 위치 원좌표** — 라이더 동선이 그대로 남는다.
 - **리뷰 본문·채팅 내용·이메일·닉네임**
 - **바이크 모델명** — 정규 목록 여부와 넓은 유형만 보낸다.
+- **라이더 장소 정보의 사용자·장소 연결** — 사실 코드와 선택 여부만 보내고 place id는 보내지 않는다.
 
 `query` 는 보낸다. "무엇을 찾다 실패했는지"를 알아야 검색을 고칠 수 있고 그게 이 계측의 최대 실익이다.
 위 예외만 지킨다.

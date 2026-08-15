@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { router } from 'expo-router';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   StyleSheet,
@@ -12,12 +13,24 @@ import {
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
+import { useBikePlaceMatches } from '@/hooks/useRiderInsights';
 import { CATEGORIES } from '@/constants/categories';
 import { openNavigation } from '@/lib/navigation';
+import { track } from '@/lib/analytics';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
+import { useAuthStore } from '@/stores/useAuthStore';
+import type { BikePlaceMatch } from '@/lib/api/riderInsights';
 import type { Place } from '@/types';
 
-function PlaceCard({ place, isNew }: { place: Place; isNew?: boolean }) {
+function PlaceCard({
+  place,
+  isNew,
+  bikeMatch,
+}: {
+  place: Place;
+  isNew?: boolean;
+  bikeMatch?: BikePlaceMatch;
+}) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const cat = CATEGORIES[place.category];
@@ -61,15 +74,26 @@ function PlaceCard({ place, isNew }: { place: Place; isNew?: boolean }) {
         </Text>
       ) : null}
 
+      {bikeMatch && (
+        <View style={[styles.bikeEvidence, { backgroundColor: colors.tint + '14' }]}>
+          <Text style={[styles.bikeEvidenceText, { color: colors.tint }]}>
+            {bikeMatch.kind === 'same_model'
+              ? `같은 기종 라이더 ${bikeMatch.exactRiders}명이 다녀갔어요`
+              : `같은 유형 라이더 ${bikeMatch.supporters}명이 다녀갔어요`}
+          </Text>
+        </View>
+      )}
+
       <Pressable
-        onPress={() =>
+        onPress={() => {
+          if (bikeMatch) track.bikeRecommendationSelected({ match: bikeMatch.kind });
           openNavigation({
             name: place.name,
             latitude: place.latitude,
             longitude: place.longitude,
             placeId: place.id,
-          })
-        }
+          });
+        }}
         style={({ pressed }) => [
           styles.navBtn,
           { backgroundColor: colors.tint, opacity: pressed ? 0.8 : 1 },
@@ -98,16 +122,40 @@ function RecommendedSkeleton() {
 export default function RecommendedPlaces() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const user = useAuthStore((state) => state.user);
   const [region, setRegion] = useState<string | null>(null);
   const { data, isLoading, refetch, isRefetching } = useRecommendedPlaces(region);
-
-  if (isLoading) {
-    return <RecommendedSkeleton />;
-  }
+  const bikeMatches = useBikePlaceMatches((data?.all ?? []).map((place) => place.id));
 
   const recent = data?.recent ?? [];
   const topRated = data?.topRated ?? [];
   const regions = data?.regions ?? [];
+  const matchedBikePlaces = (data?.all ?? []).filter((place) => !!bikeMatches.data?.[place.id]);
+  const bikeRecommended = matchedBikePlaces
+    .filter((place) => !bikeMatches.data![place.id].visitedByMe)
+    .sort((a, b) => {
+      const left = bikeMatches.data![a.id];
+      const right = bikeMatches.data![b.id];
+      if (left.kind !== right.kind) return left.kind === 'same_model' ? -1 : 1;
+      return right.supporters - left.supporters || b.rating - a.rating;
+    })
+    .slice(0, 8);
+
+  useEffect(() => {
+    if (bikeRecommended.length > 0) {
+      track.bikeRecommendationsViewed({ recommendation_count: bikeRecommended.length });
+    }
+  }, [bikeRecommended.length]);
+
+  const handleRefresh = async () => {
+    const requests: Promise<unknown>[] = [refetch()];
+    if (user && bikeMatches.activeBike) requests.push(bikeMatches.refetch());
+    await Promise.all(requests);
+  };
+
+  if (isLoading) {
+    return <RecommendedSkeleton />;
+  }
 
   // 지역을 골라 결과가 빈 경우까지 여기서 걸리면 칩이 사라져 전체로 못 돌아온다.
   // 전체 데이터 자체가 없을 때만 빈 화면으로 빠진다.
@@ -130,8 +178,8 @@ export default function RecommendedPlaces() {
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
-          refreshing={isRefetching}
-          onRefresh={refetch}
+          refreshing={isRefetching || bikeMatches.isRefetching}
+          onRefresh={handleRefresh}
           tintColor={colors.tint}
         />
       }>
@@ -170,6 +218,51 @@ export default function RecommendedPlaces() {
         <Text style={[styles.emptyHint, { color: colors.textSecondary }]}>
           {region} 지역에 아직 등록된 장소가 없어요.
         </Text>
+      )}
+
+      {!!user && !bikeMatches.bikesLoading && !bikeMatches.isLoading && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>내 바이크 추천</Text>
+          {bikeMatches.activeBike ? (
+            bikeRecommended.length > 0 ? (
+              bikeRecommended.map((place) => (
+                <PlaceCard
+                  key={`bike-${place.id}`}
+                  place={place}
+                  bikeMatch={bikeMatches.data?.[place.id]}
+                />
+              ))
+            ) : (
+              <View
+                style={[
+                  styles.bikeEmpty,
+                  { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                ]}>
+                <Text style={[styles.bikeEmptyTitle, { color: colors.text }]}>
+                  {matchedBikePlaces.length > 0
+                    ? '추천된 장소를 이미 모두 다녀왔어요'
+                    : '추천 기록을 모으는 중이에요'}
+                </Text>
+                <Text style={[styles.bikeEmptyText, { color: colors.textSecondary }]}>
+                  {matchedBikePlaces.length > 0
+                    ? '새로운 라이더 기록이 쌓이면 다음 목적지를 바로 보여드릴게요.'
+                    : `${bikeMatches.activeBike.model} 기준으로, 같은 기종·유형의 라이더 2명 이상이 다녀간 곳부터 추천해 드려요.`}
+                </Text>
+              </View>
+            )
+          ) : (
+            <Pressable
+              onPress={() => router.push('/edit-bike')}
+              style={({ pressed }) => [
+                styles.bikeEmpty,
+                { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                pressed && { opacity: 0.7 },
+              ]}>
+              <Text style={[styles.bikeEmptyTitle, { color: colors.text }]}>내 바이크를 먼저 등록해 주세요</Text>
+              <Text style={[styles.bikeEmptyText, { color: colors.textSecondary }]}>기종에 맞는 라이더 목적지를 골라 드릴게요.</Text>
+            </Pressable>
+          )}
+        </View>
       )}
 
       {recent.length > 0 && (
@@ -239,6 +332,14 @@ const styles = StyleSheet.create({
   ratingText: { fontSize: 13, fontWeight: '700' },
   name: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
   address: { fontSize: 13, marginBottom: 14 },
+  bikeEvidence: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  bikeEvidenceText: { fontSize: 12, fontWeight: '700' },
   navBtn: { paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
   navText: { fontSize: 15, fontWeight: '700' },
   empty: {
@@ -249,4 +350,12 @@ const styles = StyleSheet.create({
   },
   emptyText: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
   emptyHint: { fontSize: 13, textAlign: 'center' },
+  bikeEmpty: {
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 5,
+  },
+  bikeEmptyTitle: { fontSize: 15, fontWeight: '700' },
+  bikeEmptyText: { fontSize: 13, lineHeight: 19 },
 });

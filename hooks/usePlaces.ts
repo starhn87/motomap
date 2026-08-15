@@ -78,6 +78,7 @@ export function useNearbyPlacesOf(place: Place | null, radiusMeters = 20_000, li
 }
 
 export interface RecommendedPlaces {
+  all: Place[];
   recent: Place[];
   topRated: Place[];
   /** 칩으로 띄울 시도 목록 — 장소가 많은 지역 순 (선택과 무관하게 전체 기준) */
@@ -98,6 +99,7 @@ export function useRecommendedPlaces(region?: string | null) {
       const scoped = region ? places.filter((p) => regionOf(p.address) === region) : places;
 
       return {
+        all: scoped,
         recent: [...scoped]
           .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
           .slice(0, 8),
