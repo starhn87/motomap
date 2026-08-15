@@ -143,6 +143,9 @@ export const track = {
   bikeRideHistoryOpened: (p: { source: 'bike_setup' | 'profile' | 'bike_hero' }) =>
     capture('bike_ride_history_opened', p),
 
+  bikePassportShared: (p: { scope: 'all' | 'bike'; places: number; rides: number }) =>
+    capture('bike_passport_shared', p),
+
   chatMessageSent: (p: { turn_index: number }) => capture('chat_message_sent', p),
 
   appOpenedFromLink: (p: { campaign?: string; source?: string }) =>

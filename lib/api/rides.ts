@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { getProfile } from '@/lib/nickname';
+import type { PlaceCategory } from '@/types';
 
 // 장소별 라이딩 기록 — 길안내를 그 장소(도착지/경유지)로 마치고 도착지 300m
 // 안에서 끝났을 때 1회. 기록은 로그인 라이더만(RLS), 집계 조회는 누구나(RPC).
@@ -62,19 +63,24 @@ export interface MyRideStats {
 
 export const EMPTY_MY_RIDE_STATS: MyRideStats = { rides: 0, places: 0, bikes: [] };
 
+export interface MyRideBreakdown {
+  goals: number;
+  vias: number;
+  total: number;
+  lastAt: string;
+}
+
 /** 장소별 내 라이딩 — 라이딩 기록 화면의 한 행 */
-export interface MyRidePlace {
+export interface MyRidePlace extends MyRideBreakdown {
   /** 등록 장소면 id, 미등록 일반 장소면 null */
   placeId: string | null;
   name: string;
   /** 미등록 장소의 기록 좌표 — 지도 포커스용 (등록 장소는 null, id 로 간다) */
   latitude: number | null;
   longitude: number | null;
-  goals: number;
-  vias: number;
-  total: number;
-  /** 마지막으로 간 날 (ISO) */
-  lastAt: string;
+  category: PlaceCategory | null;
+  /** 기록 당시 기종별 횟수 — 현재 프로필 기종을 바꿔도 과거 기록은 유지된다 */
+  byBike: Record<string, MyRideBreakdown>;
 }
 
 /**
@@ -84,7 +90,7 @@ export interface MyRidePlace {
 export async function fetchMyRides(): Promise<MyRidePlace[]> {
   const { data, error } = await supabase
     .from('place_rides')
-    .select('place_id, name, latitude, longitude, role, created_at, places(name)')
+    .select('place_id, name, latitude, longitude, role, bike_model, created_at, places(name, category)')
     .order('created_at', { ascending: false })
     .limit(1000);
   if (error || !data) return [];
@@ -94,19 +100,34 @@ export async function fetchMyRides(): Promise<MyRidePlace[]> {
     // 미등록 장소는 이름으로 묶는다 — 같은 곳을 여러 번 가면 좌표가 미세하게
     // 달라도 이름은 같다(내 기록이라 진입 경로가 하나뿐인 것도 한몫)
     const key = r.place_id ?? `pt:${name}`;
-    const cur = byPlace.get(key) ?? {
+    const cur: MyRidePlace = byPlace.get(key) ?? {
       placeId: r.place_id ?? null,
       name,
       latitude: r.latitude ?? null,
       longitude: r.longitude ?? null,
+      category: r.places?.category ?? null,
       goals: 0,
       vias: 0,
       total: 0,
       lastAt: r.created_at,
+      byBike: {},
     };
     cur.total += 1;
     if (r.role === 'via') cur.vias += 1;
     else cur.goals += 1;
+    const bike = typeof r.bike_model === 'string' ? r.bike_model.trim() : '';
+    if (bike) {
+      const bikeRide = cur.byBike[bike] ?? {
+        goals: 0,
+        vias: 0,
+        total: 0,
+        lastAt: r.created_at,
+      };
+      bikeRide.total += 1;
+      if (r.role === 'via') bikeRide.vias += 1;
+      else bikeRide.goals += 1;
+      cur.byBike[bike] = bikeRide;
+    }
     byPlace.set(key, cur);
   }
   // 많이 간 곳 먼저, 동률이면 최근에 간 곳 먼저 (조회가 created_at 내림차순이라
