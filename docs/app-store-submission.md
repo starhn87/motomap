@@ -80,9 +80,19 @@ ridemap-ios-001
 
 #### Location
 - **Precise Location**
-  - 수집 목적: App Functionality (현재 위치 표시, 주변 장소 검색)
+  - 수집 목적: App Functionality, Product Personalization (현재 위치 표시, 주변 장소 검색, 도착·방문 기록)
   - 트래킹 사용: No
-> 위치 정보는 디바이스 내에서만 사용. 서버 저장 X.
+> 연속 이동 경로는 저장하지 않지만 로그인 사용자의 도착지·경유지와 시각은 라이딩 기록을 위해 계정에 연결해 저장한다.
+
+#### Search History
+- **Search History** (앱 내 장소·코스 검색어)
+  - 수집 목적: Analytics, App Functionality (검색 품질·미등록 장소 개선)
+  - 트래킹 사용: No
+
+#### Usage Data
+- **Product Interaction** (화면 조회, 기능 사용 이벤트, 세션 리플레이)
+  - 수집 목적: Analytics, App Functionality
+  - 트래킹 사용: No
 
 #### Diagnostics
 - **Crash Data**
@@ -97,7 +107,6 @@ ridemap-ios-001
 - Financial Info
 - Sensitive Info
 - Browsing History
-- Search History (검색은 서버 저장 X)
 - Contacts
 - Purchases
 - Audio Data
@@ -105,7 +114,7 @@ ridemap-ios-001
 
 ### Tracking
 - **Does this app track users?**: **No**
-> 광고/분석 SDK 없음. Sentry는 자체 운영용이라 tracking 아님.
+> PostHog(제품 분석·마스킹된 세션 리플레이)와 Sentry(오류·성능 진단)를 사용하지만 광고 목적의 제3자 데이터 결합이나 데이터 브로커 제공은 하지 않는다.
 
 ---
 
