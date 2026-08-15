@@ -232,7 +232,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
             {hasHoursDetails && (
               <Pressable onPress={() => setHoursExpanded((expanded) => !expanded)} hitSlop={8}>
                 <Text style={[styles.hoursToggle, { color: colors.tint }]}>
-                  {hoursExpanded ? '접기' : '시간표'}
+                  {hoursExpanded ? '접기' : '펼치기'}
                 </Text>
               </Pressable>
             )}

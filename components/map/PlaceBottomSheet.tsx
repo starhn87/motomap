@@ -816,9 +816,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   actionRow: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    // 영업 상태를 오른쪽 끝에 고정하고 버튼이 들어갈 자리를 미리 비워 둔다
+    paddingRight: 142,
     marginTop: 12,
     marginBottom: 10,
   },
@@ -839,8 +842,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   openStatusSlot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
     width: 132,
-    minHeight: 40,
+    height: 40,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
