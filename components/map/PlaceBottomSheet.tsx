@@ -324,7 +324,9 @@ function PlaceBottomSheet({
 
   // 구조화된 hours 가 있으면 요일별로, 없으면 사람이 쓴 원문을 그대로 보여준다
   const weekLines = hours ? formatWeek(hours) : [];
-  const hoursText = weekLines.join('\n') || displayPlace.openingHours;
+  const scheduleText = weekLines.join('\n') || displayPlace.openingHours;
+  // 상단의 간결한 영업 상태에서는 긴 특이사항을 빼고, 상세 카드에서 온전히 보여준다.
+  const hoursText = [scheduleText, hours?.note].filter(Boolean).join('\n');
 
   const infoCards = [
     hoursText && {
@@ -405,12 +407,6 @@ function PlaceBottomSheet({
               </Animated.View>
             )}
           </View>
-
-          <OpenBadge
-            hours={hours}
-            businessStatus={googleHours?.businessStatus}
-            note={hours?.note}
-          />
 
           <View style={styles.addressRow}>
             <Text
@@ -499,6 +495,15 @@ function PlaceBottomSheet({
                 <Text style={[styles.navButtonText, { color: colors.background }]}>도착</Text>
               )}
             </TouchableOpacity>
+            {/* 비동기 영업시간이 도착하기 전부터 같은 폭을 잡아 버튼과 콘텐츠가
+                움직이지 않는다. 긴 특이사항은 아래 영업시간 카드에서 보여준다. */}
+            <View style={styles.openStatusSlot}>
+              <OpenBadge
+                hours={hours}
+                businessStatus={googleHours?.businessStatus}
+                inline
+              />
+            </View>
           </View>
 
           {displayPlace.description ? (
@@ -812,6 +817,7 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     marginTop: 12,
     marginBottom: 10,
@@ -831,6 +837,12 @@ const styles = StyleSheet.create({
   navButtonText: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  openStatusSlot: {
+    width: 132,
+    minHeight: 40,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   photoSection: {
     marginTop: 12,
