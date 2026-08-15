@@ -381,6 +381,10 @@ verify_jwt = false
 [functions.moderate]
 verify_jwt = false
 
+# 로그인 사용자의 JWT를 gateway와 함수 내부에서 모두 확인한다.
+[functions.delete-account]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
