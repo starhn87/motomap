@@ -8,7 +8,7 @@ export async function fetchReviews(placeId: string, page = 0): Promise<Review[]>
   const from = page * REVIEWS_PAGE_SIZE;
   const { data, error } = await supabase
     .from('reviews')
-    .select('*, profiles(nickname, avatar_url, bike_model), review_likes(user_id)')
+    .select('*, profiles(nickname, avatar_url), review_likes(user_id)')
     .eq('place_id', placeId)
     .order('created_at', { ascending: false })
     .range(from, from + REVIEWS_PAGE_SIZE - 1);
@@ -21,7 +21,7 @@ export async function fetchReviews(placeId: string, page = 0): Promise<Review[]>
     userId: row.user_id,
     userName: row.profiles?.nickname ?? row.user_name,
     avatarUrl: row.profiles?.avatar_url ?? null,
-    bikeModel: row.profiles?.bike_model ?? null,
+    bikeModel: row.bike_model ?? null,
     rating: row.rating,
     content: row.content ?? '',
     photos: row.photos ?? [],

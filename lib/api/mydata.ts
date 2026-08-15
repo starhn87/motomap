@@ -86,7 +86,7 @@ export async function fetchMyReviews(
     userId: row.user_id,
     userName: row.user_name,
     avatarUrl: null,
-    bikeModel: null,
+    bikeModel: row.bike_model ?? null,
     rating: row.rating,
     content: row.content ?? '',
     photos: row.photos ?? [],
