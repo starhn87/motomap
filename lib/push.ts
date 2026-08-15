@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
@@ -6,6 +7,8 @@ import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
 import { getCurrentUser } from '@/lib/auth';
+
+const DEVICE_PUSH_TOKEN_KEY = 'device-push-token';
 
 // 포그라운드에서도 알림 배너 표시 (기본은 무음 폐기)
 Notifications.setNotificationHandler({
@@ -29,6 +32,11 @@ function routeFromNotification(data: Record<string, unknown> | undefined) {
       });
     } else if (data.type === 'course_approved' && typeof data.courseId === 'string') {
       router.push(`/course/${data.courseId}`);
+    } else if (data.type === 'review_liked' && typeof data.placeId === 'string') {
+      router.push({
+        pathname: '/',
+        params: { focusPlaceId: data.placeId, focusTs: String(Date.now()) },
+      });
     } else if (data.type === 'notice') {
       // 공지는 운영자가 data.url을 넣었으면 해당 앱 화면으로, 없으면 본문을
       // 확인할 수 있는 알림 목록으로 보낸다.
@@ -107,13 +115,43 @@ export async function registerPushToken(askPermission: boolean): Promise<void> {
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
 
     // token이 PK — 기기 주인이 계정을 바꾸면 해당 기기 토큰이 새 계정으로 넘어간다
-    await supabase.from('push_tokens').upsert({
+    const { error } = await supabase.from('push_tokens').upsert({
       token,
       user_id: user.id,
       platform: Platform.OS,
       updated_at: new Date().toISOString(),
     });
+    if (error) throw error;
+    await AsyncStorage.setItem(DEVICE_PUSH_TOKEN_KEY, token);
   } catch {
     // 부가 기능 — 조용히 무시
+  }
+}
+
+/** 로그아웃 전에 현재 기기의 토큰만 해제한다. 다른 기기의 알림은 유지한다. */
+export async function unregisterPushToken(): Promise<void> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return;
+
+    let token = await AsyncStorage.getItem(DEVICE_PUSH_TOKEN_KEY);
+    if (!token) {
+      const { status } = await Notifications.getPermissionsAsync();
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+      if (status === 'granted' && projectId) {
+        ({ data: token } = await Notifications.getExpoPushTokenAsync({ projectId }));
+      }
+    }
+    if (!token) return;
+
+    const { error } = await supabase
+      .from('push_tokens')
+      .delete()
+      .eq('token', token)
+      .eq('user_id', user.id);
+    if (error) throw error;
+    await AsyncStorage.removeItem(DEVICE_PUSH_TOKEN_KEY);
+  } catch {
+    // 로그아웃 자체를 막지 않는다. 같은 기기에서 다음 계정이 등록되면 token PK가 이관된다.
   }
 }

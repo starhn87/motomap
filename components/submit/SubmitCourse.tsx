@@ -128,8 +128,6 @@ export default function SubmitCourse() {
       await registerPushToken(true);
 
       toast.success('제보가 접수되었습니다.', '승인되면 알림으로 알려드릴게요.');
-      // 처리 결과를 알림으로 받을 사람이라 이 자리에서 묻는다
-      await registerPushToken(true);
 
       setName('');
       setDescription('');

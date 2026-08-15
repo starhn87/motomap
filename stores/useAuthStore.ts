@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/react-native';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
 import { identifyUser, resetUser } from '@/lib/analytics';
+import { unregisterPushToken } from '@/lib/push';
 import type { User, Session } from '@supabase/supabase-js';
 
 interface AuthStore {
@@ -47,6 +48,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     });
   },
   signOut: async () => {
+    await unregisterPushToken();
     await supabase.auth.signOut();
     // 계정 전환 시 이전 사용자의 캐시(즐겨찾기·주행·리뷰 등)가 노출되지 않도록 비움
     queryClient.clear();
