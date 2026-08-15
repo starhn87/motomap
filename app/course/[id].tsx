@@ -340,7 +340,11 @@ export default function CourseDetailScreen() {
             <Text style={[styles.nearbySectionTitle, { color: colors.text }]}>
               코스 근처 장소
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.nearbyScroll}
+              contentContainerStyle={styles.nearbyScrollContent}>
               <View style={styles.nearbyCards}>
                 {nearbyPlaces.map(({ place, routeFraction }) => (
                   <Pressable
@@ -709,6 +713,12 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     marginBottom: 12,
+  },
+  nearbyScroll: {
+    marginHorizontal: -20,
+  },
+  nearbyScrollContent: {
+    paddingHorizontal: 20,
   },
   hazardList: { gap: 8 },
   hazardRow: {

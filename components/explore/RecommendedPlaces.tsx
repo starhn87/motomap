@@ -187,6 +187,7 @@ export default function RecommendedPlaces() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.regionScroll}
           contentContainerStyle={styles.regionChips}>
           {[null, ...regions].map((r) => {
             const active = region === r;
@@ -292,7 +293,8 @@ export default function RecommendedPlaces() {
 
 const styles = StyleSheet.create({
   container: { padding: 16, gap: 12 },
-  regionChips: { gap: 6, paddingBottom: 4 },
+  regionScroll: { marginHorizontal: -16 },
+  regionChips: { gap: 6, paddingHorizontal: 16, paddingBottom: 4 },
   regionChip: {
     paddingHorizontal: 13,
     paddingVertical: 7,

@@ -207,6 +207,7 @@ export default function MyRidesScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
+              style={styles.filterScroll}
               contentContainerStyle={styles.filters}>
               <Pressable
                 onPress={() => setSelectedBike(null)}
@@ -333,9 +334,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  filterScroll: {
+    marginHorizontal: -16,
+  },
   filters: {
     gap: 8,
-    paddingRight: 8,
+    paddingHorizontal: 16,
   },
   filter: {
     maxWidth: 210,

@@ -76,6 +76,7 @@ export default function WeekendRideRecommendations({ courses }: Props) {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.cardScroll}
         contentContainerStyle={styles.cardRow}>
         {recommendations.map(({ course, distance }) => {
           const season = seasonalBadge(course.tags);
@@ -156,9 +157,12 @@ const styles = StyleSheet.create({
     fontSize: 19,
     fontWeight: '800',
   },
+  cardScroll: {
+    marginHorizontal: -16,
+  },
   cardRow: {
     gap: 10,
-    paddingRight: 4,
+    paddingHorizontal: 16,
   },
   card: {
     width: 272,
