@@ -76,6 +76,7 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `bike_setup_saved` | `action`(registered·updated·removed·unchanged) · `canonical` · `category` |
 | `bike_ride_history_opened` | `source`(bike_setup·profile·bike_hero) |
 | `bike_passport_shared` | `scope`(all·bike) · `places` · `rides` |
+| `bike_garage_changed` | `action`(added·edited·activated·removed) · `bike_count` |
 
 ### 획득
 

@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -6,6 +7,7 @@ import BikeIcon from '@/components/ui/BikeIcon';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useMyRideStats } from '@/hooks/usePlaceRides';
+import { useUserBikes } from '@/hooks/useUserBikes';
 import { track } from '@/lib/analytics';
 import { useMyBike } from '@/lib/bike';
 
@@ -25,9 +27,12 @@ export default function MyBikeHero() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { model, spec, isLoading } = useMyBike();
+  const { data: garage, isLoading: garageLoading } = useUserBikes();
   const rides = useMyRideStats();
+  const activeBike = garage?.find((bike) => bike.isActive);
+  const displayModel = activeBike?.model ?? model;
 
-  if (isLoading) {
+  if (isLoading || garageLoading) {
     return (
       <View style={[styles.card, styles.loading, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <ActivityIndicator size="small" color={colors.tint} />
@@ -35,7 +40,7 @@ export default function MyBikeHero() {
     );
   }
 
-  if (!model) {
+  if (!displayModel) {
     return (
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={[styles.iconCircle, { backgroundColor: colors.background }]}>
@@ -60,6 +65,8 @@ export default function MyBikeHero() {
   }
 
   const chips = [
+    activeBike?.modelYear ? `${activeBike.modelYear}년식` : null,
+    activeBike?.color,
     spec?.cc ? `${spec.cc}cc` : null,
     spec?.category,
     spec?.electric ? '전기' : spec?.fuelGrade === 'premium' ? '고급휘발유' : spec?.fuelGrade ? '일반휘발유' : null,
@@ -69,11 +76,22 @@ export default function MyBikeHero() {
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.headingRow}>
         <View style={[styles.iconCircle, { backgroundColor: colors.background }]}>
-          <BikeIcon size={38} color={colors.tint} />
+          {activeBike?.photoUrl ? (
+            <Image source={{ uri: activeBike.photoUrl }} style={styles.bikeImage} contentFit="cover" />
+          ) : (
+            <BikeIcon size={38} color={colors.tint} />
+          )}
         </View>
         <View style={styles.titleBody}>
-          <Text style={[styles.eyebrow, { color: colors.tint }]}>MY BIKE</Text>
-          <Text style={[styles.model, { color: colors.text }]} numberOfLines={2}>{model}</Text>
+          <Text style={[styles.eyebrow, { color: colors.tint }]}>MY GARAGE{garage?.length ? ` · ${garage.length}` : ''}</Text>
+          <Text style={[styles.model, { color: colors.text }]} numberOfLines={2}>
+            {activeBike?.nickname || displayModel}
+          </Text>
+          {!!activeBike?.nickname && (
+            <Text style={[styles.modelDetail, { color: colors.textSecondary }]} numberOfLines={1}>
+              {displayModel}
+            </Text>
+          )}
         </View>
         <Pressable
           accessibilityLabel="내 바이크 편집"
@@ -139,6 +157,11 @@ const styles = StyleSheet.create({
     borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  bikeImage: {
+    width: '100%',
+    height: '100%',
   },
   titleBody: {
     flex: 1,
@@ -153,6 +176,9 @@ const styles = StyleSheet.create({
     fontSize: 21,
     lineHeight: 27,
     fontWeight: '800',
+  },
+  modelDetail: {
+    fontSize: 12.5,
   },
   editButton: {
     width: 36,
