@@ -31,7 +31,7 @@ import { toast } from '@/lib/toast';
 import { appAlert } from '@/lib/dialog';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import ImageViewer from '@/components/ui/ImageViewer';
-import BikeIcon from '@/components/ui/BikeIcon';
+import MyBikeHero from '@/components/profile/MyBikeHero';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -224,9 +224,12 @@ function LoggedInContent() {
         </PostHogMaskView>
       </Animated.View>
 
+      <Animated.View entering={FadeInDown.delay(80).duration(300)}>
+        <MyBikeHero />
+      </Animated.View>
+
       <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.menu}>
         <MenuItem icon={<Ionicons name="create-outline" size={20} color={colors.text} />} label="닉네임 변경" onPress={() => router.push('/edit-nickname')} />
-        <MenuItem icon={<BikeIcon size={26} color={colors.text} />} label="내 바이크" onPress={() => router.push('/edit-bike')} />
         {/* 장소명은 민감 정보라 설정 여부만 보여준다 */}
         <MenuItem
           icon={<Ionicons name="home-outline" size={20} color={colors.text} />}
@@ -366,7 +369,7 @@ const styles = StyleSheet.create({
   profileHeader: {
     alignItems: 'center',
     gap: 14,
-    marginBottom: 32,
+    marginBottom: 22,
     marginTop: 12,
   },
   avatar: {

@@ -40,12 +40,12 @@ export function fullTankCost(
  */
 export function useMyBike() {
   const user = useAuthStore((s) => s.user);
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['my-bike', user?.id],
     queryFn: async () => (await getProfile())?.bike_model ?? null,
     enabled: !!user,
     staleTime: 30 * 60 * 1000,
   });
   const model = data ?? null;
-  return { model, spec: getBikeSpec(model) };
+  return { model, spec: getBikeSpec(model), isLoading };
 }
