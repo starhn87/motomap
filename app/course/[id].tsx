@@ -36,6 +36,7 @@ import type { RoadHazard } from '@/types';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
 import StarRating from '@/components/review/StarRating';
 import ReportSheet from '@/components/report/ReportSheet';
+import { useCourseProgress, useToggleCourseSave } from '@/hooks/useCourseLibrary';
 
 export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -46,6 +47,8 @@ export default function CourseDetailScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const { data: course, isLoading } = useCourse(id ?? null);
+  const { data: progress } = useCourseProgress(id ?? null);
+  const { mutateAsync: toggleSave, isPending: savePending } = useToggleCourseSave(id ?? '');
   const navLaunching = useNavLaunching((s) => s.launching);
   const { data: reviews } = useCourseReviews(id ?? null);
 
@@ -183,7 +186,39 @@ export default function CourseDetailScreen() {
           </View>
         )}
 
-        <Text style={[styles.name, { color: colors.text }]}>{course.name}</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.name, { color: colors.text }]}>{course.name}</Text>
+          <Pressable
+            accessibilityLabel={progress?.saved ? '코스 저장 해제' : '코스 저장'}
+            disabled={savePending}
+            onPress={async () => {
+              if (!user) {
+                toast.info('코스를 저장하려면 로그인이 필요합니다.');
+                return;
+              }
+              try {
+                const saved = await toggleSave();
+                toast.success(saved ? '코스를 저장했어요.' : '코스 저장을 해제했어요.');
+              } catch (saveError: any) {
+                toast.error('코스를 저장하지 못했습니다.', saveError.message);
+              }
+            }}
+            style={({ pressed }) => [
+              styles.saveCourseButton,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              pressed && { opacity: 0.6 },
+            ]}>
+            {savePending ? (
+              <ActivityIndicator size="small" color={colors.text} />
+            ) : (
+              <Ionicons
+                name={progress?.saved ? 'bookmark' : 'bookmark-outline'}
+                size={21}
+                color={colors.text}
+              />
+            )}
+          </Pressable>
+        </View>
         {course.sectionFrom && course.sectionTo && (
           <Text style={[styles.sectionLine, { color: colors.textSecondary }]}>
             {course.sectionFrom} → {course.sectionTo}
@@ -215,6 +250,20 @@ export default function CourseDetailScreen() {
             </Text>
           </View>
         </View>
+
+        {!!progress?.completionCount && (
+          <View style={[styles.completionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.completionIcon, { backgroundColor: colors.tint }]}>
+              <Ionicons name="checkmark" size={17} color={colors.background} />
+            </View>
+            <View style={styles.completionBody}>
+              <Text style={[styles.completionTitle, { color: colors.text }]}>이 코스를 {progress.completionCount}번 완주했어요</Text>
+              {progress.lastCompletedAt && (
+                <Text style={[styles.completionDate, { color: colors.textSecondary }]}>마지막 완주 {new Date(progress.lastCompletedAt).toLocaleDateString('ko-KR')}</Text>
+              )}
+            </View>
+          </View>
+        )}
 
         {coords.length >= 2 && (
           <Pressable
@@ -564,10 +613,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 2,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
   name: {
+    flex: 1,
     fontSize: 24,
     fontWeight: '700',
     marginBottom: 8,
+  },
+  saveCourseButton: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 21,
   },
   desc: {
     fontSize: 14,
@@ -603,6 +666,26 @@ const styles = StyleSheet.create({
     width: 1,
     height: 32,
   },
+  completionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    marginTop: -8,
+    marginBottom: 18,
+    padding: 13,
+    borderWidth: 1,
+    borderRadius: 13,
+  },
+  completionIcon: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 17,
+  },
+  completionBody: { flex: 1, gap: 2 },
+  completionTitle: { fontSize: 13.5, fontWeight: '800' },
+  completionDate: { fontSize: 11.5 },
   navLoadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
