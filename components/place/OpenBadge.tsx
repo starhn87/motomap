@@ -65,11 +65,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   inlineRow: {
-    maxWidth: '100%',
+    width: '100%',
+    justifyContent: 'flex-end',
     marginBottom: 0,
   },
   inlineText: {
     flexShrink: 1,
+    textAlign: 'right',
   },
   dot: {
     width: 6,
