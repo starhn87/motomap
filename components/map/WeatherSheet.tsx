@@ -195,6 +195,7 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
   return (
     <BottomSheet
       snapPoints={['62%']}
+      animateOnMount={false}
       enablePanDownToClose
       onClose={onClose}
       backdropComponent={renderBackdrop}

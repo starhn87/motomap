@@ -10,11 +10,19 @@ import { useCourseLibrary } from '@/hooks/useCourseLibrary';
 import { useWeather } from '@/hooks/useWeather';
 import { track } from '@/lib/analytics';
 import { haversine } from '@/lib/distance';
+import type { RidingWeather } from '@/lib/api/weather';
 import { useMapStore } from '@/stores/useMapStore';
 import type { RidingCourse } from '@/types';
 
+export interface WeekendWeatherDetails {
+  weather: RidingWeather;
+  latitude: number;
+  longitude: number;
+}
+
 interface Props {
   courses: RidingCourse[];
+  onWeatherPress: (details: WeekendWeatherDetails) => void;
 }
 
 function startDistance(course: RidingCourse, latitude: number, longitude: number): number | null {
@@ -26,7 +34,7 @@ function startDistance(course: RidingCourse, latitude: number, longitude: number
   );
 }
 
-export default function WeekendRideRecommendations({ courses }: Props) {
+export default function WeekendRideRecommendations({ courses, onWeatherPress }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const userLocation = useMapStore((state) => state.userLocation);
@@ -73,24 +81,37 @@ export default function WeekendRideRecommendations({ courses }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.headingRow}>
-        <View>
+        <View style={styles.headingCopy}>
           <Text style={[styles.eyebrow, { color: colors.tint }]}>WEEKEND RIDE</Text>
           <Text style={[styles.title, { color: colors.text }]}>이번 주말, 어디로 달릴까요?</Text>
         </View>
-        {weather && (
-          <View
-            style={[
+        {weather && anchor && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${userLocation ? '현재 위치' : '지도 지역'} 날씨 상세 보기`}
+            hitSlop={6}
+            onPress={() => {
+              track.weekendWeatherOpened({ location_source: userLocation ? 'user' : 'map' });
+              onWeatherPress({
+                weather,
+                latitude: anchor.latitude,
+                longitude: anchor.longitude,
+              });
+            }}
+            style={({ pressed }) => [
               styles.weatherBadge,
               { backgroundColor: `${weather.gradeColor}16`, borderColor: `${weather.gradeColor}55` },
+              pressed && { opacity: 0.65 },
             ]}>
             <Text style={styles.weatherEmoji}>{weather.current.emoji}</Text>
-            <View>
+            <View style={styles.weatherCopy}>
               <Text style={[styles.weatherLabel, { color: weather.gradeColor }]}>
                 {userLocation ? '현재 위치' : '지도 지역'} · 라이딩 {weather.grade}
               </Text>
               <Text style={[styles.weatherMeta, { color: colors.textSecondary }]}>{weather.current.temp}° · 강수 {weather.current.pop}%</Text>
             </View>
-          </View>
+            <MaterialCommunityIcons name="chevron-right" size={15} color={weather.gradeColor} />
+          </Pressable>
         )}
       </View>
 
@@ -173,6 +194,9 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 11,
   },
+  headingCopy: {
+    flex: 1,
+  },
   eyebrow: {
     fontSize: 10,
     fontWeight: '900',
@@ -186,6 +210,7 @@ const styles = StyleSheet.create({
   weatherBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
     gap: 6,
     borderWidth: 1,
     borderRadius: 11,
@@ -194,6 +219,9 @@ const styles = StyleSheet.create({
   },
   weatherEmoji: {
     fontSize: 17,
+  },
+  weatherCopy: {
+    flexShrink: 1,
   },
   weatherLabel: {
     fontSize: 10,
