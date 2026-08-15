@@ -37,6 +37,7 @@ import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { useMapStore } from '@/stores/useMapStore';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
 import { track } from '@/lib/analytics';
+import Skeleton from '@/components/ui/Skeleton';
 import {
   loadRecentSearches,
   addRecentSearch,
@@ -84,6 +85,28 @@ async function promoteRegisteredKakao(list: RecentSearch[]): Promise<RecentSearc
   }
 }
 
+function SearchLandingSkeleton() {
+  return (
+    <View style={styles.landingSkeleton}>
+      <View style={styles.landingPlaceRow}>
+        <Skeleton width="48%" height={58} radius={12} />
+        <Skeleton width="48%" height={58} radius={12} />
+      </View>
+      <Skeleton width="100%" height={70} radius={14} />
+      <Skeleton width={90} height={16} style={{ marginTop: 18 }} />
+      {Array.from({ length: 5 }).map((_, index) => (
+        <View key={index} style={styles.landingRowSkeleton}>
+          <Skeleton width={24} height={24} radius={12} />
+          <View style={styles.landingRowBody}>
+            <Skeleton width="55%" height={15} />
+            <Skeleton width="78%" height={12} style={{ marginTop: 5 }} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function SearchScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -121,12 +144,14 @@ export default function SearchScreen() {
   });
 
   const [recent, setRecent] = useState<RecentSearch[]>([]);
+  const [recentLoading, setRecentLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     loadRecentSearches().then(async (list) => {
       if (cancelled) return;
       setRecent(list);
+      setRecentLoading(false);
       const promoted = await promoteRegisteredKakao(list);
       if (!cancelled && promoted) setRecent(promoted);
     });
@@ -137,6 +162,7 @@ export default function SearchScreen() {
 
   // 내 장소(집·회사) — 기기 로컬 저장. 탭하면 바로 길안내, 미저장이면 설정
   const myPlaces = useMyPlacesStore((s) => s.places);
+  const myPlacesLoaded = useMyPlacesStore((s) => s.loaded);
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
   const saveMyPlace = useMyPlacesStore((s) => s.save);
   useEffect(() => {
@@ -209,13 +235,18 @@ export default function SearchScreen() {
       ),
   );
 
-  const { data: favorites } = useQuery({
+  const { data: favorites, isLoading: favoritesLoading } = useQuery({
     queryKey: ['favorites', 'places', user?.id],
     queryFn: fetchFavoritePlaces,
     enabled: !!user,
   });
 
-  const { data: recommended } = useRecommendedPlaces();
+  const { data: recommended, isLoading: recommendedLoading } = useRecommendedPlaces();
+  const landingLoading =
+    !myPlacesLoaded ||
+    recentLoading ||
+    recommendedLoading ||
+    (!!user && favoritesLoading);
 
   // 등록 장소가 0건이면 한 번 남긴다 — 카카오까지 0건일 때만 세면 거의 안 찍힌다
   // (카카오는 웬만한 문자열에 뭐라도 돌려준다). 정작 알고 싶은 건 우리 DB 가
@@ -466,6 +497,8 @@ export default function SearchScreen() {
             }
           />
         )
+      ) : landingLoading ? (
+        <SearchLandingSkeleton />
       ) : (
         // 입력 전 — AI 추천 · 최근 검색 · 즐겨찾기 · 추천 목적지
         <ScrollView
@@ -784,5 +817,23 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  landingSkeleton: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+  },
+  landingPlaceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  landingRowSkeleton: {
+    minHeight: 62,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  landingRowBody: {
+    flex: 1,
   },
 });

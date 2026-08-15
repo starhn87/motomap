@@ -10,6 +10,7 @@ import { useCourseLibrary } from '@/hooks/useCourseLibrary';
 import { track } from '@/lib/analytics';
 import { haversine } from '@/lib/distance';
 import { useMapStore } from '@/stores/useMapStore';
+import Skeleton from '@/components/ui/Skeleton';
 import type { RidingCourse } from '@/types';
 
 interface Props {
@@ -31,18 +32,44 @@ export default function WeekendRideRecommendations({ courses }: Props) {
   const userLocation = useMapStore((state) => state.userLocation);
   const mapCenter = useMapStore((state) => state.mapCenter);
   const anchor = userLocation ?? mapCenter;
-  const { data: courseLibrary } = useCourseLibrary();
+  const { data: courseLibrary, isLoading: libraryLoading } = useCourseLibrary();
   const tracked = useRef(false);
 
-  const completedIds = new Set(
-    (courseLibrary ?? [])
-      .filter((item) => item.completionCount > 0)
-      .map((item) => item.course.id),
-  );
+  // 위치·완주 기록이 늦게 도착해 이미 보인 카드가 재정렬되지 않도록 최초 표시
+  // 시점의 추천 기준을 이 화면을 보는 동안 고정한다.
+  const recommendationContext = useRef<{
+    anchor: { latitude: number; longitude: number } | null;
+    completedIds: Set<string>;
+  } | null>(null);
+  if (!libraryLoading && recommendationContext.current === null) {
+    recommendationContext.current = {
+      anchor,
+      completedIds: new Set(
+        (courseLibrary ?? [])
+          .filter((item) => item.completionCount > 0)
+          .map((item) => item.course.id),
+      ),
+    };
+  }
+
+  if (libraryLoading || !recommendationContext.current) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.headingRow}>
+          <Skeleton width={92} height={10} />
+          <Skeleton width={210} height={22} style={{ marginTop: 6 }} />
+        </View>
+        <Skeleton width={272} height={142} radius={15} />
+        <Skeleton width={220} height={11} style={{ marginTop: 7 }} />
+      </View>
+    );
+  }
+
+  const { anchor: recommendationAnchor, completedIds } = recommendationContext.current;
   const recommendations = courses
     .map((course) => {
-      const distance = anchor
-        ? startDistance(course, anchor.latitude, anchor.longitude)
+      const distance = recommendationAnchor
+        ? startDistance(course, recommendationAnchor.latitude, recommendationAnchor.longitude)
         : null;
       let score = course.rating * 20 + Math.min(course.reviewCount, 50);
       if (seasonalBadge(course.tags)) score += 1_000;
@@ -124,7 +151,7 @@ export default function WeekendRideRecommendations({ courses }: Props) {
                 <Text style={[styles.meta, { color: colors.textSecondary }]}>{formatDistance(course.distance)}</Text>
                 <Text style={[styles.dot, { color: colors.textSecondary }]}>·</Text>
                 <Text style={[styles.meta, { color: colors.textSecondary }]}>{formatDuration(course.duration)}</Text>
-                {userLocation && distance !== null && (
+                {recommendationAnchor && distance !== null && (
                   <>
                     <Text style={[styles.dot, { color: colors.textSecondary }]}>·</Text>
                     <Text style={[styles.meta, { color: colors.textSecondary }]}>출발지까지 {formatDistance(distance / 1_000)}</Text>

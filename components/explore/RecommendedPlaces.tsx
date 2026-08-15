@@ -153,7 +153,13 @@ export default function RecommendedPlaces() {
     await Promise.all(requests);
   };
 
-  if (isLoading) {
+  const bikeRecommendationsLoading =
+    !!user &&
+    (bikeMatches.bikesLoading || (!!bikeMatches.activeBike && bikeMatches.isLoading));
+
+  // 장소 목록을 먼저 보여준 뒤 상단에 바이크 추천을 끼워 넣으면 화면 전체가
+  // 밀린다. 최초 로딩은 두 데이터가 모두 준비된 뒤 한 번에 확정한다.
+  if (isLoading || bikeRecommendationsLoading) {
     return <RecommendedSkeleton />;
   }
 

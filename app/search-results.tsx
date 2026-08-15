@@ -152,10 +152,13 @@ export default function SearchResultsScreen() {
     ];
   }, [results, kakaoResults, filters, activeNear, bikeMatches.data]);
 
+  // 필터를 켜지 않았어도 각 행에 바이크 근거가 표시된다. 이 데이터만 늦게
+  // 들어오면 메타 행이 한 줄 더 생기므로 최초 결과는 함께 준비한다.
   const loading =
     isLoading ||
     kakaoLoading ||
-    (filters.includes('bike') && (bikeMatches.isLoading || bikeMatches.bikesLoading));
+    bikeMatches.isLoading ||
+    bikeMatches.bikesLoading;
 
   // 기본 스냅은 목록 높이에 맞추되 화면의 45% 까지만 — 결과가 두어 개뿐인데
   // 억지로 채우면 지도만 가린다. 행 68 + 핸들·헤더(62) + 어트리뷰션(40).
@@ -690,6 +693,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 7,
+    minHeight: 14,
   },
   rowMetaText: {
     fontSize: 11.5,
