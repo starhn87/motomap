@@ -40,17 +40,17 @@ import { useCourseProgress, useToggleCourseSave } from '@/hooks/useCourseLibrary
 
 export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: nearbyPlaces = [] } = useCoursePlaces(id);
-  const { data: courseHazards = [] } = useCourseHazards(id);
+  const { data: nearbyPlaces = [], isLoading: nearbyPlacesLoading } = useCoursePlaces(id);
+  const { data: courseHazards = [], isLoading: courseHazardsLoading } = useCourseHazards(id);
   const [selectedHazard, setSelectedHazard] = useState<RoadHazard | null>(null);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const { data: course, isLoading } = useCourse(id ?? null);
-  const { data: progress } = useCourseProgress(id ?? null);
+  const { data: progress, isLoading: progressLoading } = useCourseProgress(id ?? null);
   const { mutateAsync: toggleSave, isPending: savePending } = useToggleCourseSave(id ?? '');
   const navLaunching = useNavLaunching((s) => s.launching);
-  const { data: reviews } = useCourseReviews(id ?? null);
+  const { data: reviews, isLoading: reviewsLoading } = useCourseReviews(id ?? null);
 
   const { mutateAsync: submitReview, isPending } = useCreateCourseReview();
   const { mutateAsync: updateReview } = useUpdateCourseReview(id ?? '');
@@ -81,7 +81,16 @@ export default function CourseDetailScreen() {
     }
   };
 
-  if (isLoading) {
+  // 상단만 먼저 보여준 뒤 완주 카드·주의 구간·근처 장소·리뷰가 차례로 끼어들면
+  // 길안내 버튼과 스크롤 위치가 계속 움직인다. 최초 진입은 병렬 조회를 모두
+  // 마친 뒤 한 번에 확정하고, 이후 refetch 는 기존 데이터를 유지한다.
+  if (
+    isLoading ||
+    progressLoading ||
+    nearbyPlacesLoading ||
+    courseHazardsLoading ||
+    reviewsLoading
+  ) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.tint} />
@@ -251,20 +260,6 @@ export default function CourseDetailScreen() {
           </View>
         </View>
 
-        {!!progress?.completionCount && (
-          <View style={[styles.completionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={[styles.completionIcon, { backgroundColor: colors.tint }]}>
-              <Ionicons name="checkmark" size={17} color={colors.background} />
-            </View>
-            <View style={styles.completionBody}>
-              <Text style={[styles.completionTitle, { color: colors.text }]}>이 코스를 {progress.completionCount}번 완주했어요</Text>
-              {progress.lastCompletedAt && (
-                <Text style={[styles.completionDate, { color: colors.textSecondary }]}>마지막 완주 {new Date(progress.lastCompletedAt).toLocaleDateString('ko-KR')}</Text>
-              )}
-            </View>
-          </View>
-        )}
-
         {coords.length >= 2 && (
           <Pressable
             disabled={navLaunching}
@@ -296,6 +291,20 @@ export default function CourseDetailScreen() {
               <Text style={[styles.navButtonText, { color: colors.background }]}>이 코스로 길안내</Text>
             )}
           </Pressable>
+        )}
+
+        {!!progress?.completionCount && (
+          <View style={[styles.completionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.completionIcon, { backgroundColor: colors.tint }]}>
+              <Ionicons name="checkmark" size={17} color={colors.background} />
+            </View>
+            <View style={styles.completionBody}>
+              <Text style={[styles.completionTitle, { color: colors.text }]}>이 코스를 {progress.completionCount}번 완주했어요</Text>
+              {progress.lastCompletedAt && (
+                <Text style={[styles.completionDate, { color: colors.textSecondary }]}>마지막 완주 {new Date(progress.lastCompletedAt).toLocaleDateString('ko-KR')}</Text>
+              )}
+            </View>
+          </View>
         )}
 
         {courseHazards.length > 0 && (
@@ -674,8 +683,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 11,
-    marginTop: -8,
-    marginBottom: 18,
+    marginTop: 12,
     padding: 13,
     borderWidth: 1,
     borderRadius: 13,

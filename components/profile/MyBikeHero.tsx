@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import BikeIcon from '@/components/ui/BikeIcon';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -10,6 +10,7 @@ import { useMyRideStats } from '@/hooks/usePlaceRides';
 import { useUserBikes } from '@/hooks/useUserBikes';
 import { track } from '@/lib/analytics';
 import { useMyBike } from '@/lib/bike';
+import Skeleton from '@/components/ui/Skeleton';
 
 function SpecChip({ label }: { label: string }) {
   const colorScheme = useColorScheme();
@@ -34,8 +35,27 @@ export default function MyBikeHero() {
 
   if (isLoading || garageLoading) {
     return (
-      <View style={[styles.card, styles.loading, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <ActivityIndicator size="small" color={colors.tint} />
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={styles.headingRow}>
+          <Skeleton width={58} height={58} radius={29} />
+          <View style={styles.titleBody}>
+            <Skeleton width={72} height={11} />
+            <Skeleton width="75%" height={24} style={{ marginTop: 7 }} />
+          </View>
+          <Skeleton width={36} height={36} radius={18} />
+        </View>
+        <View style={styles.loadingChips}>
+          <Skeleton width={72} height={28} radius={14} />
+          <Skeleton width={58} height={28} radius={14} />
+          <Skeleton width={82} height={28} radius={14} />
+        </View>
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <View style={styles.passportRow}>
+          <View>
+            <Skeleton width={86} height={12} />
+            <Skeleton width={150} height={16} style={{ marginTop: 7 }} />
+          </View>
+        </View>
       </View>
     );
   }
@@ -140,11 +160,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 20,
     gap: 14,
-  },
-  loading: {
-    minHeight: 150,
-    alignItems: 'center',
-    justifyContent: 'center',
+    minHeight: 250,
+    justifyContent: 'space-between',
   },
   headingRow: {
     flexDirection: 'row',
@@ -189,6 +206,10 @@ const styles = StyleSheet.create({
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 7,
+  },
+  loadingChips: {
+    flexDirection: 'row',
     gap: 7,
   },
   chip: {
