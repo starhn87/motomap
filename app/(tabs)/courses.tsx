@@ -17,6 +17,7 @@ import { useCourses } from '@/hooks/useCourses';
 import { formatDistance, formatDuration, seasonalBadge } from '@/constants/course';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import RecommendedPlaces from '@/components/explore/RecommendedPlaces';
+import WeekendRideRecommendations from '@/components/explore/WeekendRideRecommendations';
 import type { RidingCourse } from '@/types';
 
 type Segment = 'courses' | 'places';
@@ -188,33 +189,36 @@ export default function ExploreScreen() {
             keyExtractor={(item) => item.id}
             renderItem={renderCourse}
             ListHeaderComponent={
-              tripChips.length > 0 ? (
-                <View style={styles.tripChipRow}>
-                  {tripChips.map((chip) => {
-                    const active = tripFilter === chip.value;
-                    return (
-                      <Pressable
-                        key={chip.label}
-                        onPress={() => setTripFilter(chip.value)}
-                        style={[
-                          styles.tripChip,
-                          {
-                            backgroundColor: active ? colors.tint : colors.surface,
-                            borderColor: active ? colors.tint : colors.border,
-                          },
-                        ]}>
-                        <Text
+              <View>
+                <WeekendRideRecommendations courses={courses} />
+                {tripChips.length > 0 && (
+                  <View style={styles.tripChipRow}>
+                    {tripChips.map((chip) => {
+                      const active = tripFilter === chip.value;
+                      return (
+                        <Pressable
+                          key={chip.label}
+                          onPress={() => setTripFilter(chip.value)}
                           style={[
-                            styles.tripChipText,
-                            { color: active ? colors.background : colors.text },
+                            styles.tripChip,
+                            {
+                              backgroundColor: active ? colors.tint : colors.surface,
+                              borderColor: active ? colors.tint : colors.border,
+                            },
                           ]}>
-                          {chip.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ) : null
+                          <Text
+                            style={[
+                              styles.tripChipText,
+                              { color: active ? colors.background : colors.text },
+                            ]}>
+                            {chip.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
             }
             ListEmptyComponent={
               tripFilter != null ? (

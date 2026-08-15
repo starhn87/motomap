@@ -49,6 +49,7 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `place_viewed` | `place_id` · `category` · `source` |
 | `course_saved` | `on` |
 | `course_completed` | `course_id` |
+| `weekend_ride_opened` | `has_weather` · `recommendation_count` |
 
 `place_viewed.source`: `map_marker` · `search` · `search_results` · `favorite` · `chat` · `notification` · `course` · `submission`
 

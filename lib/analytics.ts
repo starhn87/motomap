@@ -99,6 +99,9 @@ export const track = {
 
   courseCompleted: (p: { course_id: string }) => capture('course_completed', p),
 
+  weekendRideOpened: (p: { has_weather: boolean; recommendation_count: number }) =>
+    capture('weekend_ride_opened', p),
+
   categoryFiltered: (p: { category: string }) => capture('category_filtered', p),
 
   placeViewed: (p: { place_id: string; category?: string; source: PlaceSource }) =>
