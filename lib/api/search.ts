@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { approxMeters } from '@/lib/distance';
 import type { Place, RidingCourse } from '@/types';
 import { rowToPlace, type PlaceRow } from '@/lib/api/places';
+import { CATEGORIES } from '@/constants/categories';
 
 export interface SearchResults {
   places: Place[];
@@ -30,12 +31,58 @@ export function isSamePlace(
  * 공백을 지운 통짜끼리 비교해 그 차이를 없앤다. 여러 낱말을 친 경우엔
  * 전부 들어 있기만 하면 걸리게 한다("파주 카페" → 파주·카페가 다 있는 곳).
  */
-function matches(query: string, fields: (string | null | undefined)[]): boolean {
-  const hay = fields.filter(Boolean).join(' ').toLowerCase().replace(/\s/g, '');
-  const q = query.toLowerCase();
-  if (hay.includes(q.replace(/\s/g, ''))) return true;
-  const words = q.split(/\s+/).filter(Boolean);
-  return words.length > 1 && words.every((w) => hay.includes(w));
+const SEARCH_SYNONYMS: Record<string, string[]> = {
+  바이크샵: ['바이크샵', '바이크사', '오토바이샵', '정비', '수리'],
+  오토바이샵: ['오토바이샵', '바이크샵', '바이크사', '정비', '수리'],
+  오토바이센터: ['오토바이센터', '바이크사', '정비', '수리'],
+  정비소: ['정비소', '바이크사', '정비', '수리'],
+  세차장: ['세차장', '세차'],
+  바이크주차: ['바이크주차', '오토바이주차', '주차'],
+  오토바이주차: ['오토바이주차', '바이크주차', '주차'],
+  헬멧보관: ['헬멧보관', '헬멧보관함', '보관함'],
+  고급유: ['고급유', '고급휘발유'],
+  야간: ['야간', '밤', '심야', '24시간'],
+};
+
+function compact(value: string): string {
+  return value.toLowerCase().replace(/[\s·._-]/g, '');
+}
+
+function alternatives(word: string): string[] {
+  return (SEARCH_SYNONYMS[compact(word)] ?? [word]).map(compact);
+}
+
+/** 관련성 점수. null이면 검색어와 무관하다. 거리는 같은 점수 안에서만 순위를 가른다. */
+function matchScore(
+  query: string,
+  fields: {
+    name: string;
+    address?: string | null;
+    tags?: string[] | null;
+    extra?: (string | null | undefined)[];
+  },
+): number | null {
+  const trimmed = query.trim();
+  if (!trimmed) return 0;
+
+  const q = compact(trimmed);
+  const name = compact(fields.name);
+  const address = compact(fields.address ?? '');
+  const tags = (fields.tags ?? []).map(compact);
+  const extra = (fields.extra ?? []).filter(Boolean).map((value) => compact(value!));
+  const all = [name, address, ...tags, ...extra].join(' ');
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  const allWordsMatch = words.every((word) => alternatives(word).some((alt) => all.includes(alt)));
+  if (!allWordsMatch && !all.includes(q)) return null;
+
+  if (name === q) return 100;
+  if (name.startsWith(q)) return 90;
+  if (name.includes(q)) return 80;
+  if (tags.some((tag) => tag === q)) return 70;
+  if (tags.some((tag) => tag.includes(q))) return 60;
+  if (extra.some((value) => value === q)) return 55;
+  if (address.includes(q)) return 45;
+  return 35;
 }
 
 export async function searchAll(
@@ -62,21 +109,47 @@ export async function searchAll(
   // 전국 매칭이 꼬리로 딸려 와 소용이 없었던 것도 실사용 피드백.
   const SEARCH_RADIUS_M = 20_000;
 
-  let places = (placesRes.data ?? [])
-    .filter((row: PlaceRow) => matches(query, [row.name, row.address, ...(row.tags ?? [])]))
-    .map(rowToPlace);
+  let places: { place: Place; score: number }[] = (placesRes.data ?? []).flatMap(
+    (row: PlaceRow) => {
+      const score = matchScore(query, {
+        name: row.name,
+        address: row.address,
+        tags: row.tags,
+        extra: [CATEGORIES[row.category].label],
+      });
+      return score === null ? [] : [{ place: rowToPlace(row), score }];
+    },
+  );
+  places.sort((a, b) => b.score - a.score);
   if (distTo) {
     places.sort(
-      (a: Place, b: Place) => distTo(a.latitude, a.longitude) - distTo(b.latitude, b.longitude),
+      (a, b) =>
+        b.score - a.score ||
+        distTo(a.place.latitude, a.place.longitude) - distTo(b.place.latitude, b.place.longitude),
     );
     // 반경 안만 남긴다 — 단, 주변에 하나도 없으면 전국 결과를 거리순 그대로 둔다
     // ("부산 카페"처럼 지역을 명시한 검색이 빈손이 되지 않게)
-    const within = places.filter((p: Place) => distTo(p.latitude, p.longitude) <= SEARCH_RADIUS_M);
+    const within = places.filter(
+      (result) => distTo(result.place.latitude, result.place.longitude) <= SEARCH_RADIUS_M,
+    );
     if (within.length > 0) places = within;
   }
+  const matchedPlaces = places.map((result) => result.place);
 
   let courses = (coursesRes.data ?? [])
-    .filter((row: any) => matches(query, [row.name, row.description, ...(row.tags ?? [])]))
+    .map((row: any) => ({
+      row,
+      score: matchScore(query, {
+        name: row.name,
+        tags: row.tags,
+        extra: [row.description, row.section_from, row.section_to, row.route_name],
+      }),
+    }))
+    .filter((result: { row: any; score: number | null }): result is { row: any; score: number } =>
+      result.score !== null,
+    )
+    .sort((a, b) => b.score - a.score)
+    .map(({ row }) => row)
     .map((row: any) => ({
       id: row.id,
       name: row.name,
@@ -87,7 +160,7 @@ export async function searchAll(
       sectionFrom: row.section_from ?? null,
       sectionTo: row.section_to ?? null,
       routeName: row.route_name ?? null,
-    routeGeometry: row.route_geometry ?? null,
+      routeGeometry: row.route_geometry ?? null,
       waypoints: [],
       tags: row.tags ?? [],
       createdBy: row.created_by,
@@ -107,6 +180,5 @@ export async function searchAll(
     if (within.length > 0) courses = within;
   }
 
-  return { places, courses };
+  return { places: matchedPlaces, courses };
 }
-
