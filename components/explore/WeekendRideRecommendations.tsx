@@ -1,5 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
@@ -37,22 +37,50 @@ export default function WeekendRideRecommendations({ courses }: Props) {
 
   // 위치·완주 기록이 늦게 도착해 이미 보인 카드가 재정렬되지 않도록 최초 표시
   // 시점의 추천 기준을 이 화면을 보는 동안 고정한다.
-  const recommendationContext = useRef<{
+  const [recommendationContext, setRecommendationContext] = useState<{
     anchor: { latitude: number; longitude: number } | null;
     completedIds: Set<string>;
   } | null>(null);
-  if (!libraryLoading && recommendationContext.current === null) {
-    recommendationContext.current = {
+  useEffect(() => {
+    if (libraryLoading || recommendationContext) return;
+    setRecommendationContext({
       anchor,
       completedIds: new Set(
         (courseLibrary ?? [])
           .filter((item) => item.completionCount > 0)
           .map((item) => item.course.id),
       ),
-    };
-  }
+    });
+  }, [anchor, courseLibrary, libraryLoading, recommendationContext]);
 
-  if (libraryLoading || !recommendationContext.current) {
+  const recommendationAnchor = recommendationContext?.anchor ?? null;
+  const completedIds = recommendationContext?.completedIds ?? new Set<string>();
+  const recommendations = recommendationContext
+    ? courses
+        .map((course) => {
+          const distance = recommendationAnchor
+            ? startDistance(course, recommendationAnchor.latitude, recommendationAnchor.longitude)
+            : null;
+          let score = course.rating * 20 + Math.min(course.reviewCount, 50);
+          if (seasonalBadge(course.tags)) score += 1_000;
+          if (!completedIds.has(course.id)) score += 250;
+          if (course.duration >= 60 && course.duration <= 180) score += 100;
+          if (distance !== null) score -= Math.min(distance / 1_000, 300);
+          return { course, distance, score };
+        })
+        .sort((a, b) => b.score - a.score || a.course.name.localeCompare(b.course.name, 'ko'))
+        .slice(0, 3)
+    : [];
+
+  useEffect(() => {
+    if (tracked.current || recommendations.length === 0) return;
+    tracked.current = true;
+    track.weekendRideOpened({
+      recommendation_count: recommendations.length,
+    });
+  }, [recommendations.length]);
+
+  if (libraryLoading || !recommendationContext) {
     return (
       <View style={styles.container}>
         <View style={styles.headingRow}>
@@ -64,30 +92,6 @@ export default function WeekendRideRecommendations({ courses }: Props) {
       </View>
     );
   }
-
-  const { anchor: recommendationAnchor, completedIds } = recommendationContext.current;
-  const recommendations = courses
-    .map((course) => {
-      const distance = recommendationAnchor
-        ? startDistance(course, recommendationAnchor.latitude, recommendationAnchor.longitude)
-        : null;
-      let score = course.rating * 20 + Math.min(course.reviewCount, 50);
-      if (seasonalBadge(course.tags)) score += 1_000;
-      if (!completedIds.has(course.id)) score += 250;
-      if (course.duration >= 60 && course.duration <= 180) score += 100;
-      if (distance !== null) score -= Math.min(distance / 1_000, 300);
-      return { course, distance, score };
-    })
-    .sort((a, b) => b.score - a.score || a.course.name.localeCompare(b.course.name, 'ko'))
-    .slice(0, 3);
-
-  useEffect(() => {
-    if (tracked.current || recommendations.length === 0) return;
-    tracked.current = true;
-    track.weekendRideOpened({
-      recommendation_count: recommendations.length,
-    });
-  }, [recommendations.length]);
 
   if (recommendations.length === 0) return null;
 
