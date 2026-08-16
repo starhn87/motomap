@@ -33,12 +33,13 @@
 
 ## 런칭 전 필수
 
-- [ ] 소셜 로그인 실제 연동 (각 플랫폼 개발자 콘솔 설정)
-  - Supabase Authentication > Providers에서 각 provider 활성화
-  - 카카오: developers.kakao.com → REST API 키
-  - 네이버: developers.naver.com → 클라이언트 ID/Secret
-  - 구글: console.cloud.google.com → OAuth 2.0 클라이언트 ID/Secret
-  - 애플: developer.apple.com → Services ID + Secret Key
+- [ ] 소셜 로그인 실기기 검증 ([상세 설정](docs/social-auth-setup.md))
+  - [x] 공통 앱 콜백 허용 및 수동 계정 연결 활성화
+  - [x] Apple: 네이티브 ID Token 방식과 iOS capability·Supabase 공급자 설정
+  - [x] 카카오: Supabase 자격 증명 저장·공급자 활성화
+  - [ ] 카카오: 개발자 콘솔 OpenID Connect 확인 및 실기기 로그인
+  - [ ] 네이버: 로그인 애플리케이션 발급 후 `custom:naver` 공급자 생성
+  - [ ] Google: 웹 OAuth 클라이언트 발급 후 Supabase 공급자 활성화
 - [ ] 네이버 Directions API 활성화 확인 (현재 Permission Denied)
 - [ ] 경로 미리보기 동작 확인
 
