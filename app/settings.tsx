@@ -232,12 +232,14 @@ export default function SettingsScreen() {
           <Text style={[styles.settingLabel, { color: colors.text }]}>햅틱 피드백</Text>
           <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>버튼과 지도 선택의 진동 반응</Text>
         </View>
-        <Switch
-          accessibilityLabel="햅틱 피드백"
-          value={hapticsEnabled}
-          onValueChange={handleHapticsChange}
-          trackColor={{ false: colors.border, true: semantic.success }}
-        />
+        <View style={styles.settingSwitchSlot}>
+          <Switch
+            accessibilityLabel="햅틱 피드백"
+            value={hapticsEnabled}
+            onValueChange={handleHapticsChange}
+            trackColor={{ false: colors.border, true: semantic.success }}
+          />
+        </View>
       </View>
 
       {user ? (
@@ -414,6 +416,10 @@ const styles = StyleSheet.create({
   settingText: {
     flex: 1,
     marginRight: 12,
+  },
+  settingSwitchSlot: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
   },
   settingLabel: {
     fontSize: 14,
