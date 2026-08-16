@@ -21,6 +21,7 @@ import OpenBadge from '@/components/place/OpenBadge';
 import { formatWeek } from '@/lib/hours';
 import { FUEL_LABELS, formatTradeAt, looksLikeGasStation } from '@/lib/api/gasStations';
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
+import { haptics } from '@/lib/haptics';
 
 export interface TempPlace {
   name: string;
@@ -87,6 +88,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         longitude: place.longitude,
         phone: place.phone,
       });
+      haptics.selection();
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }

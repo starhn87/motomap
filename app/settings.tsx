@@ -6,6 +6,7 @@ import {
   Text,
   Pressable,
   ScrollView,
+  Switch,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -23,6 +24,8 @@ import { toast } from '@/lib/toast';
 import { appAlert } from '@/lib/dialog';
 import { supabase } from '@/lib/supabase';
 import type { SocialLoginProvider } from '@/lib/socialAuth';
+import { useHapticsStore } from '@/stores/useHapticsStore';
+import { haptics } from '@/lib/haptics';
 
 type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -166,6 +169,14 @@ export default function SettingsScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const { mode, setMode } = useThemeStore();
+  const hapticsEnabled = useHapticsStore((state) => state.enabled);
+  const setHapticsEnabled = useHapticsStore((state) => state.setEnabled);
+
+  const handleHapticsChange = (enabled: boolean) => {
+    if (hapticsEnabled) haptics.selection();
+    void setHapticsEnabled(enabled);
+    if (enabled) haptics.selection();
+  };
 
   const handleDeleteAccount = () => {
     appAlert(
@@ -213,6 +224,20 @@ export default function SettingsScreen() {
         <ThemeOption label="시스템" value="system" current={mode} onPress={setMode} />
         <ThemeOption label="라이트" value="light" current={mode} onPress={setMode} />
         <ThemeOption label="다크" value="dark" current={mode} onPress={setMode} />
+      </View>
+
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>사용 환경</Text>
+      <View style={[styles.settingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={styles.settingText}>
+          <Text style={[styles.settingLabel, { color: colors.text }]}>햅틱 피드백</Text>
+          <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>버튼과 지도 선택의 진동 반응</Text>
+        </View>
+        <Switch
+          accessibilityLabel="햅틱 피드백"
+          value={hapticsEnabled}
+          onValueChange={handleHapticsChange}
+          trackColor={{ false: colors.border, true: semantic.success }}
+        />
       </View>
 
       {user ? (
@@ -375,6 +400,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 32,
     overflow: 'hidden',
+  },
+  settingCard: {
+    minHeight: 64,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    marginBottom: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  settingText: {
+    flex: 1,
+    marginRight: 12,
+  },
+  settingLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  settingDescription: {
+    fontSize: 12,
+    marginTop: 3,
   },
   loginMethodRow: {
     minHeight: 52,

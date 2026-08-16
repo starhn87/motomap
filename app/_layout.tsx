@@ -25,6 +25,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useThemeStore } from '@/stores/useThemeStore';
 import { useMapStore } from '@/stores/useMapStore';
+import { useHapticsStore } from '@/stores/useHapticsStore';
 import { registerPushToken, setupNotificationTapHandling } from '@/lib/push';
 import { PostHogProvider } from 'posthog-react-native';
 
@@ -74,6 +75,7 @@ function RootLayout() {
   useEffect(() => {
     initialize();
     loadMode();
+    void useHapticsStore.getState().load();
     void useMapStore.getState().loadShowFavorites();
     // 이미 권한이 허용된 기기만 조용히 토큰 갱신(로테이션 대응). 권한 요청은
     // 제보 직후(submit)에만 — 맥락 없는 첫 실행 권한 팝업을 피한다.

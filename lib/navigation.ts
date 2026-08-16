@@ -8,6 +8,7 @@ import { fetchNearbyHazards, fetchHazardsNearCourse } from '@/lib/api/hazards';
 import { HAZARDS } from '@/constants/hazards';
 import type { RoadHazard } from '@/types';
 import { checkRouteWeather } from '@/lib/api/weather';
+import { haptics } from '@/lib/haptics';
 
 export interface NavTarget {
   name: string;
@@ -185,6 +186,7 @@ export async function openNavigation(
     const points = [...(start ? [start] : []), ...(userVias ?? []), target];
     if (!(await confirmRouteWeather(points))) return false;
     if (!(await confirmHazards(await hazardsAroundPoints(points)))) return false;
+    haptics.impact();
     launchInAppNavi(target, { start, userVias });
     return true;
   } finally {
@@ -203,6 +205,7 @@ export async function openCourseNavigation(course: NavCourse) {
     if (!(await confirmRouteWeather(course.points))) return;
     if (!(await confirmHazards(await hazardsAlongCourse(course.id)))) return;
 
+    haptics.impact();
     const goal = course.points[course.points.length - 1];
     const vias = sampleWaypoints(course.points.slice(0, -1), MAX_VIAS).flatMap(
       (p) => [p.longitude, p.latitude],

@@ -64,6 +64,7 @@ import { router , useLocalSearchParams , useFocusEffect } from 'expo-router';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { toast } from '@/lib/toast';
 import type { Place, RoadHazard } from '@/types';
+import { haptics } from '@/lib/haptics';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -180,6 +181,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   );
   const handleMarkerPress = useCallback(
     (place: Place) => {
+      haptics.selection(90);
       followingRef.current = false;
       track.placeViewed({ place_id: place.id, category: place.category, source: 'map_marker' });
       setHighlightReview(null);
@@ -423,6 +425,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   const handleMyLocation = () => {
     if (!userLocation || !mapRef.current) return;
+    haptics.selection(90);
     // 내 위치를 지도 중앙으로 이동(현재 줌 유지)
     mapRef.current.animateCameraTo({
       latitude: userLocation.latitude,

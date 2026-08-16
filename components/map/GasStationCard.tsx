@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
 import { toast } from '@/lib/toast';
+import { haptics } from '@/lib/haptics';
 
 interface Props {
   station: GasStation;
@@ -44,6 +45,7 @@ export default function GasStationCard({ station, onClose }: Props) {
         latitude: station.latitude,
         longitude: station.longitude,
       });
+      haptics.selection();
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }
