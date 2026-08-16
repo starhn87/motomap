@@ -36,12 +36,9 @@ export async function checkNicknameAvailable(nickname: string): Promise<boolean>
   return !data;
 }
 
-export async function createProfile(nickname: string): Promise<void> {
-  const user = await requireUser();
-
-  const { error } = await supabase.from('profiles').insert({
-    id: user.id,
-    nickname,
+export async function completeOnboarding(nickname: string): Promise<void> {
+  const { error } = await supabase.rpc('complete_onboarding', {
+    p_nickname: nickname,
   });
 
   if (error) {

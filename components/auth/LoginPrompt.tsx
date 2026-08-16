@@ -23,11 +23,12 @@ import {
 import {
   generateRandomNickname,
   checkNicknameAvailable,
-  createProfile,
+  completeOnboarding,
   updateAvatarUrl,
 } from '@/lib/nickname';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -70,6 +71,9 @@ function AgreementRow({
 export default function LoginPrompt({ message }: { message?: string }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const authStatus = useAuthStore((state) => state.status);
+  const restoreError = useAuthStore((state) => state.restoreError);
+  const refreshOnboardingStatus = useAuthStore((state) => state.refreshOnboardingStatus);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -80,13 +84,15 @@ export default function LoginPrompt({ message }: { message?: string }) {
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
   const [agreedLocation, setAgreedLocation] = useState(false);
+  const needsOnboarding = authStatus === 'needs_onboarding';
+  const showProfileForm = isSignUp || needsOnboarding;
 
   // 회원가입 모드 진입 시 랜덤 닉네임 추천
   useEffect(() => {
-    if (isSignUp && !nickname) {
+    if (showProfileForm && !nickname) {
       setNickname(generateRandomNickname());
     }
-  }, [isSignUp]);
+  }, [showProfileForm]);
 
   const handleRandomNickname = () => {
     const newNick = generateRandomNickname();
@@ -110,16 +116,16 @@ export default function LoginPrompt({ message }: { message?: string }) {
   };
 
   const handleEmailAuth = async () => {
-    if (!email.trim() || !password.trim()) {
+    if (!needsOnboarding && (!email.trim() || !password.trim())) {
       toast.info('이메일과 비밀번호를 입력해주세요.');
       return;
     }
-    if (password.length < 6) {
+    if (!needsOnboarding && password.length < 6) {
       toast.info('비밀번호는 6자 이상이어야 합니다.');
       return;
     }
 
-    if (isSignUp) {
+    if (showProfileForm) {
       if (!nickname.trim()) {
         toast.info('닉네임을 입력해주세요.');
         return;
@@ -140,13 +146,16 @@ export default function LoginPrompt({ message }: { message?: string }) {
 
     setLoading(true);
     try {
-      if (isSignUp) {
-        await signUpWithEmail(email.trim(), password, nickname.trim());
-        await createProfile(nickname.trim());
+      if (showProfileForm) {
+        if (!needsOnboarding) {
+          await signUpWithEmail(email.trim(), password, nickname.trim());
+        }
+        await completeOnboarding(nickname.trim());
         if (avatarUri) {
           const url = await uploadImage(avatarUri, `avatars/${Date.now()}`);
           await updateAvatarUrl(url);
         }
+        await refreshOnboardingStatus();
         toast.success('환영합니다!');
       } else {
         await signInWithEmail(email.trim(), password);
@@ -175,17 +184,28 @@ export default function LoginPrompt({ message }: { message?: string }) {
       accessible={false}
       style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.text }]}>
-        {isSignUp ? '회원가입' : '로그인이 필요합니다'}
+        {needsOnboarding ? '프로필 완성' : isSignUp ? '회원가입' : '로그인이 필요합니다'}
       </Text>
       <Text style={[styles.message, { color: colors.textSecondary }]}>
-        {message ?? '로그인하고 라이더 커뮤니티에 참여하세요.'}
+        {needsOnboarding
+          ? '사용할 닉네임과 필수 약관을 확인해주세요.'
+          : message ?? '로그인하고 라이더 커뮤니티에 참여하세요.'}
       </Text>
 
-      {loading ? (
+      {restoreError ? (
+        <View style={styles.restoreError}>
+          <Text style={[styles.message, { color: colors.textSecondary }]}>{restoreError}</Text>
+          <Pressable
+            onPress={() => void refreshOnboardingStatus()}
+            style={[styles.retryButton, { backgroundColor: colors.tint }]}>
+            <Text style={[styles.emailButtonText, { color: colors.background }]}>다시 시도</Text>
+          </Pressable>
+        </View>
+      ) : loading || authStatus === 'restoring' ? (
         <ActivityIndicator size="large" color={colors.tint} style={{ marginTop: 24 }} />
       ) : (
         <View style={styles.buttons}>
-          {isSignUp && (
+          {showProfileForm && (
             <>
               <Pressable
                 onPress={async () => {
@@ -250,25 +270,29 @@ export default function LoginPrompt({ message }: { message?: string }) {
             </>
           )}
 
-          <TextInput
-            style={inputStyle}
-            placeholder="이메일"
-            placeholderTextColor={colors.textSecondary}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <TextInput
-            style={inputStyle}
-            placeholder="비밀번호"
-            placeholderTextColor={colors.textSecondary}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          {!needsOnboarding && (
+            <>
+              <TextInput
+                style={inputStyle}
+                placeholder="이메일"
+                placeholderTextColor={colors.textSecondary}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <TextInput
+                style={inputStyle}
+                placeholder="비밀번호"
+                placeholderTextColor={colors.textSecondary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </>
+          )}
 
-          {isSignUp && (
+          {showProfileForm && (
             <View style={styles.agreements}>
               <Pressable
                 onPress={() => {
@@ -319,18 +343,20 @@ export default function LoginPrompt({ message }: { message?: string }) {
               { backgroundColor: colors.tint, opacity: pressed ? 0.8 : 1 },
             ]}>
             <Text style={[styles.emailButtonText, { color: colors.background }]}>
-              {isSignUp ? '회원가입' : '이메일로 로그인'}
+              {needsOnboarding ? '시작하기' : isSignUp ? '회원가입' : '이메일로 로그인'}
             </Text>
           </Pressable>
 
-          <Pressable onPress={() => {
-            setIsSignUp(!isSignUp);
-            setNicknameStatus('idle');
-          }}>
-            <Text style={[styles.toggleText, { color: colors.tint }]}>
-              {isSignUp ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'}
-            </Text>
-          </Pressable>
+          {!needsOnboarding && (
+            <Pressable onPress={() => {
+              setIsSignUp(!isSignUp);
+              setNicknameStatus('idle');
+            }}>
+              <Text style={[styles.toggleText, { color: colors.tint }]}>
+                {isSignUp ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'}
+              </Text>
+            </Pressable>
+          )}
         </View>
       )}
     </AnimatedPressable>
@@ -358,6 +384,17 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 32,
     gap: 12,
+  },
+  restoreError: {
+    width: '100%',
+    marginTop: 24,
+    alignItems: 'center',
+    gap: 14,
+  },
+  retryButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 10,
   },
   avatarPicker: {
     alignSelf: 'center',

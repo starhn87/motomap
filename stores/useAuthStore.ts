@@ -6,13 +6,24 @@ import { identifyUser, resetUser } from '@/lib/analytics';
 import { unregisterPushToken } from '@/lib/push';
 import type { User, Session } from '@supabase/supabase-js';
 
+export type AuthStatus =
+  | 'restoring'
+  | 'signed_out'
+  | 'needs_onboarding'
+  | 'signed_in';
+
 interface AuthStore {
   user: User | null;
   session: Session | null;
-  loading: boolean;
+  status: AuthStatus;
+  restoreError: string | null;
   initialize: () => Promise<void>;
+  refreshOnboardingStatus: () => Promise<void>;
   signOut: () => Promise<void>;
 }
+
+let authSubscription: { unsubscribe: () => void } | null = null;
+let sessionRevision = 0;
 
 function syncSentryUser(user: User | null) {
   if (user) {
@@ -22,30 +33,90 @@ function syncSentryUser(user: User | null) {
   }
 }
 
-export const useAuthStore = create<AuthStore>((set) => ({
-  user: null,
-  session: null,
-  loading: true,
-  initialize: async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const user = session?.user ?? null;
-    syncSentryUser(user);
+async function resolveSession(
+  session: Session | null,
+  set: (partial: Partial<AuthStore>) => void,
+) {
+  const revision = ++sessionRevision;
+
+  if (!session) {
+    syncSentryUser(null);
+    resetUser();
+    set({
+      session: null,
+      user: null,
+      status: 'signed_out',
+      restoreError: null,
+    });
+    return;
+  }
+
+  syncSentryUser(session.user);
+  set({
+    session,
+    user: null,
+    status: 'restoring',
+    restoreError: null,
+  });
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('onboarding_completed_at')
+    .eq('id', session.user.id)
+    .maybeSingle();
+
+  if (revision !== sessionRevision) return;
+
+  if (error) {
+    Sentry.captureException(error, { tags: { area: 'auth_restore' } });
     set({
       session,
-      user,
-      loading: false,
+      user: null,
+      status: 'restoring',
+      restoreError: '계정 정보를 불러오지 못했습니다.',
     });
+    return;
+  }
 
-    supabase.auth.onAuthStateChange((_event, session) => {
-      const user = session?.user ?? null;
-      syncSentryUser(user);
-      if (user) identifyUser(user.id);
-      else resetUser();
-      set({
-        session,
-        user,
-      });
+  const complete = Boolean(data?.onboarding_completed_at);
+  if (complete) identifyUser(session.user.id);
+  set({
+    session,
+    user: complete ? session.user : null,
+    status: complete ? 'signed_in' : 'needs_onboarding',
+    restoreError: null,
+  });
+}
+
+export const useAuthStore = create<AuthStore>((set, get) => ({
+  user: null,
+  session: null,
+  status: 'restoring',
+  restoreError: null,
+  initialize: async () => {
+    authSubscription?.unsubscribe();
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      const current = get();
+      if (
+        event === 'TOKEN_REFRESHED' &&
+        session &&
+        current.status === 'signed_in' &&
+        current.user?.id === session.user.id
+      ) {
+        syncSentryUser(session.user);
+        set({ session, user: session.user });
+        return;
+      }
+      void resolveSession(session, set);
     });
+    authSubscription = data.subscription;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    await resolveSession(session, set);
+  },
+  refreshOnboardingStatus: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    await resolveSession(session, set);
   },
   signOut: async () => {
     await unregisterPushToken();
@@ -54,6 +125,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
     queryClient.clear();
     syncSentryUser(null);
     resetUser();
-    set({ user: null, session: null });
+    set({
+      user: null,
+      session: null,
+      status: 'signed_out',
+      restoreError: null,
+    });
   },
 }));
