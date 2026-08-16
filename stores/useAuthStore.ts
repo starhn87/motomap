@@ -20,7 +20,7 @@ interface AuthStore {
   restoreError: string | null;
   initialize: () => Promise<void>;
   refreshOnboardingStatus: () => Promise<void>;
-  signOut: () => Promise<void>;
+  signOut: (scope?: 'global' | 'local') => Promise<void>;
 }
 
 let authSubscription: { unsubscribe: () => void } | null = null;
@@ -121,9 +121,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     const { data: { session } } = await supabase.auth.getSession();
     await resolveSession(session, set);
   },
-  signOut: async () => {
+  signOut: async (scope = 'global') => {
     await unregisterPushToken();
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope });
     // 계정 전환 시 이전 사용자의 캐시(즐겨찾기·주행·리뷰 등)가 노출되지 않도록 비움
     queryClient.clear();
     syncSentryUser(null);

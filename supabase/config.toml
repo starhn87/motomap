@@ -385,6 +385,10 @@ verify_jwt = false
 [functions.delete-account]
 verify_jwt = true
 
+# 프로필을 만들기 전 소셜 가입만 하드 삭제해 identity를 기존 계정에 다시 연결한다.
+[functions.discard-onboarding-account]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

@@ -31,6 +31,13 @@ import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/useAuthStore';
 import SocialLoginButtons, { RecentLoginBadge } from '@/components/auth/SocialLoginButtons';
 import { getRecentLoginProvider, type LoginProvider } from '@/lib/recentLogin';
+import { discardIncompleteOnboardingAccount } from '@/lib/api/account';
+import {
+  setPendingAccountLink,
+  SOCIAL_PROVIDER_LABELS,
+  socialProviderFromIdentity,
+} from '@/lib/pendingAccountLink';
+import { appAlert } from '@/lib/dialog';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -76,6 +83,8 @@ export default function LoginPrompt({ message }: { message?: string }) {
   const authStatus = useAuthStore((state) => state.status);
   const restoreError = useAuthStore((state) => state.restoreError);
   const refreshOnboardingStatus = useAuthStore((state) => state.refreshOnboardingStatus);
+  const session = useAuthStore((state) => state.session);
+  const signOut = useAuthStore((state) => state.signOut);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -89,6 +98,9 @@ export default function LoginPrompt({ message }: { message?: string }) {
   const [recentLoginProvider, setRecentLoginProvider] = useState<LoginProvider | null>(null);
   const needsOnboarding = authStatus === 'needs_onboarding';
   const showProfileForm = isSignUp || needsOnboarding;
+  const onboardingSocialProvider = needsOnboarding
+    ? socialProviderFromIdentity(session?.user.app_metadata.provider)
+    : null;
 
   // 회원가입 모드 진입 시 랜덤 닉네임 추천
   useEffect(() => {
@@ -174,6 +186,32 @@ export default function LoginPrompt({ message }: { message?: string }) {
     }
   };
 
+  const handleUseExistingAccount = () => {
+    if (!onboardingSocialProvider) return;
+    const label = SOCIAL_PROVIDER_LABELS[onboardingSocialProvider];
+
+    appAlert(
+      '기존 계정에 연결',
+      `방금 만든 미완성 ${label} 계정을 정리하고 로그인 화면으로 돌아갑니다. 기존 모토맵 계정으로 로그인하면 ${label} 연결을 바로 이어서 안내할게요.`,
+      [
+        {
+          text: '계속하기',
+          onPress: () => {
+            setLoading(true);
+            void discardIncompleteOnboardingAccount()
+              .then(() => setPendingAccountLink(onboardingSocialProvider))
+              .then(() => signOut('local'))
+              .catch((error) => {
+                toast.error('기존 계정 연결을 준비하지 못했습니다.', (error as Error).message);
+              })
+              .finally(() => setLoading(false));
+          },
+        },
+        { text: '취소', style: 'cancel' },
+      ],
+    );
+  };
+
   const inputStyle = [
     styles.input,
     {
@@ -225,6 +263,21 @@ export default function LoginPrompt({ message }: { message?: string }) {
 
           {showProfileForm && (
             <>
+              {onboardingSocialProvider ? (
+                <View style={[styles.existingAccountCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <View style={styles.existingAccountTitleRow}>
+                    <Ionicons name="git-merge-outline" size={20} color={colors.tint} />
+                    <Text style={[styles.existingAccountTitle, { color: colors.text }]}>이미 모토맵 계정이 있나요?</Text>
+                  </View>
+                  <Text style={[styles.existingAccountText, { color: colors.textSecondary }]}>
+                    새 프로필을 만들면 기존 바이크와 주행 기록이 나뉠 수 있습니다.
+                  </Text>
+                  <Pressable onPress={handleUseExistingAccount} style={styles.existingAccountButton}>
+                    <Text style={[styles.existingAccountButtonText, { color: colors.tint }]}>기존 계정에 연결하기</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
               <Pressable
                 onPress={async () => {
                   const uri = await pickImage();
@@ -405,6 +458,33 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 32,
     gap: 12,
+  },
+  existingAccountCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    gap: 8,
+  },
+  existingAccountTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  existingAccountTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  existingAccountText: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  existingAccountButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 3,
+  },
+  existingAccountButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   dividerRow: {
     flexDirection: 'row',
