@@ -9,6 +9,10 @@ import type { LoginProvider } from '@/lib/recentLogin';
 import type { SocialLoginProvider } from '@/lib/socialAuth';
 import { toast } from '@/lib/toast';
 
+// Apple 네이티브 버튼의 시각 규격에 맞춰 나머지 공급자도 같은 크기로 보이게 한다.
+const PROVIDER_ICON_SIZE = 18;
+const PROVIDER_LABEL_SIZE = 17;
+
 const PROVIDERS: {
   provider: SocialLoginProvider;
   label: string;
@@ -131,7 +135,7 @@ export default function SocialLoginButtons({
                 <>
                   <View style={styles.iconArea}>
                     {item.icon ? (
-                      <Ionicons name={item.icon} size={20} color={textColor} />
+                      <Ionicons name={item.icon} size={PROVIDER_ICON_SIZE} color={textColor} />
                     ) : (
                       <Text style={[styles.providerMark, { color: textColor }]}>{item.mark}</Text>
                     )}
@@ -183,11 +187,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   providerMark: {
-    fontSize: 18,
+    fontSize: PROVIDER_ICON_SIZE,
+    lineHeight: PROVIDER_ICON_SIZE,
     fontWeight: '900',
   },
   buttonText: {
-    fontSize: 15,
+    fontSize: PROVIDER_LABEL_SIZE,
     fontWeight: '600',
   },
   recentBadge: {
