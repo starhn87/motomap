@@ -33,7 +33,11 @@ import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/useAuthStore';
 import SocialLoginButtons, { RecentLoginBadge } from '@/components/auth/SocialLoginButtons';
-import { getRecentLoginProvider, type LoginProvider } from '@/lib/recentLogin';
+import {
+  clearRecentLoginProvider,
+  getRecentLoginProvider,
+  type LoginProvider,
+} from '@/lib/recentLogin';
 import { discardIncompleteOnboardingAccount } from '@/lib/api/account';
 import {
   setPendingAccountLink,
@@ -212,6 +216,35 @@ export default function LoginPrompt({ message }: { message?: string }) {
           },
         },
         { text: '취소', style: 'cancel' },
+      ],
+    );
+  };
+
+  const handleCancelOnboarding = () => {
+    if (!onboardingSocialProvider) return;
+    const label = SOCIAL_PROVIDER_LABELS[onboardingSocialProvider];
+
+    appAlert(
+      '가입을 취소할까요?',
+      `모토맵에 방금 생성된 미완성 ${label} 로그인 계정이 삭제됩니다. ${label} 계정 자체에는 영향을 주지 않으며, 나중에 다시 가입할 수 있습니다.`,
+      [
+        {
+          text: '가입 취소',
+          style: 'destructive',
+          onPress: () => {
+            Keyboard.dismiss();
+            setLoading(true);
+            void discardIncompleteOnboardingAccount()
+              .then(() => signOut('local'))
+              .then(() => clearRecentLoginProvider().catch(() => {}))
+              .then(() => toast.info('가입이 취소되었습니다.'))
+              .catch((error) => {
+                toast.error('가입을 취소하지 못했습니다.', (error as Error).message);
+              })
+              .finally(() => setLoading(false));
+          },
+        },
+        { text: '계속 가입하기', style: 'cancel' },
       ],
     );
   };
@@ -432,6 +465,12 @@ export default function LoginPrompt({ message }: { message?: string }) {
             {!showProfileForm && recentLoginProvider === 'email' ? <RecentLoginBadge /> : null}
           </View>
 
+          {needsOnboarding && onboardingSocialProvider ? (
+            <Pressable onPress={handleCancelOnboarding} style={styles.cancelOnboardingButton}>
+              <Text style={styles.cancelOnboardingText}>가입 취소</Text>
+            </Pressable>
+          ) : null}
+
           {!needsOnboarding && (
             <Pressable onPress={() => {
               setIsSignUp(!isSignUp);
@@ -618,6 +657,16 @@ const styles = StyleSheet.create({
   toggleText: {
     fontSize: 14,
     textAlign: 'center',
+    fontWeight: '600',
+  },
+  cancelOnboardingButton: {
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  cancelOnboardingText: {
+    color: semantic.danger,
+    fontSize: 13,
     fontWeight: '600',
   },
   agreements: {
