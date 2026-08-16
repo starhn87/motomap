@@ -1,0 +1,16 @@
+{
+  "name": "motomap-website",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "vite build",
+    "check": "npm run build && wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "@openai/sites-vite-plugin": "0.1.0",
+    "vite": "^8.0.13",
+    "wrangler": "^4.123.0"
+  },
+  "type": "module"
+}

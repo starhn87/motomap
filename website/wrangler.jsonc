@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "motomap-web",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-16",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "motomap.kr",
+      "custom_domain": true
+    }
+  ],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "single-page-application"
+  }
+}
