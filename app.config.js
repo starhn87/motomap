@@ -77,6 +77,7 @@ export default {
     },
     plugins: [
       'expo-router',
+      'expo-secure-store',
       './plugins/withKNSDKDynamicFrameworks',
       [
         'expo-image-picker',

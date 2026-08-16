@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as Sentry from '@sentry/react-native';
 import { supabase } from '@/lib/supabase';
+import { confirmAuthStorageMigration } from '@/lib/authStorage';
 import { queryClient } from '@/lib/queryClient';
 import { identifyUser, resetUser } from '@/lib/analytics';
 import { unregisterPushToken } from '@/lib/push';
@@ -77,6 +78,8 @@ async function resolveSession(
     });
     return;
   }
+
+  await confirmAuthStorageMigration();
 
   const complete = Boolean(data?.onboarding_completed_at);
   if (complete) identifyUser(session.user.id);
