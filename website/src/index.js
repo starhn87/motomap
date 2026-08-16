@@ -84,7 +84,14 @@ function legalPage(type) {
     <meta name="description" content="모토맵 ${title}" />
     <meta property="og:title" content="${title}: 모토맵" />
     <meta property="og:description" content="모토맵 ${title}" />
-    <meta property="og:image" content="https://motomap.kr/icon.png" />
+    <meta property="og:image" content="https://motomap.kr/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="검은 배경 위 흰색 바이크 아이콘" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${title}: 모토맵" />
+    <meta name="twitter:description" content="모토맵 ${title}" />
+    <meta name="twitter:image" content="https://motomap.kr/og.png" />
     <link rel="canonical" href="https://motomap.kr${canonicalPath}" />
     <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png" />
     <link rel="stylesheet" href="/styles.css" />
