@@ -37,7 +37,8 @@
   - [x] 공통 앱 콜백 허용 및 수동 계정 연결 활성화
   - [x] Apple: 네이티브 ID Token 방식과 iOS capability·Supabase 공급자 설정
   - [x] 카카오: Supabase 자격 증명 저장·공급자 활성화
-  - [ ] 카카오: 개발자 콘솔 OpenID Connect 확인 및 실기기 로그인
+  - [x] 카카오: 개발자 콘솔 카카오 로그인·OpenID Connect 활성화
+  - [ ] 카카오: 1.2.6 실기기 로그인
   - [ ] 네이버: 로그인 애플리케이션 발급 후 `custom:naver` 공급자 생성
   - [x] Google: 웹 OAuth 클라이언트 발급 후 Supabase 공급자 활성화
 - [ ] 네이버 Directions API 활성화 확인 (현재 Permission Denied)
