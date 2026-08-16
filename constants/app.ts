@@ -3,7 +3,7 @@
 export const APP_STORE_URL = 'https://apps.apple.com/kr/app/id6773636183';
 
 // 앱 설치 여부와 관계없이 공유할 수 있는 공개 주소. 설치된 iOS 앱에서는
-// 유니버설 링크로 상세 화면이 열리고, 없으면 같은 경로의 웹 안내가 보인다.
+// 유니버설 링크로 상세 화면이 열리고, 없으면 App Store로 바로 이동한다.
 export const APP_WEB_URL = 'https://motomap.kr';
 
 export function placeWebUrl(placeId: string): string {

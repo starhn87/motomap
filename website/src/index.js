@@ -1,3 +1,5 @@
+import { LEGAL_DOCS } from '../../constants/legal.ts';
+
 const APP_IDENTIFIER = 'QD4486Q3L8.com.ridemap.app';
 
 const association = {
@@ -12,6 +14,19 @@ const association = {
 };
 
 const APP_STORE_URL = 'https://apps.apple.com/kr/app/id6773636183';
+const LEGAL_PATHS = {
+  '/terms': 'terms',
+  '/privacy': 'privacy',
+  '/location-terms': 'location',
+  '/legal/terms': 'terms',
+  '/legal/privacy': 'privacy',
+  '/legal/location': 'location',
+};
+const LEGAL_CANONICAL_PATHS = {
+  terms: '/terms',
+  privacy: '/privacy',
+  location: '/location-terms',
+};
 const securityHeaders = {
   'Content-Security-Policy':
     "default-src 'self'; img-src 'self'; style-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'; object-src 'none'",
@@ -21,40 +36,77 @@ const securityHeaders = {
   'X-Frame-Options': 'DENY',
 };
 
-function sharedContentPage(kind, id) {
-  const isCourse = kind === 'course';
-  const label = isCourse ? '코스' : '장소';
-  const title = isCourse ? '함께 달릴 코스를 확인해보세요' : '라이더가 공유한 장소를 확인해보세요';
-  const deepLink = `ridemap://${kind}/${encodeURIComponent(id)}`;
+function escapeHtml(value) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function legalContent(content) {
+  let followsBlankLine = true;
+
+  return content
+    .split('\n')
+    .map((line) => {
+      const text = line.trim();
+      if (!text) {
+        followsBlankLine = true;
+        return '<div class="legal-spacer" aria-hidden="true"></div>';
+      }
+
+      const isSectionTitle =
+        /^(제\d+조(?:\s|\()|부칙$)/.test(text) ||
+        (followsBlankLine && /^\d+\.\s/.test(text));
+      followsBlankLine = false;
+
+      if (isSectionTitle) {
+        return `<h2>${escapeHtml(text)}</h2>`;
+      }
+      return `<p>${escapeHtml(line)}</p>`;
+    })
+    .join('');
+}
+
+function legalPage(type) {
+  const document = LEGAL_DOCS[type];
+  const canonicalPath = LEGAL_CANONICAL_PATHS[type];
+  const title = escapeHtml(document.title);
 
   return `<!doctype html>
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0c0d0f" />
-    <meta name="description" content="${title}" />
-    <meta property="og:title" content="${title}" />
-    <meta property="og:description" content="모토맵에서 ${label} 정보와 라이더 기록을 확인하세요." />
+    <meta name="theme-color" content="#0b0c0e" />
+    <meta name="description" content="모토맵 ${title}" />
+    <meta property="og:title" content="${title}: 모토맵" />
+    <meta property="og:description" content="모토맵 ${title}" />
     <meta property="og:image" content="https://motomap.kr/icon.png" />
+    <link rel="canonical" href="https://motomap.kr${canonicalPath}" />
     <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png" />
     <link rel="stylesheet" href="/styles.css" />
-    <title>${title} — 모토맵</title>
+    <title>${title}: 모토맵</title>
   </head>
-  <body class="shared-page">
-    <main class="shared-card">
-      <a class="brand shared-brand" href="/">
-        <img src="/icon.png" alt="" width="48" height="48" />
+  <body class="legal-page">
+    <header class="legal-header">
+      <a class="brand" href="/" aria-label="모토맵 홈">
+        <img src="/icon.png" alt="" width="40" height="40" />
         <span>모토맵</span>
       </a>
-      <p class="eyebrow">공유된 ${label}</p>
+      <a class="legal-home-link" href="/">소개로 돌아가기</a>
+    </header>
+    <main class="legal-document">
+      <p class="eyebrow">LEGAL</p>
       <h1>${title}</h1>
-      <p>모토맵 앱을 열면 상세 정보와 리뷰를 바로 볼 수 있어요.</p>
-      <div class="shared-actions">
-        <a class="primary-button" href="${deepLink}">앱에서 열기</a>
-        <a class="secondary-button" href="${APP_STORE_URL}">앱 설치하기</a>
-      </div>
-      <a class="home-link" href="/">모토맵 소개 보기</a>
+      <div class="legal-content">${legalContent(document.content)}</div>
+      <nav class="legal-document-nav" aria-label="법률 문서">
+        <a href="/terms">서비스 이용약관</a>
+        <a href="/privacy">개인정보 처리방침</a>
+        <a href="/location-terms">위치기반 서비스 이용약관</a>
+      </nav>
     </main>
   </body>
 </html>`;
@@ -83,13 +135,25 @@ export default {
       });
     }
 
-    const contentMatch = url.pathname.match(/^\/(place|course)\/([^/]+)\/?$/);
-    if (contentMatch) {
-      return new Response(sharedContentPage(contentMatch[1], contentMatch[2]), {
+    const normalizedPath = url.pathname === '/' ? '/' : url.pathname.replace(/\/+$/, '');
+    const legalType = LEGAL_PATHS[normalizedPath];
+    if (legalType) {
+      return new Response(legalPage(legalType), {
         headers: {
           'Content-Type': 'text/html; charset=utf-8',
           'Cache-Control': 'public, max-age=300',
           ...securityHeaders,
+        },
+      });
+    }
+
+    const contentMatch = url.pathname.match(/^\/(place|course)\/([^/]+)\/?$/);
+    if (contentMatch) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: APP_STORE_URL,
+          'Cache-Control': 'private, no-store',
         },
       });
     }

@@ -11,6 +11,9 @@
 /favicon.png
   Cache-Control: public, max-age=604800
 
+/app-store-badge-ko.svg
+  Cache-Control: public, max-age=604800
+
 /bike-silhouette.png
   Cache-Control: public, max-age=604800
 
