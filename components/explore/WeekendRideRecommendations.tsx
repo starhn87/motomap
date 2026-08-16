@@ -87,7 +87,15 @@ export default function WeekendRideRecommendations({ courses }: Props) {
           <Skeleton width={92} height={10} />
           <Skeleton width={210} height={22} style={{ marginTop: 6 }} />
         </View>
-        <Skeleton width={272} height={142} radius={15} />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.cardScroll}
+          contentContainerStyle={styles.cardRow}>
+          {[0, 1].map((index) => (
+            <Skeleton key={index} width={272} height={142} radius={15} />
+          ))}
+        </ScrollView>
         <Skeleton width={220} height={11} style={{ marginTop: 7 }} />
       </View>
     );
