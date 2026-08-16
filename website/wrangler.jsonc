@@ -6,8 +6,8 @@
   "workers_dev": true,
   "routes": [
     {
-      "pattern": "motomap.kr",
-      "custom_domain": true
+      "pattern": "motomap.kr/*",
+      "zone_name": "motomap.kr"
     }
   ],
   "assets": {
