@@ -39,7 +39,7 @@
   - [x] 카카오: Supabase 자격 증명 저장·공급자 활성화
   - [ ] 카카오: 개발자 콘솔 OpenID Connect 확인 및 실기기 로그인
   - [ ] 네이버: 로그인 애플리케이션 발급 후 `custom:naver` 공급자 생성
-  - [ ] Google: 웹 OAuth 클라이언트 발급 후 Supabase 공급자 활성화
+  - [x] Google: 웹 OAuth 클라이언트 발급 후 Supabase 공급자 활성화
 - [ ] 네이버 Directions API 활성화 확인 (현재 Permission Denied)
 - [ ] 경로 미리보기 동작 확인
 
