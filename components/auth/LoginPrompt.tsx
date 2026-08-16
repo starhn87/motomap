@@ -7,6 +7,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useState, useEffect } from 'react';
@@ -40,6 +43,7 @@ import {
 import { appAlert } from '@/lib/dialog';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 function AgreementRow({
   checked,
@@ -222,12 +226,19 @@ export default function LoginPrompt({ message }: { message?: string }) {
   ];
 
   return (
-    // 빈 영역 탭 시 키보드 닫기 (스크롤 없는 화면이라 컨테이너에서 처리)
-    <AnimatedPressable
-      entering={FadeInDown.duration(400)}
-      onPress={Keyboard.dismiss}
-      accessible={false}
-      style={[styles.container, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={[styles.keyboardAvoiding, { backgroundColor: colors.background }]}>
+      <AnimatedScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        <AnimatedPressable
+          entering={FadeInDown.duration(400)}
+          onPress={Keyboard.dismiss}
+          accessible={false}
+          style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>
         {needsOnboarding ? '프로필 완성' : isSignUp ? '회원가입' : '로그인이 필요합니다'}
       </Text>
@@ -433,13 +444,21 @@ export default function LoginPrompt({ message }: { message?: string }) {
           )}
         </View>
       )}
-    </AnimatedPressable>
+        </AnimatedPressable>
+      </AnimatedScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  keyboardAvoiding: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  container: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,

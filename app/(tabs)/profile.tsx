@@ -310,29 +310,38 @@ export default function ProfileScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
 
+  const settingsButton = (
+    // 설정 버튼은 로그인 여부와 관계없이 표시한다.
+    <Pressable
+      onPress={() => router.push('/settings')}
+      style={[
+        styles.settingsButton,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+      ]}>
+      <Ionicons name="settings-outline" size={22} color={colors.text} />
+      <Text style={[styles.settingsLabel, { color: colors.text }]}>설정</Text>
+    </Pressable>
+  );
+
+  // 로그인 폼이 자신의 스크롤과 키보드 회피를 처리하므로 중첩 스크롤을 만들지 않는다.
+  if (!user) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {settingsButton}
+        <LoginPrompt message="로그인하고 마이페이지를 확인하세요." />
+      </View>
+    );
+  }
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}>
-      {/* 설정 버튼 - 항상 표시 */}
-      <Pressable
-        onPress={() => router.push('/settings')}
-        style={[
-          styles.settingsButton,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-          },
-        ]}>
-        <Ionicons name="settings-outline" size={22} color={colors.text} />
-        <Text style={[styles.settingsLabel, { color: colors.text }]}>설정</Text>
-      </Pressable>
-
-      {user ? (
-        <LoggedInContent />
-      ) : (
-        <LoginPrompt message="로그인하고 마이페이지를 확인하세요." />
-      )}
+      {settingsButton}
+      <LoggedInContent />
     </ScrollView>
   );
 }
