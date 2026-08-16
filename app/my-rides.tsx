@@ -5,22 +5,21 @@ import {
   FlatList,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
+import RiderShareCard from '@/components/profile/RiderShareCard';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import EmptyState from '@/components/ui/EmptyState';
 import { useColorScheme } from '@/components/useColorScheme';
-import { APP_STORE_URL } from '@/constants/app';
 import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useMyRides } from '@/hooks/usePlaceRides';
-import { track } from '@/lib/analytics';
 import type { MyRideBreakdown, MyRidePlace } from '@/lib/api/rides';
 import { focusPlaceOnMap, focusPointOnMap } from '@/lib/mapFocus';
+import { useAuthStore } from '@/stores/useAuthStore';
 import type { PlaceCategory } from '@/types';
 
 // "8.10" — 목록에 연도까지는 과하고, 해가 바뀐 기록만 "24.12" 처럼 연도를 붙인다
@@ -65,6 +64,8 @@ export default function MyRidesScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { data: rides, isLoading } = useMyRides();
   const [selectedBike, setSelectedBike] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const user = useAuthStore((state) => state.user);
 
   if (isLoading) {
     return (
@@ -93,21 +94,6 @@ export default function MyRidesScreen() {
     0,
   );
   const milestones = getCategoryMilestones(visibleRides);
-
-  const sharePassport = async () => {
-    const subject = selectedBike ? `${selectedBike} 주행 기록` : '나의 주행 기록';
-    const result = await Share.share({
-      title: subject,
-      message: `${subject}\n모토맵에서 ${visibleRides.length}곳을 ${totalRides}번 달렸어요 🏍️\n\n모토맵 - 라이더를 위한 지도\n${APP_STORE_URL}`,
-    });
-    if (result.action === Share.sharedAction) {
-      track.bikePassportShared({
-        scope: selectedBike ? 'bike' : 'all',
-        places: visibleRides.length,
-        rides: totalRides,
-      });
-    }
-  };
 
   const renderItem = ({ item }: { item: MyRidePlace }) => {
     const breakdown = breakdownFor(item, selectedBike);
@@ -149,102 +135,117 @@ export default function MyRidesScreen() {
     );
   };
 
+  const nickname = user?.user_metadata?.name
+    ?? user?.user_metadata?.full_name
+    ?? '라이더';
+
   return (
-    <FlatList
-      style={{ backgroundColor: colors.background }}
-      contentContainerStyle={styles.list}
-      data={visibleRides}
-      extraData={selectedBike}
-      keyExtractor={(item) => item.placeId ?? `pt:${item.name}`}
-      ListHeaderComponent={
-        <View style={styles.header}>
-          <View style={[styles.passport, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={styles.passportTop}>
-              <View style={styles.passportTitleBody}>
-                <Text style={[styles.passportEyebrow, { color: colors.tint }]}>나의 주행 기록</Text>
-                <Text style={[styles.passportTitle, { color: colors.text }]} numberOfLines={2}>
-                  {selectedBike ?? '모든 바이크'}
-                </Text>
+    <>
+      <FlatList
+        style={{ backgroundColor: colors.background }}
+        contentContainerStyle={styles.list}
+        data={visibleRides}
+        extraData={selectedBike}
+        keyExtractor={(item) => item.placeId ?? `pt:${item.name}`}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <View style={[styles.passport, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.passportTop}>
+                <View style={styles.passportTitleBody}>
+                  <Text style={[styles.passportEyebrow, { color: colors.tint }]}>나의 주행 기록</Text>
+                  <Text style={[styles.passportTitle, { color: colors.text }]} numberOfLines={2}>
+                    {selectedBike ?? '모든 바이크'}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityLabel="주행 기록 공유"
+                  hitSlop={10}
+                  onPress={() => setShareOpen(true)}
+                  style={({ pressed }) => [
+                    styles.shareButton,
+                    { backgroundColor: colors.background },
+                    pressed && { opacity: 0.6 },
+                  ]}>
+                  <Ionicons name="share-outline" size={19} color={colors.text} />
+                </Pressable>
               </View>
-              <Pressable
-                accessibilityLabel="주행 기록 공유"
-                hitSlop={10}
-                onPress={() => void sharePassport()}
-                style={({ pressed }) => [
-                  styles.shareButton,
-                  { backgroundColor: colors.background },
-                  pressed && { opacity: 0.6 },
-                ]}>
-                <Ionicons name="share-outline" size={19} color={colors.text} />
-              </Pressable>
+              <View style={styles.statsRow}>
+                <View>
+                  <Text style={[styles.statValue, { color: colors.text }]}>{visibleRides.length}</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>다녀온 곳</Text>
+                </View>
+                <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+                <View>
+                  <Text style={[styles.statValue, { color: colors.text }]}>{totalRides}</Text>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>주행</Text>
+                </View>
+              </View>
+              {milestones.length > 0 && (
+                <View style={styles.milestones}>
+                  {milestones.map(({ category, places }) => (
+                    <View key={category} style={[styles.milestone, { backgroundColor: colors.background }]}>
+                      <CategoryIcon category={category} size={15} />
+                      <Text style={[styles.milestoneText, { color: colors.textSecondary }]}>
+                        {CATEGORIES[category].label} {places}곳
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
-            <View style={styles.statsRow}>
-              <View>
-                <Text style={[styles.statValue, { color: colors.text }]}>{visibleRides.length}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>다녀온 곳</Text>
-              </View>
-              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-              <View>
-                <Text style={[styles.statValue, { color: colors.text }]}>{totalRides}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>주행</Text>
-              </View>
-            </View>
-            {milestones.length > 0 && (
-              <View style={styles.milestones}>
-                {milestones.map(({ category, places }) => (
-                  <View key={category} style={[styles.milestone, { backgroundColor: colors.background }]}>
-                    <CategoryIcon category={category} size={15} />
-                    <Text style={[styles.milestoneText, { color: colors.textSecondary }]}>
-                      {CATEGORIES[category].label} {places}곳
-                    </Text>
-                  </View>
-                ))}
-              </View>
+
+            {bikes.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.filterScroll}
+                contentContainerStyle={styles.filters}>
+                <Pressable
+                  onPress={() => setSelectedBike(null)}
+                  style={[
+                    styles.filter,
+                    { borderColor: selectedBike === null ? colors.tint : colors.border },
+                    selectedBike === null && { backgroundColor: colors.tint },
+                  ]}>
+                  <Text style={[styles.filterText, { color: selectedBike === null ? colors.background : colors.text }]}>전체</Text>
+                </Pressable>
+                {bikes.map((bike) => {
+                  const selected = selectedBike === bike.model;
+                  return (
+                    <Pressable
+                      key={bike.model}
+                      onPress={() => setSelectedBike(bike.model)}
+                      style={[
+                        styles.filter,
+                        { borderColor: selected ? colors.tint : colors.border },
+                        selected && { backgroundColor: colors.tint },
+                      ]}>
+                      <Text
+                        style={[styles.filterText, { color: selected ? colors.background : colors.text }]}
+                        numberOfLines={1}>
+                        {bike.model} · {bike.rides}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
             )}
+
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>다녀온 장소</Text>
           </View>
-
-          {bikes.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filterScroll}
-              contentContainerStyle={styles.filters}>
-              <Pressable
-                onPress={() => setSelectedBike(null)}
-                style={[
-                  styles.filter,
-                  { borderColor: selectedBike === null ? colors.tint : colors.border },
-                  selectedBike === null && { backgroundColor: colors.tint },
-                ]}>
-                <Text style={[styles.filterText, { color: selectedBike === null ? colors.background : colors.text }]}>전체</Text>
-              </Pressable>
-              {bikes.map((bike) => {
-                const selected = selectedBike === bike.model;
-                return (
-                  <Pressable
-                    key={bike.model}
-                    onPress={() => setSelectedBike(bike.model)}
-                    style={[
-                      styles.filter,
-                      { borderColor: selected ? colors.tint : colors.border },
-                      selected && { backgroundColor: colors.tint },
-                    ]}>
-                    <Text
-                      style={[styles.filterText, { color: selected ? colors.background : colors.text }]}
-                      numberOfLines={1}>
-                      {bike.model} · {bike.rides}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          )}
-
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>다녀온 장소</Text>
-        </View>
-      }
-      renderItem={renderItem}
-    />
+        }
+        renderItem={renderItem}
+      />
+      <RiderShareCard
+        visible={shareOpen}
+        onClose={() => setShareOpen(false)}
+        nickname={nickname}
+        bike={selectedBike}
+        places={visibleRides.length}
+        rides={totalRides}
+        milestones={milestones}
+      />
+    </>
   );
 }
 
