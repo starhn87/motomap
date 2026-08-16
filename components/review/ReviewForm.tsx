@@ -1,4 +1,5 @@
-import { View, Text, TextInput, StyleSheet, ActivityIndicator, Keyboard, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Keyboard, Pressable } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { router } from 'expo-router';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState } from 'react';
@@ -104,7 +105,7 @@ export default function ReviewForm({ placeId }: Props) {
       <Text style={[styles.label, { color: colors.text }]}>별점</Text>
       <StarRating rating={rating} onRate={setRating} size={32} />
 
-      <TextInput
+      <BottomSheetTextInput
         style={[
           styles.input,
           {

@@ -8,6 +8,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   Share,
 } from 'react-native';
 import { useState } from 'react';
@@ -134,11 +136,14 @@ export default function CourseDetailScreen() {
 
   return (
     <>
-    <ScrollView
+    <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag">
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}>
       {/* 지도 미리보기 */}
       {coords.length >= 2 && (
         <View style={styles.mapContainer}>
@@ -587,7 +592,8 @@ export default function CourseDetailScreen() {
           )}
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
     <ReportSheet
       visible={!!reportingId}
       onClose={() => setReportingId(null)}

@@ -4,6 +4,7 @@ import {
   Text,
   TextInput,
   Pressable,
+  ScrollView,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -68,19 +69,23 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
       onRequestClose={handleClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <Pressable style={styles.backdrop} onPress={handleClose} />
-        {/* 시트 빈 영역 탭 시 키보드 닫기 */}
-        <Pressable
-          onPress={Keyboard.dismiss}
-          accessible={false}
+        <ScrollView
           style={[
             styles.sheet,
             {
               backgroundColor: colors.surfaceElevated,
               borderColor: colors.border,
             },
-          ]}>
+          ]}
+          contentContainerStyle={styles.sheetContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          bounces={false}
+          showsVerticalScrollIndicator={false}>
+          {/* 시트 빈 영역 탭 시 키보드 닫기 */}
+          <Pressable onPress={Keyboard.dismiss} accessible={false}>
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
           <Text style={[styles.title, { color: colors.text }]}>신고하기</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -156,7 +161,8 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
               </Text>
             </Pressable>
           </View>
-        </Pressable>
+          </Pressable>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -174,10 +180,15 @@ const styles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 32,
+    maxHeight: '90%',
+    flexShrink: 1,
+    overflow: 'hidden',
     borderWidth: 1,
     borderBottomWidth: 0,
+  },
+  sheetContent: {
+    padding: 20,
+    paddingBottom: 32,
   },
   handle: {
     width: 40,

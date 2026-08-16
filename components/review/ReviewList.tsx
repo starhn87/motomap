@@ -4,11 +4,11 @@ import BikeIcon from '@/components/ui/BikeIcon';
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { Image as RNImage } from 'expo-image';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState, useEffect } from 'react';
@@ -242,7 +242,7 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
             {isEditing ? (
               <View style={styles.editForm}>
                 <StarRating rating={editRating} onRate={setEditRating} size={24} />
-                <TextInput
+                <BottomSheetTextInput
                   style={[
                     styles.editInput,
                     {

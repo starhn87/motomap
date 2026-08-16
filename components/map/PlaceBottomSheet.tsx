@@ -375,6 +375,11 @@ function PlaceBottomSheet({
         animatedIndex={animatedIndex}
         animatedPosition={animatedPosition}
         onChange={handleSheetChanges}
+        // 리뷰 입력 시 시트를 최대로 펼쳐 키보드 위 공간을 확보하고,
+        // 입력을 마치면 사용자가 보던 스냅 위치로 되돌린다.
+        keyboardBehavior="extend"
+        keyboardBlurBehavior="restore"
+        enableBlurKeyboardOnGesture
         // 스와이프로는 최소 스냅까지만 내려간다. 실수로 쓸어서 닫히는 걸 막고,
         // 닫기는 X 버튼과 풀확장 헤더의 뒤로가기 두 곳으로 모은다.
         enablePanDownToClose={false}
