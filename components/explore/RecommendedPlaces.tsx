@@ -104,18 +104,59 @@ function PlaceCard({
   );
 }
 
-function RecommendedSkeleton() {
+function PlaceCardSkeleton({ showBikeEvidence = false }: { showBikeEvidence?: boolean }) {
   return (
-    <View style={styles.container}>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <SkeletonContainer key={i}>
-          <Skeleton width="35%" height={16} />
-          <Skeleton width="70%" height={20} style={{ marginTop: 10 }} />
-          <Skeleton width="90%" height={14} style={{ marginTop: 6 }} />
-          <Skeleton width="100%" height={40} style={{ marginTop: 12 }} />
-        </SkeletonContainer>
-      ))}
-    </View>
+    <SkeletonContainer>
+      <View style={styles.skeletonCardHeader}>
+        <Skeleton width={82} height={24} radius={12} />
+        <Skeleton width={42} height={14} />
+      </View>
+      <Skeleton width="62%" height={22} />
+      <Skeleton width="86%" height={14} style={{ marginTop: 6 }} />
+      {showBikeEvidence && (
+        <Skeleton width={190} height={29} radius={10} style={{ marginTop: 12 }} />
+      )}
+      <Skeleton
+        width="100%"
+        height={42}
+        radius={12}
+        style={{ marginTop: showBikeEvidence ? 12 : 14 }}
+      />
+    </SkeletonContainer>
+  );
+}
+
+function RecommendedSkeleton({ showBikeSection }: { showBikeSection: boolean }) {
+  return (
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.regionScroll}
+        contentContainerStyle={styles.regionChips}>
+        {[58, 72, 64, 78, 68].map((width) => (
+          <Skeleton key={width} width={width} height={32} radius={16} />
+        ))}
+      </ScrollView>
+
+      {showBikeSection && (
+        <View style={styles.section}>
+          <Skeleton width={112} height={20} />
+          <PlaceCardSkeleton showBikeEvidence />
+        </View>
+      )}
+
+      <View style={styles.section}>
+        <Skeleton width={82} height={20} />
+        <PlaceCardSkeleton />
+        <PlaceCardSkeleton />
+      </View>
+
+      <View style={styles.section}>
+        <Skeleton width={98} height={20} />
+        <PlaceCardSkeleton />
+      </View>
+    </ScrollView>
   );
 }
 
@@ -160,7 +201,7 @@ export default function RecommendedPlaces() {
   // 장소 목록을 먼저 보여준 뒤 상단에 바이크 추천을 끼워 넣으면 화면 전체가
   // 밀린다. 최초 로딩은 두 데이터가 모두 준비된 뒤 한 번에 확정한다.
   if (isLoading || bikeRecommendationsLoading) {
-    return <RecommendedSkeleton />;
+    return <RecommendedSkeleton showBikeSection={!!user} />;
   }
 
   // 지역을 골라 결과가 빈 경우까지 여기서 걸리면 칩이 사라져 전체로 못 돌아온다.
@@ -366,4 +407,10 @@ const styles = StyleSheet.create({
   },
   bikeEmptyTitle: { fontSize: 15, fontWeight: '700' },
   bikeEmptyText: { fontSize: 13, lineHeight: 19 },
+  skeletonCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
 });
