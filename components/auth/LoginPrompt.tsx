@@ -29,6 +29,8 @@ import {
 import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/useAuthStore';
+import SocialLoginButtons, { RecentLoginBadge } from '@/components/auth/SocialLoginButtons';
+import { getRecentLoginProvider, type LoginProvider } from '@/lib/recentLogin';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -84,6 +86,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
   const [agreedLocation, setAgreedLocation] = useState(false);
+  const [recentLoginProvider, setRecentLoginProvider] = useState<LoginProvider | null>(null);
   const needsOnboarding = authStatus === 'needs_onboarding';
   const showProfileForm = isSignUp || needsOnboarding;
 
@@ -93,6 +96,10 @@ export default function LoginPrompt({ message }: { message?: string }) {
       setNickname(generateRandomNickname());
     }
   }, [showProfileForm]);
+
+  useEffect(() => {
+    void getRecentLoginProvider().then(setRecentLoginProvider).catch(() => {});
+  }, []);
 
   const handleRandomNickname = () => {
     const newNick = generateRandomNickname();
@@ -205,6 +212,17 @@ export default function LoginPrompt({ message }: { message?: string }) {
         <ActivityIndicator size="large" color={colors.tint} style={{ marginTop: 24 }} />
       ) : (
         <View style={styles.buttons}>
+          {!showProfileForm ? (
+            <>
+              <SocialLoginButtons recentProvider={recentLoginProvider} />
+              <View style={styles.dividerRow}>
+                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+                <Text style={[styles.dividerText, { color: colors.textSecondary }]}>또는</Text>
+                <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+              </View>
+            </>
+          ) : null}
+
           {showProfileForm && (
             <>
               <Pressable
@@ -336,16 +354,19 @@ export default function LoginPrompt({ message }: { message?: string }) {
             </View>
           )}
 
-          <Pressable
-            onPress={handleEmailAuth}
-            style={({ pressed }) => [
-              styles.emailButton,
-              { backgroundColor: colors.tint, opacity: pressed ? 0.8 : 1 },
-            ]}>
-            <Text style={[styles.emailButtonText, { color: colors.background }]}>
-              {needsOnboarding ? '시작하기' : isSignUp ? '회원가입' : '이메일로 로그인'}
-            </Text>
-          </Pressable>
+          <View style={styles.emailButtonWrapper}>
+            <Pressable
+              onPress={handleEmailAuth}
+              style={({ pressed }) => [
+                styles.emailButton,
+                { backgroundColor: colors.tint, opacity: pressed ? 0.8 : 1 },
+              ]}>
+              <Text style={[styles.emailButtonText, { color: colors.background }]}>
+                {needsOnboarding ? '시작하기' : isSignUp ? '회원가입' : '이메일로 로그인'}
+              </Text>
+            </Pressable>
+            {!showProfileForm && recentLoginProvider === 'email' ? <RecentLoginBadge /> : null}
+          </View>
 
           {!needsOnboarding && (
             <Pressable onPress={() => {
@@ -384,6 +405,22 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 32,
     gap: 12,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  dividerText: {
+    fontSize: 12,
+  },
+  emailButtonWrapper: {
+    position: 'relative',
   },
   restoreError: {
     width: '100%',

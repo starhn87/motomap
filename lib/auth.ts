@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { setRecentLoginProvider } from '@/lib/recentLogin';
 
 export async function signInWithEmail(email: string, password: string) {
   const { error } = await supabase.auth.signInWithPassword({
@@ -6,10 +7,11 @@ export async function signInWithEmail(email: string, password: string) {
     password,
   });
   if (error) throw error;
+  await setRecentLoginProvider('email').catch(() => {});
 }
 
 export async function signUpWithEmail(email: string, password: string, nickname: string) {
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -17,6 +19,7 @@ export async function signUpWithEmail(email: string, password: string, nickname:
     },
   });
   if (error) throw error;
+  if (data.session) await setRecentLoginProvider('email').catch(() => {});
 }
 
 // API 래퍼 공통 — 로그인이 필수인 동작은 requireUser(없으면 throw),

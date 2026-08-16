@@ -2,10 +2,9 @@ export default {
   expo: {
     name: '모토맵',
     slug: 'ridemap',
-    // 1.2.4: 안내 화면 손질 — 도착 팝업·자동 종료 제거(끝내는 건 라이더가),
-    // 종료 버튼 노출, 배너 색을 앱 색으로. 전부 KNNaviPresenter 네이티브라
-    // OTA 로는 못 나간다. 1.2.3 은 출시돼 train 이 닫혔다.
-    version: '1.2.5',
+    // 1.2.6: 소셜 로그인·보안 저장소·햅틱 설정·공유 카드처럼 네이티브
+    // 모듈이 필요한 기능을 한 번의 심사 빌드로 묶는다.
+    version: '1.2.6',
     runtimeVersion: {
       policy: 'appVersion',
     },
@@ -24,6 +23,7 @@ export default {
     },
     ios: {
       supportsTablet: false,
+      usesAppleSignIn: true,
       infoPlist: {
         CFBundleDevelopmentRegion: 'ko',
         CFBundleLocalizations: ['ko'],
@@ -78,6 +78,13 @@ export default {
     plugins: [
       'expo-router',
       'expo-secure-store',
+      'expo-apple-authentication',
+      [
+        'expo-web-browser',
+        {
+          experimentalLauncherActivity: false,
+        },
+      ],
       './plugins/withKNSDKDynamicFrameworks',
       [
         'expo-image-picker',
@@ -112,12 +119,12 @@ export default {
         {
           nativeAppKey: process.env.KAKAO_NATIVE_APP_KEY,
           android: {
-            authCodeHandlerActivity: false,
+            authCodeHandlerActivity: true,
             forwardKakaoLinkIntentFilterToMainActivity: false,
             followChannelHandlerActivity: false,
           },
           ios: {
-            handleKakaoOpenUrl: false,
+            handleKakaoOpenUrl: true,
             naviApplicationQuerySchemes: true,
           },
         },

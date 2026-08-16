@@ -1,4 +1,6 @@
 import {
+  ActivityIndicator,
+  Platform,
   StyleSheet,
   View,
   Text,
@@ -6,6 +8,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -18,8 +21,17 @@ import { useThemeStore } from '@/stores/useThemeStore';
 import { deleteAccount } from '@/lib/api/account';
 import { toast } from '@/lib/toast';
 import { appAlert } from '@/lib/dialog';
+import { supabase } from '@/lib/supabase';
+import type { SocialLoginProvider } from '@/lib/socialAuth';
 
 type ThemeMode = 'system' | 'light' | 'dark';
+
+const LOGIN_METHODS: { provider: SocialLoginProvider; identity: string; label: string }[] = [
+  { provider: 'apple', identity: 'apple', label: 'Apple' },
+  { provider: 'kakao', identity: 'kakao', label: '카카오' },
+  { provider: 'naver', identity: 'custom:naver', label: '네이버' },
+  { provider: 'google', identity: 'google', label: 'Google' },
+];
 
 function ThemeOption({
   label,
@@ -58,6 +70,92 @@ function ThemeOption({
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+function LoginMethods({ initialProviders }: { initialProviders: string[] }) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const [identities, setIdentities] = useState<Set<string>>(() => new Set(initialProviders));
+  const [linking, setLinking] = useState<SocialLoginProvider | null>(null);
+
+  const refresh = async () => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    setIdentities(new Set(data.user?.identities?.map((identity) => identity.provider) ?? []));
+  };
+
+  useEffect(() => {
+    void refresh().catch(() => {});
+  }, []);
+
+  const handleLink = async (provider: SocialLoginProvider) => {
+    setLinking(provider);
+    try {
+      const { linkSocialProvider } = await import('@/lib/socialAuth');
+      const completed = await linkSocialProvider(provider);
+      if (!completed) return;
+      await refresh();
+      toast.success('로그인 수단을 연결했어요.');
+    } catch (error) {
+      toast.error('로그인 수단을 연결하지 못했습니다.', (error as Error).message);
+    } finally {
+      setLinking(null);
+    }
+  };
+
+  const methods = Platform.OS === 'ios'
+    ? LOGIN_METHODS
+    : LOGIN_METHODS.filter((method) => method.provider !== 'apple');
+
+  return (
+    <View style={[styles.loginMethodsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      {identities.has('email') ? (
+        <View style={[styles.loginMethodRow, { borderBottomColor: colors.border }]}>
+          <Text style={[styles.loginMethodLabel, { color: colors.text }]}>이메일</Text>
+          <View style={styles.linkedState}>
+            <Ionicons name="checkmark-circle" size={17} color={semantic.success} />
+            <Text style={[styles.loginMethodState, { color: colors.textSecondary }]}>연결됨</Text>
+          </View>
+        </View>
+      ) : null}
+      {methods.map((method, index) => {
+        const connected = identities.has(method.identity);
+        const isLoading = linking === method.provider;
+        return (
+          <View
+            key={method.provider}
+            style={[
+              styles.loginMethodRow,
+              { borderBottomColor: colors.border },
+              index === methods.length - 1 && styles.lastLoginMethodRow,
+            ]}>
+            <Text style={[styles.loginMethodLabel, { color: colors.text }]}>{method.label}</Text>
+            {connected ? (
+              <View style={styles.linkedState}>
+                <Ionicons name="checkmark-circle" size={17} color={semantic.success} />
+                <Text style={[styles.loginMethodState, { color: colors.textSecondary }]}>연결됨</Text>
+              </View>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                disabled={linking !== null}
+                onPress={() => void handleLink(method.provider)}
+                style={({ pressed }) => [
+                  styles.linkMethodButton,
+                  { backgroundColor: colors.surfaceMuted, opacity: pressed ? 0.7 : 1 },
+                ]}>
+                {isLoading ? (
+                  <ActivityIndicator size="small" color={colors.text} />
+                ) : (
+                  <Text style={[styles.linkMethodText, { color: colors.text }]}>연결</Text>
+                )}
+              </Pressable>
+            )}
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
@@ -116,6 +214,15 @@ export default function SettingsScreen() {
         <ThemeOption label="라이트" value="light" current={mode} onPress={setMode} />
         <ThemeOption label="다크" value="dark" current={mode} onPress={setMode} />
       </View>
+
+      {user ? (
+        <>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>로그인 수단</Text>
+          <LoginMethods
+            initialProviders={user.identities?.map((identity) => identity.provider) ?? []}
+          />
+        </>
+      ) : null}
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
         앱 정보
@@ -262,6 +369,47 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
+  },
+  loginMethodsCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 32,
+    overflow: 'hidden',
+  },
+  loginMethodRow: {
+    minHeight: 52,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  lastLoginMethodRow: {
+    borderBottomWidth: 0,
+  },
+  loginMethodLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  linkedState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  loginMethodState: {
+    fontSize: 13,
+  },
+  linkMethodButton: {
+    minWidth: 54,
+    minHeight: 34,
+    paddingHorizontal: 12,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  linkMethodText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   infoRow: {
     flexDirection: 'row',
