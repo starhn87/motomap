@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as AppleAuthentication from 'expo-apple-authentication';
+import { Image } from 'expo-image';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useState } from 'react';
 
@@ -64,6 +64,8 @@ export default function SocialLoginButtons({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [loadingProvider, setLoadingProvider] = useState<SocialLoginProvider | null>(null);
+  const appleBackgroundColor = colorScheme === 'dark' ? '#FFFFFF' : '#000000';
+  const appleTextColor = colorScheme === 'dark' ? '#000000' : '#FFFFFF';
 
   const handleLogin = async (provider: SocialLoginProvider) => {
     setLoadingProvider(provider);
@@ -81,25 +83,34 @@ export default function SocialLoginButtons({
     <View style={styles.container}>
       {Platform.OS === 'ios' ? (
         <View style={styles.buttonWrapper}>
-          <AppleAuthentication.AppleAuthenticationButton
-            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-            buttonStyle={colorScheme === 'dark'
-              ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-              : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-            cornerRadius={12}
-            onPress={() => {
-              if (loadingProvider === null) void handleLogin('apple');
-            }}
-            style={[styles.appleButton, loadingProvider !== null && styles.disabledButton]}
-          />
-          {loadingProvider === 'apple' ? (
-            <View pointerEvents="none" style={styles.appleLoading}>
-              <ActivityIndicator
-                size="small"
-                color={colorScheme === 'dark' ? '#000000' : '#FFFFFF'}
-              />
-            </View>
-          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Apple로 로그인"
+            disabled={loadingProvider !== null}
+            onPress={() => void handleLogin('apple')}
+            style={({ pressed }) => [
+              styles.button,
+              {
+                backgroundColor: appleBackgroundColor,
+                borderColor: appleBackgroundColor,
+                opacity: loadingProvider !== null && loadingProvider !== 'apple'
+                  ? 0.55
+                  : pressed ? 0.82 : 1,
+              },
+            ]}>
+            {loadingProvider === 'apple' ? (
+              <ActivityIndicator size="small" color={appleTextColor} />
+            ) : (
+              <View style={styles.providerContent}>
+                <Image
+                  source={require('@/assets/images/apple-logo.svg')}
+                  style={styles.providerIcon}
+                  tintColor={appleTextColor}
+                />
+                <Text style={[styles.buttonText, { color: appleTextColor }]}>Apple로 로그인</Text>
+              </View>
+            )}
+          </Pressable>
           {recentProvider === 'apple' ? <RecentLoginBadge /> : null}
         </View>
       ) : null}
@@ -169,18 +180,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  appleButton: {
-    width: '100%',
-    height: 48,
-  },
-  disabledButton: {
-    opacity: 0.55,
-  },
-  appleLoading: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   iconArea: {
     width: PROVIDER_ICON_SIZE,
     height: PROVIDER_ICON_SIZE,
@@ -192,6 +191,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+  },
+  providerIcon: {
+    width: PROVIDER_ICON_SIZE,
+    height: PROVIDER_ICON_SIZE,
   },
   providerMark: {
     fontSize: PROVIDER_ICON_SIZE,
