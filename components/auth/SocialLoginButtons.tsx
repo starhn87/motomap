@@ -132,7 +132,7 @@ export default function SocialLoginButtons({
               {loading ? (
                 <ActivityIndicator size="small" color={textColor} />
               ) : (
-                <>
+                <View style={styles.providerContent}>
                   <View style={styles.iconArea}>
                     {item.icon ? (
                       <Ionicons name={item.icon} size={PROVIDER_ICON_SIZE} color={textColor} />
@@ -141,8 +141,7 @@ export default function SocialLoginButtons({
                     )}
                   </View>
                   <Text style={[styles.buttonText, { color: textColor }]}>{item.label}</Text>
-                  <View style={styles.iconArea} />
-                </>
+                </View>
               )}
             </Pressable>
             {recentProvider === item.provider ? <RecentLoginBadge /> : null}
@@ -168,7 +167,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
   appleButton: {
     width: '100%',
@@ -183,8 +182,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconArea: {
-    width: 24,
+    width: PROVIDER_ICON_SIZE,
+    height: PROVIDER_ICON_SIZE,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  providerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   providerMark: {
     fontSize: PROVIDER_ICON_SIZE,
