@@ -389,6 +389,10 @@ verify_jwt = true
 [functions.discard-onboarding-account]
 verify_jwt = true
 
+# Cron 전용 비밀 헤더를 함수 내부에서 검증한다.
+[functions.cleanup-onboarding-accounts]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
