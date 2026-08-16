@@ -23,7 +23,7 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 import { useRef, useEffect, useState, useCallback, memo } from 'react';
 
-import { APP_STORE_URL } from '@/constants/app';
+import { placeWebUrl } from '@/constants/app';
 import { formatWeek } from '@/lib/hours';
 import OpenBadge from '@/components/place/OpenBadge';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
@@ -241,7 +241,7 @@ function PlaceBottomSheet({
     if (!displayPlace) return;
     try {
       await Share.share({
-        message: `${displayPlace.name}\n${displayPlace.address}\n\n모토맵 - 라이더를 위한 지도\n${APP_STORE_URL}`,
+        message: `${displayPlace.name}\n${displayPlace.address}\n\n모토맵에서 장소 보기\n${placeWebUrl(displayPlace.id)}`,
       });
     } catch {
       // 공유 시트를 닫은 경우 등 — 무시

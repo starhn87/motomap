@@ -45,6 +45,7 @@ export type PlaceSource =
   | 'chat'
   | 'notification'
   | 'course'
+  | 'share'
   | 'submission'
   | 'route_preview'
   | 'my_rides';

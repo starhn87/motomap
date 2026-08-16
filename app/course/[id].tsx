@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Keyboard,
+  Share,
 } from 'react-native';
 import { useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
@@ -37,6 +38,7 @@ import { focusPlaceOnMap } from '@/lib/mapFocus';
 import StarRating from '@/components/review/StarRating';
 import ReportSheet from '@/components/report/ReportSheet';
 import { useCourseProgress, useToggleCourseSave } from '@/hooks/useCourseLibrary';
+import { courseWebUrl } from '@/constants/app';
 
 export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -197,36 +199,50 @@ export default function CourseDetailScreen() {
 
         <View style={styles.titleRow}>
           <Text style={[styles.name, { color: colors.text }]}>{course.name}</Text>
-          <Pressable
-            accessibilityLabel={progress?.saved ? '코스 저장 해제' : '코스 저장'}
-            disabled={savePending}
-            onPress={async () => {
-              if (!user) {
-                toast.info('코스를 저장하려면 로그인이 필요합니다.');
-                return;
-              }
-              try {
-                const saved = await toggleSave();
-                toast.success(saved ? '코스를 저장했어요.' : '코스 저장을 해제했어요.');
-              } catch (saveError: any) {
-                toast.error('코스를 저장하지 못했습니다.', saveError.message);
-              }
-            }}
-            style={({ pressed }) => [
-              styles.saveCourseButton,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              pressed && { opacity: 0.6 },
-            ]}>
-            {savePending ? (
-              <ActivityIndicator size="small" color={colors.text} />
-            ) : (
-              <Ionicons
-                name={progress?.saved ? 'bookmark' : 'bookmark-outline'}
-                size={21}
-                color={colors.text}
-              />
-            )}
-          </Pressable>
+          <View style={styles.titleActions}>
+            <Pressable
+              accessibilityLabel="코스 공유"
+              onPress={() => void Share.share({
+                message: `${course.name}\n\n모토맵에서 코스 보기\n${courseWebUrl(course.id)}`,
+              })}
+              style={({ pressed }) => [
+                styles.titleActionButton,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                pressed && { opacity: 0.6 },
+              ]}>
+              <Ionicons name="share-outline" size={21} color={colors.text} />
+            </Pressable>
+            <Pressable
+              accessibilityLabel={progress?.saved ? '코스 저장 해제' : '코스 저장'}
+              disabled={savePending}
+              onPress={async () => {
+                if (!user) {
+                  toast.info('코스를 저장하려면 로그인이 필요합니다.');
+                  return;
+                }
+                try {
+                  const saved = await toggleSave();
+                  toast.success(saved ? '코스를 저장했어요.' : '코스 저장을 해제했어요.');
+                } catch (saveError: any) {
+                  toast.error('코스를 저장하지 못했습니다.', saveError.message);
+                }
+              }}
+              style={({ pressed }) => [
+                styles.titleActionButton,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                pressed && { opacity: 0.6 },
+              ]}>
+              {savePending ? (
+                <ActivityIndicator size="small" color={colors.text} />
+              ) : (
+                <Ionicons
+                  name={progress?.saved ? 'bookmark' : 'bookmark-outline'}
+                  size={21}
+                  color={colors.text}
+                />
+              )}
+            </Pressable>
+          </View>
         </View>
         {course.sectionFrom && course.sectionTo && (
           <Text style={[styles.sectionLine, { color: colors.textSecondary }]}>
@@ -637,7 +653,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 8,
   },
-  saveCourseButton: {
+  titleActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  titleActionButton: {
     width: 42,
     height: 42,
     alignItems: 'center',

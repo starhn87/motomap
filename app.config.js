@@ -24,6 +24,7 @@ export default {
     ios: {
       supportsTablet: false,
       usesAppleSignIn: true,
+      associatedDomains: ['applinks:motomap.kr'],
       infoPlist: {
         CFBundleDevelopmentRegion: 'ko',
         CFBundleLocalizations: ['ko'],
