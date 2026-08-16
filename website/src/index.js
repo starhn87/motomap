@@ -37,7 +37,7 @@ function sharedContentPage(kind, id) {
     <meta property="og:title" content="${title}" />
     <meta property="og:description" content="모토맵에서 ${label} 정보와 라이더 기록을 확인하세요." />
     <meta property="og:image" content="https://motomap.kr/icon.png" />
-    <link rel="icon" href="/icon.png" />
+    <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png" />
     <link rel="stylesheet" href="/styles.css" />
     <title>${title} — 모토맵</title>
   </head>
@@ -63,6 +63,13 @@ function sharedContentPage(kind, id) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const requestHostname = request.headers.get('host')?.split(':')[0] ?? url.hostname;
+
+    if (requestHostname === 'www.motomap.kr') {
+      url.hostname = 'motomap.kr';
+      url.protocol = 'https:';
+      return Response.redirect(url, 308);
+    }
 
     if (
       url.pathname === '/.well-known/apple-app-site-association' ||

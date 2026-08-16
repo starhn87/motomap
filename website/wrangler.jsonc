@@ -8,6 +8,10 @@
     {
       "pattern": "motomap.kr/*",
       "zone_name": "motomap.kr"
+    },
+    {
+      "pattern": "www.motomap.kr/*",
+      "zone_name": "motomap.kr"
     }
   ],
   "assets": {
