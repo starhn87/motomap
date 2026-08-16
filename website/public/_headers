@@ -8,5 +8,11 @@
 /icon.png
   Cache-Control: public, max-age=604800
 
+/favicon.png
+  Cache-Control: public, max-age=604800
+
 /bike-silhouette.png
+  Cache-Control: public, max-age=604800
+
+/screens/*
   Cache-Control: public, max-age=604800
