@@ -10,8 +10,8 @@
   --surface-raised: #1b1d21;
   --line: rgba(255, 255, 255, 0.09);
   --muted: #999ba1;
-  --accent: #ed3e45;
-  --accent-bright: #ff646a;
+  --accent: #4bb8f1;
+  --accent-bright: #79cfff;
   --highlight: #79cfff;
   --content-width: 1180px;
 }
@@ -30,7 +30,7 @@ body {
   margin: 0;
   overflow-x: hidden;
   background:
-    radial-gradient(circle at 78% 6%, rgba(237, 62, 69, 0.1), transparent 34rem),
+    radial-gradient(circle at 78% 6%, rgba(121, 207, 255, 0.09), transparent 34rem),
     #0b0c0e;
 }
 
@@ -249,7 +249,7 @@ h1 {
   width: 430px;
   height: 430px;
   border-radius: 50%;
-  background: rgba(237, 62, 69, 0.28);
+  background: rgba(75, 184, 241, 0.24);
   filter: blur(100px);
 }
 
@@ -403,7 +403,7 @@ h1 {
   padding: 164px 0 178px;
   border-bottom: 1px solid var(--line);
   background:
-    radial-gradient(circle at 12% 38%, rgba(237, 62, 69, 0.12), transparent 28rem),
+    radial-gradient(circle at 12% 38%, rgba(121, 207, 255, 0.1), transparent 28rem),
     linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 32%);
 }
 
@@ -581,7 +581,7 @@ h1 {
   border: 1px solid var(--line);
   border-radius: 38px;
   background:
-    radial-gradient(circle at 70% 28%, rgba(237, 62, 69, 0.16), transparent 280px),
+    radial-gradient(circle at 70% 28%, rgba(121, 207, 255, 0.13), transparent 280px),
     #15171a;
 }
 
@@ -589,7 +589,7 @@ h1 {
   position: absolute;
   width: 520px;
   height: 520px;
-  border: 1px solid rgba(237, 62, 69, 0.26);
+  border: 1px solid rgba(121, 207, 255, 0.24);
   border-radius: 50%;
 }
 
@@ -783,7 +783,7 @@ h1 {
   bottom: 92px;
   width: 340px;
   height: 340px;
-  border: 1px solid rgba(237, 62, 69, 0.4);
+  border: 1px solid rgba(121, 207, 255, 0.34);
   border-radius: 50%;
   content: "";
 }
@@ -881,7 +881,7 @@ h1 {
   border: 1px solid var(--line);
   border-radius: 34px;
   background:
-    radial-gradient(circle at 25% 100%, rgba(237, 62, 69, 0.16), transparent 280px),
+    radial-gradient(circle at 25% 100%, rgba(121, 207, 255, 0.13), transparent 280px),
     #15171a;
 }
 
@@ -1035,7 +1035,7 @@ footer small {
 .legal-page {
   min-height: 100svh;
   background:
-    radial-gradient(circle at 72% 0%, rgba(237, 62, 69, 0.1), transparent 34rem),
+    radial-gradient(circle at 72% 0%, rgba(121, 207, 255, 0.09), transparent 34rem),
     #0b0c0e;
 }
 
