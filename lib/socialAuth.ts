@@ -47,7 +47,10 @@ async function completeBrowserAuth(url: string): Promise<void> {
       refresh_token: refreshToken,
     });
     if (sessionError) throw sessionError;
+    return;
   }
+
+  throw new Error('로그인 결과를 확인하지 못했습니다. 다시 시도해주세요.');
 }
 
 async function browserAuth(provider: Provider, mode: AuthMode): Promise<boolean> {
