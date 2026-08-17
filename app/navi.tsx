@@ -30,7 +30,7 @@ import { formatMeters, formatSeconds } from '@/lib/api/directions';
 import { toast } from '@/lib/toast';
 import { useGuideSession } from '@/lib/guideSession';
 import { markGuideStarted } from '@/lib/guideEvents';
-import { track } from '@/lib/analytics';
+import { createAnalyticsId, track } from '@/lib/analytics';
 import {
   parseNaviParams,
   type NaviRouteParams,
@@ -277,9 +277,11 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   useEffect(() => {
     const started = KakaoNavi.addListener('onGuideStarted', () => {
       if (startTrackRef.current) {
-        track.navigationStarted(startTrackRef.current);
+        const startTrack = startTrackRef.current;
+        startTrackRef.current = null;
+        track.navigationStarted(startTrack);
         // 비정상 종료 정산용 마커 — 정상 종료(guideEvents)가 지운다
-        void markGuideStarted(startTrackRef.current.mode);
+        void markGuideStarted(startTrack);
       }
       startGuideSession(
         {
@@ -360,6 +362,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
     // 탐색 실패까지 "시작"으로 세어 완주율 분모가 부푼다. 리스너 useEffect 와
     // 렌더 시점이 달라 속성은 ref 로 넘긴다.
     startTrackRef.current = {
+      guide_session_id: createAnalyticsId('guide'),
       mode: previewOnly ? 'preview' : 'live',
       priority,
       via_count: pairsFromFlat(activeVias ?? flatVias).length,

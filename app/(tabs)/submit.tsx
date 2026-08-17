@@ -127,12 +127,13 @@ function SubmitPlace() {
   const [submitting, setSubmitting] = useState(false);
 
   // 지도의 "일반 장소" 시트에서 넘어온 프리필 (이름·주소·좌표)
-  const { prefillName, prefillAddress, prefillLat, prefillLng, prefillTs } =
+  const { prefillName, prefillAddress, prefillLat, prefillLng, prefillSource, prefillTs } =
     useLocalSearchParams<{
       prefillName?: string;
       prefillAddress?: string;
       prefillLat?: string;
       prefillLng?: string;
+      prefillSource?: string;
       prefillTs?: string;
     }>();
   const handledPrefillRef = useRef<string | null>(null);
@@ -142,7 +143,18 @@ function SubmitPlace() {
     setName(prefillName);
     if (prefillAddress) setAddress(prefillAddress);
     if (prefillLat && prefillLng) {
-      setCoords({ latitude: Number(prefillLat), longitude: Number(prefillLng) });
+      const latitude = Number(prefillLat);
+      const longitude = Number(prefillLng);
+      if (
+        Number.isFinite(latitude) &&
+        Number.isFinite(longitude) &&
+        latitude >= 32 &&
+        latitude <= 39 &&
+        longitude >= 124 &&
+        longitude <= 132
+      ) {
+        setCoords({ latitude, longitude });
+      }
     }
   }, [prefillName, prefillAddress, prefillLat, prefillLng, prefillTs]);
 
@@ -195,7 +207,13 @@ function SubmitPlace() {
         parkingInfo: parkingInfo.trim() || undefined,
       });
 
-      track.placeSubmitted({ category });
+      track.placeSubmitted({
+        category,
+        source:
+          prefillSource === 'arrival' || prefillSource === 'temp_place'
+            ? prefillSource
+            : 'tab',
+      });
 
       // 권한 요청(모달)이 완료 토스트·폼 리셋을 가리면 "제보가 안 됐다"고 오해해
       // 중복 제보하게 되므로, 권한 흐름을 먼저 끝낸 뒤 완료 처리를 한다.

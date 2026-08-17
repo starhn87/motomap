@@ -14,8 +14,9 @@ import { haversine } from '@/lib/distance';
 import { focusPlaceOnMap, followMyLocationOnMap } from '@/lib/mapFocus';
 import { recordPlaceRides } from '@/lib/api/rides';
 import { toast } from '@/lib/toast';
-import { track } from '@/lib/analytics';
+import { createAnalyticsId, track } from '@/lib/analytics';
 import { recordCourseCompletion } from '@/lib/api/courseLibrary';
+import { coordToAddress } from '@/lib/api/kakaoLocal';
 
 // 길안내 전역 이벤트 — 안내가 시작되면 /navi 화면은 지도로 빠져 언마운트되므로
 // 종료·메뉴 처리는 화면이 아니라 여기(루트에서 1회 등록)가 맡는다.
@@ -26,16 +27,74 @@ import { recordCourseCompletion } from '@/lib/api/courseLibrary';
 // 종료였던 것이므로 늦게나마 'abandoned' 로 정산해 완주율 분모를 지킨다.
 const GUIDE_ACTIVE_KEY = 'guide-active';
 
+type GuideStartEvent = Parameters<typeof track.navigationStarted>[0];
+type ActiveGuide = GuideStartEvent & { started_at_ms: number };
+
+function parseActiveGuide(raw: string): ActiveGuide | null {
+  // 직전 OTA가 남긴 mode 문자열도 한 번은 정산할 수 있게 호환한다.
+  if (raw === 'live' || raw === 'preview') {
+    return {
+      guide_session_id: createAnalyticsId('guide'),
+      mode: raw,
+      priority: 0,
+      via_count: 0,
+      started_at_ms: Date.now(),
+    };
+  }
+  try {
+    const value = JSON.parse(raw) as Partial<ActiveGuide>;
+    if (
+      typeof value.guide_session_id !== 'string' ||
+      (value.mode !== 'live' && value.mode !== 'preview') ||
+      typeof value.started_at_ms !== 'number'
+    ) {
+      return null;
+    }
+    return {
+      guide_session_id: value.guide_session_id,
+      mode: value.mode,
+      priority: typeof value.priority === 'number' ? value.priority : 0,
+      via_count: typeof value.via_count === 'number' ? value.via_count : 0,
+      ...(typeof value.distance_m === 'number' ? { distance_m: value.distance_m } : {}),
+      started_at_ms: value.started_at_ms,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function takeActiveGuide(): Promise<ActiveGuide | null> {
+  const raw = await AsyncStorage.getItem(GUIDE_ACTIVE_KEY);
+  if (!raw) return null;
+  await AsyncStorage.removeItem(GUIDE_ACTIVE_KEY);
+  return parseActiveGuide(raw);
+}
+
+function trackGuideEnd(
+  active: ActiveGuide | null,
+  reason: 'arrived' | 'cancelled' | 'abandoned',
+) {
+  if (!active) return;
+  track.navigationEnded({
+    guide_session_id: active.guide_session_id,
+    reason,
+    mode: active.mode,
+    duration_s: Math.max(0, Math.round((Date.now() - active.started_at_ms) / 1000)),
+    distance_m: active.distance_m,
+  });
+}
+
 /** 안내가 실제로 시작된 순간(onGuideStarted) 호출 — navi 화면이 부른다 */
-export async function markGuideStarted(mode: 'live' | 'preview') {
-  await AsyncStorage.setItem(GUIDE_ACTIVE_KEY, mode);
+export async function markGuideStarted(start: GuideStartEvent) {
+  await AsyncStorage.setItem(
+    GUIDE_ACTIVE_KEY,
+    JSON.stringify({ ...start, started_at_ms: Date.now() } satisfies ActiveGuide),
+  );
 }
 
 async function reconcileAbandonedGuide() {
-  const mode = await AsyncStorage.getItem(GUIDE_ACTIVE_KEY);
-  if (!mode) return;
-  await AsyncStorage.removeItem(GUIDE_ACTIVE_KEY);
-  track.navigationEnded({ reason: 'abandoned', mode: mode === 'preview' ? 'preview' : 'live' });
+  const active = await takeActiveGuide();
+  trackGuideEnd(active, 'abandoned');
 }
 
 // 주행 중 위험 제보 — 유형 고르면 현 위치로 바로 제보
@@ -172,26 +231,62 @@ function suggestReview(goal: GuideGoal) {
   }, 500);
 }
 
+// 일반 목적지는 이미 이름·좌표를 알고 있고 주소는 역지오코딩할 수 있다.
+// 도착 직후에는 카테고리만 고르면 되도록 제보 폼을 채운 상태로 연다.
+async function suggestPlaceSubmission(goal: GuideGoal) {
+  const address = await coordToAddress(goal.latitude, goal.longitude);
+  setTimeout(() => {
+    track.placeSubmissionPrompted({ has_address: !!address });
+    appAlert(
+      `${goal.name} 도착!`,
+      '라이더에게 도움 되는 장소라면 모토맵에 알려주세요. 이름과 위치는 미리 채워둘게요.',
+      [
+        { text: '나중에', style: 'cancel' },
+        {
+          text: '장소 제보',
+          onPress: () => {
+            track.placeSubmissionOpened({ source: 'arrival' });
+            router.navigate({
+              pathname: '/submit',
+              params: {
+                prefillName: goal.name,
+                ...(address ? { prefillAddress: address } : {}),
+                prefillLat: String(goal.latitude),
+                prefillLng: String(goal.longitude),
+                prefillSource: 'arrival',
+                prefillTs: String(Date.now()),
+              },
+            });
+          },
+        },
+      ],
+    );
+  }, 500);
+}
+
 // 안내 종료 — 목적지 400m 이내면 도착으로 보고 리뷰를 제안한다.
 // 안내 화면이 걷힐 때 밑에는 이미 지도가 있으므로 화면 전환은 필요 없다.
 async function handleGuideEnd() {
   const { goal, viaPlaceIds, clear } = useGuideSession.getState();
+  const active = await takeActiveGuide();
   clear();
-  void AsyncStorage.removeItem(GUIDE_ACTIVE_KEY); // 정상 종료 — 정산 대상 아님
   // 안내가 끝나도 라이더는 이동 중 — 지도가 내 위치를 따라간다.
   // 드래그하면 SDK 가 따라가기를 알아서 푼다.
   followMyLocationOnMap();
   if (!goal) {
-    track.navigationEnded({ reason: 'cancelled' });
+    trackGuideEnd(active, 'cancelled');
     return;
   }
 
   const dist = await distanceToGoal(goal);
   const near = dist !== null && dist < 400;
-  track.navigationEnded({ reason: near ? 'arrived' : 'cancelled' });
+  trackGuideEnd(active, near ? 'arrived' : 'cancelled');
   if (dist !== null && dist <= 300) recordArrival(goal, viaPlaceIds);
-  // 리뷰 제안은 등록 장소·코스일 때만 — 그 외 목적지는 조용히 끝낸다
+  // 등록 장소·코스는 리뷰로, 일반 목적지는 이름·위치가 채워진 간편 제보로 잇는다.
   if (near && (goal.placeId || goal.courseId)) suggestReview(goal);
+  else if (dist !== null && dist <= 300 && !goal.placeId && !goal.courseId) {
+    void suggestPlaceSubmission(goal);
+  }
 }
 
 /** 루트 레이아웃에서 1회 등록. 반환값은 해제 함수. */
@@ -201,6 +296,7 @@ export function registerGuideEvents(): () => void {
   const end = KakaoNavi.addListener('onGuideEnd', () => void handleGuideEnd());
   const failed = KakaoNavi.addListener('onGuideFailed', ({ code, message }) => {
     useGuideSession.getState().clear();
+    void takeActiveGuide().then((active) => trackGuideEnd(active, 'cancelled'));
     toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(message, code));
   });
   // 안내 지도의 POI 탭 — 네이버 지도처럼 "그 장소가 뭔지"에 답하되, 주행

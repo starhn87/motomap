@@ -22,6 +22,7 @@ import { formatWeek } from '@/lib/hours';
 import { FUEL_LABELS, formatTradeAt, looksLikeGasStation } from '@/lib/api/gasStations';
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
 import { haptics } from '@/lib/haptics';
+import { track } from '@/lib/analytics';
 
 export interface TempPlace {
   name: string;
@@ -160,6 +161,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
 
   const handleSubmit = () => {
     onClose();
+    track.placeSubmissionOpened({ source: 'temp_place' });
     router.navigate({
       pathname: '/submit',
       params: {
@@ -167,6 +169,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         prefillAddress: place.address,
         prefillLat: String(place.latitude),
         prefillLng: String(place.longitude),
+        prefillSource: 'temp_place',
         prefillTs: String(Date.now()),
       },
     });
