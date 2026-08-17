@@ -27,7 +27,7 @@ import type { Place } from '@/types';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
 import { PostHogMaskView } from 'posthog-react-native';
 
-import { track } from '@/lib/analytics';
+import { createAnalyticsId, track } from '@/lib/analytics';
 
 /** 길찾기 지점 — 좌표 있는 목적지 또는 '현재 위치' */
 export type Point = NavTarget | 'current';
@@ -71,6 +71,16 @@ export default function PointSearchModal({
   const [results, setResults] = useState<ResultItem[]>([]);
   const [searching, setSearching] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestSequence = useRef(0);
+  const activeSearch = useRef<{ query: string; id: string } | null>(null);
+
+  const getSearchSession = (text: string) => {
+    const normalized = text.trim();
+    if (activeSearch.current?.query !== normalized) {
+      activeSearch.current = { query: normalized, id: createAnalyticsId('search') };
+    }
+    return activeSearch.current;
+  };
 
   // 즐겨찾기에서 고르기 — 별 버튼으로 켜면 제안 자리에 즐겨찾기 목록이 뜬다.
   // 지도 탭과 같은 쿼리 키라 이미 받아둔 목록이 있으면 즉시 보인다.
@@ -104,21 +114,29 @@ export default function PointSearchModal({
 
   useEffect(() => {
     if (!visible) {
+      if (debounce.current) clearTimeout(debounce.current);
       setQuery('');
       setResults([]);
       setShowFavList(false);
+      setSearching(false);
+      activeSearch.current = null;
+      requestSequence.current += 1;
     }
   }, [visible]);
 
   const handleChange = (text: string) => {
     setQuery(text);
+    const sequence = ++requestSequence.current;
     if (text.trim()) setShowFavList(false); // 검색을 시작하면 즐겨찾기 목록은 접는다
     if (debounce.current) clearTimeout(debounce.current);
     if (!text.trim()) {
       setResults([]);
+      setSearching(false);
+      activeSearch.current = null;
       return;
     }
     debounce.current = setTimeout(async () => {
+      const session = getSearchSession(text);
       setSearching(true);
       try {
         // 지금 보는 지도(없으면 내 위치) 주변 우선 — 통합 검색과 같은 기준
@@ -133,14 +151,65 @@ export default function PointSearchModal({
               isSamePlace(p, { name: k.placeName, latitude: k.latitude, longitude: k.longitude }),
             ),
         );
+        if (sequence !== requestSequence.current) return;
         setResults([
           ...places.map((place) => ({ kind: 'place' as const, place })),
           ...kakaoOnly.map((k) => ({ kind: 'kakao' as const, k })),
         ]);
+        const isMyPlaceSetup = !allowSaved;
+        track.searchResultsViewed({
+          search_id: session.id,
+          source: 'point_modal',
+          query: isMyPlaceSetup ? undefined : session.query,
+          registered_count: places.length,
+          kakao_count: kakaoOnly.length,
+          course_count: 0,
+          scope: near ? 'near' : 'all',
+        });
+        if (places.length === 0) {
+          track.searchNoResults({
+            search_id: session.id,
+            source: 'point_modal',
+            query: isMyPlaceSetup ? undefined : session.query,
+            kakao_count: kakaoOnly.length,
+          });
+        }
       } finally {
-        setSearching(false);
+        if (sequence === requestSequence.current) setSearching(false);
       }
     }, 300);
+  };
+
+  const selectSearchResult = (item: ResultItem, rank: number) => {
+    const session = activeSearch.current;
+    if (session) {
+      track.searchResultSelected({
+        search_id: session.id,
+        result_type: item.kind === 'place' ? 'registered' : 'kakao',
+        rank,
+        source: 'point_modal',
+      });
+    }
+    if (item.kind === 'place') {
+      onSelect(
+        {
+          name: item.place.name,
+          latitude: item.place.latitude,
+          longitude: item.place.longitude,
+          placeId: item.place.id,
+        },
+        item.place.address,
+      );
+    } else {
+      onSelect(
+        {
+          name: item.k.placeName,
+          latitude: item.k.latitude,
+          longitude: item.k.longitude,
+        },
+        item.k.roadAddress || item.k.address,
+      );
+    }
   };
 
   // 음성 검색 — 인식된 말을 그대로 검색어로 태운다(디바운스·결과 처리는 동일)
@@ -150,7 +219,9 @@ export default function PointSearchModal({
     // search·directions·navi). 민감 장소라 검색어는 계측에 싣지 않는다.
     const isMyPlaceSetup = !allowSaved;
     if (isFinal && text.trim()) {
+      const session = getSearchSession(text);
       track.searchSubmitted({
+        search_id: session.id,
         method: 'voice',
         source: 'point_modal',
         query: isMyPlaceSetup ? undefined : text.trim(),
@@ -315,21 +386,10 @@ export default function PointSearchModal({
               </Text>
             ) : null
           }
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             item.kind === 'place' ? (
               <Pressable
-                onPress={() =>
-                  onSelect(
-                    {
-                      name: item.place.name,
-                      latitude: item.place.latitude,
-                      longitude: item.place.longitude,
-                      // 등록 장소는 id 를 실어 도착 후 리뷰 연결까지 이어지게 한다
-                      placeId: item.place.id,
-                    },
-                    item.place.address,
-                  )
-                }
+                onPress={() => selectSearchResult(item, index)}
                 style={[styles.resultRow, { borderBottomColor: colors.border }]}>
                 <CategoryIcon category={item.place.category} size={16} />
                 <View style={styles.resultTexts}>
@@ -350,16 +410,7 @@ export default function PointSearchModal({
               </Pressable>
             ) : (
               <Pressable
-                onPress={() =>
-                  onSelect(
-                    {
-                      name: item.k.placeName,
-                      latitude: item.k.latitude,
-                      longitude: item.k.longitude,
-                    },
-                    item.k.roadAddress || item.k.address,
-                  )
-                }
+                onPress={() => selectSearchResult(item, index)}
                 style={[styles.resultRow, { borderBottomColor: colors.border }]}>
                 <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
                 <View style={styles.resultTexts}>

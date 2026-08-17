@@ -69,7 +69,7 @@ export async function searchAll(
   const trimmed = query.trim();
   // 최근 검색의 일반 장소를 등록 장소로 승격하는 1회성 전체 조회 경로. 실제 검색은
   // 2자 이상에서만 실행되므로 아래 RPC의 결과 상한과 분리한다.
-  if (!trimmed) {
+  if (!trimmed && !nearOnly) {
     const [placesRes, coursesRes] = await Promise.all([
       supabase.rpc('all_places', { category_filter: null }),
       supabase
@@ -105,4 +105,38 @@ export async function searchAll(
     places: (placesRes.data ?? []).map((row: PlaceRow) => rowToPlace(row)),
     courses: (coursesRes.data ?? []).map(rowToCourse),
   };
+}
+
+function includesCompact(value: string | null | undefined, query: string): boolean {
+  return !!value && compact(value).includes(query);
+}
+
+/** 결과가 왜 보이는지 설명하는 짧은 사용자용 문구 */
+export function explainPlaceMatch(query: string, place: Place, browse = false): string {
+  if (browse) return '이 지역에서 가까운 라이더 장소';
+  const q = compact(query);
+  if (!q) return '라이더가 등록한 장소';
+  const name = compact(place.name);
+  if (name === q) return '이름이 정확히 일치';
+  if (name.includes(q)) return '장소 이름과 일치';
+  if (place.tags.some((tag) => includesCompact(tag, q))) return '태그와 일치';
+  if (includesCompact(place.address, q)) return '주소와 일치';
+  return '검색어와 관련된 라이더 장소';
+}
+
+export function explainCourseMatch(query: string, course: RidingCourse, browse = false): string {
+  if (browse) return '이 지역에서 가까운 라이딩 코스';
+  const q = compact(query);
+  if (!q) return '라이더가 등록한 코스';
+  if (compact(course.name) === q) return '코스 이름이 정확히 일치';
+  if (includesCompact(course.name, q)) return '코스 이름과 일치';
+  if (course.tags.some((tag) => includesCompact(tag, q))) return '코스 태그와 일치';
+  if (
+    includesCompact(course.routeName, q) ||
+    includesCompact(course.sectionFrom, q) ||
+    includesCompact(course.sectionTo, q)
+  ) {
+    return '경로 구간과 일치';
+  }
+  return '검색어와 관련된 라이딩 코스';
 }

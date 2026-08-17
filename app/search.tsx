@@ -13,7 +13,7 @@ import {
   Keyboard,
   InteractionManager,
 } from 'react-native';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,7 +21,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
-import { isSamePlace, searchAll } from '@/lib/api/search';
+import {
+  explainCourseMatch,
+  explainPlaceMatch,
+  isSamePlace,
+  searchAll,
+} from '@/lib/api/search';
 import { useSearchAnchor } from '@/hooks/useSearchAnchor';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
@@ -36,7 +41,7 @@ import { haversine } from '@/lib/distance';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { useMapStore } from '@/stores/useMapStore';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
-import { track } from '@/lib/analytics';
+import { createAnalyticsId, track } from '@/lib/analytics';
 import Skeleton from '@/components/ui/Skeleton';
 import {
   loadRecentSearches,
@@ -132,9 +137,13 @@ export default function SearchScreen() {
   const openResults = useCallback((text: string, method: 'typed' | 'voice' = 'typed') => {
     const q = text.trim();
     if (q.length < 2) return;
-    track.searchSubmitted({ method, source: 'search_screen', query: q });
+    const searchId = createAnalyticsId('search');
+    track.searchSubmitted({ search_id: searchId, method, source: 'search_screen', query: q });
     Keyboard.dismiss();
-    router.push({ pathname: '/search-results' as any, params: { query: q } });
+    router.push({
+      pathname: '/search-results' as any,
+      params: { query: q, searchId, source: 'search_screen' },
+    });
   }, []);
 
   // 음성 검색 — 인식된 말이 그대로 입력창에 들어가고, 끝나면 결과 지도로 넘어간다
@@ -203,6 +212,10 @@ export default function SearchScreen() {
 
   const trimmed = query.trim();
   const searching = trimmed.length >= 2;
+  const inlineSearchId = useMemo(
+    () => (searching ? createAnalyticsId('search') : null),
+    [searching, trimmed],
+  );
 
   // 지금 보는 지도 주변을 우선 — 같은 "강릉 카페"라도 보고 있는 지역 것이 먼저
   const { near, key: nearKey } = useSearchAnchor();
@@ -251,29 +264,62 @@ export default function SearchScreen() {
   // 등록 장소가 0건이면 한 번 남긴다 — 카카오까지 0건일 때만 세면 거의 안 찍힌다
   // (카카오는 웬만한 문자열에 뭐라도 돌려준다). 정작 알고 싶은 건 우리 DB 가
   // 못 찾은 경우다. 함께 싣는 kakao_count 로 오타와 "제보할 곳"을 가른다.
-  const reportedEmpty = useRef<string | null>(null);
+  const reportedResults = useRef(new Set<string>());
   useEffect(() => {
-    if (!searching || isLoading || kakaoResults === undefined) return;
+    if (!searching || !inlineSearchId || isLoading || kakaoResults === undefined) return;
     const registered = results?.places.length ?? 0;
-    if (registered > 0 || reportedEmpty.current === trimmed) return;
-    reportedEmpty.current = trimmed;
-    track.searchNoResults({
-      source: 'search_screen',
-      query: trimmed,
-      kakao_count: kakaoOnly.length,
-    });
-  }, [searching, isLoading, results, kakaoResults, kakaoOnly.length, trimmed]);
+    const courses = results?.courses.length ?? 0;
+    if (reportedResults.current.has(inlineSearchId)) return;
+    // 타이핑 중간 문자열을 결과 조회·미검색어로 세지 않도록 잠시 안정된 뒤 기록한다.
+    const timer = setTimeout(() => {
+      if (reportedResults.current.has(inlineSearchId)) return;
+      reportedResults.current.add(inlineSearchId);
+      track.searchResultsViewed({
+        search_id: inlineSearchId,
+        source: 'search_screen',
+        query: trimmed,
+        registered_count: registered,
+        kakao_count: kakaoOnly.length,
+        course_count: courses,
+        scope: near ? 'near' : 'all',
+      });
+      if (registered === 0) {
+        track.searchNoResults({
+          search_id: inlineSearchId,
+          source: 'search_screen',
+          query: trimmed,
+          kakao_count: kakaoOnly.length,
+        });
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [
+    searching,
+    inlineSearchId,
+    isLoading,
+    kakaoResults,
+    results?.places.length,
+    results?.courses.length,
+    kakaoOnly.length,
+    trimmed,
+    near,
+  ]);
 
   const goToPlace = useCallback((place: Place, rank?: number) => {
     Keyboard.dismiss();
-    if (rank !== undefined) {
-      track.searchResultSelected({ result_type: 'registered', rank, source: 'search_screen' });
+    if (rank !== undefined && inlineSearchId) {
+      track.searchResultSelected({
+        search_id: inlineSearchId,
+        result_type: 'registered',
+        rank,
+        source: 'search_screen',
+      });
     }
     addRecentSearch({ type: 'place', place });
     // 지도 탭으로 돌아가 마지막 보던 화면에서 장소로 날아간다(딥링크가 복귀 후
     // 실행돼 이동이 눈에 보인다 — 감추지 않는 게 의도)
     focusPlaceOnMap(place.id, { source: 'search', place });
-  }, []);
+  }, [inlineSearchId]);
 
   const goToKakaoPlace = useCallback(
     (
@@ -285,8 +331,13 @@ export default function SearchScreen() {
       rank?: number,
     ) => {
       Keyboard.dismiss();
-      if (rank !== undefined) {
-        track.searchResultSelected({ result_type: 'kakao', rank, source: 'search_screen' });
+      if (rank !== undefined && inlineSearchId) {
+        track.searchResultSelected({
+          search_id: inlineSearchId,
+          result_type: 'kakao',
+          rank,
+          source: 'search_screen',
+        });
       }
       addRecentSearch({ type: 'kakao', name, address, latitude, longitude, phone });
       router.navigate({
@@ -301,17 +352,40 @@ export default function SearchScreen() {
         },
       });
     },
-    [],
+    [inlineSearchId],
   );
 
   const goToCourse = useCallback((courseId: string, courseName: string, rank?: number) => {
     Keyboard.dismiss();
-    if (rank !== undefined) {
-      track.searchResultSelected({ result_type: 'course', rank, source: 'search_screen' });
+    if (rank !== undefined && inlineSearchId) {
+      track.searchResultSelected({
+        search_id: inlineSearchId,
+        result_type: 'course',
+        rank,
+        source: 'search_screen',
+      });
     }
     addRecentSearch({ type: 'course', id: courseId, name: courseName });
     router.push(`/course/${courseId}`);
-  }, []);
+  }, [inlineSearchId]);
+
+  const browseArea = () => {
+    const anchor = kakaoOnly[0];
+    if (!anchor || !inlineSearchId) return;
+    Keyboard.dismiss();
+    track.searchAreaBrowsed({ search_id: inlineSearchId, source: 'search_screen' });
+    router.push({
+      pathname: '/search-results' as any,
+      params: {
+        query: trimmed,
+        searchId: inlineSearchId,
+        source: 'search_screen',
+        browse: '1',
+        browseLat: String(anchor.latitude),
+        browseLng: String(anchor.longitude),
+      },
+    });
+  };
 
   const placeRow = (place: Place, keyPrefix: string, rank?: number) => {
     const cat = CATEGORIES[place.category];
@@ -328,6 +402,11 @@ export default function SearchScreen() {
           <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
             {place.name}
           </Text>
+          {rank !== undefined && (
+            <Text style={[styles.rowReason, { color: colors.tint }]} numberOfLines={1}>
+              {explainPlaceMatch(trimmed, place)}
+            </Text>
+          )}
           <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
             {near
               ? // 정렬 기준(지도 중심)과 같은 기준으로 — 내 위치 거리를 쓰면
@@ -393,14 +472,30 @@ export default function SearchScreen() {
         ) : (
           <FlatList
             ListHeaderComponent={
-              near &&
-              ((results?.places.length ?? 0) > 0 ||
-                (results?.courses.length ?? 0) > 0 ||
-                kakaoOnly.length > 0) ? (
-                <Text style={[styles.anchorNotice, { color: colors.textSecondary }]}>
-                  📍 {anchorRegion ?? '지금 보는 지도'} 주변 결과부터 보여드려요
-                </Text>
-              ) : null
+              <>
+                {near &&
+                  ((results?.places.length ?? 0) > 0 ||
+                    (results?.courses.length ?? 0) > 0 ||
+                    kakaoOnly.length > 0) && (
+                    <Text style={[styles.anchorNotice, { color: colors.textSecondary }]}>
+                      📍 {anchorRegion ?? '지금 보는 지도'} 주변 결과부터 보여드려요
+                    </Text>
+                  )}
+                {(results?.places.length ?? 0) === 0 && kakaoOnly.length > 0 && (
+                  <Pressable
+                    onPress={browseArea}
+                    style={[styles.browseAreaCard, { backgroundColor: colors.surface, borderColor: colors.tint }]}>
+                    <Ionicons name="map-outline" size={20} color={colors.tint} />
+                    <View style={styles.rowInfo}>
+                      <Text style={[styles.browseAreaTitle, { color: colors.text }]}>이 지역 둘러보기</Text>
+                      <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {trimmed} 주변의 라이더 장소와 코스를 모아볼게요
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.tint} />
+                  </Pressable>
+                )}
+              </>
             }
             data={[
               // 정렬은 searchAll 이 지도 중심(없으면 내 위치) 기준으로 이미 했다 —
@@ -462,7 +557,7 @@ export default function SearchScreen() {
                           {k.placeName}
                         </Text>
                         <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
-                          {k.roadAddress || k.address}
+                          카카오 장소 검색 · {k.roadAddress || k.address}
                         </Text>
                       </View>
                       <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>일반</Text>
@@ -482,6 +577,9 @@ export default function SearchScreen() {
                   <View style={styles.rowInfo}>
                     <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
                       {item.data.name}
+                    </Text>
+                    <Text style={[styles.rowReason, { color: colors.tint }]} numberOfLines={1}>
+                      {explainCourseMatch(trimmed, item.data)}
                     </Text>
                     <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
                       {item.data.description}
@@ -779,6 +877,22 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 2,
   },
+  browseAreaCard: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 2,
+    padding: 13,
+    borderWidth: 1,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  browseAreaTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -786,6 +900,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
+  },
+  rowReason: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
   },
   rowInfo: {
     flex: 1,

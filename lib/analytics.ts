@@ -51,6 +51,7 @@ export type PlaceSource =
   | 'my_rides';
 
 export type SearchSource = 'map_bar' | 'search_screen' | 'point_modal';
+export type SearchResultType = 'registered' | 'kakao' | 'course';
 
 type Props = Record<string, string | number | boolean | null | undefined>;
 
@@ -65,8 +66,14 @@ function capture(event: string, properties?: Props) {
   posthog.capture(event, clean);
 }
 
+/** 서로 다른 화면을 지나도 같은 탐색·안내 흐름을 묶는 익명 세션 id */
+export function createAnalyticsId(prefix: 'search' | 'guide'): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export const track = {
   searchSubmitted: (p: {
+    search_id: string;
     method: 'typed' | 'voice';
     source: SearchSource;
     /** 내 장소(집·회사) 설정 플로우에서는 넘기지 않는다 — 민감 장소 */
@@ -82,21 +89,45 @@ export const track = {
    *   0  → 검색어 자체가 안 걸림(오타·엉뚱한 말)
    *   1+ → 실재하는 곳인데 우리에게 없음 = 제보 우선순위 목록
    */
-  searchNoResults: (p: { source: SearchSource; query?: string; kakao_count: number }) =>
+  searchResultsViewed: (p: {
+    search_id: string;
+    source: SearchSource;
+    query?: string;
+    registered_count: number;
+    kakao_count: number;
+    course_count: number;
+    scope: 'near' | 'all';
+  }) => capture('search_results_viewed', p),
+
+  searchNoResults: (p: {
+    search_id: string;
+    source: SearchSource;
+    query?: string;
+    kakao_count: number;
+  }) =>
     capture('search_no_results', p),
 
   searchResultSelected: (p: {
-    result_type: 'registered' | 'kakao' | 'course';
+    search_id: string;
+    result_type: SearchResultType;
     rank: number;
     source: SearchSource;
   }) => capture('search_result_selected', p),
 
-  searchFilterToggled: (p: { filter: 'open' | 'parking' | 'rating' | 'bike'; on: boolean }) =>
+  searchFilterToggled: (p: {
+    search_id: string;
+    filter: 'open' | 'parking' | 'rating' | 'bike';
+    on: boolean;
+  }) =>
     capture('search_filter_toggled', p),
 
-  searchScopeChanged: (p: { scope: 'near' | 'all' }) => capture('search_scope_changed', p),
+  searchScopeChanged: (p: { search_id: string; scope: 'near' | 'all' }) =>
+    capture('search_scope_changed', p),
 
-  searchAreaRefreshed: () => capture('search_area_refreshed'),
+  searchAreaRefreshed: (p: { search_id: string }) => capture('search_area_refreshed', p),
+
+  searchAreaBrowsed: (p: { search_id: string; source: SearchSource }) =>
+    capture('search_area_browsed', p),
 
   courseSaved: (p: { on: boolean }) => capture('course_saved', p),
 
@@ -119,15 +150,22 @@ export const track = {
   }) => capture('navigation_previewed', p),
 
   navigationStarted: (p: {
+    guide_session_id: string;
     mode: 'live' | 'preview';
     priority: number;
     via_count: number;
     distance_m?: number;
   }) => capture('navigation_started', p),
 
-  // abandoned = 안내 중 앱이 죽어(강제 종료·크래시) 종료를 못 찍은 세션을
-  // 다음 실행 때 정산한 것 — 그때만 mode 를 함께 남긴다
-  navigationEnded: (p: { reason: 'arrived' | 'cancelled' | 'abandoned'; mode?: 'live' | 'preview' }) =>
+  // abandoned = 안내 중 앱이 죽어(강제 종료·OS 종료 포함) 종료를 못 찍은
+  // 세션을 다음 실행 때 정산한 것. 시작과 같은 id·mode 로 묶는다.
+  navigationEnded: (p: {
+    guide_session_id: string;
+    reason: 'arrived' | 'cancelled' | 'abandoned';
+    mode: 'live' | 'preview';
+    duration_s?: number;
+    distance_m?: number;
+  }) =>
     capture('navigation_ended', p),
 
   routeFailed: (p: { code: number | null; via_count: number }) =>
@@ -140,8 +178,17 @@ export const track = {
     source: PlaceSource;
   }) => capture('favorite_toggled', p),
 
-  // 제보 폼에는 사진 입력이 없다 — 카테고리만 남긴다
-  placeSubmitted: (p: { category: string }) => capture('place_submitted', p),
+  placeSubmissionPrompted: (p: { has_address: boolean }) =>
+    capture('place_submission_prompted', p),
+
+  placeSubmissionOpened: (p: { source: 'arrival' | 'temp_place' }) =>
+    capture('place_submission_opened', p),
+
+  // 제보 폼에는 사진 입력이 없다 — 카테고리와 진입 경로만 남긴다
+  placeSubmitted: (p: {
+    category: string;
+    source: 'tab' | 'arrival' | 'temp_place';
+  }) => capture('place_submitted', p),
 
   reviewSubmitted: (p: {
     target: 'place' | 'course';
