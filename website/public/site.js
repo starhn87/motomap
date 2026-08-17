@@ -34,13 +34,14 @@ if (rideStory && !reduceMotion) {
   const media = rideStory.querySelector('.ride-story-media');
   const shade = rideStory.querySelector('.ride-story-shade');
   const progress = rideStory.querySelector('.ride-story-progress span');
+  const hero = rideStory.querySelector('[data-ride-hero]');
   const chapters = [...rideStory.querySelectorAll('[data-ride-chapter]')];
   const devices = rideStory.querySelector('.ride-story-devices');
   const scrollLabel = rideStory.querySelector('.ride-story-scroll');
   const chapterWindows = [
-    { start: -0.08, end: 0.26 },
-    { start: 0.18, end: 0.52 },
-    { start: 0.44, end: 0.78 },
+    { start: 0.14, end: 0.44 },
+    { start: 0.36, end: 0.66 },
+    { start: 0.58, end: 0.88 },
   ];
   let frameRequested = false;
 
@@ -55,6 +56,10 @@ if (rideStory && !reduceMotion) {
     shade.style.opacity = `${0.76 + storyProgress * 0.2}`;
     progress.style.transform = `scaleY(${storyProgress})`;
 
+    const heroOpacity = clamp((0.22 - storyProgress) / 0.08);
+    hero.style.opacity = `${heroOpacity}`;
+    hero.style.transform = `translate3d(0, ${(1 - heroOpacity) * -38}px, 0)`;
+
     for (const [index, chapter] of chapters.entries()) {
       const { start, end } = chapterWindows[index];
       const entering = clamp((storyProgress - start) / 0.08);
@@ -66,7 +71,7 @@ if (rideStory && !reduceMotion) {
       chapter.style.transform = `translate3d(0, ${offset}px, 0)`;
     }
 
-    const finale = clamp((storyProgress - 0.7) / 0.1);
+    const finale = clamp((storyProgress - 0.8) / 0.08);
     devices.style.opacity = `${finale}`;
     devices.style.transform = `translate3d(0, ${(1 - finale) * 90}px, 0) scale(${0.94 + finale * 0.06})`;
     scrollLabel.style.opacity = `${clamp(1 - storyProgress / 0.08)}`;

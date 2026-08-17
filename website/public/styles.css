@@ -49,9 +49,11 @@ a {
 }
 
 .site-header {
-  position: sticky;
+  position: fixed;
   z-index: 30;
   top: 0;
+  right: 0;
+  left: 0;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -126,7 +128,6 @@ a {
   background: rgba(255, 255, 255, 0.11);
 }
 
-.hero,
 .promise-strip,
 .garage-section,
 .ai-section,
@@ -137,17 +138,6 @@ footer {
   margin-left: auto;
 }
 
-.hero {
-  display: grid;
-  grid-template-columns: 1fr 1.05fr;
-  gap: clamp(48px, 5.5vw, 68px);
-  align-items: center;
-  min-height: calc(100svh - 82px);
-  padding: 50px 0 92px;
-}
-
-.hero-copy,
-.hero-showcase,
 .garage-copy,
 .rider-card,
 .ai-copy,
@@ -174,7 +164,7 @@ p {
 
 h1 {
   margin: 0;
-  font-size: clamp(46px, 4.35vw, 56px);
+  font-size: clamp(48px, 5vw, 68px);
   line-height: 1.05;
   letter-spacing: -0.068em;
 }
@@ -183,7 +173,7 @@ h1 {
   display: block;
 }
 
-.hero h1 .headline-line,
+.ride-story-hero h1 .headline-line,
 .ai-copy h2 .headline-line {
   white-space: nowrap;
 }
@@ -233,22 +223,6 @@ h1 {
   color: var(--highlight);
 }
 
-.hero-showcase {
-  position: relative;
-  height: min(720px, calc(100svh - 118px));
-  min-height: 630px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 42px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.06), transparent 42%),
-    repeating-linear-gradient(0deg, transparent 0 51px, rgba(255, 255, 255, 0.035) 52px),
-    repeating-linear-gradient(90deg, transparent 0 51px, rgba(255, 255, 255, 0.035) 52px),
-    #15171a;
-  box-shadow: 0 48px 100px rgba(0, 0, 0, 0.42);
-}
-
-.hero-glow,
 .download-glow {
   position: absolute;
   width: 430px;
@@ -256,11 +230,6 @@ h1 {
   border-radius: 50%;
   background: rgba(75, 184, 241, 0.24);
   filter: blur(100px);
-}
-
-.hero-glow {
-  top: 8%;
-  right: -18%;
 }
 
 .phone {
@@ -291,85 +260,6 @@ h1 {
   width: 100%;
   height: auto;
   border-radius: 32px;
-}
-
-.phone-back {
-  z-index: 1;
-  top: 20px;
-  right: 28px;
-  width: min(49%, 305px);
-  transform: rotate(7deg);
-}
-
-.phone-front {
-  z-index: 3;
-  bottom: -152px;
-  left: 34px;
-  width: min(53%, 330px);
-  transform: rotate(-4deg);
-}
-
-.floating-note {
-  position: absolute;
-  z-index: 5;
-  display: flex;
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  background: rgba(11, 12, 14, 0.82);
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.32);
-  backdrop-filter: blur(16px);
-}
-
-.note-weather {
-  top: 72px;
-  left: 28px;
-  gap: 4px;
-  align-items: center;
-  padding: 13px 16px;
-  border-radius: 18px;
-}
-
-.note-weather > span {
-  margin-right: 6px;
-  font-size: 24px;
-}
-
-.note-weather strong {
-  font-size: 17px;
-}
-
-.floating-note small {
-  color: #9b9da3;
-  font-size: 10px;
-}
-
-.note-weather small {
-  margin-left: 2px;
-}
-
-.note-course {
-  right: 22px;
-  bottom: 44px;
-  gap: 12px;
-  align-items: center;
-  padding: 15px 18px;
-  border-radius: 18px;
-}
-
-.note-course div {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.route-dot {
-  position: relative;
-  display: block;
-  width: 28px;
-  height: 28px;
-  border: 5px solid #f4f4f1;
-  border-radius: 50% 50% 50% 0;
-  background: var(--accent);
-  transform: rotate(-45deg);
 }
 
 .promise-strip {
@@ -404,8 +294,7 @@ h1 {
 
 .ride-story {
   position: relative;
-  height: 520svh;
-  margin-top: 118px;
+  height: 650svh;
   background: #050607;
 }
 
@@ -444,6 +333,33 @@ h1 {
   will-change: opacity;
 }
 
+.ride-story-hero {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  right: 0;
+  left: 0;
+  width: min(var(--content-width), calc(100% - 96px));
+  margin: 0 auto;
+  transform: translate3d(0, 0, 0);
+  translate: 0 -50%;
+  will-change: opacity, transform;
+}
+
+.ride-story-hero h1 {
+  max-width: 680px;
+  text-shadow: 0 12px 46px rgba(0, 0, 0, 0.32);
+}
+
+.ride-story-hero .hero-description {
+  max-width: 620px;
+  color: rgba(235, 237, 239, 0.76);
+}
+
+.ride-story-hero .text-link {
+  color: rgba(235, 237, 239, 0.72);
+}
+
 .ride-story-copy {
   position: absolute;
   inset: 0;
@@ -460,11 +376,6 @@ h1 {
   transform: translate3d(0, 38px, 0);
   translate: 0 -50%;
   will-change: opacity, transform;
-}
-
-.ride-story-chapter:first-child {
-  opacity: 1;
-  transform: translate3d(0, 0, 0);
 }
 
 .ride-story-chapter > p:first-child {
@@ -523,6 +434,7 @@ h1 {
   z-index: 3;
   inset: 0;
   opacity: 0;
+  pointer-events: none;
   transform: translate3d(0, 90px, 0) scale(0.94);
   transform-origin: 70% 80%;
   will-change: opacity, transform;
@@ -1108,34 +1020,12 @@ footer small {
     display: none;
   }
 
-  .hero {
-    grid-template-columns: 1fr;
-    gap: 68px;
-    padding-top: 76px;
-  }
-
-  .hero-copy {
-    max-width: 720px;
-    margin: 0 auto;
-    text-align: center;
-  }
-
-  .hero-actions {
-    justify-content: center;
-  }
-
-  .hero-showcase {
-    width: min(100%, 680px);
-    height: 690px;
-    min-height: 0;
-    margin: 0 auto;
-  }
-
   .gallery-rail {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     max-width: 760px;
   }
 
+  .ride-story-hero,
   .ride-story-copy {
     width: min(var(--content-width), calc(100% - 64px));
   }
@@ -1162,7 +1052,6 @@ footer small {
 
 @media (max-width: 680px) {
   .site-header,
-  .hero,
   .promise-strip,
   .garage-section,
   .ai-section,
@@ -1191,11 +1080,6 @@ footer small {
     font-size: 12px;
   }
 
-  .hero {
-    min-height: auto;
-    padding: 60px 0 64px;
-  }
-
   h1 {
     font-size: clamp(30px, 8.9vw, 48px);
   }
@@ -1211,11 +1095,7 @@ footer small {
   .hero-actions {
     flex-direction: column;
     gap: 18px;
-  }
-
-  .hero-showcase {
-    height: 540px;
-    border-radius: 28px;
+    align-items: flex-start;
   }
 
   .phone {
@@ -1230,42 +1110,6 @@ footer small {
 
   .phone img {
     border-radius: 23px;
-  }
-
-  .phone-back {
-    top: 28px;
-    right: 13px;
-    width: 50%;
-  }
-
-  .phone-front {
-    bottom: -92px;
-    left: 16px;
-    width: 54%;
-  }
-
-  .note-weather {
-    top: 28px;
-    left: 14px;
-    padding: 9px 11px;
-  }
-
-  .note-weather > span {
-    font-size: 18px;
-  }
-
-  .note-weather strong {
-    font-size: 14px;
-  }
-
-  .note-weather small {
-    display: none;
-  }
-
-  .note-course {
-    right: 12px;
-    bottom: 22px;
-    padding: 10px 12px;
   }
 
   .promise-strip {
@@ -1288,8 +1132,7 @@ footer small {
   }
 
   .ride-story {
-    height: 480svh;
-    margin-top: 80px;
+    height: 600svh;
   }
 
   .ride-story-media {
@@ -1302,12 +1145,17 @@ footer small {
       linear-gradient(180deg, rgba(3, 4, 5, 0.35), rgba(3, 4, 5, 0.1) 35%, rgba(3, 4, 5, 0.8));
   }
 
+  .ride-story-hero,
   .ride-story-copy {
     width: calc(100% - 40px);
   }
 
+  .ride-story-hero,
   .ride-story-chapter {
     top: 46%;
+  }
+
+  .ride-story-chapter {
     width: 100%;
   }
 
@@ -1549,7 +1397,6 @@ footer small {
 
   .ride-story {
     height: auto;
-    margin-top: 80px;
   }
 
   .ride-story-sticky {
@@ -1561,6 +1408,15 @@ footer small {
 
   .ride-story-media {
     transform: none !important;
+  }
+
+  .ride-story-hero {
+    position: relative;
+    top: auto;
+    margin-bottom: 112px;
+    opacity: 1 !important;
+    transform: none !important;
+    translate: none;
   }
 
   .ride-story-copy {
