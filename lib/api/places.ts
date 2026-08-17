@@ -44,6 +44,8 @@ interface SubmitPlaceParams {
   openingHours?: string;
   hours?: Hours;
   parkingInfo?: string;
+  sourceProvider?: 'kakao' | 'coordinate';
+  sourcePlaceId?: string;
 }
 
 export function rowToPlace(row: PlaceRow): Place {
@@ -145,6 +147,8 @@ export async function submitPlace(params: SubmitPlaceParams): Promise<void> {
     hours: params.hours,
     parking_info: params.parkingInfo,
     submitted_by: user.id,
+    source_provider: params.sourceProvider ?? null,
+    source_place_id: params.sourcePlaceId ?? null,
   });
 
   if (error) throw error;

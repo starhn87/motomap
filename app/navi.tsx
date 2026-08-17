@@ -146,6 +146,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
         latitude: point.latitude,
         longitude: point.longitude,
         placeId: point.placeId,
+        generalPlaceId: point.generalPlaceId,
       });
     } else {
       setUserVias((prev) => prev.map((v, i) => (i === field ? point : v)));
@@ -289,6 +290,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
           longitude: goal.longitude,
           name: goal.name,
           placeId: goal.placeId,
+          generalPlaceId: goal.generalPlaceId,
           courseId,
         },
         priority,

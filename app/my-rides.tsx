@@ -106,7 +106,12 @@ export default function MyRidesScreen() {
       if (item.placeId) {
         focusPlaceOnMap(item.placeId, { source: 'my_rides' });
       } else if (item.latitude != null && item.longitude != null) {
-        focusPointOnMap({ name: item.name, latitude: item.latitude, longitude: item.longitude });
+        focusPointOnMap({
+          name: item.name,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          generalPlaceId: item.generalPlaceId ?? undefined,
+        });
       }
     };
 

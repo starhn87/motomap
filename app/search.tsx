@@ -328,6 +328,8 @@ export default function SearchScreen() {
       latitude: number,
       longitude: number,
       phone?: string,
+      providerId?: string,
+      placeUrl?: string,
       rank?: number,
     ) => {
       Keyboard.dismiss();
@@ -339,7 +341,16 @@ export default function SearchScreen() {
           source: 'search_screen',
         });
       }
-      addRecentSearch({ type: 'kakao', name, address, latitude, longitude, phone });
+      addRecentSearch({
+        type: 'kakao',
+        name,
+        address,
+        latitude,
+        longitude,
+        phone,
+        providerId,
+        placeUrl,
+      });
       router.navigate({
         pathname: '/',
         params: {
@@ -348,6 +359,8 @@ export default function SearchScreen() {
           kakaoLat: String(latitude),
           kakaoLng: String(longitude),
           kakaoPhone: phone ?? '',
+          kakaoId: providerId ?? '',
+          kakaoUrl: placeUrl ?? '',
           focusTs: String(Date.now()),
         },
       });
@@ -544,6 +557,8 @@ export default function SearchScreen() {
                           k.latitude,
                           k.longitude,
                           k.phone,
+                          k.providerId,
+                          k.placeUrl,
                           index - 1,
                         )
                       }
@@ -680,7 +695,16 @@ export default function SearchScreen() {
                     onPress={() => {
                       if (entry.type === 'place') goToPlace(entry.place);
                       else if (entry.type === 'course') goToCourse(entry.id, entry.name);
-                      else goToKakaoPlace(entry.name, entry.address, entry.latitude, entry.longitude, entry.phone);
+                      else
+                        goToKakaoPlace(
+                          entry.name,
+                          entry.address,
+                          entry.latitude,
+                          entry.longitude,
+                          entry.phone,
+                          entry.providerId,
+                          entry.placeUrl,
+                        );
                     }}
                     style={({ pressed }) => [
                       styles.row,
@@ -728,7 +752,15 @@ export default function SearchScreen() {
                   <Pressable
                     key={`fav-general-${f.id}`}
                     onPress={() =>
-                      goToKakaoPlace(f.name, f.address, f.latitude, f.longitude, f.phone)
+                      goToKakaoPlace(
+                        f.name,
+                        f.address,
+                        f.latitude,
+                        f.longitude,
+                        f.phone,
+                        f.providerId,
+                        f.placeUrl,
+                      )
                     }
                     style={({ pressed }) => [
                       styles.row,

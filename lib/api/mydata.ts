@@ -64,16 +64,31 @@ export async function fetchMyCourseSubmissions(): Promise<MyCourseSubmission[]> 
 
 export const MY_REVIEWS_PAGE_SIZE = 20;
 
+export type MyReview = Review & {
+  placeName: string;
+  targetKind: 'place' | 'general';
+  generalPlace?: {
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+    phone?: string;
+    providerId?: string;
+    placeUrl?: string;
+    generalPlaceId: string;
+  };
+};
+
 export async function fetchMyReviews(
   page = 0
-): Promise<(Review & { placeName: string })[]> {
+): Promise<MyReview[]> {
   const user = await getCurrentUser();
   if (!user) return [];
 
   const from = page * MY_REVIEWS_PAGE_SIZE;
   const { data, error } = await supabase
     .from('reviews')
-    .select('*, places(name)')
+    .select('*, places(name), general_places(name, address, latitude, longitude, phone, provider, provider_place_id, place_url)')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .range(from, from + MY_REVIEWS_PAGE_SIZE - 1);
@@ -82,7 +97,7 @@ export async function fetchMyReviews(
 
   return (data ?? []).map((row: any) => ({
     id: row.id,
-    placeId: row.place_id,
+    placeId: row.place_id ?? row.general_place_id,
     userId: row.user_id,
     userName: row.user_name,
     avatarUrl: null,
@@ -93,6 +108,24 @@ export async function fetchMyReviews(
     createdAt: row.created_at,
     likeCount: row.like_count ?? 0,
     likedByMe: false, // 내 리뷰라 표시하지 않는다
-    placeName: row.places?.name ?? '알 수 없는 장소',
+    placeName: row.places?.name ?? row.general_places?.name ?? '알 수 없는 장소',
+    targetKind: row.place_id ? 'place' : 'general',
+    ...(row.general_place_id && row.general_places
+      ? {
+          generalPlace: {
+            name: row.general_places.name,
+            address: row.general_places.address,
+            latitude: row.general_places.latitude,
+            longitude: row.general_places.longitude,
+            phone: row.general_places.phone ?? undefined,
+            providerId:
+              row.general_places.provider === 'kakao'
+                ? row.general_places.provider_place_id
+                : undefined,
+            placeUrl: row.general_places.place_url ?? undefined,
+            generalPlaceId: row.general_place_id,
+          },
+        }
+      : {}),
   }));
 }

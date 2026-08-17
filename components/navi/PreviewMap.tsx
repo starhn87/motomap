@@ -256,6 +256,9 @@ export default function PreviewMap({
         kakaoLat: String(f.latitude),
         kakaoLng: String(f.longitude),
         kakaoPhone: f.phone ?? '',
+        kakaoId: f.providerId ?? '',
+        kakaoUrl: f.placeUrl ?? '',
+        generalPlaceId: f.generalPlaceId ?? '',
         focusTs: String(Date.now()),
       },
     });

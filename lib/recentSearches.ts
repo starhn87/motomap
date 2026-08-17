@@ -10,7 +10,16 @@ const MAX = 5;
 export type RecentSearch =
   | { type: 'place'; place: Place }
   | { type: 'course'; id: string; name: string }
-  | { type: 'kakao'; name: string; address: string; latitude: number; longitude: number; phone?: string };
+  | {
+      type: 'kakao';
+      name: string;
+      address: string;
+      latitude: number;
+      longitude: number;
+      phone?: string;
+      providerId?: string;
+      placeUrl?: string;
+    };
 
 export function recentKey(entry: RecentSearch): string {
   if (entry.type === 'place') return `place-${entry.place.id}`;
@@ -72,6 +81,7 @@ function recentAsTarget(entry: RecentSearch): (NavTarget & { address?: string })
       name: entry.place.name,
       latitude: entry.place.latitude,
       longitude: entry.place.longitude,
+      placeId: entry.place.id,
       address: entry.place.address,
     };
   }

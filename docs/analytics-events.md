@@ -73,7 +73,7 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `place_submission_prompted` | `has_address` |
 | `place_submission_opened` | `source`(arrival·temp_place) |
 | `place_submitted` | `category` · `source`(tab·arrival·temp_place) |
-| `review_submitted` | `target`(place·course) · `rating` · `has_photo` |
+| `review_submitted` | `target`(place·general·course) · `rating` · `has_photo` |
 | `chat_message_sent` | `turn_index` |
 
 ### 내 바이크

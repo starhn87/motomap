@@ -31,7 +31,7 @@ export function useMapDeepLinks({
   clearSelection: () => void;
 }) {
   const queryClient = useQueryClient();
-  const { focusPlaceId, focusTs, focusReviewId, fromCourseId, kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, followTs } =
+  const { focusPlaceId, focusTs, focusReviewId, fromCourseId, kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, kakaoId, kakaoUrl, generalPlaceId, followTs } =
     useLocalSearchParams<{
       focusPlaceId?: string;
       focusTs?: string;
@@ -42,6 +42,9 @@ export function useMapDeepLinks({
       kakaoLat?: string;
       kakaoLng?: string;
       kakaoPhone?: string;
+      kakaoId?: string;
+      kakaoUrl?: string;
+      generalPlaceId?: string;
       followTs?: string;
     }>();
 
@@ -71,6 +74,9 @@ export function useMapDeepLinks({
       latitude: Number(kakaoLat),
       longitude: Number(kakaoLng),
       phone: kakaoPhone || undefined,
+      providerId: kakaoId || undefined,
+      placeUrl: kakaoUrl || undefined,
+      generalPlaceId: generalPlaceId || undefined,
     };
     clearSelection();
     setTempPlace(place);
@@ -95,7 +101,7 @@ export function useMapDeepLinks({
       easing: 'Fly',
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, focusTs, mapReady]);
+  }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, kakaoId, kakaoUrl, generalPlaceId, focusTs, mapReady]);
 
   const [highlightReview, setHighlightReview] = useState<{ id: string; key: string } | null>(
     null

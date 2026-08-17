@@ -1,17 +1,27 @@
 import { supabase } from '@/lib/supabase';
 import type { Review } from '@/types';
 import { requireUser } from '@/lib/auth';
+import { ensureGeneralPlace, type GeneralPlaceInput } from '@/lib/api/generalPlaces';
 
 export const REVIEWS_PAGE_SIZE = 20;
 
-export async function fetchReviews(placeId: string, page = 0): Promise<Review[]> {
+export type ReviewTarget =
+  | { kind: 'place'; id: string }
+  | { kind: 'general'; id: string };
+
+export type ReviewCreateTarget =
+  | { kind: 'place'; id: string }
+  | { kind: 'general'; place: GeneralPlaceInput };
+
+export async function fetchReviews(target: ReviewTarget, page = 0): Promise<Review[]> {
   const from = page * REVIEWS_PAGE_SIZE;
-  const { data, error } = await supabase
+  let query = supabase
     .from('reviews')
     .select('*, profiles(nickname, avatar_url), review_likes(user_id)')
-    .eq('place_id', placeId)
     .order('created_at', { ascending: false })
     .range(from, from + REVIEWS_PAGE_SIZE - 1);
+  query = query.eq(target.kind === 'place' ? 'place_id' : 'general_place_id', target.id);
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -51,15 +61,23 @@ export async function toggleReviewLike(reviewId: string, liked: boolean): Promis
 }
 
 export async function createReview(params: {
-  placeId: string;
+  target: ReviewCreateTarget;
   rating: number;
   content: string;
   photos?: string[];
-}): Promise<void> {
+}): Promise<ReviewTarget> {
   const user = await requireUser();
+  const target: ReviewTarget =
+    params.target.kind === 'place'
+      ? params.target
+      : {
+          kind: 'general',
+          id: (await ensureGeneralPlace(params.target.place)).id,
+        };
 
   const { error } = await supabase.from('reviews').insert({
-    place_id: params.placeId,
+    place_id: target.kind === 'place' ? target.id : null,
+    general_place_id: target.kind === 'general' ? target.id : null,
     user_id: user.id,
     user_name: user.user_metadata?.name ?? user.email ?? '익명 라이더',
     rating: params.rating,
@@ -68,6 +86,7 @@ export async function createReview(params: {
   });
 
   if (error) throw error;
+  return target;
 }
 
 export async function updateReview(params: {

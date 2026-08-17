@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { Place } from '@/types';
 import { rowToPlace, type PlaceRow } from '@/lib/api/places';
 import { requireUser, getCurrentUser } from '@/lib/auth';
+import { ensureGeneralPlace, type GeneralPlaceInput } from '@/lib/api/generalPlaces';
 
 // 즐겨찾기는 두 갈래다 — 등록 장소(place_id)와 일반 장소(이름+좌표).
 // 라이더 특화 장소가 아니어도 자주 가는 곳이 있어서, 집·회사 두 칸으로는
@@ -15,6 +16,9 @@ export interface GeneralFavorite {
   latitude: number;
   longitude: number;
   phone?: string;
+  generalPlaceId?: string;
+  providerId?: string;
+  placeUrl?: string;
 }
 
 export interface Favorites {
@@ -42,7 +46,7 @@ export async function fetchFavorites(): Promise<Favorites> {
 
   const { data, error } = await supabase
     .from('favorites')
-    .select('id, place_id, name, address, latitude, longitude, phone')
+    .select('id, place_id, general_place_id, name, address, latitude, longitude, phone, general_places(provider, provider_place_id, place_url)')
     .eq('user_id', user.id);
 
   if (error) throw error;
@@ -52,13 +56,19 @@ export async function fetchFavorites(): Promise<Favorites> {
     placeIds: rows.filter((r) => r.place_id).map((r) => r.place_id as string),
     general: rows
       .filter((r) => !r.place_id)
-      .map((r) => ({
+      .map((r: any) => ({
         id: r.id as string,
         name: r.name as string,
         address: (r.address as string) ?? '',
         latitude: r.latitude as number,
         longitude: r.longitude as number,
         phone: (r.phone as string) ?? undefined,
+        generalPlaceId: (r.general_place_id as string) ?? undefined,
+        providerId:
+          r.general_places?.provider === 'kakao'
+            ? (r.general_places.provider_place_id as string)
+            : undefined,
+        placeUrl: (r.general_places?.place_url as string) ?? undefined,
       })),
   };
 }
@@ -118,13 +128,7 @@ export async function toggleFavorite(placeId: string): Promise<boolean> {
  * 좌표에는 유니크 인덱스가 걸려 있어 같은 곳을 두 번 담을 수 없다. 다만 반올림
  * 기준이라 클라이언트에서 먼저 찾아 지우는 쪽이 정확하다.
  */
-export async function toggleGeneralFavorite(place: {
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  phone?: string;
-}): Promise<boolean> {
+export async function toggleGeneralFavorite(place: GeneralPlaceInput): Promise<boolean> {
   const user = await requireUser();
 
   const { general } = await fetchFavorites();
@@ -136,9 +140,11 @@ export async function toggleGeneralFavorite(place: {
     return false;
   }
 
+  const generalPlace = await ensureGeneralPlace(place);
   const { error } = await supabase.from('favorites').insert({
     user_id: user.id,
     place_id: null,
+    general_place_id: generalPlace.id,
     name: place.name,
     address: place.address,
     latitude: place.latitude,

@@ -71,13 +71,27 @@ export function focusPlaceOnMap(
 // 지도 탭으로 이동해 등록되지 않은 일반 장소를 연다 — 지도 딥링크의
 // kakao* 경로(useMapDeepLinks)가 좌표 포커스와 일반 장소 카드를 띄운다.
 // 라이딩 기록의 미등록 목적지처럼 이름·좌표만 남은 곳도 지도로 이어 준다.
-export function focusPointOnMap(point: { name: string; latitude: number; longitude: number }) {
+export function focusPointOnMap(point: {
+  name: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  phone?: string;
+  providerId?: string;
+  placeUrl?: string;
+  generalPlaceId?: string;
+}) {
   router.navigate({
     pathname: '/',
     params: {
       kakaoName: point.name,
+      kakaoAddress: point.address ?? '',
       kakaoLat: String(point.latitude),
       kakaoLng: String(point.longitude),
+      kakaoPhone: point.phone ?? '',
+      kakaoId: point.providerId ?? '',
+      kakaoUrl: point.placeUrl ?? '',
+      generalPlaceId: point.generalPlaceId ?? '',
       focusTs: String(Date.now()),
     },
   });

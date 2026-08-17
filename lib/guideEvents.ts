@@ -11,7 +11,7 @@ import { submitHazard } from '@/lib/api/hazards';
 import { fetchNearbyPlaces } from '@/lib/api/places';
 import { formatMeters } from '@/lib/api/directions';
 import { haversine } from '@/lib/distance';
-import { focusPlaceOnMap, followMyLocationOnMap } from '@/lib/mapFocus';
+import { focusPlaceOnMap, focusPointOnMap, followMyLocationOnMap } from '@/lib/mapFocus';
 import { recordPlaceRides } from '@/lib/api/rides';
 import { toast } from '@/lib/toast';
 import { createAnalyticsId, track } from '@/lib/analytics';
@@ -197,6 +197,9 @@ function recordArrival(goal: GuideGoal, viaPlaceIds: string[]) {
             name: goal.name.trim(),
             latitude: goal.latitude,
             longitude: goal.longitude,
+            ...(goal.generalPlaceId
+              ? { general_place_id: goal.generalPlaceId }
+              : {}),
           },
         ]
       : []),
@@ -222,6 +225,13 @@ function suggestReview(goal: GuideGoal) {
         onPress: () => {
           if (goal.placeId) {
             focusPlaceOnMap(goal.placeId); // 장소 시트로 — 리뷰 작성이 그 안에 있다
+          } else if (goal.generalPlaceId) {
+            focusPointOnMap({
+              name: goal.name,
+              latitude: goal.latitude,
+              longitude: goal.longitude,
+              generalPlaceId: goal.generalPlaceId,
+            });
           } else if (goal.courseId) {
             router.push(`/course/${goal.courseId}`); // 코스 리뷰 폼은 코스 상세에
           }
@@ -283,8 +293,8 @@ async function handleGuideEnd() {
   trackGuideEnd(active, near ? 'arrived' : 'cancelled');
   if (dist !== null && dist <= 300) recordArrival(goal, viaPlaceIds);
   // 등록 장소·코스는 리뷰로, 일반 목적지는 이름·위치가 채워진 간편 제보로 잇는다.
-  if (near && (goal.placeId || goal.courseId)) suggestReview(goal);
-  else if (dist !== null && dist <= 300 && !goal.placeId && !goal.courseId) {
+  if (near && (goal.placeId || goal.generalPlaceId || goal.courseId)) suggestReview(goal);
+  else if (dist !== null && dist <= 300 && !goal.placeId && !goal.generalPlaceId && !goal.courseId) {
     void suggestPlaceSubmission(goal);
   }
 }

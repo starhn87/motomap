@@ -16,6 +16,7 @@ export type NaviRouteParams = {
   sname?: RouteParam;
   /** 도착 후 리뷰 연결 — 등록 장소 id / 코스 id */
   pid?: RouteParam;
+  gpid?: RouteParam;
   cid?: RouteParam;
 };
 
@@ -126,6 +127,9 @@ function parseUserVias(value: RouteParam): NavTarget[] | null {
         ...(typeof record.placeId === 'string' && UUID.test(record.placeId)
           ? { placeId: record.placeId }
           : {}),
+        ...(typeof record.generalPlaceId === 'string' && UUID.test(record.generalPlaceId)
+          ? { generalPlaceId: record.generalPlaceId }
+          : {}),
       });
     }
     return result;
@@ -161,6 +165,7 @@ export function parseNaviParams(params: NaviRouteParams): ParsedNaviParams | nul
   if (!courseVias || !userVias) return null;
 
   const placeId = single(params.pid);
+  const generalPlaceId = single(params.gpid);
   const courseId = single(params.cid);
   const start: [number, number] | null =
     startLongitude != null && startLatitude != null
@@ -172,6 +177,9 @@ export function parseNaviParams(params: NaviRouteParams): ParsedNaviParams | nul
       latitude,
       longitude,
       ...(placeId && UUID.test(placeId) ? { placeId } : {}),
+      ...(!placeId && generalPlaceId && UUID.test(generalPlaceId)
+        ? { generalPlaceId }
+        : {}),
     },
     start,
     startName: start ? label(params.sname, '출발지') : null,

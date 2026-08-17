@@ -26,16 +26,17 @@ import ImageViewer from '@/components/ui/ImageViewer';
 import HighlightPulse from '@/components/ui/HighlightPulse';
 import StarRating from './StarRating';
 import PhotoDragList from './PhotoDragList';
+import type { ReviewTarget } from '@/lib/api/reviews';
 
 interface Props {
-  placeId: string;
+  target: ReviewTarget;
   /** 이 리뷰로 스크롤·강조 — key(nonce)가 바뀔 때마다 다시 반짝인다 */
   highlight?: { id: string; key: string } | null;
   /** 강조 대상 리뷰 카드의 y(리스트 루트 기준)를 부모에 보고 — 스크롤 목표 계산용 */
   onHighlightLayout?: (y: number) => void;
 }
 
-export default function ReviewList({ placeId, highlight, onHighlightLayout }: Props) {
+export default function ReviewList({ target, highlight, onHighlightLayout }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -45,17 +46,17 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useReviews(placeId);
+  } = useReviews(target);
   const reviews = reviewPages?.pages.flat();
-  const { mutate: toggleLike } = useToggleReviewLike(placeId);
+  const { mutate: toggleLike } = useToggleReviewLike(target);
 
   // 내 리뷰에서 진입한 강조 대상이 아직 안 실린 페이지에 있으면 찾을 때까지 더 받는다
   useEffect(() => {
     if (!highlight || !reviews || isFetchingNextPage || !hasNextPage) return;
     if (!reviews.some((r) => r.id === highlight.id)) void fetchNextPage();
   }, [highlight?.id, reviews, hasNextPage, isFetchingNextPage, fetchNextPage]);
-  const { mutateAsync: updateReview } = useUpdateReview(placeId);
-  const { mutateAsync: removeReview } = useDeleteReview(placeId);
+  const { mutateAsync: updateReview } = useUpdateReview(target);
+  const { mutateAsync: removeReview } = useDeleteReview(target);
   const blockedIds = useBlockedIds();
   const { mutateAsync: blockUserFn } = useBlockUser();
 
@@ -157,7 +158,7 @@ export default function ReviewList({ placeId, highlight, onHighlightLayout }: Pr
         if (photo.startsWith('http')) {
           finalPhotos.push(photo);
         } else {
-          const url = await uploadImage(photo, `reviews/${placeId}`);
+          const url = await uploadImage(photo, `reviews/${target.kind}-${target.id}`);
           finalPhotos.push(url);
         }
       }

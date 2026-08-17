@@ -28,6 +28,7 @@ import { useVoiceSearch } from '@/hooks/useVoiceSearch';
 import { PostHogMaskView } from 'posthog-react-native';
 
 import { createAnalyticsId, track } from '@/lib/analytics';
+import { ensureGeneralPlace } from '@/lib/api/generalPlaces';
 
 /** 길찾기 지점 — 좌표 있는 목적지 또는 '현재 위치' */
 export type Point = NavTarget | 'current';
@@ -105,6 +106,9 @@ export default function PointSearchModal({
           latitude: f.latitude,
           longitude: f.longitude,
           phone: f.phone ?? '',
+          providerId: f.providerId,
+          placeUrl: f.placeUrl,
+          generalPlaceId: f.generalPlaceId,
         },
       })),
     ],
@@ -180,7 +184,7 @@ export default function PointSearchModal({
     }, 300);
   };
 
-  const selectSearchResult = (item: ResultItem, rank: number) => {
+  const selectSearchResult = async (item: ResultItem, rank: number) => {
     const session = activeSearch.current;
     if (session) {
       track.searchResultSelected({
@@ -201,11 +205,30 @@ export default function PointSearchModal({
         item.place.address,
       );
     } else {
+      let generalPlaceId = item.k.generalPlaceId;
+      if (!generalPlaceId && user && allowSaved) {
+        try {
+          generalPlaceId = (
+            await ensureGeneralPlace({
+              name: item.k.placeName,
+              address: item.k.roadAddress || item.k.address,
+              latitude: item.k.latitude,
+              longitude: item.k.longitude,
+              phone: item.k.phone || undefined,
+              providerId: item.k.providerId,
+              placeUrl: item.k.placeUrl,
+            })
+          ).id;
+        } catch {
+          // 장소 연결 실패가 지점 선택 자체를 막으면 안 된다.
+        }
+      }
       onSelect(
         {
           name: item.k.placeName,
           latitude: item.k.latitude,
           longitude: item.k.longitude,
+          generalPlaceId,
         },
         item.k.roadAddress || item.k.address,
       );
@@ -354,7 +377,7 @@ export default function PointSearchModal({
                       key={`${r.name}-${r.longitude}-${r.latitude}`}
                       onPress={() =>
                         onSelect(
-                          { name: r.name, latitude: r.latitude, longitude: r.longitude },
+                          r,
                           r.address,
                         )
                       }
@@ -389,7 +412,7 @@ export default function PointSearchModal({
           renderItem={({ item, index }) => (
             item.kind === 'place' ? (
               <Pressable
-                onPress={() => selectSearchResult(item, index)}
+                onPress={() => void selectSearchResult(item, index)}
                 style={[styles.resultRow, { borderBottomColor: colors.border }]}>
                 <CategoryIcon category={item.place.category} size={16} />
                 <View style={styles.resultTexts}>
@@ -410,7 +433,7 @@ export default function PointSearchModal({
               </Pressable>
             ) : (
               <Pressable
-                onPress={() => selectSearchResult(item, index)}
+                onPress={() => void selectSearchResult(item, index)}
                 style={[styles.resultRow, { borderBottomColor: colors.border }]}>
                 <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
                 <View style={styles.resultTexts}>

@@ -316,6 +316,8 @@ export default function SearchResultsScreen() {
         latitude: k.latitude,
         longitude: k.longitude,
         phone: k.phone,
+        providerId: k.providerId,
+        placeUrl: k.placeUrl,
       });
       setSelectedPlace(null);
       setSelectedTemp({
@@ -324,6 +326,8 @@ export default function SearchResultsScreen() {
         latitude: k.latitude,
         longitude: k.longitude,
         phone: k.phone || undefined,
+        providerId: k.providerId,
+        placeUrl: k.placeUrl,
       });
       mapRef.current?.animateCameraTo({
         latitude: k.latitude - sheetLatOffset(zoom, screenH, k.latitude),

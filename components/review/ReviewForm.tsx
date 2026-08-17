@@ -12,14 +12,16 @@ import { useCreateReview } from '@/hooks/useReviews';
 import { pickImages, uploadMultipleImages } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
 import { track } from '@/lib/analytics';
+import type { ReviewCreateTarget } from '@/lib/api/reviews';
+import { generalPlaceUploadKey } from '@/lib/api/generalPlaces';
 import StarRating from './StarRating';
 import PhotoDragList from './PhotoDragList';
 
 interface Props {
-  placeId: string;
+  target: ReviewCreateTarget;
 }
 
-export default function ReviewForm({ placeId }: Props) {
+export default function ReviewForm({ target }: Props) {
   // 바이크 미등록이면 폼 아래에서 한 번 권한다 — 리뷰에 기종 뱃지가 붙는
   // 순간이라 등록의 보상이 가장 눈에 보이는 자리다
   const { model: myBikeModel } = useMyBike();
@@ -75,17 +77,19 @@ export default function ReviewForm({ placeId }: Props) {
     try {
       let photoUrls: string[] = [];
       if (imageUris.length > 0) {
-        photoUrls = await uploadMultipleImages(imageUris, `reviews/${placeId}`);
+        const uploadKey =
+          target.kind === 'place' ? target.id : generalPlaceUploadKey(target.place);
+        photoUrls = await uploadMultipleImages(imageUris, `reviews/${uploadKey}`);
       }
 
       await mutateAsync({
-        placeId,
+        target,
         rating,
         content: content.trim(),
         photos: photoUrls,
       });
       track.reviewSubmitted({
-        target: 'place',
+        target: target.kind,
         rating,
         has_photo: photoUrls.length > 0,
       });

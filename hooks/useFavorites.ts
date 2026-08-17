@@ -70,6 +70,7 @@ export function useToggleGeneralFavorite() {
     mutationFn: toggleGeneralFavorite,
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['favorites'] });
+      queryClient.invalidateQueries({ queryKey: ['general-place'] });
     },
   });
 }

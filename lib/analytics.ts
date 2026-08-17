@@ -188,7 +188,7 @@ export const track = {
   }) => capture('place_submitted', p),
 
   reviewSubmitted: (p: {
-    target: 'place' | 'course';
+    target: 'place' | 'general' | 'course';
     rating: number;
     has_photo: boolean;
   }) => capture('review_submitted', p),

@@ -10,6 +10,8 @@ interface GuideGoal {
   name: string;
   /** 등록 장소면 도착 후 리뷰 연결에 쓴다 */
   placeId?: string;
+  /** 일반 장소면 도착 기록과 리뷰를 같은 장소에 연결한다 */
+  generalPlaceId?: string;
   /** 코스 안내면 도착 후 코스 리뷰로 잇는다 */
   courseId?: string;
 }

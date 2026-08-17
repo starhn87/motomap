@@ -105,7 +105,8 @@ function PlaceBottomSheet({
   const user = useAuthStore((s) => s.user);
   const userLocation = useMapStore((s) => s.userLocation);
   const { data: latestPlace } = usePlace(place?.id ?? null);
-  const { data: reviewPages } = useReviews(place?.id ?? null);
+  const reviewTarget = place ? ({ kind: 'place', id: place.id } as const) : null;
+  const { data: reviewPages } = useReviews(reviewTarget);
   const reviews = reviewPages?.pages.flat();
   const displayPlace = latestPlace ?? place;
   const isFavorite = useIsFavorite(place?.id ?? '');
@@ -612,14 +613,14 @@ function PlaceBottomSheet({
                 </View>
               )}
             </View>
-            <ReviewForm placeId={place.id} />
+            <ReviewForm target={{ kind: 'place', id: place.id }} />
             <View style={styles.reviewDivider} />
             <View
               onLayout={(e) => {
                 reviewListYRef.current = e.nativeEvent.layout.y;
               }}>
               <ReviewList
-                placeId={place.id}
+                target={{ kind: 'place', id: place.id }}
                 highlight={highlightReview}
                 onHighlightLayout={(y) => {
                   highlightItemYRef.current = y;

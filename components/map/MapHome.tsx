@@ -323,17 +323,22 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           : prev,
       );
     });
-    // 전화번호는 심벌 이벤트에 없다 — 이름으로 검색해 같은 자리(150m 이내) 결과에서 채운다
+    // 심벌 이벤트에는 외부 장소 ID·전화번호가 없다 — 이름으로 검색해 같은 자리
+    // 결과를 찾아 리뷰·즐겨찾기가 이후에도 같은 장소를 바라보게 한다.
     void searchKakaoLocal(caption).then((results) => {
       const match = results.find(
         (r) =>
-          r.phone &&
           Math.hypot((r.latitude - latitude) * 111000, (r.longitude - longitude) * 88000) < 150,
       );
       if (!match) return;
       setTempPlace((prev) =>
         prev && prev.name === caption && prev.latitude === latitude
-          ? { ...prev, phone: match.phone }
+          ? {
+              ...prev,
+              phone: match.phone || prev.phone,
+              providerId: match.providerId,
+              placeUrl: match.placeUrl,
+            }
           : prev,
       );
     });
@@ -637,6 +642,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
                   latitude: f.latitude,
                   longitude: f.longitude,
                   phone: f.phone,
+                  providerId: f.providerId,
+                  placeUrl: f.placeUrl,
+                  generalPlaceId: f.generalPlaceId,
                 })
               }
             />

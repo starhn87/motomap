@@ -95,6 +95,9 @@ export default function FavoritesScreen() {
             kakaoLat: String(fav.latitude),
             kakaoLng: String(fav.longitude),
             kakaoPhone: fav.phone ?? '',
+            kakaoId: fav.providerId ?? '',
+            kakaoUrl: fav.placeUrl ?? '',
+            generalPlaceId: fav.generalPlaceId ?? '',
             focusTs: String(Date.now()),
           },
         })

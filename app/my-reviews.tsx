@@ -14,8 +14,8 @@ import EmptyState from '@/components/ui/EmptyState';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { focusPlaceOnMap } from '@/lib/mapFocus';
-import { fetchMyReviews, MY_REVIEWS_PAGE_SIZE } from '@/lib/api/mydata';
+import { focusPlaceOnMap, focusPointOnMap } from '@/lib/mapFocus';
+import { fetchMyReviews, MY_REVIEWS_PAGE_SIZE, type MyReview } from '@/lib/api/mydata';
 import { useAuthStore } from '@/stores/useAuthStore';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import StarRating from '@/components/review/StarRating';
@@ -62,9 +62,15 @@ export default function MyReviewsScreen() {
   const reviews = data?.pages.flat();
 
   // 탭하면 지도의 해당 장소 시트가 펼쳐지고 이 리뷰로 스크롤·강조된다
-  const renderItem = ({ item }: { item: any }) => (
+  const renderItem = ({ item }: { item: MyReview }) => (
     <Pressable
-      onPress={() => focusPlaceOnMap(item.placeId, { reviewId: item.id, source: 'favorite' })}
+      onPress={() => {
+        if (item.targetKind === 'place') {
+          focusPlaceOnMap(item.placeId, { reviewId: item.id, source: 'favorite' });
+        } else if (item.generalPlace) {
+          focusPointOnMap(item.generalPlace);
+        }
+      }}
       style={({ pressed }) => [
         styles.card,
         {

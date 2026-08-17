@@ -123,16 +123,23 @@ function SubmitPlace() {
   const [closedDays, setClosedDays] = useState<DayKey[]>([]);
   const [hoursNote, setHoursNote] = useState('');
   const [parkingInfo, setParkingInfo] = useState('');
+  const [sourceIdentity, setSourceIdentity] = useState<{
+    provider: 'kakao' | 'coordinate';
+    placeId: string;
+  } | null>(null);
   const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // 지도의 "일반 장소" 시트에서 넘어온 프리필 (이름·주소·좌표)
-  const { prefillName, prefillAddress, prefillLat, prefillLng, prefillSource, prefillTs } =
+  const { prefillName, prefillAddress, prefillLat, prefillLng, prefillPhone, prefillProvider, prefillProviderId, prefillSource, prefillTs } =
     useLocalSearchParams<{
       prefillName?: string;
       prefillAddress?: string;
       prefillLat?: string;
       prefillLng?: string;
+      prefillPhone?: string;
+      prefillProvider?: string;
+      prefillProviderId?: string;
       prefillSource?: string;
       prefillTs?: string;
     }>();
@@ -142,6 +149,15 @@ function SubmitPlace() {
     handledPrefillRef.current = prefillTs;
     setName(prefillName);
     if (prefillAddress) setAddress(prefillAddress);
+    if (prefillPhone) setPhone(prefillPhone);
+    if (
+      (prefillProvider === 'kakao' || prefillProvider === 'coordinate') &&
+      prefillProviderId
+    ) {
+      setSourceIdentity({ provider: prefillProvider, placeId: prefillProviderId });
+    } else {
+      setSourceIdentity(null);
+    }
     if (prefillLat && prefillLng) {
       const latitude = Number(prefillLat);
       const longitude = Number(prefillLng);
@@ -156,7 +172,7 @@ function SubmitPlace() {
         setCoords({ latitude, longitude });
       }
     }
-  }, [prefillName, prefillAddress, prefillLat, prefillLng, prefillTs]);
+  }, [prefillName, prefillAddress, prefillLat, prefillLng, prefillPhone, prefillProvider, prefillProviderId, prefillTs]);
 
   const submitScale = useSharedValue(1);
   const submitStyle = useAnimatedStyle(() => ({
@@ -205,6 +221,8 @@ function SubmitPlace() {
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
         ...buildHours(openAt, closeAt, closedDays, hoursNote),
         parkingInfo: parkingInfo.trim() || undefined,
+        sourceProvider: sourceIdentity?.provider,
+        sourcePlaceId: sourceIdentity?.placeId,
       });
 
       track.placeSubmitted({
@@ -235,6 +253,7 @@ function SubmitPlace() {
       setClosedDays([]);
       setHoursNote('');
       setParkingInfo('');
+      setSourceIdentity(null);
     } catch (error: any) {
       toast.error('제보에 실패했습니다.', error.message);
     } finally {
@@ -358,6 +377,9 @@ function SubmitPlace() {
         onSelect={(r) => {
           setAddress(r.roadAddress || r.address);
           setCoords({ latitude: r.latitude, longitude: r.longitude });
+          setSourceIdentity(
+            r.providerId ? { provider: 'kakao', placeId: r.providerId } : null,
+          );
           // 장소명은 검색 결과가 정한다(다시 선택하면 갱신). 카카오에 없는
           // 장소(뷰포인트 등)를 위해 필드 자체는 수정 가능하게 둔다.
           if (r.placeName) setName(r.placeName);

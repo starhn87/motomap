@@ -7,6 +7,11 @@ const REST_KEY = process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY;
 import { normalizeSido } from '@/lib/region';
 
 export interface KakaoLocalResult {
+  /** 카카오 로컬에서 장소를 안정적으로 식별하는 ID */
+  providerId?: string;
+  placeUrl?: string;
+  /** 즐겨찾기 등 앱 내부에서 이미 연결한 일반 장소 ID */
+  generalPlaceId?: string;
   placeName: string; // 상호 (예: "카페 모토라드")
   address: string; // 지번 주소
   roadAddress: string; // 도로명 주소
@@ -39,6 +44,8 @@ export async function searchKakaoLocal(
     if (!res.ok) return [];
     const data = await res.json();
     return (data.documents ?? []).map((d: any) => ({
+      providerId: d.id || undefined,
+      placeUrl: d.place_url || undefined,
       placeName: d.place_name ?? '',
       address: normalizeSido(d.address_name),
       roadAddress: normalizeSido(d.road_address_name),

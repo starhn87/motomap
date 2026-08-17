@@ -16,6 +16,8 @@ export interface NavTarget {
   longitude: number;
   /** 등록 장소면 그 id — 도착 후 리뷰 연결에 쓴다 */
   placeId?: string;
+  /** 등록되지 않은 일반 장소의 안정적인 id — 도착 기록·리뷰 연결에 쓴다 */
+  generalPlaceId?: string;
 }
 
 /** 코스 내비 대상 — points 는 코스 순서(출발지 → 경유지들 → 도착지) */
@@ -44,6 +46,7 @@ function launchInAppNavi(
       ...(vias && vias.length > 0 ? { vias: JSON.stringify(vias) } : {}),
       ...(userVias && userVias.length > 0 ? { uvias: JSON.stringify(userVias) } : {}),
       ...(target.placeId ? { pid: target.placeId } : {}),
+      ...(target.generalPlaceId ? { gpid: target.generalPlaceId } : {}),
       ...(courseId ? { cid: courseId } : {}),
       ...(start
         ? {
