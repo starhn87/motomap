@@ -232,36 +232,6 @@ h1 {
   filter: blur(100px);
 }
 
-.phone {
-  position: absolute;
-  overflow: hidden;
-  padding: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 40px;
-  background: #07080a;
-  box-shadow: 0 32px 70px rgba(0, 0, 0, 0.52);
-}
-
-.phone::before {
-  position: absolute;
-  z-index: 2;
-  top: 17px;
-  left: 50%;
-  width: 31%;
-  height: 22px;
-  border-radius: 999px;
-  background: #050506;
-  content: "";
-  transform: translateX(-50%);
-}
-
-.phone img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 32px;
-}
-
 .promise-strip {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -294,7 +264,7 @@ h1 {
 
 .ride-story {
   position: relative;
-  height: 650svh;
+  height: 600svh;
   background: #050607;
 }
 
@@ -427,56 +397,6 @@ h1 {
   transform: scaleY(0);
   transform-origin: top;
   will-change: transform;
-}
-
-.ride-story-devices {
-  position: absolute;
-  z-index: 3;
-  inset: 0;
-  opacity: 0;
-  pointer-events: none;
-  transform: translate3d(0, 90px, 0) scale(0.94);
-  transform-origin: 70% 80%;
-  will-change: opacity, transform;
-}
-
-.ride-story-phone {
-  padding: 7px;
-  border-radius: 34px;
-  box-shadow: 0 34px 88px rgba(0, 0, 0, 0.62);
-}
-
-.ride-story-phone img {
-  border-radius: 27px;
-}
-
-.ride-story-phone-back {
-  z-index: 1;
-  top: 12vh;
-  right: clamp(250px, 25vw, 420px);
-  width: clamp(190px, 18vw, 276px);
-  transform: rotate(-7deg);
-}
-
-.ride-story-phone-front {
-  z-index: 2;
-  right: clamp(60px, 9vw, 160px);
-  bottom: -106px;
-  width: clamp(220px, 21vw, 320px);
-  transform: rotate(5deg);
-}
-
-.ride-story-devices > p {
-  position: absolute;
-  bottom: 16vh;
-  left: max(48px, calc((100% - var(--content-width)) / 2));
-  max-width: 440px;
-  margin: 0;
-  color: #f5f5f2;
-  font-size: clamp(30px, 3.5vw, 52px);
-  font-weight: 850;
-  line-height: 1.12;
-  letter-spacing: -0.055em;
 }
 
 .ride-story-scroll {
@@ -1034,10 +954,6 @@ footer small {
     width: min(680px, 80vw);
   }
 
-  .ride-story-phone-back {
-    right: 34vw;
-  }
-
   .garage-section,
   .ai-section {
     grid-template-columns: 1fr;
@@ -1098,20 +1014,6 @@ footer small {
     align-items: flex-start;
   }
 
-  .phone {
-    padding: 6px;
-    border-radius: 29px;
-  }
-
-  .phone::before {
-    top: 12px;
-    height: 16px;
-  }
-
-  .phone img {
-    border-radius: 23px;
-  }
-
   .promise-strip {
     grid-template-columns: 1fr 1fr;
     padding: 0;
@@ -1132,7 +1034,7 @@ footer small {
   }
 
   .ride-story {
-    height: 600svh;
+    height: 560svh;
   }
 
   .ride-story-media {
@@ -1179,39 +1081,6 @@ footer small {
   .ride-story-progress {
     right: 12px;
     height: 86px;
-  }
-
-  .ride-story-phone {
-    padding: 5px;
-    border-radius: 26px;
-  }
-
-  .ride-story-phone::before {
-    top: 11px;
-    height: 15px;
-  }
-
-  .ride-story-phone img {
-    border-radius: 21px;
-  }
-
-  .ride-story-phone-back {
-    top: 16vh;
-    right: 42vw;
-    width: min(44vw, 190px);
-  }
-
-  .ride-story-phone-front {
-    right: 7vw;
-    bottom: -56px;
-    width: min(50vw, 218px);
-  }
-
-  .ride-story-devices > p {
-    bottom: 16vh;
-    left: 20px;
-    max-width: 240px;
-    font-size: clamp(27px, 8.8vw, 38px);
   }
 
   .ride-story-scroll {
@@ -1435,7 +1304,6 @@ footer small {
     translate: none;
   }
 
-  .ride-story-devices,
   .ride-story-progress,
   .ride-story-scroll {
     display: none;
