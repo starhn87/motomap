@@ -20,5 +20,8 @@
 /ride-story.webp
   Cache-Control: public, max-age=2592000
 
+/ride-story-hd.webp
+  Cache-Control: public, max-age=2592000
+
 /screens/*
   Cache-Control: public, max-age=604800
