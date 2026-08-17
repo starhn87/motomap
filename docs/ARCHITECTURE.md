@@ -264,9 +264,11 @@ Sentry.wrap(
 | `034_google_place_cache.sql` | 구글 Places 응답 캐시 — place_id 무기한·콘텐츠 30일(약관 상한) |
 | `035_place_rides.sql` | `place_rides` — 도착지 300m 안에서 끝난 라이딩을 장소별 카운트(도착지·경유지, 로그인 라이더만) |
 | `036_place_ride_bikes.sql` | `place_rides.bike_model`(라이딩 시점 기종 스냅샷 + 백필) + `place_ride_summary`/`my_ride_stats` RPC. 원시 행 select 는 본인 것만으로 축소 — user_id·장소·시각이 전부 공개면 특정인의 이동 이력이 된다. 공개 집계는 SECURITY DEFINER 함수가 담당 |
-| `037_unregistered_ride_spots.sql` | `place_rides.place_id` nullable + 이름·좌표 — 미등록 목적지 도착 기록. 앱 표시는 없고 주간 다이제스트의 시드 발굴 신호(1km 격자 집계 RPC)로만 쓴다 |
+| `037_unregistered_ride_spots.sql` | `place_rides.place_id` nullable + 이름·좌표 — 미등록 목적지 도착 기록. 앱·공개 다이제스트에는 표시하지 않고, 제한된 운영 분석에만 쓴다 |
 | `038_broadcast_notice.sql` | `broadcast_notice(title, body, data)` — 전체 가입자 공지(알림 행 + 푸시, Expo 100건 청크). execute 를 운영자(SQL Editor)로만 제한, 클라이언트 키로는 호출 불가. `data.url` 이면 알림 탭 시 앱 내 딥링크 |
 | `20260814133044_edge_rate_limits.sql` | 외부 유료 API용 원자적 고정 윈도우 호출 제한. 요청자 식별자는 `RATE_LIMIT_SALT`로 HMAC 처리해 원문 IP·user_id를 저장하지 않고, 테이블·RPC는 `service_role`만 접근 |
+| `20260817103053_restrict_unregistered_ride_spots.sql` | 미등록 도착지 집계 RPC의 공개 실행 권한 회수 — `service_role` 운영만 허용 |
+| `20260817104023_add_private_ride_candidate_scores.sql` | 미등록 도착지 후보를 라이더 수·반복·최근성으로 점수화한 `private.unregistered_ride_candidates`. 주거지 이름 제외, `service_role` 전용 |
 
 ---
 
@@ -278,7 +280,7 @@ Sentry.wrap(
 | 카카오모빌리티 길찾기 | `lib/api/directions.ts`, `EXPO_PUBLIC_KAKAO_REST_API_KEY` | 미리보기 경로선의 **혼잡도 색칠**(`car_type=7`, 다중 경유지 POST의 `traffic_state`). 경로 자체는 같은 엔진인 KNSDK 가 뽑고, REST 실패 시 단색 폴백. 일 10,000건 무료 |
 | 네이버 Geocoding | `supabase/functions/naver-geocode` + `lib/geocode.ts` | 코스 제보의 수동 주소 입력 폴백. API secret은 Edge Function에만 두고 입력·호출량 제한 적용 |
 | 네이버 Directions | `scripts/recalc-course-routes.mjs` (`NAVER_CLOUD_CLIENT_ID/SECRET`) | 코스 경로 재계산 폴백(스크립트 전용 — 앱 코드에서는 제거) |
-| 카카오 로컬 검색 | `lib/api/kakaoLocal.ts` (`EXPO_PUBLIC_KAKAO_REST_API_KEY`) | 제보 주소 검색 (상호+주소→좌표) |
+| 카카오 로컬 검색 | `lib/api/kakaoLocal.ts` (`EXPO_PUBLIC_KAKAO_REST_API_KEY`) | 제보 주소 검색(상호+주소→좌표), 일반 목적지 도착 후 간편 제보용 역지오코딩 |
 | 앱 안 길안내 | `lib/navigation.ts` + `app/navi.tsx`(+`components/navi/`, `hooks/useBikeRoutes.ts`) + `modules/kakao-navi/` | KNSDK 이륜차 턴바이턴. 출발 전 날씨·노면 위험 확인 후 진입. 미리보기 지도·경로 확보(옵션 캐시·경유지 축소 사다리)는 분리된 컴포넌트·훅이 맡는다 |
 | Supabase Storage | `lib/uploadImage.ts` | 리뷰·제보 사진 (`ridemap-media` 버킷, base64 업로드) |
 | Expo Push | `lib/push.ts` + migration 006/008 | 제보(장소·코스) 승인 푸시 — 토큰은 `push_tokens`, 발송은 DB 트리거(pg_net→Expo Push API). 권한 요청은 제보 직후에만 |

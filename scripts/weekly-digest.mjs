@@ -6,8 +6,6 @@
 // 필요한 환경변수:
 //   POSTHOG_API_KEY    — Personal API Key (scope: Query Read). 앱의 phc_ 수집 키가 아니다.
 //   POSTHOG_PROJECT_ID — 프로젝트 숫자 ID (Settings → Project)
-//   SUPABASE_URL       — 미등록 도착지 섹션용 (없으면 그 섹션만 조용히 빠진다)
-//   SUPABASE_ANON_KEY  — 위와 함께. 집계 RPC 만 부르므로 anon 으로 충분하다
 //   POSTHOG_HOST       — 기본 https://eu.posthog.com. 이 프로젝트는 EU 클라우드다
 //                        (.env 의 EXPO_PUBLIC_POSTHOG_HOST=eu.i.posthog.com — 수집은
 //                        *.i.posthog.com, private API 는 eu.posthog.com 으로 나뉜다)
@@ -31,25 +29,6 @@ async function hogql(query) {
   return (await res.json()).results ?? [];
 }
 
-// 라이더가 도착했지만 아직 등록 안 된 곳 (Supabase, 누적). 등록하면 목록에서
-// 자연히 빠지므로 그대로 시드 할 일 목록이 된다. 실패하면 섹션만 생략한다.
-async function unregisteredSpots() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
-  if (!url || !key) return [];
-  try {
-    const res = await fetch(`${url}/rest/v1/rpc/unregistered_ride_spots`, {
-      method: 'POST',
-      headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p_limit: 5 }),
-    });
-    if (!res.ok) return [];
-    return await res.json();
-  } catch {
-    return [];
-  }
-}
-
 // 창은 실행 시각 기준 rolling — 이번 주 [now-7d, now), 전주 [now-14d, now-7d).
 // 월요일 아침에 돌면 사실상 "지난주 vs 그 전주"가 된다.
 const CUR = `timestamp >= now() - INTERVAL 7 DAY`;
@@ -58,7 +37,9 @@ const PREV = `timestamp >= now() - INTERVAL 14 DAY AND timestamp < now() - INTER
 // 표 순서 = 퍼널 순서 — 발견 → 조회 → 주행 → 참여
 const EVENTS = [
   ['search_submitted', '검색'],
+  ['search_results_viewed', '검색 결과 노출'],
   ['search_result_selected', '검색 결과 선택'],
+  ['search_area_browsed', '이 지역 둘러보기'],
   ['category_filtered', '카테고리 필터'],
   ['place_viewed', '장소 상세 조회'],
   ['navigation_previewed', '경로 미리보기'],
@@ -68,6 +49,8 @@ const EVENTS = [
   ['favorite_toggled', '즐겨찾기 토글'],
   ['review_submitted', '리뷰 작성'],
   ['place_submitted', '장소 제보'],
+  ['place_submission_prompted', '도착 후 장소 제보 제안'],
+  ['place_submission_opened', '장소 제보 열기'],
   ['bike_setup_saved', '내 바이크 저장'],
   ['bike_ride_history_opened', '라이딩 기록 조회'],
   ['chat_message_sent', 'AI 챗 메시지'],
@@ -86,8 +69,7 @@ function kstDay(offset) {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
 }
 
-const [unregistered, wau, counts, liveNav, endReasons, misses] = await Promise.all([
-  unregisteredSpots(),
+const [wau, counts, liveNav, endReasons, searchSessions] = await Promise.all([
   // WAU — 어떤 이벤트든 남긴 고유 사용자 (화면 조회 포함)
   hogql(`
     SELECT
@@ -103,26 +85,35 @@ const [unregistered, wau, counts, liveNav, endReasons, misses] = await Promise.a
       AND event IN (${EVENTS.map(([e]) => `'${e}'`).join(', ')})
     GROUP BY event
   `),
-  // 실주행만 따로 — preview(모의 주행)와 섞으면 진짜 사용을 못 읽는다
+  // 계측 v2 실주행 세션만 — preview와 섞지 않고 시작·종료를 id로 연결한다.
   hogql(`
-    SELECT countIf(${CUR}) AS cur, countIf(${PREV}) AS prev
+    SELECT
+      count(DISTINCT if(${CUR}, properties.guide_session_id, NULL)) AS cur,
+      count(DISTINCT if(${PREV}, properties.guide_session_id, NULL)) AS prev
     FROM events
     WHERE timestamp >= now() - INTERVAL 14 DAY
       AND event = 'navigation_started' AND properties.mode = 'live'
+      AND properties.guide_session_id IS NOT NULL
   `),
   hogql(`
     SELECT properties.reason AS reason, count() AS n
     FROM events
     WHERE ${CUR} AND event = 'navigation_ended'
+      AND properties.mode = 'live'
+      AND properties.guide_session_id IS NOT NULL
     GROUP BY reason
   `),
-  // 실재하는데(카카오에 있음) 우리 DB 에 없던 검색어 — 시드·제보 우선순위
+  // 검색 결과를 본 세션 중 하나라도 고른 세션 — 화면·결과 종류가 달라도 id로 묶는다.
   hogql(`
-    SELECT properties.query AS q, count() AS n
+    SELECT
+      count(DISTINCT if(${CUR} AND event = 'search_results_viewed', properties.search_id, NULL)) AS viewed_cur,
+      count(DISTINCT if(${CUR} AND event = 'search_result_selected', properties.search_id, NULL)) AS selected_cur,
+      count(DISTINCT if(${PREV} AND event = 'search_results_viewed', properties.search_id, NULL)) AS viewed_prev,
+      count(DISTINCT if(${PREV} AND event = 'search_result_selected', properties.search_id, NULL)) AS selected_prev
     FROM events
-    WHERE ${CUR} AND event = 'search_no_results'
-      AND toFloat(properties.kakao_count) > 0 AND properties.query IS NOT NULL
-    GROUP BY q ORDER BY n DESC LIMIT 5
+    WHERE timestamp >= now() - INTERVAL 14 DAY
+      AND event IN ('search_results_viewed', 'search_result_selected')
+      AND properties.search_id IS NOT NULL
   `),
 ]);
 
@@ -131,18 +122,29 @@ const [wauCur = 0, wauPrev = 0] = wau[0] ?? [];
 const [liveCur = 0, livePrev = 0] = liveNav[0] ?? [];
 const arrived = endReasons.find(([r]) => r === 'arrived')?.[1] ?? 0;
 const cancelled = endReasons.find(([r]) => r === 'cancelled')?.[1] ?? 0;
-// abandoned = 안내 중 앱 강제 종료·크래시를 다음 실행 때 정산한 것 (runtime 1.2.4 OTA 이후)
+// abandoned = 안내 마커가 다음 앱 실행까지 남은 것. 강제 종료·OS 종료·크래시를
+// 구분할 수 없으므로 크래시율로 해석하지 않는다.
 const abandoned = endReasons.find(([r]) => r === 'abandoned')?.[1] ?? 0;
+const [searchViewedCur = 0, searchSelectedCur = 0, searchViewedPrev = 0, searchSelectedPrev = 0] =
+  searchSessions[0] ?? [];
 
 const lines = [];
 lines.push(`# 주간 다이제스트 (${kstDay(7)} ~ ${kstDay(0)})`);
 lines.push('');
 lines.push(`**활성 사용자(WAU)**: ${wauCur} (전주 ${wauPrev}, ${delta(wauCur, wauPrev)})`);
 lines.push(`**실주행(live 길안내)**: ${liveCur} (전주 ${livePrev}, ${delta(liveCur, livePrev)})`);
-const endedTotal = arrived + cancelled + abandoned;
-if (endedTotal > 0) {
+if (liveCur > 0) {
   lines.push(
-    `**길안내 완주율**: ${Math.round((arrived / endedTotal) * 100)}% (도착 ${arrived} · 중도 종료 ${cancelled} · 비정상 종료 ${abandoned})`,
+    `**실주행 도착률(v2)**: ${Math.round((arrived / liveCur) * 100)}% (시작 ${liveCur} · 도착 ${arrived} · 중도 종료 ${cancelled} · 비정상 종료 ${abandoned})`,
+  );
+}
+if (searchViewedCur > 0) {
+  const curRate = Math.round((searchSelectedCur / searchViewedCur) * 100);
+  const prevRate = searchViewedPrev > 0
+    ? `${Math.round((searchSelectedPrev / searchViewedPrev) * 100)}%`
+    : '—';
+  lines.push(
+    `**검색 결과 선택률(v2)**: ${curRate}% (결과 노출 ${searchViewedCur} · 선택 ${searchSelectedCur}, 전주 ${prevRate})`,
   );
 }
 lines.push('');
@@ -152,29 +154,6 @@ for (const [event, label] of EVENTS) {
   const { cur = 0, prev = 0 } = byEvent.get(event) ?? {};
   lines.push(`| ${label} | ${cur} | ${prev} | ${delta(cur, prev)} |`);
 }
-lines.push('');
-lines.push('## 우리 DB에 없던 검색어 top 5');
-if (misses.length === 0) {
-  lines.push('이번 주 없음');
-} else {
-  lines.push('| 검색어 | 횟수 |');
-  lines.push('|---|---:|');
-  for (const [q, n] of misses) lines.push(`| ${q} | ${n} |`);
-  lines.push('');
-  lines.push('_카카오에는 있는데 등록 장소에 없던 검색 — 시드·제보 우선순위_');
-}
-lines.push('');
-lines.push('## 라이더가 다녀왔는데 아직 등록 안 된 곳');
-if (unregistered.length === 0) {
-  lines.push('아직 없음');
-} else {
-  lines.push('| 장소 | 도착 | 라이더 |');
-  lines.push('|---|---:|---:|');
-  for (const s of unregistered) lines.push(`| ${s.name} | ${s.rides} | ${s.riders} |`);
-  lines.push('');
-  lines.push('_길안내로 실제 도착한 곳(누적) — 검색만 한 것보다 강한 등록 후보 신호. 등록하면 목록에서 빠진다_');
-}
-
 lines.push('');
 lines.push(`_기준: 실행 시각으로부터 최근 7일 vs 그 전 7일 (rolling) · ${new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 16).replace('T', ' ')} KST 생성_`);
 

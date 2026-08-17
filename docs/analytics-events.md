@@ -16,8 +16,10 @@ app_opened → place_viewed → navigation_started → navigation_ended(arrived)
 
 **B. 검색**
 ```
-search_submitted → (search_no_results) → search_result_selected
+(search_submitted) → search_results_viewed → (search_no_results) → search_result_selected
 ```
+입력 중 자동 결과는 `search_submitted` 없이도 나타나므로 전환율의 분모는
+`search_results_viewed`의 고유 `search_id`다. 엔터·음성 검색만 `search_submitted`를 남긴다.
 `search_no_results` 는 **등록 장소가 0건일 때** 나간다. 카카오 일반 장소까지 0건일 때만 세면
 거의 안 찍힌다 — 카카오는 웬만한 문자열에 뭐라도 돌려주기 때문이다. `kakao_count` 로 가른다:
 0 이면 검색어 자체가 안 걸린 것(오타), 1 이상이면 **실재하는데 우리 DB 에 없는 곳** = 제보 우선순위.
@@ -39,12 +41,14 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 
 | 이벤트 | 속성 |
 | --- | --- |
-| `search_submitted` | `method`(typed·voice) · `source`(map_bar·search_screen·point_modal) · `query` |
-| `search_no_results` | `query` · `source` · `kakao_count` |
-| `search_result_selected` | `result_type`(registered·kakao·course) · `rank` · `source` |
-| `search_filter_toggled` | `filter`(open·parking·rating·bike) · `on` |
-| `search_scope_changed` | `scope`(near·all) |
-| `search_area_refreshed` | - |
+| `search_submitted` | `search_id` · `method`(typed·voice) · `source`(map_bar·search_screen·point_modal) · `query` |
+| `search_results_viewed` | `search_id` · `query` · `source` · `registered_count` · `kakao_count` · `course_count` · `scope` |
+| `search_no_results` | `search_id` · `query` · `source` · `kakao_count` |
+| `search_result_selected` | `search_id` · `result_type`(registered·kakao·course) · `rank` · `source` |
+| `search_filter_toggled` | `search_id` · `filter`(open·parking·rating·bike) · `on` |
+| `search_scope_changed` | `search_id` · `scope`(near·all) |
+| `search_area_refreshed` | `search_id` |
+| `search_area_browsed` | `search_id` · `source` |
 | `category_filtered` | `category` |
 | `place_viewed` | `place_id` · `category` · `source` |
 | `course_saved` | `on` |
@@ -58,8 +62,8 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | 이벤트 | 속성 |
 | --- | --- |
 | `navigation_previewed` | `distance_m` · `duration_s` · `priority` · `via_count` · `has_custom_start` |
-| `navigation_started` | `mode`(live·preview) · `priority` · `via_count` · `distance_m` |
-| `navigation_ended` | `reason`(arrived·cancelled) |
+| `navigation_started` | `guide_session_id` · `mode`(live·preview) · `priority` · `via_count` · `distance_m` |
+| `navigation_ended` | `guide_session_id` · `mode` · `reason`(arrived·cancelled·abandoned) · `duration_s` · `distance_m` |
 | `route_failed` | `code`(KNSDK 에러 코드) · `via_count` |
 
 ### 참여·기여
@@ -67,7 +71,9 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | 이벤트 | 속성 |
 | --- | --- |
 | `favorite_toggled` | `on` · `place_id` · `category` · `source` |
-| `place_submitted` | `category` |
+| `place_submission_prompted` | `has_address` |
+| `place_submission_opened` | `source`(arrival·temp_place) |
+| `place_submitted` | `category` · `source`(tab·arrival·temp_place) |
 | `review_submitted` | `target`(place·course) · `rating` · `has_photo` |
 | `chat_message_sent` | `turn_index` |
 
@@ -116,7 +122,8 @@ expo-router 는 `NavigationContainer` 를 노출하지 않아 PostHog 의 화면
 - **라이더 장소 정보의 사용자·장소 연결** — 사실 코드와 선택 여부만 보내고 place id는 보내지 않는다.
 
 `query` 는 보낸다. "무엇을 찾다 실패했는지"를 알아야 검색을 고칠 수 있고 그게 이 계측의 최대 실익이다.
-위 예외만 지킨다.
+다만 개별 검색어와 미등록 도착지는 **공개 GitHub 다이제스트에 절대 싣지 않고**, 권한이 제한된
+PostHog·private DB 안에서만 확인한다. 위 예외도 함께 지킨다.
 
 ## 세션 리플레이
 
