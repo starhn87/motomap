@@ -12,7 +12,7 @@ export default {
       url: 'https://u.expo.dev/46277971-d460-4e19-82eb-df05f18ff9f7',
     },
     orientation: 'portrait',
-    icon: './assets/images/icon.png',
+    icon: './assets/images/icon-v2.png',
     scheme: 'ridemap',
     userInterfaceStyle: 'automatic',
     newArchEnabled: true,
@@ -23,6 +23,7 @@ export default {
     },
     ios: {
       supportsTablet: false,
+      icon: './assets/images/icon-v2.png',
       usesAppleSignIn: true,
       associatedDomains: ['applinks:motomap.kr'],
       infoPlist: {
@@ -61,8 +62,8 @@ export default {
     android: {
       package: 'com.ridemap.app',
       adaptiveIcon: {
-        foregroundImage: './assets/images/adaptive-icon.png',
-        backgroundColor: '#ffffff',
+        foregroundImage: './assets/images/icon-v2.png',
+        backgroundColor: '#0A0A0A',
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
@@ -78,7 +79,14 @@ export default {
     },
     plugins: [
       'expo-router',
-      'expo-secure-store',
+      [
+        'expo-secure-store',
+        {
+          // 인증 토큰은 Keychain에 저장하지만 생체 인증 잠금은 사용하지 않는다.
+          // 쓰지 않는 Face ID 권한 문구가 바이너리에 포함되지 않게 한다.
+          faceIDPermission: false,
+        },
+      ],
       'expo-apple-authentication',
       [
         'expo-web-browser',
