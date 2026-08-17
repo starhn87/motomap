@@ -33,6 +33,7 @@ import {
   explainPlaceMatch,
   isSamePlace,
   searchAll,
+  searchAllNearFirst,
   SEARCH_RADIUS_M,
 } from '@/lib/api/search';
 import { useSearchAnchor } from '@/hooks/useSearchAnchor';
@@ -119,15 +120,14 @@ export default function SearchResultsScreen() {
   const detailOpen = selectedPlace !== null || selectedTemp !== null;
   const [filters, setFilters] = useState<SearchFilter[]>([]);
 
-  // 첫 검색은 검색 화면과 같은 기준점이라 캐시로 즉시 뜬다. 이후에는 이 지도에서
-  // 직접 범위를 바꾸거나 전국으로 넓힐 수 있다.
+  // 첫 검색은 검색 화면과 같은 기준점을 쓴다. 일반 검색은 이 주변 결과를 먼저,
+  // 전국 결과를 그 뒤에 붙인다. 둘러보기만 주변 20km로 한정한다.
   const { near: anchorNear } = useSearchAnchor();
   const initialNear = browseNear ?? anchorNear;
-  const [scope, setScope] = useState<'near' | 'all'>(initialNear ? 'near' : 'all');
   const [searchNear, setSearchNear] = useState(initialNear);
   const [canSearchArea, setCanSearchArea] = useState(false);
   const cameraCenterRef = useRef(initialNear);
-  const activeNear = scope === 'near' ? searchNear : undefined;
+  const activeNear = searchNear;
   const nearKey = activeNear
     ? `${activeNear.latitude.toFixed(3)},${activeNear.longitude.toFixed(3)}`
     : 'all';
@@ -136,13 +136,15 @@ export default function SearchResultsScreen() {
     if (!searchNear && initialNear) {
       setSearchNear(initialNear);
       cameraCenterRef.current = initialNear;
-      setScope('near');
     }
   }, [initialNear, searchNear]);
 
   const { data: results, isLoading } = useQuery({
     queryKey: ['search', searchQuery, nearKey, browseMode],
-    queryFn: () => searchAll(searchQuery, activeNear, scope === 'near'),
+    queryFn: () =>
+      browseMode
+        ? searchAll(searchQuery, activeNear, true)
+        : searchAllNearFirst(searchQuery, activeNear),
     enabled: browseMode ? !!activeNear : !!query,
   });
   const { data: kakaoResults, isLoading: kakaoLoading } = useQuery({
@@ -197,7 +199,7 @@ export default function SearchResultsScreen() {
   const viewedResultSets = useRef(new Set<string>());
   useEffect(() => {
     if (!query || loading) return;
-    const resultSet = `${scope}:${nearKey}`;
+    const resultSet = `${browseMode ? 'near' : 'near-first'}:${nearKey}`;
     if (viewedResultSets.current.has(resultSet)) return;
     viewedResultSets.current.add(resultSet);
     const registeredCount = items.filter((item) => item.kind === 'place').length;
@@ -210,7 +212,7 @@ export default function SearchResultsScreen() {
       registered_count: registeredCount,
       kakao_count: kakaoCount,
       course_count: courseCount,
-      scope,
+      scope: browseMode ? 'near' : 'all',
     });
     if (registeredCount === 0 && !browseMode) {
       track.searchNoResults({
@@ -220,7 +222,7 @@ export default function SearchResultsScreen() {
         kakao_count: kakaoCount,
       });
     }
-  }, [query, browseMode, loading, items, scope, nearKey, searchId, searchSource]);
+  }, [query, browseMode, loading, items, nearKey, searchId, searchSource]);
 
   // 기본 스냅은 목록 높이에 맞추되 화면의 45% 까지만 — 결과가 두어 개뿐인데
   // 억지로 채우면 지도만 가린다. 검색 근거 줄을 포함한 행 94px로 잡는다.
@@ -349,7 +351,7 @@ export default function SearchResultsScreen() {
         onCameraChanged={(e) => {
           if (typeof e.zoom === 'number') zoomRef.current = e.zoom;
           cameraCenterRef.current = { latitude: e.latitude, longitude: e.longitude };
-          if (e.reason === 'Gesture' && scope === 'near') setCanSearchArea(true);
+          if (e.reason === 'Gesture') setCanSearchArea(true);
         }}>
         {/* 선택된 하나만 핀(물방울, 하단 앵커), 나머지는 원형 — 지도 탭과
             같은 규칙이라 "핀 = 지금 보고 있는 곳"으로 읽힌다. */}
@@ -414,42 +416,6 @@ export default function SearchResultsScreen() {
         <Ionicons name="search" size={16} color={colors.textSecondary} />
       </Pressable>
 
-      {!browseMode && <View
-        style={[
-          styles.scopeBar,
-          {
-            top: insets.top + 62,
-            backgroundColor: colors.background,
-            borderColor: colors.border,
-          },
-        ]}>
-        {(['near', 'all'] as const).map((value) => {
-          const selected = scope === value;
-          return (
-            <Pressable
-              key={value}
-              onPress={() => {
-                if (scope === value) return;
-                setScope(value);
-                setCanSearchArea(false);
-                track.searchScopeChanged({ search_id: searchId, scope: value });
-                if (value === 'near' && cameraCenterRef.current) {
-                  setSearchNear(cameraCenterRef.current);
-                }
-              }}
-              style={[styles.scopeOption, selected && { backgroundColor: colors.tint }]}>
-              <Text
-                style={[
-                  styles.scopeText,
-                  { color: selected ? colors.background : colors.textSecondary },
-                ]}>
-                {value === 'near' ? '이 지역' : '전국'}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>}
-
       {canSearchArea && cameraCenterRef.current && !detailOpen && (
         <Pressable
           onPress={() => {
@@ -460,7 +426,7 @@ export default function SearchResultsScreen() {
           style={({ pressed }) => [
             styles.searchAreaButton,
             {
-              top: insets.top + (browseMode ? 62 : 108),
+              top: insets.top + 62,
               backgroundColor: colors.background,
               borderColor: colors.border,
             },
@@ -694,29 +660,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     paddingHorizontal: 20,
     paddingBottom: 8,
-  },
-  scopeBar: {
-    position: 'absolute',
-    left: 16,
-    flexDirection: 'row',
-    padding: 3,
-    borderWidth: 1,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-    zIndex: 2,
-  },
-  scopeOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 9,
-  },
-  scopeText: {
-    fontSize: 12,
-    fontWeight: '700',
   },
   searchAreaButton: {
     position: 'absolute',

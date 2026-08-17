@@ -107,6 +107,36 @@ export async function searchAll(
   };
 }
 
+/**
+ * 명시적으로 결과 지도를 연 검색은 주변 결과 뒤에 전국 결과를 이어 붙인다.
+ * 기존 RPC의 nearOnly=false는 주변 결과가 하나라도 있으면 전국 결과를 생략하므로,
+ * 주변·전국을 병렬 조회한 뒤 id로 중복을 제거한다.
+ */
+export async function searchAllNearFirst(
+  query: string,
+  near?: { latitude: number; longitude: number },
+): Promise<SearchResults> {
+  if (!near) return searchAll(query);
+
+  const [nearby, nationwide] = await Promise.all([
+    searchAll(query, near, true),
+    searchAll(query),
+  ]);
+  const nearbyPlaceIds = new Set(nearby.places.map((place) => place.id));
+  const nearbyCourseIds = new Set(nearby.courses.map((course) => course.id));
+
+  return {
+    places: [
+      ...nearby.places,
+      ...nationwide.places.filter((place) => !nearbyPlaceIds.has(place.id)),
+    ],
+    courses: [
+      ...nearby.courses,
+      ...nationwide.courses.filter((course) => !nearbyCourseIds.has(course.id)),
+    ],
+  };
+}
+
 function includesCompact(value: string | null | undefined, query: string): boolean {
   return !!value && compact(value).includes(query);
 }

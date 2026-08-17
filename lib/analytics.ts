@@ -121,9 +121,6 @@ export const track = {
   }) =>
     capture('search_filter_toggled', p),
 
-  searchScopeChanged: (p: { search_id: string; scope: 'near' | 'all' }) =>
-    capture('search_scope_changed', p),
-
   searchAreaRefreshed: (p: { search_id: string }) => capture('search_area_refreshed', p),
 
   searchAreaBrowsed: (p: { search_id: string; source: SearchSource }) =>

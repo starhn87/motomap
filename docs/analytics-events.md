@@ -46,7 +46,6 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `search_no_results` | `search_id` · `query` · `source` · `kakao_count` |
 | `search_result_selected` | `search_id` · `result_type`(registered·kakao·course) · `rank` · `source` |
 | `search_filter_toggled` | `search_id` · `filter`(open·parking·rating·bike) · `on` |
-| `search_scope_changed` | `search_id` · `scope`(near·all) |
 | `search_area_refreshed` | `search_id` |
 | `search_area_browsed` | `search_id` · `source` |
 | `category_filtered` | `category` |
