@@ -48,6 +48,8 @@ import { useReviews } from '@/hooks/useReviews';
 import { toast } from '@/lib/toast';
 import type { Place } from '@/types';
 import { haptics } from '@/lib/haptics';
+import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
+import { appAlert } from '@/lib/dialog';
 
 interface Props {
   place: Place | null;
@@ -104,12 +106,34 @@ function PlaceBottomSheet({
   );
   const user = useAuthStore((s) => s.user);
   const userLocation = useMapStore((s) => s.userLocation);
+  const myPlaces = useMyPlacesStore((s) => s.places);
+  const loadMyPlaces = useMyPlacesStore((s) => s.load);
+  const saveMyPlace = useMyPlacesStore((s) => s.save);
+  const removeMyPlace = useMyPlacesStore((s) => s.remove);
   const { data: latestPlace } = usePlace(place?.id ?? null);
   const reviewTarget = place ? ({ kind: 'place', id: place.id } as const) : null;
   const { data: reviewPages } = useReviews(reviewTarget);
   const reviews = reviewPages?.pages.flat();
   const displayPlace = latestPlace ?? place;
   const isFavorite = useIsFavorite(place?.id ?? '');
+
+  useEffect(() => {
+    void loadMyPlaces();
+  }, [loadMyPlaces]);
+
+  const near = (a: number, b: number) => Math.abs(a - b) < 1e-5;
+  const savedSlot: MyPlaceSlot | null =
+    displayPlace &&
+    myPlaces.home &&
+    near(myPlaces.home.latitude, displayPlace.latitude) &&
+    near(myPlaces.home.longitude, displayPlace.longitude)
+      ? 'home'
+      : displayPlace &&
+          myPlaces.work &&
+          near(myPlaces.work.latitude, displayPlace.latitude) &&
+          near(myPlaces.work.longitude, displayPlace.longitude)
+        ? 'work'
+        : null;
 
   // 장소 자체 사진(리뷰 없음) + 리뷰 사진(작성 리뷰 연결) — 확대 모달에서 리뷰를 함께 보여준다
   const photoItems = [
@@ -252,6 +276,59 @@ function PlaceBottomSheet({
     }
   };
 
+  const handleSaveMyPlace = () => {
+    if (!displayPlace) return;
+    if (savedSlot) {
+      const isHome = savedSlot === 'home';
+      appAlert(
+        isHome ? '집으로 저장된 장소' : '회사로 저장된 장소',
+        displayPlace.name,
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: isHome ? '회사로 변경' : '집으로 변경',
+            onPress: async () => {
+              await removeMyPlace(savedSlot);
+              await saveMyPlace(isHome ? 'work' : 'home', displayPlace);
+              toast.success(isHome ? '회사로 변경했어요.' : '집으로 변경했어요.');
+            },
+          },
+          {
+            text: '저장 해제',
+            style: 'destructive',
+            onPress: async () => {
+              await removeMyPlace(savedSlot);
+              toast.info('내 장소에서 해제했어요.');
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    appAlert(
+      '내 장소로 저장',
+      `${displayPlace.name}\n검색 화면에서 바로 길안내할 수 있어요.`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '집으로',
+          onPress: async () => {
+            await saveMyPlace('home', displayPlace);
+            toast.success('집으로 저장했어요.');
+          },
+        },
+        {
+          text: '회사로',
+          onPress: async () => {
+            await saveMyPlace('work', displayPlace);
+            toast.success('회사로 저장했어요.');
+          },
+        },
+      ],
+    );
+  };
+
   const actions = (
     <>
       <TouchableOpacity onPress={handleFavorite} style={styles.iconButton}>
@@ -263,6 +340,19 @@ function PlaceBottomSheet({
             color={isFavorite ? '#FACC15' : colors.textSecondary}
           />
         </Animated.View>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={handleSaveMyPlace} style={styles.iconButton}>
+        <Ionicons
+          name={
+            savedSlot === 'home'
+              ? 'home'
+              : savedSlot === 'work'
+                ? 'business'
+                : 'bookmark-outline'
+          }
+          size={24}
+          color={savedSlot ? colors.tint : colors.textSecondary}
+        />
       </TouchableOpacity>
       <TouchableOpacity onPress={onClose} style={styles.iconButton}>
         <Ionicons name="close" size={26} color={colors.textSecondary} />

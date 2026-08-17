@@ -2,7 +2,17 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Animated, {
+  Extrapolation,
+  FadeIn,
+  interpolate,
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
   ActivityIndicator,
   Linking,
@@ -52,6 +62,10 @@ interface Props {
 }
 
 const SNAP_POINTS = [100, '45%', '100%'];
+const PAGE_HEADER_HEIGHT = 56;
+const HANDLE_HEIGHT = 28;
+const HEADER_CONTENT_GAP = 6;
+const CONTENT_PADDING = 20;
 
 // 일반 장소도 등록 장소와 같은 확장형 상세 경험을 쓴다. 차이는 카테고리·라이더
 // 집계처럼 모토맵이 검증한 정보 대신 카카오 정보와 라이더 리뷰가 중심이라는 점이다.
@@ -63,6 +77,20 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   const scrollRef = useRef<any>(null);
   const didInitRef = useRef(false);
   const [currentIndex, setCurrentIndex] = useState(1);
+  const animatedIndex = useSharedValue(1);
+  const currentIndexRef = useRef(1);
+
+  const syncIndex = useCallback((index: number) => {
+    currentIndexRef.current = index;
+    setCurrentIndex(index);
+  }, []);
+
+  useAnimatedReaction(
+    () => Math.round(animatedIndex.value),
+    (rounded, previous) => {
+      if (rounded !== previous) runOnJS(syncIndex)(rounded);
+    },
+  );
   const [hoursExpanded, setHoursExpanded] = useState(false);
   const [resolvingNavigation, setResolvingNavigation] = useState(false);
   const isExpanded = currentIndex === SNAP_POINTS.length - 1;
@@ -269,6 +297,59 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   );
 
   const navigating = resolvingNavigation || navLaunching;
+  const [headerReady, setHeaderReady] = useState(false);
+
+  useEffect(() => {
+    if (!isExpanded) {
+      setHeaderReady(false);
+      return;
+    }
+    const timer = setTimeout(() => setHeaderReady(true), 300);
+    return () => clearTimeout(timer);
+  }, [isExpanded]);
+
+  const handleIndicatorStyle = useAnimatedStyle(() => ({
+    backgroundColor:
+      animatedIndex.value >= SNAP_POINTS.length - 1.5
+        ? 'transparent'
+        : colors.tabIconDefault,
+  }));
+
+  const spacerStyle = useAnimatedStyle(() => ({
+    height: interpolate(
+      animatedIndex.value,
+      [1, 2],
+      [
+        0,
+        Math.max(
+          insets.top +
+            PAGE_HEADER_HEIGHT +
+            HEADER_CONTENT_GAP -
+            HANDLE_HEIGHT -
+            CONTENT_PADDING,
+          0,
+        ),
+      ],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
+  const renderHandle = useCallback(
+    () => (
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={() => {
+          const index = currentIndexRef.current;
+          if (index < SNAP_POINTS.length - 1) {
+            bottomSheetRef.current?.snapToIndex(index + 1);
+          }
+        }}
+        style={styles.handleContainer}>
+        <Animated.View style={[styles.handleIndicator, handleIndicatorStyle]} />
+      </TouchableOpacity>
+    ),
+    [handleIndicatorStyle],
+  );
 
   return (
     <>
@@ -278,12 +359,14 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         animateOnMount={false}
         snapPoints={SNAP_POINTS}
         enableDynamicSizing={false}
+        activeOffsetY={[-12, 12]}
+        failOffsetX={[-12, 12]}
+        animatedIndex={animatedIndex}
         enablePanDownToClose={false}
         keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
         enableBlurKeyboardOnGesture
         onChange={(index) => {
-          setCurrentIndex(index);
           if (index === -1) onClose();
         }}
         containerStyle={styles.sheetContainer}
@@ -295,14 +378,15 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
           shadowOpacity: 0.15,
           shadowRadius: 12,
           elevation: 8,
-        }}>
+        }}
+        handleComponent={renderHandle}>
         <BottomSheetScrollView
           ref={scrollRef}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
-          {isExpanded && <View style={{ height: insets.top + 44 }} />}
+          <Animated.View style={spacerStyle} />
 
           <View style={styles.nameRow}>
             <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
@@ -494,16 +578,18 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
       </BottomSheet>
 
       {isExpanded && (
-        <View
+        <Animated.View
+          pointerEvents={headerReady ? 'auto' : 'box-only'}
+          entering={FadeIn.duration(200)}
           style={[
             styles.pageHeader,
             { paddingTop: insets.top, backgroundColor: colors.background },
           ]}>
-          <Pressable onPress={() => bottomSheetRef.current?.snapToIndex(1)} hitSlop={8}>
+          <Pressable onPress={() => bottomSheetRef.current?.close()} hitSlop={8}>
             <Ionicons name="chevron-back" size={25} color={colors.text} />
           </Pressable>
           {headerActions}
-        </View>
+        </Animated.View>
       )}
     </>
   );
@@ -512,15 +598,24 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
 const styles = StyleSheet.create({
   sheetContainer: { zIndex: 20 },
   content: { padding: 20, paddingBottom: 120 },
+  handleContainer: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  handleIndicator: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
   pageHeader: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 30,
-    minHeight: 56,
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 12,
