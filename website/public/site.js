@@ -50,16 +50,15 @@ if (rideStory && !reduceMotion) {
     0,
     ...chapterWindows.map(({ start, end }) => clamp((start + Math.min(end, 1)) / 2)),
   ];
-  const wheelThreshold = 8;
-  const wheelIdleDuration = 160;
   const transitionFallbackDuration = 900;
   let frameRequested = false;
   let transitionLocked = false;
   let transitionReleaseTimer;
-  const pendingDirections = [];
-  let wheelDelta = 0;
-  let wheelConsumed = false;
-  let wheelIdleTimer;
+  let targetStepIndex = null;
+  let wheelGestureStartedAt = Number.NEGATIVE_INFINITY;
+  let lastWheelAt = Number.NEGATIVE_INFINITY;
+  let lastWheelMagnitude = 0;
+  let lastWheelDirection = 0;
   let touchStartY = null;
   let touchConsumed = false;
 
@@ -72,7 +71,21 @@ if (rideStory && !reduceMotion) {
     ];
   };
 
-  const getTargetStoryStop = (direction) => {
+  const getCurrentStepIndex = (stops) => {
+    if (targetStepIndex !== null) return targetStepIndex;
+
+    let nearestIndex = 0;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    for (const [index, stop] of stops.entries()) {
+      const distance = Math.abs(stop - window.scrollY);
+      if (distance >= nearestDistance) continue;
+      nearestDistance = distance;
+      nearestIndex = index;
+    }
+    return nearestIndex;
+  };
+
+  const getTargetStoryStep = (direction) => {
     const stops = getStoryStops();
     const currentScroll = window.scrollY;
     const storyStart = stops[0];
@@ -80,87 +93,72 @@ if (rideStory && !reduceMotion) {
 
     if (currentScroll < storyStart - 4 || currentScroll > storyEnd + 4) return null;
 
-    if (direction > 0) {
-      return stops.find((stop) => stop > currentScroll + 4) ?? null;
-    }
-
-    for (let index = stops.length - 1; index >= 0; index -= 1) {
-      if (stops[index] < currentScroll - 4) return stops[index];
-    }
-    return null;
+    const nextIndex = getCurrentStepIndex(stops) + direction;
+    if (nextIndex < 0 || nextIndex >= stops.length) return null;
+    return { index: nextIndex, top: stops[nextIndex] };
   };
 
   const finishStoryTransition = () => {
     if (!transitionLocked) return;
 
     transitionLocked = false;
+    targetStepIndex = null;
     window.clearTimeout(transitionReleaseTimer);
-
-    const pendingDirection = pendingDirections.shift();
-    if (pendingDirection) {
-      window.requestAnimationFrame(() => {
-        if (moveStoryByStep(pendingDirection)) return;
-        window.scrollBy({
-          top: pendingDirection * window.innerHeight * 0.8,
-          behavior: 'smooth',
-        });
-      });
-    }
   };
 
   const moveStoryByStep = (direction) => {
-    const target = getTargetStoryStop(direction);
+    const target = getTargetStoryStep(direction);
     if (target === null) return false;
-    if (transitionLocked) {
-      pendingDirections.push(direction);
-      return true;
-    }
 
     transitionLocked = true;
+    targetStepIndex = target.index;
     window.clearTimeout(transitionReleaseTimer);
     transitionReleaseTimer = window.setTimeout(finishStoryTransition, transitionFallbackDuration);
 
-    window.scrollTo({ top: target, behavior: 'smooth' });
+    window.scrollTo({ top: target.top, behavior: 'smooth' });
     return true;
   };
 
-  // 트랙패드의 관성 이벤트까지 한 묶음으로 보고, 완전히 멈춘 뒤에만 다음 단계를 연다.
-  const scheduleWheelRelease = () => {
-    window.clearTimeout(wheelIdleTimer);
-    wheelIdleTimer = window.setTimeout(() => {
-      wheelDelta = 0;
-      wheelConsumed = false;
-    }, wheelIdleDuration);
+  // 고정 시간 동안 입력을 막지 않고, 연속 감쇠는 관성으로, 간격·방향·세기 변화는 새 입력으로 본다.
+  const isNewWheelGesture = (event, direction, magnitude) => {
+    const now = Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now();
+    const gap = now - lastWheelAt;
+    const gestureDuration = now - wheelGestureStartedAt;
+    const directionChanged = lastWheelDirection !== 0 && direction !== lastWheelDirection;
+    const mouseWheelImpulse = gap > 28 && magnitude >= 40 && magnitude >= lastWheelMagnitude * 0.8;
+    const renewedTrackpadImpulse = (
+      gestureDuration > 90
+      && magnitude > Math.max(lastWheelMagnitude * 1.8, 10)
+    );
+    const isNew = (
+      !Number.isFinite(lastWheelAt)
+      || gap > 72
+      || directionChanged
+      || mouseWheelImpulse
+      || renewedTrackpadImpulse
+    );
+
+    if (isNew) wheelGestureStartedAt = now;
+    lastWheelAt = now;
+    lastWheelMagnitude = magnitude;
+    lastWheelDirection = direction;
+    return isNew;
   };
 
   const handleWheel = (event) => {
     if (event.ctrlKey || event.deltaY === 0 || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
 
-    if (wheelConsumed) {
-      event.preventDefault();
-      scheduleWheelRelease();
-      return;
-    }
-
     const direction = event.deltaY > 0 ? 1 : -1;
-    if (getTargetStoryStop(direction) === null) return;
+    if (getTargetStoryStep(direction) === null) return;
 
     event.preventDefault();
-    scheduleWheelRelease();
-
     const deltaScale = event.deltaMode === 1
       ? 16
       : event.deltaMode === 2
         ? window.innerHeight
         : 1;
-    wheelDelta += event.deltaY * deltaScale;
-
-    if (Math.abs(wheelDelta) < wheelThreshold) return;
-
-    wheelConsumed = true;
-    const accumulatedDirection = wheelDelta > 0 ? 1 : -1;
-    wheelDelta = 0;
-    moveStoryByStep(accumulatedDirection);
+    const magnitude = Math.abs(event.deltaY * deltaScale);
+    if (isNewWheelGesture(event, direction, magnitude)) moveStoryByStep(direction);
   };
 
   const handleTouchStart = (event) => {
@@ -180,7 +178,7 @@ if (rideStory && !reduceMotion) {
     if (Math.abs(delta) < 2) return;
 
     const direction = delta > 0 ? 1 : -1;
-    if (getTargetStoryStop(direction) === null) return;
+    if (getTargetStoryStep(direction) === null) return;
 
     event.preventDefault();
     if (Math.abs(delta) < 42) return;
@@ -219,7 +217,7 @@ if (rideStory && !reduceMotion) {
     }
 
     if (direction === 0 || event.altKey || event.ctrlKey || event.metaKey) return;
-    if (getTargetStoryStop(direction) === null) return;
+    if (getTargetStoryStep(direction) === null) return;
 
     event.preventDefault();
     if (event.repeat) return;
