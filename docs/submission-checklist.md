@@ -59,21 +59,13 @@
 
 ### B-1. EAS 빌드 (production)
 
-**별도 터미널(macOS Terminal.app)**에서 실행 — Claude Code의 `!` 래퍼는 비대화형이라 Apple 2FA 입력 못 함:
-
 ```bash
-cd /Users/iseung-u/Projects/ridemap
+cd /Users/iseung-u/Projects/motomap
 set -a && source .env && set +a
-npx eas build --platform ios --profile production
+eas build --platform ios --profile production
 ```
 
-진행되는 프롬프트:
-- [ ] Apple ID 입력
-- [ ] 비밀번호 입력
-- [ ] 2FA 코드 입력 (다른 Apple 기기에 알림 옴)
-- [ ] Distribution Certificate 생성: **Y**
-- [ ] Provisioning Profile 생성: **Y**
-- [ ] Push Key 생성: **Y** (푸시 알림은 나중에 쓸 거면)
+Distribution Certificate, Provisioning Profile, Push Key와 ASC API Key는 EAS에 등록되어 있다. 새 capability를 추가했다면 EAS가 갱신한 프로비저닝 프로파일을 사용하는지 빌드 로그에서 확인한다.
 
 빌드 시간: **15~30분** (Expo 클라우드)
 
@@ -81,7 +73,7 @@ npx eas build --platform ios --profile production
 
 빌드 완료 후:
 ```bash
-npx eas submit --platform ios --latest
+eas submit --platform ios --latest --profile production
 ```
 
 자동으로 ASC에 업로드됨. 5~10분 후 ASC > TestFlight 탭에서 빌드 확인 가능.
@@ -94,9 +86,15 @@ npx eas submit --platform ios --latest
   - 검색
   - 장소 상세
   - 코스 목록
-  - 로그인/회원가입
+  - Apple·카카오·네이버·Google 신규 가입, 취소, 로그아웃 후 재로그인
+  - 기존 이메일 계정에 각 소셜 로그인 연결 후 사용자 ID·기존 데이터 유지
+  - 소셜 신규 가입 중 온보딩 취소 후 미완료 계정 정리
+  - 앱 재실행 후 보안 저장소 세션 유지
   - 리뷰 작성
-  - 네비게이션 외부 앱 연동 (카카오맵/T맵)
+  - 내 바이크·라이딩 기록과 이미지 공유 카드
+  - 장소·코스 `https://motomap.kr/...` 유니버설 링크
+  - 햅틱 켜기·끄기
+  - 경로 미리보기와 실제 이륜차 길안내
 
 ---
 
@@ -150,10 +148,10 @@ maestro test .maestro/main.yaml --debug-output ./screenshots
 `docs/app-store-submission.md` 의 각 섹션을 참조하여 ASC에 복붙.
 
 ### D-1. App Information
-- [ ] Subtitle: `바이커 전용 지도 · 코스 · 리뷰`
-- [ ] Privacy Policy URL: (Notion 공개 URL)
+- [ ] Subtitle: `바이커 장소, 코스, 이륜차 길안내`
+- [ ] Privacy Policy URL: `https://motomap.kr/privacy`
 - [ ] Category: Navigation / Travel
-- [ ] Content Rights: No third-party content
+- [ ] Content Rights: Yes, necessary rights secured
 
 ### D-2. Pricing and Availability
 - [ ] Free
@@ -165,6 +163,8 @@ ASC > App Privacy > **Get Started**
 - [ ] User Content > Photos, Other User Content
 - [ ] Identifiers > User ID
 - [ ] Location > Precise Location
+- [ ] Search History
+- [ ] Usage Data > Product Interaction
 - [ ] Diagnostics > Crash Data, Performance Data
 - [ ] Tracking: **No**
 
@@ -173,14 +173,14 @@ ASC > App Privacy > **Get Started**
 - Used for tracking: **No**
 - Purposes: **App Functionality** (Diagnostics는 + Analytics)
 
-### D-4. Version Information (1.0.0)
+### D-4. Version Information (1.2.6)
 - [ ] **Promotional Text** (170자)
 - [ ] **Description** (4000자)
 - [ ] **Keywords** (100자)
 - [ ] Support URL: GitHub Issues
-- [ ] Marketing URL: (비워둠)
+- [ ] Marketing URL: `https://motomap.kr`
 - [ ] Copyright: `© 2026 모토맵`
-- [ ] **What's New**: 출시 안내
+- [ ] **What's New**: `docs/app-store-listing.md`의 1.2.6 새로운 기능
 - [ ] **Screenshots**: 6.9" Display에 드래그앤드롭
 
 ### D-5. App Review Information

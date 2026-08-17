@@ -1,6 +1,6 @@
 # App Store Connect 제출용 메타데이터
 
-ASC 각 섹션에 그대로 복붙할 수 있도록 정리. 빌드 업로드 후 ASC > My Apps > 모토맵 > 1.0.0 에서 입력.
+ASC 각 섹션에 그대로 복붙할 수 있도록 정리. 빌드 업로드 후 ASC > My Apps > 모토맵 > 1.2.6 에서 입력.
 
 ---
 
@@ -14,7 +14,7 @@ ASC 각 섹션에 그대로 복붙할 수 있도록 정리. 빌드 업로드 후
 
 ### Subtitle
 ```
-바이커 전용 지도 · 코스 · 리뷰
+바이커 장소, 코스, 이륜차 길안내
 ```
 > 30자 제한. 핵심 가치 + 검색 키워드.
 
@@ -41,8 +41,8 @@ ridemap-ios-001
 > 내부 관리용. 임의 문자열.
 
 ### Content Rights
-- [x] No, it does not contain, show, or access third-party content
-> 외부 콘텐츠를 앱 안에서 표시하지 않음. (카카오맵 연동은 외부 앱 열기라 해당 X)
+- [x] Yes, and I have the necessary rights to use third-party content
+> 네이버 지도·카카오 일반 장소·공공 날씨/유가 정보와 이용자 제보·리뷰를 표시한다. 각 제공 API 약관과 앱 내 신고·차단·운영 검토 절차에 따라 사용한다.
 
 ---
 
@@ -118,11 +118,11 @@ ridemap-ios-001
 
 ---
 
-## 4. Version Information (1.0.0)
+## 4. Version Information (1.2.6)
 
 ### Promotional Text (170자 제한)
 ```
-라이더가 직접 만들어가는 지도. 바이커 카페·휴게소·뷰포인트를 한눈에 확인하고 카카오맵·T맵·네이버지도로 바로 출발하세요.
+라이더 장소와 코스를 찾고 이륜차 길안내로 바로 출발하세요. 내 바이크와 함께 쌓은 주행 기록도 한곳에서 확인할 수 있어요.
 ```
 
 ### Description (4000자 제한)
@@ -139,8 +139,8 @@ ridemap-ios-001
 · 라이딩 추천 코스
 난이도와 거리별로 정리된 추천 코스를 지도 미리보기로 확인. 인기 와인딩 코스부터 초보 입문 코스까지.
 
-· 네비게이션 연동
-카카오맵, T맵, 네이버지도, Apple 지도 중 원하는 앱으로 바로 출발. 기본 앱을 설정해두면 한 번에 실행.
+· 이륜차 전용 길안내
+자동차 전용도로를 피하는 추천·시간·거리·큰길 경로를 비교하고 앱 안에서 그대로 안내받으세요. 안내 중 노면 위험을 제보하거나 지도 위 장소로 목적지를 바꿀 수도 있습니다.
 
 · 장소 제보
 내가 아는 라이더 스팟을 등록하고 커뮤니티와 공유. 함께 만들어가는 라이더 지도.
@@ -150,6 +150,12 @@ ridemap-ios-001
 
 · 즐겨찾기
 자주 가는 카페·코스를 저장하고 빠르게 접근.
+
+· 내 바이크와 주행 기록
+내 바이크를 등록하고 어떤 바이크로 어디를 몇 번 다녀왔는지 확인하세요. 기록은 이미지 카드로 공유할 수 있습니다.
+
+· 편한 로그인과 공유 링크
+Apple·카카오·네이버·Google 중 원하는 방식으로 로그인하세요. 공유받은 장소·코스 링크는 앱에서 바로 열립니다.
 
 · 다크 모드
 야간 라이딩에 최적화된 다크 테마.
@@ -173,27 +179,28 @@ https://github.com/starhn87/motomap/issues
 
 ### Marketing URL (선택)
 ```
-(비워두기)
+https://motomap.kr
 ```
 
 ### Privacy Policy URL
 ```
-https://realman.notion.site/RideMap-개인정보처리방침
+https://motomap.kr/privacy
 ```
-> ⚠️ 실제 Notion 공개 URL로 교체 필요. (URL은 노션 문서 주소 그대로 — 문서 제목을 모토맵으로 바꾸면 URL도 확인)
 
 ### Copyright
 ```
 © 2026 모토맵
 ```
 
-### What's New (4000자 제한, 신규 출시이므로 간단히)
+### What's New (4000자 제한)
 ```
-모토맵을 출시합니다.
-
-라이더가 직접 만들어가는 바이커 전용 지도. 바이커 카페·휴게소·뷰포인트·라이딩 코스를 한 곳에서 탐색하고 카카오맵·T맵·네이버지도·Apple 지도로 바로 출발하세요.
-
-피드백과 제안은 언제든 환영합니다.
+- Apple·카카오·네이버·Google 로그인을 추가했어요. 기존 계정에도 다른 로그인 방식을 연결할 수 있어요.
+- 내 바이크와 함께 쌓은 장소·주행 기록을 이미지 카드로 공유할 수 있어요.
+- 장소와 코스 공유 링크가 생겼어요. 앱이 설치되어 있으면 모토맵에서 바로 열려요.
+- 햅틱 피드백을 추가하고 설정에서 끌 수 있게 했어요.
+- 일반 장소에서도 상세 정보와 영업시간을 확인하고 리뷰·즐겨찾기를 이용할 수 있어요.
+- 검색 결과는 현재 지도 주변을 먼저 보여주고, 이어서 전국 결과를 보여줘요.
+- 로그인과 키보드, 장소 상세 화면의 여러 오류를 고치고 안정성을 높였어요.
 ```
 
 ---
@@ -224,12 +231,12 @@ https://realman.notion.site/RideMap-개인정보처리방침
 모토맵은 한국 라이더(오토바이 사용자)를 위한 지도 앱입니다.
 주요 기능 안내:
 
-1. 메인 화면(지도) — 비로그인 상태로 모든 장소/코스 탐색 가능
-2. 검색 — 상단 검색바에서 장소명 검색
-3. 장소 상세 — 마커 탭 → 하단 시트로 정보 표시
-4. 네비게이션 연동 — "길찾기" 버튼 탭 시 외부 지도 앱(카카오맵/T맵/네이버지도/Apple 지도) 자동 실행
-5. 코스 탭 — 추천 라이딩 코스 목록 → 카드 탭 → 상세 페이지
-6. 프로필 탭 — 로그인 후 즐겨찾기/내 리뷰/제보 관리
+1. 지도·검색·장소·코스 탐색은 로그인 없이 사용할 수 있습니다.
+2. 장소 상세의 "도착" 버튼을 누르면 이륜차 경로 미리보기가 열리고, 경로를 선택하면 앱 안에서 길안내가 시작됩니다.
+3. 내 정보 탭에서 이메일 로그인 또는 Apple·카카오·네이버·Google 로그인을 사용할 수 있습니다.
+4. 로그인 후 리뷰·즐겨찾기·장소 제보·내 바이크·라이딩 기록을 사용할 수 있습니다.
+5. 설정의 "연결된 로그인"에서 같은 계정에 다른 로그인 방식을 추가할 수 있습니다.
+6. 장소·코스 공유 링크는 앱이 설치된 기기에서 해당 상세 화면을 바로 엽니다.
 
 리뷰어 테스트용 계정:
 - Email: apple-review@ridemap.app
@@ -243,19 +250,21 @@ User-Generated Content 모더레이션:
 - 부적절 콘텐츠는 24시간 내 검토 및 삭제
 
 위치 정보 사용:
-- 사용자 위치는 디바이스에서만 사용 (서버 미저장)
-- 권한 거부 시에도 모든 기능 정상 작동 (기본 위치: 서울)
+- 현재 위치 표시·주변 검색·이륜차 길안내에 정밀 위치를 사용합니다.
+- 로그인한 이용자가 길안내를 끝내면 도착지·경유지·시각을 라이딩 기록과 장소 품질 개선 목적으로 계정에 연결해 저장할 수 있습니다.
+- 연속 이동 경로는 서버에 저장하지 않습니다.
+- 위치 권한을 거부해도 저장된 장소·코스 탐색은 사용할 수 있습니다.
 
 [EN]
 MotoMap (모토맵) is a map app for Korean motorcycle riders, helping them find biker cafes, rest stops, viewpoints, and riding courses that are hard to find on standard maps.
 
 How to test:
-1. Main screen (map) — Browse all places/courses without login
-2. Search — Use the top search bar
-3. Place detail — Tap a marker to see info in the bottom sheet
-4. Navigation — Tap "Get Directions" to launch an external map app (KakaoMap/TMap/NaverMap/Apple Maps)
-5. Courses tab — Browse riding course recommendations
-6. Profile tab — After login: manage favorites, reviews, submissions
+1. Map, search, place, and course browsing are available without signing in.
+2. In a place detail, tap "도착" (Destination) to preview motorcycle routes, then choose a route to start in-app guidance.
+3. The Profile tab supports email sign-in and Sign in with Apple, Kakao, Naver, and Google.
+4. After signing in, reviewers can use reviews, favorites, place submissions, My Bike, and ride history.
+5. Additional sign-in methods can be linked to the same account under Settings > Connected sign-ins.
+6. Shared place and course HTTPS links open the corresponding screen when the app is installed.
 
 Reviewer test account:
 - Email: apple-review@ridemap.app
@@ -267,8 +276,10 @@ User-Generated Content moderation:
 - Inappropriate content is reviewed and removed within 24 hours
 
 Location usage:
-- Location is used on-device only (not stored on server)
-- All features work without location permission (default: Seoul)
+- Precise location is used for showing the rider, nearby search, and motorcycle guidance.
+- When a signed-in user ends guidance, the destination, registered-place waypoints, and time may be stored with the account for ride history and place-quality improvement.
+- Continuous movement routes are not stored on the server.
+- Saved places and courses remain browsable when location permission is denied.
 ```
 
 ### Attachment (선택)

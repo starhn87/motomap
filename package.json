@@ -1,7 +1,7 @@
 {
   "name": "ridemap",
   "main": "expo-router/entry",
-  "version": "1.1.2",
+  "version": "1.2.6",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
@@ -67,10 +67,17 @@
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.116.0",
     "@types/react": "~19.1.0",
-    "eas-cli": "^18.7.0",
     "patch-package": "^8.0.1",
     "sharp": "^0.34.5",
     "typescript": "~5.9.2"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "react-native-reanimated",
+        "react-native-worklets"
+      ]
+    }
   },
   "private": true
 }
