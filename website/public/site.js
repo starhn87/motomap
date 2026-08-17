@@ -50,15 +50,15 @@ if (rideStory && !reduceMotion) {
     0,
     ...chapterWindows.map(({ start, end }) => clamp((start + Math.min(end, 1)) / 2)),
   ];
-  const wheelThreshold = 32;
-  const wheelIdleDuration = 220;
-  const transitionDuration = 720;
+  const wheelThreshold = 8;
+  const wheelIdleDuration = 160;
+  const transitionFallbackDuration = 900;
   let frameRequested = false;
   let transitionLocked = false;
   let transitionReleaseTimer;
+  const pendingDirections = [];
   let wheelDelta = 0;
   let wheelConsumed = false;
-  let wheelIdle = true;
   let wheelIdleTimer;
   let touchStartY = null;
   let touchConsumed = false;
@@ -90,17 +90,35 @@ if (rideStory && !reduceMotion) {
     return null;
   };
 
+  const finishStoryTransition = () => {
+    if (!transitionLocked) return;
+
+    transitionLocked = false;
+    window.clearTimeout(transitionReleaseTimer);
+
+    const pendingDirection = pendingDirections.shift();
+    if (pendingDirection) {
+      window.requestAnimationFrame(() => {
+        if (moveStoryByStep(pendingDirection)) return;
+        window.scrollBy({
+          top: pendingDirection * window.innerHeight * 0.8,
+          behavior: 'smooth',
+        });
+      });
+    }
+  };
+
   const moveStoryByStep = (direction) => {
     const target = getTargetStoryStop(direction);
     if (target === null) return false;
-    if (transitionLocked) return true;
+    if (transitionLocked) {
+      pendingDirections.push(direction);
+      return true;
+    }
 
     transitionLocked = true;
     window.clearTimeout(transitionReleaseTimer);
-    transitionReleaseTimer = window.setTimeout(() => {
-      transitionLocked = false;
-      if (wheelIdle) wheelConsumed = false;
-    }, transitionDuration);
+    transitionReleaseTimer = window.setTimeout(finishStoryTransition, transitionFallbackDuration);
 
     window.scrollTo({ top: target, behavior: 'smooth' });
     return true;
@@ -109,11 +127,9 @@ if (rideStory && !reduceMotion) {
   // 트랙패드의 관성 이벤트까지 한 묶음으로 보고, 완전히 멈춘 뒤에만 다음 단계를 연다.
   const scheduleWheelRelease = () => {
     window.clearTimeout(wheelIdleTimer);
-    wheelIdle = false;
     wheelIdleTimer = window.setTimeout(() => {
       wheelDelta = 0;
-      wheelIdle = true;
-      if (!transitionLocked) wheelConsumed = false;
+      wheelConsumed = false;
     }, wheelIdleDuration);
   };
 
@@ -253,4 +269,5 @@ if (rideStory && !reduceMotion) {
   window.addEventListener('touchend', finishTouch, { passive: true });
   window.addEventListener('touchcancel', finishTouch, { passive: true });
   window.addEventListener('keydown', handleStoryKey);
+  window.addEventListener('scrollend', finishStoryTransition, { passive: true });
 }
