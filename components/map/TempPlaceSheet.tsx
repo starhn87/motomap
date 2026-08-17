@@ -80,10 +80,9 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const insets = useSafeAreaInsets();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const scrollRef = useRef<any>(null);
-  const didInitRef = useRef(false);
-  const [currentIndex, setCurrentIndex] = useState(1);
-  const animatedIndex = useSharedValue(1);
-  const currentIndexRef = useRef(1);
+  const [currentIndex, setCurrentIndex] = useState(-1);
+  const animatedIndex = useSharedValue(-1);
+  const currentIndexRef = useRef(-1);
 
   const syncIndex = useCallback((index: number) => {
     currentIndexRef.current = index;
@@ -141,11 +140,10 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   }, [loadMyPlaces]);
 
   useEffect(() => {
-    if (!didInitRef.current) {
-      didInitRef.current = true;
-      return;
-    }
     if (place) {
+      // 시트 인스턴스는 닫힌 상태로 계속 유지하고, POI 선택 때만 연다.
+      // 데이터와 시트를 함께 마운트하면 초기 index 적용과 snap 명령이 경합해
+      // 열림 애니메이션이 생략되는 경우가 있다.
       scrollRef.current?.scrollTo({ y: 0, animated: false });
       bottomSheetRef.current?.snapToIndex(1);
     } else {
@@ -379,13 +377,11 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
     [handleIndicatorStyle],
   );
 
-  if (!place) return null;
-
   return (
     <>
       <BottomSheet
         ref={bottomSheetRef}
-        index={1}
+        index={-1}
         animateOnMount={false}
         snapPoints={SNAP_POINTS}
         enableDynamicSizing={false}
@@ -398,7 +394,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
         keyboardBlurBehavior="restore"
         enableBlurKeyboardOnGesture
         onChange={(index) => {
-          if (index === -1) onClose();
+          if (index === -1 && place) onClose();
         }}
         containerStyle={styles.sheetContainer}
         backgroundStyle={{
@@ -411,13 +407,14 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
           elevation: 8,
         }}
         handleComponent={renderHandle}>
-        <BottomSheetScrollView
-          ref={scrollRef}
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag">
-          <Animated.View style={spacerStyle} />
+        {place ? (
+          <BottomSheetScrollView
+            ref={scrollRef}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag">
+            <Animated.View style={spacerStyle} />
 
           <View style={styles.nameRow}>
             <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
@@ -628,11 +625,12 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             )}
           </View>
 
-          <Text style={[styles.attribution, { color: colors.textSecondary }]}>장소 정보 제공: 카카오</Text>
-        </BottomSheetScrollView>
+            <Text style={[styles.attribution, { color: colors.textSecondary }]}>장소 정보 제공: 카카오</Text>
+          </BottomSheetScrollView>
+        ) : null}
       </BottomSheet>
 
-      {isExpanded && (
+      {place && isExpanded && (
         <Animated.View
           pointerEvents={headerReady ? 'auto' : 'box-only'}
           entering={FadeIn.duration(200)}
