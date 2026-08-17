@@ -268,6 +268,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const handleBottomSheetClose = useCallback(() => {
     setSelectedPlaceId(null);
     setSelectedPlace(null);
+    setTempPlace(null);
     setHighlightReview(null);
     setCourseReturn(null);
     // ✕/뒤로가기는 시트를 닫힘 애니메이션 없이 언마운트시켜 position 이 확장 값에
@@ -275,7 +276,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     // 닫힘 값에 도달한 경우엔 사실상 no-op 이다.
     sheetPosition.value = withTiming(containerHeight.value + 100, { duration: 250 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setSelectedPlaceId]);
+  }, [setSelectedPlaceId, setTempPlace]);
 
   const handleMapTap = () => {
     Keyboard.dismiss();
@@ -836,7 +837,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       <HazardSheet hazard={selectedHazard} onClose={() => setSelectedHazard(null)} />
 
       {tempPlace && (
-        <TempPlaceSheet place={tempPlace} onClose={() => setTempPlace(null)} />
+        <TempPlaceSheet
+          place={tempPlace}
+          onClose={handleBottomSheetClose}
+          animatedPosition={sheetPosition}
+        />
       )}
 
       {selectedStation && (

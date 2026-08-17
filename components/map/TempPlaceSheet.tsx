@@ -12,6 +12,7 @@ import Animated, {
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
@@ -32,6 +33,7 @@ import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { toast } from '@/lib/toast';
 import { appAlert } from '@/lib/dialog';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useMapStore } from '@/stores/useMapStore';
 import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
 import { useGasPricesAt } from '@/hooks/useGasStations';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
@@ -50,6 +52,8 @@ import {
 import { useGeneralPlace } from '@/hooks/useGeneralPlace';
 import ReviewForm from '@/components/review/ReviewForm';
 import ReviewList from '@/components/review/ReviewList';
+import { haversine } from '@/lib/distance';
+import { formatMeters } from '@/lib/api/directions';
 
 export interface TempPlace extends GeneralPlaceInput {
   /** 이미 DB에 연결된 일반 장소로 들어온 경우 */
@@ -59,6 +63,7 @@ export interface TempPlace extends GeneralPlaceInput {
 interface Props {
   place: TempPlace;
   onClose: () => void;
+  animatedPosition?: SharedValue<number>;
 }
 
 const SNAP_POINTS = [100, '45%', '100%'];
@@ -69,16 +74,16 @@ const CONTENT_PADDING = 20;
 
 // 일반 장소도 등록 장소와 같은 확장형 상세 경험을 쓴다. 차이는 카테고리·라이더
 // 집계처럼 모토맵이 검증한 정보 대신 카카오 정보와 라이더 리뷰가 중심이라는 점이다.
-export default function TempPlaceSheet({ place, onClose }: Props) {
+export default function TempPlaceSheet({ place, onClose, animatedPosition }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const scrollRef = useRef<any>(null);
-  const didInitRef = useRef(false);
-  const [currentIndex, setCurrentIndex] = useState(1);
-  const animatedIndex = useSharedValue(1);
-  const currentIndexRef = useRef(1);
+  const [currentIndex, setCurrentIndex] = useState(-1);
+  const animatedIndex = useSharedValue(-1);
+  const currentIndexRef = useRef(-1);
+  const hasOpenedRef = useRef(false);
 
   const syncIndex = useCallback((index: number) => {
     currentIndexRef.current = index;
@@ -95,6 +100,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   const isExpanded = currentIndex === SNAP_POINTS.length - 1;
   const navLaunching = useNavLaunching((s) => s.launching);
   const user = useAuthStore((st) => st.user);
+  const userLocation = useMapStore((s) => s.userLocation);
 
   const myPlaces = useMyPlacesStore((s) => s.places);
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
@@ -135,13 +141,19 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   }, [loadMyPlaces]);
 
   useEffect(() => {
-    if (!didInitRef.current) {
-      didInitRef.current = true;
-      return;
-    }
     scrollRef.current?.scrollTo({ y: 0, animated: false });
-    bottomSheetRef.current?.snapToIndex(1);
+    // animateOnMount=false 안전장치를 유지하면서, 레이아웃이 잡힌 다음 등록 장소와
+    // 같은 스냅 애니메이션으로 올린다.
+    const frame = requestAnimationFrame(() => bottomSheetRef.current?.snapToIndex(1));
+    return () => cancelAnimationFrame(frame);
   }, [place.name, place.latitude, place.longitude]);
+
+  const distanceMeters = userLocation
+    ? haversine(userLocation, {
+        latitude: place.latitude,
+        longitude: place.longitude,
+      })
+    : null;
 
   const near = (a: number, b: number) => Math.abs(a - b) < 1e-5;
   const savedSlot: MyPlaceSlot | null =
@@ -277,7 +289,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         style={styles.iconButton}>
         <Ionicons
           name={isFavorite ? 'star' : 'star-outline'}
-          size={25}
+          size={26}
           color={isFavorite ? semantic.star : colors.textSecondary}
         />
       </TouchableOpacity>
@@ -290,12 +302,12 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
                 ? 'business'
                 : 'bookmark-outline'
           }
-          size={23}
+          size={24}
           color={savedSlot ? colors.tint : colors.textSecondary}
         />
       </TouchableOpacity>
       <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-        <Ionicons name="close" size={25} color={colors.textSecondary} />
+        <Ionicons name="close" size={26} color={colors.textSecondary} />
       </TouchableOpacity>
     </>
   );
@@ -338,17 +350,6 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
     ),
   }));
 
-  // 확장 판정 순간 모서리 반경을 한 번에 바꾸면 스프링이 멈출 때 덜컥거려 보인다.
-  // 시트 위치에 맞춰 카드 모서리를 연속으로 펴서 전환 끝을 매끄럽게 만든다.
-  const sheetBackgroundStyle = useAnimatedStyle(() => ({
-    borderRadius: interpolate(
-      animatedIndex.value,
-      [1, 2],
-      [24, 0],
-      Extrapolation.CLAMP,
-    ),
-  }));
-
   const renderHandle = useCallback(
     () => (
       <TouchableOpacity
@@ -370,32 +371,32 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
     <>
       <BottomSheet
         ref={bottomSheetRef}
-        index={1}
+        index={-1}
         animateOnMount={false}
         snapPoints={SNAP_POINTS}
         enableDynamicSizing={false}
         activeOffsetY={[-12, 12]}
         failOffsetX={[-12, 12]}
         animatedIndex={animatedIndex}
+        animatedPosition={animatedPosition}
         enablePanDownToClose={false}
         keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
         enableBlurKeyboardOnGesture
         onChange={(index) => {
-          if (index === -1) onClose();
+          if (index >= 0) hasOpenedRef.current = true;
+          if (index === -1 && hasOpenedRef.current) onClose();
         }}
         containerStyle={styles.sheetContainer}
-        backgroundStyle={[
-          {
-            backgroundColor: colors.background,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: 0.15,
-            shadowRadius: 12,
-            elevation: 8,
-          },
-          sheetBackgroundStyle,
-        ]}
+        backgroundStyle={{
+          backgroundColor: colors.background,
+          borderRadius: isExpanded ? 0 : 24,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 8,
+        }}
         handleComponent={renderHandle}>
         <BottomSheetScrollView
           ref={scrollRef}
@@ -423,16 +424,18 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
             <Text style={[styles.address, { color: colors.textSecondary }]} numberOfLines={1}>
               {place.address}
             </Text>
-            <View style={[styles.generalBadge, { backgroundColor: colors.surfaceMuted }]}>
-              <Text style={[styles.generalBadgeText, { color: colors.textSecondary }]}>일반</Text>
-            </View>
-            <Pressable onPress={handleShare} hitSlop={8}>
+            {distanceMeters !== null && (
+              <Text style={[styles.distance, { color: colors.tint }]}>
+                {formatMeters(distanceMeters)}
+              </Text>
+            )}
+            <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareButton}>
               <Feather name="share-2" size={19} color={colors.tint} />
-            </Pressable>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.actionRow}>
-            <Pressable
+            <TouchableOpacity
               onPress={() =>
                 router.push({
                   pathname: '/directions',
@@ -443,22 +446,31 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
                   },
                 })
               }
+              activeOpacity={0.8}
               style={[styles.actionButton, { backgroundColor: colors.surfaceMuted }]}>
-              <Text style={[styles.departText, { color: colors.text }]}>출발</Text>
-            </Pressable>
-            <Pressable
+              <Text style={[styles.departButtonText, { color: colors.text }]}>출발</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               disabled={navigating}
               onPress={handleNavigate}
+              activeOpacity={0.8}
               style={[
                 styles.actionButton,
                 { backgroundColor: colors.tint, opacity: navigating ? 0.8 : 1 },
               ]}>
               {navigating ? (
-                <ActivityIndicator size="small" color={colors.background} />
+                <View>
+                  <Text style={[styles.navButtonText, { color: 'transparent' }]}>도착</Text>
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.background}
+                    style={StyleSheet.absoluteFill}
+                  />
+                </View>
               ) : (
-                <Text style={[styles.arriveText, { color: colors.background }]}>도착</Text>
+                <Text style={[styles.navButtonText, { color: colors.background }]}>도착</Text>
               )}
-            </Pressable>
+            </TouchableOpacity>
             <View style={styles.openStatusSlot}>
               {canLoadHours && (
                 <OpenBadge
@@ -469,6 +481,44 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
               )}
             </View>
           </View>
+
+          {(place.phone || hoursText) && (
+            <View style={styles.infoGrid}>
+              {!!place.phone && (
+                <Pressable
+                  onPress={() => void Linking.openURL(`tel:${place.phone}`)}
+                  style={({ pressed }) => [
+                    styles.infoCard,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    pressed && { opacity: 0.6 },
+                  ]}>
+                  <Ionicons name="call-outline" size={16} color={colors.textSecondary} />
+                  <Text
+                    style={[styles.infoCardValue, { color: colors.text }]}
+                    numberOfLines={2}>
+                    {place.phone}
+                  </Text>
+                </Pressable>
+              )}
+              {!!hoursText && (
+                <View
+                  style={[
+                    styles.infoCard,
+                    weekLines.length > 1 && styles.infoCardWide,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                  ]}>
+                  <View style={weekLines.length > 1 && styles.infoIconTop}>
+                    <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                  </View>
+                  <Text
+                    style={[styles.infoCardValue, { color: colors.text }]}
+                    numberOfLines={7}>
+                    {hoursText}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
 
           {(gasLoading || fuelPrices.length > 0) && (
             <View style={[styles.priceRows, { borderColor: colors.border }]}>
@@ -527,44 +577,6 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
             </View>
           )}
 
-          {(place.phone || hoursText) && (
-            <View style={styles.infoGrid}>
-              {!!place.phone && (
-                <Pressable
-                  onPress={() => void Linking.openURL(`tel:${place.phone}`)}
-                  style={({ pressed }) => [
-                    styles.infoCard,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                    pressed && { opacity: 0.6 },
-                  ]}>
-                  <Ionicons name="call-outline" size={16} color={colors.textSecondary} />
-                  <Text
-                    style={[styles.infoCardValue, { color: colors.text }]}
-                    numberOfLines={2}>
-                    {place.phone}
-                  </Text>
-                </Pressable>
-              )}
-              {!!hoursText && (
-                <View
-                  style={[
-                    styles.infoCard,
-                    weekLines.length > 1 && styles.infoCardWide,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                  ]}>
-                  <View style={weekLines.length > 1 && styles.infoIconTop}>
-                    <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                  </View>
-                  <Text
-                    style={[styles.infoCardValue, { color: colors.text }]}
-                    numberOfLines={7}>
-                    {hoursText}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-
           <Pressable
             onPress={handleSubmit}
             style={[styles.submitCard, { borderColor: colors.border }]}>
@@ -578,10 +590,10 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
           </Pressable>
 
           <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
-            <View style={styles.reviewHeader}>
-              <Text style={[styles.reviewTitle, { color: colors.text }]}>라이더 리뷰</Text>
+            <View style={styles.reviewSectionHeader}>
+              <Text style={[styles.reviewSectionTitle, { color: colors.text }]}>리뷰</Text>
               {(generalPlace?.rating ?? 0) > 0 && (
-                <View style={styles.ratingRow}>
+                <View style={styles.ratingContainer}>
                   <Text style={styles.ratingStar}>★</Text>
                   <Text style={[styles.ratingText, { color: colors.text }]}>
                     {generalPlace!.rating}
@@ -593,7 +605,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
               )}
             </View>
             <ReviewForm target={{ kind: 'general', place }} />
-            <View style={[styles.reviewDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.reviewDivider} />
             {reviewTarget ? (
               <ReviewList target={reviewTarget} />
             ) : (
@@ -611,7 +623,6 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         <Animated.View
           pointerEvents={headerReady ? 'auto' : 'box-only'}
           entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(150)}
           style={[
             styles.pageHeader,
             { paddingTop: insets.top, backgroundColor: colors.background },
@@ -619,7 +630,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
           <TouchableOpacity
             onPress={() => bottomSheetRef.current?.close()}
             style={styles.iconButton}>
-            <Ionicons name="chevron-back" size={25} color={colors.text} />
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.nameActions}>{actions}</View>
         </Animated.View>
@@ -669,24 +680,34 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
-  address: { flex: 1, fontSize: 13, lineHeight: 18 },
-  generalBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
-  generalBadgeText: { fontSize: 11, fontWeight: '700' },
-  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18 },
+  address: { flex: 1, fontSize: 14 },
+  distance: { fontSize: 13, fontWeight: '700' },
+  shareButton: { paddingLeft: 2 },
+  actionRow: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingRight: 142,
+    marginTop: 12,
+    marginBottom: 10,
+  },
   actionButton: {
-    minWidth: 74,
-    height: 42,
+    flex: 1,
+    height: 40,
+    paddingHorizontal: 12,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
   },
-  departText: { fontSize: 14, fontWeight: '700' },
-  arriveText: { fontSize: 14, fontWeight: '800' },
+  departButtonText: { fontSize: 15, fontWeight: '600' },
+  navButtonText: { fontSize: 15, fontWeight: '700' },
   openStatusSlot: {
-    flex: 1,
-    minWidth: 92,
-    height: 42,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 132,
+    height: 40,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
@@ -694,7 +715,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 14,
     marginBottom: 16,
   },
   priceRows: {
@@ -751,19 +771,19 @@ const styles = StyleSheet.create({
   submitCopy: { flex: 1, gap: 3 },
   submitTitle: { fontSize: 14, fontWeight: '800' },
   submitDescription: { fontSize: 12, lineHeight: 17 },
-  reviewSection: { marginTop: 24, paddingTop: 22, borderTopWidth: 1 },
-  reviewHeader: {
+  reviewSection: { borderTopWidth: 1, paddingTop: 20, marginTop: 12 },
+  reviewSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
+    gap: 8,
+    marginBottom: 16,
   },
-  reviewTitle: { fontSize: 18, fontWeight: '800' },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  ratingStar: { color: semantic.star, fontSize: 14 },
+  reviewSectionTitle: { fontSize: 18, fontWeight: '700' },
+  ratingContainer: { flexDirection: 'row', alignItems: 'center' },
+  ratingStar: { color: semantic.star, fontSize: 14, marginRight: 2 },
   ratingText: { fontSize: 14, fontWeight: '700' },
-  reviewCount: { fontSize: 13 },
-  reviewDivider: { height: StyleSheet.hairlineWidth, marginVertical: 20 },
+  reviewCount: { fontSize: 12, marginLeft: 2 },
+  reviewDivider: { height: 16 },
   emptyReviews: { fontSize: 13, textAlign: 'center', marginVertical: 16 },
   attribution: { marginTop: 28, fontSize: 11, textAlign: 'center' },
 });
