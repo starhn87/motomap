@@ -38,10 +38,13 @@ if (rideStory && !reduceMotion) {
   const chapters = [...rideStory.querySelectorAll('[data-ride-chapter]')];
   const scrollLabel = rideStory.querySelector('.ride-story-scroll');
   const chapterWindows = [
-    { start: 0.16, end: 0.52 },
-    { start: 0.44, end: 0.8 },
-    { start: 0.72, end: 1.08 },
+    { start: 0.1, end: 0.29 },
+    { start: 0.26, end: 0.45 },
+    { start: 0.42, end: 0.61 },
+    { start: 0.58, end: 0.77 },
+    { start: 0.74, end: 1.06 },
   ];
+  const transitionLength = 0.045;
   let frameRequested = false;
 
   const clamp = (value) => Math.min(Math.max(value, 0), 1);
@@ -51,18 +54,18 @@ if (rideStory && !reduceMotion) {
     const scrollDistance = Math.max(rideStory.offsetHeight - window.innerHeight, 1);
     const storyProgress = clamp(-rect.top / scrollDistance);
 
-    media.style.transform = `scale(${1.03 + storyProgress * 0.14})`;
+    media.style.transform = `scale(${1.03 + storyProgress * 0.12})`;
     shade.style.opacity = `${0.76 + storyProgress * 0.2}`;
     progress.style.transform = `scaleY(${storyProgress})`;
 
-    const heroOpacity = clamp((0.24 - storyProgress) / 0.08);
+    const heroOpacity = clamp((0.15 - storyProgress) / 0.05);
     hero.style.opacity = `${heroOpacity}`;
     hero.style.transform = `translate3d(0, ${(1 - heroOpacity) * -38}px, 0)`;
 
     for (const [index, chapter] of chapters.entries()) {
       const { start, end } = chapterWindows[index];
-      const entering = clamp((storyProgress - start) / 0.08);
-      const leaving = clamp((end - storyProgress) / 0.08);
+      const entering = clamp((storyProgress - start) / transitionLength);
+      const leaving = clamp((end - storyProgress) / transitionLength);
       const opacity = Math.min(entering, leaving);
       const offset = (1 - entering) * 38 - (1 - leaving) * 38;
 
