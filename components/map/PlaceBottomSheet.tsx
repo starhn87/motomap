@@ -145,6 +145,7 @@ function PlaceBottomSheet({
     transform: [{ scale: heartScale.value }],
   }));
 
+  const scrollRef = useRef<any>(null);
   const didInitRef = useRef(false);
   // place(장소)가 바뀔 때만 시트 위치를 리셋한다.
   // - 의존성을 [place] 참조로 두면 드래그 확장 중 참조 변경마다 snapToIndex(1)이
@@ -158,6 +159,9 @@ function PlaceBottomSheet({
       return;
     }
     if (place) {
+      // 같은 시트 인스턴스가 다음 장소를 표시하므로 이전 장소에서 내린 스크롤을
+      // 먼저 지운다. 스냅 위치만 바꾸면 콘텐츠 y는 그대로 남아 중간부터 보인다.
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
       bottomSheetRef.current?.snapToIndex(1);
     } else {
       bottomSheetRef.current?.close();
@@ -165,7 +169,6 @@ function PlaceBottomSheet({
   }, [place?.id]);
 
   // 강조 리뷰로 스크롤: 콘텐츠 기준 y = 리뷰섹션 y + 리스트 wrapper y + 카드 y (onLayout 합산)
-  const scrollRef = useRef<any>(null);
   const reviewSectionYRef = useRef(0);
   const reviewListYRef = useRef(0);
   const highlightItemYRef = useRef(0);

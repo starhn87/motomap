@@ -60,6 +60,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const scrollRef = useRef<any>(null);
   const didInitRef = useRef(false);
   const [currentIndex, setCurrentIndex] = useState(1);
   const [hoursExpanded, setHoursExpanded] = useState(false);
@@ -109,8 +110,9 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
       didInitRef.current = true;
       return;
     }
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
     bottomSheetRef.current?.snapToIndex(1);
-  }, [place.latitude, place.longitude]);
+  }, [place.name, place.latitude, place.longitude]);
 
   const near = (a: number, b: number) => Math.abs(a - b) < 1e-5;
   const savedSlot: MyPlaceSlot | null =
@@ -295,6 +297,7 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
           elevation: 8,
         }}>
         <BottomSheetScrollView
+          ref={scrollRef}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
