@@ -17,5 +17,8 @@
 /bike-silhouette.png
   Cache-Control: public, max-age=604800
 
+/ride-story.webp
+  Cache-Control: public, max-age=2592000
+
 /screens/*
   Cache-Control: public, max-age=604800

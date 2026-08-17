@@ -117,15 +117,67 @@
         <p data-reveal data-delay="240"><span>04</span>내 바이크 기록</p>
       </section>
 
-      <section class="gallery-section" aria-labelledby="gallery-title">
+      <section class="ride-story" id="places" data-ride-story aria-labelledby="ride-story-title">
+        <div class="ride-story-sticky">
+          <img
+            class="ride-story-media"
+            src="/ride-story.webp"
+            alt="이른 아침 굽은 산길을 달리는 라이더"
+            width="1672"
+            height="941"
+            loading="lazy"
+            decoding="async"
+          />
+          <div class="ride-story-shade" aria-hidden="true"></div>
+          <div class="ride-story-progress" aria-hidden="true"><span></span></div>
+
+          <div class="ride-story-copy">
+            <article class="ride-story-chapter" data-ride-chapter>
+              <p>01 · 발견</p>
+              <h2 id="ride-story-title">목적지가 없어도<br />달릴 이유는 있으니까</h2>
+              <p class="ride-story-description">
+                카페부터 뷰포인트까지, 라이더가 찾는 장소를 지도 위에서 만나보세요.
+              </p>
+            </article>
+            <article class="ride-story-chapter" data-ride-chapter>
+              <p>02 · 길</p>
+              <h2>오늘의 시간에 맞는<br />길을 고르고</h2>
+              <p class="ride-story-description">
+                날씨와 거리, 예상 시간을 확인하고 나에게 맞는 코스로 출발하세요.
+              </p>
+            </article>
+            <article class="ride-story-chapter" data-ride-chapter>
+              <p>03 · 안내</p>
+              <h2>달리는 동안에는<br />길에만 집중하세요</h2>
+              <p class="ride-story-description">
+                큰 화면과 음성 안내가 출발부터 도착까지 라이딩의 흐름을 이어줍니다.
+              </p>
+            </article>
+          </div>
+
+          <div class="ride-story-devices" aria-hidden="true">
+            <div class="phone ride-story-phone ride-story-phone-back">
+              <img src="/screens/route.webp" alt="" width="720" height="1558" />
+            </div>
+            <div class="phone ride-story-phone ride-story-phone-front">
+              <img src="/screens/map.webp" alt="" width="720" height="1558" />
+            </div>
+            <p>찾고 · 고르고 · 달리다</p>
+          </div>
+
+          <p class="ride-story-scroll" aria-hidden="true">SCROLL <span>↓</span></p>
+        </div>
+      </section>
+
+      <section class="gallery-section" id="courses" aria-labelledby="gallery-title">
         <div class="gallery-heading">
           <div>
-            <p class="eyebrow" data-reveal>모토맵 미리보기</p>
+            <p class="eyebrow" data-reveal>길 위의 모든 순간</p>
             <h2 id="gallery-title" data-reveal data-delay="80">
-              말보다 화면으로<br />먼저 보여드릴게요
+              현실의 설렘을<br />화면 안에서도 그대로
             </h2>
           </div>
-          <p data-reveal data-delay="160">모토맵의 주요 화면을 한눈에 확인해보세요.</p>
+          <p data-reveal data-delay="160">장소를 찾는 순간부터 도착할 때까지 필요한 화면만 빠르게 이어집니다.</p>
         </div>
         <div class="gallery-rail" role="region" aria-label="모토맵 앱 화면 모음">
           <figure class="gallery-shot" data-reveal data-delay="0">
@@ -139,7 +191,7 @@
                 decoding="async"
               />
             </div>
-            <figcaption><span>01</span>검색과 AI 추천</figcaption>
+            <figcaption><span>01</span>장소와 코스 검색</figcaption>
           </figure>
           <figure class="gallery-shot gallery-shot-lower" data-reveal data-delay="70">
             <div class="gallery-phone">
@@ -157,45 +209,6 @@
           <figure class="gallery-shot" data-reveal data-delay="140">
             <div class="gallery-phone">
               <img
-                src="/screens/place.webp"
-                alt="장소 정보와 출발·도착 버튼이 표시된 상세 화면"
-                width="720"
-                height="1558"
-                loading="lazy"
-                decoding="async"
-              />
-            </div>
-            <figcaption><span>03</span>장소 상세 정보</figcaption>
-          </figure>
-          <figure class="gallery-shot gallery-shot-lower" data-reveal data-delay="210">
-            <div class="gallery-phone">
-              <img
-                src="/screens/gas.webp"
-                alt="주변 주유소별 유가가 지도에 표시된 화면"
-                width="720"
-                height="1558"
-                loading="lazy"
-                decoding="async"
-              />
-            </div>
-            <figcaption><span>04</span>주변 주유소 유가</figcaption>
-          </figure>
-          <figure class="gallery-shot" data-reveal data-delay="280">
-            <div class="gallery-phone">
-              <img
-                src="/screens/courses.webp"
-                alt="거리와 예상 시간이 표시된 추천 코스 목록"
-                width="720"
-                height="1558"
-                loading="lazy"
-                decoding="async"
-              />
-            </div>
-            <figcaption><span>05</span>추천 코스</figcaption>
-          </figure>
-          <figure class="gallery-shot gallery-shot-lower" data-reveal data-delay="350">
-            <div class="gallery-phone">
-              <img
                 src="/screens/route.webp"
                 alt="추천·시간·거리·큰길 우선 경로를 비교하는 화면"
                 width="720"
@@ -204,9 +217,9 @@
                 decoding="async"
               />
             </div>
-            <figcaption><span>06</span>경로 비교</figcaption>
+            <figcaption><span>03</span>경로 비교</figcaption>
           </figure>
-          <figure class="gallery-shot" data-reveal data-delay="420">
+          <figure class="gallery-shot gallery-shot-lower" data-reveal data-delay="210">
             <div class="gallery-phone">
               <img
                 src="/screens/guide.webp"
@@ -217,117 +230,8 @@
                 decoding="async"
               />
             </div>
-            <figcaption><span>07</span>라이딩 안내</figcaption>
+            <figcaption><span>04</span>라이딩 안내</figcaption>
           </figure>
-        </div>
-      </section>
-
-      <section class="intro-section">
-        <p class="eyebrow" data-reveal>찾고, 달리고, 기억하는 모든 순간</p>
-        <h2 data-reveal data-delay="80">라이딩 전의 고민부터<br />도착한 뒤의 기록까지</h2>
-        <p data-reveal data-delay="160">
-          자동차 지도에는 없는 라이더의 기준을 담았습니다.<br />
-          필요한 정보만 빠르게 보고, 더 좋은 길을 골라 달려보세요.
-        </p>
-      </section>
-
-      <section class="story-section" id="places">
-        <div class="story-copy" data-reveal="left">
-          <p class="story-index">01 · 장소 찾기</p>
-          <h2>라이더가 찾는 곳은<br />조금 다르니까</h2>
-          <p>
-            목적지가 없어도 괜찮아요. 카페, 맛집, 휴게소, 주유소, 바이크샵, 세차장,
-            캠핑장과 뷰포인트를 라이더의 시선으로 탐색하세요.
-          </p>
-          <ul class="detail-list">
-            <li><strong>지금 갈 수 있는지</strong><span>영업 상태와 마감 시간을 바로 확인</span></li>
-            <li><strong>라이더가 어땠는지</strong><span>바이크 정보가 담긴 후기와 기록</span></li>
-            <li><strong>얼마나 떨어졌는지</strong><span>현재 위치에서 거리와 경로를 한눈에</span></li>
-          </ul>
-        </div>
-        <div class="story-visual places-visual" data-reveal="right" data-delay="120">
-          <div class="visual-orbit orbit-one"></div>
-          <div class="phone story-phone">
-            <img
-              src="/screens/place.webp"
-              alt="라이더 카페의 상세 정보와 출발·도착 버튼을 보여주는 모토맵 화면"
-              width="720"
-              height="1558"
-              loading="lazy"
-              decoding="async"
-            />
-          </div>
-          <div class="category-stack" aria-hidden="true">
-            <span>☕ 라이더 카페</span>
-            <span>⛽ 주유소</span>
-            <span>🔧 바이크샵</span>
-            <span>📷 뷰포인트</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="story-section story-reversed" id="courses">
-        <div class="story-copy" data-reveal="right">
-          <p class="story-index">02 · 코스와 경로</p>
-          <h2>오늘의 시간에 맞는<br />길을 고르고 출발</h2>
-          <p>
-            짧게 바람만 쐬고 싶은 날도, 멀리 떠나고 싶은 주말도 있어요. 시간과 계절에
-            맞는 코스를 발견하고 추천·시간 우선·거리 우선 경로를 비교해보세요.
-          </p>
-          <div class="metric-row">
-            <div><strong>날씨</strong><span>출발 전 확인</span></div>
-            <div><strong>거리</strong><span>경로별 비교</span></div>
-            <div><strong>시간</strong><span>예상 소요</span></div>
-          </div>
-        </div>
-        <div class="story-visual course-visual" data-reveal="left" data-delay="120">
-          <div class="phone course-list-phone">
-            <img
-              src="/screens/courses.webp"
-              alt="거리와 예상 시간이 표시된 모토맵 추천 코스 목록"
-              width="720"
-              height="1558"
-              loading="lazy"
-              decoding="async"
-            />
-          </div>
-          <div class="phone route-phone">
-            <img
-              src="/screens/route.webp"
-              alt="여러 경로를 비교하고 안내를 시작하는 모토맵 화면"
-              width="720"
-              height="1558"
-              loading="lazy"
-              decoding="async"
-            />
-          </div>
-        </div>
-      </section>
-
-      <section class="guide-section">
-        <div class="guide-copy" data-reveal>
-          <p class="story-index">03 · 라이딩 안내</p>
-          <h2>달리는 동안에는<br />길에만 집중하세요</h2>
-          <p>
-            다음 회전과 남은 거리, 속도와 안전 정보를 큰 화면으로 확인하고 음성 안내를
-            들으세요. 출발부터 도착까지 흐름을 끊지 않습니다.
-          </p>
-          <div class="guide-points">
-            <span>큰 화면 안내</span><span>음성 안내</span><span>안전 정보</span>
-          </div>
-        </div>
-        <div class="guide-stage" data-reveal="up" data-delay="120">
-          <div class="guide-road" aria-hidden="true"></div>
-          <div class="phone guide-phone">
-            <img
-              src="/screens/guide.webp"
-              alt="회전 방향과 남은 거리, 안전 정보를 크게 보여주는 모토맵 라이딩 안내 화면"
-              width="720"
-              height="1558"
-              loading="lazy"
-              decoding="async"
-            />
-          </div>
         </div>
       </section>
 

@@ -58,8 +58,18 @@ a {
   width: min(var(--content-width), calc(100% - 48px));
   height: 82px;
   margin: 0 auto;
+}
+
+.site-header::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0 auto 0 50%;
+  width: 100vw;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   background: rgba(11, 12, 14, 0.78);
+  content: "";
+  transform: translateX(-50%);
+  -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
 }
 
@@ -118,9 +128,6 @@ a {
 
 .hero,
 .promise-strip,
-.intro-section,
-.story-section,
-.guide-section,
 .garage-section,
 .ai-section,
 .download-section,
@@ -141,8 +148,6 @@ footer {
 
 .hero-copy,
 .hero-showcase,
-.story-copy,
-.story-visual,
 .garage-copy,
 .rider-card,
 .ai-copy,
@@ -397,6 +402,193 @@ h1 {
   letter-spacing: 0.1em;
 }
 
+.ride-story {
+  position: relative;
+  height: 520svh;
+  margin-top: 118px;
+  background: #050607;
+}
+
+.ride-story-sticky {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
+  background: #050607;
+}
+
+.ride-story-media,
+.ride-story-shade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.ride-story-media {
+  z-index: -3;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+  transform: scale(1.03);
+  will-change: transform;
+}
+
+.ride-story-shade {
+  z-index: -2;
+  background:
+    linear-gradient(90deg, rgba(3, 4, 5, 0.91) 0%, rgba(3, 4, 5, 0.68) 36%, rgba(3, 4, 5, 0.12) 72%),
+    linear-gradient(180deg, rgba(3, 4, 5, 0.28) 0%, transparent 44%, rgba(3, 4, 5, 0.66) 100%);
+  opacity: 0.76;
+  will-change: opacity;
+}
+
+.ride-story-copy {
+  position: absolute;
+  inset: 0;
+  width: min(var(--content-width), calc(100% - 96px));
+  margin: 0 auto;
+}
+
+.ride-story-chapter {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: min(760px, 68vw);
+  opacity: 0;
+  transform: translate3d(0, 38px, 0);
+  translate: 0 -50%;
+  will-change: opacity, transform;
+}
+
+.ride-story-chapter:first-child {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+.ride-story-chapter > p:first-child {
+  margin: 0 0 24px;
+  color: var(--accent-bright);
+  font-size: 14px;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+}
+
+.ride-story-chapter h2 {
+  margin: 0;
+  font-size: clamp(48px, 5.7vw, 78px);
+  line-height: 1.08;
+  letter-spacing: -0.064em;
+  text-wrap: balance;
+  text-shadow: 0 12px 46px rgba(0, 0, 0, 0.3);
+}
+
+.ride-story-description {
+  display: block;
+  max-width: 570px;
+  margin: 28px 0 0;
+  color: rgba(235, 237, 239, 0.72);
+  font-size: clamp(15px, 1.4vw, 18px);
+  line-height: 1.8;
+  letter-spacing: -0.025em;
+}
+
+.ride-story-progress {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  right: 28px;
+  width: 2px;
+  height: 112px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-50%);
+}
+
+.ride-story-progress span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-bright);
+  transform: scaleY(0);
+  transform-origin: top;
+  will-change: transform;
+}
+
+.ride-story-devices {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  opacity: 0;
+  transform: translate3d(0, 90px, 0) scale(0.94);
+  transform-origin: 70% 80%;
+  will-change: opacity, transform;
+}
+
+.ride-story-phone {
+  padding: 7px;
+  border-radius: 34px;
+  box-shadow: 0 34px 88px rgba(0, 0, 0, 0.62);
+}
+
+.ride-story-phone img {
+  border-radius: 27px;
+}
+
+.ride-story-phone-back {
+  z-index: 1;
+  top: 12vh;
+  right: clamp(250px, 25vw, 420px);
+  width: clamp(190px, 18vw, 276px);
+  transform: rotate(-7deg);
+}
+
+.ride-story-phone-front {
+  z-index: 2;
+  right: clamp(60px, 9vw, 160px);
+  bottom: -106px;
+  width: clamp(220px, 21vw, 320px);
+  transform: rotate(5deg);
+}
+
+.ride-story-devices > p {
+  position: absolute;
+  bottom: 16vh;
+  left: max(48px, calc((100% - var(--content-width)) / 2));
+  max-width: 440px;
+  margin: 0;
+  color: #f5f5f2;
+  font-size: clamp(30px, 3.5vw, 52px);
+  font-weight: 850;
+  line-height: 1.12;
+  letter-spacing: -0.055em;
+}
+
+.ride-story-scroll {
+  position: absolute;
+  z-index: 4;
+  bottom: 30px;
+  left: 50%;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  transform: translateX(-50%);
+  will-change: opacity;
+}
+
+.ride-story-scroll span {
+  color: var(--accent-bright);
+  font-size: 15px;
+}
+
 .gallery-section {
   position: relative;
   overflow: hidden;
@@ -478,15 +670,7 @@ h1 {
   letter-spacing: 0.1em;
 }
 
-.intro-section {
-  padding: 190px 0 174px;
-  text-align: center;
-}
-
 .gallery-heading h2,
-.intro-section h2,
-.story-copy h2,
-.guide-copy h2,
 .garage-copy h2,
 .ai-copy h2,
 .download-section h2 {
@@ -496,9 +680,6 @@ h1 {
   letter-spacing: -0.062em;
 }
 
-.intro-section > p:last-child,
-.story-copy > p:not(.story-index),
-.guide-copy > p:not(.story-index),
 .garage-copy > p:not(.story-index),
 .ai-copy > p:not(.story-index) {
   color: var(--muted);
@@ -507,11 +688,6 @@ h1 {
   letter-spacing: -0.026em;
 }
 
-.intro-section > p:last-child {
-  margin: 28px 0 0;
-}
-
-.story-section,
 .garage-section,
 .ai-section {
   display: grid;
@@ -522,201 +698,14 @@ h1 {
   border-top: 1px solid var(--line);
 }
 
-.story-section.story-reversed {
-  grid-template-columns: 1.1fr 0.9fr;
-}
-
-.story-reversed .story-copy {
-  grid-column: 2;
-}
-
-.story-reversed .story-visual {
-  grid-row: 1;
-  grid-column: 1;
-}
-
 .story-index {
   margin-bottom: 24px;
 }
 
-.story-copy > p:not(.story-index),
-.guide-copy > p:not(.story-index),
 .garage-copy > p:not(.story-index),
 .ai-copy > p:not(.story-index) {
   margin: 26px 0 0;
 }
-
-.detail-list {
-  margin: 40px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.detail-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding: 20px 0;
-  border-top: 1px solid var(--line);
-}
-
-.detail-list li:last-child {
-  border-bottom: 1px solid var(--line);
-}
-
-.detail-list strong {
-  font-size: 15px;
-  letter-spacing: -0.025em;
-}
-
-.detail-list span {
-  color: #85878d;
-  font-size: 13px;
-}
-
-.story-visual {
-  position: relative;
-  height: 720px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 38px;
-  background:
-    radial-gradient(circle at 70% 28%, rgba(121, 207, 255, 0.13), transparent 280px),
-    #15171a;
-}
-
-.visual-orbit {
-  position: absolute;
-  width: 520px;
-  height: 520px;
-  border: 1px solid rgba(121, 207, 255, 0.24);
-  border-radius: 50%;
-}
-
-.orbit-one {
-  top: 80px;
-  right: -210px;
-}
-
-.story-phone {
-  z-index: 2;
-  right: 32px;
-  bottom: -118px;
-  width: min(63%, 330px);
-  transform: rotate(2deg);
-}
-
-.category-stack {
-  position: absolute;
-  z-index: 4;
-  top: 100px;
-  left: 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.category-stack span {
-  padding: 12px 15px;
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 13px;
-  background: rgba(26, 28, 32, 0.86);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
-  color: #dedfe1;
-  font-size: 12px;
-  font-weight: 750;
-  backdrop-filter: blur(14px);
-}
-
-.category-stack span:nth-child(2) {
-  margin-left: 24px;
-}
-
-.category-stack span:nth-child(3) {
-  margin-left: 5px;
-}
-
-.category-stack span:nth-child(4) {
-  margin-left: 32px;
-}
-
-.course-visual {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.05), transparent 40%),
-    #111316;
-}
-
-.course-list-phone {
-  z-index: 1;
-  top: 46px;
-  left: 30px;
-  width: min(54%, 286px);
-  transform: rotate(-5deg);
-}
-
-.route-phone {
-  z-index: 2;
-  right: 26px;
-  bottom: -112px;
-  width: min(58%, 306px);
-  transform: rotate(5deg);
-}
-
-.metric-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  overflow: hidden;
-  margin-top: 38px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--line);
-}
-
-.metric-row div {
-  display: flex;
-  min-height: 88px;
-  flex-direction: column;
-  justify-content: center;
-  padding: 16px;
-  background: #111315;
-}
-
-.metric-row strong {
-  font-size: 15px;
-}
-
-.metric-row span {
-  margin-top: 7px;
-  color: #85878c;
-  font-size: 11px;
-}
-
-.guide-section {
-  position: relative;
-  display: grid;
-  grid-template-columns: 0.78fr 1.22fr;
-  gap: 70px;
-  align-items: center;
-  min-height: 820px;
-  overflow: hidden;
-  margin-top: 120px;
-  margin-bottom: 120px;
-  padding: 86px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 44px;
-  background:
-    radial-gradient(circle at 75% 20%, rgba(63, 128, 255, 0.17), transparent 320px),
-    #15171a;
-}
-
-.guide-copy {
-  position: relative;
-  z-index: 3;
-}
-
-.guide-points,
 .garage-tags {
   display: flex;
   flex-wrap: wrap;
@@ -724,7 +713,6 @@ h1 {
   margin-top: 34px;
 }
 
-.guide-points span,
 .garage-tags span {
   padding: 9px 13px;
   border: 1px solid var(--line);
@@ -733,31 +721,6 @@ h1 {
   color: #c3c4c8;
   font-size: 12px;
   font-weight: 750;
-}
-
-.guide-stage {
-  position: relative;
-  align-self: stretch;
-  min-height: 650px;
-}
-
-.guide-road {
-  position: absolute;
-  top: -100px;
-  left: 44%;
-  width: 140px;
-  height: 950px;
-  border-right: 3px dashed rgba(255, 255, 255, 0.17);
-  border-left: 3px dashed rgba(255, 255, 255, 0.17);
-  transform: rotate(21deg);
-}
-
-.guide-phone {
-  z-index: 2;
-  top: 10px;
-  left: 50%;
-  width: min(76%, 350px);
-  transform: translateX(-50%) rotate(4deg);
 }
 
 .garage-section {
@@ -1169,53 +1132,31 @@ footer small {
   }
 
   .gallery-rail {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: 760px;
   }
 
-  .story-section,
-  .story-section.story-reversed,
+  .ride-story-copy {
+    width: min(var(--content-width), calc(100% - 64px));
+  }
+
+  .ride-story-chapter {
+    width: min(680px, 80vw);
+  }
+
+  .ride-story-phone-back {
+    right: 34vw;
+  }
+
   .garage-section,
   .ai-section {
     grid-template-columns: 1fr;
     gap: 64px;
   }
 
-  .story-reversed .story-copy,
-  .story-reversed .story-visual {
-    grid-row: auto;
-    grid-column: auto;
-  }
-
-  .story-copy,
   .garage-copy,
   .ai-copy {
     max-width: 680px;
-  }
-
-  .story-visual {
-    width: min(100%, 680px);
-  }
-
-  .story-reversed .story-visual {
-    order: 2;
-  }
-
-  .guide-section {
-    grid-template-columns: 1fr;
-    gap: 60px;
-    padding: 72px;
-  }
-
-  .guide-copy {
-    max-width: 650px;
-  }
-
-  .guide-stage {
-    min-height: 680px;
-  }
-
-  .guide-phone {
-    width: 340px;
   }
 }
 
@@ -1223,9 +1164,6 @@ footer small {
   .site-header,
   .hero,
   .promise-strip,
-  .intro-section,
-  .story-section,
-  .guide-section,
   .garage-section,
   .ai-section,
   .download-section,
@@ -1349,6 +1287,89 @@ footer small {
     border-bottom: 0;
   }
 
+  .ride-story {
+    height: 480svh;
+    margin-top: 80px;
+  }
+
+  .ride-story-media {
+    object-position: 61% center;
+  }
+
+  .ride-story-shade {
+    background:
+      linear-gradient(90deg, rgba(3, 4, 5, 0.83), rgba(3, 4, 5, 0.2)),
+      linear-gradient(180deg, rgba(3, 4, 5, 0.35), rgba(3, 4, 5, 0.1) 35%, rgba(3, 4, 5, 0.8));
+  }
+
+  .ride-story-copy {
+    width: calc(100% - 40px);
+  }
+
+  .ride-story-chapter {
+    top: 46%;
+    width: 100%;
+  }
+
+  .ride-story-chapter > p:first-child {
+    margin-bottom: 18px;
+    font-size: 11px;
+  }
+
+  .ride-story-chapter h2 {
+    font-size: clamp(30px, 9.5vw, 45px);
+    line-height: 1.1;
+  }
+
+  .ride-story-description {
+    max-width: 88%;
+    margin: 22px 0 0;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .ride-story-progress {
+    right: 12px;
+    height: 86px;
+  }
+
+  .ride-story-phone {
+    padding: 5px;
+    border-radius: 26px;
+  }
+
+  .ride-story-phone::before {
+    top: 11px;
+    height: 15px;
+  }
+
+  .ride-story-phone img {
+    border-radius: 21px;
+  }
+
+  .ride-story-phone-back {
+    top: 16vh;
+    right: 42vw;
+    width: min(44vw, 190px);
+  }
+
+  .ride-story-phone-front {
+    right: 7vw;
+    bottom: -56px;
+    width: min(50vw, 218px);
+  }
+
+  .ride-story-devices > p {
+    bottom: 16vh;
+    left: 20px;
+    max-width: 240px;
+    font-size: clamp(27px, 8.8vw, 38px);
+  }
+
+  .ride-story-scroll {
+    bottom: 22px;
+  }
+
   .gallery-section {
     padding: 112px 0 122px;
   }
@@ -1401,15 +1422,7 @@ footer small {
     border-radius: 24px;
   }
 
-  .intro-section {
-    padding: 126px 0 116px;
-    text-align: left;
-  }
-
   .gallery-heading h2,
-  .intro-section h2,
-  .story-copy h2,
-  .guide-copy h2,
   .garage-copy h2,
   .download-section h2 {
     font-size: clamp(38px, 11vw, 52px);
@@ -1419,71 +1432,10 @@ footer small {
     font-size: clamp(29px, 8.8vw, 44px);
   }
 
-  .intro-section > p:last-child br {
-    display: none;
-  }
-
-  .story-section,
   .garage-section,
   .ai-section {
     gap: 46px;
     padding: 106px 0;
-  }
-
-  .story-visual {
-    height: 570px;
-    border-radius: 28px;
-  }
-
-  .story-phone {
-    right: 14px;
-    bottom: -65px;
-    width: 62%;
-  }
-
-  .category-stack {
-    top: 66px;
-    left: 16px;
-  }
-
-  .category-stack span {
-    padding: 9px 11px;
-    font-size: 10px;
-  }
-
-  .course-list-phone {
-    top: 38px;
-    left: 14px;
-    width: 54%;
-  }
-
-  .route-phone {
-    right: 12px;
-    bottom: -54px;
-    width: 57%;
-  }
-
-  .metric-row div {
-    min-height: 78px;
-    padding: 12px;
-  }
-
-  .guide-section {
-    min-height: auto;
-    gap: 46px;
-    margin-top: 64px;
-    margin-bottom: 64px;
-    padding: 78px 24px 0;
-    border-radius: 28px;
-  }
-
-  .guide-stage {
-    min-height: 570px;
-  }
-
-  .guide-phone {
-    top: 18px;
-    width: min(82%, 310px);
   }
 
   .garage-section {
@@ -1593,5 +1545,43 @@ footer small {
   .js [data-reveal] {
     opacity: 1;
     transform: none;
+  }
+
+  .ride-story {
+    height: auto;
+    margin-top: 80px;
+  }
+
+  .ride-story-sticky {
+    position: relative;
+    height: auto;
+    min-height: 100svh;
+    padding: 112px 0;
+  }
+
+  .ride-story-media {
+    transform: none !important;
+  }
+
+  .ride-story-copy {
+    position: relative;
+    inset: auto;
+    display: grid;
+    gap: 86px;
+  }
+
+  .ride-story-chapter {
+    position: relative;
+    top: auto;
+    width: min(680px, 100%);
+    opacity: 1 !important;
+    transform: none !important;
+    translate: none;
+  }
+
+  .ride-story-devices,
+  .ride-story-progress,
+  .ride-story-scroll {
+    display: none;
   }
 }
