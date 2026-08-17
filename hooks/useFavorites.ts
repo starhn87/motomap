@@ -81,7 +81,7 @@ export function useIsFavorite(placeId: string) {
 }
 
 /** 일반 장소가 즐겨찾기인지 — 좌표 근사 일치로 본다 */
-export function useIsGeneralFavorite(point: { latitude: number; longitude: number }) {
+export function useIsGeneralFavorite(point: { latitude: number; longitude: number } | null) {
   const { data: favorites } = useFavorites();
-  return !!favorites && !!findGeneralFavorite(favorites.general, point);
+  return !!favorites && !!point && !!findGeneralFavorite(favorites.general, point);
 }

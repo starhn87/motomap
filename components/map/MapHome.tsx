@@ -284,7 +284,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     if (selectedPlace || selectedStation || tempPlace) {
       if (selectedPlace) handleBottomSheetClose();
       if (selectedStation) setSelectedStation(null);
-      if (tempPlace) setTempPlace(null);
+      if (tempPlace) handleBottomSheetClose();
       return;
     }
     // 빈 지도를 탭하는 것으로는 아무것도 고르지 않는다. 예전엔 그 좌표를
@@ -309,7 +309,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     if (gasMode) {
       if (selectedPlace) handleBottomSheetClose();
       if (selectedStation) setSelectedStation(null);
-      if (tempPlace) setTempPlace(null);
+      if (tempPlace) handleBottomSheetClose();
       return;
     }
     // 다른 카드·시트가 열려 있어도 닫기 없이 새 심벌로 바로 전환한다 (지도 앱 관례)
@@ -836,13 +836,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
       <HazardSheet hazard={selectedHazard} onClose={() => setSelectedHazard(null)} />
 
-      {tempPlace && (
-        <TempPlaceSheet
-          place={tempPlace}
-          onClose={handleBottomSheetClose}
-          animatedPosition={sheetPosition}
-        />
-      )}
+      <TempPlaceSheet
+        place={tempPlace}
+        onClose={handleBottomSheetClose}
+        animatedPosition={sheetPosition}
+      />
 
       {selectedStation && (
         <GasStationCard

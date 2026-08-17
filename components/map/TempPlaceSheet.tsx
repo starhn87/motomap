@@ -61,7 +61,7 @@ export interface TempPlace extends GeneralPlaceInput {
 }
 
 interface Props {
-  place: TempPlace;
+  place: TempPlace | null;
   onClose: () => void;
   animatedPosition?: SharedValue<number>;
 }
@@ -80,10 +80,10 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const insets = useSafeAreaInsets();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const scrollRef = useRef<any>(null);
-  const [currentIndex, setCurrentIndex] = useState(-1);
-  const animatedIndex = useSharedValue(-1);
-  const currentIndexRef = useRef(-1);
-  const hasOpenedRef = useRef(false);
+  const didInitRef = useRef(false);
+  const [currentIndex, setCurrentIndex] = useState(1);
+  const animatedIndex = useSharedValue(1);
+  const currentIndexRef = useRef(1);
 
   const syncIndex = useCallback((index: number) => {
     currentIndexRef.current = index;
@@ -110,15 +110,15 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const { mutateAsync: toggleFavorite, isPending: favPending } =
     useToggleGeneralFavorite();
   const { data: generalPlace } = useGeneralPlace(place);
-  const generalPlaceId = generalPlace?.id ?? place.generalPlaceId;
+  const generalPlaceId = generalPlace?.id ?? place?.generalPlaceId;
   const reviewTarget = generalPlaceId
     ? ({ kind: 'general', id: generalPlaceId } as const)
     : null;
 
   const { data: gas, isLoading: gasLoading } = useGasPricesAt(place);
-  const canLoadHours = !looksLikeGasStation(place.name);
+  const canLoadHours = !!place && !looksLikeGasStation(place.name);
   const { data: placeHours } = usePlaceHours(
-    canLoadHours
+    place && canLoadHours
       ? {
           sourceKey: poiSourceKey(place.latitude, place.longitude),
           name: place.name,
@@ -141,14 +141,19 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   }, [loadMyPlaces]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-    // animateOnMount=false 안전장치를 유지하면서, 레이아웃이 잡힌 다음 등록 장소와
-    // 같은 스냅 애니메이션으로 올린다.
-    const frame = requestAnimationFrame(() => bottomSheetRef.current?.snapToIndex(1));
-    return () => cancelAnimationFrame(frame);
-  }, [place.name, place.latitude, place.longitude]);
+    if (!didInitRef.current) {
+      didInitRef.current = true;
+      return;
+    }
+    if (place) {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+      bottomSheetRef.current?.snapToIndex(1);
+    } else {
+      bottomSheetRef.current?.close();
+    }
+  }, [place?.name, place?.latitude, place?.longitude]);
 
-  const distanceMeters = userLocation
+  const distanceMeters = userLocation && place
     ? haversine(userLocation, {
         latitude: place.latitude,
         longitude: place.longitude,
@@ -157,17 +162,20 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
 
   const near = (a: number, b: number) => Math.abs(a - b) < 1e-5;
   const savedSlot: MyPlaceSlot | null =
+    place &&
     myPlaces.home &&
     near(myPlaces.home.latitude, place.latitude) &&
     near(myPlaces.home.longitude, place.longitude)
       ? 'home'
-      : myPlaces.work &&
+      : place &&
+          myPlaces.work &&
           near(myPlaces.work.latitude, place.latitude) &&
           near(myPlaces.work.longitude, place.longitude)
         ? 'work'
         : null;
 
   const handleFavorite = async () => {
+    if (!place) return;
     if (!user) {
       toast.info('로그인이 필요합니다.');
       return;
@@ -181,6 +189,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   };
 
   const handleSaveMyPlace = () => {
+    if (!place) return;
     if (savedSlot) {
       const isHome = savedSlot === 'home';
       appAlert(isHome ? '집으로 저장된 장소' : '회사로 저장된 장소', place.name, [
@@ -224,6 +233,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   };
 
   const handleNavigate = async () => {
+    if (!place) return;
     if (resolvingNavigation || navLaunching) return;
     setResolvingNavigation(true);
     try {
@@ -251,6 +261,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   };
 
   const handleShare = async () => {
+    if (!place) return;
     const link = place.placeUrl ? `\n${place.placeUrl}` : '';
     try {
       await Share.share({ message: `${place.name}\n${place.address}${link}` });
@@ -260,6 +271,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   };
 
   const handleSubmit = () => {
+    if (!place) return;
     const identity = generalPlace
       ? { provider: generalPlace.provider, providerId: generalPlace.providerId }
       : generalPlaceIdentity(place);
@@ -367,11 +379,13 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
     [handleIndicatorStyle],
   );
 
+  if (!place) return null;
+
   return (
     <>
       <BottomSheet
         ref={bottomSheetRef}
-        index={-1}
+        index={1}
         animateOnMount={false}
         snapPoints={SNAP_POINTS}
         enableDynamicSizing={false}
@@ -384,8 +398,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
         keyboardBlurBehavior="restore"
         enableBlurKeyboardOnGesture
         onChange={(index) => {
-          if (index >= 0) hasOpenedRef.current = true;
-          if (index === -1 && hasOpenedRef.current) onClose();
+          if (index === -1) onClose();
         }}
         containerStyle={styles.sheetContainer}
         backgroundStyle={{
@@ -763,7 +776,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 14,
     borderWidth: 1,
     borderRadius: 14,
     padding: 14,

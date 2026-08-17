@@ -625,9 +625,7 @@ export default function SearchResultsScreen() {
 
       {/* 지도 탭과 같은 상세 시트 — 닫으면 결과 목록으로 돌아온다 */}
       <PlaceBottomSheet place={selectedPlace} onClose={() => setSelectedPlace(null)} />
-      {selectedTemp && (
-        <TempPlaceSheet place={selectedTemp} onClose={() => setSelectedTemp(null)} />
-      )}
+      <TempPlaceSheet place={selectedTemp} onClose={() => setSelectedTemp(null)} />
     </View>
   );
 }
