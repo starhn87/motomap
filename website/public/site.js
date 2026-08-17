@@ -45,9 +45,170 @@ if (rideStory && !reduceMotion) {
     { start: 0.74, end: 1.06 },
   ];
   const transitionLength = 0.045;
-  let frameRequested = false;
-
   const clamp = (value) => Math.min(Math.max(value, 0), 1);
+  const storyStepProgress = [
+    0,
+    ...chapterWindows.map(({ start, end }) => clamp((start + Math.min(end, 1)) / 2)),
+  ];
+  const wheelThreshold = 32;
+  const wheelIdleDuration = 220;
+  const transitionDuration = 720;
+  let frameRequested = false;
+  let transitionLocked = false;
+  let transitionReleaseTimer;
+  let wheelDelta = 0;
+  let wheelConsumed = false;
+  let wheelIdle = true;
+  let wheelIdleTimer;
+  let touchStartY = null;
+  let touchConsumed = false;
+
+  const getStoryStops = () => {
+    const storyTop = rideStory.offsetTop;
+    const scrollDistance = Math.max(rideStory.offsetHeight - window.innerHeight, 1);
+    return [
+      ...storyStepProgress.map((step) => storyTop + scrollDistance * step),
+      storyTop + rideStory.offsetHeight,
+    ];
+  };
+
+  const getTargetStoryStop = (direction) => {
+    const stops = getStoryStops();
+    const currentScroll = window.scrollY;
+    const storyStart = stops[0];
+    const storyEnd = stops[stops.length - 1];
+
+    if (currentScroll < storyStart - 4 || currentScroll > storyEnd + 4) return null;
+
+    if (direction > 0) {
+      return stops.find((stop) => stop > currentScroll + 4) ?? null;
+    }
+
+    for (let index = stops.length - 1; index >= 0; index -= 1) {
+      if (stops[index] < currentScroll - 4) return stops[index];
+    }
+    return null;
+  };
+
+  const moveStoryByStep = (direction) => {
+    const target = getTargetStoryStop(direction);
+    if (target === null) return false;
+    if (transitionLocked) return true;
+
+    transitionLocked = true;
+    window.clearTimeout(transitionReleaseTimer);
+    transitionReleaseTimer = window.setTimeout(() => {
+      transitionLocked = false;
+      if (wheelIdle) wheelConsumed = false;
+    }, transitionDuration);
+
+    window.scrollTo({ top: target, behavior: 'smooth' });
+    return true;
+  };
+
+  // 트랙패드의 관성 이벤트까지 한 묶음으로 보고, 완전히 멈춘 뒤에만 다음 단계를 연다.
+  const scheduleWheelRelease = () => {
+    window.clearTimeout(wheelIdleTimer);
+    wheelIdle = false;
+    wheelIdleTimer = window.setTimeout(() => {
+      wheelDelta = 0;
+      wheelIdle = true;
+      if (!transitionLocked) wheelConsumed = false;
+    }, wheelIdleDuration);
+  };
+
+  const handleWheel = (event) => {
+    if (event.ctrlKey || event.deltaY === 0 || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+
+    if (wheelConsumed) {
+      event.preventDefault();
+      scheduleWheelRelease();
+      return;
+    }
+
+    const direction = event.deltaY > 0 ? 1 : -1;
+    if (getTargetStoryStop(direction) === null) return;
+
+    event.preventDefault();
+    scheduleWheelRelease();
+
+    const deltaScale = event.deltaMode === 1
+      ? 16
+      : event.deltaMode === 2
+        ? window.innerHeight
+        : 1;
+    wheelDelta += event.deltaY * deltaScale;
+
+    if (Math.abs(wheelDelta) < wheelThreshold) return;
+
+    wheelConsumed = true;
+    const accumulatedDirection = wheelDelta > 0 ? 1 : -1;
+    wheelDelta = 0;
+    moveStoryByStep(accumulatedDirection);
+  };
+
+  const handleTouchStart = (event) => {
+    touchStartY = event.touches.length === 1 ? event.touches[0].clientY : null;
+    touchConsumed = false;
+  };
+
+  const handleTouchMove = (event) => {
+    if (touchStartY === null || event.touches.length !== 1) return;
+
+    if (touchConsumed) {
+      event.preventDefault();
+      return;
+    }
+
+    const delta = touchStartY - event.touches[0].clientY;
+    if (Math.abs(delta) < 2) return;
+
+    const direction = delta > 0 ? 1 : -1;
+    if (getTargetStoryStop(direction) === null) return;
+
+    event.preventDefault();
+    if (Math.abs(delta) < 42) return;
+
+    touchConsumed = true;
+    moveStoryByStep(direction);
+  };
+
+  const finishTouch = () => {
+    touchStartY = null;
+    touchConsumed = false;
+  };
+
+  const handleStoryKey = (event) => {
+    const target = event.target;
+    if (
+      target instanceof HTMLElement
+      && (target.isContentEditable || target.matches('a, input, textarea, select, button'))
+    ) return;
+
+    let direction = 0;
+    if (
+      event.key === 'ArrowDown'
+      || event.key === 'PageDown'
+      || event.key === 'End'
+      || (event.key === ' ' && !event.shiftKey)
+    ) {
+      direction = 1;
+    } else if (
+      event.key === 'ArrowUp'
+      || event.key === 'PageUp'
+      || event.key === 'Home'
+      || (event.key === ' ' && event.shiftKey)
+    ) {
+      direction = -1;
+    }
+
+    if (direction === 0 || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (getTargetStoryStop(direction) === null) return;
+
+    event.preventDefault();
+    if (event.repeat) return;
+    moveStoryByStep(direction);
+  };
 
   const updateRideStory = () => {
     const rect = rideStory.getBoundingClientRect();
@@ -86,4 +247,10 @@ if (rideStory && !reduceMotion) {
   updateRideStory();
   window.addEventListener('scroll', requestRideStoryUpdate, { passive: true });
   window.addEventListener('resize', requestRideStoryUpdate);
+  window.addEventListener('wheel', handleWheel, { passive: false });
+  window.addEventListener('touchstart', handleTouchStart, { passive: true });
+  window.addEventListener('touchmove', handleTouchMove, { passive: false });
+  window.addEventListener('touchend', finishTouch, { passive: true });
+  window.addEventListener('touchcancel', finishTouch, { passive: true });
+  window.addEventListener('keydown', handleStoryKey);
 }
