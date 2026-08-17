@@ -297,12 +297,11 @@ h1 {
 
 .ride-story-chapter {
   position: absolute;
-  top: 50%;
+  top: 56%;
   left: 0;
-  display: grid;
-  grid-template-areas: "text screens";
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.62fr);
-  gap: clamp(52px, 7vw, 104px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(24px, 3svh, 36px);
   align-items: center;
   width: 100%;
   opacity: 0;
@@ -312,7 +311,7 @@ h1 {
 }
 
 .ride-story-text {
-  grid-area: text;
+  width: min(900px, 100%);
   min-width: 0;
 }
 
@@ -326,7 +325,7 @@ h1 {
 
 .ride-story-chapter h2 {
   margin: 0;
-  font-size: clamp(48px, 5.7vw, 78px);
+  font-size: clamp(42px, 4.6vw, 64px);
   line-height: 1.08;
   letter-spacing: -0.064em;
   text-wrap: balance;
@@ -345,17 +344,17 @@ h1 {
 
 .ride-story-screens {
   position: relative;
-  grid-area: screens;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   min-width: 0;
 }
 
 .story-device {
   position: relative;
   overflow: hidden;
-  width: clamp(190px, 17vw, 252px);
+  width: min(clamp(230px, 22vw, 300px), 28.6svh);
   padding: 6px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 34px;
@@ -373,22 +372,21 @@ h1 {
 }
 
 .ride-story-screens-pair {
-  justify-content: flex-end;
-  min-height: min(72svh, 680px);
+  justify-content: center;
 }
 
 .ride-story-screens-pair .story-device {
-  width: clamp(162px, 14vw, 210px);
+  width: min(clamp(190px, 18vw, 248px), 27svh);
 }
 
 .story-device-primary {
   z-index: 2;
-  transform: translate3d(20px, -28px, 0) rotate(-2deg);
+  transform: translate3d(16px, -8px, 0) rotate(-1.5deg);
 }
 
 .story-device-secondary {
   z-index: 1;
-  transform: translate3d(-8px, 38px, 0) rotate(2.5deg);
+  transform: translate3d(-16px, 10px, 0) rotate(2deg);
 }
 
 .ride-story-progress {
@@ -967,8 +965,7 @@ footer small {
   }
 
   .ride-story-chapter {
-    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.55fr);
-    gap: 48px;
+    gap: 28px;
   }
 
   .garage-section,
