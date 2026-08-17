@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Animated, {
   Extrapolation,
   FadeIn,
+  FadeOut,
   interpolate,
   runOnJS,
   useAnimatedReaction,
@@ -35,7 +36,6 @@ import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavor
 import { useGasPricesAt } from '@/hooks/useGasStations';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
 import { poiSourceKey } from '@/lib/api/placeHours';
-import PlaceHoursBlock from '@/components/place/PlaceHoursBlock';
 import OpenBadge from '@/components/place/OpenBadge';
 import { formatWeek } from '@/lib/hours';
 import { FUEL_LABELS, formatTradeAt, looksLikeGasStation } from '@/lib/api/gasStations';
@@ -91,7 +91,6 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
       if (rounded !== previous) runOnJS(syncIndex)(rounded);
     },
   );
-  const [hoursExpanded, setHoursExpanded] = useState(false);
   const [resolvingNavigation, setResolvingNavigation] = useState(false);
   const isExpanded = currentIndex === SNAP_POINTS.length - 1;
   const navLaunching = useNavLaunching((s) => s.launching);
@@ -122,7 +121,10 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         }
       : null,
   );
-  const hasHoursDetails = formatWeek(placeHours?.hours ?? {}).length > 0;
+  const weekLines = formatWeek(placeHours?.hours ?? {});
+  const hoursText = [weekLines.join('\n'), placeHours?.hours?.note]
+    .filter(Boolean)
+    .join('\n');
   const fuelPrices = (gas?.prices ?? []).filter((p) => p.prod in FUEL_LABELS);
   const { spec: myBike } = useMyBike();
   const myProd = myFuelProd(myBike);
@@ -133,7 +135,6 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
   }, [loadMyPlaces]);
 
   useEffect(() => {
-    setHoursExpanded(false);
     if (!didInitRef.current) {
       didInitRef.current = true;
       return;
@@ -268,16 +269,19 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
     });
   };
 
-  const headerActions = (
-    <View style={styles.headerActions}>
-      <Pressable onPress={handleFavorite} disabled={favPending} hitSlop={8}>
+  const actions = (
+    <>
+      <TouchableOpacity
+        onPress={handleFavorite}
+        disabled={favPending}
+        style={styles.iconButton}>
         <Ionicons
           name={isFavorite ? 'star' : 'star-outline'}
           size={25}
           color={isFavorite ? semantic.star : colors.textSecondary}
         />
-      </Pressable>
-      <Pressable onPress={handleSaveMyPlace} hitSlop={8}>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={handleSaveMyPlace} style={styles.iconButton}>
         <Ionicons
           name={
             savedSlot === 'home'
@@ -289,11 +293,11 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
           size={23}
           color={savedSlot ? colors.tint : colors.textSecondary}
         />
-      </Pressable>
-      <Pressable onPress={onClose} hitSlop={8}>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onClose} style={styles.iconButton}>
         <Ionicons name="close" size={25} color={colors.textSecondary} />
-      </Pressable>
-    </View>
+      </TouchableOpacity>
+    </>
   );
 
   const navigating = resolvingNavigation || navLaunching;
@@ -334,6 +338,17 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
     ),
   }));
 
+  // 확장 판정 순간 모서리 반경을 한 번에 바꾸면 스프링이 멈출 때 덜컥거려 보인다.
+  // 시트 위치에 맞춰 카드 모서리를 연속으로 펴서 전환 끝을 매끄럽게 만든다.
+  const sheetBackgroundStyle = useAnimatedStyle(() => ({
+    borderRadius: interpolate(
+      animatedIndex.value,
+      [1, 2],
+      [24, 0],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
   const renderHandle = useCallback(
     () => (
       <TouchableOpacity
@@ -370,15 +385,17 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
           if (index === -1) onClose();
         }}
         containerStyle={styles.sheetContainer}
-        backgroundStyle={{
-          backgroundColor: colors.background,
-          borderRadius: isExpanded ? 0 : 24,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-          elevation: 8,
-        }}
+        backgroundStyle={[
+          {
+            backgroundColor: colors.background,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 12,
+            elevation: 8,
+          },
+          sheetBackgroundStyle,
+        ]}
         handleComponent={renderHandle}>
         <BottomSheetScrollView
           ref={scrollRef}
@@ -392,7 +409,14 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
             <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
               {place.name}
             </Text>
-            {!isExpanded && headerActions}
+            {!isExpanded && (
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                exiting={FadeOut.duration(150)}
+                style={styles.nameActions}>
+                {actions}
+              </Animated.View>
+            )}
           </View>
 
           <View style={styles.addressRow}>
@@ -445,26 +469,6 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
               )}
             </View>
           </View>
-
-          {canLoadHours && hasHoursDetails && (
-            <View style={styles.hoursBlock}>
-              <Pressable
-                onPress={() => setHoursExpanded((expanded) => !expanded)}
-                style={styles.hoursToggle}>
-                <Text style={[styles.hoursToggleText, { color: colors.tint }]}>영업시간</Text>
-                <Text style={[styles.hoursToggleText, { color: colors.tint }]}>
-                  {hoursExpanded ? '접기' : '펼치기'}
-                </Text>
-              </Pressable>
-              {hoursExpanded && (
-                <PlaceHoursBlock
-                  hours={placeHours?.hours}
-                  businessStatus={placeHours?.businessStatus}
-                  showStatus={false}
-                />
-              )}
-            </View>
-          )}
 
           {(gasLoading || fuelPrices.length > 0) && (
             <View style={[styles.priceRows, { borderColor: colors.border }]}>
@@ -523,16 +527,42 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
             </View>
           )}
 
-          {!!place.phone && (
-            <Pressable
-              onPress={() => void Linking.openURL(`tel:${place.phone}`)}
-              style={[
-                styles.infoCard,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}>
-              <Ionicons name="call-outline" size={17} color={colors.textSecondary} />
-              <Text style={[styles.infoText, { color: colors.text }]}>{place.phone}</Text>
-            </Pressable>
+          {(place.phone || hoursText) && (
+            <View style={styles.infoGrid}>
+              {!!place.phone && (
+                <Pressable
+                  onPress={() => void Linking.openURL(`tel:${place.phone}`)}
+                  style={({ pressed }) => [
+                    styles.infoCard,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    pressed && { opacity: 0.6 },
+                  ]}>
+                  <Ionicons name="call-outline" size={16} color={colors.textSecondary} />
+                  <Text
+                    style={[styles.infoCardValue, { color: colors.text }]}
+                    numberOfLines={2}>
+                    {place.phone}
+                  </Text>
+                </Pressable>
+              )}
+              {!!hoursText && (
+                <View
+                  style={[
+                    styles.infoCard,
+                    weekLines.length > 1 && styles.infoCardWide,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                  ]}>
+                  <View style={weekLines.length > 1 && styles.infoIconTop}>
+                    <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                  </View>
+                  <Text
+                    style={[styles.infoCardValue, { color: colors.text }]}
+                    numberOfLines={7}>
+                    {hoursText}
+                  </Text>
+                </View>
+              )}
+            </View>
           )}
 
           <Pressable
@@ -581,14 +611,17 @@ export default function TempPlaceSheet({ place, onClose }: Props) {
         <Animated.View
           pointerEvents={headerReady ? 'auto' : 'box-only'}
           entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
           style={[
             styles.pageHeader,
             { paddingTop: insets.top, backgroundColor: colors.background },
           ]}>
-          <Pressable onPress={() => bottomSheetRef.current?.close()} hitSlop={8}>
+          <TouchableOpacity
+            onPress={() => bottomSheetRef.current?.close()}
+            style={styles.iconButton}>
             <Ionicons name="chevron-back" size={25} color={colors.text} />
-          </Pressable>
-          {headerActions}
+          </TouchableOpacity>
+          <View style={styles.nameActions}>{actions}</View>
         </Animated.View>
       )}
     </>
@@ -620,14 +653,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  name: { flex: 1, fontSize: 22, lineHeight: 28, fontWeight: '800' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  nameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 48,
+    marginBottom: 4,
+  },
+  name: { flex: 1, fontSize: 22, fontWeight: '700' },
+  nameActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconButton: { padding: 8 },
   addressRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 6,
+    marginBottom: 8,
   },
   address: { flex: 1, fontSize: 13, lineHeight: 18 },
   generalBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
@@ -650,14 +690,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
-  hoursBlock: { marginTop: 14 },
-  hoursToggle: {
+  infoGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 32,
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 14,
+    marginBottom: 16,
   },
-  hoursToggleText: { fontSize: 13, fontWeight: '700' },
   priceRows: {
     gap: 6,
     minHeight: 108,
@@ -678,15 +717,28 @@ const styles = StyleSheet.create({
   skeleton: { height: 14, borderRadius: 7 },
   tradeAt: { fontSize: 11, lineHeight: 14, textAlign: 'right' },
   infoCard: {
+    flexBasis: '48%',
+    flexGrow: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 14,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
     borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 12,
   },
-  infoText: { fontSize: 14, fontWeight: '600' },
+  infoCardWide: {
+    flexBasis: '100%',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+  },
+  infoIconTop: { marginTop: 1 },
+  infoCardValue: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
   submitCard: {
     flexDirection: 'row',
     alignItems: 'center',
