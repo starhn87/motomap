@@ -10,17 +10,17 @@
 라이딩 갈 만한 카페, 맛집, 뷰포인트부터 주유소와 정비소 등을 지도에서 찾고, 이륜차 전용 길안내로 바로 떠나고, 리뷰와 코스로 라이더끼리 정보를 나누는 앱입니다. 출발 전에는 기상청 예보 기반 라이딩 날씨로 비 소식을 확인할 수 있고, App Store에서 다운로드할 수 있습니다.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/hero-1.png" width="340"/>
-  <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/hero-2.png" width="340"/>
+  <img src="./docs/screenshots/hero-1.png" width="340"/>
+  <img src="./docs/screenshots/hero-2.png" width="340"/>
 </p>
 
 ## 📱 스크린샷
 
 | 지도 | 경로 미리보기 | 길안내 |
 |:---:|:---:|:---:|
-| <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/01-map.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/02-preview.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/store-screenshots-1.2.4-6.5/03_navigation.png" width="240"/> |
+| <img src="./docs/screenshots/01-map.png" width="240"/> | <img src="./docs/screenshots/02-preview.png" width="240"/> | <img src="./store-screenshots-1.2.4-6.5/03_navigation.png" width="240"/> |
 | **음성 검색** | **코스 탐색** | **실시간 유가** |
-| <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/06-voice.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/05-course.png" width="240"/> | <img src="https://raw.githubusercontent.com/starhn87/motomap/main/docs/screenshots/04-gas.png" width="240"/> |
+| <img src="./docs/screenshots/06-voice.png" width="240"/> | <img src="./docs/screenshots/05-course.png" width="240"/> | <img src="./docs/screenshots/04-gas.png" width="240"/> |
 
 ## ✨ 주요 기능
 
