@@ -262,8 +262,8 @@ export default function SettingsScreen() {
             borderColor: colors.border,
           },
         ]}>
-        {/* 새 버전이 있으면 행 자체가 스토어로 가는 버튼이 된다. 앱 시작 모달은
-            checkStoreUpdate 가 스토어 버전마다 한 번만 담당하고, 이 행은 이후에도
+        {/* 새 버전이 있으면 행 자체가 스토어로 가는 버튼이 된다. 앱 시작 안내는
+            checkStartupNotices 가 버전마다 한 번만 담당하고, 이 행은 이후에도
             사용자가 직접 업데이트할 수 있는 진입점으로 남긴다. */}
         <Pressable
           onPress={hasUpdate ? openStore : undefined}

@@ -1,7 +1,7 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { initializeKakaoSDK } from '@react-native-kakao/core';
 import { registerGuideEvents } from '@/lib/guideEvents';
-import { checkStoreUpdate } from '@/lib/updateCheck';
+import { checkStartupNotices } from '@/lib/updateCheck';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
@@ -67,9 +67,10 @@ function RootLayout() {
   // 종료(도착 리뷰 제안)·메뉴(위험 제보 등) 처리는 루트에서 상시 구독한다.
   useEffect(() => registerGuideEvents(), []);
 
-  // 스토어에 새 버전이 있으면 안내 — 첫 화면(지도) 로딩과 겹치지 않게 잠시 미룬다
+  // 스토어 업데이트 또는 현재 버전의 새로운 기능을 안내한다. 첫 화면(지도) 로딩과
+  // 겹치지 않게 잠시 미루고, 둘 다 대상이면 업데이트 안내만 우선해서 띄운다.
   useEffect(() => {
-    const t = setTimeout(() => void checkStoreUpdate(), 3000);
+    const t = setTimeout(() => void checkStartupNotices(), 3000);
     return () => clearTimeout(t);
   }, []);
 

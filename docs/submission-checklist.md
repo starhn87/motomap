@@ -174,6 +174,7 @@ ASC > App Privacy > **Get Started**
 - Purposes: **App Functionality** (Diagnostics는 + Analytics)
 
 ### D-4. Version Information (1.2.6)
+- [x] `lib/updateCheck.ts`의 `RELEASE_NOTES`에 출시 버전 공지 추가 (다음 버전에도 반복)
 - [ ] **Promotional Text** (170자)
 - [ ] **Description** (4000자)
 - [ ] **Keywords** (100자)
