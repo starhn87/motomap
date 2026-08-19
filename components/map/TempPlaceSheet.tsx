@@ -299,7 +299,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
         style={styles.iconButton}>
         <Ionicons
           name={isFavorite ? 'star' : 'star-outline'}
-          size={26}
+          size={22}
           color={isFavorite ? semantic.star : colors.textSecondary}
         />
       </TouchableOpacity>
@@ -312,12 +312,12 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                 ? 'business'
                 : 'bookmark-outline'
           }
-          size={24}
+          size={22}
           color={savedSlot ? colors.tint : colors.textSecondary}
         />
       </TouchableOpacity>
       <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-        <Ionicons name="close" size={26} color={colors.textSecondary} />
+        <Ionicons name="close" size={22} color={colors.textSecondary} />
       </TouchableOpacity>
     </>
   );
@@ -683,8 +683,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   name: { flex: 1, fontSize: 22, fontWeight: '700' },
-  nameActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconButton: { padding: 8 },
+  nameActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  iconButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   addressRow: {
     flexDirection: 'row',
     alignItems: 'center',

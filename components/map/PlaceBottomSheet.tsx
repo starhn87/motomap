@@ -336,7 +336,7 @@ function PlaceBottomSheet({
           {/* 별 — 즐겨찾기 지도 표시(별 뱃지 마커·필터 칩)와 같은 시각 언어 */}
           <Ionicons
             name={isFavorite ? 'star' : 'star-outline'}
-            size={26}
+            size={22}
             color={isFavorite ? '#FACC15' : colors.textSecondary}
           />
         </Animated.View>
@@ -350,12 +350,12 @@ function PlaceBottomSheet({
                 ? 'business'
                 : 'bookmark-outline'
           }
-          size={24}
+          size={22}
           color={savedSlot ? colors.tint : colors.textSecondary}
         />
       </TouchableOpacity>
       <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-        <Ionicons name="close" size={26} color={colors.textSecondary} />
+        <Ionicons name="close" size={22} color={colors.textSecondary} />
       </TouchableOpacity>
     </>
   );
@@ -810,10 +810,13 @@ const styles = StyleSheet.create({
   nameActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 4,
   },
   iconButton: {
-    padding: 8,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addressRow: {
     flexDirection: 'row',
