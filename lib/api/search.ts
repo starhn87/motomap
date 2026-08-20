@@ -60,8 +60,8 @@ function searchTermGroups(query: string): string[][] {
 
 export async function searchAll(
   query: string,
-  /** 있으면 이 좌표(보통 지금 보는 지도 중심)에서 가까운 순으로 정렬한다.
-      이름 매칭을 통과한 결과끼리의 순위라 관련성은 이미 확보돼 있다. */
+  /** 있으면 이 좌표(보통 지금 보는 지도 중심)의 반경 안 결과만 반환한다.
+      반경 안에 하나도 없을 때만 전국 결과로 폴백한다. */
   near?: { latitude: number; longitude: number },
   /** true면 반경 밖 결과로 폴백하지 않는다 — 결과 지도의 '이 지역' 범위용 */
   nearOnly = false,
@@ -105,68 +105,4 @@ export async function searchAll(
     places: (placesRes.data ?? []).map((row: PlaceRow) => rowToPlace(row)),
     courses: (coursesRes.data ?? []).map(rowToCourse),
   };
-}
-
-/**
- * 명시적으로 결과 지도를 연 검색은 주변 결과 뒤에 전국 결과를 이어 붙인다.
- * 기존 RPC의 nearOnly=false는 주변 결과가 하나라도 있으면 전국 결과를 생략하므로,
- * 주변·전국을 병렬 조회한 뒤 id로 중복을 제거한다.
- */
-export async function searchAllNearFirst(
-  query: string,
-  near?: { latitude: number; longitude: number },
-): Promise<SearchResults> {
-  if (!near) return searchAll(query);
-
-  const [nearby, nationwide] = await Promise.all([
-    searchAll(query, near, true),
-    searchAll(query),
-  ]);
-  const nearbyPlaceIds = new Set(nearby.places.map((place) => place.id));
-  const nearbyCourseIds = new Set(nearby.courses.map((course) => course.id));
-
-  return {
-    places: [
-      ...nearby.places,
-      ...nationwide.places.filter((place) => !nearbyPlaceIds.has(place.id)),
-    ],
-    courses: [
-      ...nearby.courses,
-      ...nationwide.courses.filter((course) => !nearbyCourseIds.has(course.id)),
-    ],
-  };
-}
-
-function includesCompact(value: string | null | undefined, query: string): boolean {
-  return !!value && compact(value).includes(query);
-}
-
-/** 결과가 왜 보이는지 설명하는 짧은 사용자용 문구 */
-export function explainPlaceMatch(query: string, place: Place, browse = false): string {
-  if (browse) return '이 지역에서 가까운 라이더 장소';
-  const q = compact(query);
-  if (!q) return '라이더가 등록한 장소';
-  const name = compact(place.name);
-  if (name === q) return '이름이 정확히 일치';
-  if (name.includes(q)) return '장소 이름과 일치';
-  if (place.tags.some((tag) => includesCompact(tag, q))) return '태그와 일치';
-  if (includesCompact(place.address, q)) return '주소와 일치';
-  return '검색어와 관련된 라이더 장소';
-}
-
-export function explainCourseMatch(query: string, course: RidingCourse, browse = false): string {
-  if (browse) return '이 지역에서 가까운 라이딩 코스';
-  const q = compact(query);
-  if (!q) return '라이더가 등록한 코스';
-  if (compact(course.name) === q) return '코스 이름이 정확히 일치';
-  if (includesCompact(course.name, q)) return '코스 이름과 일치';
-  if (course.tags.some((tag) => includesCompact(tag, q))) return '코스 태그와 일치';
-  if (
-    includesCompact(course.routeName, q) ||
-    includesCompact(course.sectionFrom, q) ||
-    includesCompact(course.sectionTo, q)
-  ) {
-    return '경로 구간과 일치';
-  }
-  return '검색어와 관련된 라이딩 코스';
 }

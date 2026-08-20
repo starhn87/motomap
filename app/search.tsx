@@ -22,8 +22,6 @@ import Colors from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
 import {
-  explainCourseMatch,
-  explainPlaceMatch,
   isSamePlace,
   searchAll,
 } from '@/lib/api/search';
@@ -415,11 +413,6 @@ export default function SearchScreen() {
           <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
             {place.name}
           </Text>
-          {rank !== undefined && (
-            <Text style={[styles.rowReason, { color: colors.tint }]} numberOfLines={1}>
-              {explainPlaceMatch(trimmed, place)}
-            </Text>
-          )}
           <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
             {near
               ? // 정렬 기준(지도 중심)과 같은 기준으로 — 내 위치 거리를 쓰면
@@ -514,7 +507,6 @@ export default function SearchScreen() {
               // 정렬은 searchAll 이 지도 중심(없으면 내 위치) 기준으로 이미 했다 —
               // 여기서 내 위치로 다시 정렬하면 "보고 있는 지역" 우선이 무효가 된다
               ...((results?.places ?? []).map((p) => ({ type: 'place' as const, data: p }))),
-              ...(results?.courses.map((c) => ({ type: 'course' as const, data: c })) ?? []),
               ...(kakaoOnly.length
                 ? [
                     { type: 'kakao-header' as const, data: null },
@@ -522,6 +514,7 @@ export default function SearchScreen() {
                     { type: 'kakao-footer' as const, data: null },
                   ]
                 : []),
+              ...(results?.courses.map((c) => ({ type: 'course' as const, data: c })) ?? []),
             ]}
             keyExtractor={(item, index) =>
               item.type === 'kakao'
@@ -583,7 +576,13 @@ export default function SearchScreen() {
                 placeRow(item.data as Place, 'result', index)
               ) : (
                 <Pressable
-                  onPress={() => goToCourse(item.data.id, item.data.name, index)}
+                  onPress={() =>
+                    goToCourse(
+                      item.data.id,
+                      item.data.name,
+                      index - (kakaoOnly.length > 0 ? 2 : 0),
+                    )
+                  }
                   style={({ pressed }) => [
                     styles.row,
                     { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
@@ -592,9 +591,6 @@ export default function SearchScreen() {
                   <View style={styles.rowInfo}>
                     <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
                       {item.data.name}
-                    </Text>
-                    <Text style={[styles.rowReason, { color: colors.tint }]} numberOfLines={1}>
-                      {explainCourseMatch(trimmed, item.data)}
                     </Text>
                     <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
                       {item.data.description}
@@ -932,11 +928,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-  },
-  rowReason: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 1,
   },
   rowInfo: {
     flex: 1,

@@ -29,11 +29,8 @@ import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet'
 import { CATEGORIES } from '@/constants/categories';
 import { MARKER_IMAGES, MARKER_IMAGES_CIRCLE } from '@/constants/markerImages';
 import {
-  explainCourseMatch,
-  explainPlaceMatch,
   isSamePlace,
   searchAll,
-  searchAllNearFirst,
   SEARCH_RADIUS_M,
 } from '@/lib/api/search';
 import { useSearchAnchor } from '@/hooks/useSearchAnchor';
@@ -112,6 +109,7 @@ export default function SearchResultsScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const mapRef = useRef<NaverMapViewRef>(null);
+  const [mapReady, setMapReady] = useState(false);
   const zoomRef = useRef(13);
   // 결과에서 고른 장소 — 화면을 떠나지 않고 이 지도 위에서 상세 시트를 띄운다.
   // 시트를 닫으면 결과 목록으로 돌아온다(네이버 지도식 복귀).
@@ -120,8 +118,8 @@ export default function SearchResultsScreen() {
   const detailOpen = selectedPlace !== null || selectedTemp !== null;
   const [filters, setFilters] = useState<SearchFilter[]>([]);
 
-  // 첫 검색은 검색 화면과 같은 기준점을 쓴다. 일반 검색은 이 주변 결과를 먼저,
-  // 전국 결과를 그 뒤에 붙인다. 둘러보기만 주변 20km로 한정한다.
+  // 첫 검색은 검색 화면과 같은 기준점을 쓰되, 결과 지도는 항상 주변 20km로
+  // 한정한다. 먼 목적지를 직접 찾는 역할은 앞선 검색 입력 화면이 맡는다.
   const { near: anchorNear } = useSearchAnchor();
   const initialNear = browseNear ?? anchorNear;
   const [searchNear, setSearchNear] = useState(initialNear);
@@ -141,16 +139,13 @@ export default function SearchResultsScreen() {
 
   const { data: results, isLoading } = useQuery({
     queryKey: ['search', searchQuery, nearKey, browseMode],
-    queryFn: () =>
-      browseMode
-        ? searchAll(searchQuery, activeNear, true)
-        : searchAllNearFirst(searchQuery, activeNear),
-    enabled: browseMode ? !!activeNear : !!query,
+    queryFn: () => searchAll(searchQuery, activeNear, true),
+    enabled: !!activeNear && (browseMode || !!query),
   });
   const { data: kakaoResults, isLoading: kakaoLoading } = useQuery({
     queryKey: ['search-kakao', query, nearKey],
     queryFn: () => searchKakaoLocal(query, activeNear),
-    enabled: !!query && !browseMode,
+    enabled: !!activeNear && !!query && !browseMode,
   });
   const bikeMatches = useBikePlaceMatches(
     (results?.places ?? []).map((place) => place.id),
@@ -181,14 +176,15 @@ export default function SearchResultsScreen() {
     );
     return [
       ...places.map((place) => ({ kind: 'place' as const, place })),
-      ...courses.map((course) => ({ kind: 'course' as const, course })),
       ...kakaoOnly.map((k) => ({ kind: 'kakao' as const, k })),
+      ...courses.map((course) => ({ kind: 'course' as const, course })),
     ];
   }, [results, kakaoResults, filters, activeNear, bikeMatches.data]);
 
   // 필터를 켜지 않았어도 각 행에 바이크 근거가 표시된다. 이 데이터만 늦게
   // 들어오면 메타 행이 한 줄 더 생기므로 최초 결과는 함께 준비한다.
   const loading =
+    !activeNear ||
     isLoading ||
     kakaoLoading ||
     bikeMatches.isLoading ||
@@ -199,7 +195,7 @@ export default function SearchResultsScreen() {
   const viewedResultSets = useRef(new Set<string>());
   useEffect(() => {
     if (!query || loading) return;
-    const resultSet = `${browseMode ? 'near' : 'near-first'}:${nearKey}`;
+    const resultSet = `near:${nearKey}`;
     if (viewedResultSets.current.has(resultSet)) return;
     viewedResultSets.current.add(resultSet);
     const registeredCount = items.filter((item) => item.kind === 'place').length;
@@ -212,7 +208,7 @@ export default function SearchResultsScreen() {
       registered_count: registeredCount,
       kakao_count: kakaoCount,
       course_count: courseCount,
-      scope: browseMode ? 'near' : 'all',
+      scope: 'near',
     });
     if (registeredCount === 0 && !browseMode) {
       track.searchNoResults({
@@ -222,23 +218,38 @@ export default function SearchResultsScreen() {
         kakao_count: kakaoCount,
       });
     }
-  }, [query, browseMode, loading, items, nearKey, searchId, searchSource]);
+  }, [query, browseMode, loading, items, activeNear, nearKey, searchId, searchSource]);
 
   // 기본 스냅은 목록 높이에 맞추되 화면의 45% 까지만 — 결과가 두어 개뿐인데
-  // 억지로 채우면 지도만 가린다. 검색 근거 줄을 포함한 행 94px로 잡는다.
+  // 억지로 채우면 지도만 가린다. 이름·주소·메타를 포함한 행 80px로 잡는다.
   const { height: screenH } = useWindowDimensions();
   const midSnap = useMemo(() => {
-    const content =
-      62 + items.length * 94 + (items.some((r) => r.kind === 'kakao') ? 40 : 0);
+    const content = 62 + items.length * 80;
     return Math.round(Math.max(180, Math.min(content, screenH * 0.45)));
   }, [items, screenH]);
 
-  // 결과 전체가 보이도록 카메라를 맞춘다 — 남쪽은 바텀시트가 덮는 만큼 더 벌린다
+  // 결과 전체가 보이도록 카메라를 맞춘다. 하나뿐이면 가상의 좌표 범위를 만들지
+  // 않고, 바텀시트를 제외한 지도 영역의 정확한 중앙을 카메라 pivot으로 쓴다.
   useEffect(() => {
+    if (!mapReady || loading || detailOpen) return;
     const mapped = items.filter(
       (item): item is Exclude<ResultItem, { kind: 'course' }> => item.kind !== 'course',
     );
     if (mapped.length === 0) return;
+    if (mapped.length === 1) {
+      const item = mapped[0];
+      const latitude = item.kind === 'place' ? item.place.latitude : item.k.latitude;
+      const longitude = item.kind === 'place' ? item.place.longitude : item.k.longitude;
+      const visibleCenterY = (screenH - midSnap) / (screenH * 2);
+      mapRef.current?.animateCameraTo({
+        latitude,
+        longitude,
+        zoom: 14,
+        pivot: { x: 0.5, y: Math.max(0.1, Math.min(0.5, visibleCenterY)) },
+        duration: 600,
+      });
+      return;
+    }
     let minLat = Infinity;
     let maxLat = -Infinity;
     let minLng = Infinity;
@@ -258,7 +269,7 @@ export default function SearchResultsScreen() {
       coord2: { latitude: maxLat + latSpan * 0.12, longitude: maxLng + lngSpan * 0.12 },
       duration: 600,
     });
-  }, [items]);
+  }, [items, mapReady, loading, detailOpen, screenH, midSnap]);
 
   // 고르면 이 화면 안에서 상세 시트를 연다 — 지도 탭과 같은 시트를 재사용한다
   // 지도에서 마커를 눌렀을 때는 줌을 건드리지 않는다. 이미 그 지도를 보고 있는
@@ -352,6 +363,7 @@ export default function SearchResultsScreen() {
         locale="ko"
         locationOverlay={{ isVisible: false }}
         initialCamera={{ latitude: 36.4, longitude: 127.8, zoom: 6 }}
+        onInitialized={() => setMapReady(true)}
         onCameraChanged={(e) => {
           if (typeof e.zoom === 'number') zoomRef.current = e.zoom;
           cameraCenterRef.current = { latitude: e.latitude, longitude: e.longitude };
@@ -516,13 +528,6 @@ export default function SearchResultsScreen() {
               </Text>
             )
           }
-          ListFooterComponent={
-            items.some((r) => r.kind === 'kakao') ? (
-              <Text style={[styles.kakaoAttribution, { color: colors.textSecondary }]}>
-                장소 정보 제공: 카카오
-              </Text>
-            ) : null
-          }
           renderItem={({ item }: { item: ResultItem }) =>
             item.kind === 'place' ? (
               (() => {
@@ -535,9 +540,6 @@ export default function SearchResultsScreen() {
                     <View style={styles.rowTexts}>
                       <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
                         {item.place.name}
-                      </Text>
-                      <Text style={[styles.rowReason, { color: colors.tint }]} numberOfLines={1}>
-                        {explainPlaceMatch(query, item.place, browseMode)}
                       </Text>
                       {!!item.place.address && (
                         <Text
@@ -585,9 +587,6 @@ export default function SearchResultsScreen() {
                   <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
                     {item.course.name}
                   </Text>
-                  <Text style={[styles.rowReason, { color: colors.tint }]} numberOfLines={1}>
-                    {explainCourseMatch(query, item.course, browseMode)}
-                  </Text>
                   <Text style={[styles.rowAddress, { color: colors.textSecondary }]} numberOfLines={1}>
                     {[item.course.routeName, item.course.description].filter(Boolean).join(' · ')}
                   </Text>
@@ -612,7 +611,7 @@ export default function SearchResultsScreen() {
                   <Text
                     style={[styles.rowAddress, { color: colors.textSecondary }]}
                     numberOfLines={1}>
-                    {item.k.roadAddress || item.k.address}
+                    카카오 장소 검색 · {item.k.roadAddress || item.k.address}
                   </Text>
                 </View>
                 <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>일반</Text>
@@ -718,10 +717,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
   },
-  rowReason: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
   rowAddress: {
     fontSize: 13,
   },
@@ -743,11 +738,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 40,
     fontSize: 14,
-  },
-  kakaoAttribution: {
-    fontSize: 11,
-    textAlign: 'right',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
   },
 });
