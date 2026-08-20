@@ -278,6 +278,19 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setSelectedPlaceId, setTempPlace]);
 
+  const placeDetailOpen = selectedPlace !== null || tempPlace !== null;
+
+  // 지도 위 바텀시트는 한 번에 하나만 연다. 장소가 외부 딥링크 등 어느 경로로
+  // 선택되더라도 열려 있던 날씨가 닫혀, 장소를 닫을 때 다시 나타나지 않게 한다.
+  useEffect(() => {
+    if (placeDetailOpen && weatherOpen) setWeatherOpen(false);
+  }, [placeDetailOpen, weatherOpen]);
+
+  const handleWeatherPress = () => {
+    if (placeDetailOpen) handleBottomSheetClose();
+    setWeatherOpen(true);
+  };
+
   const handleMapTap = () => {
     Keyboard.dismiss();
     // 1단계: 열려 있는 카드·시트가 있으면 닫기만 한다 (지도 앱 관례)
@@ -766,7 +779,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       )}
 
       {!overlay && weather && (
-        <WeatherFab weather={weather} onPress={() => setWeatherOpen(true)} />
+        <WeatherFab weather={weather} onPress={handleWeatherPress} />
       )}
 
       {/* 즐겨찾기 지도 표시 — 날씨 FAB와 같은 행 오른쪽 끝, 켜면 별이 채워진다 */}
@@ -849,7 +862,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         />
       )}
 
-      {weatherOpen && weather && (
+      {weatherOpen && weather && !placeDetailOpen && (
         <WeatherSheet weather={weather} latitude={weatherLat} longitude={weatherLng} onClose={() => setWeatherOpen(false)} />
       )}
     </View>
