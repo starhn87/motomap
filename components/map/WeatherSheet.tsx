@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
@@ -15,6 +15,7 @@ import WarningDetailModal from '@/components/map/WarningDetailModal';
 import { useWeatherWarnings } from '@/hooks/useWeatherWarnings';
 
 interface Props {
+  open: boolean;
   weather: RidingWeather;
   /** 예보 기준 좌표 — 하단에 동네 이름으로 표기해 "어디 날씨인지" 혼동을 없앤다 */
   latitude?: number;
@@ -110,28 +111,27 @@ const glyph = StyleSheet.create({
 });
 
 // 라이딩 날씨 상세 바텀시트 — 적합도 등급·점수, 현재 조건, 6시간 예보
-export default function WeatherSheet({ weather, latitude, longitude, onClose }: Props) {
+export default function WeatherSheet({ open, weather, latitude, longitude, onClose }: Props) {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const didOpenRef = useRef(false);
 
-  // 마운트 애니메이션은 끈 채 닫힌 위치에서 명시적으로 연다. 첫 레이아웃과
-  // snap 명령이 경합하지 않도록 두 프레임을 양보하면 항상 아래에서 올라온다.
-  useEffect(() => {
-    let openFrame: number | undefined;
-    const layoutFrame = requestAnimationFrame(() => {
-      openFrame = requestAnimationFrame(() => bottomSheetRef.current?.snapToIndex(0));
-    });
-
-    return () => {
-      cancelAnimationFrame(layoutFrame);
-      if (openFrame !== undefined) cancelAnimationFrame(openFrame);
-    };
-  }, []);
+  // 시트 인스턴스는 닫힌 상태로 계속 유지한다. 이미 준비된 ref를 여는 방식이라
+  // 버튼 탭과 마운트 타이밍이 경합해 snap 명령이 유실되지 않는다.
+  useLayoutEffect(() => {
+    if (open) {
+      bottomSheetRef.current?.snapToIndex(0);
+    } else {
+      didOpenRef.current = false;
+      // 장소 상세로 전환할 때 두 시트가 잠깐 겹치지 않게 즉시 닫는다.
+      bottomSheetRef.current?.close({ duration: 0 });
+    }
+  }, [open]);
 
   const handleSheetChange = (index: number) => {
     if (index >= 0) {
       didOpenRef.current = true;
     } else if (didOpenRef.current) {
+      didOpenRef.current = false;
       onClose();
     }
   };
@@ -139,12 +139,12 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
   const { data: region } = useQuery({
     queryKey: ['weather-region', latitude?.toFixed(2), longitude?.toFixed(2)],
     queryFn: () => coordToRegion(latitude!, longitude!),
-    enabled: latitude != null && longitude != null,
+    enabled: open && latitude != null && longitude != null,
     staleTime: 30 * 60 * 1000,
   });
 
   // 기상특보 — 매칭·정렬까지 훅이 끝내 준다. 대표 하나만 칩에, 전체는 모달에.
-  const warnings = useWeatherWarnings(latitude, longitude);
+  const warnings = useWeatherWarnings(latitude, longitude, open);
   const topWarning = warnings[0];
 
   // 칩 탭 — 발효 특보 전체와 라이딩 유의사항을 카드 모달로
@@ -154,7 +154,7 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
   const { data: air } = useQuery({
     queryKey: ['air-quality', latitude?.toFixed(2), longitude?.toFixed(2)],
     queryFn: () => fetchAirQuality(latitude!, longitude!),
-    enabled: latitude != null && longitude != null,
+    enabled: open && latitude != null && longitude != null,
     staleTime: 30 * 60 * 1000,
   });
 

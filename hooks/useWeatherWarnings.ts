@@ -15,16 +15,18 @@ import {
 export function useWeatherWarnings(
   latitude: number | undefined,
   longitude: number | undefined,
+  enabled = true,
 ): WeatherWarning[] {
   const { data: allWarnings = [] } = useQuery({
     queryKey: ['weather-warnings'],
     queryFn: fetchWeatherWarnings,
+    enabled,
     staleTime: 10 * 60 * 1000,
   });
   const { data: regionParts } = useQuery({
     queryKey: ['weather-region-parts', latitude?.toFixed(2), longitude?.toFixed(2)],
     queryFn: () => coordToRegionParts(latitude!, longitude!),
-    enabled: latitude != null && longitude != null,
+    enabled: enabled && latitude != null && longitude != null,
     staleTime: 30 * 60 * 1000,
   });
   return (

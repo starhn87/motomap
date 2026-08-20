@@ -862,8 +862,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         />
       )}
 
-      {weatherOpen && weather && !placeDetailOpen && (
-        <WeatherSheet weather={weather} latitude={weatherLat} longitude={weatherLng} onClose={() => setWeatherOpen(false)} />
+      {weather && (
+        <WeatherSheet
+          open={weatherOpen && !placeDetailOpen}
+          weather={weather}
+          latitude={weatherLat}
+          longitude={weatherLng}
+          onClose={() => setWeatherOpen(false)}
+        />
       )}
     </View>
   );
