@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
@@ -111,6 +111,31 @@ const glyph = StyleSheet.create({
 
 // 라이딩 날씨 상세 바텀시트 — 적합도 등급·점수, 현재 조건, 6시간 예보
 export default function WeatherSheet({ weather, latitude, longitude, onClose }: Props) {
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const didOpenRef = useRef(false);
+
+  // 마운트 애니메이션은 끈 채 닫힌 위치에서 명시적으로 연다. 첫 레이아웃과
+  // snap 명령이 경합하지 않도록 두 프레임을 양보하면 항상 아래에서 올라온다.
+  useEffect(() => {
+    let openFrame: number | undefined;
+    const layoutFrame = requestAnimationFrame(() => {
+      openFrame = requestAnimationFrame(() => bottomSheetRef.current?.snapToIndex(0));
+    });
+
+    return () => {
+      cancelAnimationFrame(layoutFrame);
+      if (openFrame !== undefined) cancelAnimationFrame(openFrame);
+    };
+  }, []);
+
+  const handleSheetChange = (index: number) => {
+    if (index >= 0) {
+      didOpenRef.current = true;
+    } else if (didOpenRef.current) {
+      onClose();
+    }
+  };
+
   const { data: region } = useQuery({
     queryKey: ['weather-region', latitude?.toFixed(2), longitude?.toFixed(2)],
     queryFn: () => coordToRegion(latitude!, longitude!),
@@ -194,10 +219,13 @@ export default function WeatherSheet({ weather, latitude, longitude, onClose }: 
 
   return (
     <BottomSheet
+      ref={bottomSheetRef}
+      index={-1}
       snapPoints={['62%']}
       animateOnMount={false}
+      enableDynamicSizing={false}
       enablePanDownToClose
-      onClose={onClose}
+      onChange={handleSheetChange}
       backdropComponent={renderBackdrop}
       backgroundStyle={{
         backgroundColor: colors.background,
