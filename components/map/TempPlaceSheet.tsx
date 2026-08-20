@@ -417,7 +417,11 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             <Animated.View style={spacerStyle} />
 
           <View style={styles.nameRow}>
-            <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>
+            <Text
+              style={[styles.name, { color: colors.text }]}
+              numberOfLines={2}
+              textBreakStrategy="balanced"
+              lineBreakStrategyIOS="push-out">
               {place.name}
             </Text>
             {!isExpanded && (
