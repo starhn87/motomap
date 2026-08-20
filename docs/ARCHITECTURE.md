@@ -2,7 +2,7 @@
 
 오토바이 라이더용 지도 앱의 **코드 레벨 구조 문서**. 화면·상태·데이터·백엔드가 어떻게 맞물리는지를 한 곳에서 항해할 수 있게 정리한다.
 
-> 역할 분담 — 제품 소개·기능·빌드 절차는 [README](../README.md), 개발 명령·배포 절차·hard-won gotchas는 [CLAUDE.md](../CLAUDE.md), 로드맵은 [PLAN.md](../PLAN.md).
+> 역할 분담 — 제품 소개·기능·빌드 절차는 [README](../README.md), 개발 명령·배포 절차·hard-won gotchas는 [CLAUDE.md](../CLAUDE.md), 로드맵은 [PLAN.md](../PLAN.md), 기능 결정의 근거·시행착오는 [도메인 의사결정 기록](domain-decisions/README.md).
 
 ---
 
