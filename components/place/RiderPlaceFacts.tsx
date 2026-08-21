@@ -32,8 +32,8 @@ export default function RiderPlaceFacts({ placeId }: { placeId: string }) {
   };
 
   return (
-    <View style={styles.section}>
-      <Text style={[styles.title, { color: colors.text }]}>라이더 장소 정보</Text>
+    <View style={[styles.section, { borderTopColor: colors.border }]}>
+      <Text style={[styles.title, { color: colors.text }]}>라이더 제공 정보</Text>
       <Text style={[styles.hint, { color: colors.textSecondary }]}>직접 확인한 항목을 눌러 알려주세요</Text>
       <View style={styles.facts}>
         {RIDER_FACTS.map((definition) => {
@@ -86,7 +86,9 @@ export default function RiderPlaceFacts({ placeId }: { placeId: string }) {
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: 16,
+    marginTop: 4,
+    paddingTop: 18,
+    borderTopWidth: 1,
     gap: 6,
   },
   title: {

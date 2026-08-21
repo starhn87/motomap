@@ -649,8 +649,6 @@ function PlaceBottomSheet({
             </View>
           )}
 
-          <RiderPlaceFacts placeId={displayPlace.id} />
-
           {infoCards.length > 0 && (
             <View style={styles.infoGrid}>
               {/* RNGH Touchable 은 flexBasis 를 잇지 못해 카드 폭이 무너진다(실측
@@ -676,6 +674,8 @@ function PlaceBottomSheet({
               ))}
             </View>
           )}
+
+          <RiderPlaceFacts placeId={displayPlace.id} />
 
           {photoItems.length > 0 && (
             <View style={styles.photoSection}>
