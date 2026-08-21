@@ -115,7 +115,8 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
     : null;
 
   const { data: gas, isLoading: gasLoading } = useGasPricesAt(place);
-  const canLoadHours = !!place && !looksLikeGasStation(place.name);
+  const isGasStation = !!place && looksLikeGasStation(place.name);
+  const canLoadHours = !!place && !isGasStation;
   const { data: placeHours } = usePlaceHours(
     place && canLoadHours
       ? {
@@ -591,17 +592,19 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             </View>
           )}
 
-          <Pressable
-            onPress={handleSubmit}
-            style={[styles.submitCard, { borderColor: colors.border }]}>
-            <View style={styles.submitCopy}>
-              <Text style={[styles.submitTitle, { color: colors.text }]}>라이더 정보 추가</Text>
-              <Text style={[styles.submitDescription, { color: colors.textSecondary }]}>
-                주차·영업 정보 등을 알려주면 모토맵 장소로 검토해요.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.tint} />
-          </Pressable>
+          {!isGasStation && (
+            <Pressable
+              onPress={handleSubmit}
+              style={[styles.submitCard, { borderColor: colors.border }]}>
+              <View style={styles.submitCopy}>
+                <Text style={[styles.submitTitle, { color: colors.text }]}>라이더 정보 추가</Text>
+                <Text style={[styles.submitDescription, { color: colors.textSecondary }]}>
+                  주차·영업 정보 등을 알려주면 모토맵 장소로 검토해요.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.tint} />
+            </Pressable>
+          )}
 
           <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
             <View style={styles.reviewSectionHeader}>
