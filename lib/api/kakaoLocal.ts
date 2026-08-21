@@ -20,6 +20,15 @@ export interface KakaoLocalResult {
   phone: string; // 전화번호 (없으면 빈 문자열)
 }
 
+export interface KakaoLocalSearchPage {
+  results: KakaoLocalResult[];
+  totalCount: number;
+  pageableCount: number;
+  isEnd: boolean;
+}
+
+type KakaoSearchOptions = { throwOnError?: boolean };
+
 // 카카오 로컬 키워드 검색 — 상호·주소로 장소를 찾아 좌표까지 반환한다.
 // 네이버 지오코딩(정확한 주소만)과 달리 상호로도 검색되어 제보 UX에 적합.
 export async function searchKakaoLocal(
@@ -28,14 +37,24 @@ export async function searchKakaoLocal(
       반영한다(radius 는 안 준다: 하드 필터가 아니라 우선순위만 올리는 게 목적) */
   near?: { latitude: number; longitude: number },
   /** 전체 결과의 0건 여부를 판단하는 화면은 실패를 빈 배열로 오인하면 안 된다. */
-  options: { throwOnError?: boolean } = {},
+  options: KakaoSearchOptions = {},
 ): Promise<KakaoLocalResult[]> {
+  return (await searchKakaoLocalPage(query, near, options)).results;
+}
+
+// 결과 지도는 이름이 전국에서 유일한지 확인해야 하므로 첫 페이지의 완결성 메타도 쓴다.
+// 일반 호출부는 위 배열 전용 함수를 계속 사용해 기존 계약을 유지한다.
+export async function searchKakaoLocalPage(
+  query: string,
+  near?: { latitude: number; longitude: number },
+  options: KakaoSearchOptions = {},
+): Promise<KakaoLocalSearchPage> {
   const q = query.trim();
-  if (!q) return [];
+  if (!q) return { results: [], totalCount: 0, pageableCount: 0, isEnd: true };
   if (!REST_KEY) {
     if (options.throwOnError) throw new Error('KAKAO REST API 키가 설정되지 않았습니다.');
     toast.error('주소 검색을 사용할 수 없습니다.', 'KAKAO REST API 키가 설정되지 않았습니다.');
-    return [];
+    return { results: [], totalCount: 0, pageableCount: 0, isEnd: false };
   }
 
   const bias = near ? `&x=${near.longitude}&y=${near.latitude}` : '';
@@ -46,22 +65,28 @@ export async function searchKakaoLocal(
     });
     if (!res.ok) {
       if (options.throwOnError) throw new Error(`카카오 장소 검색 실패 (${res.status})`);
-      return [];
+      return { results: [], totalCount: 0, pageableCount: 0, isEnd: false };
     }
     const data = await res.json();
-    return (data.documents ?? []).map((d: any) => ({
-      providerId: d.id || undefined,
-      placeUrl: d.place_url || undefined,
-      placeName: d.place_name ?? '',
-      address: normalizeSido(d.address_name),
-      roadAddress: normalizeSido(d.road_address_name),
-      latitude: Number(d.y),
-      longitude: Number(d.x),
-      phone: d.phone ?? '',
-    }));
+    const documents = Array.isArray(data.documents) ? data.documents : [];
+    return {
+      results: documents.map((d: any) => ({
+        providerId: d.id || undefined,
+        placeUrl: d.place_url || undefined,
+        placeName: d.place_name ?? '',
+        address: normalizeSido(d.address_name),
+        roadAddress: normalizeSido(d.road_address_name),
+        latitude: Number(d.y),
+        longitude: Number(d.x),
+        phone: d.phone ?? '',
+      })),
+      totalCount: Number(data.meta?.total_count ?? documents.length),
+      pageableCount: Number(data.meta?.pageable_count ?? documents.length),
+      isEnd: data.meta?.is_end === true,
+    };
   } catch (error) {
     if (options.throwOnError) throw error;
-    return [];
+    return { results: [], totalCount: 0, pageableCount: 0, isEnd: false };
   }
 }
 

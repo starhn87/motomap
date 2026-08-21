@@ -36,12 +36,13 @@ import {
 } from '@/lib/api/search';
 import { useSearchAnchor } from '@/hooks/useSearchAnchor';
 import { useBikePlaceMatches } from '@/hooks/useRiderInsights';
-import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import { searchKakaoLocalPage, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { addRecentSearch } from '@/lib/recentSearches';
 import { createAnalyticsId, track, type SearchSource } from '@/lib/analytics';
 import { describeOpenState, getOpenState } from '@/lib/hours';
 import { formatDistance, formatDuration } from '@/constants/course';
 import { approxMeters } from '@/lib/distance';
+import { focusPlaceOnMap, focusPointOnMap } from '@/lib/mapFocus';
 import type { Place, RidingCourse } from '@/types';
 
 // 지도에 뿌리는 결과 상한 — 등록 장소가 광범위한 검색어(예: "카페")일 때
@@ -52,6 +53,8 @@ type ResultItem =
   | { kind: 'place'; place: Place }
   | { kind: 'course'; course: RidingCourse }
   | { kind: 'kakao'; k: KakaoLocalResult };
+
+type ExactPlaceTarget = Exclude<ResultItem, { kind: 'course' }>;
 
 type SearchFilter = 'open' | 'parking' | 'rating' | 'bike';
 
@@ -66,6 +69,10 @@ function hasParkingInfo(place: Place): boolean {
   return !!place.parkingInfo?.trim() || place.tags.some((tag) => /주차/.test(tag));
 }
 
+function compactPlaceName(value: string): string {
+  return value.trim().toLowerCase().replace(/[\s·._-]/g, '');
+}
+
 // 상세 시트가 화면 아래를 덮으므로 카메라 중심을 남쪽으로 내려 고른 장소를
 // 시트 위 영역의 가운데에 둔다. 계수는 지도 탭((tabs)/index.tsx)과 같은 값 —
 // 이 근사식은 dp/타일 스케일이 섞여 있어 이론값(시트비율/2)이 아니라 실측으로
@@ -76,9 +83,8 @@ function sheetLatOffset(zoom: number, screenHeightDp: number, lat: number): numb
   return latSpan * 0.05;
 }
 
-// 검색 결과 지도 화면 — 검색에서 엔터로 진입한다. 등록 장소든 일반 장소든
-// 관련 결과를 지도 마커 + 바텀시트 목록으로 한눈에 보여주고, 고르면 기존
-// 플로우(등록: 지도 탭 장소 시트 / 일반: 임시 핀)로 넘어간다.
+// 검색 결과 지도 화면 — 검색에서 엔터로 진입한다. 유일한 정확 일치는 지도 상세로
+// 바로 보내고, 그 외 등록 장소·일반 장소는 지도 마커 + 바텀시트 목록으로 비교한다.
 export default function SearchResultsScreen() {
   const params = useLocalSearchParams<{
     query?: string;
@@ -111,6 +117,7 @@ export default function SearchResultsScreen() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef<NaverMapViewRef>(null);
   const [mapReady, setMapReady] = useState(false);
+  const exactFocusHandledQueryRef = useRef<string | null>(null);
   const zoomRef = useRef(13);
   // 결과에서 고른 장소 — 화면을 떠나지 않고 이 지도 위에서 상세 시트를 띄운다.
   // 시트를 닫으면 결과 목록으로 돌아온다(네이버 지도식 복귀).
@@ -125,6 +132,8 @@ export default function SearchResultsScreen() {
   const initialNear = browseNear ?? anchorNear;
   const [searchNear, setSearchNear] = useState(initialNear);
   const [areaSearchRevision, setAreaSearchRevision] = useState(0);
+  const [exactFallbackQuery, setExactFallbackQuery] = useState<string | null>(null);
+  const [exactTransitionQuery, setExactTransitionQuery] = useState<string | null>(null);
   const [canSearchArea, setCanSearchArea] = useState(false);
   const cameraCenterRef = useRef(initialNear);
   const activeNear = searchNear;
@@ -147,11 +156,36 @@ export default function SearchResultsScreen() {
   });
   const kakaoQuery = useQuery({
     queryKey: ['search-kakao', query, nearKey, areaSearchRevision],
-    queryFn: () => searchKakaoLocal(query, activeNear, { throwOnError: true }),
+    queryFn: () => searchKakaoLocalPage(query, activeNear, { throwOnError: true }),
     enabled: requestEnabled && !browseMode,
   });
   const results = resultsQuery.data;
-  const kakaoResults = kakaoQuery.data;
+  const kakaoPage = kakaoQuery.data;
+  const kakaoResults = kakaoPage?.results;
+  const compactQuery = compactPlaceName(query);
+  const exactTransitionPending = exactTransitionQuery === compactQuery;
+  const exactKakaoMatches = useMemo(() => {
+    if (!compactQuery) return undefined;
+    return (kakaoResults ?? []).filter(
+      (result) =>
+        compactPlaceName(result.placeName) === compactQuery &&
+        Number.isFinite(result.latitude) &&
+        Number.isFinite(result.longitude) &&
+        result.latitude >= 32 &&
+        result.latitude <= 39 &&
+        result.longitude >= 124 &&
+        result.longitude <= 132,
+    );
+  }, [compactQuery, kakaoResults]);
+  const kakaoResultSetComplete =
+    !!kakaoPage &&
+    kakaoPage.isEnd &&
+    kakaoPage.totalCount === kakaoPage.pageableCount &&
+    kakaoPage.pageableCount === kakaoPage.results.length;
+  const uniqueExactKakao =
+    kakaoResultSetComplete && exactKakaoMatches?.length === 1
+      ? exactKakaoMatches[0]
+      : undefined;
   const nearbyKakaoResults = useMemo(
     () =>
       (kakaoResults ?? []).filter(
@@ -171,6 +205,33 @@ export default function SearchResultsScreen() {
       ),
     [kakaoResults, results?.places, activeNear],
   );
+  const exactPlaceTargets = useMemo<ExactPlaceTarget[]>(() => {
+    if (!compactQuery) return [];
+    const registered = results?.places ?? [];
+    const targets: ExactPlaceTarget[] = registered
+      .filter((place) => compactPlaceName(place.name) === compactQuery)
+      .map((place) => ({ kind: 'place' as const, place }));
+    for (const k of exactKakaoMatches ?? []) {
+      const registeredMatch = registered.find((place) =>
+        isSamePlace(place, {
+          name: k.placeName,
+          latitude: k.latitude,
+          longitude: k.longitude,
+        }),
+      );
+      if (registeredMatch) {
+        const alreadyAdded = targets.some(
+          (target) => target.kind === 'place' && target.place.id === registeredMatch.id,
+        );
+        if (!alreadyAdded) {
+          targets.push({ kind: 'place', place: registeredMatch });
+        }
+      } else {
+        targets.push({ kind: 'kakao', k });
+      }
+    }
+    return targets;
+  }, [compactQuery, exactKakaoMatches, results?.places]);
   const bikeMatches = useBikePlaceMatches(
     (results?.places ?? []).map((place) => place.id),
   );
@@ -200,9 +261,32 @@ export default function SearchResultsScreen() {
     (results?.places.length ?? 0) +
     (results?.courses.length ?? 0) +
     nearbyKakaoResults.length;
-  const showEmpty = sourcesReady && rawResultCount === 0;
   const searchFailed =
     resultsQuery.isError || (!browseMode && kakaoQuery.isError);
+  const uniqueExactKakaoIsRemote =
+    !!uniqueExactKakao &&
+    !!activeNear &&
+    approxMeters(
+      { latitude: uniqueExactKakao.latitude, longitude: uniqueExactKakao.longitude },
+      activeNear,
+    ) > SEARCH_RADIUS_M;
+  const resolvingExactRemote =
+    !browseMode &&
+    sourcesReady &&
+    !searchFailed &&
+    uniqueExactKakaoIsRemote &&
+    exactPlaceTargets.length === 1 &&
+    exactFallbackQuery !== compactQuery;
+  const exactFocusTarget = exactPlaceTargets.length === 1 ? exactPlaceTargets[0] : undefined;
+  const redirectingToExact =
+    !browseMode &&
+    sourcesReady &&
+    !searchFailed &&
+    !resolvingExactRemote &&
+    kakaoResultSetComplete &&
+    !!exactFocusTarget &&
+    exactFocusHandledQueryRef.current !== compactQuery;
+  const showEmpty = sourcesReady && rawResultCount === 0 && !resolvingExactRemote;
 
   // 필터를 켜지 않았어도 각 행에 바이크 근거가 표시된다. 이 데이터만 늦게
   // 들어오면 메타 행이 한 줄 더 생기므로 최초 결과는 함께 준비한다.
@@ -211,13 +295,48 @@ export default function SearchResultsScreen() {
     !requestEnabled ||
     resultsQuery.isLoading ||
     (!browseMode && kakaoQuery.isLoading) ||
-    (hasRegisteredResults && (bikeMatches.isLoading || bikeMatches.bikesLoading));
+    (hasRegisteredResults && (bikeMatches.isLoading || bikeMatches.bikesLoading)) ||
+    resolvingExactRemote ||
+    exactTransitionPending ||
+    redirectingToExact;
+
+  // 현재 지도 주변에 아무 결과도 없지만 카카오에서 고유한 상호가 정확히 하나
+  // 확인되면, 전국 결과를 나열하지 않고 그 목적지를 새 검색 중심으로 한 번만 옮긴다.
+  // 이후에도 결과 범위 자체는 같은 20km라 일반적인 "카페" 검색은 주변에 머문다.
+  useEffect(() => {
+    if (!resolvingExactRemote || !uniqueExactKakao) return;
+    const nextNear = {
+      latitude: uniqueExactKakao.latitude,
+      longitude: uniqueExactKakao.longitude,
+    };
+    setExactFallbackQuery(compactQuery);
+    setExactTransitionQuery(compactQuery);
+    cameraCenterRef.current = nextNear;
+    setSearchNear(nextNear);
+    setAreaSearchRevision((revision) => revision + 1);
+    setCanSearchArea(false);
+  }, [compactQuery, resolvingExactRemote, uniqueExactKakao]);
+
+  // 재조회 결과가 유일한 정확 일치가 아니면 직접 포커스를 취소하고 기존 목록·빈 상태로
+  // 돌아간다. 유일한 대상이면 포커스 화면이 사라질 때까지 로딩 전환을 유지한다.
+  useEffect(() => {
+    if (!exactTransitionPending || !sourcesReady || searchFailed || resolvingExactRemote) return;
+    if (!kakaoResultSetComplete || !exactFocusTarget) setExactTransitionQuery(null);
+  }, [
+    exactTransitionPending,
+    exactFocusTarget,
+    kakaoResultSetComplete,
+    resolvingExactRemote,
+    searchFailed,
+    sourcesReady,
+  ]);
 
   // 검색 화면을 건너온 음성 검색과 범위 재검색도 같은 search_id 로 묶는다.
   // 결과 종류가 모두 준비된 뒤 한 번만 기록해 부분 로딩 수치가 섞이지 않게 한다.
   const viewedResultSets = useRef(new Set<string>());
   useEffect(() => {
-    if (!query || loading || searchFailed || !sourcesReady) return;
+    if (!query || searchFailed || !sourcesReady || resolvingExactRemote) return;
+    if (loading && !redirectingToExact) return;
     const resultSet = `near:${nearKey}:${areaSearchRevision}`;
     if (viewedResultSets.current.has(resultSet)) return;
     viewedResultSets.current.add(resultSet);
@@ -231,7 +350,7 @@ export default function SearchResultsScreen() {
       registered_count: registeredCount,
       kakao_count: kakaoCount,
       course_count: courseCount,
-      scope: 'near',
+      scope: exactFallbackQuery === compactQuery ? 'all' : 'near',
     });
     if (registeredCount === 0 && !browseMode) {
       track.searchNoResults({
@@ -247,6 +366,8 @@ export default function SearchResultsScreen() {
     loading,
     searchFailed,
     sourcesReady,
+    resolvingExactRemote,
+    redirectingToExact,
     results,
     nearbyKakaoResults,
     activeNear,
@@ -254,6 +375,8 @@ export default function SearchResultsScreen() {
     areaSearchRevision,
     searchId,
     searchSource,
+    exactFallbackQuery,
+    compactQuery,
   ]);
 
   // 기본 스냅은 목록 높이에 맞추되 화면의 45% 까지만 — 결과가 두어 개뿐인데
@@ -316,11 +439,25 @@ export default function SearchResultsScreen() {
     midSnap,
   ]);
 
-  // 빈 결과·오류 화면에서는 네이티브 지도를 언마운트한다. 같은 라우트에서 다시
+  // 빈 결과·오류·직접 포커스 화면에서는 네이티브 지도를 언마운트한다. 같은 라우트에서
   // 결과가 생기면 새 지도 초기화가 끝난 뒤에만 카메라를 맞추도록 readiness도 버린다.
   useEffect(() => {
-    if (showEmpty || searchFailed) setMapReady(false);
-  }, [showEmpty, searchFailed]);
+    if (
+      showEmpty ||
+      searchFailed ||
+      resolvingExactRemote ||
+      exactTransitionPending ||
+      redirectingToExact
+    ) {
+      setMapReady(false);
+    }
+  }, [
+    showEmpty,
+    searchFailed,
+    resolvingExactRemote,
+    exactTransitionPending,
+    redirectingToExact,
+  ]);
 
   // 고르면 이 화면 안에서 상세 시트를 연다 — 지도 탭과 같은 시트를 재사용한다
   // 지도에서 마커를 눌렀을 때는 줌을 건드리지 않는다. 이미 그 지도를 보고 있는
@@ -400,6 +537,53 @@ export default function SearchResultsScreen() {
     }
   };
 
+  // 정규화한 이름이 정확히 같은 장소가 하나뿐이면 결과 목록을 거치지 않는다.
+  // 등록 장소를 우선해 지도 상세로 보내고, 등록되지 않은 곳만 카카오 좌표로 연다.
+  useEffect(() => {
+    if (!redirectingToExact || !exactFocusTarget) return;
+    exactFocusHandledQueryRef.current = compactQuery;
+    setExactTransitionQuery(compactQuery);
+    if (exactFocusTarget.kind === 'place') {
+      const { place } = exactFocusTarget;
+      track.searchResultSelected({
+        search_id: searchId,
+        result_type: 'registered',
+        rank: 0,
+        source: searchSource,
+      });
+      void addRecentSearch({ type: 'place', place });
+      focusPlaceOnMap(place.id, { source: 'search', place });
+      return;
+    }
+    const { k } = exactFocusTarget;
+    track.searchResultSelected({
+      search_id: searchId,
+      result_type: 'kakao',
+      rank: 0,
+      source: searchSource,
+    });
+    void addRecentSearch({
+      type: 'kakao',
+      name: k.placeName,
+      address: k.roadAddress || k.address,
+      latitude: k.latitude,
+      longitude: k.longitude,
+      phone: k.phone,
+      providerId: k.providerId,
+      placeUrl: k.placeUrl,
+    });
+    focusPointOnMap({
+      name: k.placeName,
+      address: k.roadAddress || k.address,
+      latitude: k.latitude,
+      longitude: k.longitude,
+      phone: k.phone || undefined,
+      providerId: k.providerId,
+      placeUrl: k.placeUrl,
+      generalPlaceId: k.generalPlaceId,
+    });
+  }, [compactQuery, exactFocusTarget, redirectingToExact, searchId, searchSource]);
+
   const resultLabel = browseMode ? `${query} 주변` : query;
   const statusHeader = (
     <View
@@ -421,6 +605,17 @@ export default function SearchResultsScreen() {
       </View>
     </View>
   );
+
+  if (!searchFailed && (resolvingExactRemote || exactTransitionPending || redirectingToExact)) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {statusHeader}
+        <View style={styles.statusLoading}>
+          <ActivityIndicator size="small" color={colors.tint} />
+        </View>
+      </View>
+    );
+  }
 
   if (searchFailed) {
     return (
@@ -770,6 +965,11 @@ const styles = StyleSheet.create({
   statusTrailing: {
     width: 38,
     height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusLoading: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
