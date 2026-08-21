@@ -158,8 +158,15 @@ export default function WeatherSheet({ open, weather, latitude, longitude, onClo
     staleTime: 30 * 60 * 1000,
   });
 
-  // 일출·일몰은 아이폰 날씨처럼 시간대별 예보 사이에 끼워 넣는다
-  const suns = latitude != null && longitude != null ? sunEvents(latitude, longitude) : [];
+  // 일출·일몰은 아이폰 날씨처럼 시간대별 예보 사이에 끼워 넣는다. 첫 예보의
+  // 절대 시각을 기준으로 잡아 자정과 기기 시간대가 달라도 날짜가 뒤집히지 않는다.
+  const firstForecastAt = weather.hourly[0]?.at
+    ? new Date(weather.hourly[0].at)
+    : new Date();
+  const suns =
+    latitude != null && longitude != null
+      ? sunEvents(latitude, longitude, firstForecastAt)
+      : [];
 
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -200,16 +207,14 @@ export default function WeatherSheet({ open, weather, latitude, longitude, onClo
     { label: '초미세먼지', value: pm25.text, color: pm25.color, sub: pm25.sub },
   ];
 
-  // 시간대별 셀 목록에 일출·일몰 카드를 시각 순서대로 삽입 — hourly[i]는 첫 셀
-  // 시각 + i 시간이므로, 이벤트가 속한 시간 셀 바로 뒤에 끼운다.
-  const firstHour = parseInt(weather.hourly[0]?.hour ?? '0', 10);
-  const firstStart = new Date();
-  firstStart.setMinutes(0, 0, 0);
-  firstStart.setHours(firstHour);
-  const hourItems: ({ kind: 'hour'; h: (typeof weather.hourly)[number] } | { kind: 'sun'; e: SunEvent })[] = [];
-  weather.hourly.forEach((h, i) => {
+  // 시간대별 셀 목록에 일출·일몰 카드를 시각 순서대로 삽입한다.
+  const hourItems: (
+    | { kind: 'hour'; h: (typeof weather.hourly)[number] }
+    | { kind: 'sun'; e: SunEvent }
+  )[] = [];
+  weather.hourly.forEach((h) => {
     hourItems.push({ kind: 'hour', h });
-    const cellStart = firstStart.getTime() + i * 3600000;
+    const cellStart = new Date(h.at).getTime();
     for (const e of suns) {
       if (e.at.getTime() >= cellStart && e.at.getTime() < cellStart + 3600000) {
         hourItems.push({ kind: 'sun', e });
@@ -310,7 +315,7 @@ export default function WeatherSheet({ open, weather, latitude, longitude, onClo
             {hourItems.map((item) =>
               item.kind === 'hour' ? (
                 <View
-                  key={item.h.hour}
+                  key={item.h.at}
                   style={[styles.hourCell, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>{item.h.hour}</Text>
                   <Text style={styles.hourEmoji}>{item.h.emoji}</Text>

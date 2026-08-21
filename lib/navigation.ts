@@ -88,10 +88,14 @@ async function confirmRouteWeather(
     warning.regions.length > 0
       ? warning.regions.join(', ')
       : `경로 위 ${warning.count}개 지점`;
+  const caution =
+    warning.worstCondition === '천둥·번개'
+      ? '낙뢰 위험이 있으니 가능하면 출발을 미뤄주세요.'
+      : '노면이 미끄러울 수 있으니 주의하세요.';
   return new Promise((resolve) => {
     appAlert(
       '경로 날씨 주의',
-      `${where}에 ${warning.worstCondition} 소식이 있어요${popText}. 노면이 미끄러울 수 있으니 주의하세요. 그래도 출발할까요?`,
+      `${where}에 ${warning.worstCondition} 소식이 있어요${popText}. ${caution} 그래도 출발할까요?`,
       [
         { text: '취소', style: 'cancel', onPress: () => resolve(false) },
         { text: '출발', onPress: () => resolve(true) },

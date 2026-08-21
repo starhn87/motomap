@@ -10,9 +10,10 @@
 // 45~59분엔 현재 슬롯이 갱신 밖이고, 단기예보는 발표 직후 45분간 현재 정시 슬롯
 // 자체가 없다(발표시각+1h부터 제공) — 실황이 두 공백을 모두 메운다.
 //
-// GET ?lat=&lng= 또는 POST {lat, lng}  →  { base: "202607171700", hours: [{ date, time, tmp, pop, pty, sky, wsd, reh }] }
+// GET ?lat=&lng= 또는 POST {lat, lng}  →  { base: "202607171700", hours: [{ date, time, tmp, pop, pty, sky, lgt, wsd, reh }] }
 //   pty(강수형태): 0 없음, 1 비, 2 비/눈, 3 눈, 4 소나기
 //   sky(하늘): 1 맑음, 3 구름많음, 4 흐림
+//   lgt(낙뢰): 0 없음, 1 이상 가능성 있음 (초단기예보 6시간만 제공)
 //
 // 같은 격자·발표분은 30분 메모리 캐시 (발표 주기가 3시간이라 충분).
 // 필요한 secrets: DATA_GO_KR_KEY (공공데이터포털 인증키)
@@ -116,6 +117,7 @@ interface Hour {
   pop: number;
   pty: number;
   sky: number;
+  lgt: number;
   wsd: number | null;
   reh: number | null;
 }
@@ -193,7 +195,14 @@ Deno.serve(async (req) => {
     byTime.set(k, row);
   }
   // 초단기 병합 — 카테고리 이름이 다르다 (T1H→TMP 상당, PTY·SKY는 동일 의미)
-  const ULTRA_MAP: Record<string, string> = { T1H: 'TMP', PTY: 'PTY', SKY: 'SKY', WSD: 'WSD', REH: 'REH' };
+  const ULTRA_MAP: Record<string, string> = {
+    T1H: 'TMP',
+    PTY: 'PTY',
+    SKY: 'SKY',
+    LGT: 'LGT',
+    WSD: 'WSD',
+    REH: 'REH',
+  };
   // 초단기 전용 강수형태 코드를 단기 체계(0~4)로 정규화 — 5 빗방울→비, 6 빗방울눈날림→비/눈, 7 눈날림→눈
   const ULTRA_PTY: Record<string, string> = { '5': '1', '6': '2', '7': '3' };
   const ultraCovered = new Set<string>();
@@ -260,6 +269,7 @@ Deno.serve(async (req) => {
       pop,
       pty,
       sky: Number(r.SKY ?? 1),
+      lgt: Number(r.LGT ?? 0),
       wsd: r.WSD != null ? Number(r.WSD) : null,
       reh: r.REH != null ? Number(r.REH) : null,
     };

@@ -5,8 +5,11 @@
 
 import { supabase } from '@/lib/supabase';
 import { coordToRegion } from '@/lib/api/kakaoLocal';
+import { isNightAt } from '@/lib/sun';
 
 export interface HourlyWeather {
+  /** KMA 예보 시각을 KST에서 절대 시각으로 변환한 ISO 문자열 */
+  at: string;
   hour: string; // "14시"
   temp: number;
   pop: number; // 강수확률 %
@@ -30,15 +33,22 @@ export interface RidingWeather {
   hourly: HourlyWeather[];
 }
 
-// 기상청 하늘상태(SKY)·강수형태(PTY) → 상태·이모지
-function describeKma(sky: number, pty: number): { condition: string; emoji: string } {
+// 기상청 낙뢰(LGT)·강수형태(PTY)·하늘상태(SKY) → 상태·이모지.
+// 위험도가 높은 상태가 주야 아이콘보다 우선한다.
+function describeKma(
+  sky: number,
+  pty: number,
+  night: boolean,
+  lgt = 0,
+): { condition: string; emoji: string } {
+  if (lgt > 0) return { condition: '천둥·번개', emoji: '⛈️' };
   if (pty === 1) return { condition: '비', emoji: '🌧️' };
   if (pty === 2) return { condition: '비/눈', emoji: '🌨️' };
   if (pty === 3) return { condition: '눈', emoji: '🌨️' };
   if (pty === 4) return { condition: '소나기', emoji: '🌧️' };
   if (sky === 4) return { condition: '흐림', emoji: '☁️' };
-  if (sky === 3) return { condition: '구름 많음', emoji: '⛅' };
-  return { condition: '맑음', emoji: '☀️' };
+  if (sky === 3) return { condition: '구름 많음', emoji: night ? '☁️' : '⛅' };
+  return { condition: '맑음', emoji: night ? '🌙' : '☀️' };
 }
 
 // 체감온도 (Steadman apparent temperature) — 기상청 단기예보에 없어 자체 계산
@@ -69,14 +79,31 @@ function commentFor(hours: KmaHour[], temp: number, windMs: number): string {
 function buildComment(hours: KmaHour[], temp: number, windMs: number): string {
   const next12 = hours.slice(0, 12);
   const isRainy = (h: KmaHour) => h.pty > 0 || h.pop >= 60;
+  const isLightning = (h: KmaHour) => (h.lgt ?? 0) > 0;
   const hourLabel = (h: KmaHour) => `${parseInt(h.time.slice(0, 2), 10)}시`;
+  const lightningIdx = next12.findIndex((h, index) => index > 0 && isLightning(h));
+  const rainIdx = next12.findIndex((h, index) => index > 0 && isRainy(h));
 
+  if (isLightning(next12[0])) {
+    return '지금 천둥·번개 가능성이 있어요. 라이딩을 미루는 게 안전해요.';
+  }
   if (isRainy(next12[0])) {
-    const clearIdx = next12.findIndex((h) => !isRainy(h));
+    const clearIdx = next12.findIndex(
+      (h, index) => index > 0 && !isRainy(h) && !isLightning(h),
+    );
+    if (lightningIdx > 0) {
+      if (clearIdx > 0 && clearIdx < lightningIdx) {
+        return `지금은 비 소식이 있어요. ${hourLabel(next12[clearIdx])}부터 잠시 갤 수 있지만, ${hourLabel(next12[lightningIdx])}쯤 천둥·번개 가능성이 있어요.`;
+      }
+      return `지금 비가 이어지고 있어요. ${hourLabel(next12[lightningIdx])}쯤 천둥·번개까지 예상돼요.`;
+    }
     if (clearIdx === -1) return '당분간 비가 이어져요. 오늘은 쉬어 가는 게 좋겠어요.';
     return `지금은 비 소식이 있어요. ${hourLabel(next12[clearIdx])}부터는 갤 것 같아요.`;
   }
-  const rainIdx = next12.findIndex(isRainy);
+  // 가장 먼저 도달하는 위험을 안내하고, 같은 시각이면 번개를 우선한다.
+  if (lightningIdx > 0 && (rainIdx === -1 || lightningIdx <= rainIdx)) {
+    return `${hourLabel(next12[lightningIdx])}쯤 천둥·번개 가능성이 있어요. 그 전에 돌아오는 게 좋아요.`;
+  }
   if (rainIdx > 0 && rainIdx <= 2) {
     return `${hourLabel(next12[rainIdx])}쯤 비가 시작될 것 같아요. 멀리 가긴 애매해요.`;
   }
@@ -91,7 +118,13 @@ function buildComment(hours: KmaHour[], temp: number, windMs: number): string {
 }
 
 // 라이더 기준 감점제 — 기온(15~24 최적)·강수·바람 요인
-function scoreWeather(temp: number, popMax: number, pty: number, windMs: number): number {
+function scoreWeather(
+  temp: number,
+  popMax: number,
+  pty: number,
+  windMs: number,
+  lgt: number,
+): number {
   let score = 100;
 
   if (temp < 15) score -= Math.min(50, (15 - temp) * 4);
@@ -107,18 +140,19 @@ function scoreWeather(temp: number, popMax: number, pty: number, windMs: number)
   else if (windMs >= 5) score -= 8;
 
   if (pty === 2 || pty === 3) score -= 60; // 눈·비/눈은 라이딩 불가급
+  if (lgt > 0) score -= 60; // 낙뢰 가능성도 라이딩 불가급
 
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
 export interface RouteWeatherWarning {
-  /** 강수가 예상되는 지역 이름 (행정동, 최대 3곳) — 역지오코딩 실패 시 빈 배열 */
+  /** 위험 기상이 예상되는 지역 이름 (행정동, 최대 3곳) — 역지오코딩 실패 시 빈 배열 */
   regions: string[];
-  /** 강수가 예상되는 지점 수 */
+  /** 위험 기상이 예상되는 지점 수 */
   count: number;
-  /** 가장 심한 상태 — 눈 > 비 > 강수 예보 순 */
-  worstCondition: '눈' | '비' | '강수 예보';
-  /** 나쁜 지점들의 향후 3시간 최대 강수확률(%) */
+  /** 가장 심한 상태 — 천둥·번개 > 눈 > 비 > 강수 예보 순 */
+  worstCondition: '천둥·번개' | '눈' | '비' | '강수 예보';
+  /** 위험 지점들의 향후 3시간 최대 강수확률(%) */
   maxPop: number;
 }
 
@@ -154,8 +188,8 @@ export async function checkRouteWeather(
     );
 
     let maxPop = 0;
-    let severity = 0; // 1=강수 예보(확률만) 2=비 3=눈
-    const rainyPoints: { latitude: number; longitude: number }[] = [];
+    let severity = 0; // 1=강수 예보(확률만) 2=비 3=눈 4=천둥·번개
+    const hazardPoints: { latitude: number; longitude: number }[] = [];
     for (const r of results) {
       if (!r || r.hours.length === 0) continue;
       const soon = r.hours.slice(0, 3); // 향후 3시간
@@ -163,21 +197,22 @@ export async function checkRouteWeather(
       const ptys = soon.map((h) => h.pty);
       const hasSnow = ptys.some((t) => t === 2 || t === 3);
       const hasRain = ptys.some((t) => t === 1 || t === 4);
-      if (!hasSnow && !hasRain && pop < 60) continue;
-      rainyPoints.push(r.point);
+      const hasLightning = soon.some((h) => (h.lgt ?? 0) > 0);
+      if (!hasLightning && !hasSnow && !hasRain && pop < 60) continue;
+      hazardPoints.push(r.point);
       maxPop = Math.max(maxPop, pop);
-      severity = Math.max(severity, hasSnow ? 3 : hasRain ? 2 : 1);
+      severity = Math.max(severity, hasLightning ? 4 : hasSnow ? 3 : hasRain ? 2 : 1);
     }
-    if (rainyPoints.length === 0) return null;
+    if (hazardPoints.length === 0) return null;
 
     // 어느 지역인지 이름으로 보여준다 — 실패한 지점은 조용히 제외
     const names = await Promise.all(
-      rainyPoints.map((p) => coordToRegion(p.latitude, p.longitude)),
+      hazardPoints.map((p) => coordToRegion(p.latitude, p.longitude)),
     );
     const regions = [...new Set(names.filter((n): n is string => !!n))].slice(0, 3);
 
-    const worstCondition = (['강수 예보', '비', '눈'] as const)[severity - 1];
-    return { regions, count: rainyPoints.length, worstCondition, maxPop };
+    const worstCondition = (['강수 예보', '비', '눈', '천둥·번개'] as const)[severity - 1];
+    return { regions, count: hazardPoints.length, worstCondition, maxPop };
   } catch {
     return null;
   }
@@ -332,8 +367,20 @@ interface KmaHour {
   pop: number;
   pty: number;
   sky: number;
+  /** 초단기예보 낙뢰 가능성. 단기예보 범위나 이전 함수 응답에는 없을 수 있다. */
+  lgt?: number;
   wsd: number | null;
   reh: number | null;
+}
+
+// 기상청 date/time은 KST이므로 기기 시간대와 무관한 절대 시각으로 바꾼다.
+function kmaHourAt(hour: KmaHour): Date {
+  const year = Number(hour.date.slice(0, 4));
+  const month = Number(hour.date.slice(4, 6));
+  const day = Number(hour.date.slice(6, 8));
+  const hours = Number(hour.time.slice(0, 2));
+  const minutes = Number(hour.time.slice(2, 4));
+  return new Date(Date.UTC(year, month - 1, day, hours - 9, minutes));
 }
 
 export async function fetchRidingWeather(latitude: number, longitude: number): Promise<RidingWeather> {
@@ -345,20 +392,35 @@ export async function fetchRidingWeather(latitude: number, longitude: number): P
   if (hours.length === 0) throw new Error('날씨 데이터가 비어 있습니다');
 
   const next12 = hours.slice(0, 12);
-  const hourly: HourlyWeather[] = next12.map((h) => ({
-    hour: `${parseInt(h.time.slice(0, 2), 10)}시`,
-    temp: Math.round(h.tmp ?? 0),
-    pop: h.pop,
-    emoji: describeKma(h.sky, h.pty).emoji,
-  }));
+  const hourly: HourlyWeather[] = next12.map((h) => {
+    const at = kmaHourAt(h);
+    return {
+      at: at.toISOString(),
+      hour: `${parseInt(h.time.slice(0, 2), 10)}시`,
+      temp: Math.round(h.tmp ?? 0),
+      pop: h.pop,
+      emoji: describeKma(
+        h.sky,
+        h.pty,
+        isNightAt(latitude, longitude, at),
+        h.lgt ?? 0,
+      ).emoji,
+    };
+  });
 
   const now = hours[0];
   const temp = now.tmp ?? 0;
   const windMs = now.wsd ?? 0;
   // 점수는 라이딩 판단에 유의미한 향후 6시간의 강수확률만 반영 (표시는 12시간)
   const popMax = Math.max(0, ...next12.slice(0, 6).map((h) => h.pop));
-  const score = scoreWeather(temp, popMax, now.pty, windMs);
-  const { condition, emoji } = describeKma(now.sky, now.pty);
+  const lgtMax = Math.max(0, ...next12.slice(0, 6).map((h) => h.lgt ?? 0));
+  const score = scoreWeather(temp, popMax, now.pty, windMs, lgtMax);
+  const { condition, emoji } = describeKma(
+    now.sky,
+    now.pty,
+    isNightAt(latitude, longitude),
+    now.lgt ?? 0,
+  );
 
   return {
     score,
