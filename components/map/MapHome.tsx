@@ -60,8 +60,9 @@ import HazardSheet from '@/components/map/HazardSheet';
 import { coordToAddress, searchKakaoLocal } from '@/lib/api/kakaoLocal';
 import SearchEntry from '@/components/search/SearchEntry';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useIsFocused } from '@react-navigation/native';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useIsFocused, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { toast } from '@/lib/toast';
 import type { Place, RoadHazard } from '@/types';
@@ -102,6 +103,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     useMapStore();
   const { heading } = useUserLocation();
   const isMapFocused = useIsFocused();
+  const rootNavigation = useNavigation<NativeStackNavigationProp<ParamListBase>>('/');
 
   useEffect(() => {
     if (overlay) return;
@@ -129,8 +131,76 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const mapRef = useRef<NaverMapViewRef>(null);
   const followingRef = useRef(false);
   const handledFocusTransitionRef = useRef<string | null>(null);
+  const isMapFocusedRef = useRef(isMapFocused);
+  isMapFocusedRef.current = isMapFocused;
+  const waitForRootAppearRef = useRef(!rootNavigation.isFocused());
+  const firstRevealFrameRef = useRef<number | null>(null);
+  const secondRevealFrameRef = useRef<number | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [mapPresentationReady, setMapPresentationReady] = useState(false);
   const didCenterOnUserRef = useRef(false);
+
+  const cancelRevealFrames = useCallback(() => {
+    if (firstRevealFrameRef.current !== null) {
+      cancelAnimationFrame(firstRevealFrameRef.current);
+      firstRevealFrameRef.current = null;
+    }
+    if (secondRevealFrameRef.current !== null) {
+      cancelAnimationFrame(secondRevealFrameRef.current);
+      secondRevealFrameRef.current = null;
+    }
+  }, []);
+
+  const revealMapAfterPaint = useCallback(() => {
+    cancelRevealFrames();
+    firstRevealFrameRef.current = requestAnimationFrame(() => {
+      firstRevealFrameRef.current = null;
+      secondRevealFrameRef.current = requestAnimationFrame(() => {
+        secondRevealFrameRef.current = null;
+        // 전환 직후 다른 화면이 다시 올라왔으면 목적지 이동을 시작하지 않는다.
+        if (rootNavigation.isFocused() && isMapFocusedRef.current) {
+          setMapPresentationReady(true);
+        }
+      });
+    });
+  }, [cancelRevealFrames, rootNavigation]);
+
+  useEffect(() => {
+    if (overlay) return;
+
+    // 루트 화면이 가려진 동안에도 살아 있는 리스너다. isFocused는 팝 전환
+    // 시작부터 true가 되므로, 실제 화면 노출 완료는 transitionEnd로 판정한다.
+    const unsubscribeBlur = rootNavigation.addListener('blur', () => {
+      waitForRootAppearRef.current = true;
+      cancelRevealFrames();
+      setMapPresentationReady(false);
+    });
+    const unsubscribeTransitionEnd = rootNavigation.addListener('transitionEnd', (event) => {
+      if (event.data.closing || !waitForRootAppearRef.current) return;
+      waitForRootAppearRef.current = false;
+      // onAppear 뒤에도 직전 지도 한 프레임이 실제 합성된 다음 이동한다.
+      revealMapAfterPaint();
+    });
+
+    return () => {
+      unsubscribeBlur();
+      unsubscribeTransitionEnd();
+      cancelRevealFrames();
+    };
+  }, [overlay, rootNavigation, cancelRevealFrames, revealMapAfterPaint]);
+
+  useEffect(() => {
+    if (overlay) return;
+    if (!isMapFocused) {
+      cancelRevealFrames();
+      setMapPresentationReady(false);
+      // 다른 탭으로 이동한 경우 루트 stack은 계속 보인다. 지도 탭 복귀에는
+      // native-stack transitionEnd가 없으므로 focus 뒤 두 프레임만 기다린다.
+      if (rootNavigation.isFocused()) waitForRootAppearRef.current = false;
+      return;
+    }
+    if (!waitForRootAppearRef.current) revealMapAfterPaint();
+  }, [overlay, isMapFocused, rootNavigation, cancelRevealFrames, revealMapAfterPaint]);
 
   useEffect(() => {
     const focusTs = overlayParams.focusTs;
@@ -289,6 +359,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   } = useMapDeepLinks({
     mapReady,
     isMapFocused,
+    isMapPresented: overlay || mapPresentationReady,
     mapRef,
     onFollow: () => {
       followingRef.current = true;

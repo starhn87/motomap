@@ -17,6 +17,7 @@ import type { TempPlace } from '@/components/map/TempPlaceSheet';
 export function useMapDeepLinks({
   mapReady,
   isMapFocused,
+  isMapPresented,
   mapRef,
   onFollow,
   onSelectPlace,
@@ -25,6 +26,8 @@ export function useMapDeepLinks({
   mapReady: boolean;
   /** 스택 아래에서 분리된 네이티브 지도에는 카메라 명령을 보내지 않는다 */
   isMapFocused: boolean;
+  /** native-stack 전환이 끝나고 직전 지도 프레임이 실제로 노출된 상태 */
+  isMapPresented: boolean;
   mapRef: React.RefObject<NaverMapViewRef | null>;
   /** 안내 종료 직후 "내 위치 따라가기" 시작 — 지도 탭이 카메라 추적을 맡는다 */
   onFollow: () => void;
@@ -57,11 +60,11 @@ export function useMapDeepLinks({
   // 카메라 추적은 지도 탭(onFollow)이 커스텀 마커 체계 위에서 직접 한다.
   const handledFollowRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!followTs || !mapReady || !isMapFocused) return;
+    if (!followTs || !mapReady || !isMapFocused || !isMapPresented) return;
     if (handledFollowRef.current === followTs) return;
     handledFollowRef.current = followTs;
     onFollow();
-  }, [followTs, mapReady, isMapFocused, onFollow]);
+  }, [followTs, mapReady, isMapFocused, isMapPresented, onFollow]);
 
   // 검색의 "일반 장소"(카카오 로컬) 선택 — DB 에 없는 임시 목적지
   const [tempPlace, setTempPlace] = useState<TempPlace | null>(null);
@@ -72,7 +75,8 @@ export function useMapDeepLinks({
       !kakaoLat ||
       !kakaoLng ||
       !mapReady ||
-      !isMapFocused
+      !isMapFocused ||
+      !isMapPresented
     ) return;
     const key = `${kakaoName}-${focusTs ?? ''}`;
     if (handledKakaoRef.current === key) return;
@@ -110,7 +114,7 @@ export function useMapDeepLinks({
       easing: 'EaseOut',
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, kakaoId, kakaoUrl, generalPlaceId, focusTs, mapReady, isMapFocused]);
+  }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, kakaoId, kakaoUrl, generalPlaceId, focusTs, mapReady, isMapFocused, isMapPresented]);
 
   const [highlightReview, setHighlightReview] = useState<{ id: string; key: string } | null>(
     null
@@ -122,7 +126,7 @@ export function useMapDeepLinks({
   );
   const handledFocusIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!focusPlaceId || !mapReady || !isMapFocused) return;
+    if (!focusPlaceId || !mapReady || !isMapFocused || !isMapPresented) return;
     const focusKey = `${focusPlaceId}-${focusTs ?? ''}`;
     if (handledFocusIdRef.current === focusKey) return;
     handledFocusIdRef.current = focusKey;
@@ -142,7 +146,7 @@ export function useMapDeepLinks({
     return () => {
       cancelled = true;
     };
-  }, [focusPlaceId, focusTs, focusReviewId, fromCourseId, mapReady, isMapFocused, onSelectPlace, queryClient]);
+  }, [focusPlaceId, focusTs, focusReviewId, fromCourseId, mapReady, isMapFocused, isMapPresented, onSelectPlace, queryClient]);
 
   return {
     tempPlace,

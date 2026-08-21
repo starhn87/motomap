@@ -161,8 +161,8 @@ function RootLayoutNav() {
                 />
               ),
             }}>
-            {/* freezeOnBlur 금지: 검색 등이 위에 떠 있는 동안에도 지도 탭의
-                effect(카메라 선이동·커튼)가 제때 돌아야 한다 */}
+            {/* freezeOnBlur 금지: 검색 등이 위에 떠 있는 동안에도 지도 탭이
+                화면 복귀 이벤트와 대기 중인 장소 포커스 요청을 받아야 한다 */}
             <Stack.Screen name="(tabs)" options={{ headerShown: false, freezeOnBlur: false }} />
             <Stack.Screen name="search" options={{ headerShown: false, animation: 'none' }} />
             <Stack.Screen name="search-results" options={{ headerShown: false }} />
