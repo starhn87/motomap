@@ -60,11 +60,18 @@ import HazardSheet from '@/components/map/HazardSheet';
 import { coordToAddress, searchKakaoLocal } from '@/lib/api/kakaoLocal';
 import SearchEntry from '@/components/search/SearchEntry';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { router , useLocalSearchParams , useFocusEffect } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { toast } from '@/lib/toast';
 import type { Place, RoadHazard } from '@/types';
 import { haptics } from '@/lib/haptics';
+import {
+  getLastMapCamera,
+  setMainMapFocused,
+  setLastMapCamera,
+  type MapCameraSnapshot,
+} from '@/lib/mapCamera';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -77,6 +84,16 @@ function sheetLatOffset(zoom: number, screenHeightDp: number, lat: number): numb
   return latSpan * 0.05;
 }
 
+function isSameCamera(a: MapCameraSnapshot, b: MapCameraSnapshot): boolean {
+  return (
+    Math.abs(a.latitude - b.latitude) < 0.000001 &&
+    Math.abs(a.longitude - b.longitude) < 0.000001 &&
+    Math.abs(a.zoom - b.zoom) < 0.001 &&
+    Math.abs(a.tilt - b.tilt) < 0.01 &&
+    Math.abs(a.bearing - b.bearing) < 0.01
+  );
+}
+
 // overlay: 스택 위에 오버레이로 떴을 때(place-preview) — 뒤로가기 버튼이 붙고,
 // 닫으면 이전 화면(경로 미리보기 등)으로 돌아간다. 탭에서는 false.
 export default function MapHome({ overlay = false }: { overlay?: boolean }) {
@@ -87,20 +104,148 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     kakaoLat?: string;
     kakaoLng?: string;
     focusPlaceId?: string;
+    focusTs?: string;
+    focusOriginTs?: string;
+    focusOriginRestore?: string;
+    focusOriginLat?: string;
+    focusOriginLng?: string;
+    focusOriginZoom?: string;
+    focusOriginTilt?: string;
+    focusOriginBearing?: string;
   }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { userLocation, selectedPlaceId, activeFilter, setSelectedPlaceId } =
     useMapStore();
   const { heading } = useUserLocation();
+  const isMapFocused = useIsFocused();
+
+  useEffect(() => {
+    if (overlay) return;
+    setMainMapFocused(isMapFocused);
+    return () => setMainMapFocused(false);
+  }, [overlay, isMapFocused]);
 
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number; zoom: number } | null>(null);
+  const [mapCameraAtMount] = useState<MapCameraSnapshot | null>(() =>
+    overlay ? null : getLastMapCamera(),
+  );
+  const [initialCameraFallback, setInitialCameraFallback] =
+    useState<MapCameraSnapshot | null>(mapCameraAtMount);
+  const [mapCenter, setMapCenter] = useState<{
+    latitude: number;
+    longitude: number;
+    zoom: number;
+  } | null>(() => {
+    const camera = mapCameraAtMount;
+    return camera
+      ? { latitude: camera.latitude, longitude: camera.longitude, zoom: camera.zoom }
+      : null;
+  });
   const mapRef = useRef<NaverMapViewRef>(null);
-  const cameraTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const followingRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const didCenterOnUserRef = useRef(false);
+
+  const focusOriginCamera = useMemo<MapCameraSnapshot | null>(() => {
+    if (!overlayParams.focusTs || overlayParams.focusOriginTs !== overlayParams.focusTs) {
+      return null;
+    }
+    const rawValues = [
+      overlayParams.focusOriginLat,
+      overlayParams.focusOriginLng,
+      overlayParams.focusOriginZoom,
+      overlayParams.focusOriginTilt,
+      overlayParams.focusOriginBearing,
+    ];
+    if (rawValues.some((value) => !value || value.trim() === '')) return null;
+    const camera = {
+      latitude: Number(overlayParams.focusOriginLat),
+      longitude: Number(overlayParams.focusOriginLng),
+      zoom: Number(overlayParams.focusOriginZoom),
+      tilt: Number(overlayParams.focusOriginTilt),
+      bearing: Number(overlayParams.focusOriginBearing),
+    };
+    if (
+      !Object.values(camera).every(Number.isFinite) ||
+      Math.abs(camera.latitude) > 90 ||
+      Math.abs(camera.longitude) > 180 ||
+      camera.zoom < 0
+    ) return null;
+    return camera;
+  }, [
+    overlayParams.focusTs,
+    overlayParams.focusOriginTs,
+    overlayParams.focusOriginLat,
+    overlayParams.focusOriginLng,
+    overlayParams.focusOriginZoom,
+    overlayParams.focusOriginTilt,
+    overlayParams.focusOriginBearing,
+  ]);
+  const [restoringCamera, setRestoringCamera] = useState<{
+    focusTs: string;
+    camera: MapCameraSnapshot;
+  } | null>(null);
+  const [restoredFocusTs, setRestoredFocusTs] = useState<string | null>(null);
+  const shouldRestoreFocusOrigin =
+    !overlay && overlayParams.focusOriginRestore === '1' && !!focusOriginCamera;
+  const needsFocusOriginRestore =
+    shouldRestoreFocusOrigin &&
+    isMapFocused &&
+    !!overlayParams.focusTs &&
+    restoredFocusTs !== overlayParams.focusTs;
+
+  const finishFocusOriginRestore = useCallback((focusTs: string) => {
+    setRestoringCamera((current) => (current?.focusTs === focusTs ? null : current));
+    setRestoredFocusTs(focusTs);
+  }, []);
+
+  const persistSettledCamera = useCallback(
+    (camera: MapCameraSnapshot) => {
+      if (!overlay) {
+        setLastMapCamera(camera);
+        setInitialCameraFallback(camera);
+      }
+      setMapCenter({
+        latitude: camera.latitude,
+        longitude: camera.longitude,
+        zoom: camera.zoom,
+      });
+      // 검색의 "지금 보는 지역" 기준점은 이동이 끝났을 때만 갱신한다.
+      useMapStore.getState().setMapCenter({
+        latitude: camera.latitude,
+        longitude: camera.longitude,
+      });
+    },
+    [overlay],
+  );
+
+  useEffect(() => {
+    if (!mapReady || !needsFocusOriginRestore || !overlayParams.focusTs || !focusOriginCamera) {
+      return;
+    }
+    // 안내 종료 후 따라가기가 켜져 있어도 복원 중 위치 갱신이 출발 카메라를
+    // 다시 사용자 위치로 끌고 가지 못하게 요청을 받은 즉시 해제한다.
+    followingRef.current = false;
+    setRestoringCamera({ focusTs: overlayParams.focusTs, camera: focusOriginCamera });
+  }, [mapReady, needsFocusOriginRestore, overlayParams.focusTs, focusOriginCamera]);
+
+  // 같은 카메라라 SDK가 changed/idle 이벤트를 생략해도 선언형 camera prop이
+  // 네이티브 뷰에 반영될 시간을 준 뒤 목적지 Fly를 시작한다.
+  useEffect(() => {
+    if (!restoringCamera || !isMapFocused) return;
+    const timer = setTimeout(() => {
+      // 현재 카메라와 같아 SDK가 idle을 생략한 경우에도, 400ms 동안 유지한
+      // 선언형 카메라를 출발점으로 확정한 뒤 진행한다.
+      persistSettledCamera(restoringCamera.camera);
+      finishFocusOriginRestore(restoringCamera.focusTs);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [restoringCamera, isMapFocused, finishFocusOriginRestore, persistSettledCamera]);
+
+  const focusTransitionReady =
+    !shouldRestoreFocusOrigin || restoredFocusTs === overlayParams.focusTs;
 
   // 주유소 필터는 DB 대신 오피넷 실시간 유가 레이어를 켠다 — 상태 일체는 훅이 맡는다
   const gasMode = activeFilter === 'gas_station';
@@ -135,6 +280,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     // 오버레이는 보러 온 장소가 주인공이다 — 위치가 도착했다고 카메라를 내
     // 위치로 뺏으면 장소→내 위치→장소로 두 번 튄다(실기기 보고)
     if (overlay || !mapReady || !userLocation || didCenterOnUserRef.current) return;
+    // 검색 전에 보던 카메라가 있으면 그 상태가 사용자 위치보다 우선한다.
+    if (mapCameraAtMount) {
+      didCenterOnUserRef.current = true;
+      return;
+    }
     // 딥링크 포커스를 들고 태어났다면(콜드 스타트 직후 검색 → 장소) 초기
     // 센터링 자체를 포기한다 — 내 위치를 경유했다가 장소로 가는 게 이것이었다
     if (overlayParams.focusPlaceId || overlayParams.kakaoLat) {
@@ -148,14 +298,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       zoom: DEFAULT_ZOOM,
       duration: 0,
     });
-  }, [mapReady, userLocation]);
-
-  // 언마운트 시 카메라 타이머 정리
-  useEffect(() => {
-    return () => {
-      if (cameraTimerRef.current) clearTimeout(cameraTimerRef.current);
-    };
-  }, []);
+  }, [overlay, mapReady, userLocation, mapCameraAtMount, overlayParams.focusPlaceId, overlayParams.kakaoLat]);
 
   // 즐겨찾기 지도 표시 — 켜면 뷰포트·필터와 무관하게 즐겨찾기가 별 마커로 보인다.
   // 기존 클러스터 파이프라인에 합류시켜 탭·선택 강조가 그대로 동작한다.
@@ -233,6 +376,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     setCourseReturn,
   } = useMapDeepLinks({
     mapReady,
+    isMapFocused,
+    focusTransitionReady,
     mapRef,
     onFollow: () => {
       followingRef.current = true;
@@ -358,14 +503,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     });
   };
 
-  // 화면 전환 전에 도착하는 선행 포커스 — 검색·근처 장소가 쏜다. params 딥링크가
-  // 같은 장소를 한 번 더 처리하지만 캐시 히트 + 같은 좌표(duration 0)라 무해하다.
-  //
-  // 커튼: 스택 아래에 있던 지도 서페이스는 그리기를 멈춰 버퍼에 옛 프레임(대개
-  // 내 위치)이 남는다. 카메라는 이미 옮겨졌어도 드러나는 첫 프레임들은 그 옛
-  // 그림이다(HUD 로 실증 — 그 순간 카메라 이동 로그가 없었다). 서페이스가 새
-  // 프레임을 그릴 때까지 배경색으로 덮었다가 걷는다.
-
   // 미리보기의 X 가 "맨 지도로 나가기"를 눌렀다 — 남아 있던 시트·카드를 접는다.
   // 오버레이 인스턴스는 곧 언마운트되니 탭 인스턴스만 반응하면 된다.
   const mapResetTs = useMapStore((st) => st.mapResetTs);
@@ -432,15 +569,19 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 안내 종료 후 "내 위치 따라가기" — 위치 갱신마다 카메라가 따라가고,
   // 사용자가 지도를 드래그하면 풀린다. SDK 트래킹 모드는 쓰지 않는다(유령
   // 위치 오버레이 소환 — useMapDeepLinks 주석 참고).
-  const followingRef = useRef(false);
   useEffect(() => {
-    if (!followingRef.current || !userLocation) return;
+    if (
+      !isMapFocused ||
+      !focusTransitionReady ||
+      !followingRef.current ||
+      !userLocation
+    ) return;
     mapRef.current?.animateCameraTo({
       latitude: userLocation.latitude,
       longitude: userLocation.longitude,
       duration: 600,
     });
-  }, [userLocation]);
+  }, [isMapFocused, focusTransitionReady, userLocation]);
 
   const handleMyLocation = () => {
     if (!userLocation || !mapRef.current) return;
@@ -469,13 +610,22 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             : overlayLat,
           longitude: overlayLng,
           zoom: 15,
+          tilt: 0,
+          bearing: 0,
         }
       : null;
-  const initialCamera = overlayTarget ?? {
-    latitude: userLocation?.latitude ?? DEFAULT_CENTER[1],
-    longitude: userLocation?.longitude ?? DEFAULT_CENTER[0],
-    zoom: DEFAULT_ZOOM,
-  };
+  const initialCamera =
+    overlayTarget ??
+    (shouldRestoreFocusOrigin && restoredFocusTs !== overlayParams.focusTs
+      ? focusOriginCamera
+      : null) ??
+    initialCameraFallback ?? {
+      latitude: userLocation?.latitude ?? DEFAULT_CENTER[1],
+      longitude: userLocation?.longitude ?? DEFAULT_CENTER[0],
+      zoom: DEFAULT_ZOOM,
+      tilt: 0,
+      bearing: 0,
+    };
 
   // 선택 강조는 별도 오버레이 마커가 맡는다 — selectedPlaceId 를 의존성에서 빼서
   // 마커 탭마다 클러스터 전체가 네이티브로 재전송·재계산되는 것을 막는다.
@@ -514,10 +664,24 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       onLayout={(e) => {
         containerHeight.value = e.nativeEvent.layout.height;
       }}>
+      <View style={styles.mapLayer}>
       <NaverMapView
         ref={mapRef}
         style={styles.map}
-        onInitialized={() => setMapReady(true)}
+        onInitialized={() => {
+          setMapReady(true);
+          // SDK가 정지된 초기 카메라에 changed 이벤트를 생략해도, 사용자가 본
+          // 첫 지도부터 다음 검색의 출발점으로 쓸 수 있게 한다.
+          if (!overlay && isMapFocused && !getLastMapCamera()) {
+            setLastMapCamera({
+              latitude: initialCamera.latitude,
+              longitude: initialCamera.longitude,
+              zoom: initialCamera.zoom ?? DEFAULT_ZOOM,
+              tilt: initialCamera.tilt ?? 0,
+              bearing: initialCamera.bearing ?? 0,
+            });
+          }
+        }}
         mapType="Basic"
         isNightModeEnabled={colorScheme === 'dark'}
         isShowLocationButton={false}
@@ -527,6 +691,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         isShowCompass
         isShowScaleBar={false}
         isShowZoomControls={false}
+        camera={restoringCamera?.camera}
         initialCamera={initialCamera}
         locale="ko"
         isExtentBoundedInKorea
@@ -535,17 +700,38 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         onCameraChanged={(e) => {
           // 드래그하면 따라가기 해제 (프로그램 이동 'Developer' 는 유지)
           if (e.reason === 'Gesture') followingRef.current = false;
-          if (cameraTimerRef.current) clearTimeout(cameraTimerRef.current);
-          cameraTimerRef.current = setTimeout(() => {
-            setMapCenter({
-              latitude: e.latitude,
-              longitude: e.longitude,
-              zoom: e.zoom ?? 12,
-            });
-            // 검색의 "지금 보는 지역" 우선 정렬용 — 오버레이 인스턴스도 같은
-            // 핸들러라, 마지막으로 보인 지도가 자연스럽게 기준이 된다
-            useMapStore.getState().setMapCenter({ latitude: e.latitude, longitude: e.longitude });
-          }, 200);
+          // 검색 화면 아래에서 분리된 surface가 내는 카메라 이벤트는 사용자가
+          // 마지막으로 본 프레임이 아니다. blur 순간의 스냅샷을 그대로 동결한다.
+          if (!isMapFocused) return;
+          const camera = {
+            latitude: e.latitude,
+            longitude: e.longitude,
+            zoom: e.zoom ?? DEFAULT_ZOOM,
+            tilt: e.tilt ?? 0,
+            bearing: e.bearing ?? 0,
+          };
+          // 복원용 값은 프레임마다 즉시 기록하되 React 상태로 구독하지 않는다.
+          // 그래야 검색 버튼을 빠르게 눌러도 마지막 실제 프레임을 잃지 않는다.
+          if (restoringCamera) return;
+          if (!overlay) setLastMapCamera(camera);
+        }}
+        onCameraIdle={(e) => {
+          if (!isMapFocused) return;
+          const camera = {
+            latitude: e.latitude,
+            longitude: e.longitude,
+            zoom: e.zoom ?? DEFAULT_ZOOM,
+            tilt: e.tilt ?? 0,
+            bearing: e.bearing ?? 0,
+          };
+          if (restoringCamera) {
+            // 재부착 과정의 오래된 카메라 idle은 출발점을 오염시키므로 버린다.
+            if (!isSameCamera(camera, restoringCamera.camera)) return;
+            persistSettledCamera(camera);
+            finishFocusOriginRestore(restoringCamera.focusTs);
+            return;
+          }
+          persistSettledCamera(camera);
         }}
         clusters={[
           {
@@ -732,6 +918,13 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         ))}
       </NaverMapView>
 
+      {needsFocusOriginRestore && (
+        <View
+          style={[styles.cameraRestoreCover, { backgroundColor: colors.background }]}
+        />
+      )}
+      </View>
+
 
       {courseReturn && selectedPlaceId === courseReturn.placeId && (
         <CourseReturnChip
@@ -881,6 +1074,12 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  mapLayer: {
+    flex: 1,
+  },
+  cameraRestoreCover: {
+    ...StyleSheet.absoluteFillObject,
   },
   searchAndFilter: {
     position: 'absolute',

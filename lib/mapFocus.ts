@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 
 import { track, type PlaceSource } from '@/lib/analytics';
+import { getLastMapCamera, isMainMapFocused } from '@/lib/mapCamera';
 import { queryClient } from '@/lib/queryClient';
 import type { Place } from '@/types';
 
@@ -34,6 +35,37 @@ export function hasMapOverlayInStack(): boolean {
   return overlayDepth > 0;
 }
 
+function createFocusRequestParams() {
+  const focusTs = String(Date.now());
+  const origin = getLastMapCamera();
+  return {
+    focusTs,
+    // 직전 지도 전체 카메라를 요청에 고정한다. 검색 화면 아래에서 네이티브
+    // 지도가 다시 붙는 동안 다른 이벤트가 들어와도 출발점이 바뀌지 않는다.
+    ...(origin
+      ? {
+          focusOriginTs: focusTs,
+          focusOriginRestore: isMainMapFocused() ? '0' : '1',
+          focusOriginLat: String(origin.latitude),
+          focusOriginLng: String(origin.longitude),
+          focusOriginZoom: String(origin.zoom),
+          focusOriginTilt: String(origin.tilt),
+          focusOriginBearing: String(origin.bearing),
+        }
+      : {
+          // router.navigate 가 기존 params 와 병합하더라도 앞선 요청의 출발점을
+          // 재사용하지 않도록 명시적으로 비운다.
+          focusOriginTs: '',
+          focusOriginRestore: '',
+          focusOriginLat: '',
+          focusOriginLng: '',
+          focusOriginZoom: '',
+          focusOriginTilt: '',
+          focusOriginBearing: '',
+        }),
+  };
+}
+
 // 지도 탭으로 이동해 특정 장소를 선택·포커스한다.
 // focusTs 는 같은 장소를 연속 선택해도 지도 화면이 반응하도록 매번 다른 키를
 // 만드는 규약 — 호출처마다 흩어져 있던 것을 여기 한 곳으로 모은다.
@@ -43,25 +75,21 @@ export function focusPlaceOnMap(
 ) {
   // 장소에 닿은 경로를 남긴다 — 어느 발견 경로가 주행까지 이어지는지 가르는 축
   track.placeViewed({ place_id: placeId, source: opts?.source ?? 'search' });
-  // 호출처가 장소를 통째로 들고 있으면 캐시부터 채운다. 지도 쪽 딥링크가
-  // 이걸 다시 fetch 하는 동안 이전 카메라(대개 내 위치)가 비치는 게
-  // "내 위치를 거쳐 간다"로 보였다 — 캐시 히트면 그 구간이 없다.
   if (focusOverride) {
     focusOverride(placeId, opts);
     return;
   }
-  // 장소를 들고 있으면 usePlace 캐시를 채워 복귀 즉시 이동이 시작되게 한다.
-  // 지도 탭 딥링크는 화면이 다시 붙은 뒤 실행되고(스택 아래의 네이버 지도는
-  // 카메라 명령을 버린다 — HUD 실증), 마지막 보던 화면에서 장소까지
-  // 애니메이션으로 날아간다. 이 "이동이 보이는" 것이 의도된 동작이다.
+  // 장소를 들고 있으면 usePlace 캐시를 채운다. 지도 탭은 화면이 다시 붙은 뒤
+  // 아래에서 고정한 출발 카메라를 복원하고 목적지까지 이동한다.
   if (opts?.place) {
     queryClient.setQueryData(['place', placeId], opts.place);
   }
+  const focusParams = createFocusRequestParams();
   router.navigate({
     pathname: '/',
     params: {
       focusPlaceId: placeId,
-      focusTs: String(Date.now()),
+      ...focusParams,
       ...(opts?.reviewId ? { focusReviewId: opts.reviewId } : {}),
       ...(opts?.fromCourseId ? { fromCourseId: opts.fromCourseId } : {}),
     },
@@ -81,6 +109,7 @@ export function focusPointOnMap(point: {
   placeUrl?: string;
   generalPlaceId?: string;
 }) {
+  const focusParams = createFocusRequestParams();
   router.navigate({
     pathname: '/',
     params: {
@@ -92,7 +121,7 @@ export function focusPointOnMap(point: {
       kakaoId: point.providerId ?? '',
       kakaoUrl: point.placeUrl ?? '',
       generalPlaceId: point.generalPlaceId ?? '',
-      focusTs: String(Date.now()),
+      ...focusParams,
     },
   });
 }

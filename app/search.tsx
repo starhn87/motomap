@@ -36,7 +36,7 @@ import { openNavigation } from '@/lib/navigation';
 import { toast } from '@/lib/toast';
 import { formatDistance } from '@/constants/course';
 import { haversine } from '@/lib/distance';
-import { focusPlaceOnMap } from '@/lib/mapFocus';
+import { focusPlaceOnMap, focusPointOnMap } from '@/lib/mapFocus';
 import { useMapStore } from '@/stores/useMapStore';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
 import { createAnalyticsId, track } from '@/lib/analytics';
@@ -349,18 +349,14 @@ export default function SearchScreen() {
         providerId,
         placeUrl,
       });
-      router.navigate({
-        pathname: '/',
-        params: {
-          kakaoName: name,
-          kakaoAddress: address,
-          kakaoLat: String(latitude),
-          kakaoLng: String(longitude),
-          kakaoPhone: phone ?? '',
-          kakaoId: providerId ?? '',
-          kakaoUrl: placeUrl ?? '',
-          focusTs: String(Date.now()),
-        },
+      focusPointOnMap({
+        name,
+        address,
+        latitude,
+        longitude,
+        phone,
+        providerId,
+        placeUrl,
       });
     },
     [inlineSearchId],
