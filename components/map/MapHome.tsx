@@ -341,7 +341,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         zoom: 15,
         // 직전 지도에서 바로 팬·줌한다. Fly는 먼 거리에서 전국 단위까지
         // 축소하는 중간 프레임을 만들므로 검색 장소 포커스에는 사용하지 않는다.
-        duration: 900,
+        duration: 500,
         easing: 'EaseOut',
       });
     },

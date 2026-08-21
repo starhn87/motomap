@@ -110,7 +110,7 @@ export function useMapDeepLinks({
       zoom: 15,
       // 등록 장소와 동일하게 직전 지도에서 바로 팬·줌한다. Fly의 장거리
       // 줌아웃은 사용자가 보던 공간적 맥락을 오히려 끊는다.
-      duration: 900,
+      duration: 500,
       easing: 'EaseOut',
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
