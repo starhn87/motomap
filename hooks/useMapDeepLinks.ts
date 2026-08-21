@@ -3,8 +3,6 @@ import { useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { coordToAddress } from '@/lib/api/kakaoLocal';
-import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
-
 import { fetchPlaceById } from '@/hooks/usePlace';
 import type { Place } from '@/types';
 import type { TempPlace } from '@/components/map/TempPlaceSheet';
@@ -18,9 +16,9 @@ export function useMapDeepLinks({
   mapReady,
   isMapFocused,
   isMapPresented,
-  mapRef,
   onFollow,
   onSelectPlace,
+  onSelectPoint,
   clearSelection,
 }: {
   mapReady: boolean;
@@ -28,11 +26,12 @@ export function useMapDeepLinks({
   isMapFocused: boolean;
   /** native-stack 전환이 끝나고 직전 지도 프레임이 실제로 노출된 상태 */
   isMapPresented: boolean;
-  mapRef: React.RefObject<NaverMapViewRef | null>;
   /** 안내 종료 직후 "내 위치 따라가기" 시작 — 지도 탭이 카메라 추적을 맡는다 */
   onFollow: () => void;
   /** DB 장소 포커스 — 지도 이동·시트 오픈까지 담당하는 기존 선택 핸들러 */
   onSelectPlace: (place: Place) => void;
+  /** 카카오 일반 장소 포커스 — 바텀시트를 제외한 가시 지도 영역에 맞춘다 */
+  onSelectPoint: (place: TempPlace) => void;
   /** 카카오 임시 핀을 띄우기 전 기존 장소 선택 해제 */
   clearSelection: () => void;
 }) {
@@ -104,15 +103,7 @@ export function useMapDeepLinks({
         );
       });
     }
-    mapRef.current?.animateCameraTo({
-      latitude: place.latitude,
-      longitude: place.longitude,
-      zoom: 15,
-      // 등록 장소와 동일하게 직전 지도에서 바로 팬·줌한다. Fly의 장거리
-      // 줌아웃은 사용자가 보던 공간적 맥락을 오히려 끊는다.
-      duration: 500,
-      easing: 'EaseOut',
-    });
+    onSelectPoint(place);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, kakaoId, kakaoUrl, generalPlaceId, focusTs, mapReady, isMapFocused, isMapPresented]);
 

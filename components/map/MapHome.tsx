@@ -76,9 +76,9 @@ import {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// 장소 선택 시 하단 시트(첫 스냅 28%)가 마커를 가리지 않도록 카메라 중심을 남쪽으로
-// 내려 마커를 화면 중심 살짝 위(≈45% 지점)에 둔다 — 상단 검색바·카테고리(≈18%)와
-// 시트 위 경계(72%) 사이의 중앙. 웹 머카토르 근사: 화면 높이 비율 → 위도.
+// 장소 선택 시 상세 시트가 마커를 가리지 않도록 카메라 중심을 남쪽으로 내려
+// 마커를 화면 중심보다 위에 둔다. 등록·일반 장소가 같은 보정을 사용하며,
+// 웹 머카토르 근사로 화면 높이 비율을 위도 차이로 바꾼다.
 function sheetLatOffset(zoom: number, screenHeightDp: number, lat: number): number {
   const latSpan =
     (screenHeightDp / (256 * Math.pow(2, zoom))) * 360 * Math.cos((lat * Math.PI) / 180);
@@ -348,6 +348,21 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     [setSelectedPlaceId, screenHeight]
   );
 
+  const handleSearchPointSelect = useCallback(
+    (place: TempPlace) => {
+      followingRef.current = false;
+      mapRef.current?.animateCameraTo({
+        latitude: place.latitude - sheetLatOffset(15, screenHeight, place.latitude),
+        longitude: place.longitude,
+        zoom: 15,
+        // 등록 장소와 같은 가시 영역 위치로 직접 팬·줌한다.
+        duration: 500,
+        easing: 'EaseOut',
+      });
+    },
+    [screenHeight],
+  );
+
   // 라우트 파라미터(검색·푸시·내 리뷰·코스 근처 장소·카카오 일반 장소) 진입 처리
   const {
     tempPlace,
@@ -360,7 +375,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     mapReady,
     isMapFocused,
     isMapPresented: overlay || mapPresentationReady,
-    mapRef,
     onFollow: () => {
       followingRef.current = true;
       // 안내 중엔 위치 구독이 멈춰 스토어가 출발지에 얼어 있다 — 스토어를
@@ -381,12 +395,40 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       })();
     },
     onSelectPlace: handleSearchSelect,
+    onSelectPoint: handleSearchPointSelect,
     clearSelection: () => {
       followingRef.current = false;
       setSelectedPlaceId(null);
       setSelectedPlace(null);
+      setSelectedStation(null);
     },
   });
+
+  const handleTempPlaceSelect = useCallback(
+    (place: TempPlace) => {
+      followingRef.current = false;
+      setSelectedPlaceId(null);
+      setSelectedPlace(null);
+      setSelectedStation(null);
+      setHighlightReview(null);
+      setTempPlace(place);
+      const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
+      mapRef.current?.animateCameraTo({
+        latitude: place.latitude - sheetLatOffset(zoom, screenHeight, place.latitude),
+        longitude: place.longitude,
+        zoom,
+        duration: 400,
+      });
+    },
+    [
+      mapCenter?.zoom,
+      screenHeight,
+      setSelectedPlaceId,
+      setSelectedStation,
+      setHighlightReview,
+      setTempPlace,
+    ],
+  );
 
   // 지금 고른 임시 장소가 즐겨찾기해 둔 일반 장소인지 — 마커를 핀으로 바꿀지 가른다
   const selectedGeneralFav = useMemo(
@@ -457,7 +499,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     // 다른 카드·시트가 열려 있어도 닫기 없이 새 심벌로 바로 전환한다 (지도 앱 관례)
     if (selectedPlace) handleBottomSheetClose();
     if (selectedStation) setSelectedStation(null);
-    setTempPlace({ name: caption, address: '', latitude, longitude });
+    handleTempPlaceSelect({ name: caption, address: '', latitude, longitude });
     void coordToAddress(latitude, longitude).then((address) => {
       if (!address) return;
       setTempPlace((prev) =>
@@ -586,11 +628,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     overlay && Number.isFinite(overlayLat) && Number.isFinite(overlayLng)
       ? {
           // 선택 시 카메라가 앉는 자리와 같은 좌표로 시작해 딥링크의
-          // animateCameraTo 가 사실상 제자리걸음이 되게 한다. 등록 장소만
-          // 시트 오프셋을 받는다 — 일반 장소 카드는 보정 없이 중심이 규칙.
-          latitude: overlayParams.focusPlaceId
-            ? overlayLat - sheetLatOffset(15, screenHeight, overlayLat)
-            : overlayLat,
+          // animateCameraTo 가 사실상 제자리걸음이 되게 한다. 등록 여부와
+          // 무관하게 상세 시트를 제외한 같은 가시 영역 위치를 쓴다.
+          latitude: overlayLat - sheetLatOffset(15, screenHeight, overlayLat),
           longitude: overlayLng,
           zoom: 15,
           tilt: 0,
@@ -806,7 +846,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
                 haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
               }}
               onTap={() =>
-                setTempPlace({
+                handleTempPlaceSelect({
                   name: f.name,
                   address: f.address,
                   latitude: f.latitude,
