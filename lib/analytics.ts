@@ -178,13 +178,13 @@ export const track = {
   placeSubmissionPrompted: (p: { has_address: boolean }) =>
     capture('place_submission_prompted', p),
 
-  placeSubmissionOpened: (p: { source: 'arrival' | 'temp_place' }) =>
+  placeSubmissionOpened: (p: { source: 'arrival' | 'temp_place' | 'search_empty' }) =>
     capture('place_submission_opened', p),
 
   // 제보 폼에는 사진 입력이 없다 — 카테고리와 진입 경로만 남긴다
   placeSubmitted: (p: {
     category: string;
-    source: 'tab' | 'arrival' | 'temp_place';
+    source: 'tab' | 'arrival' | 'temp_place' | 'search_empty';
   }) => capture('place_submitted', p),
 
   reviewSubmitted: (p: {

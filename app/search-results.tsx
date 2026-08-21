@@ -23,6 +23,7 @@ import {
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryIcon from '@/components/ui/CategoryIcon';
+import EmptyState from '@/components/ui/EmptyState';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
@@ -123,6 +124,7 @@ export default function SearchResultsScreen() {
   const { near: anchorNear } = useSearchAnchor();
   const initialNear = browseNear ?? anchorNear;
   const [searchNear, setSearchNear] = useState(initialNear);
+  const [areaSearchRevision, setAreaSearchRevision] = useState(0);
   const [canSearchArea, setCanSearchArea] = useState(false);
   const cameraCenterRef = useRef(initialNear);
   const activeNear = searchNear;
@@ -137,16 +139,38 @@ export default function SearchResultsScreen() {
     }
   }, [initialNear, searchNear]);
 
-  const { data: results, isLoading } = useQuery({
-    queryKey: ['search', searchQuery, nearKey, browseMode],
+  const requestEnabled = !!activeNear && (browseMode || !!query.trim());
+  const resultsQuery = useQuery({
+    queryKey: ['search', searchQuery, nearKey, browseMode, areaSearchRevision],
     queryFn: () => searchAll(searchQuery, activeNear, true),
-    enabled: !!activeNear && (browseMode || !!query),
+    enabled: requestEnabled,
   });
-  const { data: kakaoResults, isLoading: kakaoLoading } = useQuery({
-    queryKey: ['search-kakao', query, nearKey],
-    queryFn: () => searchKakaoLocal(query, activeNear),
-    enabled: !!activeNear && !!query && !browseMode,
+  const kakaoQuery = useQuery({
+    queryKey: ['search-kakao', query, nearKey, areaSearchRevision],
+    queryFn: () => searchKakaoLocal(query, activeNear, { throwOnError: true }),
+    enabled: requestEnabled && !browseMode,
   });
+  const results = resultsQuery.data;
+  const kakaoResults = kakaoQuery.data;
+  const nearbyKakaoResults = useMemo(
+    () =>
+      (kakaoResults ?? []).filter(
+        (k) =>
+          !!activeNear &&
+          approxMeters(
+            { latitude: k.latitude, longitude: k.longitude },
+            activeNear,
+          ) <= SEARCH_RADIUS_M &&
+          !(results?.places ?? []).some((place) =>
+            isSamePlace(place, {
+              name: k.placeName,
+              latitude: k.latitude,
+              longitude: k.longitude,
+            }),
+          ),
+      ),
+    [kakaoResults, results?.places, activeNear],
+  );
   const bikeMatches = useBikePlaceMatches(
     (results?.places ?? []).map((place) => place.id),
   );
@@ -162,45 +186,44 @@ export default function SearchResultsScreen() {
     // 코스·카카오 결과에는 영업시간/주차/평점의 같은 필드가 없다. 필터를 켰을 때
     // 섞어 보여주면 필터가 고장 난 것처럼 보이므로 등록 장소만 남긴다.
     const courses = filters.length === 0 ? (results?.courses ?? []) : [];
-    const kakaoOnly = (kakaoResults ?? []).filter(
-      (k) =>
-        filters.length === 0 &&
-        (!activeNear ||
-          approxMeters(
-            { latitude: k.latitude, longitude: k.longitude },
-            activeNear,
-          ) <= SEARCH_RADIUS_M) &&
-        !places.some((p) =>
-          isSamePlace(p, { name: k.placeName, latitude: k.latitude, longitude: k.longitude }),
-        ),
-    );
+    const kakaoOnly = filters.length === 0 ? nearbyKakaoResults : [];
     return [
       ...places.map((place) => ({ kind: 'place' as const, place })),
       ...kakaoOnly.map((k) => ({ kind: 'kakao' as const, k })),
       ...courses.map((course) => ({ kind: 'course' as const, course })),
     ];
-  }, [results, kakaoResults, filters, activeNear, bikeMatches.data]);
+  }, [results, nearbyKakaoResults, filters, bikeMatches.data]);
+
+  const sourcesReady =
+    requestEnabled && resultsQuery.isSuccess && (browseMode || kakaoQuery.isSuccess);
+  const rawResultCount =
+    (results?.places.length ?? 0) +
+    (results?.courses.length ?? 0) +
+    nearbyKakaoResults.length;
+  const showEmpty = sourcesReady && rawResultCount === 0;
+  const searchFailed =
+    resultsQuery.isError || (!browseMode && kakaoQuery.isError);
 
   // 필터를 켜지 않았어도 각 행에 바이크 근거가 표시된다. 이 데이터만 늦게
   // 들어오면 메타 행이 한 줄 더 생기므로 최초 결과는 함께 준비한다.
+  const hasRegisteredResults = (results?.places.length ?? 0) > 0;
   const loading =
-    !activeNear ||
-    isLoading ||
-    kakaoLoading ||
-    bikeMatches.isLoading ||
-    bikeMatches.bikesLoading;
+    !requestEnabled ||
+    resultsQuery.isLoading ||
+    (!browseMode && kakaoQuery.isLoading) ||
+    (hasRegisteredResults && (bikeMatches.isLoading || bikeMatches.bikesLoading));
 
   // 검색 화면을 건너온 음성 검색과 범위 재검색도 같은 search_id 로 묶는다.
   // 결과 종류가 모두 준비된 뒤 한 번만 기록해 부분 로딩 수치가 섞이지 않게 한다.
   const viewedResultSets = useRef(new Set<string>());
   useEffect(() => {
-    if (!query || loading) return;
-    const resultSet = `near:${nearKey}`;
+    if (!query || loading || searchFailed || !sourcesReady) return;
+    const resultSet = `near:${nearKey}:${areaSearchRevision}`;
     if (viewedResultSets.current.has(resultSet)) return;
     viewedResultSets.current.add(resultSet);
-    const registeredCount = items.filter((item) => item.kind === 'place').length;
-    const kakaoCount = items.filter((item) => item.kind === 'kakao').length;
-    const courseCount = items.filter((item) => item.kind === 'course').length;
+    const registeredCount = results?.places.length ?? 0;
+    const kakaoCount = nearbyKakaoResults.length;
+    const courseCount = results?.courses.length ?? 0;
     track.searchResultsViewed({
       search_id: searchId,
       source: searchSource,
@@ -218,7 +241,20 @@ export default function SearchResultsScreen() {
         kakao_count: kakaoCount,
       });
     }
-  }, [query, browseMode, loading, items, activeNear, nearKey, searchId, searchSource]);
+  }, [
+    query,
+    browseMode,
+    loading,
+    searchFailed,
+    sourcesReady,
+    results,
+    nearbyKakaoResults,
+    activeNear,
+    nearKey,
+    areaSearchRevision,
+    searchId,
+    searchSource,
+  ]);
 
   // 기본 스냅은 목록 높이에 맞추되 화면의 45% 까지만 — 결과가 두어 개뿐인데
   // 억지로 채우면 지도만 가린다. 이름·주소·메타를 포함한 행 80px로 잡는다.
@@ -231,7 +267,7 @@ export default function SearchResultsScreen() {
   // 결과 전체가 보이도록 카메라를 맞춘다. 하나뿐이면 가상의 좌표 범위를 만들지
   // 않고, 바텀시트를 제외한 지도 영역의 정확한 중앙을 카메라 pivot으로 쓴다.
   useEffect(() => {
-    if (!mapReady || loading || detailOpen) return;
+    if (!mapReady || loading || showEmpty || searchFailed || detailOpen) return;
     const mapped = items.filter(
       (item): item is Exclude<ResultItem, { kind: 'course' }> => item.kind !== 'course',
     );
@@ -269,7 +305,22 @@ export default function SearchResultsScreen() {
       coord2: { latitude: maxLat + latSpan * 0.12, longitude: maxLng + lngSpan * 0.12 },
       duration: 600,
     });
-  }, [items, mapReady, loading, detailOpen, screenH, midSnap]);
+  }, [
+    items,
+    mapReady,
+    loading,
+    showEmpty,
+    searchFailed,
+    detailOpen,
+    screenH,
+    midSnap,
+  ]);
+
+  // 빈 결과·오류 화면에서는 네이티브 지도를 언마운트한다. 같은 라우트에서 다시
+  // 결과가 생기면 새 지도 초기화가 끝난 뒤에만 카메라를 맞추도록 readiness도 버린다.
+  useEffect(() => {
+    if (showEmpty || searchFailed) setMapReady(false);
+  }, [showEmpty, searchFailed]);
 
   // 고르면 이 화면 안에서 상세 시트를 연다 — 지도 탭과 같은 시트를 재사용한다
   // 지도에서 마커를 눌렀을 때는 줌을 건드리지 않는다. 이미 그 지도를 보고 있는
@@ -348,6 +399,71 @@ export default function SearchResultsScreen() {
       });
     }
   };
+
+  const resultLabel = browseMode ? `${query} 주변` : query;
+  const statusHeader = (
+    <View
+      style={[
+        styles.statusHeader,
+        {
+          paddingTop: insets.top + 8,
+          borderBottomColor: colors.border,
+        },
+      ]}>
+      <Pressable onPress={() => router.back()} hitSlop={8} style={styles.statusBackButton}>
+        <Ionicons name="chevron-back" size={22} color={colors.text} />
+      </Pressable>
+      <Text style={[styles.statusQuery, { color: colors.text }]} numberOfLines={1}>
+        {resultLabel}
+      </Text>
+      <View style={styles.statusTrailing}>
+        <Ionicons name="search" size={18} color={colors.textSecondary} />
+      </View>
+    </View>
+  );
+
+  if (searchFailed) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {statusHeader}
+        <EmptyState
+          icon={<Ionicons name="cloud-offline-outline" size={44} color={colors.textSecondary} />}
+          title="검색 결과를 불러오지 못했어요"
+          hint="연결 상태를 확인하고 다시 시도해 주세요."
+          actionLabel="다시 시도"
+          onAction={() => {
+            void resultsQuery.refetch();
+            if (!browseMode) void kakaoQuery.refetch();
+          }}
+        />
+      </View>
+    );
+  }
+
+  if (showEmpty) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {statusHeader}
+        <EmptyState
+          icon={<Ionicons name="location-outline" size={44} color={colors.textSecondary} />}
+          title="이 지역에 검색 결과가 없어요"
+          hint={`“${query}”에 해당하는 장소를 찾지 못했어요.\n알고 있는 장소가 있다면 라이더들에게 알려주세요.`}
+          actionLabel="새로운 장소 제보"
+          onAction={() => {
+            track.placeSubmissionOpened({ source: 'search_empty' });
+            router.navigate({
+              pathname: '/submit',
+              params: {
+                submitType: 'place',
+                submitTs: String(Date.now()),
+                prefillSource: 'search_empty',
+              },
+            });
+          }}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -436,6 +552,7 @@ export default function SearchResultsScreen() {
         <Pressable
           onPress={() => {
             setSearchNear(cameraCenterRef.current);
+            setAreaSearchRevision((revision) => revision + 1);
             setCanSearchArea(false);
             track.searchAreaRefreshed({ search_id: searchId });
           }}
@@ -631,6 +748,31 @@ export default function SearchResultsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  statusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  statusBackButton: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusQuery: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  statusTrailing: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   queryBar: {
     position: 'absolute',
     left: 16,

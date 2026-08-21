@@ -228,7 +228,9 @@ function SubmitPlace() {
       track.placeSubmitted({
         category,
         source:
-          prefillSource === 'arrival' || prefillSource === 'temp_place'
+          prefillSource === 'arrival' ||
+          prefillSource === 'temp_place' ||
+          prefillSource === 'search_empty'
             ? prefillSource
             : 'tab',
       });
@@ -394,6 +396,23 @@ export default function SubmitScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const [submitType, setSubmitType] = useState<SubmitType>('place');
+  const { submitType: requestedType, submitTs } = useLocalSearchParams<{
+    submitType?: string;
+    submitTs?: string;
+  }>();
+
+  // 다른 화면의 CTA에서 제보 탭을 열 때, 이전에 보던 위험·건의 탭이 남지 않게 한다.
+  // 같은 장소 CTA를 다시 눌러도 timestamp가 바뀌므로 매번 장소 탭으로 돌아온다.
+  useEffect(() => {
+    if (
+      requestedType === 'place' ||
+      requestedType === 'course' ||
+      requestedType === 'hazard' ||
+      requestedType === 'feedback'
+    ) {
+      setSubmitType(requestedType);
+    }
+  }, [requestedType, submitTs]);
 
   if (!user) {
     return <LoginPrompt message="제보하려면 로그인이 필요합니다." />;

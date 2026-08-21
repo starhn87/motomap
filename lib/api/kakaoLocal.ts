@@ -27,10 +27,13 @@ export async function searchKakaoLocal(
   /** 있으면 이 좌표 주변을 우선한다 — 카카오는 x,y 를 주면 정확도 정렬에 거리를
       반영한다(radius 는 안 준다: 하드 필터가 아니라 우선순위만 올리는 게 목적) */
   near?: { latitude: number; longitude: number },
+  /** 전체 결과의 0건 여부를 판단하는 화면은 실패를 빈 배열로 오인하면 안 된다. */
+  options: { throwOnError?: boolean } = {},
 ): Promise<KakaoLocalResult[]> {
   const q = query.trim();
   if (!q) return [];
   if (!REST_KEY) {
+    if (options.throwOnError) throw new Error('KAKAO REST API 키가 설정되지 않았습니다.');
     toast.error('주소 검색을 사용할 수 없습니다.', 'KAKAO REST API 키가 설정되지 않았습니다.');
     return [];
   }
@@ -41,7 +44,10 @@ export async function searchKakaoLocal(
     const res = await fetch(url, {
       headers: { Authorization: `KakaoAK ${REST_KEY}` },
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      if (options.throwOnError) throw new Error(`카카오 장소 검색 실패 (${res.status})`);
+      return [];
+    }
     const data = await res.json();
     return (data.documents ?? []).map((d: any) => ({
       providerId: d.id || undefined,
@@ -53,7 +59,8 @@ export async function searchKakaoLocal(
       longitude: Number(d.x),
       phone: d.phone ?? '',
     }));
-  } catch {
+  } catch (error) {
+    if (options.throwOnError) throw error;
     return [];
   }
 }
