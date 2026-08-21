@@ -25,6 +25,7 @@
 |---|---|---|
 | 지도·장소 상세·지도 날씨 | [map-place-details.md](map-place-details.md) | `components/map/`, `stores/useMapStore.ts` |
 | 통합 검색·검색 결과 지도 | [search.md](search.md) | `app/search.tsx`, `app/search-results.tsx`, `lib/api/search.ts` |
+| 앱 내 길안내 | [navigation.md](navigation.md) | `app/navi.tsx`, `modules/kakao-navi/` |
 
 새 도메인 문서를 추가할 때 이 표에도 반드시 연결한다.
 

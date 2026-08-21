@@ -129,15 +129,22 @@ static KNMapRouteTheme *RouteTheme(KNMapRouteTheme *base, UIColor *stroke) {
 }
 
 + (NSArray<UIImage *> *)carImages {
-  UIColor *day = UIColor.whiteColor;
-  UIColor *night = [UIColor colorWithRed:0x18 / 255.0 green:0x18 / 255.0 blue:0x1B / 255.0 alpha:1];
-
-  return @[
-    [self carImageWithAccent:MotoGreen() fill:day],
-    [self carImageWithAccent:MotoGreen() fill:night],
-    [self carImageWithAccent:MotoGray() fill:day],
-    [self carImageWithAccent:MotoGray() fill:night],
-  ];
+  // 안내 상태 전환마다 같은 네 장을 다시 생성하면 불필요하게 비트맵을 만든다.
+  // SDK 가 배열을 보관하므로 프로세스 수명 동안 한 번 생성해 재사용한다.
+  static NSArray<UIImage *> *images;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    UIColor *day = UIColor.whiteColor;
+    UIColor *night =
+        [UIColor colorWithRed:0x18 / 255.0 green:0x18 / 255.0 blue:0x1B / 255.0 alpha:1];
+    images = @[
+      [self carImageWithAccent:MotoGreen() fill:day],
+      [self carImageWithAccent:MotoGreen() fill:night],
+      [self carImageWithAccent:MotoGray() fill:day],
+      [self carImageWithAccent:MotoGray() fill:night],
+    ];
+  });
+  return images;
 }
 
 + (CGPoint)carAnchor {

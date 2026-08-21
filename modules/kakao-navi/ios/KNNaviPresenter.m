@@ -4,6 +4,65 @@
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
+#import <objc/runtime.h>
+#import <string.h>
+
+// KNSDK 1.12.14 는 이륜차 경로를 시작하거나 안전운행 화면으로 바꿀 때마다
+// 비공개 carImageType: 에 2를 넘겨 bike_on/off 기본 캐릭터를 다시 선택한다.
+// 알려진 상태 콜백 뒤에서 되돌리는 것만으로는 새 내부 전환이 생길 때마다 같은
+// 회귀가 나고, 잠깐이라도 기본 캐릭터가 그려질 수 있다. 우리 지도 인스턴스만
+// 커스텀 타입(0)으로 고정해 SDK 의 모든 선택 경로를 입구에서 막는다.
+static char kMotoMapCustomCarLockKey;
+static IMP gOriginalCarImageTypeImplementation = NULL;
+
+static void MotoMapCarImageType(id mapView, SEL selector, NSUInteger imageType) {
+  BOOL customCarLocked = [objc_getAssociatedObject(mapView, &kMotoMapCustomCarLockKey) boolValue];
+  NSUInteger effectiveType = customCarLocked ? 0 : imageType;
+  if (gOriginalCarImageTypeImplementation != NULL) {
+    ((void (*)(id, SEL, NSUInteger))gOriginalCarImageTypeImplementation)(mapView,
+                                                                          selector,
+                                                                          effectiveType);
+  }
+}
+
+static BOOL InstallMotoMapCarImageGuard(void) {
+  static dispatch_once_t once;
+  static BOOL installed = NO;
+  dispatch_once(&once, ^{
+    Class mapViewClass = NSClassFromString(@"KNNaviMapView");
+    SEL selector = NSSelectorFromString(@"carImageType:");
+    Method method = class_getInstanceMethod(mapViewClass, selector);
+    if (method == NULL) return;
+
+    // 비공개 메서드의 ABI 가 바뀐 SDK 에 잘못된 함수 포인터를 연결하지 않는다.
+    char returnType[8] = { 0 };
+    char argumentType[8] = { 0 };
+    method_getReturnType(method, returnType, sizeof(returnType));
+    method_getArgumentType(method, 2, argumentType, sizeof(argumentType));
+    if (method_getNumberOfArguments(method) != 3 ||
+        strcmp(returnType, @encode(void)) != 0 ||
+        strcmp(argumentType, @encode(NSUInteger)) != 0) {
+      return;
+    }
+
+    IMP originalImplementation = method_getImplementation(method);
+    if (originalImplementation == NULL) return;
+    // hook 이 보이는 순간부터 원 구현을 호출할 수 있도록 포인터를 먼저 저장한다.
+    gOriginalCarImageTypeImplementation = originalImplementation;
+    method_setImplementation(method, (IMP)MotoMapCarImageType);
+    installed = YES;
+  });
+  return installed;
+}
+
+static BOOL LockMotoMapCustomCarImage(KNNaviMapView *mapView) {
+  if (mapView == nil || !InstallMotoMapCarImageGuard()) return NO;
+  objc_setAssociatedObject(mapView,
+                           &kMotoMapCustomCarLockKey,
+                           @YES,
+                           OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  return YES;
+}
 
 // 안내 화면을 담는 뷰 컨트롤러. 델리게이트를 받아야 해서 별도 클래스로 둔다.
 // KNNaviView 는 KNGuidance 를 스스로 구독하지 않는다. 가이드 델리게이트를 여기서
@@ -27,6 +86,7 @@
 @property(nonatomic, copy, nullable) void (^onPoiTap)(NSString *, double, double);
 @property(nonatomic, copy, nullable) void (^onStarted)(void);
 @property(nonatomic, assign) BOOL carThemeApplied;
+@property(nonatomic, assign) BOOL applyingCarTheme;
 @property(nonatomic, assign) KNRoutePriority priority;
 // 경로 미리보기 — 실제 GPS 대신 경로를 따라 스스로 진행한다
 @property(nonatomic, assign) BOOL preview;
@@ -69,10 +129,15 @@ static __weak KNNaviViewController *gActiveNavi = nil;
   // 건드리지 않는다 — 그래야 커스텀 마커가 적용된다.
   naviView.frame = self.view.bounds;
   naviView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-  [self.view addSubview:naviView];
 
   self.naviView = naviView;
   self.guidance = guidance;
+
+  // startWithTrip 안에서도 이륜차 기본 캐릭터를 선택하므로 안내 시작보다 먼저
+  // 커스텀 타입을 잠근 뒤 화면에 붙인다. 첫 프레임부터 기본 bike_on/off 가
+  // 노출되지 않아야 한다.
+  [self applyCarTheme];
+  [self.view addSubview:naviView];
 
   // 안내가 떠 있는 동안만 백그라운드 위치를 허용한다 — 화면이 꺼지거나 다른
   // 앱으로 전환해도 안내가 이어지는 기능. 평상시엔 꺼 둔다(KNSDKBridge 초기화
@@ -255,6 +320,10 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 // 기본 아이콘으로 되돌린다. 그 시점마다 다시 씌운다.
 - (void)applyCarTheme {
   KNNaviMapView *mapView = self.naviView.mapView;
+  if (mapView == nil || self.applyingCarTheme) return;
+  self.applyingCarTheme = YES;
+
+  BOOL carImageGuardInstalled = LockMotoMapCustomCarImage(mapView);
   [mapView setCustomCarImages:[KNNaviTheme carImages] anchor:[KNNaviTheme carAnchor]];
   // trafficMode 가 켜져 있어 실제로 그려지는 건 Traffic 쪽이지만, 꺼졌을 때를
   // 위해 Drive 쪽도 같은 외곽선으로 맞춰 둔다
@@ -264,17 +333,22 @@ static __weak KNNaviViewController *gActiveNavi = nil;
           routeThemeTrafficNight:[KNNaviTheme routeThemeNight]];
 
   // setCustomCarImages 는 내부에서 trip.routeConfig.carType 을 읽어 이륜차(6)면
-  // carImageType 을 2(내장 바이크 아이콘)로 강제한다 — 1.10.9 디스어셈블로 확인.
-  // 커스텀 배열은 이미 저장돼 있으므로 type 만 0(커스텀)으로 되돌리고 테마를 다시 그린다.
+  // carImageType 을 2(내장 바이크 아이콘)로 강제한다 — 1.12.14 디스어셈블로 확인.
+  // 위 guard 가 모든 후속 호출도 0으로 바꾼다. 아래 직접 적용과 renew 는 현재
+  // 선택 이미지까지 즉시 맞추는 알려진 전환점의 폴백이다. 비공개 메서드의 ABI 가
+  // 바뀐 SDK 에서는 둘 다 건너뛰고 setCustomCarImages 의 공개 동작만 남긴다.
   SEL typeSel = NSSelectorFromString(@"carImageType:");
   SEL renewSel = NSSelectorFromString(@"renewTheme");
-  if ([mapView respondsToSelector:typeSel] && [mapView respondsToSelector:renewSel]) {
-    void (*setType)(id, SEL, NSInteger) =
-        (void (*)(id, SEL, NSInteger))[mapView methodForSelector:typeSel];
+  if (carImageGuardInstalled &&
+      [mapView respondsToSelector:typeSel] &&
+      [mapView respondsToSelector:renewSel]) {
+    void (*setType)(id, SEL, NSUInteger) =
+        (void (*)(id, SEL, NSUInteger))[mapView methodForSelector:typeSel];
     setType(mapView, typeSel, 0);
     void (*renew)(id, SEL) = (void (*)(id, SEL))[mapView methodForSelector:renewSel];
     renew(mapView, renewSel);
   }
+  self.applyingCarTheme = NO;
 }
 
 - (void)naviViewGuideEnded:(KNNaviView *)aNaviView {
@@ -300,6 +374,11 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 }
 
 - (void)naviViewScreenState:(KNNaviViewState)aKNNaviViewState {
+  // 도착 뒤 안전운행 화면과 그 지도 이동 상태만 보조 복구한다. 모든 화면 상태에서
+  // renewTheme 를 호출하면 안내 중 팬·전체경로 전환까지 불필요하게 다시 그린다.
+  if (aKNNaviViewState == SafetyNormal || aKNNaviViewState == SafetyTouch) {
+    [self applyCarTheme];
+  }
 }
 
 - (void)naviViewPopupOpenCheck:(BOOL)aOpen {
@@ -359,6 +438,9 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 // 안내 종료로 직접 한다(그건 naviViewGuideEnded 로 들어온다).
 - (void)guidanceGuideEnded:(KNGuidance *)aGuidance {
   [self.naviView guidanceGuideEnded:aGuidance isShowDriveResultDialog:NO];
+  // 종료 뒤 화면은 닫히지 않고 안전운행으로 전환된다. 그 전환이 자차 타입을
+  // 다시 고르는 핵심 회귀 지점이라 guard 와 별개로 한 번 더 복구한다.
+  [self applyCarTheme];
 }
 
 - (void)guidance:(KNGuidance *)aGuidance
