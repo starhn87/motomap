@@ -17,7 +17,6 @@ import type { TempPlace } from '@/components/map/TempPlaceSheet';
 export function useMapDeepLinks({
   mapReady,
   isMapFocused,
-  focusTransitionReady,
   mapRef,
   onFollow,
   onSelectPlace,
@@ -26,8 +25,6 @@ export function useMapDeepLinks({
   mapReady: boolean;
   /** 스택 아래에서 분리된 네이티브 지도에는 카메라 명령을 보내지 않는다 */
   isMapFocused: boolean;
-  /** 검색 직전 카메라를 다시 세운 뒤에만 목적지 이동을 시작한다 */
-  focusTransitionReady: boolean;
   mapRef: React.RefObject<NaverMapViewRef | null>;
   /** 안내 종료 직후 "내 위치 따라가기" 시작 — 지도 탭이 카메라 추적을 맡는다 */
   onFollow: () => void;
@@ -75,8 +72,7 @@ export function useMapDeepLinks({
       !kakaoLat ||
       !kakaoLng ||
       !mapReady ||
-      !isMapFocused ||
-      !focusTransitionReady
+      !isMapFocused
     ) return;
     const key = `${kakaoName}-${focusTs ?? ''}`;
     if (handledKakaoRef.current === key) return;
@@ -108,13 +104,13 @@ export function useMapDeepLinks({
       latitude: place.latitude,
       longitude: place.longitude,
       zoom: 15,
-      // 마지막 보던 화면에서 날아가는 애니메이션 (등록 장소와 같은 규칙)
-      // 1100 은 급하게 느껴졌다 — 포물선이 눈에 담기게 조금 느긋하게
-      duration: 1600,
-      easing: 'Fly',
+      // 등록 장소와 동일하게 직전 지도에서 바로 팬·줌한다. Fly의 장거리
+      // 줌아웃은 사용자가 보던 공간적 맥락을 오히려 끊는다.
+      duration: 900,
+      easing: 'EaseOut',
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, kakaoId, kakaoUrl, generalPlaceId, focusTs, mapReady, isMapFocused, focusTransitionReady]);
+  }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, kakaoId, kakaoUrl, generalPlaceId, focusTs, mapReady, isMapFocused]);
 
   const [highlightReview, setHighlightReview] = useState<{ id: string; key: string } | null>(
     null
@@ -126,7 +122,7 @@ export function useMapDeepLinks({
   );
   const handledFocusIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!focusPlaceId || !mapReady || !isMapFocused || !focusTransitionReady) return;
+    if (!focusPlaceId || !mapReady || !isMapFocused) return;
     const focusKey = `${focusPlaceId}-${focusTs ?? ''}`;
     if (handledFocusIdRef.current === focusKey) return;
     handledFocusIdRef.current = focusKey;
@@ -146,7 +142,7 @@ export function useMapDeepLinks({
     return () => {
       cancelled = true;
     };
-  }, [focusPlaceId, focusTs, focusReviewId, fromCourseId, mapReady, isMapFocused, focusTransitionReady, onSelectPlace, queryClient]);
+  }, [focusPlaceId, focusTs, focusReviewId, fromCourseId, mapReady, isMapFocused, onSelectPlace, queryClient]);
 
   return {
     tempPlace,

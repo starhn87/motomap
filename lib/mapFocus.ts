@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 
 import { track, type PlaceSource } from '@/lib/analytics';
-import { getLastMapCamera, isMainMapFocused } from '@/lib/mapCamera';
+import { isMainMapFocused } from '@/lib/mapCamera';
 import { queryClient } from '@/lib/queryClient';
 import type { Place } from '@/types';
 
@@ -35,35 +35,16 @@ export function hasMapOverlayInStack(): boolean {
   return overlayDepth > 0;
 }
 
-function createFocusRequestParams() {
-  const focusTs = String(Date.now());
-  const origin = getLastMapCamera();
-  return {
-    focusTs,
-    // 직전 지도 전체 카메라를 요청에 고정한다. 검색 화면 아래에서 네이티브
-    // 지도가 다시 붙는 동안 다른 이벤트가 들어와도 출발점이 바뀌지 않는다.
-    ...(origin
-      ? {
-          focusOriginTs: focusTs,
-          focusOriginRestore: isMainMapFocused() ? '0' : '1',
-          focusOriginLat: String(origin.latitude),
-          focusOriginLng: String(origin.longitude),
-          focusOriginZoom: String(origin.zoom),
-          focusOriginTilt: String(origin.tilt),
-          focusOriginBearing: String(origin.bearing),
-        }
-      : {
-          // router.navigate 가 기존 params 와 병합하더라도 앞선 요청의 출발점을
-          // 재사용하지 않도록 명시적으로 비운다.
-          focusOriginTs: '',
-          focusOriginRestore: '',
-          focusOriginLat: '',
-          focusOriginLng: '',
-          focusOriginZoom: '',
-          focusOriginTilt: '',
-          focusOriginBearing: '',
-        }),
-  };
+type MapRouteParams = Record<string, string | undefined>;
+
+function openMapRoute(params: MapRouteParams) {
+  if (isMainMapFocused()) {
+    // POP_TO는 이미 현재 route인 탭 내부에서는 처리되지 않는다. 같은 지도 안의
+    // 근처 장소 선택은 현재 route params만 바꿔 기존 딥링크 소비 경로를 탄다.
+    router.setParams(params);
+    return;
+  }
+  router.dismissTo({ pathname: '/', params });
 }
 
 // 지도 탭으로 이동해 특정 장소를 선택·포커스한다.
@@ -79,20 +60,25 @@ export function focusPlaceOnMap(
     focusOverride(placeId, opts);
     return;
   }
-  // 장소를 들고 있으면 usePlace 캐시를 채운다. 지도 탭은 화면이 다시 붙은 뒤
-  // 아래에서 고정한 출발 카메라를 복원하고 목적지까지 이동한다.
+  // 장소를 들고 있으면 usePlace 캐시를 채워 복귀 즉시 이동을 시작한다.
   if (opts?.place) {
     queryClient.setQueryData(['place', placeId], opts.place);
   }
-  const focusParams = createFocusRequestParams();
-  router.navigate({
-    pathname: '/',
-    params: {
-      focusPlaceId: placeId,
-      ...focusParams,
-      ...(opts?.reviewId ? { focusReviewId: opts.reviewId } : {}),
-      ...(opts?.fromCourseId ? { fromCourseId: opts.fromCourseId } : {}),
-    },
+  // 기존 지도 탭까지 스택을 되감아 같은 네이티브 지도 인스턴스와 카메라를
+  // 그대로 살린다. navigate('/')는 새 탭 route를 쌓아 지도를 재생성할 수 있다.
+  openMapRoute({
+    focusPlaceId: placeId,
+    focusTs: String(Date.now()),
+    focusReviewId: opts?.reviewId,
+    fromCourseId: opts?.fromCourseId,
+    kakaoName: undefined,
+    kakaoAddress: undefined,
+    kakaoLat: undefined,
+    kakaoLng: undefined,
+    kakaoPhone: undefined,
+    kakaoId: undefined,
+    kakaoUrl: undefined,
+    generalPlaceId: undefined,
   });
 }
 
@@ -109,20 +95,19 @@ export function focusPointOnMap(point: {
   placeUrl?: string;
   generalPlaceId?: string;
 }) {
-  const focusParams = createFocusRequestParams();
-  router.navigate({
-    pathname: '/',
-    params: {
-      kakaoName: point.name,
-      kakaoAddress: point.address ?? '',
-      kakaoLat: String(point.latitude),
-      kakaoLng: String(point.longitude),
-      kakaoPhone: point.phone ?? '',
-      kakaoId: point.providerId ?? '',
-      kakaoUrl: point.placeUrl ?? '',
-      generalPlaceId: point.generalPlaceId ?? '',
-      ...focusParams,
-    },
+  openMapRoute({
+    focusPlaceId: undefined,
+    focusReviewId: undefined,
+    fromCourseId: undefined,
+    kakaoName: point.name,
+    kakaoAddress: point.address ?? '',
+    kakaoLat: String(point.latitude),
+    kakaoLng: String(point.longitude),
+    kakaoPhone: point.phone ?? '',
+    kakaoId: point.providerId ?? '',
+    kakaoUrl: point.placeUrl ?? '',
+    generalPlaceId: point.generalPlaceId ?? '',
+    focusTs: String(Date.now()),
   });
 }
 

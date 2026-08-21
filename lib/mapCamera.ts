@@ -6,9 +6,9 @@ export interface MapCameraSnapshot {
   bearing: number;
 }
 
-// 네이티브 지도는 검색 화면 아래에서 분리됐다가 다시 붙을 수 있다. React 상태로
-// 구독하면 카메라 이동 프레임마다 화면 전체가 다시 렌더되므로, 복원 전용 스냅샷은
-// 모듈 메모리에만 보관하고 필요한 순간에 읽는다.
+// 네이티브 지도가 실제로 새로 마운트되는 예외 경로에서도 직전 카메라를 initialCamera로
+// 쓸 수 있게 보관한다. React 상태로 구독하면 카메라 이동 프레임마다 화면 전체가 다시
+// 렌더되므로 모듈 메모리에만 두고 필요한 순간에 읽는다.
 let lastMapCamera: MapCameraSnapshot | null = null;
 let mainMapFocused = false;
 
