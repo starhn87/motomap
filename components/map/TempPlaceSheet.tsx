@@ -291,19 +291,27 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
     });
   };
 
-  const actions = (
+  const renderActions = (expanded: boolean) => (
     <>
       <TouchableOpacity
         onPress={handleFavorite}
         disabled={favPending}
-        style={styles.iconButton}>
+        style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
         <Ionicons
           name={isFavorite ? 'star' : 'star-outline'}
-          size={22}
-          color={isFavorite ? semantic.star : colors.textSecondary}
+          size={expanded ? 24 : 22}
+          color={
+            expanded
+              ? colors.text
+              : isFavorite
+                ? semantic.star
+                : colors.textSecondary
+          }
         />
       </TouchableOpacity>
-      <TouchableOpacity onPress={handleSaveMyPlace} style={styles.iconButton}>
+      <TouchableOpacity
+        onPress={handleSaveMyPlace}
+        style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
         <Ionicons
           name={
             savedSlot === 'home'
@@ -312,12 +320,18 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                 ? 'business'
                 : 'bookmark-outline'
           }
-          size={22}
-          color={savedSlot ? colors.tint : colors.textSecondary}
+          size={expanded ? 24 : 22}
+          color={expanded ? colors.text : savedSlot ? colors.tint : colors.textSecondary}
         />
       </TouchableOpacity>
-      <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-        <Ionicons name="close" size={22} color={colors.textSecondary} />
+      <TouchableOpacity
+        onPress={onClose}
+        style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
+        <Ionicons
+          name="close"
+          size={expanded ? 24 : 22}
+          color={expanded ? colors.text : colors.textSecondary}
+        />
       </TouchableOpacity>
     </>
   );
@@ -422,7 +436,12 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
               accessibilityRole="button"
               accessibilityState={{ expanded: isExpanded }}
               activeOpacity={0.7}
-              onPress={() => bottomSheetRef.current?.snapToIndex(SNAP_POINTS.length - 1)}
+              onPress={() => {
+                const index = currentIndexRef.current;
+                if (index < SNAP_POINTS.length - 1) {
+                  bottomSheetRef.current?.snapToIndex(index + 1);
+                }
+              }}
               style={styles.nameTouchTarget}>
               <Text
                 style={[styles.name, { color: colors.text }]}
@@ -437,7 +456,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                 entering={FadeIn.duration(200)}
                 exiting={FadeOut.duration(150)}
                 style={styles.nameActions}>
-                {actions}
+                {renderActions(false)}
               </Animated.View>
             )}
           </View>
@@ -668,10 +687,10 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
           ]}>
           <TouchableOpacity
             onPress={() => bottomSheetRef.current?.close()}
-            style={styles.iconButton}>
+            style={[styles.iconButton, styles.pageHeaderIconButton]}>
             <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <View style={styles.nameActions}>{actions}</View>
+          <View style={styles.nameActions}>{renderActions(true)}</View>
         </Animated.View>
       )}
     </>
@@ -718,6 +737,10 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pageHeaderIconButton: {
+    width: 44,
+    height: 44,
   },
   addressRow: {
     flexDirection: 'row',

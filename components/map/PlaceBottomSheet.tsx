@@ -328,19 +328,29 @@ function PlaceBottomSheet({
     );
   };
 
-  const actions = (
+  const renderActions = (expanded: boolean) => (
     <>
-      <TouchableOpacity onPress={handleFavorite} style={styles.iconButton}>
+      <TouchableOpacity
+        onPress={handleFavorite}
+        style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
         <Animated.View style={heartStyle}>
           {/* 별 — 즐겨찾기 지도 표시(별 뱃지 마커·필터 칩)와 같은 시각 언어 */}
           <Ionicons
             name={isFavorite ? 'star' : 'star-outline'}
-            size={22}
-            color={isFavorite ? '#FACC15' : colors.textSecondary}
+            size={expanded ? 24 : 22}
+            color={
+              expanded
+                ? colors.text
+                : isFavorite
+                  ? '#FACC15'
+                  : colors.textSecondary
+            }
           />
         </Animated.View>
       </TouchableOpacity>
-      <TouchableOpacity onPress={handleSaveMyPlace} style={styles.iconButton}>
+      <TouchableOpacity
+        onPress={handleSaveMyPlace}
+        style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
         <Ionicons
           name={
             savedSlot === 'home'
@@ -349,12 +359,18 @@ function PlaceBottomSheet({
                 ? 'business'
                 : 'bookmark-outline'
           }
-          size={22}
-          color={savedSlot ? colors.tint : colors.textSecondary}
+          size={expanded ? 24 : 22}
+          color={expanded ? colors.text : savedSlot ? colors.tint : colors.textSecondary}
         />
       </TouchableOpacity>
-      <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-        <Ionicons name="close" size={22} color={colors.textSecondary} />
+      <TouchableOpacity
+        onPress={onClose}
+        style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
+        <Ionicons
+          name="close"
+          size={expanded ? 24 : 22}
+          color={expanded ? colors.text : colors.textSecondary}
+        />
       </TouchableOpacity>
     </>
   );
@@ -501,7 +517,12 @@ function PlaceBottomSheet({
               accessibilityRole="button"
               accessibilityState={{ expanded: isExpanded }}
               activeOpacity={0.7}
-              onPress={() => bottomSheetRef.current?.snapToIndex(SNAP_POINTS.length - 1)}
+              onPress={() => {
+                const index = currentIndexRef.current;
+                if (index < SNAP_POINTS.length - 1) {
+                  bottomSheetRef.current?.snapToIndex(index + 1);
+                }
+              }}
               style={styles.nameTouchTarget}>
               <Text
                 style={[styles.name, { color: colors.text }]}
@@ -516,7 +537,7 @@ function PlaceBottomSheet({
                 entering={FadeIn.duration(200)}
                 exiting={FadeOut.duration(150)}
                 style={styles.nameActions}>
-                {actions}
+                {renderActions(false)}
               </Animated.View>
             )}
           </View>
@@ -759,10 +780,10 @@ function PlaceBottomSheet({
           ]}>
           <TouchableOpacity
             onPress={() => bottomSheetRef.current?.close()}
-            style={styles.iconButton}>
+            style={[styles.iconButton, styles.pageHeaderIconButton]}>
             <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <View style={styles.nameActions}>{actions}</View>
+          <View style={styles.nameActions}>{renderActions(true)}</View>
         </Animated.View>
       )}
     </>
@@ -841,6 +862,10 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pageHeaderIconButton: {
+    width: 44,
+    height: 44,
   },
   addressRow: {
     flexDirection: 'row',
