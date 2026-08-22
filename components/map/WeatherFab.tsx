@@ -1,9 +1,8 @@
-import { Pressable, Text, StyleSheet, View } from 'react-native';
+import { Pressable, Text, StyleSheet } from 'react-native';
 import Animated, {
-  Easing,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -37,10 +36,8 @@ export default function WeatherFab({ weather, onPress }: Props) {
         scale.value = withTiming(0.82, { duration: 90 });
       }}
       onPressOut={() => {
-        scale.value = withSequence(
-          withTiming(1.06, { duration: 110, easing: Easing.out(Easing.quad) }),
-          withTiming(1, { duration: 100, easing: Easing.inOut(Easing.quad) }),
-        );
+        cancelAnimation(scale);
+        scale.value = 1;
       }}
       style={[
         styles.fab,
@@ -51,9 +48,7 @@ export default function WeatherFab({ weather, onPress }: Props) {
         },
       ]}>
       <Text style={styles.emoji}>{weather.current.emoji}</Text>
-      <View style={styles.tempWrap}>
-        <Text style={[styles.temp, { color: colors.text }]}>{weather.current.temp}°</Text>
-      </View>
+      <Text style={[styles.temp, { color: colors.text }]}>{weather.current.temp}°</Text>
     </AnimatedPressable>
   );
 }
@@ -69,6 +64,7 @@ const styles = StyleSheet.create({
     borderWidth: 2.5,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -80,11 +76,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 20,
   },
-  tempWrap: {
-    marginTop: -1,
-  },
   temp: {
     fontSize: 11,
+    lineHeight: 13,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
