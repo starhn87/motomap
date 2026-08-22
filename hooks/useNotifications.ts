@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { fetchNotifications, markAllNotificationsRead } from '@/lib/api/notifications';
+import type { AppNotification } from '@/lib/api/notifications';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 export function useNotifications() {
@@ -24,10 +25,25 @@ export function useUnreadCount(): number {
 export function useMarkAllRead() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
+  const key = ['notifications', user?.id] as const;
   return useMutation({
     mutationFn: markAllNotificationsRead,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<AppNotification[]>(key);
+      const readAt = new Date().toISOString();
+      queryClient.setQueryData<AppNotification[]>(key, (current) =>
+        current?.map((notification) =>
+          notification.readAt ? notification : { ...notification, readAt },
+        ),
+      );
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: key });
     },
   });
 }

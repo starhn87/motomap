@@ -41,31 +41,23 @@ export async function fetchCourseProgress(courseId: string): Promise<CourseProgr
   };
 }
 
-export async function toggleCourseSave(courseId: string): Promise<boolean> {
+/** 코스 저장 여부를 원하는 최종 상태로 맞춘다. */
+export async function setCourseSaved(courseId: string, on: boolean): Promise<void> {
   const user = await requireUser();
-  const { data: existing, error: selectError } = await supabase
-    .from('course_saves')
-    .select('course_id')
-    .eq('user_id', user.id)
-    .eq('course_id', courseId)
-    .maybeSingle();
-  if (selectError) throw selectError;
-
-  if (existing) {
+  if (!on) {
     const { error } = await supabase
       .from('course_saves')
       .delete()
       .eq('user_id', user.id)
       .eq('course_id', courseId);
     if (error) throw error;
-    return false;
+    return;
   }
 
   const { error } = await supabase
     .from('course_saves')
     .insert({ user_id: user.id, course_id: courseId });
-  if (error) throw error;
-  return true;
+  if (error && error.code !== '23505') throw error;
 }
 
 /** 실제 코스 안내가 도착지 근처에서 끝난 경우만 호출한다. true면 새 완주 기록. */

@@ -225,9 +225,10 @@ export default function CourseDetailScreen() {
                   toast.info('코스를 저장하려면 로그인이 필요합니다.');
                   return;
                 }
+                const nextSaved = !progress?.saved;
                 try {
-                  const saved = await toggleSave();
-                  toast.success(saved ? '코스를 저장했어요.' : '코스 저장을 해제했어요.');
+                  await toggleSave(nextSaved);
+                  toast.success(nextSaved ? '코스를 저장했어요.' : '코스 저장을 해제했어요.');
                 } catch (saveError: any) {
                   toast.error('코스를 저장하지 못했습니다.', saveError.message);
                 }
@@ -237,15 +238,11 @@ export default function CourseDetailScreen() {
                 { backgroundColor: colors.surface, borderColor: colors.border },
                 pressed && { opacity: 0.6 },
               ]}>
-              {savePending ? (
-                <ActivityIndicator size="small" color={colors.text} />
-              ) : (
-                <Ionicons
-                  name={progress?.saved ? 'bookmark' : 'bookmark-outline'}
-                  size={21}
-                  color={colors.text}
-                />
-              )}
+              <Ionicons
+                name={progress?.saved ? 'bookmark' : 'bookmark-outline'}
+                size={21}
+                color={colors.text}
+              />
             </Pressable>
           </View>
         </View>
