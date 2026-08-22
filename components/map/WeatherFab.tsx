@@ -1,8 +1,10 @@
 import { Pressable, Text, StyleSheet, View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withSequence,
+  withTiming,
 } from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
@@ -32,10 +34,13 @@ export default function WeatherFab({ weather, onPress }: Props) {
       accessibilityRole="button"
       onPress={onPress}
       onPressIn={() => {
-        scale.value = withSpring(0.9, { damping: 18, stiffness: 420 });
+        scale.value = withTiming(0.82, { duration: 90 });
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, { damping: 16, stiffness: 320 });
+        scale.value = withSequence(
+          withTiming(1.06, { duration: 110, easing: Easing.out(Easing.quad) }),
+          withTiming(1, { duration: 100, easing: Easing.inOut(Easing.quad) }),
+        );
       }}
       style={[
         styles.fab,

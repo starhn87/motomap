@@ -496,13 +496,21 @@ function PlaceBottomSheet({
           <Animated.View style={spacerStyle} />
 
           <View style={styles.nameRow}>
-            <Text
-              style={[styles.name, { color: colors.text }]}
-              numberOfLines={2}
-              textBreakStrategy="balanced"
-              lineBreakStrategyIOS="push-out">
-              {displayPlace.name}
-            </Text>
+            <TouchableOpacity
+              accessibilityLabel={`${displayPlace.name} 상세 펼치기`}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: isExpanded }}
+              activeOpacity={0.7}
+              onPress={() => bottomSheetRef.current?.snapToIndex(SNAP_POINTS.length - 1)}
+              style={styles.nameTouchTarget}>
+              <Text
+                style={[styles.name, { color: colors.text }]}
+                numberOfLines={2}
+                textBreakStrategy="balanced"
+                lineBreakStrategyIOS="push-out">
+                {displayPlace.name}
+              </Text>
+            </TouchableOpacity>
             {!isExpanded && (
               <Animated.View
                 entering={FadeIn.duration(200)}
@@ -524,17 +532,9 @@ function PlaceBottomSheet({
                 {formatMeters(distanceMeters)}
               </Text>
             )}
-            <TouchableOpacity
-              accessibilityLabel="장소 공유"
-              accessibilityRole="button"
-              onPress={handleShare}
-              hitSlop={8}
-              style={styles.shareButton}>
-              <Ionicons name="share-outline" size={19} color={colors.tint} />
-            </TouchableOpacity>
           </View>
 
-          {/* 출발/도착 — 시트 안 액션 행. 접힌 스냅에서도 보이도록 상단에 둔다 */}
+          {/* 출발/도착/공유 — 시트 안 액션 행. 접힌 스냅에서도 보이도록 상단에 둔다 */}
           <View style={styles.actionRow}>
             <TouchableOpacity
               onPress={() =>
@@ -579,6 +579,17 @@ function PlaceBottomSheet({
               ) : (
                 <Text style={[styles.navButtonText, { color: colors.background }]}>도착</Text>
               )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityLabel="장소 공유"
+              accessibilityRole="button"
+              activeOpacity={0.7}
+              onPress={handleShare}
+              style={[
+                styles.shareActionButton,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}>
+              <Ionicons name="share-outline" size={22} color={colors.tint} />
             </TouchableOpacity>
             {/* 비동기 영업시간이 도착하기 전부터 같은 폭을 잡아 버튼과 콘텐츠가
                 움직이지 않는다. 긴 특이사항은 아래 영업시간 카드에서 보여준다. */}
@@ -813,7 +824,10 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 22,
     fontWeight: '700',
+  },
+  nameTouchTarget: {
     flex: 1,
+    justifyContent: 'center',
   },
   nameActions: {
     flexDirection: 'row',
@@ -860,9 +874,6 @@ const styles = StyleSheet.create({
   rideBikeText: {
     fontSize: 12,
     fontWeight: '600',
-  },
-  shareButton: {
-    paddingLeft: 2,
   },
   description: {
     fontSize: 14,
@@ -931,7 +942,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
     // 영업 상태를 오른쪽 끝에 고정하고 버튼이 들어갈 자리를 미리 비워 둔다
     paddingRight: 142,
     marginTop: 12,
@@ -940,8 +951,16 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     height: 40,
-    paddingHorizontal: 12,
+    paddingHorizontal: 6,
     borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareActionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
