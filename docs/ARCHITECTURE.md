@@ -209,7 +209,7 @@ Sentry.wrap(
 | `user_bikes` | `20260815115054` | 여러 바이크와 활성 바이크, `profiles.bike_model` 호환 mirror |
 | `place_rides` | 운영 기준선 + 후속 migration | 도착 시점 기종·유형 스냅샷, 원시 행은 본인만 조회 |
 | `place_rider_fact_votes` | `20260815120500` | 장소 편의 정보 1인 1표, 원시 행 비공개·집계 RPC만 노출 |
-| `place_change_monitor_state` · `place_change_reviews` | `20260822151044` | 외부 장소 변경 점검 상태·운영자 검토 대기열. `service_role` 전용이며 `places` 자동 수정 없음 |
+| `place_change_monitor_state` · `place_change_reviews` | `20260822151044`, `20260822153636` | 외부 장소 변경 점검 상태·운영자 검토 대기열. 높은 신뢰도의 허용 필드 계획만 저장하며 승인 전에는 `places` 수정 없음 |
 
 **RPC 함수:**
 - `nearby_places(lat, lng, radius_meters, category_filter)` — PostGIS 반경 + 카테고리 질의
@@ -219,7 +219,8 @@ Sentry.wrap(
 - `toggle_place_rider_fact(place_id, fact_code)` — 로그인 사용자의 장소 정보 1표 토글
 - `bike_place_matches_v1(place_ids, bike_category)` — 활성 기종·유형과 맞는 장소를 최소 2명 익명 집계로 반환
 - `claim_place_change_monitor_batch(limit)` — 다음 검증일이 지난 활성 장소를 소량 선점(`service_role` 전용). `get_place_change_monitor_batch`는 배포 전 읽기 전용 점검에만 사용
-- `enqueue_place_change_review(...)` · `mark_place_change_review_reported(id)` — 감지 후보 중복 제거·보고 재시도 상태(`service_role` 전용)
+- `enqueue_place_change_review_v2(...)` · `mark_place_change_review_reported(id)` — 감지 후보와 승인 계획 중복 제거·보고 재시도 상태(`service_role` 전용)
+- `resolve_place_change_review(id, decision, actor)` — Discord에서 승인한 고정 계획을 스냅샷 재검증 뒤 근거·조치와 원자적으로 반영하거나, 장소 변경 없이 검토 종료(`service_role` 전용)
 
 > 📌 원격에서 직접 생성됐던 초기 테이블까지 `20260814142438_remote_schema_baseline.sql`에 캡처했다. 새 로컬 환경은 이 파일 하나로 2026-08-14 운영 스키마를 재현하고, 이후 마이그레이션만 순서대로 적용한다.
 
@@ -289,8 +290,8 @@ Sentry.wrap(
 | Supabase Storage | `lib/uploadImage.ts` | 리뷰·제보 사진 (`ridemap-media` 버킷, base64 업로드) |
 | Expo Push | `lib/push.ts` + migration 006/008 | 제보(장소·코스) 승인 푸시 — 토큰은 `push_tokens`, 발송은 DB 트리거(pg_net→Expo Push API). 권한 요청은 제보 직후에만 |
 | Claude API | `supabase/functions/judge-submission` | 제보 AI 판정 — 트리거가 EF 호출 → 카카오 교차검증 + 웹 조사 → `claude-opus-4-8` 판정 → 디스코드에 근거·반려 안내 문구·[승인]/[반려] 버튼 발송. 제보자용 반려 문구는 `ai_reject_reason`에 저장 |
-| 디스코드 봇 심사·답변 | `supabase/functions/discord-interactions` | Interactions Endpoint(Ed25519 검증). 판정 메시지의 [승인]/[반려] 버튼 → 즉시 처리 + 원 메시지 업데이트, 건의 메시지의 [답변하기] 버튼 → 인풋 모달 → `feedback.reply` 저장(021 트리거가 건의자 알림·푸시). secrets: `DISCORD_PUBLIC_KEY`. 발송은 judge-submission·021 트리거가 봇 API(`DISCORD_BOT_TOKEN`/`DISCORD_CHANNEL_ID`, vault 는 `discord_bot_token`/`discord_channel_id`) — 봇 미설정 시 웹훅 폴백. JWT 검증 OFF |
-| 장소 변경 감지 | `supabase/functions/place-change-monitor` + Supabase Cron | 매일 소량의 활성 장소를 카카오 로컬 상호·주소와 대조해 폐업 의심·상호·주소·전화·이전 후보를 내부 큐와 Discord에 보고. 자동 반영은 하지 않으며 커스텀 비밀 헤더 사용, JWT 검증 OFF |
+| 디스코드 봇 심사·답변·장소 변경 승인 | `supabase/functions/discord-interactions` | Interactions Endpoint(Ed25519 검증). 판정 메시지의 [승인]/[반려], 장소 변경 보고의 [계획대로 반영]/[변경 없음] 버튼 → 원자적 처리 + 원 메시지 업데이트, 건의 메시지의 [답변하기] 버튼 → 인풋 모달 → `feedback.reply` 저장(021 트리거가 건의자 알림·푸시). secrets: `DISCORD_PUBLIC_KEY`. 발송은 judge-submission·place-change-monitor·021 트리거가 봇 API(`DISCORD_BOT_TOKEN`/`DISCORD_CHANNEL_ID`, vault 는 `discord_bot_token`/`discord_channel_id`) — 봇 미설정 시 웹훅 폴백. JWT 검증 OFF |
+| 장소 변경 감지 | `supabase/functions/place-change-monitor` + Supabase Cron | 매일 소량의 활성 장소를 카카오 로컬 상호·주소와 대조해 폐업 의심·상호·주소·전화·이전 후보와 보수적 반영 계획을 내부 큐와 Discord에 보고. 높은 신뢰도의 허용 필드도 Discord 승인 뒤에만 원자적으로 반영하며 커스텀 비밀 헤더 사용, JWT 검증 OFF |
 | 원클릭 심사 (폴백) | `supabase/functions/moderate` | 봇 미설정 시 웹훅 메시지의 승인·반려 링크(HMAC 서명) 탭 = 즉시 처리. 크롤러 방어는 봇 UA 필터+HEAD 무시+`<>` 임베드 억제. 반려 시 `ai_reject_reason`→`rejected_reason` 복사. JWT 검증 OFF. ⚠️ EF는 HTML 응답 불가(게이트웨이가 text/plain+CSP sandbox 로 강제) — 응답은 JSON |
 | 오피넷 유가 | `supabase/functions/gas-stations` + `lib/api/gasStations.ts`, `hooks/useGasStations.ts`·`useGasLayer.ts` | 주유소 필터 시 실시간 유가 레이어 — EF가 키 은닉·KATEC↔WGS84 변환·3분 캐시, 앱은 가격 마커(최저가 강조)+상세 카드. 주의: 오피넷 인증 파라미터는 `code=`(문서의 certkey 아님), 브랜드 필드는 aroundAll `POLL_DIV_CD`/detailById `POLL_DIV_CO`로 상이, 반경 최대 5km — 검색 커버리지는 뷰포트 적응(확대 시 화면 맞춤 반경 1콜, 축소 시 5km 원 최대 3×3 타일 병합·중복 제거) |
 | 기상청 날씨·특보 | `supabase/functions/weather-kr`·`weather-warnings` + `lib/api/weather.ts` | 시간대별 예보(단기+초단기 병합)와 "지금" 관측(초단기실황), 전국 특보 통보문 파싱(지역 매칭은 클라이언트 — 세부구역·제외 표기 대응). 네이버·아이폰과 같은 원천 |

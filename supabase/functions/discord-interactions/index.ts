@@ -9,6 +9,7 @@
 //   mod:approve:places:<uuid> / mod:reject:courses:<uuid>  — 심사 실행
 //   reply:feedback:<uuid>                                   — 답변 모달 열기
 //   replymodal:feedback:<uuid>                              — 모달 제출 (답변 저장)
+//   placechange:apply:<uuid> / placechange:dismiss:<uuid>   — 장소 변경 계획 처리
 //
 // 승인: approved=true → 승인 트리거가 알림·푸시. 반려: deleted_at+rejected_reason →
 // 015 트리거가 사유 포함 알림·푸시. 답변: feedback.reply 저장 → 021 트리거가 알림·푸시.
@@ -75,9 +76,13 @@ function ephemeral(content: string): Response {
 
 // 원 메시지를 결과로 교체 — 버튼을 떼고 처리 결과를 덧붙인다
 function updateMessage(baseContent: string, resultLine: string): Response {
+  const maxBaseLength = Math.max(0, 1900 - resultLine.length - 2);
   return json({
     type: 7,
-    data: { content: `${baseContent}\n\n${resultLine}`.slice(0, 1900), components: [] },
+    data: {
+      content: `${baseContent.slice(0, maxBaseLength)}\n\n${resultLine}`,
+      components: [],
+    },
   });
 }
 
@@ -172,6 +177,75 @@ async function handleReplySubmit(
   return updateMessage(baseContent, `✅ **답변 완료**\n> ${preview}`);
 }
 
+// ── 장소 변경 계획 승인 ─────────────────────────────────────
+
+const PLACE_CHANGE_FIELD_LABELS: Record<string, string> = {
+  name: '상호',
+  address: '주소',
+  phone: '전화번호',
+  latitude: '위치',
+  longitude: '위치',
+  source_provider: '카카오 장소 연결',
+  source_place_id: '카카오 장소 연결',
+};
+
+async function handlePlaceChange(
+  action: string,
+  reviewId: string,
+  actorId: string,
+  baseContent: string,
+): Promise<Response> {
+  if (!['apply', 'dismiss'].includes(action) || !UUID_RE.test(reviewId)) {
+    return ephemeral('잘못된 장소 변경 요청이에요.');
+  }
+  if (!/^\d{5,25}$/.test(actorId)) {
+    return ephemeral('처리자 정보를 확인할 수 없어요.');
+  }
+
+  const response = await sb('rpc/resolve_place_change_review', {
+    method: 'POST',
+    body: JSON.stringify({
+      p_review_id: reviewId,
+      p_decision: action,
+      p_acted_by: `discord:${actorId}`,
+    }),
+  });
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  if (!response.ok) {
+    const message = payload && typeof payload === 'object' && 'message' in payload
+      ? String((payload as { message: unknown }).message).slice(0, 220)
+      : `HTTP ${response.status}`;
+    return ephemeral(`처리하지 못했어요 — ${message}`);
+  }
+
+  const row = Array.isArray(payload) ? payload[0] : null;
+  const placeName = row && typeof row.place_name === 'string'
+    ? row.place_name
+    : '장소';
+
+  if (action === 'dismiss') {
+    return updateMessage(
+      baseContent,
+      `⚪ **변경 없음으로 종료** — ${placeName} · <@${actorId}>`,
+    );
+  }
+
+  const applied = row?.applied_changes && typeof row.applied_changes === 'object'
+    ? Object.keys(row.applied_changes as Record<string, unknown>)
+    : [];
+  const labels = [...new Set(applied.map((key) => PLACE_CHANGE_FIELD_LABELS[key] ?? key))];
+  return updateMessage(
+    baseContent,
+    `🟢 **계획대로 반영 완료** — ${placeName} · ${labels.join(', ')} · <@${actorId}>`,
+  );
+}
+
 // ── 엔트리 ──────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -195,6 +269,12 @@ Deno.serve(async (req) => {
     }
     if (parts[0] === 'reply' && parts[1] === 'feedback' && parts.length === 3) {
       return openReplyModal(parts[2]);
+    }
+    if (parts[0] === 'placechange' && parts.length === 3) {
+      const actorId = String(
+        interaction.member?.user?.id ?? interaction.user?.id ?? '',
+      );
+      return handlePlaceChange(parts[1], parts[2], actorId, baseContent);
     }
     return ephemeral('알 수 없는 버튼이에요.');
   }

@@ -69,6 +69,16 @@ interface Detection {
   evidence: Record<string, unknown>;
 }
 
+type ProposedChanges = Partial<{
+  name: string;
+  address: string;
+  phone: string;
+  latitude: number;
+  longitude: number;
+  source_provider: "kakao";
+  source_place_id: string;
+}>;
+
 interface MonitorResult {
   placeId: string;
   placeName: string;
@@ -197,6 +207,59 @@ function observedSnapshot(
     place_url: candidate.place_url,
     category: candidate.category_name,
   };
+}
+
+// 높은 신뢰도로 동일 장소를 찾은 경우에만 사람이 승인할 패치를 만든다. 검색 부재와
+// 상호 변경 가능성은 폐업·리브랜딩을 확정할 수 없으므로 빈 계획으로 보고만 한다.
+function proposedChanges(
+  place: PlaceRow,
+  detection: Detection,
+): ProposedChanges {
+  if (detection.confidence !== "high") return {};
+  const observed = detection.observed;
+  const proposal: ProposedChanges = {};
+
+  if (
+    detection.changeTypes.includes("name_changed") &&
+    typeof observed.name === "string" && observed.name.trim()
+  ) {
+    proposal.name = observed.name.trim();
+  }
+  if (
+    detection.changeTypes.includes("address_changed") &&
+    typeof observed.address === "string" && observed.address.trim()
+  ) {
+    proposal.address = observed.address.trim();
+  }
+  if (
+    detection.changeTypes.includes("phone_changed") &&
+    typeof observed.phone === "string" && observed.phone.trim()
+  ) {
+    proposal.phone = observed.phone.trim();
+  }
+  if (
+    detection.changeTypes.includes("moved") &&
+    typeof observed.latitude === "number" &&
+    typeof observed.longitude === "number"
+  ) {
+    proposal.latitude = observed.latitude;
+    proposal.longitude = observed.longitude;
+  }
+
+  // 실제 사용자 정보 변경이 있을 때만 외부 식별자도 함께 고정한다. 식별자만 연결하는
+  // 기술적 변경을 별도 승인 계획처럼 만들지는 않는다.
+  if (
+    Object.keys(proposal).length > 0 &&
+    typeof observed.source_place_id === "string" &&
+    observed.source_place_id &&
+    (place.source_provider !== "kakao" ||
+      place.source_place_id !== observed.source_place_id)
+  ) {
+    proposal.source_provider = "kakao";
+    proposal.source_place_id = observed.source_place_id;
+  }
+
+  return proposal;
 }
 
 async function supabaseJson<T>(
@@ -463,11 +526,12 @@ async function fingerprint(
 async function enqueueReview(
   place: PlaceRow,
   detection: Detection,
+  proposal: ProposedChanges,
 ): Promise<{ reviewId: string; shouldReport: boolean }> {
   const rows = await supabaseJson<
     { review_id: string; should_report: boolean }[]
   >(
-    "rpc/enqueue_place_change_review",
+    "rpc/enqueue_place_change_review_v2",
     {
       method: "POST",
       body: JSON.stringify({
@@ -479,6 +543,7 @@ async function enqueueReview(
         p_current_snapshot: detection.current,
         p_observed_snapshot: detection.observed,
         p_evidence: detection.evidence,
+        p_proposed_changes: proposal,
       }),
     },
   );
@@ -535,6 +600,7 @@ function discordMessage(
   place: PlaceRow,
   detection: Detection,
   reviewId: string,
+  proposal: ProposedChanges,
 ): string {
   const observed = detection.observed as Record<string, unknown>;
   const labels = detection.changeTypes.map((type) => CHANGE_LABELS[type]).join(
@@ -557,15 +623,68 @@ function discordMessage(
   if (observed.place_url) {
     lines.push(`**카카오:** ${String(observed.place_url)}`);
   }
+  lines.push("", "**승인 시 반영 계획**");
+  if (proposal.name) {
+    lines.push(`- 상호: ${place.name} → ${proposal.name}`);
+  }
+  if (proposal.address) {
+    lines.push(`- 주소: ${place.address || "-"} → ${proposal.address}`);
+  }
+  if (proposal.phone) {
+    lines.push(`- 전화: ${place.phone || "-"} → ${proposal.phone}`);
+  }
+  if (
+    proposal.latitude !== undefined && proposal.longitude !== undefined
+  ) {
+    lines.push(
+      `- 위치: ${place.latitude.toFixed(6)}, ${place.longitude.toFixed(6)} → ${proposal.latitude.toFixed(6)}, ${proposal.longitude.toFixed(6)}`,
+    );
+  }
+  if (proposal.source_place_id) {
+    lines.push(
+      `- 카카오 장소 연결: ${place.source_place_id || "없음"} → ${proposal.source_place_id} (같은 일반 장소 기록이 있으면 등록 장소로 승계)`,
+    );
+  }
+  if (Object.keys(proposal).length === 0) {
+    lines.push("- 안전하게 자동 반영할 항목 없음 — 직접 확인 후 유지하거나 별도 수정");
+  }
   lines.push(
     `**검토 ID:** \`${reviewId}\``,
     "",
-    "자동 반영하지 않았어요. 확인 후 최종 승인을 주시면 별도 작업으로 반영할게요.",
+    Object.keys(proposal).length > 0
+      ? "아직 반영하지 않았어요. 아래 버튼을 누르면 위 계획만 원자적으로 반영해요."
+      : "아직 반영하지 않았어요. 변경 없음으로 닫거나 별도 확인이 필요해요.",
   );
-  return lines.join("\n").slice(0, 1950);
+  return lines.join("\n").slice(0, 1900);
 }
 
-async function postDiscord(content: string): Promise<void> {
+function discordComponents(
+  reviewId: string,
+  canApply: boolean,
+): Record<string, unknown>[] {
+  const buttons: Record<string, unknown>[] = [];
+  if (canApply) {
+    buttons.push({
+      type: 2,
+      style: 3,
+      label: "계획대로 반영",
+      custom_id: `placechange:apply:${reviewId}`,
+    });
+  }
+  buttons.push({
+    type: 2,
+    style: 2,
+    label: "변경 없음",
+    custom_id: `placechange:dismiss:${reviewId}`,
+  });
+  return [{ type: 1, components: buttons }];
+}
+
+async function postDiscord(
+  content: string,
+  reviewId: string,
+  canApply: boolean,
+): Promise<void> {
   let response: Response;
   if (DISCORD_BOT_TOKEN && DISCORD_CHANNEL_ID) {
     response = await fetch(
@@ -576,7 +695,10 @@ async function postDiscord(content: string): Promise<void> {
           Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({
+          content,
+          components: discordComponents(reviewId, canApply),
+        }),
       },
     );
   } else if (DISCORD_WEBHOOK_URL) {
@@ -617,9 +739,18 @@ async function inspectPlace(
       };
     }
 
-    const { reviewId, shouldReport } = await enqueueReview(place, detection);
+    const proposal = proposedChanges(place, detection);
+    const { reviewId, shouldReport } = await enqueueReview(
+      place,
+      detection,
+      proposal,
+    );
     if (shouldReport) {
-      await postDiscord(discordMessage(place, detection, reviewId));
+      await postDiscord(
+        discordMessage(place, detection, reviewId, proposal),
+        reviewId,
+        Object.keys(proposal).length > 0,
+      );
       await markReported(reviewId);
     }
     await saveState(place, "change_detected");
