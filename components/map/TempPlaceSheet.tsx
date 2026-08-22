@@ -33,7 +33,7 @@ import { toast } from '@/lib/toast';
 import { appAlert } from '@/lib/dialog';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useMapStore } from '@/stores/useMapStore';
-import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
+import { useGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
 import { useGasPricesAt } from '@/hooks/useGasStations';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
 import { poiSourceKey } from '@/lib/api/placeHours';
@@ -104,7 +104,8 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
   const saveMyPlace = useMyPlacesStore((s) => s.save);
   const removeMyPlace = useMyPlacesStore((s) => s.remove);
-  const isFavorite = useIsGeneralFavorite(place);
+  const favorite = useGeneralFavorite(place);
+  const isFavorite = !!favorite;
   const { mutateAsync: toggleFavorite, isPending: favPending } =
     useToggleGeneralFavorite();
   const { data: generalPlace } = useGeneralPlace(place);
@@ -179,7 +180,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
       return;
     }
     try {
-      await toggleFavorite(place);
+      await toggleFavorite({ place, on: !isFavorite, favoriteId: favorite?.id });
       haptics.selection();
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);

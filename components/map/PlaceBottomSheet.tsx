@@ -139,7 +139,7 @@ function PlaceBottomSheet({
     ...(displayPlace?.photos ?? []).map((url) => ({ url, review: null })),
     ...(reviews ?? []).flatMap((r) => r.photos.map((url) => ({ url, review: r }))),
   ];
-  const { mutateAsync: toggleFav } = useToggleFavorite();
+  const { mutateAsync: toggleFav, isPending: favoritePending } = useToggleFavorite();
 
   // 하트 팝 — 즐겨찾기를 추가할 때만 커졌다 돌아온다 (해제 시엔 효과 없음)
   const heartScale = useSharedValue(1);
@@ -157,7 +157,7 @@ function PlaceBottomSheet({
       );
     }
     try {
-      await toggleFav(place.id);
+      await toggleFav({ placeId: place.id, on: !isFavorite });
       haptics.selection();
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
@@ -332,6 +332,7 @@ function PlaceBottomSheet({
     <>
       <TouchableOpacity
         onPress={handleFavorite}
+        disabled={favoritePending}
         style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
         <Animated.View style={heartStyle}>
           {/* 별 — 즐겨찾기 지도 표시(별 뱃지 마커·필터 칩)와 같은 시각 언어 */}

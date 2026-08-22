@@ -8,7 +8,7 @@ import { useGasStationDetail } from '@/hooks/useGasStations';
 import { openNavigation } from '@/lib/navigation';
 import { FUEL_LABELS, formatTradeAt, type GasStation } from '@/lib/api/gasStations';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useIsGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
+import { useGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
 import { toast } from '@/lib/toast';
 import { haptics } from '@/lib/haptics';
@@ -29,7 +29,8 @@ export default function GasStationCard({ station, onClose }: Props) {
   // 주유소는 오피넷 데이터라 등록 장소가 아니다 — 일반 장소 즐겨찾기로 담는다
   // (migration 032). 자주 가는 주유소는 라이더에게 분명한 즐겨찾기 대상이다.
   const user = useAuthStore((st) => st.user);
-  const isFavorite = useIsGeneralFavorite(station);
+  const favorite = useGeneralFavorite(station);
+  const isFavorite = !!favorite;
   const { mutateAsync: toggleFavorite, isPending: favPending } = useToggleGeneralFavorite();
 
   const handleFavorite = async () => {
@@ -39,11 +40,15 @@ export default function GasStationCard({ station, onClose }: Props) {
     }
     try {
       await toggleFavorite({
-        name: station.name,
-        // 주소는 상세에만 온다 — 아직 안 왔으면 빈 값으로 두고 이름·좌표로 담는다
-        address: detail?.address ?? '',
-        latitude: station.latitude,
-        longitude: station.longitude,
+        place: {
+          name: station.name,
+          // 주소는 상세에만 온다 — 아직 안 왔으면 빈 값으로 두고 이름·좌표로 담는다
+          address: detail?.address ?? '',
+          latitude: station.latitude,
+          longitude: station.longitude,
+        },
+        on: !isFavorite,
+        favoriteId: favorite?.id,
       });
       haptics.selection();
     } catch (error: any) {
