@@ -1080,6 +1080,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       {weather && (
         <WeatherSheet
           open={weatherOpen && !placeDetailOpen}
+          closeImmediately={placeDetailOpen}
           weather={weather}
           latitude={weatherLat}
           longitude={weatherLng}

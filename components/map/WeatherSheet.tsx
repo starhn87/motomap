@@ -16,6 +16,8 @@ import { useWeatherWarnings } from '@/hooks/useWeatherWarnings';
 
 interface Props {
   open: boolean;
+  /** 장소 상세 전환처럼 다른 시트와 겹치면 안 되는 경우에만 즉시 닫는다 */
+  closeImmediately?: boolean;
   weather: RidingWeather;
   /** 예보 기준 좌표 — 하단에 동네 이름으로 표기해 "어디 날씨인지" 혼동을 없앤다 */
   latitude?: number;
@@ -111,7 +113,14 @@ const glyph = StyleSheet.create({
 });
 
 // 라이딩 날씨 상세 바텀시트 — 적합도 등급·점수, 현재 조건, 6시간 예보
-export default function WeatherSheet({ open, weather, latitude, longitude, onClose }: Props) {
+export default function WeatherSheet({
+  open,
+  closeImmediately = false,
+  weather,
+  latitude,
+  longitude,
+  onClose,
+}: Props) {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const didOpenRef = useRef(false);
 
@@ -122,10 +131,11 @@ export default function WeatherSheet({ open, weather, latitude, longitude, onClo
       bottomSheetRef.current?.snapToIndex(0);
     } else {
       didOpenRef.current = false;
-      // 장소 상세로 전환할 때 두 시트가 잠깐 겹치지 않게 즉시 닫는다.
-      bottomSheetRef.current?.close({ duration: 0 });
+      // 버튼으로 닫으면 열릴 때와 같은 기본 전환을 쓰고, 장소 상세로 전환할
+      // 때만 두 시트가 잠깐 겹치지 않도록 즉시 닫는다.
+      bottomSheetRef.current?.close(closeImmediately ? { duration: 0 } : undefined);
     }
-  }, [open]);
+  }, [closeImmediately, open]);
 
   const handleSheetChange = (index: number) => {
     if (index >= 0) {
