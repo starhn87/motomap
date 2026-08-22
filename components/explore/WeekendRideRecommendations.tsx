@@ -174,7 +174,6 @@ export default function WeekendRideRecommendations({ courses }: Props) {
           );
         })}
       </ScrollView>
-      <Text style={[styles.helper, { color: colors.textSecondary }]}>계절·거리·라이더 평가를 바탕으로 골랐어요.</Text>
     </View>
   );
 }
@@ -256,9 +255,5 @@ const styles = StyleSheet.create({
   },
   dot: {
     fontSize: 10,
-  },
-  helper: {
-    fontSize: 11,
-    marginTop: 7,
   },
 });
