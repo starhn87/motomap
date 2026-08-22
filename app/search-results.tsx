@@ -923,7 +923,7 @@ export default function SearchResultsScreen() {
                   <Text
                     style={[styles.rowAddress, { color: colors.textSecondary }]}
                     numberOfLines={1}>
-                    카카오 장소 검색 · {item.k.roadAddress || item.k.address}
+                    {item.k.roadAddress || item.k.address}
                   </Text>
                 </View>
                 <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>일반</Text>

@@ -26,6 +26,9 @@ export function UserLocationMarker({
       height={80}
       angle={heading}
       isFlatEnabled
+      globalZIndex={300_000}
+      zIndex={10_000}
+      isForceShowIcon
       image={require('@/assets/images/markers/user_location.png')}
     />
   );

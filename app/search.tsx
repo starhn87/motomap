@@ -30,7 +30,7 @@ import PointSearchModal, { type Point } from '@/components/search/PointSearchMod
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { searchKakaoLocal, coordToRegion, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { openNavigation } from '@/lib/navigation';
 import { toast } from '@/lib/toast';
@@ -221,14 +221,6 @@ export default function SearchScreen() {
     queryKey: ['search', trimmed, nearKey],
     queryFn: () => searchAll(trimmed, near),
     enabled: searching,
-  });
-
-  // 정렬 기준을 화면에 말해 준다 — "무슨 순서지?"가 안 생기게 지역명으로 안내
-  const { data: anchorRegion } = useQuery({
-    queryKey: ['search-anchor-region', nearKey],
-    queryFn: () => coordToRegion(near!.latitude, near!.longitude),
-    enabled: !!near && searching,
-    staleTime: 30 * 60 * 1000,
   });
 
   // "일반 장소" — DB(라이더 특화 장소)에 없는 곳도 카카오 로컬로 찾아 목적지로 쓸 수 있게
@@ -475,14 +467,6 @@ export default function SearchScreen() {
           <FlatList
             ListHeaderComponent={
               <>
-                {near &&
-                  ((results?.places.length ?? 0) > 0 ||
-                    (results?.courses.length ?? 0) > 0 ||
-                    kakaoOnly.length > 0) && (
-                    <Text style={[styles.anchorNotice, { color: colors.textSecondary }]}>
-                      📍 {anchorRegion ?? '지금 보는 지도'} 주변 결과부터 보여드려요
-                    </Text>
-                  )}
                 {(results?.places.length ?? 0) === 0 && kakaoOnly.length > 0 && (
                   <Pressable
                     onPress={browseArea}
@@ -561,7 +545,7 @@ export default function SearchScreen() {
                           {k.placeName}
                         </Text>
                         <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
-                          카카오 장소 검색 · {k.roadAddress || k.address}
+                          {k.roadAddress || k.address}
                         </Text>
                       </View>
                       <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>일반</Text>
@@ -894,12 +878,6 @@ const styles = StyleSheet.create({
   sectionAction: {
     fontSize: 13,
     fontWeight: '600',
-  },
-  anchorNotice: {
-    fontSize: 12,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 2,
   },
   browseAreaCard: {
     marginHorizontal: 16,
