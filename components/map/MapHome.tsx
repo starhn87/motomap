@@ -458,6 +458,10 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   }, [placeDetailOpen, weatherOpen]);
 
   const handleWeatherPress = () => {
+    if (weatherOpen) {
+      setWeatherOpen(false);
+      return;
+    }
     if (placeDetailOpen) handleBottomSheetClose();
     setWeatherOpen(true);
   };
@@ -980,7 +984,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       )}
 
       {!overlay && weather && (
-        <WeatherFab weather={weather} onPress={handleWeatherPress} />
+        <WeatherFab
+          weather={weather}
+          open={weatherOpen && !placeDetailOpen}
+          onPress={handleWeatherPress}
+        />
       )}
 
       {/* 즐겨찾기 지도 표시 — 날씨 FAB와 같은 행 오른쪽 끝, 켜면 별이 채워진다 */}
