@@ -84,14 +84,17 @@ export default function MapPickerModal({ visible, initial, onClose, onPick }: Pr
         </NaverMapView>
 
         <Pressable
+          accessibilityLabel="위치 선택 닫기"
+          accessibilityRole="button"
           onPress={onClose}
           hitSlop={10}
-          style={[
+          style={({ pressed }) => [
             styles.close,
             {
               top: insets.top + 12,
               backgroundColor: colors.surfaceElevated,
-              borderColor: colors.border,
+              borderColor: pressed ? colors.tint : colors.border,
+              opacity: pressed ? 0.7 : 1,
             },
           ]}>
           <Ionicons name="close" size={20} color={colors.text} />

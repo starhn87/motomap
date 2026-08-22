@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import Feather from '@expo/vector-icons/Feather';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -444,8 +443,13 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                 {formatMeters(distanceMeters)}
               </Text>
             )}
-            <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareButton}>
-              <Feather name="share-2" size={19} color={colors.tint} />
+            <TouchableOpacity
+              accessibilityLabel="장소 공유"
+              accessibilityRole="button"
+              onPress={handleShare}
+              hitSlop={8}
+              style={styles.shareButton}>
+              <Ionicons name="share-outline" size={19} color={colors.tint} />
             </TouchableOpacity>
           </View>
 
@@ -594,8 +598,12 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
 
           {!isGasStation && (
             <Pressable
+              accessibilityRole="button"
               onPress={handleSubmit}
-              style={[styles.submitCard, { borderColor: colors.border }]}>
+              style={({ pressed }) => [
+                styles.submitCard,
+                { borderColor: pressed ? colors.tint : colors.border, opacity: pressed ? 0.72 : 1 },
+              ]}>
               <View style={styles.submitCopy}>
                 <Text style={[styles.submitTitle, { color: colors.text }]}>라이더 정보 추가</Text>
                 <Text style={[styles.submitDescription, { color: colors.textSecondary }]}>

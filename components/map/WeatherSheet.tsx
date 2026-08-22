@@ -258,13 +258,16 @@ export default function WeatherSheet({ open, weather, latitude, longitude, onClo
                   이미 있어서 나타날 때 레이아웃 시프트가 없다 */}
               {topWarning && (
                 <Pressable
+                  accessibilityLabel="기상특보 상세 보기"
+                  accessibilityRole="button"
                   onPress={() => setWarningDetailOpen(true)}
                   hitSlop={8}
-                  style={[
+                  style={({ pressed }) => [
                     styles.warningChip,
                     {
                       backgroundColor:
                         (topWarning.level === '경보' ? semantic.danger : semantic.warning) + '1A',
+                      opacity: pressed ? 0.65 : 1,
                     },
                   ]}>
                   <Feather

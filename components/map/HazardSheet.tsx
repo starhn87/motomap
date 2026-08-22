@@ -74,7 +74,12 @@ export default function HazardSheet({ hazard, onClose }: Props) {
               {hazardFreshness(hazard.lastConfirmedAt, hazard.staleness)}
             </Text>
           </View>
-          <Pressable onPress={onClose} hitSlop={10}>
+          <Pressable
+            accessibilityLabel="위험 정보 닫기"
+            accessibilityRole="button"
+            onPress={onClose}
+            hitSlop={10}
+            style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
             <Ionicons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
         </View>

@@ -17,7 +17,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TouchableOpacity } from 'react-native-gesture-handler';
-import Feather from '@expo/vector-icons/Feather';
 import BottomSheet, {
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
@@ -525,8 +524,13 @@ function PlaceBottomSheet({
                 {formatMeters(distanceMeters)}
               </Text>
             )}
-            <TouchableOpacity onPress={handleShare} hitSlop={8} style={styles.shareButton}>
-              <Feather name="share-2" size={19} color={colors.tint} />
+            <TouchableOpacity
+              accessibilityLabel="장소 공유"
+              accessibilityRole="button"
+              onPress={handleShare}
+              hitSlop={8}
+              style={styles.shareButton}>
+              <Ionicons name="share-outline" size={19} color={colors.tint} />
             </TouchableOpacity>
           </View>
 

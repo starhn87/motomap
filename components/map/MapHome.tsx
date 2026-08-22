@@ -942,11 +942,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         /* 오버레이는 "이 장소가 뭔지 보고 돌아오는" 화면 — 검색·필터·길찾기는
            지도 탭의 일이라 걷어내고 뒤로가기만 남긴다 */
         <Pressable
+          accessibilityLabel="지도 미리보기 닫기"
+          accessibilityRole="button"
           onPress={() => router.back()}
-          style={[
+          style={({ pressed }) => [
             styles.backButton,
             styles.backButtonOverlay,
             { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+            pressed && styles.controlPressed,
           ]}>
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </Pressable>
@@ -955,10 +958,13 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           <View style={styles.searchRow}>
             <SearchEntry />
             <Pressable
+              accessibilityLabel="길찾기"
+              accessibilityRole="button"
               onPress={() => router.push('/directions')}
-              style={[
+              style={({ pressed }) => [
                 styles.directionsButton,
                 { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                pressed && styles.controlPressed,
               ]}>
               {/* 글리프의 세로 줄기가 왼쪽에 있어 시각 무게가 좌측으로 쏠린다 — 살짝 보정 */}
               <MaterialCommunityIcons
@@ -980,6 +986,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       {/* 즐겨찾기 지도 표시 — 날씨 FAB와 같은 행 오른쪽 끝, 켜면 별이 채워진다 */}
       {!overlay && (
       <Pressable
+        accessibilityLabel={showFavorites ? '즐겨찾기 장소 숨기기' : '즐겨찾기 장소 보기'}
+        accessibilityRole="button"
         onPress={() => {
           if (!user) {
             toast.info('로그인하면 즐겨찾기를 지도에서 볼 수 있어요');
@@ -987,12 +995,13 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           }
           toggleShowFavorites();
         }}
-        style={[
+        style={({ pressed }) => [
           styles.favFab,
           {
             backgroundColor: colors.background,
             borderColor: colors.border,
           },
+          pressed && styles.controlPressed,
         ]}>
         <Ionicons
           name={showFavorites ? 'star' : 'star-outline'}
@@ -1005,12 +1014,15 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
       {showGasRefresh && (
         <AnimatedPressable
+          accessibilityLabel="현 지도에서 주유소 다시 검색"
+          accessibilityRole="button"
           entering={FadeIn.duration(200)}
           disabled={gasFetching}
           onPress={refreshGasHere}
-          style={[
+          style={({ pressed }) => [
             styles.gasRefreshButton,
             { backgroundColor: colors.background, borderColor: colors.border },
+            (pressed || gasFetching) && styles.controlPressed,
           ]}>
           <Text style={[styles.gasRefreshText, { color: colors.tint }]}>
             {gasFetching ? '검색 중...' : '↻ 현 지도에서 재검색'}
@@ -1156,6 +1168,10 @@ const styles = StyleSheet.create({
   gasRefreshText: {
     fontSize: 15,
     fontWeight: '700',
+  },
+  controlPressed: {
+    opacity: 0.68,
+    transform: [{ scale: 0.94 }],
   },
   myLocationButton: {
     position: 'absolute',

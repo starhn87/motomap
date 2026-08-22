@@ -62,7 +62,12 @@ export default function PhotoStrip({
         contentContainerStyle={bleed > 0 && { paddingHorizontal: bleed }}>
         <View style={styles.row}>
           {items.map((item, i) => (
-            <Pressable key={`${item.url}-${i}`} onPress={() => setViewerIndex(i)}>
+            <Pressable
+              key={`${item.url}-${i}`}
+              accessibilityLabel={`장소 사진 ${i + 1} 확대`}
+              accessibilityRole="button"
+              onPress={() => setViewerIndex(i)}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
               <Image
                 source={{ uri: item.url }}
                 style={[styles.photo, { width: size, height: size }]}

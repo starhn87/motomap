@@ -85,14 +85,25 @@ export default function GasStationCard({ station, onClose }: Props) {
         <View style={styles.headerActions}>
           {/* 여백은 padding 이 아니라 hitSlop 으로 — 아이콘이 줄 높이보다
               커지면 잘린다 */}
-          <Pressable onPress={handleFavorite} disabled={favPending} hitSlop={12}>
+          <Pressable
+            accessibilityLabel={isFavorite ? '주유소 즐겨찾기 해제' : '주유소 즐겨찾기'}
+            accessibilityRole="button"
+            onPress={handleFavorite}
+            disabled={favPending}
+            hitSlop={12}
+            style={({ pressed }) => ({ opacity: pressed || favPending ? 0.55 : 1 })}>
             <Ionicons
               name={isFavorite ? 'star' : 'star-outline'}
               size={20}
               color={isFavorite ? '#FACC15' : colors.textSecondary}
             />
           </Pressable>
-          <Pressable onPress={onClose} hitSlop={12}>
+          <Pressable
+            accessibilityLabel="주유소 정보 닫기"
+            accessibilityRole="button"
+            onPress={onClose}
+            hitSlop={12}
+            style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
             <Ionicons name="close" size={20} color={colors.textSecondary} />
           </Pressable>
         </View>
