@@ -96,7 +96,6 @@ export default function WeekendRideRecommendations({ courses }: Props) {
             <Skeleton key={index} width={272} height={142} radius={15} />
           ))}
         </ScrollView>
-        <Skeleton width={220} height={11} style={{ marginTop: 7 }} />
       </View>
     );
   }
