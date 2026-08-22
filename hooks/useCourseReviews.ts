@@ -6,6 +6,7 @@ import {
   updateCourseReview,
   deleteCourseReview,
 } from '@/lib/api/courseReviews';
+import type { Review } from '@/types';
 
 function invalidateCourseData(queryClient: ReturnType<typeof useQueryClient>, courseId: string) {
   queryClient.invalidateQueries({ queryKey: ['course-reviews', courseId] });
@@ -37,10 +38,26 @@ export function useCreateCourseReview() {
 
 export function useUpdateCourseReview(courseId: string) {
   const queryClient = useQueryClient();
+  const key = ['course-reviews', courseId] as const;
 
   return useMutation({
     mutationFn: updateCourseReview,
-    onSuccess: () => {
+    onMutate: async (params) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Review[]>(key);
+      queryClient.setQueryData<Review[]>(key, (current) =>
+        current?.map((review) =>
+          review.id === params.id
+            ? { ...review, rating: params.rating, content: params.content }
+            : review,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_error, _params, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+    },
+    onSettled: () => {
       invalidateCourseData(queryClient, courseId);
     },
   });
@@ -48,10 +65,22 @@ export function useUpdateCourseReview(courseId: string) {
 
 export function useDeleteCourseReview(courseId: string) {
   const queryClient = useQueryClient();
+  const key = ['course-reviews', courseId] as const;
 
   return useMutation({
     mutationFn: deleteCourseReview,
-    onSuccess: () => {
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Review[]>(key);
+      queryClient.setQueryData<Review[]>(key, (current) =>
+        current?.filter((review) => review.id !== id),
+      );
+      return { previous };
+    },
+    onError: (_error, _id, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+    },
+    onSettled: () => {
       invalidateCourseData(queryClient, courseId);
     },
   });

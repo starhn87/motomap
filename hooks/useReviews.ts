@@ -1,4 +1,9 @@
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query';
 
 import {
   fetchReviews,
@@ -9,6 +14,7 @@ import {
   REVIEWS_PAGE_SIZE,
   type ReviewTarget,
 } from '@/lib/api/reviews';
+import type { Review } from '@/types';
 
 function reviewKey(target: ReviewTarget | null) {
   return ['reviews', target?.kind ?? 'none', target?.id ?? null] as const;
@@ -55,10 +61,38 @@ export function useCreateReview() {
 
 export function useUpdateReview(target: ReviewTarget) {
   const queryClient = useQueryClient();
+  const key = reviewKey(target);
 
   return useMutation({
     mutationFn: updateReview,
-    onSuccess: () => {
+    onMutate: async (params) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<InfiniteData<Review[]>>(key);
+      queryClient.setQueryData<InfiniteData<Review[]>>(key, (current) =>
+        current
+          ? {
+              ...current,
+              pages: current.pages.map((page) =>
+                page.map((review) =>
+                  review.id === params.id
+                    ? {
+                        ...review,
+                        rating: params.rating,
+                        content: params.content,
+                        photos: params.photos ?? review.photos,
+                      }
+                    : review,
+                ),
+              ),
+            }
+          : current,
+      );
+      return { previous };
+    },
+    onError: (_error, _params, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+    },
+    onSettled: () => {
       invalidateTargetData(queryClient, target);
     },
   });
@@ -66,10 +100,29 @@ export function useUpdateReview(target: ReviewTarget) {
 
 export function useDeleteReview(target: ReviewTarget) {
   const queryClient = useQueryClient();
+  const key = reviewKey(target);
 
   return useMutation({
     mutationFn: deleteReview,
-    onSuccess: () => {
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<InfiniteData<Review[]>>(key);
+      queryClient.setQueryData<InfiniteData<Review[]>>(key, (current) =>
+        current
+          ? {
+              ...current,
+              pages: current.pages.map((page) =>
+                page.filter((review) => review.id !== id),
+              ),
+            }
+          : current,
+      );
+      return { previous };
+    },
+    onError: (_error, _id, context) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous);
+    },
+    onSettled: () => {
       invalidateTargetData(queryClient, target);
     },
   });

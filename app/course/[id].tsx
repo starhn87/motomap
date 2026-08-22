@@ -518,10 +518,21 @@ export default function CourseDetailScreen() {
                           <Pressable
                             onPress={async () => {
                               if (editRating === 0) { toast.info('별점을 선택해주세요.'); return; }
+                              const previousDraft = { rating: editRating, content: editContent };
                               try {
-                                await updateReview({ id: review.id, rating: editRating, content: editContent.trim() });
+                                const updatePromise = updateReview({
+                                  id: review.id,
+                                  rating: editRating,
+                                  content: editContent.trim(),
+                                });
                                 setEditingId(null);
-                              } catch (e: any) { toast.error('수정에 실패했습니다.', e.message); }
+                                await updatePromise;
+                              } catch (e: any) {
+                                setEditingId(review.id);
+                                setEditRating(previousDraft.rating);
+                                setEditContent(previousDraft.content);
+                                toast.error('수정에 실패했습니다.', e.message);
+                              }
                             }}
                             style={[styles.saveEditButton, { backgroundColor: colors.tint }]}>
                             <Text style={[styles.saveEditText, { color: colors.background }]}>저장</Text>
@@ -547,7 +558,17 @@ export default function CourseDetailScreen() {
                               <Pressable onPress={() => {
                                 appAlert('리뷰 삭제', '정말 삭제하시겠습니까?', [
                                   { text: '취소', style: 'cancel' },
-                                  { text: '삭제', style: 'destructive', onPress: () => removeReview(review.id) },
+                                  {
+                                    text: '삭제',
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                      try {
+                                        await removeReview(review.id);
+                                      } catch (error: any) {
+                                        toast.error('삭제에 실패했습니다.', error.message);
+                                      }
+                                    },
+                                  },
                                 ]);
                               }}>
                                 <Text style={[styles.actionText, { color: semantic.danger }]}>삭제</Text>

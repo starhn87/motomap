@@ -162,8 +162,27 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
           finalPhotos.push(url);
         }
       }
-      await updateReview({ id, rating: editRating, content: editContent.trim(), photos: finalPhotos });
+      const previousDraft = {
+        rating: editRating,
+        content: editContent,
+        photos: editPhotos,
+      };
+      const updatePromise = updateReview({
+        id,
+        rating: editRating,
+        content: editContent.trim(),
+        photos: finalPhotos,
+      });
       handleCancelEdit();
+      try {
+        await updatePromise;
+      } catch (error) {
+        setEditingId(id);
+        setEditRating(previousDraft.rating);
+        setEditContent(previousDraft.content);
+        setEditPhotos(previousDraft.photos);
+        throw error;
+      }
     } catch (error: any) {
       toast.error('수정에 실패했습니다.', error.message);
     } finally {
