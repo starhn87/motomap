@@ -496,20 +496,23 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
               activeOpacity={0.7}
               onPress={handleShare}
               style={[
+                styles.actionButton,
                 styles.shareActionButton,
                 { backgroundColor: colors.surface, borderColor: colors.border },
               ]}>
-              <Ionicons name="share-outline" size={22} color={colors.tint} />
+              <Ionicons name="share-outline" size={20} color={colors.tint} />
+              <Text style={[styles.shareButtonText, { color: colors.tint }]}>공유</Text>
             </TouchableOpacity>
-            <View style={styles.openStatusSlot}>
-              {canLoadHours && (
-                <OpenBadge
-                  hours={placeHours?.hours}
-                  businessStatus={placeHours?.businessStatus}
-                  inline
-                />
-              )}
-            </View>
+          </View>
+
+          <View style={styles.openStatusSlot}>
+            {canLoadHours && (
+              <OpenBadge
+                hours={placeHours?.hours}
+                businessStatus={placeHours?.businessStatus}
+                inline
+              />
+            )}
           </View>
 
           {(place.phone || hoursText) && (
@@ -726,38 +729,31 @@ const styles = StyleSheet.create({
   address: { flex: 1, fontSize: 14 },
   distance: { fontSize: 13, fontWeight: '700' },
   actionRow: {
-    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingRight: 142,
+    gap: 10,
     marginTop: 12,
-    marginBottom: 10,
   },
   actionButton: {
     flex: 1,
     height: 40,
-    paddingHorizontal: 6,
+    paddingHorizontal: 12,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   shareActionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 5,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   departButtonText: { fontSize: 15, fontWeight: '600' },
   navButtonText: { fontSize: 15, fontWeight: '700' },
+  shareButtonText: { fontSize: 15, fontWeight: '600' },
   openStatusSlot: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 132,
-    height: 40,
+    height: 26,
+    marginTop: 4,
+    marginBottom: 6,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },

@@ -586,20 +586,23 @@ function PlaceBottomSheet({
               activeOpacity={0.7}
               onPress={handleShare}
               style={[
+                styles.actionButton,
                 styles.shareActionButton,
                 { backgroundColor: colors.surface, borderColor: colors.border },
               ]}>
-              <Ionicons name="share-outline" size={22} color={colors.tint} />
+              <Ionicons name="share-outline" size={20} color={colors.tint} />
+              <Text style={[styles.shareButtonText, { color: colors.tint }]}>공유</Text>
             </TouchableOpacity>
-            {/* 비동기 영업시간이 도착하기 전부터 같은 폭을 잡아 버튼과 콘텐츠가
-                움직이지 않는다. 긴 특이사항은 아래 영업시간 카드에서 보여준다. */}
-            <View style={styles.openStatusSlot}>
-              <OpenBadge
-                hours={hours}
-                businessStatus={googleHours?.businessStatus}
-                inline
-              />
-            </View>
+          </View>
+
+          {/* 비동기 영업시간이 도착하기 전부터 같은 높이를 잡아 아래 콘텐츠가
+              움직이지 않는다. 긴 특이사항은 아래 영업시간 카드에서 보여준다. */}
+          <View style={styles.openStatusSlot}>
+            <OpenBadge
+              hours={hours}
+              businessStatus={googleHours?.businessStatus}
+              inline
+            />
           </View>
 
           {displayPlace.description ? (
@@ -939,30 +942,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   actionRow: {
-    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    // 영업 상태를 오른쪽 끝에 고정하고 버튼이 들어갈 자리를 미리 비워 둔다
-    paddingRight: 142,
+    gap: 10,
     marginTop: 12,
-    marginBottom: 10,
   },
   actionButton: {
     flex: 1,
     height: 40,
-    paddingHorizontal: 6,
+    paddingHorizontal: 12,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   shareActionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 5,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   departButtonText: {
     fontSize: 15,
@@ -972,12 +968,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  shareButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
   openStatusSlot: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 132,
-    height: 40,
+    height: 26,
+    marginTop: 4,
+    marginBottom: 6,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
