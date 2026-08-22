@@ -593,16 +593,15 @@ function PlaceBottomSheet({
               <Ionicons name="share-outline" size={20} color={colors.tint} />
               <Text style={[styles.shareButtonText, { color: colors.tint }]}>공유</Text>
             </TouchableOpacity>
-          </View>
-
-          {/* 비동기 영업시간이 도착하기 전부터 같은 높이를 잡아 아래 콘텐츠가
-              움직이지 않는다. 긴 특이사항은 아래 영업시간 카드에서 보여준다. */}
-          <View style={styles.openStatusSlot}>
-            <OpenBadge
-              hours={hours}
-              businessStatus={googleHours?.businessStatus}
-              inline
-            />
+            {/* 비동기 영업시간이 도착하기 전부터 같은 폭을 잡는다. 한 줄에 다
+                들어오지 않는 상태는 줄바꿈하지 않고 말줄임한다. */}
+            <View style={styles.openStatusSlot}>
+              <OpenBadge
+                hours={hours}
+                businessStatus={googleHours?.businessStatus}
+                inline
+              />
+            </View>
           </View>
 
           {displayPlace.description ? (
@@ -944,8 +943,9 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
     marginTop: 12,
+    marginBottom: 10,
   },
   actionButton: {
     flex: 1,
@@ -973,9 +973,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   openStatusSlot: {
-    height: 26,
-    marginTop: 4,
-    marginBottom: 6,
+    flex: 1,
+    minWidth: 0,
+    height: 40,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },

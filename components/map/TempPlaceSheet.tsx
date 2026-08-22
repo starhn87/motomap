@@ -503,16 +503,15 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
               <Ionicons name="share-outline" size={20} color={colors.tint} />
               <Text style={[styles.shareButtonText, { color: colors.tint }]}>공유</Text>
             </TouchableOpacity>
-          </View>
-
-          <View style={styles.openStatusSlot}>
-            {canLoadHours && (
-              <OpenBadge
-                hours={placeHours?.hours}
-                businessStatus={placeHours?.businessStatus}
-                inline
-              />
-            )}
+            <View style={styles.openStatusSlot}>
+              {canLoadHours && (
+                <OpenBadge
+                  hours={placeHours?.hours}
+                  businessStatus={placeHours?.businessStatus}
+                  inline
+                />
+              )}
+            </View>
           </View>
 
           {(place.phone || hoursText) && (
@@ -731,8 +730,9 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
     marginTop: 12,
+    marginBottom: 10,
   },
   actionButton: {
     flex: 1,
@@ -751,9 +751,9 @@ const styles = StyleSheet.create({
   navButtonText: { fontSize: 15, fontWeight: '700' },
   shareButtonText: { fontSize: 15, fontWeight: '600' },
   openStatusSlot: {
-    height: 26,
-    marginTop: 4,
-    marginBottom: 6,
+    flex: 1,
+    minWidth: 0,
+    height: 40,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
