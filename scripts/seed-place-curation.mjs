@@ -1004,6 +1004,10 @@ async function applyReviewCase(reviewCase, place) {
       last_verified_at: AUDIT_AT,
       next_verification_at: AUDIT_AT,
     },
+    {
+      last_verified_at: null,
+      next_verification_at: AUDIT_AT,
+    },
   ]);
   const currentState = placeState(place);
   const evidence = await upsertEvidence({
