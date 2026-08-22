@@ -260,16 +260,42 @@ export default function EditBikeScreen() {
 
   const handleActivate = async (bike: UserBike) => {
     if (activatingId) return;
+    const bikesKey = ['user-bikes', user.id] as const;
+    const myBikeKey = ['my-bike', user.id] as const;
+    await Promise.all([
+      queryClient.cancelQueries({ queryKey: bikesKey }),
+      queryClient.cancelQueries({ queryKey: myBikeKey }),
+    ]);
+    const previousBikes = queryClient.getQueryData<UserBike[]>(bikesKey);
+    const previousMyBike = queryClient.getQueryData<string | null>(myBikeKey);
+    const currentBikes = previousBikes ?? bikes ?? [];
+    const activatedAt = new Date().toISOString();
     setActivatingId(bike.id);
+    queryClient.setQueryData<UserBike[]>(bikesKey, [
+      {
+        ...bike,
+        isActive: true,
+        updatedAt: activatedAt,
+      },
+      ...currentBikes
+        .filter((item) => item.id !== bike.id)
+        .map((item) => ({ ...item, isActive: false })),
+    ]);
+    queryClient.setQueryData(myBikeKey, bike.model);
     try {
       await setActiveUserBike(bike.id);
       track.bikeGarageChanged({ action: 'activated', bike_count: bikes?.length ?? 0 });
-      await refreshBikes();
       toast.success(`${bike.nickname || bike.model}(으)로 주행 바이크를 바꿨어요.`);
     } catch (activateError: any) {
+      if (previousBikes) queryClient.setQueryData(bikesKey, previousBikes);
+      else queryClient.removeQueries({ queryKey: bikesKey, exact: true });
+      if (previousMyBike !== undefined) queryClient.setQueryData(myBikeKey, previousMyBike);
+      else queryClient.removeQueries({ queryKey: myBikeKey, exact: true });
       toast.error('주행 바이크를 바꾸지 못했습니다.', activateError.message);
     } finally {
       setActivatingId(null);
+      void refreshBikes();
+      void queryClient.invalidateQueries({ queryKey: ['bike-place-matches'] });
     }
   };
 

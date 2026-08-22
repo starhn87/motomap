@@ -66,7 +66,7 @@ ReviewForm → useCreateReview() → createReview() → INSERT reviews
               → 500ms 후 ['places'], ['place', placeId] 도 무효화 (평점/리뷰수 갱신 반영)
 ```
 
-**캐시 무효화 패턴** — 리뷰·코스리뷰 mutation은 1차로 해당 목록 키를 즉시 무효화하고, **약 500ms 뒤** 연관된 집계 키(`['places']`, `['courses']`, 상세 키)를 다시 무효화한다. 서버 트리거가 `rating`/`review_count` 집계를 갱신하는 시간을 벌기 위함이다. (`hooks/useReviews.ts`, `hooks/useCourseReviews.ts`)
+**리뷰 캐시 패턴** — 작성은 성공 뒤 목록을 무효화하고, 수정·삭제는 목록 캐시를 먼저 바꾼 뒤 실패 시 원복한다. 두 경우 모두 완료 뒤 목록을 다시 확인하고 **약 500ms 뒤** 연관된 집계 키(`['places']`, `['courses']`, 상세 키)를 무효화한다. 서버 트리거가 `rating`/`review_count` 집계를 갱신하는 시간을 벌기 위함이다. (`hooks/useReviews.ts`, `hooks/useCourseReviews.ts`)
 
 ---
 
@@ -160,7 +160,7 @@ Sentry.wrap(
 
 ### React Query (`hooks/`)
 
-서버에서 온 모든 데이터는 react-query가 캐싱한다. mutation은 `onSuccess`에서 관련 키를 무효화(§2).
+서버에서 온 모든 데이터는 react-query가 캐싱한다. 성공 여부가 먼저 확정돼야 하는 쓰기는 `onSuccess`에서 관련 키를 무효화한다. 즐겨찾기·저장·읽음·차단·수정처럼 되돌릴 수 있고 최종 상태가 명확한 쓰기는 `onMutate`에서 캐시를 먼저 바꾸고, 실패 시 스냅샷으로 원복한 뒤 `onSettled`에서 서버 상태를 다시 확인한다(§2, `docs/domain-decisions/interaction-feedback.md`).
 
 **Query key 컨벤션:**
 

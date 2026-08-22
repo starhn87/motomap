@@ -44,7 +44,6 @@ import Skeleton from '@/components/ui/Skeleton';
 import {
   loadRecentSearches,
   addRecentSearch,
-  removeRecentSearch,
   clearRecentSearches,
   saveRecentSearches,
   recentKey,
@@ -702,7 +701,11 @@ export default function SearchScreen() {
                     </View>
                     <Pressable
                       hitSlop={8}
-                      onPress={() => removeRecentSearch(key).then(setRecent)}
+                      onPress={() => {
+                        const next = recent.filter((item) => recentKey(item) !== key);
+                        setRecent(next);
+                        void saveRecentSearches(next);
+                      }}
                       style={styles.removeButton}>
                       <Ionicons name="close" size={15} color={colors.textSecondary} />
                     </Pressable>

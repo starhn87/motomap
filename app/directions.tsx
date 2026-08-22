@@ -22,7 +22,7 @@ import {
   loadRecentSearches,
   recentKey,
   recentTargets,
-  removeRecentSearch,
+  saveRecentSearches,
   type RecentSearch,
 } from '@/lib/recentSearches';
 import { toast } from '@/lib/toast';
@@ -318,7 +318,10 @@ export default function DirectionsScreen() {
                 </View>
                 <Pressable
                   onPress={() => {
-                    void removeRecentSearch(recentKey(entry)).then(setRecents);
+                    const key = recentKey(entry);
+                    const next = recents.filter((recent) => recentKey(recent) !== key);
+                    setRecents(next);
+                    void saveRecentSearches(next);
                   }}
                   hitSlop={10}
                   style={styles.recentRemove}>

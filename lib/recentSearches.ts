@@ -56,16 +56,6 @@ export async function saveRecentSearches(list: RecentSearch[]): Promise<void> {
   }
 }
 
-export async function removeRecentSearch(key: string): Promise<RecentSearch[]> {
-  const next = (await loadRecentSearches()).filter((e) => recentKey(e) !== key);
-  try {
-    await AsyncStorage.setItem(KEY, JSON.stringify(next));
-  } catch {
-    // 무시
-  }
-  return next;
-}
-
 export async function clearRecentSearches(): Promise<void> {
   try {
     await AsyncStorage.removeItem(KEY);
