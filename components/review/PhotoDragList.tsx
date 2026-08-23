@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
@@ -116,7 +117,7 @@ function Thumb({
       <Animated.View style={[styles.thumb, style]}>
         <Image source={{ uri }} style={styles.image} />
         <Pressable onPress={() => onRemove(index)} hitSlop={6} style={styles.remove}>
-          <Ionicons name="close" size={13} color="#FFFFFF" />
+          <MaterialIcons name="close" size={13} color="#FFFFFF" />
         </Pressable>
       </Animated.View>
     </GestureDetector>

@@ -1,4 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   StyleSheet,
@@ -226,7 +227,7 @@ export default function SubmitHazard() {
           <View style={styles.photoWrap}>
             <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" />
             <Pressable onPress={() => setPhoto(null)} hitSlop={8} style={styles.photoRemove}>
-              <Ionicons name="close" size={13} color="#FFFFFF" />
+              <MaterialIcons name="close" size={13} color="#FFFFFF" />
             </Pressable>
           </View>
         ) : (

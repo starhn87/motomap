@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -86,7 +87,7 @@ export default function RiderShareCard({
         <View style={styles.topBar}>
           <Text style={styles.previewTitle}>공유 카드 미리보기</Text>
           <Pressable accessibilityLabel="닫기" hitSlop={10} onPress={onClose}>
-            <Ionicons name="close" size={26} color="#FFFFFF" />
+            <MaterialIcons name="close" size={26} color="#FFFFFF" />
           </Pressable>
         </View>
 

@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -362,7 +363,7 @@ export default function EditBikeScreen() {
               <Text style={[styles.editorSubtitle, { color: colors.textSecondary }]}>모델명보다 애칭이 먼저 보이도록 꾸밀 수 있어요.</Text>
             </View>
             <Pressable hitSlop={10} onPress={closeEditor}>
-              <Ionicons name="close" size={24} color={colors.text} />
+              <MaterialIcons name="close" size={24} color={colors.text} />
             </Pressable>
           </View>
 

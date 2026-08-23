@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useEffect, useState } from 'react';
 import { Modal, View, Text, Pressable, useWindowDimensions, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
@@ -136,7 +136,7 @@ export default function ImageViewer({
           onPress={onClose}
           hitSlop={12}
           style={[styles.closeButton, { top: insets.top + 8 }]}>
-          <Ionicons name="close" size={18} color="#FFFFFF" />
+          <MaterialIcons name="close" size={18} color="#FFFFFF" />
         </Pressable>
 
         {renderFooter && (

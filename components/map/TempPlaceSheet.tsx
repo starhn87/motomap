@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -328,7 +329,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
       <TouchableOpacity
         onPress={onClose}
         style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
-        <Ionicons
+        <MaterialIcons
           name="close"
           size={expanded ? 24 : 22}
           color={expanded ? colors.text : colors.textSecondary}

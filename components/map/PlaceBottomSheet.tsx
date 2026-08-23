@@ -367,7 +367,7 @@ function PlaceBottomSheet({
       <TouchableOpacity
         onPress={onClose}
         style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
-        <Ionicons
+        <MaterialIcons
           name="close"
           size={expanded ? 24 : 22}
           color={expanded ? colors.text : colors.textSecondary}

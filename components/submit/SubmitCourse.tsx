@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   StyleSheet,
   View,
@@ -236,7 +236,7 @@ export default function SubmitCourse() {
               <Pressable
                 onPress={() => removeWaypoint(wp.id)}
                 style={styles.removeButton}>
-                <Ionicons name="close" size={13} color="#FFFFFF" />
+                <MaterialIcons name="close" size={13} color="#FFFFFF" />
               </Pressable>
             )}
           </View>

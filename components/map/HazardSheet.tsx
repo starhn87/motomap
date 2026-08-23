@@ -2,7 +2,7 @@ import { View, Text, Pressable, Modal, StyleSheet, ActivityIndicator } from 'rea
 import { useState } from 'react';
 import { Image } from 'expo-image';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors, { semantic } from '@/constants/Colors';
@@ -80,7 +80,7 @@ export default function HazardSheet({ hazard, onClose }: Props) {
             onPress={onClose}
             hitSlop={10}
             style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
-            <Ionicons name="close" size={22} color={colors.textSecondary} />
+            <MaterialIcons name="close" size={22} color={colors.textSecondary} />
           </Pressable>
         </View>
 
