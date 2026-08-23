@@ -12,6 +12,7 @@ import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import type { RidingWeather } from '@/lib/api/weather';
 import WarningDetailModal from '@/components/map/WarningDetailModal';
+import WeatherEmoji from '@/components/weather/WeatherEmoji';
 import { useWeatherWarnings } from '@/hooks/useWeatherWarnings';
 
 interface Props {
@@ -255,7 +256,7 @@ export default function WeatherSheet({
       <BottomSheetView style={styles.content}>
         {/* 등급 헤더 */}
         <View style={styles.gradeRow}>
-          <Text style={styles.gradeEmoji}>{weather.current.emoji}</Text>
+          <WeatherEmoji emoji={weather.current.emoji} size={40} lineHeight={48} />
           <View style={styles.gradeInfo}>
             <View style={styles.gradeTitleRow}>
               <Text style={[styles.gradeTitle, { color: weather.gradeColor }]}>
@@ -331,7 +332,7 @@ export default function WeatherSheet({
                   key={item.h.at}
                   style={[styles.hourCell, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>{item.h.hour}</Text>
-                  <Text style={styles.hourEmoji}>{item.h.emoji}</Text>
+                  <WeatherEmoji emoji={item.h.emoji} size={26} lineHeight={31} />
                   <Text style={[styles.hourTemp, { color: colors.text }]}>{item.h.temp}°</Text>
                   {/* 강수확률 0%는 표기 자체를 비운다 (자리는 유지해 셀 높이 정렬) */}
                   <Text style={[styles.hourPop, { color: colors.tint }]}>
@@ -403,9 +404,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-  },
-  gradeEmoji: {
-    fontSize: 40,
   },
   gradeInfo: {
     flex: 1,
@@ -481,9 +479,6 @@ const styles = StyleSheet.create({
   hourLabel: {
     fontSize: 13,
     fontWeight: '600',
-  },
-  hourEmoji: {
-    fontSize: 26,
   },
   sunTime: {
     fontWeight: '700',

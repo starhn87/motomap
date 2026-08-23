@@ -6,6 +6,7 @@
 import { supabase } from '@/lib/supabase';
 import { coordToRegion } from '@/lib/api/kakaoLocal';
 import { isNightAt } from '@/lib/sun';
+import { NIGHT_PARTLY_CLOUDY_EMOJI } from '@/constants/weather';
 
 export interface HourlyWeather {
   /** KMA 예보 시각을 KST에서 절대 시각으로 변환한 ISO 문자열 */
@@ -47,7 +48,12 @@ function describeKma(
   if (pty === 3) return { condition: '눈', emoji: '🌨️' };
   if (pty === 4) return { condition: '소나기', emoji: '🌧️' };
   if (sky === 4) return { condition: '흐림', emoji: '☁️' };
-  if (sky === 3) return { condition: '구름 많음', emoji: night ? '☁️' : '⛅' };
+  if (sky === 3) {
+    return {
+      condition: '구름 많음',
+      emoji: night ? NIGHT_PARTLY_CLOUDY_EMOJI : '⛅',
+    };
+  }
   return { condition: '맑음', emoji: night ? '🌙' : '☀️' };
 }
 

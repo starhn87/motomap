@@ -9,6 +9,7 @@ import Animated, {
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import type { RidingWeather } from '@/lib/api/weather';
+import WeatherEmoji from '@/components/weather/WeatherEmoji';
 
 interface Props {
   weather: RidingWeather;
@@ -49,7 +50,7 @@ export default function WeatherFab({ weather, open, onPress }: Props) {
           borderColor: weather.gradeColor,
         },
       ]}>
-      <Text style={styles.emoji}>{weather.current.emoji}</Text>
+      <WeatherEmoji emoji={weather.current.emoji} size={18} lineHeight={20} />
       <Text style={[styles.temp, { color: colors.text }]}>{weather.current.temp}°</Text>
     </AnimatedPressable>
   );
@@ -73,10 +74,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
     zIndex: 5,
-  },
-  emoji: {
-    fontSize: 18,
-    lineHeight: 20,
   },
   temp: {
     fontSize: 11,
