@@ -76,6 +76,10 @@ import {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// 네이버 기본 심벌(-100,000~100,000)보다 위, 내 위치(300,000)보다 아래다.
+// 등록 장소 아이콘은 줌별 충돌 재판정에서도 숨지 않고 네이티브 POI를 가린다.
+const PLACE_MARKER_GLOBAL_Z_INDEX = 200_000;
+
 // 장소 선택 시 상세 시트가 마커를 가리지 않도록 카메라 중심을 남쪽으로 내려
 // 마커를 화면 중심보다 위에 둔다. 등록·일반 장소가 같은 보정을 사용하며,
 // 웹 머카토르 근사로 화면 높이 비율을 위도 차이로 바꾼다.
@@ -651,8 +655,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       bearing: 0,
     };
 
-  // 등록 장소는 줌과 무관하게 개별 원형 마커로 유지한다. 넓은 지도에서는 SDK가
-  // 낮은 우선순위의 겹친 마커를 숨기고, 이름은 줌 8부터 공간이 있을 때만 표시한다.
+  // 등록 장소는 줌과 무관하게 개별 원형 마커로 유지한다. 아이콘은 항상 보이고,
+  // 이름은 줌 8부터 공간이 있을 때만 표시하며 겹친 네이티브 POI가 양보한다.
   // 선택된 장소는 아래의 별도 핀 마커 하나로만 강조한다.
   const PLACE_CAPTION_MIN_ZOOM = 8;
 
@@ -729,8 +733,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           />
         )}
 
-        {/* 등록 장소는 모든 줌에서 개별 원형 마커로 그린다. 핀은 선택된 장소 하나만
-            사용하고, 넓은 지도에서 겹치는 마커·기본 심벌·캡션은 SDK가 정리한다. */}
+        {/* 등록 장소는 모든 줌에서 개별 원형 마커로 그린다. 아이콘은 숨기지 않고,
+            겹치는 기본 심벌과 장소명 캡션만 SDK가 정리한다. */}
         {places
           .filter((p) => p.id !== selectedPlaceId)
           .map((p) => (
@@ -742,8 +746,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
               width={30}
               height={30}
               anchor={{ x: 0.5, y: 0.5 }}
+              globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
               zIndex={10}
-              isHideCollidedMarkers
+              isForceShowIcon
               isHideCollidedSymbols
               isHideCollidedCaptions
               caption={{
@@ -770,8 +775,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
                 width={30}
                 height={30}
                 anchor={{ x: 0.5, y: 0.5 }}
+                globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
                 zIndex={50}
-                isHideCollidedMarkers
                 isForceShowIcon
                 isHideCollidedSymbols
                 isHideCollidedCaptions
@@ -801,8 +806,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
               width={30}
               height={30}
               anchor={{ x: 0.5, y: 0.5 }}
+              globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
               zIndex={50}
-              isHideCollidedMarkers
               isForceShowIcon
               isHideCollidedSymbols
               isHideCollidedCaptions
@@ -842,8 +847,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             width={38}
             height={44}
             anchor={{ x: 0.5, y: 1 }}
+            globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
             zIndex={100}
-            isHideCollidedMarkers
             isForceShowIcon
             isHideCollidedSymbols
             // 선택 마커는 원래 마커를 대신 그리는 것이라 캡션도 함께 가져온다.
