@@ -5,10 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Location from 'expo-location';
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import CloseIcon from '@/components/ui/CloseIcon';
 
 import KakaoNavi, {
   ROUTE_PRIORITIES,
@@ -421,7 +421,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
             styles.closeButton,
             { top: insets.top + 8, backgroundColor: colors.background },
           ]}>
-          <FontAwesome name="times" size={22} color={colors.text} />
+          <CloseIcon size={22} color={colors.text} />
         </Pressable>
       ) : (
         !guideStarted && (
@@ -516,7 +516,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
                 }}
                 hitSlop={8}
                 style={styles.routeClose}>
-                <FontAwesome name="times" size={20} color={colors.text} />
+                <CloseIcon size={20} color={colors.text} />
               </Pressable>
               <Pressable
                 onPress={swapEnds}

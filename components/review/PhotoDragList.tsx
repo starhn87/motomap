@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
@@ -13,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
+import CloseIcon from '@/components/ui/CloseIcon';
 import { useColorScheme } from '@/components/useColorScheme';
 
 const THUMB = 72;
@@ -117,7 +117,7 @@ function Thumb({
       <Animated.View style={[styles.thumb, style]}>
         <Image source={{ uri }} style={styles.image} />
         <Pressable onPress={() => onRemove(index)} hitSlop={6} style={styles.remove}>
-          <FontAwesome name="times" size={13} color="#FFFFFF" />
+          <CloseIcon size={13} color="#FFFFFF" />
         </Pressable>
       </Animated.View>
     </GestureDetector>

@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import CloseIcon from '@/components/ui/CloseIcon';
 import {
   StyleSheet,
   View,
@@ -227,7 +227,7 @@ export default function SubmitHazard() {
           <View style={styles.photoWrap}>
             <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" />
             <Pressable onPress={() => setPhoto(null)} hitSlop={8} style={styles.photoRemove}>
-              <FontAwesome name="times" size={13} color="#FFFFFF" />
+              <CloseIcon size={13} color="#FFFFFF" />
             </Pressable>
           </View>
         ) : (

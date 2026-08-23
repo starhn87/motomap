@@ -1,11 +1,11 @@
 import { View, Text, Pressable, Modal, StyleSheet, ActivityIndicator } from 'react-native';
 import { useEffect, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { NaverMapView, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/Colors';
+import CloseIcon from '@/components/ui/CloseIcon';
 import { useColorScheme } from '@/components/useColorScheme';
 import { coordToAddress } from '@/lib/api/kakaoLocal';
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
@@ -98,7 +98,7 @@ export default function MapPickerModal({ visible, initial, onClose, onPick }: Pr
               opacity: pressed ? 0.7 : 1,
             },
           ]}>
-          <FontAwesome name="times" size={20} color={colors.text} />
+          <CloseIcon size={20} color={colors.text} />
         </Pressable>
 
         <View

@@ -1,9 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
+import CloseIcon from '@/components/ui/CloseIcon';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useGasStationDetail } from '@/hooks/useGasStations';
 import { openNavigation } from '@/lib/navigation';
@@ -110,7 +110,7 @@ export default function GasStationCard({ station, onClose }: Props) {
             onPress={onClose}
             hitSlop={12}
             style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
-            <FontAwesome name="times" size={20} color={colors.textSecondary} />
+            <CloseIcon size={20} color={colors.textSecondary} />
           </Pressable>
         </View>
       </View>

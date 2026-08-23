@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,6 +13,7 @@ import * as Sharing from 'expo-sharing';
 import { captureRef, releaseCapture } from 'react-native-view-shot';
 
 import CategoryIcon from '@/components/ui/CategoryIcon';
+import CloseIcon from '@/components/ui/CloseIcon';
 import { APP_STORE_URL } from '@/constants/app';
 import { CATEGORIES } from '@/constants/categories';
 import { haptics } from '@/lib/haptics';
@@ -87,7 +87,7 @@ export default function RiderShareCard({
         <View style={styles.topBar}>
           <Text style={styles.previewTitle}>공유 카드 미리보기</Text>
           <Pressable accessibilityLabel="닫기" hitSlop={10} onPress={onClose}>
-            <FontAwesome name="times" size={26} color="#FFFFFF" />
+            <CloseIcon size={26} color="#FFFFFF" />
           </Pressable>
         </View>
 

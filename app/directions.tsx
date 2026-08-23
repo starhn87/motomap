@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -14,6 +13,7 @@ import {
 import * as Location from 'expo-location';
 
 import Colors from '@/constants/Colors';
+import CloseIcon from '@/components/ui/CloseIcon';
 import { useColorScheme } from '@/components/useColorScheme';
 import { openNavigation, useNavLaunching, type NavTarget } from '@/lib/navigation';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
@@ -326,7 +326,7 @@ export default function DirectionsScreen() {
                   }}
                   hitSlop={10}
                   style={styles.recentRemove}>
-                  <FontAwesome name="times" size={15} color={colors.textSecondary} />
+                  <CloseIcon size={15} color={colors.textSecondary} />
                 </Pressable>
               </Pressable>
             ))}

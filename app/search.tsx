@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import CategoryIcon from '@/components/ui/CategoryIcon';
+import CloseIcon from '@/components/ui/CloseIcon';
 import {
   View,
   Text,
@@ -708,7 +708,7 @@ export default function SearchScreen() {
                         void saveRecentSearches(next);
                       }}
                       style={styles.removeButton}>
-                      <FontAwesome name="times" size={15} color={colors.textSecondary} />
+                      <CloseIcon size={15} color={colors.textSecondary} />
                     </Pressable>
                   </Pressable>
                 );

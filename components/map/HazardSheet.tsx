@@ -2,10 +2,10 @@ import { View, Text, Pressable, Modal, StyleSheet, ActivityIndicator } from 'rea
 import { useState } from 'react';
 import { Image } from 'expo-image';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors, { semantic } from '@/constants/Colors';
+import CloseIcon from '@/components/ui/CloseIcon';
 import { useColorScheme } from '@/components/useColorScheme';
 import { HAZARDS, hazardFreshness } from '@/constants/hazards';
 import { useVoteHazard } from '@/hooks/useHazards';
@@ -80,7 +80,7 @@ export default function HazardSheet({ hazard, onClose }: Props) {
             onPress={onClose}
             hitSlop={10}
             style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
-            <FontAwesome name="times" size={22} color={colors.textSecondary} />
+            <CloseIcon size={22} color={colors.textSecondary} />
           </Pressable>
         </View>
 

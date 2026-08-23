@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import CloseIcon from '@/components/ui/CloseIcon';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Animated, {
@@ -329,8 +329,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
       <TouchableOpacity
         onPress={onClose}
         style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
-        <FontAwesome
-          name="times"
+        <CloseIcon
           size={expanded ? 24 : 22}
           color={expanded ? colors.text : colors.textSecondary}
         />

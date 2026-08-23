@@ -1,4 +1,4 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import CloseIcon from '@/components/ui/CloseIcon';
 import { useEffect, useState } from 'react';
 import { Modal, View, Text, Pressable, useWindowDimensions, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
@@ -136,7 +136,7 @@ export default function ImageViewer({
           onPress={onClose}
           hitSlop={12}
           style={[styles.closeButton, { top: insets.top + 8 }]}>
-          <FontAwesome name="times" size={18} color="#FFFFFF" />
+          <CloseIcon size={18} color="#FFFFFF" />
         </Pressable>
 
         {renderFooter && (

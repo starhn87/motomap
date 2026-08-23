@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Image } from 'expo-image';
+import CloseIcon from '@/components/ui/CloseIcon';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -363,7 +363,7 @@ export default function EditBikeScreen() {
               <Text style={[styles.editorSubtitle, { color: colors.textSecondary }]}>모델명보다 애칭이 먼저 보이도록 꾸밀 수 있어요.</Text>
             </View>
             <Pressable hitSlop={10} onPress={closeEditor}>
-              <FontAwesome name="times" size={24} color={colors.text} />
+              <CloseIcon size={24} color={colors.text} />
             </Pressable>
           </View>
 

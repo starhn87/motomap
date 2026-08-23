@@ -1,4 +1,4 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import CloseIcon from '@/components/ui/CloseIcon';
 import {
   StyleSheet,
   View,
@@ -236,7 +236,7 @@ export default function SubmitCourse() {
               <Pressable
                 onPress={() => removeWaypoint(wp.id)}
                 style={styles.removeButton}>
-                <FontAwesome name="times" size={13} color="#FFFFFF" />
+                <CloseIcon size={13} color="#FFFFFF" />
               </Pressable>
             )}
           </View>
