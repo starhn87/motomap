@@ -340,13 +340,7 @@ function PlaceBottomSheet({
           <Ionicons
             name={isFavorite ? 'star' : 'star-outline'}
             size={expanded ? 24 : 22}
-            color={
-              expanded
-                ? colors.text
-                : isFavorite
-                  ? '#FACC15'
-                  : colors.textSecondary
-            }
+            color={isFavorite ? semantic.star : expanded ? colors.text : colors.textSecondary}
           />
         </Animated.View>
       </TouchableOpacity>

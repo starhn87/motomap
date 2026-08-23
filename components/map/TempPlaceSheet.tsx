@@ -9,9 +9,12 @@ import Animated, {
   FadeOut,
   interpolate,
   runOnJS,
+  Easing,
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
+  withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
 import { TouchableOpacity } from 'react-native-gesture-handler';
@@ -109,6 +112,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const isFavorite = !!favorite;
   const { mutateAsync: toggleFavorite, isPending: favPending } =
     useToggleGeneralFavorite();
+  const favoriteScale = useSharedValue(1);
   const { data: generalPlace } = useGeneralPlace(place);
   const generalPlaceId = generalPlace?.id ?? place?.generalPlaceId;
   const reviewTarget = generalPlaceId
@@ -180,6 +184,12 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
       toast.info('로그인이 필요합니다.');
       return;
     }
+    if (!isFavorite) {
+      favoriteScale.value = withSequence(
+        withTiming(1.35, { duration: 120, easing: Easing.out(Easing.quad) }),
+        withTiming(1, { duration: 180, easing: Easing.inOut(Easing.quad) }),
+      );
+    }
     try {
       await toggleFavorite({ place, on: !isFavorite, favoriteId: favorite?.id });
       haptics.selection();
@@ -187,6 +197,10 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }
   };
+
+  const favoriteStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: favoriteScale.value }],
+  }));
 
   const handleSaveMyPlace = () => {
     if (!place) return;
@@ -299,17 +313,13 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
         onPress={handleFavorite}
         disabled={favPending}
         style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
-        <Ionicons
-          name={isFavorite ? 'star' : 'star-outline'}
-          size={expanded ? 24 : 22}
-          color={
-            expanded
-              ? colors.text
-              : isFavorite
-                ? semantic.star
-                : colors.textSecondary
-          }
-        />
+        <Animated.View style={favoriteStyle}>
+          <Ionicons
+            name={isFavorite ? 'star' : 'star-outline'}
+            size={expanded ? 24 : 22}
+            color={isFavorite ? semantic.star : expanded ? colors.text : colors.textSecondary}
+          />
+        </Animated.View>
       </TouchableOpacity>
       <TouchableOpacity
         onPress={handleSaveMyPlace}
