@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 const MANIFEST_PREFIX = 'motomap-secure-v1:';
 const CHUNK_SIZE_BYTES = 1800;
@@ -11,6 +11,55 @@ interface ChunkManifest {
 }
 
 const pendingLegacyKeys = new Set<string>();
+
+function isKeychainInteractionUnavailable(error: unknown): boolean {
+  return (
+    Platform.OS === 'ios' &&
+    error instanceof Error &&
+    error.message.includes('User interaction is not allowed')
+  );
+}
+
+async function waitForActiveApp(): Promise<void> {
+  if (AppState.currentState === 'active') {
+    // foreground 전환 직후에는 AppState와 키체인 잠금 해제가 짧게 엇갈릴 수 있다.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      subscription.remove();
+      setTimeout(resolve, 100);
+    });
+  });
+}
+
+async function accessSecureStore<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (!isKeychainInteractionUnavailable(error)) throw error;
+
+    // 잠긴 백그라운드에서 null로 대체하면 정상 세션을 로그아웃으로 오인한다.
+    // 앱이 다시 활성화된 뒤 같은 작업을 한 번만 재시도한다.
+    await waitForActiveApp();
+    return operation();
+  }
+}
+
+function getSecureItem(key: string): Promise<string | null> {
+  return accessSecureStore(() => SecureStore.getItemAsync(key));
+}
+
+function setSecureItem(key: string, value: string): Promise<void> {
+  return accessSecureStore(() => SecureStore.setItemAsync(key, value));
+}
+
+function deleteSecureItem(key: string): Promise<void> {
+  return accessSecureStore(() => SecureStore.deleteItemAsync(key));
+}
 
 function getUtf8ByteLength(character: string): number {
   const codePoint = character.codePointAt(0) ?? 0;
@@ -64,7 +113,7 @@ async function removeChunks(key: string, manifest: ChunkManifest | null): Promis
 
   await Promise.all(
     Array.from({ length: manifest.count }, (_, index) =>
-      SecureStore.deleteItemAsync(getChunkKey(key, manifest.generation, index)),
+      deleteSecureItem(getChunkKey(key, manifest.generation, index)),
     ),
   );
 }
@@ -75,7 +124,7 @@ async function readSecureValue(key: string, storedValue: string): Promise<string
 
   const chunks = await Promise.all(
     Array.from({ length: manifest.count }, (_, index) =>
-      SecureStore.getItemAsync(getChunkKey(key, manifest.generation, index)),
+      getSecureItem(getChunkKey(key, manifest.generation, index)),
     ),
   );
   if (chunks.some((chunk) => chunk === null)) {
@@ -85,7 +134,7 @@ async function readSecureValue(key: string, storedValue: string): Promise<string
 }
 
 async function writeSecureValue(key: string, value: string): Promise<void> {
-  const previousStoredValue = await SecureStore.getItemAsync(key);
+  const previousStoredValue = await getSecureItem(key);
   const previousManifest = parseManifest(previousStoredValue);
   const generation = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   const chunks = splitIntoChunks(value);
@@ -94,10 +143,10 @@ async function writeSecureValue(key: string, value: string): Promise<void> {
   try {
     await Promise.all(
       chunks.map((chunk, index) =>
-        SecureStore.setItemAsync(getChunkKey(key, generation, index), chunk),
+        setSecureItem(getChunkKey(key, generation, index), chunk),
       ),
     );
-    await SecureStore.setItemAsync(key, `${MANIFEST_PREFIX}${JSON.stringify(manifest)}`);
+    await setSecureItem(key, `${MANIFEST_PREFIX}${JSON.stringify(manifest)}`);
   } catch (error) {
     await removeChunks(key, manifest);
     throw error;
@@ -110,7 +159,7 @@ export const authStorage = {
   async getItem(key: string): Promise<string | null> {
     if (Platform.OS === 'web') return AsyncStorage.getItem(key);
 
-    const storedValue = await SecureStore.getItemAsync(key);
+    const storedValue = await getSecureItem(key);
     const legacyValue = await AsyncStorage.getItem(key);
 
     if (storedValue !== null) {
@@ -143,8 +192,8 @@ export const authStorage = {
       return;
     }
 
-    const storedValue = await SecureStore.getItemAsync(key);
-    await SecureStore.deleteItemAsync(key);
+    const storedValue = await getSecureItem(key);
+    await deleteSecureItem(key);
     await removeChunks(key, parseManifest(storedValue));
     await AsyncStorage.removeItem(key);
     pendingLegacyKeys.delete(key);

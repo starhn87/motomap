@@ -28,6 +28,7 @@
 | 공유 URL·유니버설 링크 | [share-links.md](share-links.md) | `website/src/index.js`, `website/public/share.js`, `app/place/[id].tsx`, `app/course/[id].tsx` |
 | 통합 검색·검색 결과 지도 | [search.md](search.md) | `app/search.tsx`, `app/search-results.tsx`, `lib/api/search.ts` |
 | 앱 내 길안내 | [navigation.md](navigation.md) | `app/navi.tsx`, `modules/kakao-navi/` |
+| 인증·세션 저장 | [authentication.md](authentication.md) | `lib/authStorage.ts`, `lib/supabase.ts`, `stores/useAuthStore.ts` |
 | 장소 선별·운영 상태 검증 | [place-curation.md](place-curation.md) | `public.places`, `scripts/seed-place-curation.mjs`, 장소 검증 마이그레이션 |
 | 장소·코스 제보 심사 | [submission-moderation.md](submission-moderation.md) | `docs/submission-approval-policy.md`, `supabase/functions/judge-submission/` |
 

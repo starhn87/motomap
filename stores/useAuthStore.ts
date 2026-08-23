@@ -91,6 +91,20 @@ async function resolveSession(
   });
 }
 
+async function restoreCurrentSession(set: (partial: Partial<AuthStore>) => void) {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    await resolveSession(session, set);
+  } catch (error) {
+    Sentry.captureException(error, { tags: { area: 'auth_restore' } });
+    set({
+      status: 'restoring',
+      restoreError: '계정 정보를 불러오지 못했습니다.',
+    });
+  }
+}
+
 export const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
   session: null,
@@ -114,12 +128,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     });
     authSubscription = data.subscription;
 
-    const { data: { session } } = await supabase.auth.getSession();
-    await resolveSession(session, set);
+    await restoreCurrentSession(set);
   },
   refreshOnboardingStatus: async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    await resolveSession(session, set);
+    await restoreCurrentSession(set);
   },
   signOut: async (scope = 'global') => {
     await unregisterPushToken();
