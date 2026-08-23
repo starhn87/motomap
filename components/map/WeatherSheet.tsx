@@ -260,7 +260,6 @@ export default function WeatherSheet({
             emoji={weather.current.emoji}
             size={40}
             lineHeight={48}
-            backgroundColor={colors.background}
           />
           <View style={styles.gradeInfo}>
             <View style={styles.gradeTitleRow}>
@@ -341,7 +340,6 @@ export default function WeatherSheet({
                     emoji={item.h.emoji}
                     size={26}
                     lineHeight={31}
-                    backgroundColor={colors.surface}
                   />
                   <Text style={[styles.hourTemp, { color: colors.text }]}>{item.h.temp}°</Text>
                   {/* 강수확률 0%는 표기 자체를 비운다 (자리는 유지해 셀 높이 정렬) */}

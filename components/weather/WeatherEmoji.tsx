@@ -1,17 +1,15 @@
-import { Text, View, type ColorValue } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { NIGHT_PARTLY_CLOUDY_EMOJI } from '@/constants/weather';
-import CloudyNightIcon from '@/components/weather/CloudyNightIcon';
 
 interface Props {
   emoji: string;
   size: number;
   lineHeight?: number;
-  backgroundColor: ColorValue;
 }
 
-/** 일반 상태는 시스템 이모지를, 구름 많은 밤은 직접 그린 전용 아이콘을 표시한다. */
-export default function WeatherEmoji({ emoji, size, lineHeight, backgroundColor }: Props) {
+/** 구름 많은 밤에는 기존 시스템 달·구름 이모지를 한 칸 안에 겹쳐 표시한다. */
+export default function WeatherEmoji({ emoji, size, lineHeight }: Props) {
   const boxHeight = lineHeight ?? Math.round(size * 1.2);
 
   if (emoji !== NIGHT_PARTLY_CLOUDY_EMOJI) {
@@ -23,8 +21,37 @@ export default function WeatherEmoji({ emoji, size, lineHeight, backgroundColor 
       accessible
       accessibilityLabel="구름 많은 밤"
       pointerEvents="none"
-      style={{ width: size, height: boxHeight, alignItems: 'center', justifyContent: 'center' }}>
-      <CloudyNightIcon size={size} backgroundColor={backgroundColor} />
+      style={{ width: size, height: boxHeight }}>
+      <Text
+        style={[
+          styles.layer,
+          {
+            left: -size * 0.04,
+            top: (boxHeight - size) / 2 - size * 0.04,
+            fontSize: size * 0.42,
+            lineHeight: size * 0.5,
+          },
+        ]}>
+        🌙
+      </Text>
+      <Text
+        style={[
+          styles.layer,
+          {
+            right: -size * 0.04,
+            bottom: (boxHeight - size) / 2 - size * 0.06,
+            fontSize: size * 0.9,
+            lineHeight: size,
+          },
+        ]}>
+        ☁️
+      </Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  layer: {
+    position: 'absolute',
+  },
+});
