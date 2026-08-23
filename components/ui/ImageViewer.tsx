@@ -1,4 +1,4 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useEffect, useState } from 'react';
 import { Modal, View, Text, Pressable, useWindowDimensions, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
@@ -136,7 +136,7 @@ export default function ImageViewer({
           onPress={onClose}
           hitSlop={12}
           style={[styles.closeButton, { top: insets.top + 8 }]}>
-          <MaterialIcons name="close" size={18} color="#FFFFFF" />
+          <FontAwesome name="times" size={18} color="#FFFFFF" />
         </Pressable>
 
         {renderFooter && (

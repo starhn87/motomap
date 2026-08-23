@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { View, Text, StyleSheet, Share, ActivityIndicator, Linking, Pressable } from 'react-native';
 import Animated, {
@@ -367,8 +368,8 @@ function PlaceBottomSheet({
       <TouchableOpacity
         onPress={onClose}
         style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
-        <MaterialIcons
-          name="close"
+        <FontAwesome
+          name="times"
           size={expanded ? 24 : 22}
           color={expanded ? colors.text : colors.textSecondary}
         />

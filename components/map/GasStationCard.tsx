@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 
@@ -110,7 +110,7 @@ export default function GasStationCard({ station, onClose }: Props) {
             onPress={onClose}
             hitSlop={12}
             style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
-            <MaterialIcons name="close" size={20} color={colors.textSecondary} />
+            <FontAwesome name="times" size={20} color={colors.textSecondary} />
           </Pressable>
         </View>
       </View>

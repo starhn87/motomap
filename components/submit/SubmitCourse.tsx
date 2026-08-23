@@ -1,4 +1,4 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import {
   StyleSheet,
   View,
@@ -236,7 +236,7 @@ export default function SubmitCourse() {
               <Pressable
                 onPress={() => removeWaypoint(wp.id)}
                 style={styles.removeButton}>
-                <MaterialIcons name="close" size={13} color="#FFFFFF" />
+                <FontAwesome name="times" size={13} color="#FFFFFF" />
               </Pressable>
             )}
           </View>

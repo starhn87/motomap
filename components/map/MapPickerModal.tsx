@@ -1,7 +1,7 @@
 import { View, Text, Pressable, Modal, StyleSheet, ActivityIndicator } from 'react-native';
 import { useEffect, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { NaverMapView, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -98,7 +98,7 @@ export default function MapPickerModal({ visible, initial, onClose, onPick }: Pr
               opacity: pressed ? 0.7 : 1,
             },
           ]}>
-          <MaterialIcons name="close" size={20} color={colors.text} />
+          <FontAwesome name="times" size={20} color={colors.text} />
         </Pressable>
 
         <View

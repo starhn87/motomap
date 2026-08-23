@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -326,7 +326,7 @@ export default function DirectionsScreen() {
                   }}
                   hitSlop={10}
                   style={styles.recentRemove}>
-                  <MaterialIcons name="close" size={15} color={colors.textSecondary} />
+                  <FontAwesome name="times" size={15} color={colors.textSecondary} />
                 </Pressable>
               </Pressable>
             ))}
