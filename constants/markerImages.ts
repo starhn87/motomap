@@ -1,6 +1,6 @@
 import type { PlaceCategory } from '@/types';
 
-// 카테고리별 지도 마커 이미지 (지도 마커/클러스터 공용)
+// 카테고리별 핀 이미지 — 선택 강조와 경로 미리보기 등에 사용한다.
 export const MARKER_IMAGES: Record<PlaceCategory, any> = {
   cafe: require('@/assets/images/markers/cafe.png'),
   restaurant: require('@/assets/images/markers/restaurant.png'),

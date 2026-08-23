@@ -286,7 +286,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   }, [overlay, mapReady, userLocation, mapCameraAtMount, overlayParams.focusPlaceId, overlayParams.kakaoLat]);
 
   // 즐겨찾기 지도 표시 — 켜면 뷰포트·필터와 무관하게 즐겨찾기가 별 마커로 보인다.
-  // 기존 클러스터 파이프라인에 합류시켜 탭·선택 강조가 그대로 동작한다.
+  // 일반 장소보다 높은 우선순위의 개별 마커로 그려 탭·선택 강조를 유지한다.
   const showFavorites = useMapStore((s) => s.showFavorites);
   const toggleShowFavorites = useMapStore((s) => s.toggleShowFavorites);
   const user = useAuthStore((s) => s.user);
@@ -300,8 +300,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     [favoritePlaces],
   );
 
-  // 즐겨찾기는 클러스터에 넣지 않는다 — 줌아웃해도 묶이지 않고 이름 캡션과
-  // 함께 개별 마커로 항상 보인다(네이버 지도식). 뷰포트 목록과 겹치면 제외.
+  // 즐겨찾기는 이름 캡션과 함께 개별 마커로 항상 보인다(네이버 지도식).
+  // 뷰포트 목록과 겹치면 일반 마커 쪽에서는 제외한다.
   const basePlaces = gasMode ? [] : (supabasePlaces ?? []);
   const places = useMemo(
     () => (showFavorites ? basePlaces.filter((p) => !favIds.has(p.id)) : basePlaces),
@@ -651,36 +651,10 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       bearing: 0,
     };
 
-  // 선택 강조는 별도 오버레이 마커가 맡는다 — selectedPlaceId 를 의존성에서 빼서
-  // 마커 탭마다 클러스터 전체가 네이티브로 재전송·재계산되는 것을 막는다.
-  // 선택된 장소는 별도 선택 마커가 뜨므로 목록에서 빼서 겹침(마커 2개)을 막는다.
-  // 줌이 충분하면 장소를 개별 마커로 그려 이름 캡션을 함께 보여준다(클러스터
-  // 마커는 캡션을 지원하지 않는다). 줌아웃하면 기존 클러스터로 돌아간다.
-  // 일반 캡션은 줌 9부터 시도하고, 즐겨찾기 캡션은 8까지 남는다(네이버 지도식).
-  // 겹침은 SDK(isHideCollidedCaptions/Symbols)가 정리하므로 낮은 줌도 난잡하지 않다.
-  const CAPTION_ZOOM = 9;
-  const FAV_CAPTION_MIN_ZOOM = 8;
-  const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
-  const captionMode = zoom >= CAPTION_ZOOM;
-
-  const clusterMarkers = useMemo(
-    () =>
-      captionMode
-        ? []
-        : places
-            .filter((place) => place.id !== selectedPlaceId)
-            .map((place) => ({
-              identifier: place.id,
-              latitude: place.latitude,
-              longitude: place.longitude,
-              // 줌에 따라 클러스터 리프로 전환돼도 미선택 상태는 원형을 유지한다.
-              // 핀은 아래의 선택 강조 오버레이 하나에만 사용한다.
-              image: MARKER_IMAGES_CIRCLE[place.category],
-              width: 30,
-              height: 30,
-            })),
-    [captionMode, places, selectedPlaceId]
-  );
+  // 등록 장소는 줌과 무관하게 개별 원형 마커로 유지한다. 넓은 지도에서는 SDK가
+  // 낮은 우선순위의 겹친 마커를 숨기고, 이름은 줌 8부터 공간이 있을 때만 표시한다.
+  // 선택된 장소는 아래의 별도 핀 마커 하나로만 강조한다.
+  const PLACE_CAPTION_MIN_ZOOM = 8;
 
   return (
     <View
@@ -746,19 +720,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             bearing: e.bearing ?? 0,
           };
           persistSettledCamera(camera);
-        }}
-        clusters={[
-          {
-            markers: clusterMarkers,
-            screenDistance: 70,
-            minZoom: 1,
-            maxZoom: 16,
-            animate: true,
-          },
-        ]}
-        onTapClusterLeaf={({ markerIdentifier }) => {
-          const place = places.find((p) => p.id === markerIdentifier);
-          if (place) handleMarkerPress(place);
         }}>
         {userLocation && (
           <UserLocationMarker
@@ -768,36 +729,35 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           />
         )}
 
-        {/* 장소 개별 마커 — 캡션 줌 이상에서 원형 마커 + 이름. 줌아웃한 클러스터
-            리프와 같은 모양이며, 핀은 선택된 장소 하나만 사용한다. 겹치는 지도 심벌
-            (기본 POI 텍스트)과 캡션은 SDK 가 숨긴다. */}
-        {captionMode &&
-          places
-            .filter((p) => p.id !== selectedPlaceId)
-            .map((p) => (
-              <NaverMapMarkerOverlay
-                key={p.id}
-                latitude={p.latitude}
-                longitude={p.longitude}
-                image={MARKER_IMAGES_CIRCLE[p.category]}
-                width={30}
-                height={30}
-                anchor={{ x: 0.5, y: 0.5 }}
-                zIndex={10}
-                isHideCollidedSymbols
-                isHideCollidedCaptions
-                caption={{
-                  text: p.name,
-                  textSize: 12,
-                  color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
-                  haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
-                }}
-                onTap={() => handleMarkerPress(p)}
-              />
-            ))}
+        {/* 등록 장소는 모든 줌에서 개별 원형 마커로 그린다. 핀은 선택된 장소 하나만
+            사용하고, 넓은 지도에서 겹치는 마커·기본 심벌·캡션은 SDK가 정리한다. */}
+        {places
+          .filter((p) => p.id !== selectedPlaceId)
+          .map((p) => (
+            <NaverMapMarkerOverlay
+              key={p.id}
+              latitude={p.latitude}
+              longitude={p.longitude}
+              image={MARKER_IMAGES_CIRCLE[p.category]}
+              width={30}
+              height={30}
+              anchor={{ x: 0.5, y: 0.5 }}
+              zIndex={10}
+              isHideCollidedMarkers
+              isHideCollidedSymbols
+              isHideCollidedCaptions
+              caption={{
+                text: p.name,
+                textSize: 12,
+                minZoom: PLACE_CAPTION_MIN_ZOOM,
+                color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
+                haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
+              }}
+              onTap={() => handleMarkerPress(p)}
+            />
+          ))}
 
-        {/* 즐겨찾기 마커 — 클러스터 밖 개별 오버레이라 줌과 무관하게 항상 보인다.
-            캡션은 일반(캡션 줌 9)보다 낮은 줌 8까지 남는다. */}
+        {/* 즐겨찾기는 높은 우선순위로 겹친 일반 마커보다 먼저 보인다. */}
         {showFavorites &&
           (favoritePlaces?.places ?? [])
             .filter((p) => p.id !== selectedPlaceId)
@@ -811,12 +771,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
                 height={30}
                 anchor={{ x: 0.5, y: 0.5 }}
                 zIndex={50}
+                isHideCollidedMarkers
+                isForceShowIcon
                 isHideCollidedSymbols
                 isHideCollidedCaptions
                 caption={{
                   text: p.name,
                   textSize: 13,
-                  minZoom: FAV_CAPTION_MIN_ZOOM,
+                  minZoom: PLACE_CAPTION_MIN_ZOOM,
                   color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
                   haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
                 }}
@@ -840,12 +802,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
               height={30}
               anchor={{ x: 0.5, y: 0.5 }}
               zIndex={50}
+              isHideCollidedMarkers
+              isForceShowIcon
               isHideCollidedSymbols
               isHideCollidedCaptions
               caption={{
                 text: f.name,
                 textSize: 13,
-                minZoom: FAV_CAPTION_MIN_ZOOM,
+                minZoom: PLACE_CAPTION_MIN_ZOOM,
                 color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
                 haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
               }}
@@ -879,6 +843,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             height={44}
             anchor={{ x: 0.5, y: 1 }}
             zIndex={100}
+            isHideCollidedMarkers
+            isForceShowIcon
             isHideCollidedSymbols
             // 선택 마커는 원래 마커를 대신 그리는 것이라 캡션도 함께 가져온다.
             // 겹쳐도 숨기지 않는다 — 지금 보고 있는 곳의 이름은 늘 보여야 한다.
