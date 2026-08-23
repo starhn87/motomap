@@ -851,7 +851,9 @@ const styles = StyleSheet.create({
   },
   nameTouchTarget: {
     flex: 1,
+    alignSelf: 'stretch',
     justifyContent: 'center',
+    paddingRight: 12,
   },
   nameActions: {
     flexDirection: 'row',

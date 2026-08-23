@@ -731,7 +731,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   name: { fontSize: 22, fontWeight: '700' },
-  nameTouchTarget: { flex: 1, justifyContent: 'center' },
+  nameTouchTarget: {
+    flex: 1,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    paddingRight: 12,
+  },
   nameActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   iconButton: {
     width: 36,
