@@ -9,6 +9,7 @@ export interface MapCenter {
   longitude: number;
   zoom: number;
   region?: {
+    // 네이버 지도 SDK의 region 좌표는 중심이 아니라 남서쪽 모서리다.
     latitude: number;
     longitude: number;
     latitudeDelta: number;
@@ -36,8 +37,9 @@ function viewportWindowRadius(center: MapCenter): number | null {
   if (!region || region.latitudeDelta <= 0 || region.longitudeDelta <= 0) return null;
 
   const halfHeight = (region.latitudeDelta / 2) * METERS_PER_LATITUDE_DEGREE;
+  const regionCenterLatitude = region.latitude + region.latitudeDelta / 2;
   const halfWidth =
-    (region.longitudeDelta / 2) * longitudeMetersPerDegree(region.latitude);
+    (region.longitudeDelta / 2) * longitudeMetersPerDegree(regionCenterLatitude);
   return Math.hypot(halfHeight, halfWidth) * MAP_WINDOW_OVERSCAN;
 }
 
@@ -48,11 +50,15 @@ export function isInMapRenderWindow(
   const region = center?.region;
   if (!region || region.latitudeDelta <= 0 || region.longitudeDelta <= 0) return true;
 
+  // region.latitude/longitude는 남서쪽 모서리다. 이를 그대로 중심으로 쓰면
+  // 실제 화면의 북쪽·동쪽 25%가 1.5배 overscan 창에서도 빠진다.
+  const regionCenterLatitude = region.latitude + region.latitudeDelta / 2;
+  const regionCenterLongitude = region.longitude + region.longitudeDelta / 2;
   const latitudeMargin = (region.latitudeDelta * MAP_WINDOW_OVERSCAN) / 2;
   const longitudeMargin = (region.longitudeDelta * MAP_WINDOW_OVERSCAN) / 2;
   return (
-    Math.abs(coordinate.latitude - region.latitude) <= latitudeMargin &&
-    Math.abs(coordinate.longitude - region.longitude) <= longitudeMargin
+    Math.abs(coordinate.latitude - regionCenterLatitude) <= latitudeMargin &&
+    Math.abs(coordinate.longitude - regionCenterLongitude) <= longitudeMargin
   );
 }
 
