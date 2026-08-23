@@ -122,11 +122,40 @@ function normalizeText(value: string | null | undefined): string {
     .replace(/[\s·._\-–—()\[\]{},'"`]/g, "");
 }
 
+// 앱과 주소 정규화 스크립트가 쓰는 축약형을 변경 감지에도 그대로 적용한다.
+// 공급자의 정식 광역 명칭 차이는 실제 주소 변경이 아니며 DB에도 축약형을 유지한다.
+const SIDO: Record<string, string> = {
+  서울특별시: "서울",
+  부산광역시: "부산",
+  대구광역시: "대구",
+  인천광역시: "인천",
+  광주광역시: "광주",
+  대전광역시: "대전",
+  울산광역시: "울산",
+  세종특별자치시: "세종",
+  경기도: "경기",
+  강원도: "강원",
+  강원특별자치도: "강원",
+  충청북도: "충북",
+  충청남도: "충남",
+  전라북도: "전북",
+  전북특별자치도: "전북",
+  전라남도: "전남",
+  경상북도: "경북",
+  경상남도: "경남",
+  제주도: "제주",
+  제주특별자치도: "제주",
+};
+
+function canonicalAddress(value: string | null | undefined): string {
+  const address = (value ?? "").trim();
+  const head = address.split(" ")[0];
+  const short = SIDO[head];
+  return short ? `${short}${address.slice(head.length)}` : address;
+}
+
 function normalizeAddress(value: string | null | undefined): string {
-  return normalizeText(value)
-    .replace(/^대한민국/, "")
-    .replace(/특별자치도/g, "도")
-    .replace(/특별자치시/g, "시");
+  return normalizeText(canonicalAddress(value)).replace(/^대한민국/, "");
 }
 
 function normalizePhone(value: string | null | undefined): string {
@@ -196,9 +225,10 @@ function observedSnapshot(
   candidate: Candidate | null,
 ): Record<string, unknown> {
   if (!candidate) return {};
+  const rawAddress = candidate.road_address_name || candidate.address_name;
   return {
     name: candidate.place_name,
-    address: candidate.road_address_name || candidate.address_name,
+    address: canonicalAddress(rawAddress),
     phone: candidate.phone || null,
     latitude: candidate.latitude,
     longitude: candidate.longitude,
@@ -500,6 +530,7 @@ function detectChanges(
       distance_m: Math.round(candidate.distanceMeters),
       candidate_count: candidates.length,
       source_identity_matched: sourceIdentityMatched,
+      raw_observed_address: observedAddress,
       searches,
     },
   };
