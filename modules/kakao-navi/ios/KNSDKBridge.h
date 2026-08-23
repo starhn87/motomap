@@ -18,6 +18,13 @@ NS_ASSUME_NONNULL_BEGIN
 // 백그라운드 위치 허용 토글 — 안내 중에만 YES. 자세한 사연은 구현부 주석.
 + (void)setBackgroundLocationAllowed:(BOOL)allowed;
 
+// KNSDK 공식 연동 요구사항인 앱 수명주기 전달. 초기화 전 호출은 무시한다.
++ (void)handleWillResignActive;
++ (void)handleDidEnterBackground;
++ (void)handleWillEnterForeground;
++ (void)handleDidBecomeActive;
++ (void)handleWillTerminate;
+
 // 이륜차 경로를 계산한다. 성공하면 distance(m)·duration(초)와
 // polyline([lng, lat, lng, lat, ...] 평면 배열, WGS84)이 채워진다.
 // vias 도 같은 평면 배열 형식(비면 nil 허용). priority 는 KNRoutePriority 원시값.

@@ -94,3 +94,41 @@ KNSDK 1.12.14는 커스텀 자차 이미지 네 장을 저장한 뒤에도 이�
 `carImageType:`, `GpsValid:`의 동작과 안내 시작·GPS 유실/복구·도착 후 안전운행·지도 이동·
 이탈/재탐색·주야간을 실기기에서 확인한다. 공식 API가 이륜차 커스텀 자차를 완전히 지원하면
 비공개 우회를 제거한다.
+
+## NAV-003 — KNSDK 수명주기 전달과 접근성 배열 결함 방어
+
+- 날짜: 2026-08-23
+- 상태: 활성
+- 관련 구현: `KNNaviAppDelegateSubscriber.swift`, `KNSDKBridge.m`, `KNNaviPresenter.m`
+
+### 배경
+
+KNSDK 1.12.14 안내 화면에서 `accessibilityWithType:view:`가 `nil` 뷰를 `NSArray`에 넣어
+종료되는 충돌이 두 경로에서 반복됐다. 하나는 전체 경로 화면의 지도 이동 타이머였고 하나는
+메뉴 자동 닫힘 타이머였다. 특히 전자는 앱이 백그라운드인 이벤트가 포함돼 있었다. 동시에
+카카오모빌리티 공식 연동 문서가 요구하는 `handleWillResignActive` 등 앱 수명주기 이벤트가
+Expo 앱에서 KNSDK로 전달되지 않고 있었다. CocoaPods에 공개된 최신 버전도 1.12.14라 SDK
+업데이트로 해결할 수 없는 상태였다.
+
+### 결정
+
+Expo AppDelegate subscriber로 비활성·백그라운드·포그라운드·활성·종료 이벤트를 KNSDK에
+전달한다. 내비를 쓰지 않은 세션에서 SDK가 초기화되지 않도록 초기화 성공 뒤에만 전달한다.
+
+SDK의 비공개 `accessibilityWithType:view:`는 ABI를 확인한 뒤 경계에서 호출한다. 그 메서드가
+`nil` 배열 원소로 발생시킨 `NSInvalidArgumentException`만 잡아 `accessibilityElements`를
+`nil`로 되돌리고 UIKit의 기본 탐색에 맡긴다. 다른 예외는 숨기지 않고 다시 던진다.
+
+### 검토한 대안과 시행착오
+
+안내 화면 전체의 접근성을 끄면 충돌 가능성은 줄어도 보조 기능을 훼손한다. 모든 Objective-C
+예외를 삼키면 별개의 SDK 결함을 감춘다. SDK 내부 타이머나 화면 전환을 비공개 API로 막으면
+메뉴·전체 경로 기능이 달라질 수 있어 채택하지 않았다. 메인 스레드 HTTP 동기 대기로 잡힌
+2초 앱 멈춤은 같은 SDK 내부 구현이지만 앱 경계에서 비동기로 바꿀 수 없어 별도 추적한다.
+
+### 영향과 재검토 조건
+
+이 변경은 네이티브 빌드가 필요하다. KNSDK가 1.12.14보다 새 버전을 공개하면 우선 업그레이드해
+충돌 재현과 `accessibilityWithType:view:` ABI를 확인하고, 공급사에서 nil 방어를 추가했다면
+앱의 예외 경계를 제거한다. 앱 멈춤이 빈번해지거나 3초 이상으로 늘면 KNSDK 공급사 문의와
+대체 화면을 검토한다.

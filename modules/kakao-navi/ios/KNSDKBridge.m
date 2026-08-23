@@ -15,6 +15,7 @@
 //    적용하고, 끝나면 NO 로 되돌린다 — 화면 꺼짐 안내는 유지, 종료 후엔 차단
 static BOOL gBackgroundLocationAllowed = NO;
 static NSHashTable<CLLocationManager *> *gBackgroundRequesters;
+static BOOL gKNSDKInitialized = NO;
 
 @interface CLLocationManager (MotoMapBackgroundGate)
 @end
@@ -82,6 +83,7 @@ static void installBackgroundGate(void) {
               clientVersion:clientVersion
                  completion:^(KNError *_Nullable error) {
                    if (error == nil) {
+                     gKNSDKInitialized = YES;
                      // 초기화만으로 백그라운드 위치 구독이 켜져, 안내를 안 해도
                      // 앱이 백그라운드에서 GPS 를 계속 받는다(locationd 실측 —
                      // 밤새 배터리 소모의 원인). 여기서 끄고, 안내 화면이 떠
@@ -92,6 +94,26 @@ static void installBackgroundGate(void) {
                    }
                    completion([self errorCodeOf:error], error.msg ?: @"알 수 없는 오류");
                  }];
+}
+
++ (void)handleWillResignActive {
+  if (gKNSDKInitialized) [KNSDK handleWillResignActive];
+}
+
++ (void)handleDidEnterBackground {
+  if (gKNSDKInitialized) [KNSDK handleDidEnterBackground];
+}
+
++ (void)handleWillEnterForeground {
+  if (gKNSDKInitialized) [KNSDK handleWillEnterForeground];
+}
+
++ (void)handleDidBecomeActive {
+  if (gKNSDKInitialized) [KNSDK handleDidBecomeActive];
+}
+
++ (void)handleWillTerminate {
+  if (gKNSDKInitialized) [KNSDK handleWillTerminate];
 }
 
 + (void)requestBikeRouteFromLng:(double)startLng

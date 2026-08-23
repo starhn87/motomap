@@ -64,6 +64,59 @@ static BOOL LockMotoMapCustomCarImage(KNNaviMapView *mapView) {
   return YES;
 }
 
+// KNSDK 1.12.14의 accessibilityWithType:view:는 화면 상태별 UIView 배열을
+// 만들면서 일부 뷰의 nil 여부를 확인하지 않는다. 전체 경로 모드·메뉴 자동 닫힘
+// 타이머가 뷰 전환과 겹치면 NSArray 생성에서 NSInvalidArgumentException 으로
+// 앱이 종료된다(Sentry RIDEMAP-E/G). SDK 내부의 이 예외만 막고 UIKit 기본
+// 접근성 탐색으로 돌린다. 다른 예외는 원인을 가리지 않도록 그대로 다시 던진다.
+static IMP gOriginalAccessibilityImplementation = NULL;
+
+static void MotoMapAccessibility(id naviView,
+                                 SEL selector,
+                                 NSInteger type,
+                                 UIView *_Nullable view) {
+  @try {
+    if (gOriginalAccessibilityImplementation != NULL) {
+      ((void (*)(id, SEL, NSInteger, UIView *_Nullable))gOriginalAccessibilityImplementation)(
+          naviView, selector, type, view);
+    }
+  } @catch (NSException *exception) {
+    BOOL isNilArrayElement =
+        [exception.name isEqualToString:NSInvalidArgumentException] &&
+        [exception.reason containsString:@"attempt to insert nil object"];
+    if (!isNilArrayElement) @throw exception;
+
+    [(UIView *)naviView setAccessibilityElements:nil];
+    NSLog(@"[KNSDK] 비어 있는 접근성 요소를 UIKit 기본 탐색으로 대체");
+  }
+}
+
+static void InstallMotoMapAccessibilityGuard(void) {
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    SEL selector = NSSelectorFromString(@"accessibilityWithType:view:");
+    Method method = class_getInstanceMethod(KNNaviView.class, selector);
+    if (method == NULL) return;
+
+    char returnType[8] = { 0 };
+    char typeArgument[8] = { 0 };
+    char viewArgument[8] = { 0 };
+    method_getReturnType(method, returnType, sizeof(returnType));
+    method_getArgumentType(method, 2, typeArgument, sizeof(typeArgument));
+    method_getArgumentType(method, 3, viewArgument, sizeof(viewArgument));
+    if (method_getNumberOfArguments(method) != 4 ||
+        strcmp(returnType, @encode(void)) != 0 ||
+        strcmp(typeArgument, @encode(NSInteger)) != 0 ||
+        strcmp(viewArgument, @encode(id)) != 0) {
+      return;
+    }
+
+    gOriginalAccessibilityImplementation = method_getImplementation(method);
+    if (gOriginalAccessibilityImplementation == NULL) return;
+    method_setImplementation(method, (IMP)MotoMapAccessibility);
+  });
+}
+
 // 안내 화면을 담는 뷰 컨트롤러. 델리게이트를 받아야 해서 별도 클래스로 둔다.
 // KNNaviView 는 KNGuidance 를 스스로 구독하지 않는다. 가이드 델리게이트를 여기서
 // 전부 받아 naviView 로 넘겨야 화면이 갱신된다. 게다가 델리게이트를 걸지 않으면
@@ -102,6 +155,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 - (void)viewDidLoad {
   [super viewDidLoad];
   self.view.backgroundColor = UIColor.blackColor;
+  InstallMotoMapAccessibilityGuard();
 
   // 미리보기는 시뮬레이션 안내로 — 실주행 안내는 차량 위치를 항상 실제 GPS 에
   // 매칭하므로 정한 출발지에서 시작할 방법이 없다(카메라·위치 주입 API 없음).
