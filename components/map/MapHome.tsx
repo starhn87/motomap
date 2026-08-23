@@ -23,7 +23,7 @@ import Animated, { FadeOut,
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { track } from '@/lib/analytics';
-import { usePlaces } from '@/hooks/usePlaces';
+import { isInMapRenderWindow, usePlaces, type MapCenter } from '@/hooks/usePlaces';
 import { useGasLayer } from '@/hooks/useGasLayer';
 import { useWeather } from '@/hooks/useWeather';
 import { useUserLocation } from '@/hooks/useUserLocation';
@@ -122,11 +122,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   );
   const [initialCameraFallback, setInitialCameraFallback] =
     useState<MapCameraSnapshot | null>(mapCameraAtMount);
-  const [mapCenter, setMapCenter] = useState<{
-    latitude: number;
-    longitude: number;
-    zoom: number;
-  } | null>(() => {
+  const [mapCenter, setMapCenter] = useState<MapCenter | null>(() => {
     const camera = mapCameraAtMount;
     return camera
       ? { latitude: camera.latitude, longitude: camera.longitude, zoom: camera.zoom }
@@ -217,7 +213,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   }, [overlay, isMapFocused, overlayParams.focusTs]);
 
   const persistSettledCamera = useCallback(
-    (camera: MapCameraSnapshot) => {
+    (camera: MapCameraSnapshot, region?: NonNullable<MapCenter['region']>) => {
       if (!overlay) {
         setLastMapCamera(camera);
         setInitialCameraFallback(camera);
@@ -226,6 +222,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         latitude: camera.latitude,
         longitude: camera.longitude,
         zoom: camera.zoom,
+        region,
       });
       // 검색의 "지금 보는 지역" 기준점은 이동이 끝났을 때만 갱신한다.
       useMapStore.getState().setMapCenter({
@@ -310,6 +307,24 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const places = useMemo(
     () => (showFavorites ? basePlaces.filter((p) => !favIds.has(p.id)) : basePlaces),
     [basePlaces, showFavorites, favIds],
+  );
+  const windowedPlaces = useMemo(
+    () => places.filter((place) => isInMapRenderWindow(place, mapCenter)),
+    [places, mapCenter],
+  );
+  const windowedFavoritePlaces = useMemo(
+    () =>
+      (favoritePlaces?.places ?? []).filter((place) =>
+        isInMapRenderWindow(place, mapCenter),
+      ),
+    [favoritePlaces, mapCenter],
+  );
+  const windowedGeneralFavorites = useMemo(
+    () =>
+      (favoritePlaces?.general ?? []).filter((place) =>
+        isInMapRenderWindow(place, mapCenter),
+      ),
+    [favoritePlaces, mapCenter],
   );
   const handleMarkerPress = useCallback(
     (place: Place) => {
@@ -723,7 +738,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             tilt: e.tilt ?? 0,
             bearing: e.bearing ?? 0,
           };
-          persistSettledCamera(camera);
+          persistSettledCamera(camera, e.region);
         }}>
         {userLocation && (
           <UserLocationMarker
@@ -735,7 +750,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
         {/* 등록 장소는 모든 줌에서 개별 원형 마커로 그린다. 아이콘은 숨기지 않고,
             겹치는 기본 심벌과 장소명 캡션만 SDK가 정리한다. */}
-        {places
+        {windowedPlaces
           .filter((p) => p.id !== selectedPlaceId)
           .map((p) => (
             <NaverMapMarkerOverlay
@@ -764,7 +779,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
         {/* 즐겨찾기는 높은 우선순위로 겹친 일반 마커보다 먼저 보인다. */}
         {showFavorites &&
-          (favoritePlaces?.places ?? [])
+          windowedFavoritePlaces
             .filter((p) => p.id !== selectedPlaceId)
             .map((p) => (
               <NaverMapMarkerOverlay
@@ -794,7 +809,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         {/* 등록되지 않은 일반 장소 즐겨찾기 — 카테고리가 없어 색으로 구분되지
             않는다(중립 회색 + 별). 탭하면 등록 장소 대신 임시 카드가 뜬다. */}
         {showFavorites &&
-          (favoritePlaces?.general ?? [])
+          windowedGeneralFavorites
             // 고른 것은 아래에서 핀으로 다시 그린다 — 안 빼면 원형 위에 핀이 겹친다
             .filter((f) => !tempPlace || !findGeneralFavorite([f], tempPlace))
             .map((f) => (
