@@ -4,7 +4,12 @@ import { router } from 'expo-router';
 import { appAlert } from '@/lib/dialog';
 import * as Location from 'expo-location';
 
-import KakaoNavi, { HAZARD_BUTTON_ID, MOTOMAP_MENU_ID, friendlyRouteError } from '@/modules/kakao-navi';
+import KakaoNavi, {
+  HAZARD_BUTTON_ID,
+  MOTOMAP_MENU_ID,
+  friendlyRouteError,
+  supportsKakaoNaviFeature,
+} from '@/modules/kakao-navi';
 import { useGuideSession } from '@/lib/guideSession';
 import { HAZARD_LIST } from '@/constants/hazards';
 import { submitHazard } from '@/lib/api/hazards';
@@ -312,21 +317,23 @@ export function registerGuideEvents(): () => void {
   // 안내 지도의 POI 탭 — 네이버 지도처럼 "그 장소가 뭔지"에 답하되, 주행
   // 맥락에서 의미 있는 행동(목적지 변경)으로 바로 잇는다. 안내 화면은 네이티브
   // 풀스크린이라 RN 장소 시트를 얹을 수 없다 — 액션시트가 이 화면의 관용구다.
-  const poiTap = KakaoNavi.addListener('onGuidePoiTap', ({ name, latitude, longitude }) => {
-    void (async () => {
-      const label = name.trim() || '선택한 지점';
-      const picked = await KakaoNavi.showGuideOptions(label, ['여기로 목적지 변경']);
-      if (picked !== 0) return;
-      const { priority, changeGoal } = useGuideSession.getState();
-      try {
-        await KakaoNavi.changeGuideDestination(longitude, latitude, label, priority);
-        changeGoal({ latitude, longitude, name: label });
-        void KakaoNavi.showGuideNotice(`${label}(으)로 안내를 변경했어요.`);
-      } catch {
-        void KakaoNavi.showGuideNotice('안내를 변경하지 못했어요.');
-      }
-    })();
-  });
+  const poiTap = supportsKakaoNaviFeature('guide_poi_tap')
+    ? KakaoNavi.addListener('onGuidePoiTap', ({ name, latitude, longitude }) => {
+        void (async () => {
+          const label = name.trim() || '선택한 지점';
+          const picked = await KakaoNavi.showGuideOptions(label, ['여기로 목적지 변경']);
+          if (picked !== 0) return;
+          const { priority, changeGoal } = useGuideSession.getState();
+          try {
+            await KakaoNavi.changeGuideDestination(longitude, latitude, label, priority);
+            changeGoal({ latitude, longitude, name: label });
+            void KakaoNavi.showGuideNotice(`${label}(으)로 안내를 변경했어요.`);
+          } catch {
+            void KakaoNavi.showGuideNotice('안내를 변경하지 못했어요.');
+          }
+        })();
+      })
+    : { remove: () => {} };
 
   // 커스텀 슬롯이 하나뿐이라 버튼 하나에서 1차 시트로 가른다
   const menu = KakaoNavi.addListener('onGuideMenu', ({ id }) => {

@@ -23,6 +23,7 @@ set -a; . ./.env; set +a
 - **새 빌드 (네이티브/플러그인/expo-updates 설정 변경 시만)**: `eas build -p ios --profile production`
 - **submit**: `eas submit -p ios --id <buildId> --profile production` (ASC API key는 EAS 서버에 등록돼 있어 `--non-interactive` 가능)
 - ⚠️ expo-updates 이전에 빌드된 바이너리는 OTA를 못 받는다(channel/runtime이 `None`). OTA를 받으려면 expo-updates 포함 빌드를 설치해야 함.
+- 버전·runtime·네이티브/API 계약을 바꾸기 전에 `docs/domain-decisions/release-compatibility.md`를 읽고 `config/release-policy.json`, 릴리즈 노트, 제출 문서를 같은 커밋에서 동기화한다. 빌드·OTA 전 `npm run check:release`를 통과시킨다.
 
 ## 아키텍처
 - **라우팅**: expo-router (`app/`). 탭은 `app/(tabs)/`, 그 외 `app/course`, `app/ride`, `app/legal`.

@@ -17,6 +17,8 @@ export interface AppDialog {
   buttons: DialogButton[];
   /** 리플레이 마스킹 — 메시지에 집 주소 같은 민감 정보가 실릴 때 켠다 */
   maskMessage?: boolean;
+  /** 강제 업데이트처럼 사용자가 임의로 닫으면 안 되는 안내. */
+  dismissible?: boolean;
 }
 
 interface DialogState {
@@ -36,12 +38,13 @@ export function appAlert(
   title: string,
   message?: string,
   buttons?: DialogButton[],
-  options?: { maskMessage?: boolean },
+  options?: { maskMessage?: boolean; dismissible?: boolean },
 ) {
   useDialogStore.getState().show({
     title,
     message,
     buttons: buttons?.length ? buttons : [{ text: '확인' }],
     maskMessage: options?.maskMessage,
+    dismissible: options?.dismissible ?? true,
   });
 }

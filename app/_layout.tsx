@@ -31,8 +31,12 @@ import { registerPushToken, setupNotificationTapHandling } from '@/lib/push';
 import { PostHogProvider } from 'posthog-react-native';
 
 import { posthog, useScreenTracking } from '@/lib/analytics';
+import { getAppReleaseContext } from '@/lib/appVersion';
+import { getKakaoNaviCapabilities } from '@/modules/kakao-navi';
 
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+const nativeCapabilities = getKakaoNaviCapabilities();
+const releaseContext = getAppReleaseContext(nativeCapabilities.bridgeVersion);
 if (sentryDsn) {
   Sentry.init({
     dsn: sentryDsn,
@@ -42,6 +46,15 @@ if (sentryDsn) {
     enableAutoSessionTracking: true,
     tracesSampleRate: 0.2,
     environment: 'production',
+  });
+  Sentry.setTags({
+    app_version: releaseContext.app_version,
+    build_number: releaseContext.build_number,
+    runtime_version: releaseContext.runtime_version,
+    update_id: releaseContext.update_id,
+    update_source: releaseContext.update_source,
+    native_bridge_version: String(releaseContext.native_bridge_version),
+    api_contract_version: String(releaseContext.api_contract_version),
   });
 }
 

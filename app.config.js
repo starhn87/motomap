@@ -1,10 +1,11 @@
+const releasePolicy = require('./config/release-policy.json');
+
 export default {
   expo: {
     name: '모토맵',
     slug: 'ridemap',
-    // 1.2.6: 소셜 로그인·보안 저장소·햅틱 설정·공유 카드처럼 네이티브
-    // 모듈이 필요한 기능을 한 번의 심사 빌드로 묶는다.
-    version: '1.2.6',
+    // 1.2.7: 길안내 수명주기·접근성 충돌 방어와 네이티브 기능 계약을 묶는다.
+    version: releasePolicy.appVersion,
     runtimeVersion: {
       policy: 'appVersion',
     },
@@ -167,6 +168,10 @@ export default {
     ],
     extra: {
       kakaoNativeAppKey: process.env.KAKAO_NATIVE_APP_KEY,
+      compatibility: {
+        nativeBridgeVersion: releasePolicy.nativeBridgeVersion,
+        apiContractVersion: releasePolicy.apiContractVersion,
+      },
       eas: {
         projectId: '46277971-d460-4e19-82eb-df05f18ff9f7',
       },

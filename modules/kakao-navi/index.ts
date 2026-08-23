@@ -1,4 +1,4 @@
-import { requireNativeModule } from 'expo-modules-core';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 
 // 카카오내비 SDK(KNSDK) 네이티브 브리지. iOS 전용.
 export interface BikeRoute {
@@ -71,7 +71,42 @@ export function friendlyRouteError(err: unknown, knCode?: string | null): string
   return String((err as { message?: string })?.message ?? err);
 }
 
+export const KAKAO_NAVI_FEATURES = [
+  'bike_route_preview',
+  'guide_options',
+  'guide_hazard_report',
+  'guide_poi_tap',
+  'custom_car_image_guard',
+  'app_lifecycle_forwarding',
+  'accessibility_nil_guard',
+] as const;
+
+export type KakaoNaviFeature = (typeof KAKAO_NAVI_FEATURES)[number];
+
+/**
+ * capability 상수를 도입하기 전 바이너리가 이미 제공하던 계약.
+ * bridgeVersion 0을 기능 없음으로 취급하면 이전 runtime 백포트에서 정상 기능까지
+ * 숨겨지므로, 검증된 기존 기능만 보수적으로 명시한다.
+ */
+const LEGACY_KAKAO_NAVI_FEATURES = [
+  'bike_route_preview',
+  'guide_options',
+  'guide_hazard_report',
+  'guide_poi_tap',
+] as const satisfies readonly KakaoNaviFeature[];
+
+type GuideEventPayload = {
+  onGuideStarted: undefined;
+  onGuideEnd: undefined;
+  onGuideFailed: { code?: string | null; message: string };
+  onGuideMenu: { id: number };
+  onGuidePoiTap: { name: string; latitude: number; longitude: number };
+};
+
 interface KakaoNaviModule {
+  /** 네이티브 wire 계약. 구버전 바이너리에는 없을 수 있어 optional이다. */
+  bridgeVersion?: number;
+  features?: string[];
   /** 앱 키로 SDK 인증. 실패 시 reject */
   initialize(appKey: string): Promise<boolean>;
   /**
@@ -92,27 +127,9 @@ interface KakaoNaviModule {
     priority: RoutePriority,
     preview: boolean,
   ): Promise<void>;
-  addListener(
-    event: 'onGuideStarted',
-    listener: () => void,
-  ): { remove: () => void };
-  addListener(
-    event: 'onGuideEnd',
-    listener: () => void,
-  ): { remove: () => void };
-  addListener(
-    event: 'onGuideFailed',
-    // code 는 KNSDK 에러 코드(문자열) — SDK 밖에서 난 실패면 없다
-    listener: (payload: { code?: string | null; message: string }) => void,
-  ): { remove: () => void };
-  addListener(
-    event: 'onGuideMenu',
-    listener: (payload: { id: number }) => void,
-  ): { remove: () => void };
-  /** 안내 지도의 기본 POI(상호·건물) 탭 — 이름은 빈 문자열일 수 있다 */
-  addListener(
-    event: 'onGuidePoiTap',
-    listener: (payload: { name: string; latitude: number; longitude: number }) => void,
+  addListener<E extends keyof GuideEventPayload>(
+    event: E,
+    listener: (payload: GuideEventPayload[E]) => void,
   ): { remove: () => void };
   /** 안내 화면 위 액션시트. 고른 인덱스, 취소면 -1 */
   showGuideOptions(title: string, labels: string[]): Promise<number>;
@@ -136,4 +153,46 @@ interface KakaoNaviModule {
   ): Promise<BikeRoute>;
 }
 
-export default requireNativeModule<KakaoNaviModule>('KakaoNavi');
+const nativeModule = requireOptionalNativeModule<KakaoNaviModule>('KakaoNavi');
+const unavailable = () => Promise.reject(new Error('이 기기에서는 앱 내 길안내를 지원하지 않습니다.'));
+const unavailableModule = {
+  bridgeVersion: 0,
+  features: [],
+  initialize: unavailable,
+  startGuide: unavailable,
+  addListener: () => ({ remove: () => {} }),
+  showGuideOptions: unavailable,
+  showGuideNotice: unavailable,
+  changeGuideDestination: unavailable,
+  requestBikeRoute: unavailable,
+} as KakaoNaviModule;
+
+const KakaoNavi = nativeModule ?? unavailableModule;
+
+export function isKakaoNaviAvailable(): boolean {
+  return nativeModule !== null;
+}
+
+export function getKakaoNaviCapabilities(): {
+  bridgeVersion: number;
+  features: KakaoNaviFeature[];
+} {
+  const bridgeVersion =
+    typeof KakaoNavi.bridgeVersion === 'number' ? KakaoNavi.bridgeVersion : 0;
+  const reportedFeatures = KakaoNavi.features;
+  const features = new Set(
+    nativeModule && bridgeVersion === 0 && reportedFeatures === undefined
+      ? LEGACY_KAKAO_NAVI_FEATURES
+      : (reportedFeatures ?? []),
+  );
+  return {
+    bridgeVersion,
+    features: KAKAO_NAVI_FEATURES.filter((feature) => features.has(feature)),
+  };
+}
+
+export function supportsKakaoNaviFeature(feature: KakaoNaviFeature): boolean {
+  return getKakaoNaviCapabilities().features.includes(feature);
+}
+
+export default KakaoNavi;

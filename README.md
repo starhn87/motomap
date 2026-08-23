@@ -163,6 +163,11 @@ npx eas submit --profile production --platform ios --latest
 
 # JS만 바뀐 업데이트는 OTA로 배포
 npx eas update --channel production --platform ios --message "..."
+
+# 버전·릴리즈 노트·네이티브 계약 동기화 확인
+npm run check:release
 ```
 
 > ⚠️ 이미 App Store에 출시된 버전 위에 새 빌드를 올릴 때는 **`app.config.js`의 `version`을 반드시 기존보다 올려야** 합니다 (동일 버전은 `ITMS-90186` train closed 로 거부). 빌드 번호는 production 프로파일의 `autoIncrement`가 처리합니다.
+>
+> 지원 범위, 구버전 OTA 백포트, 원격 최소 버전과 롤백 절차는 [릴리스·버전 호환성 정책](docs/domain-decisions/release-compatibility.md)을 먼저 확인합니다.

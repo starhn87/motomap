@@ -307,7 +307,7 @@ Sentry.wrap(
 
 ### `app.config.js` (동적, env → 네이티브)
 
-- **버전/OTA**: `version` 1.1.0, `runtimeVersion: appVersion` 정책, updates 채널 `production`. 런타임이 빌드와 일치해야 OTA 적용.
+- **버전/OTA**: `version` 1.2.7, `runtimeVersion: appVersion` 정책, updates 채널 `production`. `config/release-policy.json`이 앱·지원·네이티브·API 계약 버전의 기준이며 런타임이 빌드와 일치해야 OTA가 적용된다. 운영 원칙과 백포트·강제 업데이트 절차는 [릴리스 호환성 결정](domain-decisions/release-compatibility.md)을 따른다.
 - **권한**: iOS 위치(`NSLocationWhenInUse`)·사진 설명, Android `ACCESS_FINE/COARSE_LOCATION` — 모두 **지도의 현재 위치 표시용**(앱 사용 중에만).
 - **플러그인**: expo-router, expo-location(앱 사용 중 위치), naver-map, kakao-core, expo-build-properties(네이버 Maven), sentry, `./plugins/withQuerySchemes`.
 - **키**: `NAVER_MAP_CLIENT_ID`·`KAKAO_NATIVE_APP_KEY`·Sentry org/project·`EXPO_PUBLIC_*` (Supabase·네이버·Sentry DSN).

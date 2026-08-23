@@ -3,6 +3,8 @@ import { usePathname } from 'expo-router';
 import PostHog from 'posthog-react-native';
 
 import type { RiderFactCode } from '@/constants/riderFacts';
+import { getAppReleaseContext } from '@/lib/appVersion';
+import { getKakaoNaviCapabilities } from '@/modules/kakao-navi';
 
 // 제품 분석 — 어떤 경로로 장소를 찾아 실제로 달리는지, 어디서 이탈하는지.
 // 설계와 금지 항목은 docs/analytics-events.md 참고. 크래시·성능은 Sentry 담당이라
@@ -33,6 +35,15 @@ export const posthog = enabled
       },
     })
   : null;
+
+if (posthog) {
+  // 모든 제품 이벤트를 같은 바이너리·OTA·네이티브 계약 축으로 나눈다.
+  // register는 로컬 저장소에 보존되어 이후 capture에 자동으로 붙는다.
+  void posthog
+    .register(getAppReleaseContext(getKakaoNaviCapabilities().bridgeVersion))
+    // 잠금 상태의 저장소 등 진단 태그 실패가 앱 시작의 unhandled가 되면 안 된다.
+    .catch(() => {});
+}
 
 // ── 이벤트 ────────────────────────────────────────────────────────────────
 

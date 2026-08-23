@@ -173,7 +173,7 @@ ASC > App Privacy > **Get Started**
 - Used for tracking: **No**
 - Purposes: **App Functionality** (Diagnostics는 + Analytics)
 
-### D-4. Version Information (1.2.6)
+### D-4. Version Information (1.2.7)
 - [x] `lib/updateCheck.ts`의 `RELEASE_NOTES`에 출시 버전 공지 추가 (다음 버전에도 반복)
 - [ ] **Promotional Text** (170자)
 - [ ] **Description** (4000자)
@@ -181,7 +181,7 @@ ASC > App Privacy > **Get Started**
 - [ ] Support URL: GitHub Issues
 - [ ] Marketing URL: `https://motomap.kr`
 - [ ] Copyright: `© 2026 모토맵`
-- [ ] **What's New**: `docs/app-store-listing.md`의 1.2.6 새로운 기능
+- [ ] **What's New**: `docs/app-store-listing.md`의 1.2.7 새로운 기능
 - [ ] **Screenshots**: 6.9" Display에 드래그앤드롭
 
 ### D-5. App Review Information

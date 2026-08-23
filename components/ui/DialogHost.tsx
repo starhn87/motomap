@@ -25,15 +25,20 @@ export default function DialogHost() {
 
   // 버튼을 먼저 닫고 실행 — onPress 가 다음 다이얼로그를 열 수 있다(탈퇴 재확인)
   const press = (b: DialogButton | undefined) => {
-    hide();
+    // 강제 업데이트는 App Store에서 돌아와도 계속 남아 있어야 우회할 수 없다.
+    if (dialog.dismissible !== false) hide();
     b?.onPress?.();
   };
 
   const MessageWrap = dialog.maskMessage ? PostHogMaskView : View;
 
+  const dismiss = () => {
+    if (dialog.dismissible !== false) press(cancel);
+  };
+
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={() => press(cancel)}>
-      <Pressable style={styles.backdrop} onPress={() => press(cancel)}>
+    <Modal visible transparent animationType="fade" onRequestClose={dismiss}>
+      <Pressable style={styles.backdrop} onPress={dismiss}>
         {/* 카드 자체 탭은 닫히지 않게 — 내부 Pressable 이 이벤트를 삼킨다 */}
         <Pressable
           style={[styles.card, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}

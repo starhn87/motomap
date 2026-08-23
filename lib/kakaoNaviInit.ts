@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 
-import KakaoNavi from '@/modules/kakao-navi';
+import KakaoNavi, { isKakaoNaviAvailable } from '@/modules/kakao-navi';
 
 // KNSDK lazy 초기화 — 앱 시작에서 하지 않는다. 초기화가 백그라운드 위치 구독을
 // 켜서 길안내를 안 해도 앱이 백그라운드에서 계속 GPS 를 받는다(실측: locationd
@@ -10,6 +10,9 @@ let pending: Promise<void> | null = null;
 
 export function ensureKakaoNaviReady(): Promise<void> {
   if (!pending) {
+    if (!isKakaoNaviAvailable()) {
+      return Promise.reject(new Error('이 기기에서는 앱 내 길안내를 지원하지 않습니다.'));
+    }
     const appKey = Constants.expoConfig?.extra?.kakaoNativeAppKey as string | undefined;
     if (!appKey) return Promise.reject(new Error('카카오 앱 키가 없습니다.'));
     pending = KakaoNavi.initialize(appKey).then(
