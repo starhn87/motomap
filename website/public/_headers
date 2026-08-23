@@ -14,6 +14,9 @@
 /app-store-badge-ko.svg
   Cache-Control: public, max-age=604800
 
+/share.js
+  Cache-Control: public, max-age=3600
+
 /bike-silhouette.png
   Cache-Control: public, max-age=604800
 

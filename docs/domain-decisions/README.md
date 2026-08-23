@@ -25,6 +25,7 @@
 |---|---|---|
 | 지도·장소 상세·지도 날씨 | [map-place-details.md](map-place-details.md) | `components/map/`, `stores/useMapStore.ts` |
 | 공통 아이콘·터치 피드백 | [interaction-feedback.md](interaction-feedback.md) | `app/`, `components/`의 터치 액션 |
+| 공유 URL·유니버설 링크 | [share-links.md](share-links.md) | `website/src/index.js`, `website/public/share.js`, `app/place/[id].tsx`, `app/course/[id].tsx` |
 | 통합 검색·검색 결과 지도 | [search.md](search.md) | `app/search.tsx`, `app/search-results.tsx`, `lib/api/search.ts` |
 | 앱 내 길안내 | [navigation.md](navigation.md) | `app/navi.tsx`, `modules/kakao-navi/` |
 | 장소 선별·운영 상태 검증 | [place-curation.md](place-curation.md) | `public.places`, `scripts/seed-place-curation.mjs`, 장소 검증 마이그레이션 |

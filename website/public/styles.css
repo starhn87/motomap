@@ -48,6 +48,94 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+.shared-page {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  padding: 24px;
+}
+
+.shared-card {
+  width: min(100%, 620px);
+  padding: clamp(34px, 7vw, 64px);
+  border: 1px solid var(--line);
+  border-radius: 34px;
+  background: rgba(21, 23, 26, 0.94);
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.4);
+}
+
+.shared-brand {
+  margin-bottom: clamp(54px, 9vw, 76px);
+}
+
+.shared-app-icon {
+  display: grid;
+  width: 112px;
+  height: 112px;
+  margin-bottom: 36px;
+  border: 1px solid var(--line);
+  border-radius: 30px;
+  background: #090a0b;
+  place-items: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+}
+
+.shared-app-icon img {
+  border-radius: 22px;
+}
+
+.shared-card h1 {
+  font-size: clamp(38px, 7vw, 58px);
+}
+
+.shared-card > p:not(.eyebrow) {
+  min-height: 58px;
+  margin: 24px 0 34px;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.shared-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.primary-button,
+.secondary-button {
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.primary-button {
+  background: var(--accent);
+  color: #061017;
+}
+
+.secondary-button {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.home-link {
+  display: inline-block;
+  margin-top: 34px;
+  color: #85878c;
+  font-size: 13px;
+  font-weight: 700;
+  transition: color 180ms ease;
+}
+
+.home-link:hover {
+  color: #f6f6f4;
+}
+
 .site-header {
   position: fixed;
   z-index: 30;
@@ -982,6 +1070,24 @@ footer small {
 }
 
 @media (max-width: 680px) {
+  .shared-page {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .shared-card {
+    display: flex;
+    min-height: 100svh;
+    flex-direction: column;
+    justify-content: center;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .shared-actions {
+    flex-direction: column;
+  }
+
   .site-header,
   .promise-strip,
   .garage-section,
