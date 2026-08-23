@@ -50,7 +50,12 @@ export default function WeatherFab({ weather, open, onPress }: Props) {
           borderColor: weather.gradeColor,
         },
       ]}>
-      <WeatherEmoji emoji={weather.current.emoji} size={18} lineHeight={20} />
+      <WeatherEmoji
+        emoji={weather.current.emoji}
+        size={18}
+        lineHeight={20}
+        backgroundColor={colors.background}
+      />
       <Text style={[styles.temp, { color: colors.text }]}>{weather.current.temp}°</Text>
     </AnimatedPressable>
   );
