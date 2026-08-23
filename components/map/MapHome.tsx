@@ -673,11 +673,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
               identifier: place.id,
               latitude: place.latitude,
               longitude: place.longitude,
-              image: MARKER_IMAGES[place.category],
-              // 클러스터 마커는 앵커 지정이 안 돼(ClusterMarkerProp) 하단 중앙 고정 —
-              // 꼬리 끝이 좌표를 찍는 핀을 그대로 쓴다. 원형은 개별 마커 전용.
-              width: 32,
-              height: 37,
+              // 줌에 따라 클러스터 리프로 전환돼도 미선택 상태는 원형을 유지한다.
+              // 핀은 아래의 선택 강조 오버레이 하나에만 사용한다.
+              image: MARKER_IMAGES_CIRCLE[place.category],
+              width: 30,
+              height: 30,
             })),
     [captionMode, places, selectedPlaceId]
   );
@@ -768,9 +768,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           />
         )}
 
-        {/* 장소 개별 마커 — 캡션 줌 이상에서 원형 마커 + 이름. 원은 핀보다 자리를
-            덜 차지해 몰린 지역도 덜 답답하다. 겹치는 지도 심벌(기본 POI 텍스트)과
-            캡션은 SDK 가 숨긴다. */}
+        {/* 장소 개별 마커 — 캡션 줌 이상에서 원형 마커 + 이름. 줌아웃한 클러스터
+            리프와 같은 모양이며, 핀은 선택된 장소 하나만 사용한다. 겹치는 지도 심벌
+            (기본 POI 텍스트)과 캡션은 SDK 가 숨긴다. */}
         {captionMode &&
           places
             .filter((p) => p.id !== selectedPlaceId)
