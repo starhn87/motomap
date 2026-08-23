@@ -14,6 +14,11 @@
 //   (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 는 자동 주입)
 // 배포 시 "Enforce JWT verification" 은 끈다 — 인증은 x-judge-secret 헤더로 한다.
 import Anthropic from 'npm:@anthropic-ai/sdk@0.116.0';
+import {
+  SUBMISSION_POLICY_PROMPT,
+  SUBMISSION_POLICY_RULE_IDS,
+  SUBMISSION_POLICY_VERSION,
+} from '../_shared/submissionPolicy.ts';
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 
@@ -31,6 +36,7 @@ const MODEL = 'claude-sonnet-5';
 interface Verdict {
   verdict: 'approve' | 'reject' | 'uncertain';
   confidence: 'high' | 'medium' | 'low';
+  criteria: string[];
   reason: string;
   userReason: string;
 }
@@ -40,6 +46,13 @@ const VERDICT_SCHEMA = {
   properties: {
     verdict: { type: 'string', enum: ['approve', 'reject', 'uncertain'] },
     confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+    criteria: {
+      type: 'array',
+      items: { type: 'string', enum: SUBMISSION_POLICY_RULE_IDS },
+      minItems: 1,
+      maxItems: 6,
+      description: '판정에 직접 사용한 승인 기준 규칙 ID',
+    },
     reason: { type: 'string', description: '판정 근거 (한국어, 1~3문장)' },
     userReason: {
       type: 'string',
@@ -50,33 +63,14 @@ const VERDICT_SCHEMA = {
         '내부 판정 용어(카카오 로컬, 웹 조사, confidence 등)는 쓰지 않는다.',
     },
   },
-  required: ['verdict', 'confidence', 'reason', 'userReason'],
+  required: ['verdict', 'confidence', 'criteria', 'reason', 'userReason'],
   additionalProperties: false,
 } as const;
 
 const SYSTEM = `너는 "모토맵"(한국 오토바이 라이더용 지도 앱)의 제보 심사 보조자다.
-지도에는 라이더에게 실질 가치가 있는 장소만 올린다.
+지도에는 라이더에게 실질 가치가 있고 안전하게 이용할 수 있는 장소와 코스만 올린다.
 
-판정 기준:
-- 승인: 바이커 카페(라이더 집결지), 오토바이 정비소, 바이크 용품점, 라이딩 뷰포인트,
-  라이더가 실제로 애용하는 휴게소·주유소처럼 "라이더 특화" 정체성의 근거가 있는 곳.
-  제보 설명이 비어 있어도 웹 조사에서 라이더 커뮤니티·블로그가 라이딩 목적지로
-  다루는 근거가 확인되면 승인해도 된다.
-- 반려: "일반 장소"라는 적극적 근거가 있을 때 — 예: 조사 결과 평범한 카페/맛집이고
-  라이더 관련 언급이 전혀 없음. "바이크 주차 가능", "라이더가 가기 좋음" 정도의
-  설명만으로는 승인 근거가 되지 않는다(실제로 그런 일반 맛집을 관리자가 반려했다).
-- 유보(uncertain): 근거가 없거나 상충할 때. 근거 부재는 반려가 아니라 유보다.
-- 코스: 실제 라이딩 코스로서 정합성(경로·거리·설명), 장난/스팸 여부를 본다.
-
-카테고리별 예외 — 맛집(restaurant)·주유소(gas_station)는 "라이더 전용" 업태가
-사실상 없으므로 기준을 달리한다:
-- 맛집: 라이더 커뮤니티·블로그·유튜브에서 라이딩 코스 맛집으로 반복 언급되거나,
-  유명 라이딩 동선(집결지·와인딩·해안 코스) 위에 있고 주차가 넉넉하면 승인 근거가 된다.
-- 주유소: 고급휘발유(고옥탄) 상시 취급, 또는 산간·장거리 코스의 마지막/유일 주유소처럼
-  라이더에게 실질 정보 가치가 있으면 승인 근거가 된다. 평범한 도심 주유소는 반려.
-- 세차(car_wash): 셀프세차장도 "라이더 전용" 업태가 없다. 바이크 출입·이용이
-  가능하다는 근거(커뮤니티 후기, 이륜차 이용 정황, 제보 설명의 구체 경험)가 있으면
-  승인 근거가 된다. 바이크 출입 금지가 확인되면 반려.`;
+${SUBMISSION_POLICY_PROMPT}`;
 
 interface KakaoEvidence {
   place_name: string;
@@ -86,6 +80,43 @@ interface KakaoEvidence {
   matches_submitted_address: boolean;
   lat: number;
   lng: number;
+}
+
+async function duplicateEvidence(
+  table: string,
+  record: Record<string, unknown>,
+): Promise<string> {
+  if (!SB_URL || !SB_KEY) return '(조회 불가)';
+
+  const queries = table === 'places'
+    ? [
+        ['address', String(record.address ?? '').trim()],
+        ['name', String(record.name ?? '').trim()],
+      ]
+    : [['name', String(record.name ?? '').trim()]];
+
+  try {
+    const candidates = await Promise.all(queries.filter(([, value]) => value).map(async ([field, value]) => {
+      const params = new URLSearchParams({
+        select: 'id,name,approved',
+        id: `neq.${String(record.id)}`,
+        deleted_at: 'is.null',
+        [field]: `eq.${value}`,
+        limit: '5',
+      });
+      const res = await fetch(`${SB_URL}/rest/v1/${table}?${params}`, {
+        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      return await res.json() as { id: string; name: string; approved: boolean }[];
+    }));
+    const unique = [...new Map(candidates.flat().map((row) => [row.id, row])).values()];
+    return unique.length === 0
+      ? '정확히 같은 이름·주소의 활성 장소/코스 없음'
+      : JSON.stringify(unique.map((row) => ({ name: row.name, status: row.approved ? 'approved' : 'pending' })));
+  } catch {
+    return '(조회 실패 — 중복 여부 판단 유보)';
+  }
 }
 
 async function kakaoLookup(name: string, address: string): Promise<KakaoEvidence[] | null> {
@@ -177,6 +208,8 @@ async function judge(table: string, record: Record<string, unknown>): Promise<{ 
   const evidenceParts: string[] = [];
   let submitted = '';
 
+  evidenceParts.push('중복 대조: ' + await duplicateEvidence(table, record));
+
   if (table === 'places') {
     submitted = JSON.stringify({
       name: record.name, category: record.category, address: record.address,
@@ -200,11 +233,18 @@ async function judge(table: string, record: Record<string, unknown>): Promise<{ 
       if (hoursEvidence) evidenceParts.push('영업시간 대조(참고): ' + hoursEvidence);
     }
 
+    const categoryResearch = record.category === 'camping'
+      ? '특히 운영자·공공기관·공식 예약 페이지에서 바이크나 차량이 배정 사이트까지 진입해 ' +
+        '사이트 안 또는 바로 옆에 주차하는 오토캠핑인지 확인하라. 별도 주차장에서 짐을 옮기는 ' +
+        '일반 야영장이라면 그 사실을 명시하라.'
+      : '카테고리에 맞는 라이더 특화 가치와 오토바이의 안전한 진입·주차 근거를 확인하라.';
+
     // 웹 조사 — 제보 텍스트에 근거가 없어도 유명 라이더 스팟은 여기서 드러난다
     const web = await webResearch(
       `한국의 장소 "${record.name}" (주소: ${record.address ?? '?'}) 이(가) 오토바이 라이더들에게 ` +
       `알려진 곳인지 웹에서 조사하라. "${record.name} 바이크", "${record.name} 오토바이", "${record.name} 라이더" 등으로 검색해 ` +
-      `라이더 커뮤니티·블로그·후기의 언급 여부를 확인하고, 발견한 근거를 한국어 3~5문장으로 요약하라. ` +
+      `운영자·공공기관·공식 브랜드처럼 현재성이 있는 출처를 우선하고, 라이더 커뮤니티·블로그·후기의 ` +
+      `언급 여부도 확인하라. ${categoryResearch} 발견한 근거를 한국어 3~5문장으로 요약하라. ` +
       `근거가 없으면 "라이더 관련 언급을 찾지 못함"이라고 명시하라.`,
     ).catch((e) => `(웹 조사 실패: ${String(e).slice(0, 120)})`);
     evidenceParts.push('웹 조사: ' + web);
@@ -342,6 +382,7 @@ async function judgeAndPost(table: string, record: Record<string, unknown>) {
     await postDiscord(
       `🤖 AI 판정 — ${icon} ${record.name}\n` +
       `**${VERDICT_LABEL[v.verdict]}** (${CONFIDENCE_LABEL[v.confidence]})\n` +
+      `기준: ${SUBMISSION_POLICY_VERSION} · ${v.criteria.join(', ')}\n` +
       `근거: ${v.reason}\n` +
       `반려 시 안내 문구: ${v.userReason}`,
       [
