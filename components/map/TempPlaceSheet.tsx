@@ -432,18 +432,19 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             <Animated.View style={spacerStyle} />
 
           <View style={styles.nameRow}>
-            <TouchableOpacity
+            <Pressable
               accessibilityLabel={`${place.name} 상세 펼치기`}
               accessibilityRole="button"
               accessibilityState={{ expanded: isExpanded }}
-              activeOpacity={0.7}
               onPress={() => {
                 const index = currentIndexRef.current;
                 if (index < SNAP_POINTS.length - 1) {
                   bottomSheetRef.current?.snapToIndex(index + 1);
                 }
               }}
-              style={styles.nameTouchTarget}>
+              style={styles.nameRowPressTarget}
+            />
+            <View pointerEvents="none" style={styles.nameContent}>
               <Text
                 style={[styles.name, { color: colors.text }]}
                 numberOfLines={2}
@@ -451,7 +452,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                 lineBreakStrategyIOS="push-out">
                 {place.name}
               </Text>
-            </TouchableOpacity>
+            </View>
             {!isExpanded && (
               <Animated.View
                 entering={FadeIn.duration(200)}
@@ -731,11 +732,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   name: { fontSize: 22, fontWeight: '700' },
-  nameTouchTarget: {
+  nameRowPressTarget: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  nameContent: {
     flex: 1,
     alignSelf: 'stretch',
     justifyContent: 'center',
-    paddingRight: 12,
+    paddingRight: 16,
   },
   nameActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   iconButton: {

@@ -513,18 +513,19 @@ function PlaceBottomSheet({
           <Animated.View style={spacerStyle} />
 
           <View style={styles.nameRow}>
-            <TouchableOpacity
+            <Pressable
               accessibilityLabel={`${displayPlace.name} 상세 펼치기`}
               accessibilityRole="button"
               accessibilityState={{ expanded: isExpanded }}
-              activeOpacity={0.7}
               onPress={() => {
                 const index = currentIndexRef.current;
                 if (index < SNAP_POINTS.length - 1) {
                   bottomSheetRef.current?.snapToIndex(index + 1);
                 }
               }}
-              style={styles.nameTouchTarget}>
+              style={styles.nameRowPressTarget}
+            />
+            <View pointerEvents="none" style={styles.nameContent}>
               <Text
                 style={[styles.name, { color: colors.text }]}
                 numberOfLines={2}
@@ -532,7 +533,7 @@ function PlaceBottomSheet({
                 lineBreakStrategyIOS="push-out">
                 {displayPlace.name}
               </Text>
-            </TouchableOpacity>
+            </View>
             {!isExpanded && (
               <Animated.View
                 entering={FadeIn.duration(200)}
@@ -849,11 +850,14 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
   },
-  nameTouchTarget: {
+  nameRowPressTarget: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  nameContent: {
     flex: 1,
     alignSelf: 'stretch',
     justifyContent: 'center',
-    paddingRight: 12,
+    paddingRight: 16,
   },
   nameActions: {
     flexDirection: 'row',
