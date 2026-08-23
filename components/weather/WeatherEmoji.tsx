@@ -26,10 +26,10 @@ export default function WeatherEmoji({ emoji, size, lineHeight }: Props) {
         style={[
           styles.layer,
           {
-            left: -size * 0.04,
-            top: (boxHeight - size) / 2 - size * 0.04,
-            fontSize: size * 0.42,
-            lineHeight: size * 0.5,
+            left: size * 0.02,
+            top: (boxHeight - size) / 2,
+            fontSize: size * 0.38,
+            lineHeight: size * 0.46,
           },
         ]}>
         🌙
