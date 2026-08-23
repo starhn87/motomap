@@ -8,7 +8,7 @@ interface Props {
 
 /** 폰트 글리프 여백 없이 버튼 영역을 충분히 채우는 공용 닫기 아이콘. */
 export default function CloseIcon({ size = 24, color, strokeWidth }: Props) {
-  const lineLength = PixelRatio.roundToNearestPixel(size * 1.06);
+  const lineLength = PixelRatio.roundToNearestPixel(size * 1.03);
   const lineThickness = PixelRatio.roundToNearestPixel(
     strokeWidth ?? Math.max(1.5, size * 0.09),
   );
