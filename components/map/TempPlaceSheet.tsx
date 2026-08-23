@@ -690,7 +690,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
           <TouchableOpacity
             onPress={() => bottomSheetRef.current?.close()}
             style={[styles.iconButton, styles.pageHeaderIconButton]}>
-            <Ionicons name="chevron-back" size={24} color={colors.text} />
+            <Ionicons name="chevron-back" size={28} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.nameActions}>{renderActions(true)}</View>
         </Animated.View>
