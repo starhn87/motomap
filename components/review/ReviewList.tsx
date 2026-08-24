@@ -27,6 +27,39 @@ import HighlightPulse from '@/components/ui/HighlightPulse';
 import StarRating from './StarRating';
 import PhotoDragList from './PhotoDragList';
 import type { ReviewTarget } from '@/lib/api/reviews';
+import type { Review } from '@/types';
+
+interface ReviewPhotoItem {
+  url: string;
+  review: Review;
+  indexInReview: number;
+}
+
+type ViewerState =
+  | { kind: 'avatar'; photos: string[]; index: number }
+  | { kind: 'reviews'; items: ReviewPhotoItem[]; index: number };
+
+function ReviewPhotoOverlay({ review }: { review: Review }) {
+  return (
+    <View pointerEvents="none" style={styles.photoOverlay}>
+      <View style={styles.photoOverlayHeader}>
+        <Text style={styles.photoOverlayName} numberOfLines={1}>
+          {review.userName}
+          {review.bikeModel ? `  ·  ${review.bikeModel}` : ''}
+        </Text>
+        <Text style={styles.photoOverlayStars}>
+          {'★'.repeat(review.rating)}
+          {'☆'.repeat(Math.max(0, 5 - review.rating))}
+        </Text>
+      </View>
+      {review.content ? (
+        <Text style={styles.photoOverlayContent} numberOfLines={3}>
+          {review.content}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
 
 interface Props {
   target: ReviewTarget;
@@ -68,9 +101,19 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
   // 사진 업로드 포함 저장 전 과정을 잠가 연타 중복 저장을 막는다
   const [savingEdit, setSavingEdit] = useState(false);
   const [reportingId, setReportingId] = useState<string | null>(null);
-  const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
+  const [viewer, setViewer] = useState<ViewerState | null>(null);
 
   const visibleReviews = reviews?.filter((r) => !blockedIds.has(r.userId));
+  const reviewPhotoItems: ReviewPhotoItem[] =
+    visibleReviews?.flatMap((review) =>
+      review.photos.map((url, indexInReview) => ({ url, review, indexInReview })),
+    ) ?? [];
+  const viewerReviewItems = viewer?.kind === 'reviews' ? viewer.items : null;
+  const viewerPhotos = viewerReviewItems
+    ? viewerReviewItems.map((item) => item.url)
+    : viewer?.kind === 'avatar'
+      ? viewer.photos
+      : [];
 
   if (isLoading) {
     return <ActivityIndicator size="small" color={colors.tint} style={{ marginVertical: 16 }} />;
@@ -232,7 +275,9 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
                 {review.avatarUrl ? (
                   <TouchableOpacity
                     activeOpacity={0.85}
-                    onPress={() => setViewer({ photos: [review.avatarUrl!], index: 0 })}>
+                    onPress={() =>
+                      setViewer({ kind: 'avatar', photos: [review.avatarUrl!], index: 0 })
+                    }>
                     <RNImage source={{ uri: review.avatarUrl }} style={styles.avatarImage} />
                   </TouchableOpacity>
                 ) : (
@@ -318,7 +363,17 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
                       <TouchableOpacity
                         key={`${url}-${i}`}
                         activeOpacity={0.85}
-                        onPress={() => setViewer({ photos: review.photos, index: i })}>
+                        onPress={() => {
+                          const index = reviewPhotoItems.findIndex(
+                            (item) =>
+                              item.review.id === review.id && item.indexInReview === i,
+                          );
+                          setViewer({
+                            kind: 'reviews',
+                            items: reviewPhotoItems,
+                            index: Math.max(0, index),
+                          });
+                        }}>
                         <RNImage source={{ uri: url }} style={styles.reviewPhoto} />
                       </TouchableOpacity>
                     ))}
@@ -413,15 +468,50 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
       />
       <ImageViewer
         visible={!!viewer}
-        photos={viewer?.photos ?? []}
+        photos={viewerPhotos}
         initialIndex={viewer?.index ?? 0}
         onClose={() => setViewer(null)}
+        renderFooter={
+          viewerReviewItems
+            ? (index) => {
+                const review = viewerReviewItems[index]?.review;
+                return review ? <ReviewPhotoOverlay review={review} /> : null;
+              }
+            : undefined
+        }
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  photoOverlay: {
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 14,
+    padding: 14,
+    gap: 6,
+  },
+  photoOverlayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  photoOverlayName: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  photoOverlayStars: {
+    color: '#FACC15',
+    fontSize: 13,
+  },
+  photoOverlayContent: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 13,
+    lineHeight: 19,
+  },
   moreButton: {
     borderWidth: 1,
     borderRadius: 12,
