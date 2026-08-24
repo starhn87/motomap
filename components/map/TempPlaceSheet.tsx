@@ -675,26 +675,16 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
               style={({ pressed }) => [
                 styles.communityShareCard,
                 {
-                  backgroundColor: communityShare?.sharedByMe
-                    ? colors.tint + '10'
-                    : colors.surface,
-                  borderColor: communityShare?.sharedByMe ? colors.tint : colors.border,
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
                   opacity: pressed ? 0.76 : 1,
                 },
               ]}>
-              <View
-                style={[
-                  styles.communityShareIcon,
-                  {
-                    backgroundColor: communityShare?.sharedByMe
-                      ? colors.tint
-                      : colors.surfaceMuted,
-                  },
-                ]}>
+              <View style={styles.communityShareIcon}>
                 <Ionicons
                   name={communityShare?.sharedByMe ? 'checkmark-circle' : 'checkmark-circle-outline'}
-                  size={21}
-                  color={communityShare?.sharedByMe ? colors.background : colors.text}
+                  size={24}
+                  color={communityShare?.sharedByMe ? colors.tint : colors.textSecondary}
                 />
               </View>
               <View style={styles.communityShareCopy}>
@@ -957,9 +947,8 @@ const styles = StyleSheet.create({
     marginBottom: DETAIL_CARD_GAP,
   },
   communityShareIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
