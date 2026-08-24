@@ -4,7 +4,7 @@
  * 사람용 원문은 docs/submission-approval-policy.md다. 기준을 바꿀 때는 문서와 이 파일의
  * 버전·규칙 ID·판정 경계를 같은 커밋에서 함께 바꾼다.
  */
-export const SUBMISSION_POLICY_VERSION = '2026-08-24.3';
+export const SUBMISSION_POLICY_VERSION = '2026-08-24.4';
 
 export const SUBMISSION_POLICY_RULE_IDS = [
   'COMMON-IDENTITY',
@@ -24,6 +24,11 @@ export const SUBMISSION_POLICY_RULE_IDS = [
   'PLACE-VIEWPOINT',
   'PLACE-CAR-WASH',
   'PLACE-CAMPING',
+  'GUIDE-PLACE-IDENTITY',
+  'GUIDE-RIDER-VALUE',
+  'GUIDE-ROAD-SAFETY',
+  'GUIDE-DUPLICATE',
+  'GUIDE-EDITORIAL',
   'COURSE-GEOMETRY',
   'COURSE-ROAD-ACCESS',
   'COURSE-COHERENCE',
@@ -33,8 +38,8 @@ export const SUBMISSION_POLICY_RULE_IDS = [
 export const SUBMISSION_POLICY_PROMPT = `제보 승인 기준 버전 ${SUBMISSION_POLICY_VERSION}
 
 공통 판정 원칙
-- COMMON-IDENTITY: 실제로 식별 가능한 현재 장소·코스여야 한다. 장소는 이름·주소·좌표가 같은
-  대상을 가리켜야 하고, 코스는 출발지·도착지·경유지가 구체적이어야 한다.
+- COMMON-IDENTITY: 실제로 식별 가능한 현재 장소·라이딩 추천이어야 한다. 장소는 이름·주소·좌표가
+  같은 대상을 가리켜야 하고, 라이딩 추천의 대표 목적지와 선택 장소도 안정적인 장소 ID로 식별돼야 한다.
 - COMMON-EVIDENCE: 승인은 현재성이 있는 강한 근거 1개(운영자·공공기관·공식 브랜드·공식
   예약 페이지) 또는 서로 독립적인 최근 보조 근거 2개 이상을 원칙으로 한다. 지도 공급자 한 곳의
   결과나 제보자의 추상적인 홍보 문구만으로 승인하지 않는다. 근거를 찾지 못한 것 자체는 반려가
@@ -79,7 +84,22 @@ export const SUBMISSION_POLICY_PROMPT = `제보 승인 기준 버전 ${SUBMISSIO
   PLACE-VALUE-RIDE-UTILITY다. 별도 주차장에서 짐을 옮기는 일반 야영장, 글램핑·카라반 전용
   시설은 reject하고, 사이트 진입 여부를 확인할 수 없으면 uncertain이다.
 
-코스 기준
+라이딩 추천 제안 기준
+- GUIDE-PLACE-IDENTITY: 대표 목적지는 정확히 하나이고 모든 선택 장소가 실제 동일한 장소인지
+  등록 장소 또는 일반 장소의 안정적인 ID·이름·주소로 확인한다. 등록 장소 승인 기준이나 바이크
+  특화 여부는 요구하지 않는다.
+- GUIDE-RIDER-VALUE: 추천 이유가 단순 광고·유명세·좌표 나열이 아니라 라이더가 실제 방문할
+  목적지 가치, 도로의 분위기, 휴식·경관·음식·집결 같은 구체 경험을 설명해야 한다.
+- GUIDE-ROAD-SAFETY: 추천 도로가 있으면 이륜차가 합법적으로 통행할 수 있어야 한다. 고속도로·
+  자동차전용도로·사유지·상시 통제 구간을 권하면 reject하고, 불확실한 도로 문구만 편집에서
+  제외할 수 있으면 전체 제안은 uncertain 또는 새 추천 준비로 제안할 수 있다.
+- GUIDE-DUPLICATE: 대표 목적지·주제·함께 들를 곳을 종합해 기존 공개 추천과 실질적으로 같은지
+  판단한다. 같은 목적지라도 계절·테마·장소 구성이 충분히 다르면 별도 추천이 될 수 있다.
+- GUIDE-EDITORIAL: AI는 new_guide, merge_existing, uncertain, reject 중 하나를 제안한다. 운영자가
+  Discord에서 새 추천 초안 준비, 기존 추천 병합 준비, 반려를 최종 선택한다. 준비 단계에서는
+  사용자에게 공개 완료 알림을 보내지 않고, 편집·검수 후 published 또는 merged가 될 때만 보낸다.
+
+지원 중인 구버전의 레거시 코스 기준
 - COURSE-GEOMETRY: 대한민국 범위의 서로 다른 좌표가 2개 이상이고 순서가 명확해야 한다.
 - COURSE-ROAD-ACCESS: 오토바이가 합법적으로 통행할 수 있는 공개 도로여야 한다. 고속도로·
   자동차전용도로·사유지·상시 통제 구간이 포함되면 reject하고, 접근성을 확인할 수 없으면 uncertain이다.

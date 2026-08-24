@@ -1,4 +1,4 @@
-// 디스코드 AI 판정 메시지의 [승인]/[반려] 링크가 여는 원클릭 심사 엔드포인트.
+// 디스코드 AI 판정 메시지의 심사 링크가 여는 원클릭 엔드포인트.
 // judge-submission 이 서명(HMAC)해 둔 링크만 유효하다 — URL 추측으로는 처리 불가.
 //
 // 응답은 JSON 이다 — Supabase 게이트웨이가 EF 의 text/html 을 안티피싱 정책으로
@@ -76,7 +76,61 @@ Deno.serve(async (req) => {
   const table = u.searchParams.get('t');
   const id = u.searchParams.get('id');
   const action = u.searchParams.get('a');
+  const targetGuideId = u.searchParams.get('g') ?? '';
   const s = u.searchParams.get('s');
+
+  if (table === 'riding_guide_submissions') {
+    if (
+      !id || !action || !s ||
+      !['prepare_new', 'prepare_merge', 'reject'].includes(action) ||
+      !/^[0-9a-f-]{36}$/.test(id) ||
+      (action === 'prepare_merge' && !/^[0-9a-f-]{36}$/.test(targetGuideId))
+    ) {
+      return page(400, '잘못된 라이딩 추천 심사 요청이에요');
+    }
+    if (s !== (await sign(`${table}:${id}:${action}:${targetGuideId}`))) {
+      return page(403, '링크 서명이 올바르지 않아요');
+    }
+
+    const response = await sb('rpc/resolve_riding_guide_submission_review', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_submission_id: id,
+        p_action: action,
+        p_target_guide_id: targetGuideId || null,
+        p_acted_by: 'signed-link',
+      }),
+    });
+    let payload: Record<string, unknown> | null = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    if (!response.ok) {
+      const message = payload && typeof payload.message === 'string'
+        ? payload.message.slice(0, 220)
+        : `HTTP ${response.status}`;
+      return page(500, '처리에 실패했어요', message);
+    }
+
+    const title = typeof payload?.guideTitle === 'string'
+      ? payload.guideTitle
+      : typeof payload?.submissionTitle === 'string'
+        ? payload.submissionTitle
+        : id;
+    if (action === 'reject') {
+      await discordLog(`🔴 라이딩 추천 제안 반려 완료 — ${title}`);
+      return page(200, '❌ 반려 완료', `${title} — 제보자에게 사유와 함께 알림이 발송됐어요.`);
+    }
+    const mode = action === 'prepare_merge' ? '병합 대상 확정' : '비공개 초안 생성';
+    await discordLog(`🟡 라이딩 추천 ${mode} — ${title}`);
+    return page(
+      200,
+      `✅ ${mode}`,
+      `${title} — 편집·검수 후 공개 완료해야 사용자에게 알림이 발송돼요.`,
+    );
+  }
 
   if (
     !table || !id || !action || !s ||

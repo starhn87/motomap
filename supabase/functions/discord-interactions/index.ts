@@ -7,6 +7,9 @@
 //
 // custom_id 규약:
 //   mod:approve:places:<uuid> / mod:reject:courses:<uuid>  — 심사 실행
+//   guide:prepare_new:<uuid>                               — 비공개 추천 초안 생성
+//   guide:prepare_merge:<uuid>:<guide_uuid>                — 기존 추천 병합 준비
+//   guide:reject:<uuid>                                    — 라이딩 추천 제안 반려
 //   reply:feedback:<uuid>                                   — 답변 모달 열기
 //   replymodal:feedback:<uuid>                              — 모달 제출 (답변 저장)
 //   placechange:apply:<uuid> / placechange:dismiss:<uuid>   — 장소 변경 계획 처리
@@ -126,6 +129,69 @@ async function handleModeration(
   return updateMessage(
     baseContent,
     '🔴 **반려 완료** — 제보자에게 사유와 함께 알림이 발송됐어요.',
+  );
+}
+
+// ── 라이딩 추천 제안 (편집 준비/반려) ───────────────────────
+
+async function handleRidingGuideReview(
+  action: string,
+  submissionId: string,
+  targetGuideId: string | null,
+  actorId: string,
+  baseContent: string,
+): Promise<Response> {
+  if (
+    !['prepare_new', 'prepare_merge', 'reject'].includes(action) ||
+    !UUID_RE.test(submissionId) ||
+    (action === 'prepare_merge' && (!targetGuideId || !UUID_RE.test(targetGuideId)))
+  ) {
+    return ephemeral('잘못된 라이딩 추천 심사 요청이에요.');
+  }
+  if (!/^\d{5,25}$/.test(actorId)) {
+    return ephemeral('처리자 정보를 확인할 수 없어요.');
+  }
+
+  const response = await sb('rpc/resolve_riding_guide_submission_review', {
+    method: 'POST',
+    body: JSON.stringify({
+      p_submission_id: submissionId,
+      p_action: action,
+      p_target_guide_id: targetGuideId,
+      p_acted_by: `discord:${actorId}`,
+    }),
+  });
+  let payload: Record<string, unknown> | null = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  if (!response.ok) {
+    const message = payload && typeof payload.message === 'string'
+      ? payload.message.slice(0, 220)
+      : `HTTP ${response.status}`;
+    return ephemeral(`처리하지 못했어요 — ${message}`);
+  }
+
+  const submissionTitle = typeof payload?.submissionTitle === 'string'
+    ? payload.submissionTitle
+    : '라이딩 추천 제안';
+  if (action === 'reject') {
+    return updateMessage(
+      baseContent,
+      `🔴 **반려 완료** — ${submissionTitle} · <@${actorId}>`,
+    );
+  }
+
+  const guideTitle = typeof payload?.guideTitle === 'string'
+    ? payload.guideTitle
+    : submissionTitle;
+  const mode = action === 'prepare_merge' ? '병합 대상 확정' : '비공개 초안 생성';
+  return updateMessage(
+    baseContent,
+    `🟡 **${mode}** — ${guideTitle} · <@${actorId}>\n` +
+      '편집·검수 후 published/merged로 완료해야 사용자에게 알림이 발송돼요.',
   );
 }
 
@@ -266,6 +332,17 @@ Deno.serve(async (req) => {
     const parts = String(interaction.data?.custom_id ?? '').split(':');
     if (parts[0] === 'mod' && parts.length === 4) {
       return handleModeration(parts[1], parts[2], parts[3], baseContent);
+    }
+    if (parts[0] === 'guide') {
+      const actorId = String(
+        interaction.member?.user?.id ?? interaction.user?.id ?? '',
+      );
+      if (parts[1] === 'prepare_merge' && parts.length === 4) {
+        return handleRidingGuideReview(parts[1], parts[2], parts[3], actorId, baseContent);
+      }
+      if (['prepare_new', 'reject'].includes(parts[1]) && parts.length === 3) {
+        return handleRidingGuideReview(parts[1], parts[2], null, actorId, baseContent);
+      }
     }
     if (parts[0] === 'reply' && parts[1] === 'feedback' && parts.length === 3) {
       return openReplyModal(parts[2]);

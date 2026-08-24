@@ -1,4 +1,4 @@
-// 제보(장소·코스) AI 판정 — DB 트리거(notify_ai_judge)가 호출하는 Edge Function.
+// 제보(장소·라이딩 추천·레거시 코스) AI 판정 — DB 트리거가 호출하는 Edge Function.
 // 1) 카카오 로컬 교차검증 + 웹 검색으로 라이더 근거 조사 → 2) 구조화 판정 →
 // 3) 결과(승인 추천/반려 추천/판단 유보 + 근거)를 디스코드로 발송.
 //    메시지의 [승인]/[반려] 버튼은 moderate EF 로 연결 — 클릭 한 번으로 처리된다.
@@ -41,6 +41,15 @@ interface Verdict {
   userReason: string;
 }
 
+interface RidingGuideVerdict {
+  resolution: 'new_guide' | 'merge_existing' | 'reject' | 'uncertain';
+  confidence: 'high' | 'medium' | 'low';
+  criteria: string[];
+  reason: string;
+  userReason: string;
+  mergeGuideId: string;
+}
+
 const VERDICT_SCHEMA = {
   type: 'object',
   properties: {
@@ -63,6 +72,49 @@ const VERDICT_SCHEMA = {
     },
   },
   required: ['verdict', 'confidence', 'criteria', 'reason', 'userReason'],
+  additionalProperties: false,
+} as const;
+
+const RIDING_GUIDE_VERDICT_SCHEMA = {
+  type: 'object',
+  properties: {
+    resolution: {
+      type: 'string',
+      enum: ['new_guide', 'merge_existing', 'reject', 'uncertain'],
+    },
+    confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+    criteria: {
+      type: 'array',
+      items: {
+        type: 'string',
+        enum: [
+          'COMMON-IDENTITY',
+          'COMMON-EVIDENCE',
+          'COMMON-SAFETY',
+          'COMMON-DUPLICATE',
+          'COMMON-CONTENT',
+          'GUIDE-PLACE-IDENTITY',
+          'GUIDE-RIDER-VALUE',
+          'GUIDE-ROAD-SAFETY',
+          'GUIDE-DUPLICATE',
+          'GUIDE-EDITORIAL',
+        ],
+      },
+      minItems: 1,
+      description: '판정에 직접 사용한 규칙 ID를 중요도 순으로 1~6개',
+    },
+    reason: { type: 'string', description: '운영자에게 보여줄 판정 근거 (한국어, 1~4문장)' },
+    userReason: {
+      type: 'string',
+      description:
+        '반려 시 사용자에게 보낼 이유만 담은 한국어 해요체 1~2문장. 내부 판정 용어는 쓰지 않는다.',
+    },
+    mergeGuideId: {
+      type: 'string',
+      description: 'merge_existing이면 기존 추천 id, 나머지는 빈 문자열',
+    },
+  },
+  required: ['resolution', 'confidence', 'criteria', 'reason', 'userReason', 'mergeGuideId'],
   additionalProperties: false,
 } as const;
 
@@ -203,6 +255,169 @@ async function webResearch(prompt: string): Promise<string> {
     .trim();
 }
 
+interface GuideStopEvidence {
+  position: number;
+  role: 'primary' | 'stop';
+  place_id: string | null;
+  general_place_id: string | null;
+  note: string | null;
+}
+
+interface GuideEvidenceRow {
+  id: string;
+  title: string;
+  summary: string;
+  featured_roads: string[] | null;
+  tags: string[] | null;
+}
+
+async function judgeRidingGuideSubmission(
+  record: Record<string, unknown>,
+): Promise<{ verdict: RidingGuideVerdict; mergeGuideTitle: string | null }> {
+  if (!SB_URL || !SB_KEY) throw new Error('Supabase service configuration missing');
+  const submissionId = String(record.id ?? '');
+  const headers = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` };
+  const [submittedStopsRes, guidesRes, guideStopsRes] = await Promise.all([
+    fetch(
+      `${SB_URL}/rest/v1/riding_guide_submission_stops?submission_id=eq.${submissionId}&select=position,role,place_id,general_place_id,note&order=position.asc`,
+      { headers },
+    ),
+    fetch(
+      `${SB_URL}/rest/v1/riding_guides?published_at=not.is.null&deleted_at=is.null&select=id,title,summary,featured_roads,tags`,
+      { headers },
+    ),
+    fetch(
+      `${SB_URL}/rest/v1/riding_guide_stops?select=guide_id,position,role,place_id,general_place_id,note&order=position.asc`,
+      { headers },
+    ),
+  ]);
+  if (!submittedStopsRes.ok || !guidesRes.ok || !guideStopsRes.ok) {
+    throw new Error(
+      `라이딩 추천 근거 로드 실패 ${submittedStopsRes.status}/${guidesRes.status}/${guideStopsRes.status}`,
+    );
+  }
+
+  const submittedStops = (await submittedStopsRes.json()) as GuideStopEvidence[];
+  if (!submittedStops.some((stop) => stop.role === 'primary')) {
+    throw new Error('대표 목적지를 아직 조회하지 못했습니다. 재시도 대상입니다.');
+  }
+  const guides = (await guidesRes.json()) as GuideEvidenceRow[];
+  const guideStops = (await guideStopsRes.json()) as (GuideStopEvidence & { guide_id: string })[];
+  const allStops = [...submittedStops, ...guideStops];
+  const registeredIds = [...new Set(allStops.flatMap((stop) => stop.place_id ? [stop.place_id] : []))];
+  const generalIds = [...new Set(allStops.flatMap((stop) => stop.general_place_id ? [stop.general_place_id] : []))];
+  const emptyResponse = () => Promise.resolve({ ok: true, json: async () => [] });
+  const [placesRes, generalRes] = await Promise.all([
+    registeredIds.length
+      ? fetch(
+          `${SB_URL}/rest/v1/places?id=in.(${registeredIds.join(',')})&select=id,name,address,approved,deleted_at`,
+          { headers },
+        )
+      : emptyResponse(),
+    generalIds.length
+      ? fetch(
+          `${SB_URL}/rest/v1/general_places?id=in.(${generalIds.join(',')})&select=id,name,address,provider,provider_place_id,promoted_place_id`,
+          { headers },
+        )
+      : emptyResponse(),
+  ]);
+  if (!placesRes.ok || !generalRes.ok) {
+    throw new Error(`라이딩 추천 장소 로드 실패`);
+  }
+
+  const registered = await placesRes.json() as {
+    id: string;
+    name: string;
+    address: string;
+    approved: boolean;
+    deleted_at: string | null;
+  }[];
+  const general = await generalRes.json() as {
+    id: string;
+    name: string;
+    address: string;
+    provider: string;
+    provider_place_id: string;
+    promoted_place_id: string | null;
+  }[];
+  const placeMap = new Map(registered.map((place) => [`place:${place.id}`, place]));
+  const generalMap = new Map(general.map((place) => [`general:${place.id}`, place]));
+  const resolveStop = (stop: GuideStopEvidence) => {
+    const target = stop.place_id
+      ? placeMap.get(`place:${stop.place_id}`)
+      : stop.general_place_id
+        ? generalMap.get(`general:${stop.general_place_id}`)
+        : undefined;
+    return {
+      role: stop.role,
+      identity: stop.place_id ? `place:${stop.place_id}` : `general:${stop.general_place_id}`,
+      name: target?.name ?? '(장소 정보 없음)',
+      address: target?.address ?? '',
+      note: stop.note,
+    };
+  };
+
+  const submitted = submittedStops.map(resolveStop);
+  const existingGuides = guides.map((guide) => ({
+    id: guide.id,
+    title: guide.title,
+    summary: guide.summary,
+    featuredRoads: guide.featured_roads ?? [],
+    tags: guide.tags ?? [],
+    places: guideStops
+      .filter((stop) => stop.guide_id === guide.id)
+      .map(resolveStop),
+  }));
+  const primary = submitted.find((stop) => stop.role === 'primary');
+  const web = await webResearch(
+    `라이딩 추천 제안의 사실성과 안전성을 조사하라. 대표 목적지는 "${primary?.name}" ` +
+    `(주소: ${primary?.address || '?'})이고 함께 들를 곳은 ` +
+    `${submitted.filter((stop) => stop.role === 'stop').map((stop) => stop.name).join(', ') || '없음'}이다. ` +
+    `추천 도로 문구는 ${(record.featured_roads as string[] | undefined)?.join(', ') || '없음'}이다. ` +
+    `장소가 현재 식별되는지, 추천 도로에 이륜차 통행 금지인 고속도로·자동차전용도로·상시 통제 ` +
+    `구간이 포함되는지 공식·현재성 있는 출처를 우선해 확인하고 한국어 3~6문장으로 요약하라. ` +
+    `확인할 수 없는 항목은 확인 불가라고 명시하라.`,
+  ).catch((error) => `(웹 조사 실패: ${String(error).slice(0, 120)})`);
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 2048,
+    system: SYSTEM,
+    output_config: { format: { type: 'json_schema', schema: RIDING_GUIDE_VERDICT_SCHEMA } },
+    messages: [{
+      role: 'user',
+      content:
+        `라이딩 추천 제안을 심사하라.\n` +
+        `제안: ${JSON.stringify({
+          title: record.title,
+          reason: record.reason,
+          featuredRoads: record.featured_roads,
+          tags: record.tags,
+          places: submitted,
+        })}\n\n` +
+        `기존 공개 추천: ${JSON.stringify(existingGuides)}\n\n` +
+        `외부 조사: ${web}\n\n` +
+        `등록 장소 승인 기준은 적용하지 마라. 실질적으로 같은 기존 추천에 보완 가치가 있으면 ` +
+        `merge_existing과 해당 id를, 별도 편집 가치가 있으면 new_guide를 제안하라. ` +
+        `불확실한 추천 도로 문구만 제거해도 목적지 가치가 남으면 전체를 곧바로 reject하지 마라.`,
+    }],
+  });
+
+  const text = response.content.find((block) => block.type === 'text')?.text ?? '{}';
+  const parsed = JSON.parse(text) as RidingGuideVerdict;
+  const mergeGuide = guides.find((guide) => guide.id === parsed.mergeGuideId);
+  const resolution = parsed.resolution === 'merge_existing' && !mergeGuide
+    ? 'uncertain'
+    : parsed.resolution;
+  const verdict = {
+    ...parsed,
+    resolution,
+    mergeGuideId: resolution === 'merge_existing' ? parsed.mergeGuideId : '',
+    criteria: parsed.criteria.slice(0, 6),
+  };
+  return { verdict, mergeGuideTitle: mergeGuide?.title ?? null };
+}
+
 async function judge(table: string, record: Record<string, unknown>): Promise<{ v: Verdict; evidence: string }> {
   const evidenceParts: string[] = [];
   let submitted = '';
@@ -303,6 +518,16 @@ async function moderateUrl(table: string, id: string, action: 'approve' | 'rejec
   return `${SB_URL}/functions/v1/moderate?t=${table}&id=${id}&a=${action}&s=${s}`;
 }
 
+async function guideModerateUrl(
+  id: string,
+  action: 'prepare_new' | 'prepare_merge' | 'reject',
+  guideId = '',
+) {
+  const s = await sign(`riding_guide_submissions:${id}:${action}:${guideId}`);
+  const guideParam = guideId ? `&g=${guideId}` : '';
+  return `${SB_URL}/functions/v1/moderate?t=riding_guide_submissions&id=${id}&a=${action}${guideParam}&s=${s}`;
+}
+
 // 판정과 함께 만든 제보자용 반려 문구를 저장 — 실패해도 판정 발송은 계속한다
 async function saveUserReason(table: string, id: string, userReason: string) {
   if (!SB_URL || !SB_KEY) return;
@@ -319,6 +544,23 @@ async function saveUserReason(table: string, id: string, userReason: string) {
   } catch {
     // 저장 실패 시 반려 버튼은 기본 문구로 나간다
   }
+}
+
+async function saveRidingGuideVerdict(id: string, verdict: RidingGuideVerdict) {
+  if (!SB_URL || !SB_KEY) throw new Error('Supabase service configuration missing');
+  const response = await fetch(`${SB_URL}/rest/v1/riding_guide_submissions?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: {
+      apikey: SB_KEY,
+      Authorization: `Bearer ${SB_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ai_recommendation: verdict,
+      ai_judged_at: new Date().toISOString(),
+    }),
+  });
+  if (!response.ok) throw new Error(`AI 판정 저장 실패 ${response.status}`);
 }
 
 // 봇이 설정돼 있으면 채널 메시지 API 로 진짜 버튼을 단다 (클릭은 discord-interactions
@@ -370,8 +612,60 @@ const VERDICT_LABEL: Record<Verdict['verdict'], string> = {
 const CONFIDENCE_LABEL: Record<Verdict['confidence'], string> = {
   high: '확신 높음', medium: '보통', low: '낮음',
 };
+const GUIDE_RESOLUTION_LABEL: Record<RidingGuideVerdict['resolution'], string> = {
+  new_guide: '✅ 새 추천 준비 제안',
+  merge_existing: '🔀 기존 추천 병합 제안',
+  reject: '❌ 반려 추천',
+  uncertain: '🤔 판단 유보',
+};
 
 async function judgeAndPost(table: string, record: Record<string, unknown>) {
+  if (table === 'riding_guide_submissions') {
+    const id = String(record.id ?? '');
+    const title = String(record.title ?? '라이딩 추천 제안');
+    try {
+      const { verdict, mergeGuideTitle } = await judgeRidingGuideSubmission(record);
+      await saveRidingGuideVerdict(id, verdict);
+      const actions = [
+        {
+          label: '새 추천 준비',
+          style: 3,
+          customId: `guide:prepare_new:${id}`,
+          url: await guideModerateUrl(id, 'prepare_new'),
+        },
+        ...(verdict.resolution === 'merge_existing' && verdict.mergeGuideId
+          ? [{
+              label: '병합 준비',
+              style: 1,
+              customId: `guide:prepare_merge:${id}:${verdict.mergeGuideId}`,
+              url: await guideModerateUrl(id, 'prepare_merge', verdict.mergeGuideId),
+            }]
+          : []),
+        {
+          label: '반려',
+          style: 4,
+          customId: `guide:reject:${id}`,
+          url: await guideModerateUrl(id, 'reject'),
+        },
+      ];
+      await postDiscord(
+        `🤖 AI 판정 — 🧭 ${title}\n` +
+        `**${GUIDE_RESOLUTION_LABEL[verdict.resolution]}** (${CONFIDENCE_LABEL[verdict.confidence]})\n` +
+        (mergeGuideTitle ? `병합 대상: ${mergeGuideTitle} (${verdict.mergeGuideId})\n` : '') +
+        `기준: ${SUBMISSION_POLICY_VERSION} · ${verdict.criteria.join(', ')}\n` +
+        `근거: ${verdict.reason}\n` +
+        `반려 시 안내 문구: ${verdict.userReason}\n` +
+        `새 추천·병합 버튼은 편집 준비만 하며, 검수 후 공개 완료 때 사용자에게 알려요.`,
+        actions,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('riding guide submission judge failed', { id, error: message.slice(0, 500) });
+      await postDiscord(`🤖 AI 판정 실패 — 🧭 ${title}\n${message.slice(0, 300)}`);
+    }
+    return;
+  }
+
   const icon = table === 'places' ? '📍' : '🛣️';
   try {
     const { v } = await judge(table, record);
