@@ -218,7 +218,15 @@ export default function SettingsScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}>
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>사용 환경</Text>
-      <View style={[styles.settingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <Text style={[styles.environmentLabel, { color: colors.text }]}>테마</Text>
+      <View style={styles.themeRow}>
+        <ThemeOption label="시스템" value="system" current={mode} onPress={setMode} />
+        <ThemeOption label="라이트" value="light" current={mode} onPress={setMode} />
+        <ThemeOption label="다크" value="dark" current={mode} onPress={setMode} />
+      </View>
+
+      <View
+        style={[styles.settingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.settingText}>
           <Text style={[styles.settingLabel, { color: colors.text }]}>햅틱 피드백</Text>
           <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>버튼과 지도 선택의 진동 반응</Text>
@@ -234,15 +242,6 @@ export default function SettingsScreen() {
             trackColor={{ false: colors.border, true: semantic.success }}
           />
         </View>
-      </View>
-
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-        테마
-      </Text>
-      <View style={styles.themeRow}>
-        <ThemeOption label="시스템" value="system" current={mode} onPress={setMode} />
-        <ThemeOption label="라이트" value="light" current={mode} onPress={setMode} />
-        <ThemeOption label="다크" value="dark" current={mode} onPress={setMode} />
       </View>
 
       {user ? (
@@ -382,7 +381,12 @@ const styles = StyleSheet.create({
   themeRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 32,
+    marginBottom: 12,
+  },
+  environmentLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   themeOption: {
     flex: 1,
