@@ -95,5 +95,5 @@ export const SUBMISSION_POLICY_PROMPT = `제보 승인 기준 버전 ${SUBMISSIO
    있지만 공식 장소 제보 판정은 reject로 추천한다.
 3. 주차나 가치 경로를 검색 실패·근거 부족으로 확인하지 못하면 reject가 아니라 uncertain이다.
 4. 불법·위험한 접근, 중복, 허위처럼 적극적 반려 근거가 있으면 reject한다.
-5. criteria에는 결론에 직접 사용한 위 규칙 ID만 넣는다.
+5. criteria에는 결론에 직접 사용한 위 규칙 ID를 중요도 순으로 1개 이상 6개 이하만 넣는다.
 6. 너는 심사 보조자다. 최종 승인·반려는 운영자가 Discord에서 결정한다.`;

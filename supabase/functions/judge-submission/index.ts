@@ -50,8 +50,7 @@ const VERDICT_SCHEMA = {
       type: 'array',
       items: { type: 'string', enum: SUBMISSION_POLICY_RULE_IDS },
       minItems: 1,
-      maxItems: 6,
-      description: '판정에 직접 사용한 승인 기준 규칙 ID',
+      description: '판정에 직접 사용한 승인 기준 규칙 ID를 중요도 순으로 1~6개',
     },
     reason: { type: 'string', description: '판정 근거 (한국어, 1~3문장)' },
     userReason: {
@@ -276,7 +275,8 @@ async function judge(table: string, record: Record<string, unknown>): Promise<{ 
   });
 
   const text = response.content.find((b) => b.type === 'text')?.text ?? '{}';
-  return { v: JSON.parse(text) as Verdict, evidence };
+  const verdict = JSON.parse(text) as Verdict;
+  return { v: { ...verdict, criteria: verdict.criteria.slice(0, 6) }, evidence };
 }
 
 const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
