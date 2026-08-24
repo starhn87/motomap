@@ -20,7 +20,7 @@
 
 | 지도 | 경로 미리보기 | 길안내 |
 |:---:|:---:|:---:|
-| <img src="./docs/screenshots/01-map.png" width="240"/> | <img src="./docs/screenshots/02-preview.png" width="240"/> | <img src="./store-screenshots-1.2.4-6.5/03_navigation.png" width="240"/> |
+| <img src="./docs/screenshots/01-map.png" width="240"/> | <img src="./docs/screenshots/02-preview.png" width="240"/> | <img src="./website/public/screens/navigation-1.2.7.png" width="240"/> |
 | **음성 검색** | **코스 탐색** | **실시간 유가** |
 | <img src="./docs/screenshots/06-voice.png" width="240"/> | <img src="./docs/screenshots/05-course.png" width="240"/> | <img src="./docs/screenshots/04-gas.png" width="240"/> |
 
