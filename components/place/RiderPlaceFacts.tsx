@@ -5,6 +5,7 @@ import Colors from '@/constants/Colors';
 import { RIDER_FACTS, type RiderFactCode } from '@/constants/riderFacts';
 import { useColorScheme } from '@/components/useColorScheme';
 import { usePlaceRiderFacts, useTogglePlaceRiderFact } from '@/hooks/useRiderInsights';
+import { usePlaceRideSummary } from '@/hooks/usePlaceRides';
 import { track } from '@/lib/analytics';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -14,6 +15,7 @@ export default function RiderPlaceFacts({ placeId }: { placeId: string }) {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((state) => state.user);
   const { data = [] } = usePlaceRiderFacts(placeId);
+  const rides = usePlaceRideSummary(placeId);
   const toggle = useTogglePlaceRiderFact(placeId);
 
   const byCode = new Map(data.map((fact) => [fact.code, fact]));
@@ -80,6 +82,27 @@ export default function RiderPlaceFacts({ placeId }: { placeId: string }) {
           );
         })}
       </View>
+      {rides.total > 0 && (
+        <View style={styles.rideBlock}>
+          <Text style={[styles.rideCount, { color: colors.textSecondary }]}>
+            🏍️ 라이더들이 {rides.total}번 달려온 곳이에요
+          </Text>
+          {rides.bikes.length > 0 && (
+            <View style={styles.rideBikes}>
+              {rides.bikes.map((bike) => (
+                <View
+                  key={bike.model}
+                  style={[styles.rideBikeChip, { backgroundColor: colors.surfaceMuted }]}>
+                  <Text style={[styles.rideBikeText, { color: colors.text }]}>
+                    {bike.model}
+                    {bike.riders > 1 ? ` ${bike.riders}` : ''}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -122,5 +145,26 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontSize: 11,
     fontWeight: '800',
+  },
+  rideBlock: {
+    gap: 6,
+    marginTop: 8,
+  },
+  rideCount: {
+    fontSize: 13,
+  },
+  rideBikes: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  rideBikeChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 11,
+  },
+  rideBikeText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

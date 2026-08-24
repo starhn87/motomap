@@ -27,7 +27,6 @@ import { placeWebUrl } from '@/constants/app';
 import { formatWeek } from '@/lib/hours';
 import OpenBadge from '@/components/place/OpenBadge';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
-import { usePlaceRideSummary } from '@/hooks/usePlaceRides';
 import Colors, { semantic } from '@/constants/Colors';
 import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -408,9 +407,6 @@ function PlaceBottomSheet({
           longitude: displayPlace.longitude,
         },
   );
-  // 이 장소로 라이딩한 횟수와 다녀간 기종 (역시 early return 위 — 훅 순서)
-  const rides = usePlaceRideSummary(displayPlace?.id);
-
   if (!place || !displayPlace) return null;
 
   const distanceMeters = userLocation
@@ -659,30 +655,6 @@ function PlaceBottomSheet({
             </View>
           )}
 
-          {/* 비동기로 오는 사회적 증거는 주요 액션 아래에 둔다. 응답이 늦어도
-              출발·도착 버튼은 움직이지 않는다. 0이면 빈 자리 없이 생략한다. */}
-          {rides.total > 0 && (
-            <View style={styles.rideBlock}>
-              <Text style={[styles.rideCount, { color: colors.textSecondary }]}>
-                🏍️ 라이더들이 {rides.total}번 달려온 곳이에요
-              </Text>
-              {rides.bikes.length > 0 && (
-                <View style={styles.rideBikes}>
-                  {rides.bikes.map((b) => (
-                    <View
-                      key={b.model}
-                      style={[styles.rideBikeChip, { backgroundColor: colors.surfaceMuted }]}>
-                      <Text style={[styles.rideBikeText, { color: colors.text }]}>
-                        {b.model}
-                        {b.riders > 1 ? ` ${b.riders}` : ''}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
-
           {infoCards.length > 0 && (
             <View style={styles.infoGrid}>
               {/* RNGH Touchable 은 flexBasis 를 잇지 못해 카드 폭이 무너진다(실측
@@ -881,27 +853,6 @@ const styles = StyleSheet.create({
   distance: {
     fontSize: 13,
     fontWeight: '700',
-  },
-  rideBlock: {
-    gap: 6,
-    marginBottom: 8,
-  },
-  rideCount: {
-    fontSize: 13,
-  },
-  rideBikes: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  rideBikeChip: {
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: 11,
-  },
-  rideBikeText: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   description: {
     fontSize: 14,
