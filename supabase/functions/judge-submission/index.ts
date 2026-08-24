@@ -402,7 +402,13 @@ async function judgeAndPost(table: string, record: Record<string, unknown>) {
     );
   } catch (e) {
     // 기본 제보 알림은 별도 트리거로 이미 발송됨 — 판정 실패만 알린다
-    await postDiscord(`🤖 AI 판정 실패 — ${icon} ${record?.name ?? '?'}\n${String(e).slice(0, 300)}`);
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    console.error('judge-submission failed', {
+      table,
+      recordId: String(record?.id ?? ''),
+      error: errorMessage.slice(0, 500),
+    });
+    await postDiscord(`🤖 AI 판정 실패 — ${icon} ${record?.name ?? '?'}\n${errorMessage.slice(0, 300)}`);
   }
 }
 
