@@ -307,7 +307,7 @@ async function judgeRidingGuideSubmission(
   const allStops = [...submittedStops, ...guideStops];
   const registeredIds = [...new Set(allStops.flatMap((stop) => stop.place_id ? [stop.place_id] : []))];
   const generalIds = [...new Set(allStops.flatMap((stop) => stop.general_place_id ? [stop.general_place_id] : []))];
-  const emptyResponse = () => Promise.resolve({ ok: true, json: async () => [] });
+  const emptyResponse = () => Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
   const [placesRes, generalRes] = await Promise.all([
     registeredIds.length
       ? fetch(
