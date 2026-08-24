@@ -966,8 +966,8 @@ const styles = StyleSheet.create({
   },
   reviewSection: {
     borderTopWidth: 1,
-    paddingTop: 20,
-    marginTop: 12,
+    paddingTop: 18,
+    marginTop: 20,
   },
   reviewSectionHeader: {
     flexDirection: 'row',

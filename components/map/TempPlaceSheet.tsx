@@ -960,7 +960,7 @@ const styles = StyleSheet.create({
   submitCopy: { flex: 1, gap: 3 },
   submitTitle: { fontSize: 14, fontWeight: '800' },
   submitDescription: { fontSize: 12, lineHeight: 17 },
-  reviewSection: { borderTopWidth: 1, paddingTop: 20, marginTop: 12 },
+  reviewSection: { borderTopWidth: 1, paddingTop: 18, marginTop: 20 },
   photoSection: { marginTop: 12, gap: 10 },
   photoSectionTitle: { fontSize: 18, fontWeight: '700' },
   reviewSectionHeader: {
