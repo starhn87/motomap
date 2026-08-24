@@ -226,6 +226,24 @@ export const track = {
   riderFactToggled: (p: { fact: RiderFactCode; on: boolean }) =>
     capture('rider_fact_toggled', p),
 
+  placeRecommendationToggled: (p: { on: boolean }) =>
+    capture('place_recommendation_toggled', p),
+
+  topRecommendedPlacesViewed: (p: { recommendation_count: number }) =>
+    capture('top_recommended_places_viewed', p),
+
+  topRecommendedPlaceSelected: (p: { rank: number }) =>
+    capture('top_recommended_place_selected', p),
+
+  generalPlaceShareToggled: (p: { on: boolean }) =>
+    capture('general_place_share_toggled', p),
+
+  generalSharedLayerToggled: (p: { on: boolean }) =>
+    capture('general_shared_layer_toggled', p),
+
+  generalSharedPlaceSelected: (p: { share_count: number }) =>
+    capture('general_shared_place_selected', p),
+
   bikeRecommendationsViewed: (p: { recommendation_count: number }) =>
     capture('bike_recommendations_viewed', p),
 

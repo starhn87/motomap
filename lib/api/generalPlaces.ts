@@ -20,6 +20,7 @@ export interface GeneralPlace extends GeneralPlaceInput {
   promotedPlaceId?: string;
   rating: number;
   reviewCount: number;
+  shareCount: number;
 }
 
 type GeneralPlaceRow = {
@@ -35,10 +36,11 @@ type GeneralPlaceRow = {
   promoted_place_id: string | null;
   rating: number | string;
   review_count: number;
+  share_count: number;
 };
 
 const SELECT =
-  'id, provider, provider_place_id, name, address, latitude, longitude, phone, place_url, promoted_place_id, rating, review_count';
+  'id, provider, provider_place_id, name, address, latitude, longitude, phone, place_url, promoted_place_id, rating, review_count, share_count';
 
 const sameSpot = (a: number, b: number) => Math.abs(a - b) < 2e-5;
 
@@ -80,6 +82,7 @@ function rowToGeneralPlace(row: GeneralPlaceRow): GeneralPlace {
     promotedPlaceId: row.promoted_place_id ?? undefined,
     rating: Number(row.rating) || 0,
     reviewCount: row.review_count ?? 0,
+    shareCount: row.share_count ?? 0,
   };
 }
 

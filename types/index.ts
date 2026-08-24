@@ -23,6 +23,8 @@ export interface Place {
   photos: string[];
   rating: number;
   reviewCount: number;
+  /** 다른 라이더에게 이 등록 장소를 명시적으로 추천한 고유 계정 수 */
+  recommendationCount: number;
   tags: string[];
   /** 사람이 쓴 원문 — 구조화가 못 담는 뉘앙스가 여기 있다 */
   openingHours?: string;
