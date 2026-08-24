@@ -74,7 +74,7 @@ const headers = () => ({ apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_K
 async function loadData() {
   if (cache && cache.exp > Date.now()) return cache;
 
-  const [placesRes, guidesRes, stopsRes, generalRes] = await Promise.all([
+  const [placesRes, guidesRes, stopsRes] = await Promise.all([
     fetch(`${SUPABASE_URL}/rest/v1/rpc/all_places`, {
       method: 'POST',
       headers: { ...headers(), 'Content-Type': 'application/json' },
@@ -88,22 +88,31 @@ async function loadData() {
       `${SUPABASE_URL}/rest/v1/riding_guide_stops?select=guide_id,position,role,place_id,general_place_id,note&order=position.asc`,
       { headers: headers() },
     ),
-    fetch(
-      `${SUPABASE_URL}/rest/v1/general_places?select=id,name,address,latitude,longitude`,
-      { headers: headers() },
-    ),
   ]);
 
-  if (![placesRes, guidesRes, stopsRes, generalRes].every((response) => response.ok)) {
+  if (![placesRes, guidesRes, stopsRes].every((response) => response.ok)) {
     throw new Error(
-      `데이터 로드 실패 ${placesRes.status}/${guidesRes.status}/${stopsRes.status}/${generalRes.status}`,
+      `데이터 로드 실패 ${placesRes.status}/${guidesRes.status}/${stopsRes.status}`,
     );
   }
 
   const places = (await placesRes.json()) as PlaceRow[];
   const guideRows = (await guidesRes.json()) as RidingGuideRow[];
   const stopRows = (await stopsRes.json()) as RidingGuideStopRow[];
-  const generalPlaces = (await generalRes.json()) as GeneralPlaceRow[];
+  const generalIds = [
+    ...new Set(
+      stopRows.flatMap((stop) => stop.general_place_id ? [stop.general_place_id] : []),
+    ),
+  ];
+  let generalPlaces: GeneralPlaceRow[] = [];
+  if (generalIds.length > 0) {
+    const generalRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/general_places?id=in.(${generalIds.join(',')})&select=id,name,address,latitude,longitude`,
+      { headers: headers() },
+    );
+    if (!generalRes.ok) throw new Error(`일반 장소 로드 실패 ${generalRes.status}`);
+    generalPlaces = (await generalRes.json()) as GeneralPlaceRow[];
+  }
   const placeMap = new Map(places.map((place) => [place.id, place]));
   const generalMap = new Map(generalPlaces.map((place) => [place.id, place]));
   const stopsByGuide = new Map<string, RidingGuideStopRow[]>();
