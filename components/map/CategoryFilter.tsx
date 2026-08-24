@@ -13,6 +13,7 @@ import { useMapStore } from '@/stores/useMapStore';
 import { track } from '@/lib/analytics';
 import type { PlaceCategory } from '@/types';
 import { haptics } from '@/lib/haptics';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -74,8 +75,51 @@ function FilterChip({
   );
 }
 
+function RiderShareFilterChip({ isActive, onPress }: { isActive: boolean; onPress: () => void }) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
+      onPress={onPress}
+      onPressIn={() => {
+        scale.value = withSpring(0.92);
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1);
+      }}
+      style={[
+        styles.chip,
+        animatedStyle,
+        {
+          backgroundColor: isActive
+            ? colors.text
+            : colorScheme === 'dark'
+              ? '#1A1A1A'
+              : '#FFFFFF',
+          borderColor: isActive ? colors.text : colors.border,
+        },
+      ]}>
+      <Ionicons
+        name="people-outline"
+        size={16}
+        color={isActive ? colors.background : colors.text}
+      />
+      <Text style={[styles.chipLabel, { color: isActive ? colors.background : colors.text }]}>
+        라이더 공유
+      </Text>
+    </AnimatedPressable>
+  );
+}
+
 export default function CategoryFilter() {
-  const { activeFilter, setActiveFilter } = useMapStore();
+  const { activeFilter, setActiveFilter, showRiderShares, toggleRiderShares } = useMapStore();
 
   const handlePress = (key: PlaceCategory) => {
     haptics.selection(50);
@@ -99,6 +143,14 @@ export default function CategoryFilter() {
           onPress={() => handlePress(cat.key)}
         />
       ))}
+      <RiderShareFilterChip
+        isActive={showRiderShares}
+        onPress={() => {
+          haptics.selection(50);
+          track.generalSharedLayerToggled({ on: !showRiderShares });
+          toggleRiderShares();
+        }}
+      />
     </ScrollView>
   );
 }

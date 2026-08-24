@@ -39,7 +39,7 @@ type GeneralPlaceRow = {
   share_count: number;
 };
 
-const SELECT =
+export const GENERAL_PLACE_SELECT =
   'id, provider, provider_place_id, name, address, latitude, longitude, phone, place_url, promoted_place_id, rating, review_count, share_count';
 
 const sameSpot = (a: number, b: number) => Math.abs(a - b) < 2e-5;
@@ -68,7 +68,7 @@ export function generalPlaceUploadKey(place: GeneralPlaceInput): string {
   return `${provider}-${providerId.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 }
 
-function rowToGeneralPlace(row: GeneralPlaceRow): GeneralPlace {
+export function rowToGeneralPlace(row: GeneralPlaceRow): GeneralPlace {
   return {
     id: row.id,
     provider: row.provider,
@@ -94,7 +94,7 @@ export async function findGeneralPlace(place: GeneralPlaceInput): Promise<Genera
   const { provider, providerId } = generalPlaceIdentity(place);
   const { data: exact, error: exactError } = await supabase
     .from('general_places')
-    .select(SELECT)
+    .select(GENERAL_PLACE_SELECT)
     .eq('provider', provider)
     .eq('provider_place_id', providerId)
     .maybeSingle();
@@ -104,7 +104,7 @@ export async function findGeneralPlace(place: GeneralPlaceInput): Promise<Genera
   const delta = 2e-5;
   const { data: nearby, error: nearbyError } = await supabase
     .from('general_places')
-    .select(SELECT)
+    .select(GENERAL_PLACE_SELECT)
     .gte('latitude', place.latitude - delta)
     .lte('latitude', place.latitude + delta)
     .gte('longitude', place.longitude - delta)
@@ -140,7 +140,7 @@ export async function ensureGeneralPlace(place: GeneralPlaceInput): Promise<Gene
       phone: place.phone?.trim() || null,
       place_url: place.placeUrl?.trim() || null,
     })
-    .select(SELECT)
+    .select(GENERAL_PLACE_SELECT)
     .single();
 
   if (!error && data) return rowToGeneralPlace(data as GeneralPlaceRow);
@@ -151,4 +151,37 @@ export async function ensureGeneralPlace(place: GeneralPlaceInput): Promise<Gene
     if (winner) return winner;
   }
   throw error;
+}
+
+export interface GeneralPlaceBounds {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
+}
+
+/** 사용자가 라이더 공유 레이어를 켰을 때만 부르는 공개 집계 목록. */
+export async function fetchSharedGeneralPlaces(
+  bounds?: GeneralPlaceBounds | null,
+): Promise<GeneralPlace[]> {
+  let query = supabase
+    .from('general_places')
+    .select(GENERAL_PLACE_SELECT)
+    .gt('share_count', 0)
+    .is('promoted_place_id', null)
+    .order('share_count', { ascending: false })
+    .order('last_shared_at', { ascending: false })
+    .limit(250);
+
+  if (bounds) {
+    query = query
+      .gte('latitude', bounds.south)
+      .lte('latitude', bounds.north)
+      .gte('longitude', bounds.west)
+      .lte('longitude', bounds.east);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return ((data ?? []) as GeneralPlaceRow[]).map(rowToGeneralPlace);
 }

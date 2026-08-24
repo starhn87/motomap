@@ -18,11 +18,14 @@ interface MapStore {
   activeFilter: PlaceCategory | null;
   /** 즐겨찾기 지도 표시 — 켜면 즐겨찾기 장소가 별 뱃지 마커로 항상 보인다 */
   showFavorites: boolean;
+  /** 바이크 특화 등록과 분리된 일반 장소의 라이더 공유 레이어 */
+  showRiderShares: boolean;
   setUserLocation: (location: Location) => void;
   setMapCenter: (center: Location) => void;
   setSelectedPlaceId: (id: string | null) => void;
   setActiveFilter: (filter: PlaceCategory | null) => void;
   toggleShowFavorites: () => void;
+  toggleRiderShares: () => void;
   /** 부팅 시 저장된 즐겨찾기 표시 상태 복원 (app/_layout.tsx) */
   loadShowFavorites: () => Promise<void>;
   /** 지도 탭을 초기 상태(시트·카드 닫힘)로 되돌리라는 신호 — 값이 바뀔 때마다 1회 */
@@ -36,12 +39,14 @@ export const useMapStore = create<MapStore>((set) => ({
   selectedPlaceId: null,
   activeFilter: null,
   showFavorites: false,
+  showRiderShares: false,
   mapResetTs: 0,
   requestMapReset: () => set({ mapResetTs: Date.now() }),
   setUserLocation: (location) => set({ userLocation: location }),
   setMapCenter: (center) => set({ mapCenter: center }),
   setSelectedPlaceId: (id) => set({ selectedPlaceId: id }),
   setActiveFilter: (filter) => set({ activeFilter: filter }),
+  toggleRiderShares: () => set((state) => ({ showRiderShares: !state.showRiderShares })),
   toggleShowFavorites: () =>
     set((s) => {
       const next = !s.showFavorites;

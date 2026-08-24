@@ -41,6 +41,7 @@ import {
   MARKER_IMAGES_CIRCLE,
   MARKER_IMAGES_CIRCLE_FAV,
   GENERAL_MARKER_CIRCLE_FAV,
+  GENERAL_MARKER_CIRCLE,
   GENERAL_MARKER_FAV,
 } from '@/constants/markerImages';
 import { useQuery } from '@tanstack/react-query';
@@ -70,6 +71,7 @@ import { useIsFocused, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { toast } from '@/lib/toast';
+import { useSharedGeneralPlaces } from '@/hooks/useCommunityPlaceSignals';
 import type { Place, RoadHazard } from '@/types';
 import { haptics } from '@/lib/haptics';
 import {
@@ -108,7 +110,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { userLocation, selectedPlaceId, activeFilter, setSelectedPlaceId } =
+  const { userLocation, selectedPlaceId, activeFilter, setSelectedPlaceId, showRiderShares } =
     useMapStore();
   const { heading } = useUserLocation();
   const isMapFocused = useIsFocused();
@@ -251,6 +253,10 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   } = useGasLayer({ active: gasMode, mapCenter, mapReady, screenWidth, screenHeight });
 
   const { data: supabasePlaces } = usePlaces(activeFilter, mapCenter, !gasMode);
+  const { data: sharedGeneralPlaces = [] } = useSharedGeneralPlaces(
+    mapCenter,
+    showRiderShares,
+  );
   const { data: hazards = [] } = useNearbyHazards(mapCenter);
   const [selectedHazard, setSelectedHazard] = useState<RoadHazard | null>(null);
 
@@ -330,6 +336,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         isInMapRenderWindow(place, mapCenter),
       ),
     [favoritePlaces, mapCenter],
+  );
+  const windowedSharedGeneralPlaces = useMemo(
+    () =>
+      sharedGeneralPlaces.filter((place) => isInMapRenderWindow(place, mapCenter)),
+    [sharedGeneralPlaces, mapCenter],
   );
   const windowedHazards = useMemo(
     () =>
@@ -785,6 +796,56 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
               onTap={() => handleMarkerPress(p)}
             />
           ))}
+
+        {/* 일반 장소 공유는 사용자가 레이어를 켠 경우에만 보인다. 등록 장소보다
+            우선순위를 낮춰 겹치면 검증된 카테고리 마커가 남는다. */}
+        {showRiderShares &&
+          windowedSharedGeneralPlaces
+            .filter(
+              (shared) =>
+                (!tempPlace ||
+                  Math.abs(shared.latitude - tempPlace.latitude) >= 1e-5 ||
+                  Math.abs(shared.longitude - tempPlace.longitude) >= 1e-5) &&
+                (!showFavorites ||
+                  !findGeneralFavorite(favoritePlaces?.general ?? [], shared)),
+            )
+            .map((shared) => (
+              <NaverMapMarkerOverlay
+                key={`shared-general-${shared.id}`}
+                latitude={shared.latitude}
+                longitude={shared.longitude}
+                image={GENERAL_MARKER_CIRCLE}
+                width={30}
+                height={30}
+                anchor={{ x: 0.5, y: 0.5 }}
+                globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX - 1}
+                zIndex={5}
+                isForceShowIcon
+                isHideCollidedSymbols
+                isHideCollidedCaptions
+                caption={{
+                  text: shared.name,
+                  textSize: 12,
+                  minZoom: PLACE_CAPTION_MIN_ZOOM,
+                  color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
+                  haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
+                }}
+                onTap={() => {
+                  haptics.selection(90);
+                  track.generalSharedPlaceSelected({ share_count: shared.shareCount });
+                  handleTempPlaceSelect({
+                    name: shared.name,
+                    address: shared.address,
+                    latitude: shared.latitude,
+                    longitude: shared.longitude,
+                    phone: shared.phone,
+                    providerId: shared.provider === 'kakao' ? shared.providerId : undefined,
+                    placeUrl: shared.placeUrl,
+                    generalPlaceId: shared.id,
+                  });
+                }}
+              />
+            ))}
 
         {/* 즐겨찾기는 높은 우선순위로 겹친 일반 마커보다 먼저 보인다. */}
         {showFavorites &&

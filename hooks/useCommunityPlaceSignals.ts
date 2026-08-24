@@ -9,9 +9,15 @@ import {
   type GeneralPlaceShareState,
   type PlaceRecommendationState,
 } from '@/lib/api/communityPlaceSignals';
-import { generalPlaceIdentity, type GeneralPlaceInput } from '@/lib/api/generalPlaces';
+import {
+  fetchSharedGeneralPlaces,
+  generalPlaceIdentity,
+  type GeneralPlaceBounds,
+  type GeneralPlaceInput,
+} from '@/lib/api/generalPlaces';
 import { track } from '@/lib/analytics';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { MAP_WINDOW_OVERSCAN, type MapCenter } from '@/hooks/usePlaces';
 
 function placeRecommendationKey(placeId: string | undefined, userId: string | undefined) {
   return ['place-recommendation', placeId ?? null, userId ?? 'anonymous'] as const;
@@ -120,5 +126,36 @@ export function useTopRecommendedPlaces() {
     queryKey: ['top-recommended-places'],
     queryFn: fetchTopRecommendedPlaces,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+function sharedGeneralPlaceBounds(center: MapCenter | null): GeneralPlaceBounds | null {
+  const region = center?.region;
+  if (!region || region.latitudeDelta <= 0 || region.longitudeDelta <= 0) return null;
+  const latitude = region.latitude + region.latitudeDelta / 2;
+  const longitude = region.longitude + region.longitudeDelta / 2;
+  const latitudeMargin = (region.latitudeDelta * MAP_WINDOW_OVERSCAN) / 2;
+  const longitudeMargin = (region.longitudeDelta * MAP_WINDOW_OVERSCAN) / 2;
+  return {
+    south: latitude - latitudeMargin,
+    west: longitude - longitudeMargin,
+    north: latitude + latitudeMargin,
+    east: longitude + longitudeMargin,
+  };
+}
+
+export function useSharedGeneralPlaces(center: MapCenter | null, enabled: boolean) {
+  const bounds = sharedGeneralPlaceBounds(center);
+  const boundsKey = bounds
+    ? [bounds.south, bounds.west, bounds.north, bounds.east]
+        .map((value) => value.toFixed(3))
+        .join(',')
+    : 'all';
+  return useQuery({
+    queryKey: ['shared-general-places', boundsKey],
+    queryFn: () => fetchSharedGeneralPlaces(bounds),
+    enabled,
+    placeholderData: (previous) => previous,
+    staleTime: 2 * 60 * 1000,
   });
 }
