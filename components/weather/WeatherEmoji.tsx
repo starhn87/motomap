@@ -27,7 +27,7 @@ export default function WeatherEmoji({ emoji, size, lineHeight }: Props) {
           styles.layer,
           {
             left: size * 0.02,
-            top: (boxHeight - size) / 2,
+            top: (boxHeight - size) / 2 - size * 0.03,
             fontSize: size * 0.38,
             lineHeight: size * 0.46,
           },
