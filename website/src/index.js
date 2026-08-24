@@ -7,7 +7,7 @@ const association = {
     details: [
       {
         appIDs: [APP_IDENTIFIER],
-        components: [{ '/': '/place/*' }, { '/': '/course/*' }],
+        components: [{ '/': '/place/*' }, { '/': '/course/*' }, { '/': '/riding/*' }],
       },
     ],
   },
@@ -121,8 +121,11 @@ function legalPage(type) {
 }
 
 function sharedContentPage(kind, encodedId) {
-  const isCourse = kind === 'course';
-  const label = isCourse ? '코스' : '장소';
+  const label = kind === 'riding' ? '라이딩 추천' : kind === 'course' ? '코스' : '장소';
+  const description =
+    kind === 'riding'
+      ? '모토맵에서 추천 장소와 달리기 좋은 길을 확인하세요.'
+      : `모토맵에서 ${label} 정보와 라이더 기록을 확인하세요.`;
   let routeId;
   try {
     routeId = encodeURIComponent(decodeURIComponent(encodedId));
@@ -142,14 +145,14 @@ function sharedContentPage(kind, encodedId) {
     <meta name="description" content="모토맵에서 공유된 ${label}를 확인하세요." />
     <meta name="apple-itunes-app" content="app-id=${APP_STORE_ID}, app-argument=${canonicalUrl}" />
     <meta property="og:title" content="${title}: 모토맵" />
-    <meta property="og:description" content="모토맵에서 ${label} 정보와 라이더 기록을 확인하세요." />
+    <meta property="og:description" content="${description}" />
     <meta property="og:image" content="https://motomap.kr/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="검은 배경 위 흰색 바이크 아이콘" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${title}: 모토맵" />
-    <meta name="twitter:description" content="모토맵에서 ${label} 정보와 라이더 기록을 확인하세요." />
+    <meta name="twitter:description" content="${description}" />
     <meta name="twitter:image" content="https://motomap.kr/og.png" />
     <link rel="canonical" href="${canonicalUrl}" />
     <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png" />
@@ -218,7 +221,7 @@ export default {
       });
     }
 
-    const contentMatch = url.pathname.match(/^\/(place|course)\/([^/]+)\/?$/);
+    const contentMatch = url.pathname.match(/^\/(place|course|riding)\/([^/]+)\/?$/);
     if (contentMatch) {
       return new Response(sharedContentPage(contentMatch[1], contentMatch[2]), {
         headers: {

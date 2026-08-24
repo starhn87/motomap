@@ -85,6 +85,8 @@ export default function NotificationsScreen() {
       focusPlaceOnMap(item.data.placeId, { source: 'notification' });
     } else if (item.data?.courseId) {
       router.push(`/course/${item.data.courseId}`);
+    } else if (item.data?.guideId) {
+      router.push(`/riding/${item.data.guideId}`);
     } else if (item.data?.url?.startsWith('/')) {
       // 공지의 앱 내 딥링크 — 새 기능 공지가 해당 화면으로 바로 잇는다
       router.push(item.data.url as never);
@@ -105,7 +107,7 @@ export default function NotificationsScreen() {
         <EmptyState
           icon={<Ionicons name="notifications-outline" size={44} color={colors.textSecondary} />}
           title="아직 알림이 없습니다"
-          hint="제보하신 장소나 코스가 반영되면 여기서 알려드려요."
+          hint="제보하신 장소나 라이딩 추천이 반영되면 여기서 알려드려요."
           actionLabel="제보하러 가기"
           onAction={() => router.navigate('/submit')}
         />
@@ -150,7 +152,7 @@ export default function NotificationsScreen() {
                     <Ionicons name="megaphone-outline" size={20} color={colors.tint} />
                   ) : item.type === 'feedback_reply' ? (
                     <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.tint} />
-                  ) : item.type.startsWith('course') ? (
+                  ) : item.type.startsWith('course') || item.type.startsWith('riding_guide') ? (
                     <MaterialCommunityIcons name="road-variant" size={20} color={colors.tint} />
                   ) : (
                     <Ionicons name="location-outline" size={20} color={colors.tint} />

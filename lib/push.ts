@@ -32,6 +32,11 @@ function routeFromNotification(data: Record<string, unknown> | undefined) {
       });
     } else if (data.type === 'course_approved' && typeof data.courseId === 'string') {
       router.push(`/course/${data.courseId}`);
+    } else if (
+      data.type === 'riding_guide_published' &&
+      typeof data.guideId === 'string'
+    ) {
+      router.push(`/riding/${data.guideId}`);
     } else if (data.type === 'review_liked' && typeof data.placeId === 'string') {
       router.push({
         pathname: '/',
@@ -48,6 +53,7 @@ function routeFromNotification(data: Record<string, unknown> | undefined) {
     } else if (
       data.type === 'place_rejected' ||
       data.type === 'course_rejected' ||
+      data.type === 'riding_guide_rejected' ||
       data.type === 'feedback_reply'
     ) {
       // 반려·건의 답변은 이동할 상세 화면이 없다 — 알림 목록에서 해당 알림을 스크롤·강조

@@ -5,7 +5,13 @@ export interface AppNotification {
   type: string;
   title: string;
   body: string;
-  data: { placeId?: string; courseId?: string; url?: string } | null;
+  data: {
+    placeId?: string;
+    courseId?: string;
+    guideId?: string;
+    notificationId?: string;
+    url?: string;
+  } | null;
   readAt: string | null;
   createdAt: string;
 }

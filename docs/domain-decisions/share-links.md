@@ -2,7 +2,9 @@
 
 ## 활성 원칙
 
-1. 장소는 `https://motomap.kr/place/:id`, 코스는 `https://motomap.kr/course/:id`를 공유한다.
+1. 장소는 `https://motomap.kr/place/:id`, 라이딩 추천은
+   `https://motomap.kr/riding/:id`를 공유한다. 구 코스의
+   `https://motomap.kr/course/:id`도 지원 기간 동안 유지한다.
 2. iOS는 `applinks:motomap.kr`와 Apple App Site Association을 통해 해당 URL을
    앱의 같은 경로로 바로 연다.
 3. 인앱 브라우저처럼 운영체제가 유니버설 링크를 가로채지 못해 HTTP가
@@ -17,7 +19,7 @@
 - 날짜: 2026-08-23
 - 상태: 활성
 - 관련 구현: `website/src/index.js`, `website/public/share.js`, `app/place/[id].tsx`,
-  `app/course/[id].tsx`, `app.config.js`
+  `app/riding/[id].tsx`, `app/course/[id].tsx`, `app.config.js`
 
 ### 배경
 
@@ -45,3 +47,15 @@
 도메인·앱 ID·라우트·커스텀 스킴이 바뀌거나 Android 공식 배포를 시작할 때 재검토한다.
 메신저 인앱 브라우저가 커스텀 스킴을 차단하는 실제 사례가 생기면 해당 브라우저의
 외부 브라우저 열기 가이드를 추가한다.
+
+## SHARE-002 — 라이딩 추천도 같은 유니버설 링크 계약을 사용한다
+
+- 날짜: 2026-08-24
+- 상태: 활성
+- 관련 구현: `website/src/index.js`, `app/riding/[id].tsx`, `constants/app.ts`
+
+라이딩 추천은 `https://motomap.kr/riding/:id`를 정식 공유 주소로 사용한다. AASA의 허용 경로,
+웹 폴백의 `ridemap://riding/:id`, 앱의 expo-router 경로를 함께 추가한다. 이미
+`applinks:motomap.kr` entitlement가 포함돼 있어 새 네이티브 설정이나 빌드는 필요하지 않다.
+구 `/course/:id`는 웹과 앱에서 계속 받고, 새 앱은 `legacy_course_id`가 연결된 경우 새 라이딩
+추천으로 이동하며 연결이 없거나 조회에 실패하면 기존 코스 상세를 연다.
