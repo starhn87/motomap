@@ -27,6 +27,7 @@
 | 공통 아이콘·터치 피드백 | [interaction-feedback.md](interaction-feedback.md) | `app/`, `components/`의 터치 액션 |
 | 공유 URL·유니버설 링크 | [share-links.md](share-links.md) | `website/src/index.js`, `website/public/share.js`, `app/place/[id].tsx`, `app/course/[id].tsx` |
 | 통합 검색·검색 결과 지도 | [search.md](search.md) | `app/search.tsx`, `app/search-results.tsx`, `lib/api/search.ts` |
+| 라이딩 추천 콘텐츠 | [riding-recommendations.md](riding-recommendations.md) | `app/(tabs)/courses.tsx`, 향후 `riding_guides` |
 | 앱 내 길안내 | [navigation.md](navigation.md) | `app/navi.tsx`, `modules/kakao-navi/` |
 | 노면 위험 정보 수명주기 | [hazard-lifecycle.md](hazard-lifecycle.md) | `road_hazards`, `hazard_votes`, `components/map/HazardSheet.tsx` |
 | 인증·세션 저장 | [authentication.md](authentication.md) | `lib/authStorage.ts`, `lib/supabase.ts`, `stores/useAuthStore.ts` |
