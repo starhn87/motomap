@@ -200,6 +200,36 @@ revoke all on function public.resolve_riding_guide_submission_review(uuid, text,
 grant execute on function public.resolve_riding_guide_submission_review(uuid, text, uuid, text)
   to service_role;
 
+create function private.validate_riding_guide_submission_result()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.status in ('published', 'merged') and not exists (
+    select 1
+    from public.riding_guides guide
+    where guide.id = new.result_guide_id
+      and guide.published_at is not null
+      and guide.published_at <= now()
+      and guide.deleted_at is null
+  ) then
+    raise exception 'completed submission must reference a published riding guide';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger riding_guide_submission_validate_result
+before update of status, result_guide_id on public.riding_guide_submissions
+for each row
+execute function private.validate_riding_guide_submission_result();
+
+revoke all on function private.validate_riding_guide_submission_result()
+  from public, anon, authenticated;
+grant execute on function private.validate_riding_guide_submission_result()
+  to service_role;
+
 create function private.notify_riding_guide_submission_result()
 returns trigger
 language plpgsql

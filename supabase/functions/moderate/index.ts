@@ -120,7 +120,6 @@ Deno.serve(async (req) => {
         ? payload.submissionTitle
         : id;
     if (action === 'reject') {
-      await discordLog(`🔴 라이딩 추천 제안 반려 완료 — ${title}`);
       return page(200, '❌ 반려 완료', `${title} — 제보자에게 사유와 함께 알림이 발송됐어요.`);
     }
     const mode = action === 'prepare_merge' ? '병합 대상 확정' : '비공개 초안 생성';
