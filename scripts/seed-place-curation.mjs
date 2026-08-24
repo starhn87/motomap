@@ -101,7 +101,6 @@ const CURATION_PLACE_COLUMNS =
 const TRUSTED_PLACES = [
   { label: 'RSG 성수', aliases: ['RSG', 'RSG 성수'] },
   { label: '바이콩즈' },
-  { label: '금학칼국수' },
   { label: '산일리오' },
   { label: '유명숯불닭갈비' },
   { label: '한국외국어대학교 글로벌캠퍼스' },
@@ -242,7 +241,6 @@ const RELEVANCE_REVIEW_PLACES = [
   '큰마을영양굴밥',
   '통나무집닭갈비',
   '팔당원조칼제비 본점',
-  '핏제리아 루카네',
   '하남면옥',
   '혜성식당',
   // 일반 명소 13
