@@ -15,6 +15,7 @@ const association = {
 
 const APP_STORE_URL = 'https://apps.apple.com/kr/app/id6773636183';
 const APP_STORE_ID = '6773636183';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const LEGAL_PATHS = {
   '/terms': 'terms',
   '/privacy': 'privacy',
@@ -120,21 +121,71 @@ function legalPage(type) {
 </html>`;
 }
 
-function sharedContentPage(kind, encodedId) {
+async function ridingGuideMetadata(id, env) {
+  if (!UUID_PATTERN.test(id) || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return null;
+
+  try {
+    const endpoint = new URL('/rest/v1/riding_guides', env.SUPABASE_URL);
+    endpoint.searchParams.set('id', `eq.${id}`);
+    endpoint.searchParams.set('published_at', 'not.is.null');
+    endpoint.searchParams.set('deleted_at', 'is.null');
+    endpoint.searchParams.set('select', 'title,summary');
+    endpoint.searchParams.set('limit', '1');
+
+    const response = await fetch(endpoint, {
+      headers: {
+        apikey: env.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
+      },
+      signal: AbortSignal.timeout(1_500),
+    });
+    if (!response.ok) {
+      console.warn(JSON.stringify({
+        event: 'shared_riding_guide_metadata_failed',
+        status: response.status,
+      }));
+      return null;
+    }
+
+    const rows = await response.json();
+    const guide = Array.isArray(rows) ? rows[0] : null;
+    if (!guide || typeof guide.title !== 'string' || !guide.title.trim()) return null;
+
+    return {
+      title: guide.title.trim().slice(0, 120),
+      description:
+        typeof guide.summary === 'string' && guide.summary.trim()
+          ? guide.summary.trim().slice(0, 240)
+          : null,
+    };
+  } catch (error) {
+    console.warn(JSON.stringify({
+      event: 'shared_riding_guide_metadata_failed',
+      reason: error instanceof Error ? error.name : 'unknown',
+    }));
+    return null;
+  }
+}
+
+async function sharedContentPage(kind, encodedId, env) {
   const label = kind === 'riding' ? '라이딩 추천' : kind === 'course' ? '코스' : '장소';
-  const description =
+  const fallbackDescription =
     kind === 'riding'
       ? '모토맵에서 추천 장소와 달리기 좋은 길을 확인하세요.'
       : `모토맵에서 ${label} 정보와 라이더 기록을 확인하세요.`;
-  let routeId;
+  let decodedId;
   try {
-    routeId = encodeURIComponent(decodeURIComponent(encodedId));
+    decodedId = decodeURIComponent(encodedId);
   } catch {
-    routeId = encodeURIComponent(encodedId);
+    decodedId = encodedId;
   }
+  const routeId = encodeURIComponent(decodedId);
+  const metadata = kind === 'riding' ? await ridingGuideMetadata(decodedId, env) : null;
   const canonicalUrl = `https://motomap.kr/${kind}/${routeId}`;
   const appUrl = `ridemap://${kind}/${routeId}`;
-  const title = `공유된 ${label}를 여는 중이에요`;
+  const title = escapeHtml(metadata?.title ?? label);
+  const description = escapeHtml(metadata?.description ?? fallbackDescription);
+  const heading = metadata?.title ? title : `${label}를 여는 중이에요`;
 
   return `<!doctype html>
 <html lang="ko">
@@ -142,7 +193,7 @@ function sharedContentPage(kind, encodedId) {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0b0c0e" />
-    <meta name="description" content="모토맵에서 공유된 ${label}를 확인하세요." />
+    <meta name="description" content="${description}" />
     <meta name="apple-itunes-app" content="app-id=${APP_STORE_ID}, app-argument=${canonicalUrl}" />
     <meta property="og:title" content="${title}: 모토맵" />
     <meta property="og:description" content="${description}" />
@@ -174,7 +225,7 @@ function sharedContentPage(kind, encodedId) {
         <img src="/icon.png" alt="" width="84" height="84" />
       </div>
       <p class="eyebrow">공유된 ${label}</p>
-      <h1>${title}</h1>
+      <h1>${heading}</h1>
       <p data-share-status>앱이 설치되어 있으면 곧바로 ${label} 화면으로 이동해요.</p>
       <div class="shared-actions">
         <a class="primary-button" href="${escapeHtml(appUrl)}" data-open-app>모토맵에서 열기</a>
@@ -223,7 +274,7 @@ export default {
 
     const contentMatch = url.pathname.match(/^\/(place|course|riding)\/([^/]+)\/?$/);
     if (contentMatch) {
-      return new Response(sharedContentPage(contentMatch[1], contentMatch[2]), {
+      return new Response(await sharedContentPage(contentMatch[1], contentMatch[2], env), {
         headers: {
           'Content-Type': 'text/html; charset=utf-8',
           'Cache-Control': 'private, no-store',
