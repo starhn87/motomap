@@ -5,6 +5,7 @@
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
 #import <objc/runtime.h>
+#import <stdlib.h>
 #import <string.h>
 
 // KNSDK 1.12.14 는 이륜차 경로를 시작하거나 안전운행 화면으로 바꿀 때마다
@@ -117,6 +118,92 @@ static void InstallMotoMapAccessibilityGuard(void) {
   });
 }
 
+// KNSDK 1.12.14는 주행 중 하단 안내 바의 InfoTitleLabel에 chr_*.png
+// 카카오프렌즈 이미지를 붙인다. 공개 KNNaviView API에는 이 장식 이미지만 끄는
+// 설정이 없다. 내부 레이아웃이 끝난 직후 이미지만 숨기고, 비워진 가로 공간을
+// 안내 문구에 돌려준다. 클래스나 ivar 구조가 바뀐 SDK에서는 설치를 건너뛴다.
+static IMP gOriginalInfoTitleLayoutImplementation = NULL;
+static Ivar gInfoTitleImageIvar = NULL;
+static Ivar gInfoTitleLabelIvar = NULL;
+
+static void MotoMapInfoTitleLayout(id infoTitle, SEL selector) {
+  if (gOriginalInfoTitleLayoutImplementation != NULL) {
+    ((void (*)(id, SEL))gOriginalInfoTitleLayoutImplementation)(infoTitle, selector);
+  }
+
+  if (gInfoTitleImageIvar == NULL || gInfoTitleLabelIvar == NULL) return;
+  id imageValue = object_getIvar(infoTitle, gInfoTitleImageIvar);
+  id labelValue = object_getIvar(infoTitle, gInfoTitleLabelIvar);
+  if (![imageValue isKindOfClass:UIImageView.class] ||
+      ![labelValue isKindOfClass:UILabel.class]) {
+    return;
+  }
+
+  UIImageView *characterView = (UIImageView *)imageValue;
+  UILabel *titleLabel = (UILabel *)labelValue;
+  characterView.hidden = YES;
+  characterView.isAccessibilityElement = NO;
+
+  // 기존 문구의 오른쪽 끝과 닫기 버튼 간격은 그대로 두고, 캐릭터가 차지하던
+  // 왼쪽 공간만 문구에 돌린다. 세로 배치로 바뀐 SDK에서는 프레임을 건드리지 않는다.
+  CGRect characterFrame = characterView.frame;
+  CGRect labelFrame = titleLabel.frame;
+  CGFloat reclaimedLeading = CGRectGetMinX(characterFrame);
+  if (!CGRectIsEmpty(characterFrame) &&
+      reclaimedLeading < CGRectGetMinX(labelFrame) &&
+      CGRectGetMaxX(characterFrame) <= CGRectGetMinX(labelFrame) + 8) {
+    CGFloat labelMaxX = CGRectGetMaxX(labelFrame);
+    labelFrame.origin.x = reclaimedLeading;
+    labelFrame.size.width = MAX(0, labelMaxX - reclaimedLeading);
+    titleLabel.frame = CGRectIntegral(labelFrame);
+  }
+}
+
+static void InstallMotoMapInfoCharacterGuard(void) {
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    Class infoTitleClass = NSClassFromString(@"InfoTitleLabel");
+    SEL selector = @selector(layoutSubviews);
+    // class_getInstanceMethod는 상속 메서드도 돌려준다. SDK가 자체 구현을 없앤
+    // 버전에서 UIView.layoutSubviews 전체를 바꾸지 않도록 이 클래스가 직접 가진
+    // 메서드 목록에서만 찾는다.
+    Method method = NULL;
+    unsigned int methodCount = 0;
+    Method *methods = class_copyMethodList(infoTitleClass, &methodCount);
+    for (unsigned int index = 0; index < methodCount; index++) {
+      if (method_getName(methods[index]) == selector) {
+        method = methods[index];
+        break;
+      }
+    }
+    free(methods);
+
+    Ivar imageIvar = class_getInstanceVariable(infoTitleClass, "titleImgView");
+    Ivar labelIvar = class_getInstanceVariable(infoTitleClass, "titleLabel");
+    if (method == NULL || imageIvar == NULL || labelIvar == NULL) return;
+
+    // object_getIvar를 쓰는 두 필드가 객체 ivar인지 확인한다. SDK 구조가 바뀌어
+    // 숫자나 구조체가 되면 잘못 읽지 않고 우회를 비활성화한다.
+    const char *imageType = ivar_getTypeEncoding(imageIvar);
+    const char *labelType = ivar_getTypeEncoding(labelIvar);
+    char returnType[8] = { 0 };
+    method_getReturnType(method, returnType, sizeof(returnType));
+    if (method_getNumberOfArguments(method) != 2 ||
+        strcmp(returnType, @encode(void)) != 0 ||
+        imageType == NULL || imageType[0] != '@' ||
+        labelType == NULL || labelType[0] != '@') {
+      return;
+    }
+
+    IMP originalImplementation = method_getImplementation(method);
+    if (originalImplementation == NULL) return;
+    gInfoTitleImageIvar = imageIvar;
+    gInfoTitleLabelIvar = labelIvar;
+    gOriginalInfoTitleLayoutImplementation = originalImplementation;
+    method_setImplementation(method, (IMP)MotoMapInfoTitleLayout);
+  });
+}
+
 // 안내 화면을 담는 뷰 컨트롤러. 델리게이트를 받아야 해서 별도 클래스로 둔다.
 // KNNaviView 는 KNGuidance 를 스스로 구독하지 않는다. 가이드 델리게이트를 여기서
 // 전부 받아 naviView 로 넘겨야 화면이 갱신된다. 게다가 델리게이트를 걸지 않으면
@@ -156,6 +243,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
   [super viewDidLoad];
   self.view.backgroundColor = UIColor.blackColor;
   InstallMotoMapAccessibilityGuard();
+  InstallMotoMapInfoCharacterGuard();
 
   // 미리보기는 시뮬레이션 안내로 — 실주행 안내는 차량 위치를 항상 실제 GPS 에
   // 매칭하므로 정한 출발지에서 시작할 방법이 없다(카메라·위치 주입 API 없음).
