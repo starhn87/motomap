@@ -85,7 +85,9 @@ export async function fetchGasStationDetail(id: string): Promise<GasStationDetai
 
 // 지도 POI·즐겨찾기의 이름이 주유소로 보이는지. 오피넷은 좌표 반경으로만 찾을 수
 // 있어서, 이름으로 먼저 거르지 않으면 아무 장소나 열 때마다 반경 조회가 나간다.
-const GAS_NAME = /주유소|오일뱅크|칼텍스|S-?OIL|알뜰/i;
+// 네이버 POI는 오피넷의 `SK에너지` 대신 소비자 브랜드인 `SK 엔크린`을
+// 상호에 쓰기도 한다. 어느 표기로 들어와도 유가 조회를 시작한다.
+const GAS_NAME = /주유소|엔크린|SK\s*에너지|오일뱅크|칼텍스|S-?OIL|알뜰/i;
 
 export function looksLikeGasStation(name: string): boolean {
   // "GS칼텍스 LPG" 처럼 브랜드만 붙은 충전소는 브랜드에 걸려 조회가 나가고,
