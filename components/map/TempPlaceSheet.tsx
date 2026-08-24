@@ -666,53 +666,59 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             </View>
           )}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: !!communityShare?.sharedByMe }}
-            onPress={handleCommunityShare}
-            style={({ pressed }) => [
-              styles.communityShareCard,
-              {
-                backgroundColor: communityShare?.sharedByMe
-                  ? colors.tint + '10'
-                  : colors.surface,
-                borderColor: communityShare?.sharedByMe ? colors.tint : colors.border,
-                opacity: pressed ? 0.76 : 1,
-              },
-            ]}>
-            <View
-              style={[
-                styles.communityShareIcon,
+          {!isGasStation && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: !!communityShare?.sharedByMe }}
+              onPress={handleCommunityShare}
+              style={({ pressed }) => [
+                styles.communityShareCard,
                 {
                   backgroundColor: communityShare?.sharedByMe
-                    ? colors.tint
-                    : colors.surfaceMuted,
+                    ? colors.tint + '10'
+                    : colors.surface,
+                  borderColor: communityShare?.sharedByMe ? colors.tint : colors.border,
+                  opacity: pressed ? 0.76 : 1,
                 },
               ]}>
-              <Ionicons
-                name={communityShare?.sharedByMe ? 'checkmark-circle' : 'checkmark-circle-outline'}
-                size={21}
-                color={communityShare?.sharedByMe ? colors.background : colors.text}
-              />
-            </View>
-            <View style={styles.communityShareCopy}>
-              <View style={styles.communityShareTitleRow}>
-                <Text style={[styles.communityShareTitle, { color: colors.text }]}>
-                  {communityShare?.sharedByMe ? '장소 추천 완료' : '장소 추천하기'}
-                </Text>
-                {(communityShare?.count ?? 0) > 0 && (
-                  <Text
-                    style={[styles.communityShareCount, { color: colors.textSecondary }]}
-                  >
-                    {communityShare!.count}
-                  </Text>
-                )}
+              <View
+                style={[
+                  styles.communityShareIcon,
+                  {
+                    backgroundColor: communityShare?.sharedByMe
+                      ? colors.tint
+                      : colors.surfaceMuted,
+                  },
+                ]}>
+                <Ionicons
+                  name={communityShare?.sharedByMe ? 'checkmark-circle' : 'checkmark-circle-outline'}
+                  size={21}
+                  color={communityShare?.sharedByMe ? colors.background : colors.text}
+                />
               </View>
-              <Text style={[styles.communityShareDescription, { color: colors.textSecondary }]}>
-                바이크 특화 장소는 아니지만, 라이더가 가볼 만한 곳으로 추천해요.
-              </Text>
-            </View>
-          </Pressable>
+              <View style={styles.communityShareCopy}>
+                <View style={styles.communityShareTitleRow}>
+                  <Text
+                    style={[styles.communityShareTitle, { color: colors.text }]}
+                  >
+                    {communityShare?.sharedByMe ? '장소 추천 완료' : '장소 추천하기'}
+                  </Text>
+                  {(communityShare?.count ?? 0) > 0 && (
+                    <Text
+                      style={[styles.communityShareCount, { color: colors.textSecondary }]}
+                    >
+                      {communityShare!.count}
+                    </Text>
+                  )}
+                </View>
+                <Text
+                  style={[styles.communityShareDescription, { color: colors.textSecondary }]}
+                >
+                  바이크 특화 장소는 아니지만, 라이더가 가볼 만한 곳으로 추천해요.
+                </Text>
+              </View>
+            </Pressable>
+          )}
 
           {!isGasStation && (
             <Pressable
