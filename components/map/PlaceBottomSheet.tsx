@@ -134,10 +134,10 @@ function PlaceBottomSheet({
         ? 'work'
         : null;
 
-  // 장소 자체 사진(리뷰 없음) + 리뷰 사진(작성 리뷰 연결) — 확대 모달에서 리뷰를 함께 보여준다
+  // 장소 자체 사진과 리뷰 사진을 한곳에서 훑되 확대 화면에는 사진만 보여준다.
   const photoItems = [
-    ...(displayPlace?.photos ?? []).map((url) => ({ url, review: null })),
-    ...(reviews ?? []).flatMap((r) => r.photos.map((url) => ({ url, review: r }))),
+    ...(displayPlace?.photos ?? []).map((url) => ({ url })),
+    ...(reviews ?? []).flatMap((review) => review.photos.map((url) => ({ url }))),
   ];
   const { mutateAsync: toggleFav, isPending: favoritePending } = useToggleFavorite();
 

@@ -55,6 +55,8 @@ import {
 import { useGeneralPlace } from '@/hooks/useGeneralPlace';
 import ReviewForm from '@/components/review/ReviewForm';
 import ReviewList from '@/components/review/ReviewList';
+import PhotoStrip from '@/components/map/PhotoStrip';
+import { useReviews } from '@/hooks/useReviews';
 import { haversine } from '@/lib/distance';
 import { formatMeters } from '@/lib/api/directions';
 
@@ -118,6 +120,11 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const reviewTarget = generalPlaceId
     ? ({ kind: 'general', id: generalPlaceId } as const)
     : null;
+  const { data: reviewPages } = useReviews(reviewTarget);
+  const reviews = reviewPages?.pages.flat() ?? [];
+  const photoItems = reviews.flatMap((review) =>
+    review.photos.map((url) => ({ url })),
+  );
 
   const { data: gas, isLoading: gasLoading } = useGasPricesAt(place);
   const isGasStation = !!place && looksLikeGasStation(place.name);
@@ -658,6 +665,15 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             </Pressable>
           )}
 
+          {photoItems.length > 0 && (
+            <View style={styles.photoSection}>
+              <Text style={[styles.photoSectionTitle, { color: colors.text }]}>
+                사진 {photoItems.length}
+              </Text>
+              <PhotoStrip items={photoItems} bleed={CONTENT_PADDING} />
+            </View>
+          )}
+
           <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
             <View style={styles.reviewSectionHeader}>
               <Text style={[styles.reviewSectionTitle, { color: colors.text }]}>리뷰</Text>
@@ -860,6 +876,8 @@ const styles = StyleSheet.create({
   submitTitle: { fontSize: 14, fontWeight: '800' },
   submitDescription: { fontSize: 12, lineHeight: 17 },
   reviewSection: { borderTopWidth: 1, paddingTop: 20, marginTop: 12 },
+  photoSection: { marginTop: 12, gap: 10 },
+  photoSectionTitle: { fontSize: 18, fontWeight: '700' },
   reviewSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

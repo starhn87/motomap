@@ -93,7 +93,7 @@ export default function MyReviewsScreen() {
       {item.photos?.length ? (
         <View style={styles.cardPhotos}>
           <PhotoStrip
-            items={item.photos.map((url: string) => ({ url, review: null }))}
+            items={item.photos.map((url: string) => ({ url }))}
             size={84}
           />
         </View>
