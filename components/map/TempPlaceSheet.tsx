@@ -80,6 +80,7 @@ const PAGE_HEADER_HEIGHT = 56;
 const HANDLE_HEIGHT = 28;
 const HEADER_CONTENT_GAP = 6;
 const CONTENT_PADDING = 20;
+const DETAIL_CARD_GAP = 10;
 
 // 일반 장소도 등록 장소와 같은 확장형 상세 경험을 쓴다. 차이는 카테고리·라이더
 // 집계처럼 모토맵이 검증한 정보 대신 카카오 정보와 라이더 리뷰가 중심이라는 점이다.
@@ -866,7 +867,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 12,
-    marginBottom: 10,
+    marginBottom: DETAIL_CARD_GAP,
   },
   actionButton: {
     flex: 1,
@@ -895,7 +896,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: DETAIL_CARD_GAP,
   },
   priceRows: {
     gap: 6,
@@ -953,7 +954,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     padding: 14,
-    marginBottom: 10,
+    marginBottom: DETAIL_CARD_GAP,
   },
   communityShareIcon: {
     width: 38,
