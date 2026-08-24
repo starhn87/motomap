@@ -58,7 +58,11 @@ import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet'
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import HazardMarker from '@/components/map/HazardMarker';
 import HazardSheet from '@/components/map/HazardSheet';
-import { coordToAddress, searchKakaoLocal } from '@/lib/api/kakaoLocal';
+import {
+  coordToAddress,
+  findKakaoLocalMatch,
+  searchKakaoLocal,
+} from '@/lib/api/kakaoLocal';
 import SearchEntry from '@/components/search/SearchEntry';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
@@ -541,11 +545,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     });
     // 심벌 이벤트에는 외부 장소 ID·전화번호가 없다 — 이름으로 검색해 같은 자리
     // 결과를 찾아 리뷰·즐겨찾기가 이후에도 같은 장소를 바라보게 한다.
-    void searchKakaoLocal(caption).then((results) => {
-      const match = results.find(
-        (r) =>
-          Math.hypot((r.latitude - latitude) * 111000, (r.longitude - longitude) * 88000) < 150,
-      );
+    void searchKakaoLocal(caption, { latitude, longitude }).then((results) => {
+      const match = findKakaoLocalMatch(caption, { latitude, longitude }, results);
       if (!match) return;
       setTempPlace((prev) =>
         prev && prev.name === caption && prev.latitude === latitude

@@ -1,4 +1,5 @@
 import { toast } from '@/lib/toast';
+import { approxMeters } from '@/lib/distance';
 
 // 카카오 로컬 REST API 키 (developers.kakao.com > 내 앱 > 앱 키 > REST API 키).
 // 네이티브 앱 키(KAKAO_NATIVE_APP_KEY)와는 다른 키다.
@@ -25,6 +26,32 @@ export interface KakaoLocalSearchPage {
   totalCount: number;
   pageableCount: number;
   isEnd: boolean;
+}
+
+const normalizePlaceName = (name: string) =>
+  name.normalize('NFKC').trim().toLowerCase().replace(/\s+/g, '');
+
+/**
+ * 네이버 지도 심벌에는 외부 장소 ID가 없으므로 카카오 검색 결과로 보완한다.
+ * 복합시설의 첫 검색 결과를 무작정 고르지 않고, 같은 이름을 우선한 뒤 정말
+ * 가까운 후보가 하나뿐일 때만 좌표 폴백을 허용한다.
+ */
+export function findKakaoLocalMatch(
+  name: string,
+  center: { latitude: number; longitude: number },
+  results: KakaoLocalResult[],
+): KakaoLocalResult | undefined {
+  const nearby = results
+    .map((result) => ({ result, distance: approxMeters(center, result) }))
+    .filter(({ distance }) => distance < 150);
+  const normalizedName = normalizePlaceName(name);
+  const exactName = nearby
+    .filter(({ result }) => normalizePlaceName(result.placeName) === normalizedName)
+    .sort((a, b) => a.distance - b.distance);
+  if (exactName[0]) return exactName[0].result;
+
+  const veryClose = nearby.filter(({ distance }) => distance < 20);
+  return veryClose.length === 1 ? veryClose[0].result : undefined;
 }
 
 type KakaoSearchOptions = { throwOnError?: boolean };
