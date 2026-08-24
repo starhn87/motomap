@@ -59,6 +59,10 @@ import PhotoStrip from '@/components/map/PhotoStrip';
 import { useReviews } from '@/hooks/useReviews';
 import { haversine } from '@/lib/distance';
 import { formatMeters } from '@/lib/api/directions';
+import {
+  useGeneralPlaceShare,
+  useToggleGeneralPlaceShare,
+} from '@/hooks/useCommunityPlaceSignals';
 
 export interface TempPlace extends GeneralPlaceInput {
   /** 이미 DB에 연결된 일반 장소로 들어온 경우 */
@@ -116,6 +120,8 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
     useToggleGeneralFavorite();
   const favoriteScale = useSharedValue(1);
   const { data: generalPlace } = useGeneralPlace(place);
+  const { data: communityShare } = useGeneralPlaceShare(place);
+  const toggleCommunityShare = useToggleGeneralPlaceShare(place);
   const generalPlaceId = generalPlace?.id ?? place?.generalPlaceId;
   const reviewTarget = generalPlaceId
     ? ({ kind: 'general', id: generalPlaceId } as const)
@@ -289,6 +295,22 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
     } catch {
       // 공유 시트를 닫은 경우 등 — 무시
     }
+  };
+
+  const handleCommunityShare = () => {
+    if (!place) return;
+    if (!user) {
+      toast.info('로그인하면 이 장소를 라이더들과 공유할 수 있어요.');
+      return;
+    }
+    if (toggleCommunityShare.isPending) return;
+    toggleCommunityShare.mutate(undefined, {
+      onSuccess: ({ shared }) => {
+        haptics.selection();
+        if (shared) toast.success('라이더들과 이 장소를 공유했어요.');
+      },
+      onError: (error) => toast.error('장소 공유를 반영하지 못했습니다.', error.message),
+    });
   };
 
   const handleSubmit = () => {
@@ -647,6 +669,53 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             </View>
           )}
 
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: !!communityShare?.sharedByMe }}
+            disabled={toggleCommunityShare.isPending}
+            onPress={handleCommunityShare}
+            style={({ pressed }) => [
+              styles.communityShareCard,
+              {
+                backgroundColor: communityShare?.sharedByMe
+                  ? colors.tint + '10'
+                  : colors.surface,
+                borderColor: communityShare?.sharedByMe ? colors.tint : colors.border,
+                opacity: pressed || toggleCommunityShare.isPending ? 0.68 : 1,
+              },
+            ]}>
+            <View
+              style={[
+                styles.communityShareIcon,
+                {
+                  backgroundColor: communityShare?.sharedByMe
+                    ? colors.tint
+                    : colors.surfaceMuted,
+                },
+              ]}>
+              <Ionicons
+                name={communityShare?.sharedByMe ? 'checkmark-circle' : 'share-social-outline'}
+                size={21}
+                color={communityShare?.sharedByMe ? colors.background : colors.text}
+              />
+            </View>
+            <View style={styles.communityShareCopy}>
+              <Text style={[styles.communityShareTitle, { color: colors.text }]}>
+                {communityShare?.sharedByMe
+                  ? '라이더들과 공유 중'
+                  : '라이더들과 공유하기'}
+              </Text>
+              <Text style={[styles.communityShareDescription, { color: colors.textSecondary }]}>
+                바이크 특화 장소는 아니지만, 라이더가 함께 가볼 곳으로 공유할 수 있어요.
+              </Text>
+            </View>
+            {(communityShare?.count ?? 0) > 0 && (
+              <Text style={[styles.communityShareCount, { color: colors.textSecondary }]}>
+                {communityShare!.count}
+              </Text>
+            )}
+          </Pressable>
+
           {!isGasStation && (
             <Pressable
               accessibilityRole="button"
@@ -656,7 +725,9 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                 { borderColor: pressed ? colors.tint : colors.border, opacity: pressed ? 0.72 : 1 },
               ]}>
               <View style={styles.submitCopy}>
-                <Text style={[styles.submitTitle, { color: colors.text }]}>라이더 정보 추가</Text>
+                <Text style={[styles.submitTitle, { color: colors.text }]}>
+                  바이크 특화 장소로 제보하기
+                </Text>
                 <Text style={[styles.submitDescription, { color: colors.textSecondary }]}>
                   주차·영업 정보 등을 알려주면 모토맵 장소로 검토해요.
                 </Text>
@@ -872,6 +943,26 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
   },
+  communityShareCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+  },
+  communityShareIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  communityShareCopy: { flex: 1, gap: 3 },
+  communityShareTitle: { fontSize: 14, fontWeight: '800' },
+  communityShareDescription: { fontSize: 12, lineHeight: 17 },
+  communityShareCount: { fontSize: 12, fontWeight: '800' },
   submitCopy: { flex: 1, gap: 3 },
   submitTitle: { fontSize: 14, fontWeight: '800' },
   submitDescription: { fontSize: 12, lineHeight: 17 },
