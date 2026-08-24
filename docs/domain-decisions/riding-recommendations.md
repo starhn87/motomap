@@ -6,10 +6,13 @@
 현재 구현과 전환 대상:
 
 - `app/(tabs)/courses.tsx`
-- `app/course/[id].tsx`
+- `app/riding/[id].tsx`, `app/course/[id].tsx`
 - `components/explore/RecommendedPlaces.tsx`
 - `components/explore/WeekendRideRecommendations.tsx`
-- `components/submit/SubmitCourse.tsx`, `app/(tabs)/submit.tsx`
+- `components/submit/SubmitRidingGuide.tsx`, `app/(tabs)/submit.tsx`
+- `lib/api/ridingGuides.ts`, `lib/api/ridingGuideSubmissions.ts`
+- `supabase/migrations/20260824125750_add_riding_recommendations.sql`
+- `supabase/migrations/20260824131321_seed_verified_riding_guides.sql`
 - `lib/api/courses.ts`, `lib/api/courseLibrary.ts`
 - `public.courses`, `public.course_reviews`, `public.course_saves`, `public.course_completions`
 - `lib/api/search.ts`, `supabase/functions/moto-chat/`, `website/src/index.js`
@@ -38,9 +41,9 @@
 ## RIDING-001 — 장소 분류와 분리된 목적지 기반 콘텐츠로 전환
 
 - 날짜: 2026-08-24
-- 상태: 활성(구현 예정)
-- 관련 구현: 향후 `public.riding_guides`, `public.riding_guide_stops`,
-  `app/riding/[id].tsx`
+- 상태: 활성(단계적 구현 중)
+- 관련 구현: `public.riding_guides`, `public.riding_guide_stops`,
+  `app/riding/[id].tsx`, `components/submit/SubmitRidingGuide.tsx`
 - 대체 예정: 고정 경로 중심 `courses` 탐색·상세·제보
 
 ### 배경
@@ -234,6 +237,25 @@ AI는 `새 추천`, `기존 추천에 병합`, `판단 유보`, `반려`와 근�
 모든 기존 코스를 무조건 같은 수의 가이드로 만들 필요는 없다. 대표 목적지와 추천 이유가 약한
 콘텐츠는 공개를 보류하거나 다른 가이드와 합친다. 최근 등록 해제된 장소를 과거 좌표와 가깝다는
 이유로 다시 연결하지 않는다.
+
+2026-08-24 구현에서는 운영 DB의 활성 코스·장소 ID와 이름을 다시 대조해 다음 10개만 초기
+라이딩 추천으로 확정했다.
+
+- 강화도: 강만장, 블랙바트
+- 대부도: 헬로모토
+- 북한강: 브리끄, 두물머리
+- 설악: 한계령휴게소, 미시령 옛길 정상
+- 양평: 양평 만남의 광장
+- 용인·이천: 롤링트라이브, 카페194, 카페피네스
+- 천안: 안라커피, 로맨틱투휠, 할리우드
+- 파주·양주: 리로드, 라드
+- 포천·철원: 포천아우토반카페, 바이크와커피가만나다
+- 지리산: 성삼재휴게소, 정령치휴게소
+
+동해안, 남해, 제주, 하동, 변산반도, 영남알프스 6개는 설명에 맞는 안정적인 장소 ID가 현재
+데이터에서 확인되지 않아 보류했다. 시드 마이그레이션도 코스와 모든 연결 장소의 ID·이름·활성
+상태가 일치할 때만 각 추천을 넣는다. 따라서 운영 데이터가 없는 새 로컬 DB나 중간에 장소가
+숨겨진 환경에서 잘못된 부분 콘텐츠가 만들어지지 않는다.
 
 ### 검색·추천·공유 계약
 

@@ -203,16 +203,14 @@ export async function fetchRidingGuideById(id: string): Promise<RidingGuide | nu
   return guide ?? null;
 }
 
-export async function fetchRidingGuideByLegacyCourseId(
+export async function fetchRidingGuideIdByLegacyCourseId(
   courseId: string,
-): Promise<RidingGuide | null> {
+): Promise<string | null> {
   const { data, error } = await supabase
     .from('riding_guides')
-    .select(RIDING_GUIDE_SELECT)
+    .select('id')
     .eq('legacy_course_id', courseId)
     .maybeSingle();
   if (error) throw error;
-  if (!data) return null;
-  const [guide] = await resolveRows([data as unknown as RidingGuideRow]);
-  return guide ?? null;
+  return data?.id ?? null;
 }

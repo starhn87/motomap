@@ -13,7 +13,7 @@ import {
   Share,
 } from 'react-native';
 import { useState } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import { NaverMapView, NaverMapPathOverlay, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 
 import Colors, { semantic } from '@/constants/Colors';
@@ -41,9 +41,31 @@ import StarRating from '@/components/review/StarRating';
 import ReportSheet from '@/components/report/ReportSheet';
 import { useCourseProgress, useToggleCourseSave } from '@/hooks/useCourseLibrary';
 import { courseWebUrl } from '@/constants/app';
+import { useLegacyCourseGuide } from '@/hooks/useRidingGuides';
 
 export default function CourseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const courseId = typeof id === 'string' ? id : null;
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const { data: ridingGuideId, isLoading } = useLegacyCourseGuide(courseId);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.tint} />
+      </View>
+    );
+  }
+
+  if (ridingGuideId) {
+    return <Redirect href={{ pathname: '/riding/[id]', params: { id: ridingGuideId } }} />;
+  }
+
+  return <LegacyCourseDetailScreen id={courseId ?? ''} />;
+}
+
+function LegacyCourseDetailScreen({ id }: { id: string }) {
   const { data: nearbyPlaces = [], isLoading: nearbyPlacesLoading } = useCoursePlaces(id);
   const { data: courseHazards = [], isLoading: courseHazardsLoading } = useCourseHazards(id);
   const [selectedHazard, setSelectedHazard] = useState<RoadHazard | null>(null);

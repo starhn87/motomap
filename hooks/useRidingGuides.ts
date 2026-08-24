@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import {
   fetchRidingGuideById,
-  fetchRidingGuideByLegacyCourseId,
+  fetchRidingGuideIdByLegacyCourseId,
   fetchRidingGuides,
 } from '@/lib/api/ridingGuides';
 
@@ -24,7 +24,7 @@ export function useRidingGuide(id: string | null) {
 export function useLegacyCourseGuide(courseId: string | null) {
   return useQuery({
     queryKey: ['riding-guides', 'legacy-course', courseId],
-    queryFn: () => fetchRidingGuideByLegacyCourseId(courseId!),
+    queryFn: () => fetchRidingGuideIdByLegacyCourseId(courseId!),
     enabled: !!courseId,
   });
 }
