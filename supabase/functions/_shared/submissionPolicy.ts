@@ -4,7 +4,7 @@
  * 사람용 원문은 docs/submission-approval-policy.md다. 기준을 바꿀 때는 문서와 이 파일의
  * 버전·규칙 ID·판정 경계를 같은 커밋에서 함께 바꾼다.
  */
-export const SUBMISSION_POLICY_VERSION = '2026-08-23.1';
+export const SUBMISSION_POLICY_VERSION = '2026-08-24.1';
 
 export const SUBMISSION_POLICY_RULE_IDS = [
   'COMMON-IDENTITY',
@@ -13,6 +13,7 @@ export const SUBMISSION_POLICY_RULE_IDS = [
   'COMMON-DUPLICATE',
   'COMMON-CONTENT',
   'PLACE-RIDER-VALUE',
+  'PLACE-COMMUNITY-RECOMMENDATION',
   'PLACE-RESTAURANT',
   'PLACE-REST-STOP',
   'PLACE-GAS-STATION',
@@ -43,6 +44,10 @@ export const SUBMISSION_POLICY_PROMPT = `제보 승인 기준 버전 ${SUBMISSIO
 - PLACE-RIDER-VALUE: 바이크 카페·정비소·용품점처럼 업태 자체가 바이크 특화이거나, 라이더가
   반복적으로 목적지·집결지로 이용한다는 구체 근거가 있어야 한다. 단순히 주차 가능하거나
   라이딩하기 좋다는 문구만으로는 부족하다.
+- PLACE-COMMUNITY-RECOMMENDATION: 일반 장소의 라이더 추천은 커뮤니티의 주관적인 소개 신호다.
+  추천 한 건이나 추천 이유만으로 PLACE-RIDER-VALUE를 통과시키지 않는다. 여러 독립 계정의 추천,
+  구체적인 리뷰·실제 라이딩 기록은 조사 후보로 참고할 수 있지만 외부 근거와 안전성을 별도로
+  확인해야 한다.
 - PLACE-RESTAURANT: 맛집은 라이더 콘텐츠에서 반복 언급되거나 알려진 라이딩 동선의 목적지이며
   안전한 주차가 확인돼야 한다.
 - PLACE-REST-STOP: 휴게소는 주요 라이딩 동선의 집결·휴식 거점이라는 근거가 있어야 한다.
