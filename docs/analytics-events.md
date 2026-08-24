@@ -53,6 +53,10 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `course_saved` | `on` |
 | `course_completed` | `course_id` |
 | `weekend_ride_opened` | `recommendation_count` |
+| `top_recommended_places_viewed` | `recommendation_count` |
+| `top_recommended_place_selected` | `rank` |
+| `general_shared_layer_toggled` | `on` |
+| `general_shared_place_selected` | `share_count` |
 
 `place_viewed.source`: `map_marker` · `search` · `search_results` · `favorite` · `chat` · `notification` · `course` · `submission`
 
@@ -74,6 +78,8 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `place_submission_opened` | `source`(arrival·temp_place·search_empty) |
 | `place_submitted` | `category` · `source`(tab·arrival·temp_place·search_empty) |
 | `review_submitted` | `target`(place·general·course) · `rating` · `has_photo` |
+| `place_recommendation_toggled` | `on` |
+| `general_place_share_toggled` | `on` |
 | `chat_message_sent` | `turn_index` |
 
 ### 내 바이크
@@ -119,6 +125,7 @@ expo-router 는 `NavigationContainer` 를 노출하지 않아 PostHog 의 화면
 - **리뷰 본문·채팅 내용·이메일·닉네임**
 - **바이크 모델명** — 정규 목록 여부와 넓은 유형만 보낸다.
 - **라이더 장소 정보의 사용자·장소 연결** — 사실 코드와 선택 여부만 보내고 place id는 보내지 않는다.
+- **추천·공유한 장소 식별자** — 추천·공유 여부, TOP 순위, 공개 집계 수만 보내고 장소 id는 보내지 않는다.
 
 `query` 는 보낸다. "무엇을 찾다 실패했는지"를 알아야 검색을 고칠 수 있고 그게 이 계측의 최대 실익이다.
 다만 개별 검색어와 미등록 도착지는 **공개 GitHub 다이제스트에 절대 싣지 않고**, 권한이 제한된
