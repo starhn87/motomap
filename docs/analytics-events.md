@@ -53,10 +53,10 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `course_saved` | `on` |
 | `course_completed` | `course_id` |
 | `weekend_ride_opened` | `recommendation_count` |
-| `top_recommended_places_viewed` | `recommendation_count` |
-| `top_recommended_place_selected` | `rank` |
-| `general_shared_layer_toggled` | `on` |
-| `general_shared_place_selected` | `share_count` |
+| `top_recommended_places_viewed` | `recommendation_count` — 등록 장소 `라이더 인기 TOP 5`의 레거시 이벤트명 |
+| `top_recommended_place_selected` | `rank` — 등록 장소 인기 순위의 레거시 이벤트명 |
+| `general_shared_layer_toggled` | `on` — 일반 `추천 장소` 레이어의 레거시 이벤트명 |
+| `general_shared_place_selected` | `share_count` — 일반 추천 장소 선택의 레거시 속성명 |
 
 `place_viewed.source`: `map_marker` · `search` · `search_results` · `favorite` · `chat` · `notification` · `course` · `submission`
 
@@ -78,8 +78,8 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `place_submission_opened` | `source`(arrival·temp_place·search_empty) |
 | `place_submitted` | `category` · `source`(tab·arrival·temp_place·search_empty) |
 | `review_submitted` | `target`(place·general·course) · `rating` · `has_photo` |
-| `place_recommendation_toggled` | `on` |
-| `general_place_share_toggled` | `on` |
+| `place_recommendation_toggled` | `on` — 등록 장소 좋아요의 레거시 이벤트명 |
+| `general_place_share_toggled` | `on` — 일반 장소 추천의 레거시 이벤트명 |
 | `chat_message_sent` | `turn_index` |
 
 ### 내 바이크

@@ -31,7 +31,7 @@
 | 노면 위험 정보 수명주기 | [hazard-lifecycle.md](hazard-lifecycle.md) | `road_hazards`, `hazard_votes`, `components/map/HazardSheet.tsx` |
 | 인증·세션 저장 | [authentication.md](authentication.md) | `lib/authStorage.ts`, `lib/supabase.ts`, `stores/useAuthStore.ts` |
 | 장소 선별·운영 상태 검증 | [place-curation.md](place-curation.md) | `public.places`, `scripts/seed-place-curation.mjs`, 장소 검증 마이그레이션 |
-| 장소 추천·일반 장소 공유 | [community-place-recommendations.md](community-place-recommendations.md) | `public.place_recommendations`, `public.general_place_shares`, 장소 상세·검색·지도 |
+| 등록 장소 좋아요·일반 장소 추천 | [community-place-recommendations.md](community-place-recommendations.md) | `public.place_recommendations`, `public.general_place_shares`, 장소 상세·검색·지도 |
 | 장소·코스 제보 심사 | [submission-moderation.md](submission-moderation.md) | `docs/submission-approval-policy.md`, `supabase/functions/judge-submission/` |
 | 릴리스·버전 호환성 | [release-compatibility.md](release-compatibility.md) | `config/release-policy.json`, `lib/appCompatibility.ts`, `modules/kakao-navi/`, `.github/workflows/checks.yml` |
 

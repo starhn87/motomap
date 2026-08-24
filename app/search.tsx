@@ -789,10 +789,10 @@ export default function SearchScreen() {
 
           {topRecommended.length > 0 && (
             <>
-              {sectionTitle('라이더 추천 TOP 5')}
+              {sectionTitle('라이더 인기 TOP 5')}
               {topRecommended.map((place, index) =>
                 placeRow(place, 'rider-top', undefined, {
-                  badgeLabel: `추천 ${place.recommendationCount}`,
+                  badgeLabel: `좋아요 ${place.recommendationCount}`,
                   badgeColor: colors.tint,
                   onSelect: () => track.topRecommendedPlaceSelected({ rank: index + 1 }),
                 }),

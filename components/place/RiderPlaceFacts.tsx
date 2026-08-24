@@ -40,23 +40,21 @@ export default function RiderPlaceFacts({ placeId }: { placeId: string }) {
     });
   };
 
-  const handleRecommend = () => {
+  const handleLike = () => {
     if (!user) {
-      toast.info('로그인하면 다른 라이더에게 이 장소를 추천할 수 있어요.');
+      toast.info('로그인하면 이 장소에 좋아요를 남길 수 있어요.');
       return;
     }
     if (recommend.isPending) return;
     recommend.mutate(undefined, {
       onSuccess: () => haptics.selection(),
-      onError: (error) => toast.error('추천을 반영하지 못했습니다.', error.message),
+      onError: (error) => toast.error('좋아요를 반영하지 못했습니다.', error.message),
     });
   };
 
-  const recommended = !!recommendation?.recommendedByMe;
-  const recommendationCount = recommendation?.count ?? 0;
-  const recommendationLabel = recommended
-    ? `추천함${recommendationCount > 0 ? ` · ${recommendationCount}` : ''}`
-    : `추천하기${recommendationCount > 0 ? ` · ${recommendationCount}` : ''}`;
+  const liked = !!recommendation?.recommendedByMe;
+  const likeCount = recommendation?.count ?? 0;
+  const likeLabel = `좋아요${likeCount > 0 ? ` · ${likeCount}` : ''}`;
 
   return (
     <View style={[styles.section, { borderTopColor: colors.border }]}>
@@ -64,28 +62,28 @@ export default function RiderPlaceFacts({ placeId }: { placeId: string }) {
         <Text style={[styles.title, { color: colors.text }]}>라이더 제공 정보</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityState={{ selected: recommended }}
+          accessibilityState={{ selected: liked }}
           disabled={recommend.isPending}
-          onPress={handleRecommend}
+          onPress={handleLike}
           style={({ pressed }) => [
-            styles.recommendButton,
+            styles.likeButton,
             {
-              backgroundColor: recommended ? colors.tint : colors.surface,
-              borderColor: recommended ? colors.tint : colors.border,
+              backgroundColor: liked ? colors.tint : colors.surface,
+              borderColor: liked ? colors.tint : colors.border,
               opacity: pressed || recommend.isPending ? 0.68 : 1,
             },
           ]}>
           <Ionicons
-            name={recommended ? 'checkmark-circle' : 'checkmark-circle-outline'}
+            name={liked ? 'thumbs-up' : 'thumbs-up-outline'}
             size={17}
-            color={recommended ? colors.background : colors.text}
+            color={liked ? colors.background : colors.text}
           />
           <Text
             style={[
-              styles.recommendText,
-              { color: recommended ? colors.background : colors.text },
+              styles.likeText,
+              { color: liked ? colors.background : colors.text },
             ]}>
-            {recommendationLabel}
+            {likeLabel}
           </Text>
         </Pressable>
       </View>
@@ -178,7 +176,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  recommendButton: {
+  likeButton: {
     minHeight: 32,
     flexDirection: 'row',
     alignItems: 'center',
@@ -187,7 +185,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
   },
-  recommendText: {
+  likeText: {
     fontSize: 12,
     fontWeight: '800',
   },

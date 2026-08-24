@@ -107,12 +107,12 @@ function RiderShareFilterChip({ isActive, onPress }: { isActive: boolean; onPres
         },
       ]}>
       <Ionicons
-        name="people-outline"
+        name={isActive ? 'checkmark-circle' : 'checkmark-circle-outline'}
         size={16}
         color={isActive ? colors.background : colors.text}
       />
       <Text style={[styles.chipLabel, { color: isActive ? colors.background : colors.text }]}>
-        라이더 공유
+        추천 장소
       </Text>
     </AnimatedPressable>
   );
