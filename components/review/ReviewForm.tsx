@@ -106,7 +106,6 @@ export default function ReviewForm({ target }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: colors.text }]}>별점</Text>
       <StarRating rating={rating} onRate={setRating} size={32} />
 
       <BottomSheetTextInput
@@ -166,10 +165,6 @@ const styles = StyleSheet.create({
   },
   container: {
     gap: 12,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
   },
   loginHint: {
     fontSize: 13,
