@@ -1,4 +1,3 @@
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import BikeIcon from '@/components/ui/BikeIcon';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -36,7 +35,6 @@ import { useMapStore } from '@/stores/useMapStore';
 import { useChatStore, type ChatMessage } from '@/stores/useChatStore';
 import { sendChat, type ChatPlaceCard, type ChatTurn } from '@/lib/api/chat';
 import { useMyBike } from '@/lib/bike';
-import { formatDistance, formatDuration } from '@/constants/course';
 import type { PlaceCategory } from '@/types';
 import { track } from '@/lib/analytics';
 
@@ -142,11 +140,11 @@ function AssistantText({
 
 const SUGGESTIONS = [
   '근처 라이더 카페 추천해줘',
-  '서울 근교 반나절 코스 알려줘',
+  '서울 근교 라이딩 추천해줘',
   '이번 주말 1박 모토캠핑 계획 짜줘',
 ];
 
-// AI 추천 챗 — 앱에 등록된 장소·코스 안에서만 추천. 카드 탭 → 지도 포커스/코스 상세.
+// AI 추천 챗 — 앱의 장소·라이딩 추천 안에서만 추천. 카드 탭 → 지도/추천 상세.
 export default function ChatScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -183,7 +181,7 @@ export default function ChatScreen() {
           role: 'assistant',
           content: res.reply,
           places: res.places,
-          courses: res.courses,
+          ridingGuides: res.ridingGuides,
           animate: true,
         });
       } catch (e: any) {
@@ -236,7 +234,7 @@ export default function ChatScreen() {
           )}
         </View>
 
-        {!isUser && !item.animate && (item.places?.length || item.courses?.length) ? (
+        {!isUser && !item.animate && (item.places?.length || item.ridingGuides?.length) ? (
           <Animated.View entering={FadeInDown.duration(300)} style={styles.cards}>
             {item.places?.map((p) => {
               const cat = CATEGORIES[p.category as PlaceCategory];
@@ -271,10 +269,10 @@ export default function ChatScreen() {
                 </Pressable>
               );
             })}
-            {item.courses?.map((c) => (
+            {item.ridingGuides?.map((guide) => (
               <Pressable
-                key={c.id}
-                onPress={() => router.push(`/course/${c.id}`)}
+                key={guide.id}
+                onPress={() => router.push(`/riding/${guide.id}`)}
                 style={({ pressed }) => [
                   styles.card,
                   {
@@ -283,16 +281,17 @@ export default function ChatScreen() {
                     opacity: pressed ? 0.8 : 1,
                   },
                 ]}>
-                <MaterialCommunityIcons name="road-variant" size={20} color={colors.tint} />
+                <Ionicons name="navigate-outline" size={20} color={colors.tint} />
                 <View style={styles.cardInfo}>
                   <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>
-                    {c.name}
+                    {guide.title}
                   </Text>
-                  <Text style={[styles.cardSub, { color: colors.textSecondary }]}>
-                    {formatDistance(c.distance)} · {formatDuration(c.duration)}
+                  <Text style={[styles.cardSub, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {guide.primaryPlaceName}
+                    {guide.distanceKm !== null ? ` · ${guide.distanceKm}km` : ''}
                   </Text>
                 </View>
-                <Text style={[styles.cardBadge, { color: colors.tint }]}>코스</Text>
+                <Text style={[styles.cardBadge, { color: colors.tint }]}>라이딩</Text>
               </Pressable>
             ))}
           </Animated.View>
@@ -330,7 +329,7 @@ export default function ChatScreen() {
               어디로 달려볼까요?
             </Text>
             <Text style={[styles.welcomeSub, { color: colors.textSecondary }]}>
-              모토맵에 등록된 장소와 코스 중에서{'\n'}딱 맞는 곳을 추천해 드려요.
+              모토맵에 등록된 장소와 라이딩 추천 중에서{'\n'}딱 맞는 곳을 찾아드려요.
             </Text>
             <View style={styles.suggestions}>
               {SUGGESTIONS.map((s) => (

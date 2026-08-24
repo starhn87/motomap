@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 
-// AI 추천 챗(Edge Function moto-chat) 클라이언트
+// AI 추천 챗(Edge Function moto-chat-v2) 클라이언트
 
 export interface ChatPlaceCard {
   id: string;
@@ -10,11 +10,13 @@ export interface ChatPlaceCard {
   distanceKm: number | null;
 }
 
-export interface ChatCourseCard {
+export interface ChatRidingGuideCard {
   id: string;
-  name: string;
-  distance: number;
-  duration: number;
+  title: string;
+  summary: string;
+  regions: string[];
+  primaryPlaceName: string;
+  distanceKm: number | null;
 }
 
 export interface ChatTurn {
@@ -25,7 +27,7 @@ export interface ChatTurn {
 export interface ChatResponse {
   reply: string;
   places: ChatPlaceCard[];
-  courses: ChatCourseCard[];
+  ridingGuides: ChatRidingGuideCard[];
 }
 
 export async function sendChat(
@@ -33,7 +35,7 @@ export async function sendChat(
   location?: { latitude: number; longitude: number } | null,
   bike?: string | null,
 ): Promise<ChatResponse> {
-  const { data, error } = await supabase.functions.invoke('moto-chat', {
+  const { data, error } = await supabase.functions.invoke('moto-chat-v2', {
     // 서버도 다시 검증하지만, 오래 대화해도 불필요한 이전 턴을 전송하지 않는다.
     body: {
       messages: messages.slice(-10),

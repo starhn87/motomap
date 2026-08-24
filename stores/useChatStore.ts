@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 
-import type { ChatPlaceCard, ChatCourseCard } from '@/lib/api/chat';
+import type { ChatPlaceCard, ChatRidingGuideCard } from '@/lib/api/chat';
 
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   places?: ChatPlaceCard[];
-  courses?: ChatCourseCard[];
+  ridingGuides?: ChatRidingGuideCard[];
   /** 최초 도착 시에만 점진 표시 — 재진입·재마운트 시 다시 타이핑되지 않게 완료 후 false */
   animate?: boolean;
 }
