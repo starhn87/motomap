@@ -13,3 +13,7 @@ export function placeWebUrl(placeId: string): string {
 export function courseWebUrl(courseId: string): string {
   return `${APP_WEB_URL}/course/${encodeURIComponent(courseId)}`;
 }
+
+export function ridingGuideWebUrl(guideId: string): string {
+  return `${APP_WEB_URL}/riding/${encodeURIComponent(guideId)}`;
+}

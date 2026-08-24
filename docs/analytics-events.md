@@ -53,10 +53,13 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `course_saved` | `on` |
 | `course_completed` | `course_id` |
 | `weekend_ride_opened` | `recommendation_count` |
+| `riding_guide_viewed` | `guide_id` · `place_count` |
+| `riding_guide_place_selected` | `guide_id` · `place_source`(registered·general) · `position` |
+| `riding_guide_shared` | `guide_id` |
 | `general_shared_layer_toggled` | `on` — 일반 `추천 장소` 레이어의 레거시 이벤트명 |
 | `general_shared_place_selected` | `share_count` — 일반 추천 장소 선택의 레거시 속성명 |
 
-`place_viewed.source`: `map_marker` · `search` · `search_results` · `favorite` · `chat` · `notification` · `course` · `submission`
+`place_viewed.source`: `map_marker` · `search` · `search_results` · `favorite` · `chat` · `notification` · `course` · `riding_guide` · `submission`
 
 ### 안내
 
@@ -107,7 +110,8 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 
 expo-router 는 `NavigationContainer` 를 노출하지 않아 PostHog 의 화면 자동 수집(`captureScreens`)이
 동작하지 않는다(SDK 타입 주석에 명시). `useScreenTracking()` 이 `usePathname()` 을 구독해 직접 보낸다.
-동적 세그먼트는 값이 아니라 패턴으로 보낸다 — `/course/[id]` 지 `/course/abc-123` 이 아니다.
+동적 세그먼트는 값이 아니라 패턴으로 보낸다 — `/course/[id]`, `/riding/[id]`이지 실제 UUID가
+포함된 화면명이 아니다.
 
 ## 넣지 않는 것
 

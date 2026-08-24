@@ -7,31 +7,30 @@ import {
   FlatList,
   RefreshControl,
 } from 'react-native';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { router } from 'expo-router';
-import EmptyState from '@/components/ui/EmptyState';
 
-import Colors, { semantic } from '@/constants/Colors';
+import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { useCourses } from '@/hooks/useCourses';
-import { formatDistance, formatDuration, seasonalBadge } from '@/constants/course';
+import { useRidingGuides } from '@/hooks/useRidingGuides';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
+import EmptyState from '@/components/ui/EmptyState';
 import RecommendedPlaces from '@/components/explore/RecommendedPlaces';
-import WeekendRideRecommendations from '@/components/explore/WeekendRideRecommendations';
-import type { RidingCourse } from '@/types';
+import type { RidingGuide } from '@/types';
 
-type Segment = 'courses' | 'places';
+type Segment = 'riding' | 'places';
 
-function CourseSkeletonList() {
+function RidingGuideSkeletonList() {
   return (
     <View style={styles.list}>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <SkeletonContainer key={i}>
-          <Skeleton width="60%" height={20} />
-          <Skeleton width="90%" height={14} style={{ marginTop: 8 }} />
-          <View style={{ flexDirection: 'row', marginTop: 16, gap: 24 }}>
-            <Skeleton width={60} height={28} />
-            <Skeleton width={60} height={28} />
+      {Array.from({ length: 4 }).map((_, index) => (
+        <SkeletonContainer key={index}>
+          <Skeleton width="42%" height={12} />
+          <Skeleton width="72%" height={22} style={{ marginTop: 10 }} />
+          <Skeleton width="94%" height={14} style={{ marginTop: 8 }} />
+          <View style={styles.skeletonChips}>
+            <Skeleton width={64} height={27} radius={14} />
+            <Skeleton width={78} height={27} radius={14} />
           </View>
         </SkeletonContainer>
       ))}
@@ -39,120 +38,77 @@ function CourseSkeletonList() {
   );
 }
 
-export default function ExploreScreen() {
+function RidingGuideCard({ guide }: { guide: RidingGuide }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const [segment, setSegment] = useState<Segment>('courses');
-  const { data: courses, isLoading, refetch, isRefetching } = useCourses();
+  const primary = guide.stops.find((stop) => stop.role === 'primary');
+  const chips = [...guide.regions, ...guide.tags].slice(0, 3);
 
-  // 코스 소요 시간 필터 — 서로 배타적인 구간(1시간 이내, 1~2시간, 2시간 이상)이라
-  // 같은 코스가 두 칩에 겹치지 않고, 빈 구간의 칩은 만들지 않는다.
-  const [tripFilter, setTripFilter] = useState<number | null>(null);
-  const tripBucket = (min: number): number => (min <= 60 ? 60 : min <= 120 ? 120 : 180);
-
-  const tripChips = useMemo(() => {
-    if (!courses?.length) return [];
-    const counts = new Map<number, number>();
-    for (const c of courses) {
-      const bucket = tripBucket(c.duration);
-      counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
-    }
-    const labels: Record<number, string> = { 60: '1시간 이내', 120: '1~2시간', 180: '2시간 이상' };
-    const chips: { label: string; value: number | null }[] = [{ label: '전체', value: null }];
-    for (const bucket of [60, 120, 180]) {
-      if (counts.has(bucket)) chips.push({ label: labels[bucket], value: bucket });
-    }
-    return chips.length > 1 ? chips : [];
-  }, [courses]);
-
-  const visibleCourses = useMemo(() => {
-    if (!courses || tripFilter == null) return courses;
-    return courses
-      .filter((c) => tripBucket(c.duration) === tripFilter)
-      .sort((a, b) => a.duration - b.duration);
-  }, [courses, tripFilter]);
-
-  const renderCourse = ({ item }: { item: RidingCourse }) => (
+  return (
     <Pressable
+      onPress={() => router.push(`/riding/${guide.id}`)}
       style={({ pressed }) => [
         styles.card,
         {
           backgroundColor: colors.surfaceElevated,
           borderColor: colors.border,
-          opacity: pressed ? 0.8 : 1,
+          opacity: pressed ? 0.78 : 1,
         },
-      ]}
-      onPress={() => router.push(`/course/${item.id}`)}>
-      {item.rating > 0 && (
-        <View style={styles.cardHeader}>
-          <View style={styles.ratingContainer}>
-            <Text style={styles.ratingStar}>★</Text>
-            <Text style={[styles.ratingText, { color: colors.text }]}>
-              {item.rating}
-            </Text>
-          </View>
+      ]}>
+      {primary && (
+        <View style={styles.destinationRow}>
+          <MaterialCommunityIcons name="map-marker" size={15} color={colors.tint} />
+          <Text style={[styles.destination, { color: colors.textSecondary }]} numberOfLines={1}>
+            {primary.place.name}
+          </Text>
         </View>
       )}
 
-      {(() => {
-        const season = seasonalBadge(item.tags);
-        if (!season) return null;
-        return (
-          <View style={[styles.seasonBadge, { backgroundColor: `${season.color}1A` }]}>
-            <MaterialCommunityIcons name={season.icon as any} size={13} color={season.color} />
-            <Text style={[styles.seasonBadgeText, { color: season.color }]}>{season.label}</Text>
-          </View>
-        );
-      })()}
-      <Text style={[styles.courseName, { color: colors.text }]}>
-        {item.name}
+      <Text style={[styles.guideTitle, { color: colors.text }]} numberOfLines={2}>
+        {guide.title}
       </Text>
-      {item.sectionFrom && item.sectionTo && (
-        <Text style={[styles.sectionLine, { color: colors.textSecondary }]} numberOfLines={1}>
-          {item.sectionFrom} → {item.sectionTo}
-          {item.routeName ? ` · ${item.routeName}` : ''}
-        </Text>
-      )}
-      {item.description ? (
-        <Text
-          style={[styles.courseDesc, { color: colors.textSecondary }]}
-          numberOfLines={2}>
-          {item.description}
-        </Text>
-      ) : null}
+      <Text style={[styles.summary, { color: colors.textSecondary }]} numberOfLines={2}>
+        {guide.summary}
+      </Text>
 
-      <View style={styles.statsRow}>
-        <View style={styles.stat}>
-          <Text style={[styles.statValue, { color: colors.text }]}>
-            {formatDistance(item.distance)}
-          </Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            거리
+      {guide.featuredRoads[0] && (
+        <View style={styles.roadRow}>
+          <MaterialCommunityIcons name="road-variant" size={15} color={colors.textSecondary} />
+          <Text style={[styles.road, { color: colors.textSecondary }]} numberOfLines={1}>
+            {guide.featuredRoads[0]}
           </Text>
         </View>
-        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-        <View style={styles.stat}>
-          <Text style={[styles.statValue, { color: colors.text }]}>
-            {formatDuration(item.duration)}
-          </Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            예상 시간
-          </Text>
+      )}
+
+      <View style={styles.cardFooter}>
+        <View style={styles.chipRow}>
+          {chips.map((chip) => (
+            <View key={chip} style={[styles.chip, { backgroundColor: colors.surfaceMuted }]}>
+              <Text style={[styles.chipText, { color: colors.textSecondary }]}>{chip}</Text>
+            </View>
+          ))}
         </View>
+        <Text style={[styles.placeCount, { color: colors.textSecondary }]}>장소 {guide.stops.length}</Text>
       </View>
     </Pressable>
   );
+}
+
+export default function ExploreScreen() {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const [segment, setSegment] = useState<Segment>('riding');
+  const { data: guides, isLoading, refetch, isRefetching } = useRidingGuides();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.segmentRow}>
-        {(['courses', 'places'] as Segment[]).map((seg) => {
-          const active = segment === seg;
-          const label = seg === 'courses' ? '코스' : '추천 목적지';
+        {(['riding', 'places'] as Segment[]).map((item) => {
+          const active = segment === item;
           return (
             <Pressable
-              key={seg}
-              onPress={() => setSegment(seg)}
+              key={item}
+              onPress={() => setSegment(item)}
               style={[
                 styles.segment,
                 {
@@ -165,68 +121,40 @@ export default function ExploreScreen() {
                   styles.segmentLabel,
                   { color: active ? colors.background : colors.textSecondary },
                 ]}>
-                {label}
+                {item === 'riding' ? '라이딩 추천' : '추천 목적지'}
               </Text>
             </Pressable>
           );
         })}
       </View>
 
-      {segment === 'courses' ? (
+      {segment === 'riding' ? (
         isLoading ? (
-          <CourseSkeletonList />
-        ) : !courses?.length ? (
+          <RidingGuideSkeletonList />
+        ) : !guides?.length ? (
           <EmptyState
-            icon={<MaterialCommunityIcons name="road-variant" size={44} color={colors.textSecondary} />}
-            title="등록된 코스가 없습니다"
-            hint="달려본 코스가 있다면 라이더들과 나눠보세요!"
-            actionLabel="코스 제보하러 가기"
-            onAction={() => router.navigate('/submit')}
+            icon={
+              <MaterialCommunityIcons
+                name="map-marker-path"
+                size={44}
+                color={colors.textSecondary}
+              />
+            }
+            title="라이딩 추천을 준비하고 있어요"
+            hint="좋았던 목적지와 달리기 좋은 길을 알려주세요."
+            actionLabel="라이딩 추천 보내기"
+            onAction={() =>
+              router.navigate({
+                pathname: '/submit',
+                params: { submitType: 'course', submitTs: String(Date.now()) },
+              })
+            }
           />
         ) : (
           <FlatList
-            data={visibleCourses}
+            data={guides}
             keyExtractor={(item) => item.id}
-            renderItem={renderCourse}
-            ListHeaderComponent={
-              <View>
-                <WeekendRideRecommendations courses={courses} />
-                {tripChips.length > 0 && (
-                  <View style={styles.tripChipRow}>
-                    {tripChips.map((chip) => {
-                      const active = tripFilter === chip.value;
-                      return (
-                        <Pressable
-                          key={chip.label}
-                          onPress={() => setTripFilter(chip.value)}
-                          style={[
-                            styles.tripChip,
-                            {
-                              backgroundColor: active ? colors.tint : colors.surface,
-                              borderColor: active ? colors.tint : colors.border,
-                            },
-                          ]}>
-                          <Text
-                            style={[
-                              styles.tripChipText,
-                              { color: active ? colors.background : colors.text },
-                            ]}>
-                            {chip.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-            }
-            ListEmptyComponent={
-              tripFilter != null ? (
-                <Text style={[styles.tripEmpty, { color: colors.textSecondary }]}>
-                  이 시간대의 코스가 아직 없어요
-                </Text>
-              ) : null
-            }
+            renderItem={({ item }) => <RidingGuideCard guide={item} />}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
             refreshControl={
@@ -246,34 +174,7 @@ export default function ExploreScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  tripChipRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  tripChip: {
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  tripChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  tripEmpty: {
-    textAlign: 'center',
-    marginTop: 32,
-    fontSize: 14,
-  },
-  sectionLine: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 2,
-  },
+  container: { flex: 1 },
   segmentRow: {
     flexDirection: 'row',
     gap: 8,
@@ -289,91 +190,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   segmentLabel: { fontSize: 14, fontWeight: '700' },
-  list: {
-    padding: 16,
-    gap: 12,
-  },
-  card: {
-    padding: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  ratingContainer: {
+  list: { padding: 16, gap: 12 },
+  skeletonChips: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  card: { padding: 17, borderRadius: 16, borderWidth: 1 },
+  destinationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
+  destination: { flex: 1, fontSize: 12, fontWeight: '700' },
+  guideTitle: { fontSize: 20, lineHeight: 27, fontWeight: '800' },
+  summary: { fontSize: 14, lineHeight: 20, marginTop: 6 },
+  roadRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14 },
+  road: { flex: 1, fontSize: 13, fontWeight: '600' },
+  cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 15,
   },
-  ratingStar: {
-    fontSize: 13,
-    color: semantic.star,
-    marginRight: 2,
-  },
-  ratingText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  courseName: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  courseDesc: {
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 12,
-  },
-  seasonBadge: {
-    gap: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginBottom: 6,
-  },
-  seasonBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  stat: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 11,
-  },
-  statDivider: {
-    width: 1,
-    height: 28,
-  },
-  empty: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  emptyHint: {
-    fontSize: 13,
-    textAlign: 'center',
-  },
+  chipRow: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 12 },
+  chipText: { fontSize: 11, fontWeight: '700' },
+  placeCount: { fontSize: 11, fontWeight: '700' },
 });

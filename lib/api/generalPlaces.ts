@@ -23,7 +23,7 @@ export interface GeneralPlace extends GeneralPlaceInput {
   shareCount: number;
 }
 
-type GeneralPlaceRow = {
+export type GeneralPlaceRow = {
   id: string;
   provider: GeneralPlaceProvider;
   provider_place_id: string;

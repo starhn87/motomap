@@ -56,6 +56,7 @@ export type PlaceSource =
   | 'chat'
   | 'notification'
   | 'course'
+  | 'riding_guide'
   | 'share'
   | 'submission'
   | 'route_preview'
@@ -143,6 +144,18 @@ export const track = {
 
   weekendRideOpened: (p: { recommendation_count: number }) =>
     capture('weekend_ride_opened', p),
+
+  ridingGuideViewed: (p: { guide_id: string; place_count: number }) =>
+    capture('riding_guide_viewed', p),
+
+  ridingGuidePlaceSelected: (p: {
+    guide_id: string;
+    place_source: 'registered' | 'general';
+    position: number;
+  }) => capture('riding_guide_place_selected', p),
+
+  ridingGuideShared: (p: { guide_id: string }) =>
+    capture('riding_guide_shared', p),
 
   categoryFiltered: (p: { category: string }) => capture('category_filtered', p),
 
@@ -272,6 +285,7 @@ export function resetUser() {
 // 화면이 장소 수만큼 쪼개져 집계가 무의미해진다.
 const DYNAMIC_ROUTES: [RegExp, string][] = [
   [/^\/course\/[^/]+$/, '/course/[id]'],
+  [/^\/riding\/[^/]+$/, '/riding/[id]'],
   [/^\/legal\/[^/]+$/, '/legal/[type]'],
 ];
 

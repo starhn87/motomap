@@ -55,6 +55,47 @@ export interface RidingCourse {
   createdAt: string;
 }
 
+export interface RidingGuidePlace {
+  /** 상세 화면을 열 때 사용하는 현재 장소 ID */
+  id: string;
+  source: 'registered' | 'general';
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  category?: PlaceCategory;
+  photos: string[];
+  phone?: string;
+  providerId?: string;
+  placeUrl?: string;
+}
+
+export interface RidingGuideStop {
+  id: string;
+  position: number;
+  role: 'primary' | 'stop';
+  note?: string;
+  /** 저장된 원본 연결. 일반 장소 승격 뒤에도 운영 이력을 보존한다. */
+  placeId?: string;
+  generalPlaceId?: string;
+  place: RidingGuidePlace;
+}
+
+export interface RidingGuide {
+  id: string;
+  title: string;
+  summary: string;
+  description: string;
+  featuredRoads: string[];
+  regions: string[];
+  tags: string[];
+  coverImageUrl?: string;
+  legacyCourseId?: string;
+  publishedAt: string;
+  createdAt: string;
+  stops: RidingGuideStop[];
+}
+
 export interface Review {
   id: string;
   placeId: string;
