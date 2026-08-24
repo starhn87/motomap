@@ -8,14 +8,15 @@
 - `app/(tabs)/courses.tsx`
 - `app/riding/[id].tsx`, `app/course/[id].tsx`
 - `components/explore/RecommendedPlaces.tsx`
-- `components/explore/WeekendRideRecommendations.tsx`
 - `components/submit/SubmitRidingGuide.tsx`, `app/(tabs)/submit.tsx`
 - `lib/api/ridingGuides.ts`, `lib/api/ridingGuideSubmissions.ts`
 - `supabase/migrations/20260824125750_add_riding_recommendations.sql`
 - `supabase/migrations/20260824131321_seed_verified_riding_guides.sql`
 - `lib/api/courses.ts`, `lib/api/courseLibrary.ts`
 - `public.courses`, `public.course_reviews`, `public.course_saves`, `public.course_completions`
-- `lib/api/search.ts`, `supabase/functions/moto-chat/`, `website/src/index.js`
+- `lib/api/search.ts`, `supabase/functions/moto-chat-v2/`, `website/src/index.js`
+- `supabase/functions/judge-submission/`, `supabase/functions/discord-interactions/`
+- `supabase/migrations/20260824133000_add_riding_guide_moderation.sql`
 
 ## 먼저 확인할 활성 원칙
 
@@ -41,7 +42,7 @@
 ## RIDING-001 — 장소 분류와 분리된 목적지 기반 콘텐츠로 전환
 
 - 날짜: 2026-08-24
-- 상태: 활성(단계적 구현 중)
+- 상태: 활성(구현 완료·배포 대기)
 - 관련 구현: `public.riding_guides`, `public.riding_guide_stops`,
   `app/riding/[id].tsx`, `components/submit/SubmitRidingGuide.tsx`
 - 대체 예정: 고정 경로 중심 `courses` 탐색·상세·제보
@@ -212,9 +213,9 @@ AI는 `새 추천`, `기존 추천에 병합`, `판단 유보`, `반려`와 근�
 완료된 뒤 `라이딩 추천에 반영됐어요` 알림을 보낸다. 선정만 되고 편집 중인 상태를 공개 완료로
 오해하게 하는 승인 알림은 보내지 않는다.
 
-구현 시 `docs/submission-approval-policy.md`의 기존 코스 기준을 라이딩 추천 제안 기준으로 대체하고,
+`docs/submission-approval-policy.md`에는 라이딩 추천 제안 기준을 주 기준으로 추가하고,
 `supabase/functions/_shared/submissionPolicy.ts`의 버전·규칙 ID와 Discord 문구를 같은 커밋에서
-동기화한다. 이 문서는 현재 배포된 고정 경로형 코스 심사 기준을 구현보다 먼저 바꾸지 않는다.
+동기화한다. 지원 중인 구버전이 보낼 수 있는 고정 경로형 코스 기준은 레거시 부록으로 유지한다.
 
 ### 기존 16개 코스 전환 원칙
 

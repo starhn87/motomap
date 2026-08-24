@@ -76,7 +76,8 @@ ReviewForm → useCreateReview() → createReview() → INSERT reviews
 app/                    expo-router 파일 기반 라우팅 (화면)
   _layout.tsx           루트: providers·초기화·Stack 정의
   (tabs)/               하단 탭 4개 (지도·탐색·제보·내 정보)
-  course/[id].tsx       코스 상세 + 리뷰
+  riding/[id].tsx       목적지 중심 라이딩 추천 상세
+  course/[id].tsx       구 공유 링크 리다이렉트 + 미전환 코스 폴백
   legal/[type].tsx      약관·정책 뷰어
   settings·favorites·my-reviews·my-submissions·blocked-users·edit-nickname
 components/             재사용 UI — map · review · submit · auth · search · report · explore · ui
@@ -84,7 +85,7 @@ hooks/                  react-query 훅 (서버 상태)
 stores/                 zustand 스토어 (전역 상태)
 lib/                    Supabase 클라이언트 · API 래퍼(api/) · 도메인 유틸
 constants/             색·카테고리·포맷터·법무 문서·마커·태그
-types/index.ts         도메인 타입 (Place·RidingCourse·Review)
+types/index.ts         도메인 타입 (Place·RidingGuide·RidingCourse·Review)
 supabase/migrations/   스키마 마이그레이션 (001~004)
 scripts/               시드·정리·검증 (Node, .env 직접 로드)
 plugins/               expo config 플러그인
@@ -117,8 +118,8 @@ Sentry.wrap(
 | 탭 | 라우트 | 화면 | 하는 일 |
 |---|---|---|---|
 | 지도 | `/` | `index.tsx` | 지도+POI 탐색, 카테고리 필터, 검색, 마커 탭→상세 |
-| 탐색 | `/courses` | `courses.tsx` | 추천 코스 목록 ↔ "추천 목적지"(RecommendedPlaces) 토글 |
-| 제보 | `/submit` | `submit.tsx` | 장소·코스·건의 3종 제보 폼 |
+| 라이딩 | `/courses` | `courses.tsx` | 목적지 중심 "라이딩 추천" ↔ "추천 목적지" 토글 |
+| 제보 | `/submit` | `submit.tsx` | 장소·라이딩 추천·건의 3종 제보 폼 |
 | 내 정보 | `/profile` | `profile.tsx` | 프로필·메뉴(설정·즐겨찾기·내 리뷰·내 제보·로그아웃) |
 
 ### 스택 / 모달 라우트 (루트 `Stack`에 등록)
@@ -134,7 +135,8 @@ Sentry.wrap(
 | `/blocked-users` | 내 정보 | 차단 관리(해제) |
 | `/legal/[type]` | 설정 | 약관·개인정보·위치 문서 (`type` 동적) |
 | `/search-results` | 검색에서 엔터 | 검색 결과 지도 — 등록(카테고리 마커)·일반(중립 핀) 결과를 지도 + 바텀시트 목록으로, 선택 시 기존 포커스 플로우 |
-| `/course/[id]` | 코스 목록·검색 | 코스 상세 + 리뷰 + 지도 미리보기 |
+| `/riding/[id]` | 라이딩 목록·검색·공유 | 대표 목적지·추천 도로·함께 들를 곳. 고정 경로선 없이 각 장소 상세로 이동 |
+| `/course/[id]` | 구 공유·알림 | 연결된 추천으로 리다이렉트하고, 미전환 코스만 구 상세를 폴백으로 표시 |
 | `/navi` | 길안내 버튼(장소·코스·길찾기) | 경로 미리보기 — 옵션(추천·시간·거리·큰길)별 경로 지도 표시 → KNSDK 안내 시작. 코스 안내가 아니면 상단 카드에서 출발지·경유지(최대 3)·도착지 편집·스왑·드래그 재정렬 |
 | `/directions` | 지도 탭 검색바 옆 버튼, 장소 상세 [출발] | 길찾기 — 출발지·경유지(최대 3)·도착지 검색(카카오 로컬)·스왑 → 미리보기(경유지 전달) |
 
@@ -168,10 +170,11 @@ Sentry.wrap(
 |---|---|
 | 장소(반경/전체) | `['places', lat, lng, radius, category]` · `['places']` · `['places','recommended']` |
 | 장소 상세 | `['place', id]` |
+| 라이딩 추천 | `['riding-guides']` · `['riding-guides','detail', id]` |
 | 근처 장소(장소 기준) | `['nearby-of', placeId, radius, limit]` |
 | 노면 위험 | `['hazards', lat, lng]` · `['course-hazards', courseId]` |
 | 코스 근처 장소 | `['course-places', courseId]` |
-| 코스 | `['courses']` · `['courses','detail', id]` |
+| 레거시 코스 호환 | `['courses']` · `['courses','detail', id]` |
 | 리뷰 / 코스리뷰 | `['reviews', placeId]` · `['course-reviews', courseId]` |
 | 즐겨찾기 | `['favorites', userId]` |
 | 라이더 장소 정보 | `['place-rider-facts', placeId, userId]` |
@@ -188,7 +191,8 @@ Sentry.wrap(
 
 - **`PlaceCategory`** = `cafe` · `restaurant` · `rest_stop` · `gas_station` · `repair_shop` · `viewpoint` · `gear_shop` · `camping` · `car_wash` (9종, DB `places_category_check`와 일치)
 - **`Place`** — 좌표(lat/lng)·주소·전화·영업시간·주차정보·사진[]·태그[]·평점·리뷰수·`submittedBy`·`approved`
-- **`RidingCourse`** — 거리(km)·소요(분)·`coordinates [lng,lat][]`·`waypoints: Place[]`·평점
+- **`RidingGuide`** — 대표 목적지와 선택 장소, 설명·추천 도로·지역·태그를 가진 편집 콘텐츠. 고정 경로·거리·시간 없음
+- **`RidingCourse`** — 구버전 호환용 거리(km)·소요(분)·`coordinates [lng,lat][]`·평점
 - **`Review`** — `placeId`·`userId`·`userName`·`avatarUrl`·평점·내용·사진[]
 
 > ⚠️ 좌표 순서 주의: 타입과 DB는 GeoJSON 순서 **`[lng, lat]`**, 네이버 지도 API·`Coord`는 **`{latitude, longitude}`**. 변환은 주로 API 래퍼에서 일어난다.
@@ -198,7 +202,9 @@ Sentry.wrap(
 | 테이블 | 출처 | 비고 |
 |---|---|---|
 | `places` | 운영 기준선 | `location` PostGIS `POINT(lng lat)`, `places_category_check` 9종 |
-| `courses` | 운영 기준선 | `coordinates` jsonb |
+| `riding_guides` · `riding_guide_stops` | `20260824125750` | 대표 목적지 1개와 선택 장소를 엮는 공개 편집 콘텐츠 |
+| `riding_guide_submissions` · `riding_guide_submission_stops` | `20260824125750` | 사용자 제안 원문과 운영 편집·병합 상태 |
+| `courses` | 운영 기준선 | 지원 중인 구버전과 미전환 링크를 위한 고정 경로 호환 데이터 |
 | `reviews` · `course_reviews` | 운영 기준선 | `profiles` 조인(닉네임·아바타) |
 | `favorites` | 운영 기준선 + `20260817114814` | 등록 장소 또는 `general_places` 중 하나를 가리키며 사용자별 중복 방지 |
 | `general_places` | `20260817114814` | 카카오·좌표 기반 일반 장소 식별자. 등록 승인 시 즐겨찾기·리뷰·주행 기록을 같은 `places` UUID로 승격 |
@@ -221,6 +227,9 @@ Sentry.wrap(
 - `claim_place_change_monitor_batch(limit)` — 다음 검증일이 지난 활성 장소를 소량 선점(`service_role` 전용). `get_place_change_monitor_batch`는 배포 전 읽기 전용 점검에만 사용
 - `enqueue_place_change_review_v2(...)` · `mark_place_change_review_reported(id)` — 감지 후보와 승인 계획 중복 제거·보고 재시도 상태(`service_role` 전용)
 - `resolve_place_change_review(id, decision, actor)` — Discord에서 승인한 고정 계획을 스냅샷 재검증 뒤 근거·조치와 원자적으로 반영하거나, 장소 변경 없이 검토 종료(`service_role` 전용)
+- `submit_riding_guide_proposal(...)` — 대표 목적지·선택 장소·추천 이유를 한 트랜잭션으로 저장
+- `search_riding_guides_v1(...)` — 제목·설명·지역·도로·연결 장소를 검색하고 대표 목적지 좌표 반환
+- `resolve_riding_guide_submission_review(...)` — Discord의 초안 생성·병합 대상 확정·반려를 원자적으로 처리(`service_role` 전용)
 
 > 📌 원격에서 직접 생성됐던 초기 테이블까지 `20260814142438_remote_schema_baseline.sql`에 캡처했다. 새 로컬 환경은 이 파일 하나로 2026-08-14 운영 스키마를 재현하고, 이후 마이그레이션만 순서대로 적용한다.
 
@@ -274,6 +283,10 @@ Sentry.wrap(
 | `20260814133044_edge_rate_limits.sql` | 외부 유료 API용 원자적 고정 윈도우 호출 제한. 요청자 식별자는 `RATE_LIMIT_SALT`로 HMAC 처리해 원문 IP·user_id를 저장하지 않고, 테이블·RPC는 `service_role`만 접근 |
 | `20260817103053_restrict_unregistered_ride_spots.sql` | 미등록 도착지 집계 RPC의 공개 실행 권한 회수 — `service_role` 운영만 허용 |
 | `20260817104023_add_private_ride_candidate_scores.sql` | 미등록 도착지 후보를 라이더 수·반복·최근성으로 점수화한 `private.unregistered_ride_candidates`. 주거지 이름 제외, `service_role` 전용 |
+| `20260824125750_add_riding_recommendations.sql` | 목적지 중심 라이딩 추천·제안 테이블, RLS, 원자적 제출 RPC |
+| `20260824131321_seed_verified_riding_guides.sql` | 기존 코스 16개 중 장소 ID가 검증된 10개만 라이딩 추천으로 시드 |
+| `20260824131649_add_riding_guide_search.sql` | 구 코스 검색 계약과 분리된 라이딩 추천 검색 RPC |
+| `20260824133000_add_riding_guide_moderation.sql` | AI 판정 재시도, Discord 편집 준비·반려 RPC, 공개·병합 완료 알림 |
 
 ---
 
@@ -283,21 +296,21 @@ Sentry.wrap(
 |---|---|---|
 | 네이버 지도 SDK | `@mj-studio/react-native-naver-map`, app.config `NAVER_MAP_CLIENT_ID` | 지도 렌더·마커·경로선. `patches/`로 심벌 탭 노출(새 빌드에만 반영) |
 | 카카오모빌리티 길찾기 | `lib/api/directions.ts`, `EXPO_PUBLIC_KAKAO_REST_API_KEY` | 미리보기 경로선의 **혼잡도 색칠**(`car_type=7`, 다중 경유지 POST의 `traffic_state`). 경로 자체는 같은 엔진인 KNSDK 가 뽑고, REST 실패 시 단색 폴백. 일 10,000건 무료 |
-| 네이버 Geocoding | `supabase/functions/naver-geocode` + `lib/geocode.ts` | 코스 제보의 수동 주소 입력 폴백. API secret은 Edge Function에만 두고 입력·호출량 제한 적용 |
+| 네이버 Geocoding | `supabase/functions/naver-geocode` + `lib/geocode.ts` | 구버전 코스 제보의 수동 주소 입력 폴백. API secret은 Edge Function에만 두고 입력·호출량 제한 적용 |
 | 네이버 Directions | `scripts/recalc-course-routes.mjs` (`NAVER_CLOUD_CLIENT_ID/SECRET`) | 코스 경로 재계산 폴백(스크립트 전용 — 앱 코드에서는 제거) |
 | 카카오 로컬 검색 | `lib/api/kakaoLocal.ts` (`EXPO_PUBLIC_KAKAO_REST_API_KEY`) | 제보 주소 검색(상호+주소→좌표), 일반 목적지 도착 후 간편 제보용 역지오코딩 |
 | 앱 안 길안내 | `lib/navigation.ts` + `app/navi.tsx`(+`components/navi/`, `hooks/useBikeRoutes.ts`) + `modules/kakao-navi/` | KNSDK 이륜차 턴바이턴. 출발 전 날씨·노면 위험 확인 후 진입. 미리보기 지도·경로 확보(옵션 캐시·경유지 축소 사다리)는 분리된 컴포넌트·훅이 맡는다 |
 | Supabase Storage | `lib/uploadImage.ts` | 리뷰·제보 사진 (`ridemap-media` 버킷, base64 업로드) |
-| Expo Push | `lib/push.ts` + migration 006/008 | 제보(장소·코스) 승인 푸시 — 토큰은 `push_tokens`, 발송은 DB 트리거(pg_net→Expo Push API). 권한 요청은 제보 직후에만 |
-| Claude API | `supabase/functions/judge-submission` | 제보 AI 판정 — 트리거가 EF 호출 → 카카오 교차검증 + 웹 조사 → 버전이 있는 [승인 기준](submission-approval-policy.md)으로 `claude-sonnet-5` 판정 → 디스코드에 기준 ID·근거·반려 안내 문구·[승인]/[반려] 버튼 발송. 제보자용 반려 문구는 `ai_reject_reason`에 저장하며 최종 결정은 사람에게 남김 |
-| 디스코드 봇 심사·답변·장소 변경 승인 | `supabase/functions/discord-interactions` | Interactions Endpoint(Ed25519 검증). 판정 메시지의 [승인]/[반려], 장소 변경 보고의 [계획대로 반영]/[변경 없음] 버튼 → 원자적 처리 + 원 메시지 업데이트, 건의 메시지의 [답변하기] 버튼 → 인풋 모달 → `feedback.reply` 저장(021 트리거가 건의자 알림·푸시). secrets: `DISCORD_PUBLIC_KEY`. 발송은 judge-submission·place-change-monitor·021 트리거가 봇 API(`DISCORD_BOT_TOKEN`/`DISCORD_CHANNEL_ID`, vault 는 `discord_bot_token`/`discord_channel_id`) — 봇 미설정 시 웹훅 폴백. JWT 검증 OFF |
+| Expo Push | `lib/push.ts` + DB 트리거 | 장소 승인·반려, 라이딩 추천 공개·병합·반려, 건의 답변 푸시. 권한 요청은 제보 직후에만 |
+| Claude API | `supabase/functions/judge-submission` | 장소·라이딩 추천 제안 AI 판정. 추천 제안은 새 추천·기존 추천 병합·유보·반려를 제시하고 사람이 Discord에서 최종 선택 |
+| 디스코드 봇 심사·답변·장소 변경 승인 | `supabase/functions/discord-interactions` | Ed25519 검증 후 장소 승인·반려, 라이딩 추천 초안·병합 준비·반려, 장소 변경 계획, 건의 답변을 원자적으로 처리. 추천 준비는 공개가 아니며 실제 published/merged 뒤에만 사용자 알림 |
 | 장소 변경 감지 | `supabase/functions/place-change-monitor` + Supabase Cron | 매일 소량의 활성 장소를 카카오 로컬 상호·주소와 대조해 폐업 의심·상호·주소·전화·이전 후보와 보수적 반영 계획을 내부 큐와 Discord에 보고. 높은 신뢰도의 허용 필드도 Discord 승인 뒤에만 원자적으로 반영하며 커스텀 비밀 헤더 사용, JWT 검증 OFF |
 | 원클릭 심사 (폴백) | `supabase/functions/moderate` | 봇 미설정 시 웹훅 메시지의 승인·반려 링크(HMAC 서명) 탭 = 즉시 처리. 크롤러 방어는 봇 UA 필터+HEAD 무시+`<>` 임베드 억제. 반려 시 `ai_reject_reason`→`rejected_reason` 복사. JWT 검증 OFF. ⚠️ EF는 HTML 응답 불가(게이트웨이가 text/plain+CSP sandbox 로 강제) — 응답은 JSON |
 | 오피넷 유가 | `supabase/functions/gas-stations` + `lib/api/gasStations.ts`, `hooks/useGasStations.ts`·`useGasLayer.ts` | 주유소 필터 시 실시간 유가 레이어 — EF가 키 은닉·KATEC↔WGS84 변환·3분 캐시, 앱은 가격 마커(최저가 강조)+상세 카드. 주의: 오피넷 인증 파라미터는 `code=`(문서의 certkey 아님), 브랜드 필드는 aroundAll `POLL_DIV_CD`/detailById `POLL_DIV_CO`로 상이, 반경 최대 5km — 검색 커버리지는 뷰포트 적응(확대 시 화면 맞춤 반경 1콜, 축소 시 5km 원 최대 3×3 타일 병합·중복 제거) |
 | 기상청 날씨·특보 | `supabase/functions/weather-kr`·`weather-warnings` + `lib/api/weather.ts` | 시간대별 예보(단기+초단기 병합)와 "지금" 관측(초단기실황), 전국 특보 통보문 파싱(지역 매칭은 클라이언트 — 세부구역·제외 표기 대응). 네이버·아이폰과 같은 원천 |
 | 에어코리아 미세먼지 | `supabase/functions/air-kr` (+029 DB 캐시) | 최근접 측정소 PM10/PM2.5 실시간 등급 — 원 API가 10~26초라 DB 캐시 필수 |
 | 구글 Places 영업시간 | `supabase/functions/place-hours` + `hooks/usePlaceHours.ts` | 영업시간 폴백(등록 데이터 우선) — 캐시는 place_id 무기한·콘텐츠 30일(약관 상한, 034). 등록 장소는 DB 원본으로 검증하고 일반 POI 키는 좌표+상호에서 서버가 재생성하며, 5분/일일 호출 제한으로 Google 비용·캐시 오염 방어 |
-| AI 추천 챗 | `supabase/functions/moto-chat` + `app/chat.tsx` | 등록 장소·코스 안에서만 추천하는 대화형 도우미 — 위치·내 바이크 컨텍스트 반영. 본문·턴 길이 상한과 5분/일일 호출 제한으로 Anthropic 비용 공격 방어 (`RATE_LIMIT_SALT` secret 필요) |
+| AI 추천 챗 | `supabase/functions/moto-chat-v2` + `app/chat.tsx` | 등록 장소·목적지 중심 라이딩 추천 안에서만 답하는 대화형 도우미. 구버전용 `moto-chat`의 코스 응답 계약은 유지 |
 | Sentry | `app/_layout.tsx`, `metro.config.js` | 에러·세션 추적 |
 | moto-kr 데이터셋 | `constants/bikes.ts` ← `scripts/sync-bike-models.mjs` (`npm run sync:bikes`) | 기종 자동완성 목록의 단일 원본은 [moto-kr](https://github.com/starhn87/moto-kr) (KENCIS 인증 기반) — bikes.ts 는 생성 파일이므로 직접 수정 금지, 기종 변경은 moto-kr mapping 에 기여 후 동기화 |
 

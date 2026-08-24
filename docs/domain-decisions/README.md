@@ -27,13 +27,13 @@
 | 공통 아이콘·터치 피드백 | [interaction-feedback.md](interaction-feedback.md) | `app/`, `components/`의 터치 액션 |
 | 공유 URL·유니버설 링크 | [share-links.md](share-links.md) | `website/src/index.js`, `website/public/share.js`, `app/place/[id].tsx`, `app/course/[id].tsx` |
 | 통합 검색·검색 결과 지도 | [search.md](search.md) | `app/search.tsx`, `app/search-results.tsx`, `lib/api/search.ts` |
-| 라이딩 추천 콘텐츠 | [riding-recommendations.md](riding-recommendations.md) | `app/(tabs)/courses.tsx`, 향후 `riding_guides` |
+| 라이딩 추천 콘텐츠 | [riding-recommendations.md](riding-recommendations.md) | `app/(tabs)/courses.tsx`, `app/riding/`, `riding_guides` |
 | 앱 내 길안내 | [navigation.md](navigation.md) | `app/navi.tsx`, `modules/kakao-navi/` |
 | 노면 위험 정보 수명주기 | [hazard-lifecycle.md](hazard-lifecycle.md) | `road_hazards`, `hazard_votes`, `components/map/HazardSheet.tsx` |
 | 인증·세션 저장 | [authentication.md](authentication.md) | `lib/authStorage.ts`, `lib/supabase.ts`, `stores/useAuthStore.ts` |
 | 장소 선별·운영 상태 검증 | [place-curation.md](place-curation.md) | `public.places`, `scripts/seed-place-curation.mjs`, 장소 검증 마이그레이션 |
 | 일반 장소 추천 | [community-place-recommendations.md](community-place-recommendations.md) | `public.general_place_shares`, 일반 장소 상세·지도 |
-| 장소·코스 제보 심사 | [submission-moderation.md](submission-moderation.md) | `docs/submission-approval-policy.md`, `supabase/functions/judge-submission/` |
+| 장소·라이딩 추천 제보 심사 | [submission-moderation.md](submission-moderation.md) | `docs/submission-approval-policy.md`, `supabase/functions/judge-submission/` |
 | 릴리스·버전 호환성 | [release-compatibility.md](release-compatibility.md) | `config/release-policy.json`, `lib/appCompatibility.ts`, `modules/kakao-navi/`, `.github/workflows/checks.yml` |
 
 새 도메인 문서를 추가할 때 이 표에도 반드시 연결한다.

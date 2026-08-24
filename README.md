@@ -9,7 +9,7 @@
 
 🌐 **공식 웹사이트:** [motomap.kr](https://motomap.kr)
 
-라이딩 갈 만한 카페, 맛집, 뷰포인트부터 주유소와 정비소 등을 지도에서 찾고, 이륜차 전용 길안내로 바로 떠나고, 리뷰와 코스로 라이더끼리 정보를 나누는 앱입니다. 출발 전에는 기상청 예보 기반 라이딩 날씨로 비 소식을 확인할 수 있고, App Store에서 다운로드할 수 있습니다.
+라이딩 갈 만한 카페, 맛집, 뷰포인트부터 주유소와 정비소 등을 지도에서 찾고, 목적지 중심 라이딩 추천을 살펴본 뒤 이륜차 전용 길안내로 바로 떠나는 앱입니다. 출발 전에는 기상청 예보 기반 라이딩 날씨로 비 소식을 확인할 수 있고, App Store에서 다운로드할 수 있습니다.
 
 <p align="center">
   <img src="./docs/screenshots/hero-1.png" width="340"/>
@@ -21,22 +21,22 @@
 | 지도 | 경로 미리보기 | 길안내 |
 |:---:|:---:|:---:|
 | <img src="./docs/screenshots/01-map.png" width="240"/> | <img src="./docs/screenshots/02-preview.png" width="240"/> | <img src="./website/public/screens/navigation-1.2.7.png" width="240"/> |
-| **음성 검색** | **코스 탐색** | **실시간 유가** |
-| <img src="./docs/screenshots/06-voice.png" width="240"/> | <img src="./docs/screenshots/05-course.png" width="240"/> | <img src="./docs/screenshots/04-gas.png" width="240"/> |
+| **음성 검색** | **장소 상세** | **실시간 유가** |
+| <img src="./docs/screenshots/06-voice.png" width="240"/> | <img src="./website/public/screens/place.webp" width="240"/> | <img src="./docs/screenshots/04-gas.png" width="240"/> |
 
 ## ✨ 주요 기능
 
 - 🧭 **길안내**: 카카오내비 SDK 이륜차 모드 턴바이턴. 미리보기에서 추천·시간·거리·큰길 4개 옵션의 경로를 교통 혼잡도 색으로 비교하고, 출발지·경유지(최대 3개, 드래그 정렬·지도에 순번 마커)·도착지를 그 자리에서 바꿔가며 고릅니다. 출발 전에는 경로의 비 소식과 노면 위험 제보를 경고하고, 안내 중에는 버튼 하나로 노면 위험을 제보하거나 지도의 주유소·가게를 탭해 목적지를 바로 바꿉니다
 - 🗺️ **지도 + POI**: 네이버지도 기반 바이커 장소 탐색 (카페, 맛집, 휴게소, 주유소, 정비소, 뷰포인트, 용품점, 캠핑, 세차). 별 토글을 켜면 즐겨찾기가 이름과 함께 별 마커로 항상 표시됩니다
 - 📍 **일반 장소**: 지도의 가게 아이콘이나 이름을 탭하면 등록되지 않은 곳도 바로 카드가 뜨고 길안내와 제보로 이어집니다
-- 🔎 **통합 검색**: 등록 장소와 코스에 더해 일반 장소까지 검색하고, 엔터를 누르면 결과 전체를 지도 + 목록으로 봅니다. 띄어쓰기가 달라도 찾아주며, 내 바이크와 같은 기종·유형의 라이더가 찾은 장소만 골라볼 수도 있습니다. 집과 회사를 저장해두면 원터치로 길안내합니다
+- 🔎 **통합 검색**: 등록 장소와 일반 장소, 라이딩 추천을 함께 검색하고 결과를 지도 + 목록으로 봅니다. 띄어쓰기가 달라도 찾아주며, 내 바이크와 같은 기종·유형의 라이더가 찾은 장소만 골라볼 수도 있습니다. 집과 회사를 저장해두면 원터치로 길안내합니다
 - 🎙️ **음성 검색**: 지도 검색바·검색 화면·길찾기 어디서든 마이크를 눌러 말하면 됩니다. 장갑을 낀 채 정차 중에 쓰라고 만든 기능입니다
 - 🌦️ **라이딩 날씨**: 기상청 단기예보 기반 라이딩 점수와 시간대별 강수확률, 미세먼지, 발효 중인 기상특보(폭염·호우 등 + 라이딩 유의사항)를 제공합니다. 길안내 전에 경로의 비 소식도 경고합니다
 - ⛽ **실시간 유가**: 오피넷 연동으로 주변 주유소 가격과 최저가를 표시합니다
-- 🙋 **장소·위험 제보**: 크라우드소싱으로 장소와 노면 위험(포트홀 등)을 제보합니다. (주소 검색, 사진 포함) AI가 먼저 심사하고 승인과 반려 사유, 건의 답변까지 내 제보 목록에서 추적합니다
+- 🙋 **장소·라이딩·위험 제보**: 장소와 목적지 중심 라이딩 추천, 노면 위험을 제보합니다. AI가 먼저 근거를 정리하고 운영자가 최종 검토하며, 처리 상태와 반려 사유·건의 답변은 내 제보에서 추적합니다
 - ⭐ **리뷰와 평점**: 사진 스와이프, 수정과 삭제, 리뷰어 바이크 뱃지
-- 🛣️ **라이딩 코스**: 추천 코스 목록, 지금이 제철 뱃지, 코스 전체 길안내
-- 🤖 **AI 추천**: 대화로 라이딩 코스나 장소를 추천해주는 챗봇
+- 🛣️ **라이딩 추천**: 대표 목적지와 함께 들를 곳, 달리기 좋은 도로를 엮은 편집 콘텐츠. 출발지는 사람마다 다르므로 고정 경로를 강제하지 않고 각 목적지에서 길안내를 시작합니다
+- 🤖 **AI 추천**: 대화로 등록 장소와 목적지 중심 라이딩 추천을 찾아주는 챗봇
 - 🏍️ **내 바이크**: 기종 검색 자동완성 1,142종 ([moto-kr](https://github.com/starhn87/moto-kr) 오픈소스 API). 등록하면 제원 도감 카드, 주유소에서 내 유종 강조와 가득 주유비, 리뷰 기종 뱃지, AI 추천 반영, 라이딩 기록과 같은 기종·유형 라이더의 목적지 추천까지 이어집니다
 - 💬 **라이더 장소 정보**: 바이크 주차, 진입로 노면, 단체 방문, 헬멧 보관, 야간 방문, 화장실을 긴 리뷰 없이 한 번 눌러 확인하고 보탭니다
 - 🛡️ **커뮤니티**: 신고와 차단, 회원 탈퇴
@@ -69,10 +69,10 @@
 ```mermaid
 flowchart TD
   R(["라이더"]) --> NAVI["길안내: 카카오내비<br/>KNSDK 이륜차 모드"]
-  R --> MAP["지도 · 검색 · 코스 · 유가<br/>네이버 지도 SDK"]
+  R --> MAP["지도 · 검색 · 라이딩 추천 · 유가<br/>네이버 지도 SDK"]
   MK["moto-kr 기종 데이터셋"] -->|"sync 스크립트"| MAP
   NAVI -->|"위험 제보 · 도착 기록"| DB
-  MAP <-->|"장소 · 코스 · 리뷰 · 즐겨찾기"| DB[("Supabase<br/>Postgres + PostGIS + RLS")]
+  MAP <-->|"장소 · 라이딩 추천 · 리뷰 · 즐겨찾기"| DB[("Supabase<br/>Postgres + PostGIS + RLS")]
   MAP --> EF["Edge Functions 프록시"]
   DB -->|"제보 · 건의 INSERT 트리거"| DC["Discord 알림"]
   EF --> KMA["기상청 예보 · 실황 · 특보<br/>에어코리아 미세먼지"]
@@ -90,10 +90,11 @@ app/                  expo-router 파일 기반 라우팅
   (tabs)/             탭 (index 지도, courses 탐색, submit 제보, profile 내 정보)
   navi.tsx            경로 미리보기: 옵션 비교, 교통색, 경유지 편집 → 길안내 시작
   directions.tsx      길찾기 (출발지·경유지·도착지)
-  search.tsx          통합 검색 (장소, 코스, 일반 장소, 내 장소)
+  search.tsx          통합 검색 (등록·일반 장소, 라이딩 추천, 내 장소)
   search-results.tsx  검색 결과 지도 (마커 + 목록)
-  my-submissions.tsx  내 제보 목록 (장소·코스·건의, 반려 사유와 답변)
-  course/[id].tsx     코스 상세
+  my-submissions.tsx  내 제보 목록 (장소·라이딩 추천·건의, 처리 상태와 답변)
+  riding/[id].tsx     목적지 중심 라이딩 추천 상세
+  course/[id].tsx     구 공유 링크·구버전 고정 코스 호환
   chat.tsx            AI 추천 챗
   notifications.tsx   알림 목록
   legal/[type].tsx    약관과 정책 뷰어
@@ -101,8 +102,8 @@ components/           재사용 UI (map, review, submit, auth, ...)
 modules/
   kakao-navi/         카카오내비 SDK 네이티브 모듈 (iOS 브리지, 이륜차 안내 화면)
 lib/                  Supabase 클라이언트, API 래퍼, 유틸
-  api/                places, courses, reviews, weather, gasStations, kakaoLocal, ...
-hooks/                React Query 훅 (usePlaces, useCourses, useNotifications, ...)
+  api/                places, ridingGuides, reviews, weather, gasStations, kakaoLocal, ...
+hooks/                React Query 훅 (usePlaces, useRidingGuides, useNotifications, ...)
 stores/               Zustand (auth, chat, map, myPlaces)
 patches/              네이버맵 심벌 탭 네이티브 패치 (postinstall 자동 적용)
 supabase/
