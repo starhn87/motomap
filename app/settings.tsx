@@ -175,7 +175,7 @@ export default function SettingsScreen() {
   const handleHapticsChange = (enabled: boolean) => {
     if (hapticsEnabled) haptics.selection();
     void setHapticsEnabled(enabled);
-    if (enabled) haptics.selection();
+    if (enabled) haptics.success();
   };
 
   const handleDeleteAccount = () => {
@@ -217,20 +217,14 @@ export default function SettingsScreen() {
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}>
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-        테마
-      </Text>
-      <View style={styles.themeRow}>
-        <ThemeOption label="시스템" value="system" current={mode} onPress={setMode} />
-        <ThemeOption label="라이트" value="light" current={mode} onPress={setMode} />
-        <ThemeOption label="다크" value="dark" current={mode} onPress={setMode} />
-      </View>
-
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>사용 환경</Text>
       <View style={[styles.settingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.settingText}>
           <Text style={[styles.settingLabel, { color: colors.text }]}>햅틱 피드백</Text>
           <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>버튼과 지도 선택의 진동 반응</Text>
+          <Text style={[styles.settingHint, { color: colors.textSecondary }]}>
+            켜면 바로 테스트해요. 기기의 시스템 햅틱이 꺼져 있으면 동작하지 않아요.
+          </Text>
         </View>
         <View style={styles.settingSwitchSlot}>
           <Switch
@@ -240,6 +234,15 @@ export default function SettingsScreen() {
             trackColor={{ false: colors.border, true: semantic.success }}
           />
         </View>
+      </View>
+
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+        테마
+      </Text>
+      <View style={styles.themeRow}>
+        <ThemeOption label="시스템" value="system" current={mode} onPress={setMode} />
+        <ThemeOption label="라이트" value="light" current={mode} onPress={setMode} />
+        <ThemeOption label="다크" value="dark" current={mode} onPress={setMode} />
       </View>
 
       {user ? (
@@ -408,6 +411,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 16,
+    paddingVertical: 12,
     marginBottom: 32,
     flexDirection: 'row',
     alignItems: 'center',
@@ -428,6 +432,11 @@ const styles = StyleSheet.create({
   settingDescription: {
     fontSize: 12,
     marginTop: 3,
+  },
+  settingHint: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 5,
   },
   loginMethodRow: {
     minHeight: 52,
