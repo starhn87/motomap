@@ -26,6 +26,18 @@ const CATEGORIES = {
   general: '#475569',
 };
 
+// constants/hazards.ts 와 동일한 색. 위험 마커는 windowing 중 캡처 뷰가
+// 고아로 남지 않도록 유형별 정적 PNG로 만든다.
+const HAZARD_COLORS = {
+  sand: '#D97706',
+  oil: '#7C3AED',
+  pothole: '#DC2626',
+  rockfall: '#78716C',
+  ice: '#0284C7',
+  construction: '#EA580C',
+  etc: '#B91C1C',
+};
+
 // 채움형 심벌 패스 (24x24 뷰박스, Material Icons 계열)
 const ICONS = {
   cafe: 'M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4v-2z',
@@ -105,6 +117,19 @@ for (const [category, color] of Object.entries(CATEGORIES)) {
   await sharp(Buffer.from(favSvg)).png().toFile(join(outDir, `${category}_fav.png`));
   await sharp(Buffer.from(circle(STAR_PATH, STAR_FILL))).png().toFile(join(outDir, `${category}_circle_fav.png`));
   console.log(`${category}_fav.png / _circle_fav.png 생성`);
+}
+
+// 34dp 표시용 @3x 경고 삼각형. 느낌표도 path 도형으로 만들어 폰트 렌더링
+// 환경에 따라 굵기나 정렬이 달라지지 않게 한다.
+for (const [type, color] of Object.entries(HAZARD_COLORS)) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 102 102" width="102" height="102">
+  <path d="M51 5 L98 94 H4 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M51 14 L89 87 H13 Z" fill="${color}"/>
+  <rect x="46" y="36" width="10" height="30" rx="5" fill="#FFFFFF"/>
+  <circle cx="51" cy="76" r="5" fill="#FFFFFF"/>
+</svg>`;
+  await sharp(Buffer.from(svg)).png().toFile(join(outDir, `hazard_${type}.png`));
+  console.log(`hazard_${type}.png 생성`);
 }
 
 // 경유지 마커 — 출발 도트와 같은 파랑 계열("내가 찍은 경로 지점")에 순번을 얹어

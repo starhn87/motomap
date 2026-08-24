@@ -32,7 +32,7 @@ function longitudeMetersPerDegree(latitude: number): number {
   return METERS_PER_LATITUDE_DEGREE * Math.cos((latitude * Math.PI) / 180);
 }
 
-function viewportWindowRadius(center: MapCenter): number | null {
+export function mapRenderWindowRadius(center: MapCenter): number | null {
   const region = center.region;
   if (!region || region.latitudeDelta <= 0 || region.longitudeDelta <= 0) return null;
 
@@ -89,7 +89,7 @@ export function usePlaces(
     snappedZoom !== null
       ? Math.min(zoomToRadius(snappedZoom), MAX_FALLBACK_RADIUS_M)
       : 100_000;
-  const baseRadius = center ? (viewportWindowRadius(center) ?? fallbackRadius) : fallbackRadius;
+  const baseRadius = center ? (mapRenderWindowRadius(center) ?? fallbackRadius) : fallbackRadius;
 
   // 좌표를 원값 그대로 캐시 키에 넣으면 지도를 조금만 움직여도 매번 RPC가
   // 실행된다. window 반경의 1/4 격자로 스냅해 인접 이동은 캐시를 재사용한다.

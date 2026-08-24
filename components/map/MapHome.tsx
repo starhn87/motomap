@@ -30,6 +30,7 @@ import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
 import { setMapFocusOverride } from '@/lib/mapFocus';
 import { useNearbyHazards } from '@/hooks/useHazards';
+import { HAZARD_MIN_ZOOM } from '@/constants/hazards';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryFilter from '@/components/map/CategoryFilter';
@@ -325,6 +326,13 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         isInMapRenderWindow(place, mapCenter),
       ),
     [favoritePlaces, mapCenter],
+  );
+  const windowedHazards = useMemo(
+    () =>
+      (mapCenter?.zoom ?? 0) >= HAZARD_MIN_ZOOM
+        ? hazards.filter((hazard) => isInMapRenderWindow(hazard, mapCenter))
+        : [],
+    [hazards, mapCenter],
   );
   const handleMarkerPress = useCallback(
     (place: Place) => {
@@ -913,7 +921,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             <TempPlaceMarker latitude={tempPlace.latitude} longitude={tempPlace.longitude} />
           ))}
 
-        {hazards.map((h) => (
+        {windowedHazards.map((h) => (
           <HazardMarker key={h.id} hazard={h} onTap={() => setSelectedHazard(h)} />
         ))}
       </NaverMapView>

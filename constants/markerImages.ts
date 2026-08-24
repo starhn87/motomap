@@ -1,4 +1,4 @@
-import type { PlaceCategory } from '@/types';
+import type { HazardType, PlaceCategory } from '@/types';
 
 // 카테고리별 핀 이미지 — 선택 강조와 경로 미리보기 등에 사용한다.
 export const MARKER_IMAGES: Record<PlaceCategory, any> = {
@@ -59,6 +59,18 @@ export const GENERAL_MARKER_CIRCLE = require('@/assets/images/markers/general_ci
 export const GENERAL_MARKER_CIRCLE_FAV = require('@/assets/images/markers/general_circle_fav.png');
 // 선택됐을 때의 핀. 등록 장소와 같은 규칙 — 원형은 미선택, 핀은 선택.
 export const GENERAL_MARKER_FAV = require('@/assets/images/markers/general_fav.png');
+
+// 위험 마커도 children 캡처 대신 정적 이미지를 쓴다. windowing으로 마운트가
+// 반복될 때 캡처용 네이티브 뷰가 고아로 남는 잔상을 방지한다.
+export const HAZARD_MARKER_IMAGES: Record<HazardType, any> = {
+  sand: require('@/assets/images/markers/hazard_sand.png'),
+  oil: require('@/assets/images/markers/hazard_oil.png'),
+  pothole: require('@/assets/images/markers/hazard_pothole.png'),
+  rockfall: require('@/assets/images/markers/hazard_rockfall.png'),
+  ice: require('@/assets/images/markers/hazard_ice.png'),
+  construction: require('@/assets/images/markers/hazard_construction.png'),
+  etc: require('@/assets/images/markers/hazard_etc.png'),
+};
 
 // 경유지 순번 마커 — 출발 도트와 같은 파랑 계열에 번호(navi 의 MAX_USER_VIAS = 3).
 // 4번째부터는 마지막 이미지를 재사용한다(경유지 상한이 늘어나도 깨지지 않게).

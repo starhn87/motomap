@@ -1,5 +1,10 @@
 import type { HazardType } from '@/types';
 
+// 위험 정보는 실제 주행 판단에 의미가 있는 도시권 확대 수준부터 보여준다.
+// 네이티브 POI·등록 장소보다 위에 두되 내 위치(300,000)는 가리지 않는다.
+export const HAZARD_MIN_ZOOM = 10;
+export const HAZARD_MARKER_GLOBAL_Z_INDEX = 250_000;
+
 // 노면 위험 유형 — 라이더를 넘어뜨리는 것들. 자동차엔 사소해도 이륜차엔 치명적이다.
 // icon 은 MaterialCommunityIcons 이름.
 export const HAZARDS: Record<HazardType, { label: string; icon: string; color: string }> = {
