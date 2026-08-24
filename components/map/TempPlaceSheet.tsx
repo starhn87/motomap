@@ -900,7 +900,6 @@ const styles = StyleSheet.create({
   priceRows: {
     gap: 6,
     minHeight: 108,
-    marginTop: 14,
     borderWidth: 1,
     borderRadius: 14,
     padding: 14,
