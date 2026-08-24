@@ -183,14 +183,16 @@ export default function ImageViewer({
         <GestureDetector gesture={gesture}>
           <Animated.View style={[styles.strip, { width: width * photos.length }, stripStyle]}>
             {photos.map((uri, i) => (
-              <Animated.View key={`${uri}-${i}`} style={[{ width, height }, imageStyle]}>
-                <Image
-                  source={{ uri }}
-                  style={{ width, height }}
-                  contentFit="contain"
-                  transition={150}
-                />
-              </Animated.View>
+              <View key={`${uri}-${i}`} style={[styles.page, { width, height }]}>
+                <Animated.View style={[{ width, height }, imageStyle]}>
+                  <Image
+                    source={{ uri }}
+                    style={{ width, height }}
+                    contentFit="contain"
+                    transition={150}
+                  />
+                </Animated.View>
+              </View>
             ))}
           </Animated.View>
         </GestureDetector>
@@ -235,6 +237,9 @@ const styles = StyleSheet.create({
   strip: {
     flex: 1,
     flexDirection: 'row',
+  },
+  page: {
+    overflow: 'hidden',
   },
   counter: {
     position: 'absolute',
