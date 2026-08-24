@@ -79,7 +79,3 @@ export const VIA_MARKERS = [
   require('@/assets/images/markers/via_2.png'),
   require('@/assets/images/markers/via_3.png'),
 ];
-
-// 투명 마커 — 캡션(이름)만 필요한 자리에 쓴다. 클러스터 마커는 캡션을 지원하지
-// 않아서, 경로 미리보기가 같은 좌표에 이걸 얹어 이름을 단다.
-export const BLANK_MARKER = require('@/assets/images/markers/blank.png');

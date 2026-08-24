@@ -146,14 +146,6 @@ for (const n of [1, 2, 3]) {
   console.log(`via_${n}.png 생성`);
 }
 
-// 투명 마커 — 클러스터 마커는 캡션(이름)을 지원하지 않아서(ClusterMarkerProp),
-// 이름이 필요한 화면은 같은 좌표에 이 투명 이미지 + caption 만 있는 개별 마커를
-// 얹는다. 탭은 클러스터가 계속 받고 이 마커는 글자만 그린다 (경로 미리보기).
-await sharp({
-  create: { width: 4, height: 4, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
-}).png().toFile(join(outDir, 'blank.png'));
-console.log('blank.png 생성');
-
 // 내 위치 마커 — UserLocationMarker 가 children(뷰 캡처) 대신 쓰는 정적 이미지.
 // 캡처 마커는 캡처용 네이티브 뷰가 고아로 남아 화면을 떠도는 잔상 버그가 있는데
 // (CLAUDE.md), 위치 마커는 위치 갱신마다 다시 그려져 가장 잘 걸린다 — 실기기

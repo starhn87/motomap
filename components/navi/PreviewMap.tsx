@@ -19,15 +19,19 @@ import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import { usePlaces } from '@/hooks/usePlaces';
 import { useFavorites } from '@/hooks/useFavorites';
 import {
-  BLANK_MARKER,
   VIA_MARKERS,
   MARKER_IMAGES,
   MARKER_IMAGES_FAV,
+  MARKER_IMAGES_CIRCLE,
+  MARKER_IMAGES_CIRCLE_FAV,
   GENERAL_MARKER_FAV,
+  GENERAL_MARKER_CIRCLE_FAV,
 } from '@/constants/markerImages';
 import { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { track } from '@/lib/analytics';
+import type { Place } from '@/types';
+import type { GeneralFavorite } from '@/lib/api/favorites';
 
 // 혼잡도별 경로선 색 — 막힐수록 붉게. 원활은 기존 경로색, 정보 없음은 회색.
 // 서행은 semantic.warning(amber-600)보다 밝은 amber-500 — 지도 위 가시성 우선.
@@ -38,6 +42,21 @@ const TRAFFIC_COLORS: Record<number, string> = {
   1: '#B91C1C', // 정체
   0: '#9CA3AF', // 정보 없음
 };
+
+const PLACE_MARKER_GLOBAL_Z_INDEX = 200_000;
+const ROUTE_MARKER_GLOBAL_Z_INDEX = 250_000;
+
+function matchesGoal(
+  goal: NavTarget,
+  latitude: number,
+  longitude: number,
+  placeId?: string,
+) {
+  return (
+    (!!placeId && placeId === goal.placeId) ||
+    approxMeters({ latitude, longitude }, goal) < 10
+  );
+}
 
 // 미리보기 지도 — 경로선(혼잡색), 출발 도트, 경유지 번호, 경로 주변의 등록
 // 장소·즐겨찾기 마커까지 이 안에서 그린다. 화면(NaviScreen)은 지점과 경로만
@@ -131,40 +150,13 @@ export default function PreviewMap({
   // 그 장소의 진짜 마커가 정체성을 더 잘 말해 준다. 10m: 같은 DB 좌표만 매칭
   // (더 넓히면 옆 가게 핀을 도착지로 오독할 수 있다).
   const goalCovered = useMemo(() => {
-    const near = (lat: number, lng: number) =>
-      approxMeters({ latitude: lat, longitude: lng }, goal) < 10;
     return (
-      visibleOnMap.places.some((pl) => pl.id === goal.placeId || near(pl.latitude, pl.longitude)) ||
-      visibleOnMap.favs.some((f) => near(f.latitude, f.longitude))
+      visibleOnMap.places.some((pl) =>
+        matchesGoal(goal, pl.latitude, pl.longitude, pl.id),
+      ) ||
+      visibleOnMap.favs.some((f) => matchesGoal(goal, f.latitude, f.longitude))
     );
   }, [visibleOnMap, goal]);
-
-  // 개별 마커 onTap 은 이 화면에서 이벤트가 JS 로 올라오지 않았다(실측).
-  // 지도 탭이 쓰는 클러스터 + onTapClusterLeaf 경로가 검증돼 있어 그대로 따른다.
-  // 클러스터 마커는 앵커 지정이 안 돼 핀(하단 중앙 고정)을 쓴다 — 지도 탭과 동일.
-  const previewClusterMarkers = useMemo(
-    () => [
-      ...visibleOnMap.places.map((pl) => ({
-        identifier: `place:${pl.id}`,
-        latitude: pl.latitude,
-        longitude: pl.longitude,
-        image: favoriteIds.has(pl.id)
-          ? MARKER_IMAGES_FAV[pl.category]
-          : MARKER_IMAGES[pl.category],
-        width: 32,
-        height: 37,
-      })),
-      ...visibleOnMap.favs.map((f) => ({
-        identifier: `fav:${f.id}`,
-        latitude: f.latitude,
-        longitude: f.longitude,
-        image: GENERAL_MARKER_FAV,
-        width: 32,
-        height: 37,
-      })),
-    ],
-    [visibleOnMap, favoriteIds],
-  );
 
   // 경로가 바뀌면 전체가 보이도록 카메라를 맞춘다.
   // 남쪽은 하단 카드가 덮는 만큼 더 벌린다.
@@ -227,38 +219,38 @@ export default function PreviewMap({
     });
   };
 
-  const handleClusterLeafTap = (markerIdentifier: string) => {
-    if (markerIdentifier.startsWith('place:')) {
-      const pl = visibleOnMap.places.find((x) => `place:${x.id}` === markerIdentifier);
-      if (!pl) return;
-      track.placeViewed({ place_id: pl.id, category: pl.category, source: 'route_preview' });
-      // 오버레이가 fetch 없이 바로 시트를 열도록 usePlace 캐시를 미리 채운다
-      queryClient.setQueryData(['place', pl.id], pl);
-      // lat/lng 는 오버레이 초기 카메라용 — 장소 fetch 전 첫 프레임에 쓴다
-      router.push({
-        pathname: '/place-preview',
-        params: {
-          focusPlaceId: pl.id,
-          focusTs: String(Date.now()),
-          lat: String(pl.latitude),
-          lng: String(pl.longitude),
-        },
-      });
-      return;
-    }
-    const f = visibleOnMap.favs.find((x) => `fav:${x.id}` === markerIdentifier);
-    if (!f) return;
+  const handlePlaceMarkerTap = (place: Place) => {
+    track.placeViewed({
+      place_id: place.id,
+      category: place.category,
+      source: 'route_preview',
+    });
+    // 오버레이가 fetch 없이 바로 시트를 열도록 usePlace 캐시를 미리 채운다
+    queryClient.setQueryData(['place', place.id], place);
+    // lat/lng 는 오버레이 초기 카메라용 — 장소 fetch 전 첫 프레임에 쓴다
     router.push({
       pathname: '/place-preview',
       params: {
-        kakaoName: f.name,
-        kakaoAddress: f.address,
-        kakaoLat: String(f.latitude),
-        kakaoLng: String(f.longitude),
-        kakaoPhone: f.phone ?? '',
-        kakaoId: f.providerId ?? '',
-        kakaoUrl: f.placeUrl ?? '',
-        generalPlaceId: f.generalPlaceId ?? '',
+        focusPlaceId: place.id,
+        focusTs: String(Date.now()),
+        lat: String(place.latitude),
+        lng: String(place.longitude),
+      },
+    });
+  };
+
+  const handleFavoriteMarkerTap = (favorite: GeneralFavorite) => {
+    router.push({
+      pathname: '/place-preview',
+      params: {
+        kakaoName: favorite.name,
+        kakaoAddress: favorite.address,
+        kakaoLat: String(favorite.latitude),
+        kakaoLng: String(favorite.longitude),
+        kakaoPhone: favorite.phone ?? '',
+        kakaoId: favorite.providerId ?? '',
+        kakaoUrl: favorite.placeUrl ?? '',
+        generalPlaceId: favorite.generalPlaceId ?? '',
         focusTs: String(Date.now()),
       },
     });
@@ -284,16 +276,6 @@ export default function PreviewMap({
       isRotateGesturesEnabled
       isTiltGesturesEnabled
       onCameraIdle={(e) => setViewport(e.region)}
-      clusters={[
-        {
-          markers: previewClusterMarkers,
-          screenDistance: 70,
-          minZoom: 1,
-          maxZoom: 16,
-          animate: true,
-        },
-      ]}
-      onTapClusterLeaf={({ markerIdentifier }) => handleClusterLeafTap(markerIdentifier)}
       onTapSymbol={handleSymbolTap}
       initialCamera={{ latitude: goal.latitude, longitude: goal.longitude, zoom: 12 }}>
       {start && (
@@ -306,6 +288,7 @@ export default function PreviewMap({
           width={18}
           height={18}
           anchor={{ x: 0.5, y: 0.5 }}
+          globalZIndex={ROUTE_MARKER_GLOBAL_Z_INDEX}
           image={require('@/assets/images/origin-dot.png')}
         />
       )}
@@ -321,46 +304,71 @@ export default function PreviewMap({
           outlineColor="#FFFFFF"
         />
       ) : null}
-      {/* 이름 캡션 — 클러스터 마커는 캡션을 지원하지 않아(ClusterMarkerProp)
-          같은 좌표에 투명 마커 + caption 만 얹는다. 탭은 클러스터 leaf 가 계속
-          받는다(이 화면은 개별 마커 onTap 이 JS 로 안 올라온다, 실측).
-          줌 기준·스타일은 지도 탭과 동일 — 장소 10, 즐겨찾기 8 부터. */}
-      {[
-        ...visibleOnMap.places.map((pl) => ({
-          key: `cap-place:${pl.id}`,
-          latitude: pl.latitude,
-          longitude: pl.longitude,
-          name: pl.name,
-          minZoom: 10,
-          textSize: 12,
-        })),
-        ...visibleOnMap.favs.map((f) => ({
-          key: `cap-fav:${f.id}`,
-          latitude: f.latitude,
-          longitude: f.longitude,
-          name: f.name,
-          minZoom: 8,
-          textSize: 13,
-        })),
-      ].map((c) => (
-        <NaverMapMarkerOverlay
-          key={c.key}
-          latitude={c.latitude}
-          longitude={c.longitude}
-          width={4}
-          height={4}
-          anchor={{ x: 0.5, y: 0.5 }}
-          image={BLANK_MARKER}
-          isHideCollidedCaptions
-          caption={{
-            text: c.name,
-            textSize: c.textSize,
-            minZoom: c.minZoom,
-            color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
-            haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
-          }}
-        />
-      ))}
+      {/* 미리보기에서도 등록 장소를 합치지 않는다. 경로 주변 장소는 원형,
+          현재 목적지만 선택 핀으로 표시해 메인 지도와 의미를 맞춘다. */}
+      {visibleOnMap.places.map((place) => {
+        const isGoal = matchesGoal(goal, place.latitude, place.longitude, place.id);
+        const isFavorite = favoriteIds.has(place.id);
+        return (
+          <NaverMapMarkerOverlay
+            key={`place:${place.id}`}
+            latitude={place.latitude}
+            longitude={place.longitude}
+            image={
+              isGoal
+                ? isFavorite
+                  ? MARKER_IMAGES_FAV[place.category]
+                  : MARKER_IMAGES[place.category]
+                : isFavorite
+                  ? MARKER_IMAGES_CIRCLE_FAV[place.category]
+                  : MARKER_IMAGES_CIRCLE[place.category]
+            }
+            width={isGoal ? 38 : 30}
+            height={isGoal ? 44 : 30}
+            anchor={isGoal ? { x: 0.5, y: 1 } : { x: 0.5, y: 0.5 }}
+            globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
+            zIndex={isGoal ? 100 : isFavorite ? 50 : 10}
+            isForceShowIcon
+            isHideCollidedSymbols
+            isHideCollidedCaptions={!isGoal}
+            caption={{
+              text: place.name,
+              textSize: isFavorite ? 13 : 12,
+              minZoom: 8,
+              color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
+              haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
+            }}
+            onTap={() => handlePlaceMarkerTap(place)}
+          />
+        );
+      })}
+      {visibleOnMap.favs.map((favorite) => {
+        const isGoal = matchesGoal(goal, favorite.latitude, favorite.longitude);
+        return (
+          <NaverMapMarkerOverlay
+            key={`fav:${favorite.id}`}
+            latitude={favorite.latitude}
+            longitude={favorite.longitude}
+            image={isGoal ? GENERAL_MARKER_FAV : GENERAL_MARKER_CIRCLE_FAV}
+            width={isGoal ? 38 : 30}
+            height={isGoal ? 44 : 30}
+            anchor={isGoal ? { x: 0.5, y: 1 } : { x: 0.5, y: 0.5 }}
+            globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
+            zIndex={isGoal ? 100 : 50}
+            isForceShowIcon
+            isHideCollidedSymbols
+            isHideCollidedCaptions={!isGoal}
+            caption={{
+              text: favorite.name,
+              textSize: 13,
+              minZoom: 8,
+              color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
+              haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
+            }}
+            onTap={() => handleFavoriteMarkerTap(favorite)}
+          />
+        );
+      })}
       {viaMarkers.map((v, i) => (
         <NaverMapMarkerOverlay
           key={`via-${i}-${v.latitude}-${v.longitude}`}
@@ -369,6 +377,7 @@ export default function PreviewMap({
           width={26}
           height={26}
           anchor={{ x: 0.5, y: 0.5 }}
+          globalZIndex={ROUTE_MARKER_GLOBAL_Z_INDEX}
           zIndex={80}
           image={VIA_MARKERS[Math.min(i, VIA_MARKERS.length - 1)]}
         />
