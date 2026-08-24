@@ -46,12 +46,8 @@ export default function RiderPlaceFacts({ placeId }: { placeId: string }) {
       return;
     }
     if (recommend.isPending) return;
-    const wasRecommended = !!recommendation?.recommendedByMe;
     recommend.mutate(undefined, {
-      onSuccess: (on) => {
-        haptics.selection();
-        if (on && !wasRecommended) toast.success('다른 라이더에게 이 장소를 추천했어요.');
-      },
+      onSuccess: () => haptics.selection(),
       onError: (error) => toast.error('추천을 반영하지 못했습니다.', error.message),
     });
   };

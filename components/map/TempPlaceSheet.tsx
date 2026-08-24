@@ -305,10 +305,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
     }
     if (toggleCommunityShare.isPending) return;
     toggleCommunityShare.mutate(undefined, {
-      onSuccess: ({ shared }) => {
-        haptics.selection();
-        if (shared) toast.success('장소 추천을 완료했어요.');
-      },
+      onSuccess: () => haptics.selection(),
       onError: (error) => toast.error('장소 추천을 반영하지 못했습니다.', error.message),
     });
   };
