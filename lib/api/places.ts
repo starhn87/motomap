@@ -16,7 +16,6 @@ export interface PlaceRow {
   photos: string[] | null;
   rating: number | string | null;
   review_count: number | null;
-  recommendation_count?: number | null;
   tags: string[] | null;
   opening_hours: string | null;
   hours: Hours | null;
@@ -62,7 +61,6 @@ export function rowToPlace(row: PlaceRow): Place {
     photos: row.photos ?? [],
     rating: Number(row.rating) || 0,
     reviewCount: row.review_count ?? 0,
-    recommendationCount: row.recommendation_count ?? 0,
     tags: row.tags ?? [],
     openingHours: row.opening_hours ?? undefined,
     hours: row.hours ?? undefined,

@@ -51,7 +51,6 @@ import {
   type RecentSearch,
 } from '@/lib/recentSearches';
 import type { Place } from '@/types';
-import { useTopRecommendedPlaces } from '@/hooks/useCommunityPlaceSignals';
 
 // 검색 전용 화면 — 입력 전에는 최근 검색·즐겨찾기·추천 목적지를 모아 보여주고,
 // 2자 이상 입력하면 통합 검색 결과로 전환된다. 장소 선택은 지도 탭의
@@ -246,22 +245,11 @@ export default function SearchScreen() {
   });
 
   const { data: recommended, isLoading: recommendedLoading } = useRecommendedPlaces();
-  const { data: topRecommended = [], isLoading: topRecommendedLoading } =
-    useTopRecommendedPlaces();
   const landingLoading =
     !myPlacesLoaded ||
     recentLoading ||
     recommendedLoading ||
-    topRecommendedLoading ||
     (!!user && favoritesLoading);
-
-  const reportedTopRecommendations = useRef(false);
-  useEffect(() => {
-    if (topRecommendedLoading || topRecommended.length === 0) return;
-    if (reportedTopRecommendations.current) return;
-    reportedTopRecommendations.current = true;
-    track.topRecommendedPlacesViewed({ recommendation_count: topRecommended.length });
-  }, [topRecommended, topRecommendedLoading]);
 
   // 등록 장소가 0건이면 한 번 남긴다 — 카카오까지 0건일 때만 세면 거의 안 찍힌다
   // (카카오는 웬만한 문자열에 뭐라도 돌려준다). 정작 알고 싶은 건 우리 DB 가
@@ -402,16 +390,12 @@ export default function SearchScreen() {
     place: Place,
     keyPrefix: string,
     rank?: number,
-    options?: { badgeLabel?: string; badgeColor?: string; onSelect?: () => void },
   ) => {
     const cat = CATEGORIES[place.category];
     return (
       <Pressable
         key={`${keyPrefix}-${place.id}`}
-        onPress={() => {
-          options?.onSelect?.();
-          goToPlace(place, rank);
-        }}
+        onPress={() => goToPlace(place, rank)}
         style={({ pressed }) => [
           styles.row,
           { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
@@ -429,9 +413,7 @@ export default function SearchScreen() {
               : place.address}
           </Text>
         </View>
-        <Text style={[styles.rowBadge, { color: options?.badgeColor ?? cat.color }]}>
-          {options?.badgeLabel ?? cat.label}
-        </Text>
+        <Text style={[styles.rowBadge, { color: cat.color }]}>{cat.label}</Text>
       </Pressable>
     );
   };
@@ -784,19 +766,6 @@ export default function SearchScreen() {
                     <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>일반</Text>
                   </Pressable>
                 ))}
-            </>
-          )}
-
-          {topRecommended.length > 0 && (
-            <>
-              {sectionTitle('라이더 인기 TOP 5')}
-              {topRecommended.map((place, index) =>
-                placeRow(place, 'rider-top', undefined, {
-                  badgeLabel: `좋아요 ${place.recommendationCount}`,
-                  badgeColor: colors.tint,
-                  onSelect: () => track.topRecommendedPlaceSelected({ rank: index + 1 }),
-                }),
-              )}
             </>
           )}
 

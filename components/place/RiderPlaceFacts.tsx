@@ -6,11 +6,6 @@ import { RIDER_FACTS, type RiderFactCode } from '@/constants/riderFacts';
 import { useColorScheme } from '@/components/useColorScheme';
 import { usePlaceRiderFacts, useTogglePlaceRiderFact } from '@/hooks/useRiderInsights';
 import { usePlaceRideSummary } from '@/hooks/usePlaceRides';
-import {
-  usePlaceRecommendation,
-  useTogglePlaceRecommendation,
-} from '@/hooks/useCommunityPlaceSignals';
-import { haptics } from '@/lib/haptics';
 import { track } from '@/lib/analytics';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -22,8 +17,6 @@ export default function RiderPlaceFacts({ placeId }: { placeId: string }) {
   const { data = [] } = usePlaceRiderFacts(placeId);
   const rides = usePlaceRideSummary(placeId);
   const toggle = useTogglePlaceRiderFact(placeId);
-  const { data: recommendation } = usePlaceRecommendation(placeId);
-  const recommend = useTogglePlaceRecommendation(placeId);
 
   const byCode = new Map(data.map((fact) => [fact.code, fact]));
 
@@ -40,53 +33,9 @@ export default function RiderPlaceFacts({ placeId }: { placeId: string }) {
     });
   };
 
-  const handleLike = () => {
-    if (!user) {
-      toast.info('로그인하면 이 장소에 좋아요를 남길 수 있어요.');
-      return;
-    }
-    if (recommend.isPending) return;
-    recommend.mutate(undefined, {
-      onSuccess: () => haptics.selection(),
-      onError: (error) => toast.error('좋아요를 반영하지 못했습니다.', error.message),
-    });
-  };
-
-  const liked = !!recommendation?.recommendedByMe;
-  const likeCount = recommendation?.count ?? 0;
-  const likeLabel = `좋아요${likeCount > 0 ? ` · ${likeCount}` : ''}`;
-
   return (
     <View style={[styles.section, { borderTopColor: colors.border }]}>
-      <View style={styles.titleRow}>
-        <Text style={[styles.title, { color: colors.text }]}>라이더 제공 정보</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ selected: liked }}
-          disabled={recommend.isPending}
-          onPress={handleLike}
-          style={({ pressed }) => [
-            styles.likeButton,
-            {
-              backgroundColor: liked ? colors.tint : colors.surface,
-              borderColor: liked ? colors.tint : colors.border,
-              opacity: pressed || recommend.isPending ? 0.68 : 1,
-            },
-          ]}>
-          <Ionicons
-            name={liked ? 'thumbs-up' : 'thumbs-up-outline'}
-            size={17}
-            color={liked ? colors.background : colors.text}
-          />
-          <Text
-            style={[
-              styles.likeText,
-              { color: liked ? colors.background : colors.text },
-            ]}>
-            {likeLabel}
-          </Text>
-        </Pressable>
-      </View>
+      <Text style={[styles.title, { color: colors.text }]}>라이더 제공 정보</Text>
       <Text style={[styles.hint, { color: colors.textSecondary }]}>직접 확인한 항목을 눌러 알려주세요</Text>
       <View style={styles.facts}>
         {RIDER_FACTS.map((definition) => {
@@ -168,26 +117,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '700',
-  },
-  titleRow: {
-    minHeight: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  likeButton: {
-    minHeight: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  likeText: {
-    fontSize: 12,
-    fontWeight: '800',
   },
   hint: {
     fontSize: 12,
