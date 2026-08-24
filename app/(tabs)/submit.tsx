@@ -27,7 +27,7 @@ import { registerPushToken } from '@/lib/push';
 import { toast } from '@/lib/toast';
 import { track } from '@/lib/analytics';
 import LoginPrompt from '@/components/auth/LoginPrompt';
-import SubmitCourse from '@/components/submit/SubmitCourse';
+import SubmitRidingGuide from '@/components/submit/SubmitRidingGuide';
 import SubmitFeedback from '@/components/submit/SubmitFeedback';
 import SubmitHazard from '@/components/submit/SubmitHazard';
 import AddressSearchModal from '@/components/submit/AddressSearchModal';
@@ -63,7 +63,7 @@ function buildHours(
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-type SubmitType = 'place' | 'course' | 'hazard' | 'feedback';
+type SubmitType = 'place' | 'riding' | 'hazard' | 'feedback';
 
 function SubmitTypeTab({
   type,
@@ -79,7 +79,7 @@ function SubmitTypeTab({
   const isActive = current === type;
   const labels: Record<SubmitType, string> = {
     place: '장소',
-    course: '코스',
+    riding: '라이딩',
     hazard: '위험',
     feedback: '건의',
   };
@@ -406,11 +406,14 @@ export default function SubmitScreen() {
   useEffect(() => {
     if (
       requestedType === 'place' ||
-      requestedType === 'course' ||
+      requestedType === 'riding' ||
       requestedType === 'hazard' ||
       requestedType === 'feedback'
     ) {
       setSubmitType(requestedType);
+    } else if (requestedType === 'course') {
+      // 이전 OTA에서 만든 제보 CTA도 새 라이딩 제안 폼으로 이어준다.
+      setSubmitType('riding');
     }
   }, [requestedType, submitTs]);
 
@@ -422,13 +425,13 @@ export default function SubmitScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.tabRow}>
         <SubmitTypeTab type="place" current={submitType} onPress={setSubmitType} />
-        <SubmitTypeTab type="course" current={submitType} onPress={setSubmitType} />
+        <SubmitTypeTab type="riding" current={submitType} onPress={setSubmitType} />
         <SubmitTypeTab type="hazard" current={submitType} onPress={setSubmitType} />
         <SubmitTypeTab type="feedback" current={submitType} onPress={setSubmitType} />
       </View>
 
       {submitType === 'place' && <SubmitPlace />}
-      {submitType === 'course' && <SubmitCourse />}
+      {submitType === 'riding' && <SubmitRidingGuide />}
       {submitType === 'hazard' && <SubmitHazard />}
       {submitType === 'feedback' && <SubmitFeedback />}
     </View>

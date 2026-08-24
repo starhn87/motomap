@@ -56,6 +56,7 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `riding_guide_viewed` | `guide_id` · `place_count` |
 | `riding_guide_place_selected` | `guide_id` · `place_source`(registered·general) · `position` |
 | `riding_guide_shared` | `guide_id` |
+| `riding_guide_submitted` | `place_count`, `has_featured_roads`, `tag_count` |
 | `general_shared_layer_toggled` | `on` — 일반 `추천 장소` 레이어의 레거시 이벤트명 |
 | `general_shared_place_selected` | `share_count` — 일반 추천 장소 선택의 레거시 속성명 |
 

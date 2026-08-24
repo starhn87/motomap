@@ -146,7 +146,7 @@ export default function ExploreScreen() {
             onAction={() =>
               router.navigate({
                 pathname: '/submit',
-                params: { submitType: 'course', submitTs: String(Date.now()) },
+                params: { submitType: 'riding', submitTs: String(Date.now()) },
               })
             }
           />

@@ -157,6 +157,12 @@ export const track = {
   ridingGuideShared: (p: { guide_id: string }) =>
     capture('riding_guide_shared', p),
 
+  ridingGuideSubmitted: (p: {
+    place_count: number;
+    has_featured_roads: boolean;
+    tag_count: number;
+  }) => capture('riding_guide_submitted', p),
+
   categoryFiltered: (p: { category: string }) => capture('category_filtered', p),
 
   placeViewed: (p: { place_id: string; category?: string; source: PlaceSource }) =>

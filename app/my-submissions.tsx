@@ -15,14 +15,15 @@ import EmptyState from '@/components/ui/EmptyState';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
-import { formatDistance } from '@/constants/course';
 import { useColorScheme } from '@/components/useColorScheme';
 import {
   fetchMySubmissions,
-  fetchMyCourseSubmissions,
   type MySubmission,
-  type MyCourseSubmission,
 } from '@/lib/api/mydata';
+import {
+  fetchMyRidingGuideProposals,
+  type MyRidingGuideProposal,
+} from '@/lib/api/ridingGuideSubmissions';
 import { fetchMyFeedback, type MyFeedback, type FeedbackType } from '@/lib/api/feedback';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { toast } from '@/lib/toast';
@@ -57,7 +58,7 @@ export default function MySubmissionsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
-  const [tab, setTab] = useState<'places' | 'courses' | 'feedback'>('places');
+  const [tab, setTab] = useState<'places' | 'riding' | 'feedback'>('places');
 
   const { data: places, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['my-submissions', user?.id],
@@ -65,13 +66,13 @@ export default function MySubmissionsScreen() {
   });
 
   const {
-    data: courses,
-    isLoading: coursesLoading,
-    refetch: refetchCourses,
-    isRefetching: coursesRefetching,
+    data: ridingProposals,
+    isLoading: ridingLoading,
+    refetch: refetchRiding,
+    isRefetching: ridingRefetching,
   } = useQuery({
-    queryKey: ['my-course-submissions', user?.id],
-    queryFn: fetchMyCourseSubmissions,
+    queryKey: ['my-riding-guide-proposals', user?.id],
+    queryFn: fetchMyRidingGuideProposals,
   });
 
   const {
@@ -144,24 +145,30 @@ export default function MySubmissionsScreen() {
     );
   };
 
-  const renderCourse = ({ item }: { item: MyCourseSubmission }) => {
-    const status = item.rejected
-      ? { label: '반려됨', color: semantic.danger }
-      : item.approved
-        ? { label: '승인됨', color: semantic.success }
-        : { label: '대기중', color: '#71717A' };
-    const section =
-      item.sectionFrom && item.sectionTo ? `${item.sectionFrom} → ${item.sectionTo}` : null;
+  const renderRidingProposal = ({ item }: { item: MyRidingGuideProposal }) => {
+    const status =
+      item.status === 'rejected'
+        ? { label: '반려', color: semantic.danger }
+        : item.status === 'published' || item.status === 'merged'
+          ? { label: '반영됨', color: semantic.success }
+          : item.status === 'editing'
+            ? { label: '추천 준비 중', color: colors.tint }
+            : { label: '검토 중', color: '#71717A' };
 
     return (
       <Pressable
         onPress={() => {
-          if (item.rejected) {
-            toast.info('반려된 코스예요', item.rejectedReason ?? undefined);
-          } else if (item.approved) {
-            router.push(`/course/${item.id}`);
+          if (item.status === 'rejected') {
+            toast.info('반려된 라이딩 추천이에요', item.rejectedReason ?? undefined);
+          } else if (
+            (item.status === 'published' || item.status === 'merged') &&
+            item.resultGuideId
+          ) {
+            router.push(`/riding/${item.resultGuideId}`);
+          } else if (item.status === 'editing') {
+            toast.info('라이딩 추천을 준비하고 있어요', '다듬어 공개되면 알려드릴게요.');
           } else {
-            toast.info('아직 검토 중인 코스예요', '승인되면 탐색 탭에서 볼 수 있어요.');
+            toast.info('아직 검토 중인 추천이에요', '검토 결과가 정해지면 알려드릴게요.');
           }
         }}
         style={({ pressed }) => [
@@ -174,19 +181,22 @@ export default function MySubmissionsScreen() {
         ]}>
         <View style={styles.cardHeader}>
           <View style={[styles.categoryBadge, { backgroundColor: `${colors.tint}18` }]}>
-            <Text style={[styles.categoryLabel, { color: colors.tint }]}>
-              {formatDistance(item.distance)}
-            </Text>
+            <Text style={[styles.categoryLabel, { color: colors.tint }]}>라이딩 추천</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: `${status.color}20` }]}>
             <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
           </View>
         </View>
-        <Text style={[styles.placeName, { color: colors.text }]}>{item.name}</Text>
-        {!!section && (
-          <Text style={[styles.placeAddress, { color: colors.textSecondary }]}>{section}</Text>
-        )}
-        {item.rejected && !!item.rejectedReason && (
+        <Text style={[styles.placeName, { color: colors.text }]}>
+          {item.title || `${item.destinationName}로 가는 라이딩`}
+        </Text>
+        <Text style={[styles.placeAddress, { color: colors.textSecondary }]}>
+          대표 목적지 · {item.destinationName}
+        </Text>
+        <Text style={[styles.proposalReason, { color: colors.textSecondary }]} numberOfLines={2}>
+          {item.reason}
+        </Text>
+        {item.status === 'rejected' && !!item.rejectedReason && (
           <View
             style={[
               styles.replyBox,
@@ -247,7 +257,7 @@ export default function MySubmissionsScreen() {
   );
 
   const showLoading =
-    tab === 'places' ? isLoading : tab === 'courses' ? coursesLoading : feedbackLoading;
+    tab === 'places' ? isLoading : tab === 'riding' ? ridingLoading : feedbackLoading;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -255,7 +265,7 @@ export default function MySubmissionsScreen() {
         {(
           [
             ['places', '장소'],
-            ['courses', '코스'],
+            ['riding', '라이딩'],
             ['feedback', '건의'],
           ] as const
         ).map(([key, label]) => {
@@ -310,26 +320,31 @@ export default function MySubmissionsScreen() {
             }
           />
         )
-      ) : tab === 'courses' ? (
-        !courses?.length ? (
+      ) : tab === 'riding' ? (
+        !ridingProposals?.length ? (
           <EmptyState
             icon={<Ionicons name="map-outline" size={44} color={colors.textSecondary} />}
-            title="제보한 코스가 없습니다"
-            hint="즐겨 달리는 코스를 라이더들과 나눠보세요!"
-            actionLabel="제보하러 가기"
-            onAction={() => router.navigate('/submit')}
+            title="보낸 라이딩 추천이 없습니다"
+            hint="목적지와 달리기 좋은 이유를 라이더들과 나눠보세요!"
+            actionLabel="추천 보내기"
+            onAction={() =>
+              router.navigate({
+                pathname: '/submit',
+                params: { submitType: 'riding', submitTs: String(Date.now()) },
+              })
+            }
           />
         ) : (
           <FlatList
-            data={courses}
+            data={ridingProposals}
             keyExtractor={(item) => item.id}
-            renderItem={renderCourse}
+            renderItem={renderRidingProposal}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
-                refreshing={coursesRefetching}
-                onRefresh={refetchCourses}
+                refreshing={ridingRefetching}
+                onRefresh={refetchRiding}
                 tintColor={colors.tint}
               />
             }
@@ -405,6 +420,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '700' },
   placeName: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
   placeAddress: { fontSize: 13, marginBottom: 4 },
+  proposalReason: { fontSize: 13, lineHeight: 19, marginBottom: 5 },
   feedbackContent: { fontSize: 15, lineHeight: 21, marginBottom: 8 },
   replyBox: {
     borderRadius: 10,
