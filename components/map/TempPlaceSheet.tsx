@@ -300,16 +300,16 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const handleCommunityShare = () => {
     if (!place) return;
     if (!user) {
-      toast.info('로그인하면 이 장소를 라이더들과 공유할 수 있어요.');
+      toast.info('로그인하면 이 장소를 추천할 수 있어요.');
       return;
     }
     if (toggleCommunityShare.isPending) return;
     toggleCommunityShare.mutate(undefined, {
       onSuccess: ({ shared }) => {
         haptics.selection();
-        if (shared) toast.success('라이더들과 이 장소를 공유했어요.');
+        if (shared) toast.success('장소 추천을 완료했어요.');
       },
-      onError: (error) => toast.error('장소 공유를 반영하지 못했습니다.', error.message),
+      onError: (error) => toast.error('장소 추천을 반영하지 못했습니다.', error.message),
     });
   };
 
@@ -694,26 +694,26 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                 },
               ]}>
               <Ionicons
-                name={communityShare?.sharedByMe ? 'checkmark-circle' : 'share-social-outline'}
+                name={communityShare?.sharedByMe ? 'checkmark-circle' : 'checkmark-circle-outline'}
                 size={21}
                 color={communityShare?.sharedByMe ? colors.background : colors.text}
               />
             </View>
             <View style={styles.communityShareCopy}>
-              <Text style={[styles.communityShareTitle, { color: colors.text }]}>
-                {communityShare?.sharedByMe
-                  ? '라이더들과 공유 중'
-                  : '라이더들과 공유하기'}
-              </Text>
+              <View style={styles.communityShareTitleRow}>
+                <Text style={[styles.communityShareTitle, { color: colors.text }]}>
+                  {communityShare?.sharedByMe ? '장소 추천 완료' : '장소 추천하기'}
+                </Text>
+                {(communityShare?.count ?? 0) > 0 && (
+                  <Text style={[styles.communityShareCount, { color: colors.textSecondary }]}>
+                    · {communityShare!.count}
+                  </Text>
+                )}
+              </View>
               <Text style={[styles.communityShareDescription, { color: colors.textSecondary }]}>
-                바이크 특화 장소는 아니지만, 라이더가 함께 가볼 곳으로 공유할 수 있어요.
+                바이크 특화 장소는 아니지만, 라이더가 가볼 만한 곳으로 추천해요.
               </Text>
             </View>
-            {(communityShare?.count ?? 0) > 0 && (
-              <Text style={[styles.communityShareCount, { color: colors.textSecondary }]}>
-                {communityShare!.count}
-              </Text>
-            )}
           </Pressable>
 
           {!isGasStation && (
@@ -960,6 +960,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   communityShareCopy: { flex: 1, gap: 3 },
+  communityShareTitleRow: { flexDirection: 'row', alignItems: 'center' },
   communityShareTitle: { fontSize: 14, fontWeight: '800' },
   communityShareDescription: { fontSize: 12, lineHeight: 17 },
   communityShareCount: { fontSize: 12, fontWeight: '800' },
