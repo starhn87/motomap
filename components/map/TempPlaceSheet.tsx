@@ -669,7 +669,6 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ selected: !!communityShare?.sharedByMe }}
-            disabled={toggleCommunityShare.isPending}
             onPress={handleCommunityShare}
             style={({ pressed }) => [
               styles.communityShareCard,
@@ -678,7 +677,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                   ? colors.tint + '10'
                   : colors.surface,
                 borderColor: communityShare?.sharedByMe ? colors.tint : colors.border,
-                opacity: pressed || toggleCommunityShare.isPending ? 0.68 : 1,
+                opacity: pressed ? 0.76 : 1,
               },
             ]}>
             <View
@@ -702,8 +701,10 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                   {communityShare?.sharedByMe ? '장소 추천 완료' : '장소 추천하기'}
                 </Text>
                 {(communityShare?.count ?? 0) > 0 && (
-                  <Text style={[styles.communityShareCount, { color: colors.textSecondary }]}>
-                    · {communityShare!.count}
+                  <Text
+                    style={[styles.communityShareCount, { color: colors.textSecondary }]}
+                  >
+                    {communityShare!.count}
                   </Text>
                 )}
               </View>
@@ -957,7 +958,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   communityShareCopy: { flex: 1, gap: 3 },
-  communityShareTitleRow: { flexDirection: 'row', alignItems: 'center' },
+  communityShareTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   communityShareTitle: { fontSize: 14, fontWeight: '800' },
   communityShareDescription: { fontSize: 12, lineHeight: 17 },
   communityShareCount: { fontSize: 12, fontWeight: '800' },
