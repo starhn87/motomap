@@ -257,7 +257,7 @@ Sentry.wrap(
 | `022_course_sections.sql` | `courses.section_from`/`section_to`/`route_name` — 코스를 "어디에서 어디까지, 무슨 길" 구간으로 표기 |
 | `023_course_geometry.sql` | `courses.route_geometry` — 실도로 스냅 후 단순화한 표시용 경로선 (등록 좌표 `coordinates` 는 코스 정의로 유지) |
 | `024_places_near_course.sql` | `places_near_course` RPC — 코스 경로선 반경 내 승인 장소를 `ST_LineLocatePoint` 진행도 순으로 (코스 상세 '근처 장소') |
-| `025_road_hazards.sql` | `road_hazards`+`hazard_votes`, `live_road_hazards` 뷰, `nearby_hazards`/`hazards_near_course`/`vote_hazard` — 노면 위험 제보. 승인 대기 없이 즉시 공개하고 유형별 수명(`hazard_fresh_days`)으로 신뢰 관리: 수명 초과면 `staleness=1`(흐리게), 2배 초과나 '없어졌어요' 2표면 목록에서 제외(삭제 아님) |
+| `025_road_hazards.sql` 이후 | `road_hazards`+`hazard_votes`, `live_road_hazards` 뷰, `nearby_hazards`/`hazards_near_course`/`vote_hazard` — 노면 위험 제보. 승인 대기 없이 즉시 공개하고 유형별 신선도·만료 간격으로 신뢰 관리한다. 한 번의 '없어졌어요'는 즉시 흐리게 하고 24시간 뒤 제외하며, 두 표면 즉시 제외한다. 이후 '아직 있어요'가 들어오면 다시 활성화한다(제외는 삭제 아님). 세부 정책은 `docs/domain-decisions/hazard-lifecycle.md` |
 | `026_fix_vote_hazard_ambiguity.sql` | `vote_hazard` 파라미터를 `p_` 접두사로 재생성 — 이름이 `hazard_votes.hazard_id` 와 같아 `ON CONFLICT` 자리에서 ambiguous 로 실패했다 |
 | `027_review_likes.sql` | `review_likes` + `reviews.like_count`(트리거 유지) + 좋아요 시 리뷰 작성자에게 알림·푸시 — 본인이 누른 건 제외. "내가 눌렀는지"는 RLS 가 본인 행만 돌려주는 성질로 판별(별도 쿼리 없음) |
 | `028_fix_review_like_search_path.sql` | 027 두 함수의 `search_path` 를 `public` 으로 — 빈 값이면 reviews UPDATE 로 이어지는 기존 트리거가 스키마 없는 참조를 못 찾아 42P01 로 실패한다 |

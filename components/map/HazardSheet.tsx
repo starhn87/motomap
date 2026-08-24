@@ -100,7 +100,7 @@ export default function HazardSheet({ hazard, onClose }: Props) {
 
         {hazard.staleness > 0 && (
           <Text style={[styles.staleHint, { color: semantic.warning }]}>
-            오래된 제보예요. 아직 그대로인지 알려주시면 다른 라이더에게 도움이 됩니다.
+            최근 확인이 필요해요. 아직 그대로인지 알려주시면 다른 라이더에게 도움이 됩니다.
           </Text>
         )}
 
