@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
   ActivityIndicator,
@@ -115,23 +116,25 @@ export default function RidingGuideDetailScreen() {
         <Image source={guide.coverImageUrl} style={styles.cover} contentFit="cover" />
       ) : null}
 
+      {guide.regions.length > 0 && (
+        <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>
+          {guide.regions.join(' · ')}
+        </Text>
+      )}
       <View style={styles.titleRow}>
         <View style={styles.titleCopy}>
-          {guide.regions.length > 0 && (
-            <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>
-              {guide.regions.join(' · ')}
-            </Text>
-          )}
           <Text style={[styles.title, { color: colors.text }]}>{guide.title}</Text>
         </View>
         <Pressable
+          accessibilityLabel="라이딩 추천 공유"
+          accessibilityRole="button"
           onPress={shareGuide}
           hitSlop={8}
           style={({ pressed }) => [
             styles.shareButton,
             { backgroundColor: colors.surfaceMuted, opacity: pressed ? 0.72 : 1 },
           ]}>
-          <MaterialCommunityIcons name="share-variant-outline" size={23} color={colors.text} />
+          <Ionicons name="share-outline" size={20} color={colors.tint} />
         </Pressable>
       </View>
 
@@ -245,14 +248,14 @@ const styles = StyleSheet.create({
   content: { padding: 18, paddingBottom: 48 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   cover: { width: '100%', aspectRatio: 1.7, borderRadius: 18, marginBottom: 20 },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   titleCopy: { flex: 1 },
   eyebrow: { fontSize: 12, fontWeight: '800', marginBottom: 6 },
-  title: { fontSize: 28, lineHeight: 36, fontWeight: '900' },
+  title: { fontSize: 24, lineHeight: 31, fontWeight: '900' },
   shareButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
