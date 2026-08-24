@@ -42,9 +42,9 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | 이벤트 | 속성 |
 | --- | --- |
 | `search_submitted` | `search_id` · `method`(typed·voice) · `source`(map_bar·search_screen·point_modal) · `query` |
-| `search_results_viewed` | `search_id` · `query` · `source` · `registered_count` · `kakao_count` · `course_count` · `scope` |
+| `search_results_viewed` | `search_id` · `query` · `source` · `registered_count` · `kakao_count` · `riding_guide_count` · 레거시 `course_count` · `scope` |
 | `search_no_results` | `search_id` · `query` · `source` · `kakao_count` |
-| `search_result_selected` | `search_id` · `result_type`(registered·kakao·course) · `rank` · `source` |
+| `search_result_selected` | `search_id` · `result_type`(registered·kakao·riding_guide·레거시 course) · `rank` · `source` |
 | `search_filter_toggled` | `search_id` · `filter`(open·parking·rating·bike) · `on` |
 | `search_area_refreshed` | `search_id` |
 | `search_area_browsed` | `search_id` · `source` |

@@ -40,10 +40,9 @@ import { searchKakaoLocalPage, type KakaoLocalResult } from '@/lib/api/kakaoLoca
 import { addRecentSearch } from '@/lib/recentSearches';
 import { createAnalyticsId, track, type SearchSource } from '@/lib/analytics';
 import { describeOpenState, getOpenState } from '@/lib/hours';
-import { formatDistance, formatDuration } from '@/constants/course';
 import { approxMeters } from '@/lib/distance';
 import { focusPlaceOnMap, focusPointOnMap } from '@/lib/mapFocus';
-import type { Place, RidingCourse } from '@/types';
+import type { Place, RidingGuideSearchResult } from '@/types';
 
 // 지도에 뿌리는 결과 상한 — 등록 장소가 광범위한 검색어(예: "카페")일 때
 // 마커 폭주를 막는다. 목록도 같은 상한을 쓴다.
@@ -51,10 +50,10 @@ const MAX_PLACES = 50;
 
 type ResultItem =
   | { kind: 'place'; place: Place }
-  | { kind: 'course'; course: RidingCourse }
+  | { kind: 'riding'; guide: RidingGuideSearchResult }
   | { kind: 'kakao'; k: KakaoLocalResult };
 
-type ExactPlaceTarget = Exclude<ResultItem, { kind: 'course' }>;
+type ExactPlaceTarget = Exclude<ResultItem, { kind: 'riding' }>;
 
 type SearchFilter = 'open' | 'parking' | 'rating' | 'bike';
 
@@ -244,14 +243,14 @@ export default function SearchResultsScreen() {
       if (filters.includes('bike') && !bikeMatches.data?.[place.id]) return false;
       return true;
     }).slice(0, MAX_PLACES);
-    // 코스·카카오 결과에는 영업시간/주차/평점의 같은 필드가 없다. 필터를 켰을 때
+    // 라이딩 추천·카카오 결과에는 영업시간/주차/평점의 같은 필드가 없다. 필터를 켰을 때
     // 섞어 보여주면 필터가 고장 난 것처럼 보이므로 등록 장소만 남긴다.
-    const courses = filters.length === 0 ? (results?.courses ?? []) : [];
+    const ridingGuides = filters.length === 0 ? (results?.ridingGuides ?? []) : [];
     const kakaoOnly = filters.length === 0 ? nearbyKakaoResults : [];
     return [
       ...places.map((place) => ({ kind: 'place' as const, place })),
       ...kakaoOnly.map((k) => ({ kind: 'kakao' as const, k })),
-      ...courses.map((course) => ({ kind: 'course' as const, course })),
+      ...ridingGuides.map((guide) => ({ kind: 'riding' as const, guide })),
     ];
   }, [results, nearbyKakaoResults, filters, bikeMatches.data]);
 
@@ -259,7 +258,7 @@ export default function SearchResultsScreen() {
     requestEnabled && resultsQuery.isSuccess && (browseMode || kakaoQuery.isSuccess);
   const rawResultCount =
     (results?.places.length ?? 0) +
-    (results?.courses.length ?? 0) +
+    (results?.ridingGuides.length ?? 0) +
     nearbyKakaoResults.length;
   const searchFailed =
     resultsQuery.isError || (!browseMode && kakaoQuery.isError);
@@ -342,14 +341,15 @@ export default function SearchResultsScreen() {
     viewedResultSets.current.add(resultSet);
     const registeredCount = results?.places.length ?? 0;
     const kakaoCount = nearbyKakaoResults.length;
-    const courseCount = results?.courses.length ?? 0;
+    const ridingGuideCount = results?.ridingGuides.length ?? 0;
     track.searchResultsViewed({
       search_id: searchId,
       source: searchSource,
       query: browseMode ? undefined : query,
       registered_count: registeredCount,
       kakao_count: kakaoCount,
-      course_count: courseCount,
+      course_count: 0,
+      riding_guide_count: ridingGuideCount,
       scope: exactFallbackQuery === compactQuery ? 'all' : 'near',
     });
     if (registeredCount === 0 && !browseMode) {
@@ -392,7 +392,7 @@ export default function SearchResultsScreen() {
   useEffect(() => {
     if (!mapReady || loading || showEmpty || searchFailed || detailOpen) return;
     const mapped = items.filter(
-      (item): item is Exclude<ResultItem, { kind: 'course' }> => item.kind !== 'course',
+      (item): item is Exclude<ResultItem, { kind: 'riding' }> => item.kind !== 'riding',
     );
     if (mapped.length === 0) return;
     if (mapped.length === 1) {
@@ -466,15 +466,15 @@ export default function SearchResultsScreen() {
   const pick = (item: ResultItem, keepZoom = false) => {
     const zoom = keepZoom ? zoomRef.current : 13;
     const rank = items.indexOf(item);
-    if (item.kind === 'course') {
+    if (item.kind === 'riding') {
       track.searchResultSelected({
         search_id: searchId,
-        result_type: 'course',
+        result_type: 'riding_guide',
         rank,
         source: searchSource,
       });
-      void addRecentSearch({ type: 'course', id: item.course.id, name: item.course.name });
-      router.push(`/course/${item.course.id}`);
+      void addRecentSearch({ type: 'riding', id: item.guide.id, name: item.guide.title });
+      router.push(`/riding/${item.guide.id}`);
       return;
     }
     if (item.kind === 'place') {
@@ -673,7 +673,11 @@ export default function SearchResultsScreen() {
         isShowZoomControls={false}
         locale="ko"
         locationOverlay={{ isVisible: false }}
-        initialCamera={{ latitude: 36.4, longitude: 127.8, zoom: 6 }}
+        initialCamera={
+          activeNear
+            ? { latitude: activeNear.latitude, longitude: activeNear.longitude, zoom: 12 }
+            : { latitude: 36.4, longitude: 127.8, zoom: 6 }
+        }
         onInitialized={() => setMapReady(true)}
         onCameraChanged={(e) => {
           if (typeof e.zoom === 'number') zoomRef.current = e.zoom;
@@ -683,7 +687,7 @@ export default function SearchResultsScreen() {
         {/* 선택된 하나만 핀(물방울, 하단 앵커), 나머지는 원형 — 지도 탭과
             같은 규칙이라 "핀 = 지금 보고 있는 곳"으로 읽힌다. */}
         {items.map((item) => {
-          if (item.kind === 'course') return null;
+          if (item.kind === 'riding') return null;
           if (item.kind === 'place') {
             const isSelected = selectedPlace?.id === item.place.id;
             return (
@@ -779,8 +783,8 @@ export default function SearchResultsScreen() {
           keyExtractor={(item: ResultItem, i: number) =>
             item.kind === 'place'
               ? `place-${item.place.id}`
-              : item.kind === 'course'
-                ? `course-${item.course.id}`
+              : item.kind === 'riding'
+                ? `riding-${item.guide.id}`
                 : `kakao-${item.k.placeName}-${i}`
           }
           contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
@@ -890,26 +894,23 @@ export default function SearchResultsScreen() {
                   </Pressable>
                 );
               })()
-            ) : item.kind === 'course' ? (
+            ) : item.kind === 'riding' ? (
               <Pressable
                 onPress={() => pick(item)}
                 style={[styles.row, { borderBottomColor: colors.border }]}>
-                <MaterialCommunityIcons name="road-variant" size={19} color={colors.tint} />
+                <MaterialCommunityIcons name="map-marker-path" size={19} color={colors.tint} />
                 <View style={styles.rowTexts}>
                   <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-                    {item.course.name}
+                    {item.guide.title}
                   </Text>
                   <Text style={[styles.rowAddress, { color: colors.textSecondary }]} numberOfLines={1}>
-                    {[item.course.routeName, item.course.description].filter(Boolean).join(' · ')}
+                    {item.guide.summary}
                   </Text>
                   <Text style={[styles.rowMetaText, { color: colors.textSecondary }]}>
-                    {formatDistance(item.course.distance)} · {formatDuration(item.course.duration)}
-                    {item.course.reviewCount > 0
-                      ? ` · ★ ${item.course.rating.toFixed(1)} (${item.course.reviewCount})`
-                      : ''}
+                    {[...item.guide.regions, ...item.guide.tags.slice(0, 2)].join(' · ')}
                   </Text>
                 </View>
-                <Text style={[styles.rowBadge, { color: colors.tint }]}>코스</Text>
+                <Text style={[styles.rowBadge, { color: colors.tint }]}>라이딩</Text>
               </Pressable>
             ) : (
               <Pressable

@@ -1,12 +1,11 @@
 import { supabase } from '@/lib/supabase';
 import { approxMeters } from '@/lib/distance';
-import type { Place, RidingCourse } from '@/types';
+import type { Place, RidingGuideSearchResult } from '@/types';
 import { rowToPlace, type PlaceRow } from '@/lib/api/places';
-import { rowToCourse } from '@/lib/api/courses';
 
 export interface SearchResults {
   places: Place[];
-  courses: RidingCourse[];
+  ridingGuides: RidingGuideSearchResult[];
 }
 
 export const SEARCH_RADIUS_M = 20_000;
@@ -67,23 +66,14 @@ export async function searchAll(
   nearOnly = false,
 ): Promise<SearchResults> {
   const trimmed = query.trim();
-  // 최근 검색의 일반 장소를 등록 장소로 승격하는 1회성 전체 조회 경로. 실제 검색은
-  // 2자 이상에서만 실행되므로 아래 RPC의 결과 상한과 분리한다.
+  // 최근 검색의 일반 장소를 등록 장소로 승격하는 1회성 전체 장소 조회 경로. 실제
+  // 검색은 2자 이상에서만 실행되므로 아래 RPC의 결과 상한과 분리한다.
   if (!trimmed && !nearOnly) {
-    const [placesRes, coursesRes] = await Promise.all([
-      supabase.rpc('all_places', { category_filter: null }),
-      supabase
-        .from('courses')
-        .select('*')
-        .eq('approved', true)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false }),
-    ]);
+    const placesRes = await supabase.rpc('all_places', { category_filter: null });
     if (placesRes.error) throw placesRes.error;
-    if (coursesRes.error) throw coursesRes.error;
     return {
       places: (placesRes.data ?? []).map((row: PlaceRow) => rowToPlace(row)),
-      courses: (coursesRes.data ?? []).map(rowToCourse),
+      ridingGuides: [],
     };
   }
 
@@ -95,14 +85,25 @@ export async function searchAll(
     p_radius_meters: SEARCH_RADIUS_M,
     p_near_only: nearOnly,
   };
-  const [placesRes, coursesRes] = await Promise.all([
+  const [placesRes, ridingGuidesRes] = await Promise.all([
     supabase.rpc('search_places_v2', { ...sharedParams, p_limit: 50 }),
-    supabase.rpc('search_courses_v2', { ...sharedParams, p_limit: 30 }),
+    supabase.rpc('search_riding_guides_v1', { ...sharedParams, p_limit: 30 }),
   ]);
   if (placesRes.error) throw placesRes.error;
-  if (coursesRes.error) throw coursesRes.error;
+  if (ridingGuidesRes.error) throw ridingGuidesRes.error;
   return {
     places: (placesRes.data ?? []).map((row: PlaceRow) => rowToPlace(row)),
-    courses: (coursesRes.data ?? []).map(rowToCourse),
+    ridingGuides: (ridingGuidesRes.data ?? []).map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      summary: row.summary,
+      featuredRoads: row.featured_roads ?? [],
+      regions: row.regions ?? [],
+      tags: row.tags ?? [],
+      coverImageUrl: row.cover_image_url ?? undefined,
+      publishedAt: row.published_at,
+      primaryLatitude: row.primary_latitude,
+      primaryLongitude: row.primary_longitude,
+    })),
   };
 }

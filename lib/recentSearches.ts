@@ -3,13 +3,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Place } from '@/types';
 import type { NavTarget } from '@/lib/navigation';
 
-// 검색에서 선택한 장소·코스 최근 5개 (최신순). 실패는 조용히 무시 — 검색 자체를 막지 않는다.
+// 검색에서 선택한 장소·라이딩 추천 최근 5개 (최신순). course는 이전 OTA가
+// 저장한 항목을 계속 열기 위한 읽기 호환 타입이다.
 const KEY = 'recent-searches';
 const MAX = 5;
 
 export type RecentSearch =
   | { type: 'place'; place: Place }
   | { type: 'course'; id: string; name: string }
+  | { type: 'riding'; id: string; name: string }
   | {
       type: 'kakao';
       name: string;
@@ -24,6 +26,7 @@ export type RecentSearch =
 export function recentKey(entry: RecentSearch): string {
   if (entry.type === 'place') return `place-${entry.place.id}`;
   if (entry.type === 'course') return `course-${entry.id}`;
+  if (entry.type === 'riding') return `riding-${entry.id}`;
   return `kakao-${entry.latitude},${entry.longitude}`;
 }
 
@@ -64,7 +67,7 @@ export async function clearRecentSearches(): Promise<void> {
   }
 }
 
-// 좌표가 있는 최근 검색만 길찾기 지점이 될 수 있다 (코스는 제외)
+// 좌표가 있는 최근 검색만 길찾기 지점이 될 수 있다 (콘텐츠 항목은 제외)
 function recentAsTarget(entry: RecentSearch): (NavTarget & { address?: string }) | null {
   if (entry.type === 'place') {
     return {

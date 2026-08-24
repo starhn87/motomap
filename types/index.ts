@@ -96,6 +96,19 @@ export interface RidingGuide {
   stops: RidingGuideStop[];
 }
 
+export interface RidingGuideSearchResult {
+  id: string;
+  title: string;
+  summary: string;
+  featuredRoads: string[];
+  regions: string[];
+  tags: string[];
+  coverImageUrl?: string;
+  publishedAt: string;
+  primaryLatitude: number;
+  primaryLongitude: number;
+}
+
 export interface Review {
   id: string;
   placeId: string;

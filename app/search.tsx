@@ -50,7 +50,7 @@ import {
   recentKey,
   type RecentSearch,
 } from '@/lib/recentSearches';
-import type { Place } from '@/types';
+import type { Place, RidingGuideSearchResult } from '@/types';
 
 // 검색 전용 화면 — 입력 전에는 최근 검색·즐겨찾기·추천 목적지를 모아 보여주고,
 // 2자 이상 입력하면 통합 검색 결과로 전환된다. 장소 선택은 지도 탭의
@@ -258,7 +258,7 @@ export default function SearchScreen() {
   useEffect(() => {
     if (!searching || !inlineSearchId || isLoading || kakaoResults === undefined) return;
     const registered = results?.places.length ?? 0;
-    const courses = results?.courses.length ?? 0;
+    const ridingGuides = results?.ridingGuides.length ?? 0;
     if (reportedResults.current.has(inlineSearchId)) return;
     // 타이핑 중간 문자열을 결과 조회·미검색어로 세지 않도록 잠시 안정된 뒤 기록한다.
     const timer = setTimeout(() => {
@@ -270,7 +270,8 @@ export default function SearchScreen() {
         query: trimmed,
         registered_count: registered,
         kakao_count: kakaoOnly.length,
-        course_count: courses,
+        course_count: 0,
+        riding_guide_count: ridingGuides,
         scope: near ? 'near' : 'all',
       });
       if (registered === 0) {
@@ -289,7 +290,7 @@ export default function SearchScreen() {
     isLoading,
     kakaoResults,
     results?.places.length,
-    results?.courses.length,
+    results?.ridingGuides.length,
     kakaoOnly.length,
     trimmed,
     near,
@@ -368,6 +369,23 @@ export default function SearchScreen() {
     router.push(`/course/${courseId}`);
   }, [inlineSearchId]);
 
+  const goToRidingGuide = useCallback(
+    (guideId: string, guideTitle: string, rank?: number) => {
+      Keyboard.dismiss();
+      if (rank !== undefined && inlineSearchId) {
+        track.searchResultSelected({
+          search_id: inlineSearchId,
+          result_type: 'riding_guide',
+          rank,
+          source: 'search_screen',
+        });
+      }
+      void addRecentSearch({ type: 'riding', id: guideId, name: guideTitle });
+      router.push(`/riding/${guideId}`);
+    },
+    [inlineSearchId],
+  );
+
   const browseArea = () => {
     const anchor = kakaoOnly[0];
     if (!anchor || !inlineSearchId) return;
@@ -440,7 +458,7 @@ export default function SearchScreen() {
           <TextInput
             ref={inputRef}
             style={[styles.input, { color: colors.text }]}
-            placeholder={listening ? '듣고 있어요…' : '장소, 코스 검색'}
+            placeholder={listening ? '듣고 있어요…' : '장소, 라이딩 검색'}
             placeholderTextColor={listening ? colors.tint : colors.textSecondary}
             value={query}
             onChangeText={setQuery}
@@ -479,7 +497,7 @@ export default function SearchScreen() {
                     <View style={styles.rowInfo}>
                       <Text style={[styles.browseAreaTitle, { color: colors.text }]}>이 지역 둘러보기</Text>
                       <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
-                        {trimmed} 주변의 라이더 장소와 코스를 모아볼게요
+                        {trimmed} 주변의 장소와 라이딩 추천을 모아볼게요
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={colors.tint} />
@@ -498,7 +516,10 @@ export default function SearchScreen() {
                     { type: 'kakao-footer' as const, data: null },
                   ]
                 : []),
-              ...(results?.courses.map((c) => ({ type: 'course' as const, data: c })) ?? []),
+              ...(results?.ridingGuides.map((guide) => ({
+                type: 'riding' as const,
+                data: guide,
+              })) ?? []),
             ]}
             keyExtractor={(item, index) =>
               item.type === 'kakao'
@@ -561,9 +582,9 @@ export default function SearchScreen() {
               ) : (
                 <Pressable
                   onPress={() =>
-                    goToCourse(
+                    goToRidingGuide(
                       item.data.id,
-                      item.data.name,
+                      item.data.title,
                       index - (kakaoOnly.length > 0 ? 2 : 0),
                     )
                   }
@@ -571,20 +592,18 @@ export default function SearchScreen() {
                     styles.row,
                     { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
                   ]}>
-                  <View style={styles.rowIconWrap}><MaterialCommunityIcons name="road-variant" size={20} color={colors.tint} /></View>
+                  <View style={styles.rowIconWrap}>
+                    <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.tint} />
+                  </View>
                   <View style={styles.rowInfo}>
                     <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-                      {item.data.name}
+                      {(item.data as RidingGuideSearchResult).title}
                     </Text>
                     <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
-                      {item.data.description}
+                      {(item.data as RidingGuideSearchResult).summary}
                     </Text>
                   </View>
-                  {item.data.distance > 0 && (
-                    <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>
-                      {formatDistance(item.data.distance)}
-                    </Text>
-                  )}
+                  <Text style={[styles.rowBadge, { color: colors.tint }]}>라이딩</Text>
                 </Pressable>
               )
             }
@@ -646,7 +665,7 @@ export default function SearchScreen() {
             <View style={styles.rowInfo}>
               <Text style={[styles.rowName, { color: colors.text }]}>AI에게 추천받기</Text>
               <Text style={[styles.rowSub, { color: colors.textSecondary }]}>
-                코스, 장소를 대화로 골라보세요
+                장소와 라이딩 추천을 대화로 골라보세요
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.tint} />
@@ -675,6 +694,7 @@ export default function SearchScreen() {
                     onPress={() => {
                       if (entry.type === 'place') goToPlace(entry.place);
                       else if (entry.type === 'course') goToCourse(entry.id, entry.name);
+                      else if (entry.type === 'riding') goToRidingGuide(entry.id, entry.name);
                       else
                         goToKakaoPlace(
                           entry.name,
@@ -693,7 +713,7 @@ export default function SearchScreen() {
                     <View style={styles.rowIconWrap}>
                       {entry.type === 'place' ? (
                         <CategoryIcon category={entry.place.category} size={20} />
-                      ) : entry.type === 'course' ? (
+                      ) : entry.type === 'course' || entry.type === 'riding' ? (
                         <MaterialCommunityIcons name="road-variant" size={20} color={colors.tint} />
                       ) : (
                         <Ionicons name="location-outline" size={20} color="#475569" />
