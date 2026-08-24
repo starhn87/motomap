@@ -77,8 +77,8 @@ export default function MapPickerModal({ visible, initial, onClose, onPick }: Pr
               latitude={marker.latitude}
               longitude={marker.longitude}
               image={require('@/assets/images/markers/general.png')}
-              width={36}
-              height={50}
+              width={38}
+              height={44}
               anchor={{ x: 0.5, y: 1 }}
             />
           )}
