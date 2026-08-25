@@ -45,7 +45,9 @@ export default function PlaceChangeReportSheet({
   onClose,
 }: Props) {
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const didOpenRef = useRef(false);
+  const requestedVisibleRef = useRef(visible);
+  const closingIntentRef = useRef(false);
+  requestedVisibleRef.current = visible;
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [reason, setReason] = useState<PlaceChangeReason | null>(null);
@@ -66,19 +68,32 @@ export default function PlaceChangeReportSheet({
   // 바텀시트 닫힘 전환을 탄다. 부모 상태는 애니메이션이 끝난 뒤에만 닫는다.
   useLayoutEffect(() => {
     if (visible) {
+      // 새 열기 요청은 진행 중이던 과거 닫힘보다 항상 최신이다.
+      closingIntentRef.current = false;
       bottomSheetRef.current?.snapToIndex(0);
     } else {
       bottomSheetRef.current?.close();
     }
   }, [visible]);
 
-  const handleSheetChange = (index: number) => {
-    if (index >= 0) {
-      didOpenRef.current = true;
-    } else if (didOpenRef.current) {
-      didOpenRef.current = false;
-      resetForm();
+  // 시트가 내려가기 시작할 때 부모의 열림 상태를 먼저 해제한다. 시트가 거의
+  // 사라져 아래 버튼이 다시 눌릴 때까지 true가 남으면 true→true라 재열림
+  // 요청이 유실된다. 컴포넌트는 계속 마운트되어 닫힘 애니메이션에는 영향 없다.
+  const handleSheetAnimate = (_fromIndex: number, toIndex: number) => {
+    if (toIndex === -1 && requestedVisibleRef.current) {
+      closingIntentRef.current = true;
       onClose();
+    }
+  };
+
+  const handleSheetClosed = () => {
+    // 이전 닫힘이 끝나기 전에 새 열기 요청이 들어온 경우, 오래된 완료 이벤트가
+    // 새 요청을 이기지 않도록 즉시 첫 스냅으로 되돌린다.
+    if (requestedVisibleRef.current && !closingIntentRef.current) {
+      bottomSheetRef.current?.snapToIndex(0);
+    } else {
+      closingIntentRef.current = false;
+      resetForm();
     }
   };
 
@@ -135,7 +150,8 @@ export default function PlaceChangeReportSheet({
       keyboardBehavior="extend"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
-      onChange={handleSheetChange}
+      onAnimate={handleSheetAnimate}
+      onClose={handleSheetClosed}
       backdropComponent={renderBackdrop}
       backgroundStyle={{
         backgroundColor: colors.surfaceElevated,
