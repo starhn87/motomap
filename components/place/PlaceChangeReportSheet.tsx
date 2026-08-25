@@ -22,11 +22,13 @@ import {
 } from '@/lib/api/placeChangeReports';
 import { haptics } from '@/lib/haptics';
 import { toast } from '@/lib/toast';
+import type { PlaceOperationalStatus } from '@/types';
 
 interface Props {
   visible: boolean;
   placeId: string;
   placeName: string;
+  operationalStatus?: PlaceOperationalStatus;
   onClose: () => void;
 }
 
@@ -34,6 +36,7 @@ export default function PlaceChangeReportSheet({
   visible,
   placeId,
   placeName,
+  operationalStatus,
   onClose,
 }: Props) {
   const colorScheme = useColorScheme();
@@ -41,6 +44,11 @@ export default function PlaceChangeReportSheet({
   const [reason, setReason] = useState<PlaceChangeReason | null>(null);
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const reasons = PLACE_CHANGE_REASONS.filter((option) =>
+    operationalStatus === 'temporarily_closed'
+      ? option.key !== 'temporarily_closed'
+      : option.key !== 'reopened',
+  );
 
   useEffect(() => {
     if (visible) return;
@@ -100,7 +108,7 @@ export default function PlaceChangeReportSheet({
           </Text>
 
           <View style={styles.reasonList}>
-            {PLACE_CHANGE_REASONS.map((option) => {
+            {reasons.map((option) => {
               const selected = reason === option.key;
               return (
                 <Pressable

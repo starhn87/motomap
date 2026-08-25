@@ -72,6 +72,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { UserLocationMarker } from '@/components/map/UserLocationMarker';
 import { toast } from '@/lib/toast';
 import { useSharedGeneralPlaces } from '@/hooks/useCommunityPlaceSignals';
+import { usePlaceOperationalStatuses } from '@/hooks/usePlaceOperationalStatus';
 import type { Place, RoadHazard } from '@/types';
 import { haptics } from '@/lib/haptics';
 import {
@@ -86,6 +87,11 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 // 네이버 기본 심벌(-100,000~100,000)보다 위, 내 위치(300,000)보다 아래다.
 // 등록 장소 아이콘은 줌별 충돌 재판정에서도 숨지 않고 네이티브 POI를 가린다.
 const PLACE_MARKER_GLOBAL_Z_INDEX = 200_000;
+const TEMPORARILY_CLOSED_MARKER_ALPHA = 0.52;
+
+function markerCaption(name: string, temporarilyClosed: boolean): string {
+  return temporarilyClosed ? `임시 휴업 · ${name}` : name;
+}
 
 // 장소 선택 시 상세 시트가 마커를 가리지 않도록 카메라 중심을 남쪽으로 내려
 // 마커를 화면 중심보다 위에 둔다. 등록·일반 장소가 같은 보정을 사용하며,
@@ -257,6 +263,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     mapCenter,
     !gasMode && !showRiderShares,
   );
+  const { data: operationalStatuses = {} } = usePlaceOperationalStatuses(isMapFocused);
   const { data: sharedGeneralPlaces = [] } = useSharedGeneralPlaces(
     mapCenter,
     showRiderShares,
@@ -776,30 +783,34 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             겹치는 기본 심벌과 장소명 캡션만 SDK가 정리한다. */}
         {windowedPlaces
           .filter((p) => p.id !== selectedPlaceId)
-          .map((p) => (
-            <NaverMapMarkerOverlay
-              key={p.id}
-              latitude={p.latitude}
-              longitude={p.longitude}
-              image={MARKER_IMAGES_CIRCLE[p.category]}
-              width={30}
-              height={30}
-              anchor={{ x: 0.5, y: 0.5 }}
-              globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
-              zIndex={10}
-              isForceShowIcon
-              isHideCollidedSymbols
-              isHideCollidedCaptions
-              caption={{
-                text: p.name,
-                textSize: 12,
-                minZoom: PLACE_CAPTION_MIN_ZOOM,
-                color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
-                haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
-              }}
-              onTap={() => handleMarkerPress(p)}
-            />
-          ))}
+          .map((p) => {
+            const temporarilyClosed = operationalStatuses[p.id] === 'temporarily_closed';
+            return (
+              <NaverMapMarkerOverlay
+                key={p.id}
+                latitude={p.latitude}
+                longitude={p.longitude}
+                image={MARKER_IMAGES_CIRCLE[p.category]}
+                width={30}
+                height={30}
+                anchor={{ x: 0.5, y: 0.5 }}
+                alpha={temporarilyClosed ? TEMPORARILY_CLOSED_MARKER_ALPHA : 1}
+                globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
+                zIndex={10}
+                isForceShowIcon
+                isHideCollidedSymbols
+                isHideCollidedCaptions
+                caption={{
+                  text: markerCaption(p.name, temporarilyClosed),
+                  textSize: 12,
+                  minZoom: PLACE_CAPTION_MIN_ZOOM,
+                  color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
+                  haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
+                }}
+                onTap={() => handleMarkerPress(p)}
+              />
+            );
+          })}
 
         {/* 추천 장소 모드는 일반 추천 장소만 보인다. 카테고리 필터와 배타적이므로
             검증된 등록 장소와 같은 탐색 결과로 섞이지 않는다. */}
@@ -855,30 +866,34 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         {showFavorites &&
           windowedFavoritePlaces
             .filter((p) => p.id !== selectedPlaceId)
-            .map((p) => (
-              <NaverMapMarkerOverlay
-                key={p.id}
-                latitude={p.latitude}
-                longitude={p.longitude}
-                image={MARKER_IMAGES_CIRCLE_FAV[p.category]}
-                width={30}
-                height={30}
-                anchor={{ x: 0.5, y: 0.5 }}
-                globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
-                zIndex={50}
-                isForceShowIcon
-                isHideCollidedSymbols
-                isHideCollidedCaptions
-                caption={{
-                  text: p.name,
-                  textSize: 13,
-                  minZoom: PLACE_CAPTION_MIN_ZOOM,
-                  color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
-                  haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
-                }}
-                onTap={() => handleMarkerPress(p)}
-              />
-            ))}
+            .map((p) => {
+              const temporarilyClosed = operationalStatuses[p.id] === 'temporarily_closed';
+              return (
+                <NaverMapMarkerOverlay
+                  key={p.id}
+                  latitude={p.latitude}
+                  longitude={p.longitude}
+                  image={MARKER_IMAGES_CIRCLE_FAV[p.category]}
+                  width={30}
+                  height={30}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  alpha={temporarilyClosed ? TEMPORARILY_CLOSED_MARKER_ALPHA : 1}
+                  globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
+                  zIndex={50}
+                  isForceShowIcon
+                  isHideCollidedSymbols
+                  isHideCollidedCaptions
+                  caption={{
+                    text: markerCaption(p.name, temporarilyClosed),
+                    textSize: 13,
+                    minZoom: PLACE_CAPTION_MIN_ZOOM,
+                    color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
+                    haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
+                  }}
+                  onTap={() => handleMarkerPress(p)}
+                />
+              );
+            })}
 
         {/* 등록되지 않은 일반 장소 즐겨찾기 — 카테고리가 없어 색으로 구분되지
             않는다(중립 회색 + 별). 탭하면 등록 장소 대신 임시 카드가 뜬다. */}
@@ -936,6 +951,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             width={38}
             height={44}
             anchor={{ x: 0.5, y: 1 }}
+            alpha={
+              operationalStatuses[selectedPlace.id] === 'temporarily_closed'
+                ? TEMPORARILY_CLOSED_MARKER_ALPHA
+                : 1
+            }
             globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
             zIndex={100}
             isForceShowIcon
@@ -943,7 +963,10 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             // 선택 마커는 원래 마커를 대신 그리는 것이라 캡션도 함께 가져온다.
             // 겹쳐도 숨기지 않는다 — 지금 보고 있는 곳의 이름은 늘 보여야 한다.
             caption={{
-              text: selectedPlace.name,
+              text: markerCaption(
+                selectedPlace.name,
+                operationalStatuses[selectedPlace.id] === 'temporarily_closed',
+              ),
               textSize: 12,
               color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
               haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',

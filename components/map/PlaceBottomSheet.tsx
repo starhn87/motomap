@@ -50,6 +50,7 @@ import type { Place } from '@/types';
 import { haptics } from '@/lib/haptics';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { appAlert } from '@/lib/dialog';
+import { usePlaceOperationalStatus } from '@/hooks/usePlaceOperationalStatus';
 
 interface Props {
   place: Place | null;
@@ -116,6 +117,7 @@ function PlaceBottomSheet({
   const { data: reviewPages } = useReviews(reviewTarget);
   const reviews = reviewPages?.pages.flat();
   const displayPlace = latestPlace ?? place;
+  const operationalStatus = usePlaceOperationalStatus(displayPlace?.id);
   const isFavorite = useIsFavorite(place?.id ?? '');
 
   useEffect(() => {
@@ -618,6 +620,7 @@ function PlaceBottomSheet({
               <OpenBadge
                 hours={hours}
                 businessStatus={googleHours?.businessStatus}
+                operationalStatus={operationalStatus}
                 inline
               />
             </View>
@@ -774,6 +777,7 @@ function PlaceBottomSheet({
         visible={changeReportOpen}
         placeId={displayPlace.id}
         placeName={displayPlace.name}
+        operationalStatus={operationalStatus}
         onClose={() => setChangeReportOpen(false)}
       />
     </>

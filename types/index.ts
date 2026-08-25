@@ -11,6 +11,13 @@ export type PlaceCategory =
   | 'camping'
   | 'car_wash';
 
+export type PlaceOperationalStatus =
+  | 'unknown'
+  | 'operational'
+  | 'temporarily_closed'
+  | 'permanently_closed'
+  | 'moved';
+
 export interface Place {
   id: string;
   name: string;

@@ -36,6 +36,7 @@ import {
 } from '@/lib/api/search';
 import { useSearchAnchor } from '@/hooks/useSearchAnchor';
 import { useBikePlaceMatches } from '@/hooks/useRiderInsights';
+import { usePlaceOperationalStatuses } from '@/hooks/usePlaceOperationalStatus';
 import { searchKakaoLocalPage, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { addRecentSearch } from '@/lib/recentSearches';
 import { createAnalyticsId, track, type SearchSource } from '@/lib/analytics';
@@ -47,6 +48,7 @@ import type { Place, RidingGuideSearchResult } from '@/types';
 // 지도에 뿌리는 결과 상한 — 등록 장소가 광범위한 검색어(예: "카페")일 때
 // 마커 폭주를 막는다. 목록도 같은 상한을 쓴다.
 const MAX_PLACES = 50;
+const TEMPORARILY_CLOSED_MARKER_ALPHA = 0.52;
 
 type ResultItem =
   | { kind: 'place'; place: Place }
@@ -124,6 +126,7 @@ export default function SearchResultsScreen() {
   const [selectedTemp, setSelectedTemp] = useState<TempPlace | null>(null);
   const detailOpen = selectedPlace !== null || selectedTemp !== null;
   const [filters, setFilters] = useState<SearchFilter[]>([]);
+  const { data: operationalStatuses = {} } = usePlaceOperationalStatuses();
 
   // 첫 검색은 검색 화면과 같은 기준점을 쓰되, 결과 지도는 항상 주변 20km로
   // 한정한다. 먼 목적지를 직접 찾는 역할은 앞선 검색 입력 화면이 맡는다.
@@ -690,6 +693,8 @@ export default function SearchResultsScreen() {
           if (item.kind === 'riding') return null;
           if (item.kind === 'place') {
             const isSelected = selectedPlace?.id === item.place.id;
+            const temporarilyClosed =
+              operationalStatuses[item.place.id] === 'temporarily_closed';
             return (
               <NaverMapMarkerOverlay
                 key={`place-${item.place.id}`}
@@ -699,6 +704,7 @@ export default function SearchResultsScreen() {
                 anchor={isSelected ? { x: 0.5, y: 1 } : { x: 0.5, y: 0.5 }}
                 width={isSelected ? 38 : 30}
                 height={isSelected ? 44 : 30}
+                alpha={temporarilyClosed ? TEMPORARILY_CLOSED_MARKER_ALPHA : 1}
                 image={
                   isSelected
                     ? MARKER_IMAGES[item.place.category]

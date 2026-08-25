@@ -3,11 +3,14 @@ import { View, Text, StyleSheet } from 'react-native';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { describeOpenState, getOpenState, type Hours } from '@/lib/hours';
+import type { PlaceOperationalStatus } from '@/types';
 
 interface Props {
   hours?: Hours | null;
   /** 구글 businessStatus — 임시 휴업·폐업은 시간표보다 우선한다 */
   businessStatus?: string | null;
+  /** 모토맵 운영자가 확인한 상태 — 외부 공급자 상태보다 우선한다 */
+  operationalStatus?: PlaceOperationalStatus;
   /** 시간표로 못 담는 것: "우천 휴무" 등 */
   note?: string;
   /** 다른 콘텐츠와 같은 행에 놓을 때 바깥 여백을 제거하고 한 줄로 줄인다 */
@@ -20,15 +23,29 @@ export const STATUS_LABELS: Record<string, string> = {
   CLOSED_PERMANENTLY: '폐업',
 };
 
+const OPERATIONAL_STATUS_LABELS: Partial<Record<PlaceOperationalStatus, string>> = {
+  temporarily_closed: '임시 휴업',
+  permanently_closed: '폐업',
+  moved: '이전',
+};
+
 /**
  * "지금 갈 수 있나"를 한 줄로. 근거가 없으면 아무것도 그리지 않는다 —
  * 틀린 영업중은 라이더를 헛걸음시킨다.
  */
-export default function OpenBadge({ hours, businessStatus, note, inline = false }: Props) {
+export default function OpenBadge({
+  hours,
+  businessStatus,
+  operationalStatus,
+  note,
+  inline = false,
+}: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  const statusLabel = businessStatus ? STATUS_LABELS[businessStatus] : undefined;
+  const statusLabel =
+    (operationalStatus ? OPERATIONAL_STATUS_LABELS[operationalStatus] : undefined) ??
+    (businessStatus ? STATUS_LABELS[businessStatus] : undefined);
   const state = describeOpenState(getOpenState(hours));
   if (!statusLabel && !state) return null;
 

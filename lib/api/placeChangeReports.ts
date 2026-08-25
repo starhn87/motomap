@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/auth';
 export type PlaceChangeReason =
   | 'permanently_closed'
   | 'temporarily_closed'
+  | 'reopened'
   | 'moved'
   | 'business_info_changed'
   | 'other';
@@ -15,6 +16,7 @@ export const PLACE_CHANGE_REASONS: Array<{
 }> = [
   { key: 'permanently_closed', label: '폐업', description: '더 이상 영업하지 않아요' },
   { key: 'temporarily_closed', label: '임시 휴업', description: '현재 일시적으로 쉬고 있어요' },
+  { key: 'reopened', label: '영업 재개', description: '임시 휴업을 끝내고 다시 운영 중이에요' },
   { key: 'moved', label: '이전', description: '다른 위치로 옮겼어요' },
   {
     key: 'business_info_changed',
