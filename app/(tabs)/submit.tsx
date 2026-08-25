@@ -129,6 +129,7 @@ function SubmitPlace() {
   } | null>(null);
   const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
 
   // 지도의 "일반 장소" 시트에서 넘어온 프리필 (이름·주소·좌표)
   const { prefillName, prefillAddress, prefillLat, prefillLng, prefillPhone, prefillProvider, prefillProviderId, prefillSource, prefillTs } =
@@ -147,6 +148,9 @@ function SubmitPlace() {
   useEffect(() => {
     if (!prefillName || !prefillTs || handledPrefillRef.current === prefillTs) return;
     handledPrefillRef.current = prefillTs;
+    // 탭 화면은 라우팅 뒤에도 마운트 상태가 유지된다. 일반 장소 상세에서 다시
+    // 들어오면 이전 제보 폼의 스크롤을 이어받지 않고 처음부터 보여준다.
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
     setName(prefillName);
     if (prefillAddress) setAddress(prefillAddress);
     if (prefillPhone) setPhone(prefillPhone);
@@ -278,6 +282,7 @@ function SubmitPlace() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"

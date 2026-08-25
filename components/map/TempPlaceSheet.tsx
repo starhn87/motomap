@@ -313,6 +313,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
 
   const handleSubmit = () => {
     if (!place) return;
+    const submittedAt = String(Date.now());
     const identity = generalPlace
       ? { provider: generalPlace.provider, providerId: generalPlace.providerId }
       : generalPlaceIdentity(place);
@@ -321,6 +322,8 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
     router.navigate({
       pathname: '/submit',
       params: {
+        submitType: 'place',
+        submitTs: submittedAt,
         prefillName: place.name,
         prefillAddress: place.address,
         prefillLat: String(place.latitude),
@@ -329,7 +332,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
         prefillProvider: identity.provider,
         prefillProviderId: identity.providerId,
         prefillSource: 'temp_place',
-        prefillTs: String(Date.now()),
+        prefillTs: submittedAt,
       },
     });
   };
