@@ -24,7 +24,10 @@ Notifications.setNotificationHandler({
 function routeFromNotification(data: Record<string, unknown> | undefined) {
   try {
     if (!data) return;
-    if (data.type === 'place_approved' && typeof data.placeId === 'string') {
+    if (
+      (data.type === 'place_approved' || data.type === 'place_change_resolved') &&
+      typeof data.placeId === 'string'
+    ) {
       // focusTs(nonce)가 없으면 같은 장소 재탭이 중복 판정에 걸려 시트가 안 열린다
       router.push({
         pathname: '/',
@@ -52,6 +55,8 @@ function routeFromNotification(data: Record<string, unknown> | undefined) {
       );
     } else if (
       data.type === 'place_rejected' ||
+      data.type === 'place_change_resolved' ||
+      data.type === 'place_change_dismissed' ||
       data.type === 'course_rejected' ||
       data.type === 'riding_guide_rejected' ||
       data.type === 'feedback_reply'

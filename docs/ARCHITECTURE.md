@@ -216,7 +216,7 @@ Sentry.wrap(
 | `place_rides` | 운영 기준선 + 후속 migration | 도착 시점 기종·유형 스냅샷, 원시 행은 본인만 조회 |
 | `place_rider_fact_votes` | `20260815120500` | 장소 편의 정보 1인 1표, 원시 행 비공개·집계 RPC만 노출 |
 | `place_change_monitor_state` · `place_change_reviews` | `20260822151044`, `20260822153636` | 외부 장소 변경 점검 상태·운영자 검토 대기열. 높은 신뢰도의 허용 필드 계획만 저장하며 승인 전에는 `places` 수정 없음 |
-| `place_change_reports` | `20260825105614`, `20260825113306` | 사용자의 폐업·휴업·영업 재개·이전·정보 변경 제보와 제보 당시 장소 스냅샷. 운영자 승인 전에는 변경하지 않으며 원문·처리 상태는 `service_role`만 접근 |
+| `place_change_reports` | `20260825105614`, `20260825113306`, `20260825120542` | 사용자의 폐업·휴업·영업 재개·이전·정보 변경 제보와 제보 당시 장소 스냅샷. 운영자 승인 전에는 변경하지 않으며 원문·처리 상태는 `service_role`만 접근. 승인·반려 시 제보 ID로 멱등한 인앱 알림과 푸시를 생성 |
 
 **RPC 함수:**
 - `nearby_places(lat, lng, radius_meters, category_filter)` — PostGIS 반경 + 카테고리 질의
@@ -292,6 +292,7 @@ Sentry.wrap(
 | `20260824133000_add_riding_guide_moderation.sql` | AI 판정 재시도, Discord 편집 준비·반려 RPC, 공개·병합 완료 알림 |
 | `20260825105614_add_place_change_reports.sql` | 등록 장소 변경 사용자 제보 전용 비공개 대기열과 계정 삭제 정리 |
 | `20260825113306_add_place_change_report_approval.sql` | 제보 당시 장소 스냅샷, 운영 상태 공개 RPC, Discord 승인용 원자적 상태 변경·감사 RPC |
+| `20260825120542_notify_place_change_report_results.sql` | 사용자 장소 변경 제보의 승인·반려 인앱 알림, Expo 푸시, 누락 결과의 최신 상태 보완 |
 
 ---
 
@@ -306,7 +307,7 @@ Sentry.wrap(
 | 카카오 로컬 검색 | `lib/api/kakaoLocal.ts` (`EXPO_PUBLIC_KAKAO_REST_API_KEY`) | 제보 주소 검색(상호+주소→좌표), 일반 목적지 도착 후 간편 제보용 역지오코딩 |
 | 앱 안 길안내 | `lib/navigation.ts` + `app/navi.tsx`(+`components/navi/`, `hooks/useBikeRoutes.ts`) + `modules/kakao-navi/` | KNSDK 이륜차 턴바이턴. 출발 전 날씨·노면 위험 확인 후 진입. 미리보기 지도·경로 확보(옵션 캐시·경유지 축소 사다리)는 분리된 컴포넌트·훅이 맡는다 |
 | Supabase Storage | `lib/uploadImage.ts` | 리뷰·제보 사진 (`ridemap-media` 버킷, base64 업로드) |
-| Expo Push | `lib/push.ts` + DB 트리거 | 장소 승인·반려, 라이딩 추천 공개·병합·반려, 건의 답변 푸시. 권한 요청은 제보 직후에만 |
+| Expo Push | `lib/push.ts` + DB 트리거 | 장소 등록·장소 변경 제보의 승인·반려, 라이딩 추천 공개·병합·반려, 건의 답변 푸시. 권한 요청은 제보 직후에만 |
 | Claude API | `supabase/functions/judge-submission` | 장소·라이딩 추천 제안 AI 판정. 추천 제안은 새 추천·기존 추천 병합·유보·반려를 제시하고 사람이 Discord에서 최종 선택 |
 | 디스코드 봇 심사·답변·장소 변경 승인 | `supabase/functions/discord-interactions` | Ed25519 검증 후 장소 승인·반려, 라이딩 추천 초안·병합 준비·반려, 정기 감지의 장소 변경 계획, 사용자 운영 상태 제보의 고정 동작, 건의 답변을 원자적으로 처리. 추천 준비는 공개가 아니며 실제 published/merged 뒤에만 사용자 알림 |
 | 장소 변경 감지 | `supabase/functions/place-change-monitor` + Supabase Cron | 매일 소량의 활성 장소를 카카오 로컬 상호·주소와 대조해 폐업 의심·상호·주소·전화·이전 후보와 보수적 반영 계획을 내부 큐와 Discord에 보고. 높은 신뢰도의 허용 필드도 Discord 승인 뒤에만 원자적으로 반영하며 커스텀 비밀 헤더 사용, JWT 검증 OFF |

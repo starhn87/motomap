@@ -10,6 +10,7 @@ export interface AppNotification {
     courseId?: string;
     guideId?: string;
     notificationId?: string;
+    placeChangeReportId?: string;
     url?: string;
   } | null;
   readAt: string | null;
