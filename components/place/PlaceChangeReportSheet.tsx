@@ -12,7 +12,6 @@ import {
   Text,
   TextInput,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
@@ -36,6 +35,8 @@ interface Props {
   onClose: () => void;
 }
 
+const SNAP_POINTS = ['85%'];
+
 export default function PlaceChangeReportSheet({
   visible,
   placeId,
@@ -45,7 +46,6 @@ export default function PlaceChangeReportSheet({
 }: Props) {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const didOpenRef = useRef(false);
-  const { height: windowHeight } = useWindowDimensions();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [reason, setReason] = useState<PlaceChangeReason | null>(null);
@@ -128,8 +128,8 @@ export default function PlaceChangeReportSheet({
       ref={bottomSheetRef}
       index={-1}
       animateOnMount={false}
-      enableDynamicSizing
-      maxDynamicContentSize={windowHeight * 0.9}
+      snapPoints={SNAP_POINTS}
+      enableDynamicSizing={false}
       enablePanDownToClose={!submitting}
       enableBlurKeyboardOnGesture
       keyboardBehavior="extend"
@@ -145,7 +145,7 @@ export default function PlaceChangeReportSheet({
         borderRadius: 24,
       }}
       handleIndicatorStyle={{ backgroundColor: colors.border }}
-      style={styles.sheet}>
+      containerStyle={styles.sheetContainer}>
       <BottomSheetScrollView
         contentContainerStyle={styles.sheetContent}
         keyboardShouldPersistTaps="handled"
@@ -246,7 +246,7 @@ export default function PlaceChangeReportSheet({
 }
 
 const styles = StyleSheet.create({
-  sheet: {
+  sheetContainer: {
     zIndex: 40,
   },
   sheetContent: {
