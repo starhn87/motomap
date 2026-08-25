@@ -252,7 +252,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     refreshHere: refreshGasHere,
   } = useGasLayer({ active: gasMode, mapCenter, mapReady, screenWidth, screenHeight });
 
-  const { data: supabasePlaces } = usePlaces(activeFilter, mapCenter, !gasMode);
+  const { data: supabasePlaces } = usePlaces(
+    activeFilter,
+    mapCenter,
+    !gasMode && !showRiderShares,
+  );
   const { data: sharedGeneralPlaces = [] } = useSharedGeneralPlaces(
     mapCenter,
     showRiderShares,
@@ -314,7 +318,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   // 즐겨찾기는 이름 캡션과 함께 개별 마커로 항상 보인다(네이버 지도식).
   // 뷰포트 목록과 겹치면 일반 마커 쪽에서는 제외한다.
-  const basePlaces = gasMode ? [] : (supabasePlaces ?? []);
+  const basePlaces = gasMode || showRiderShares ? [] : (supabasePlaces ?? []);
   const places = useMemo(
     () => (showFavorites ? basePlaces.filter((p) => !favIds.has(p.id)) : basePlaces),
     [basePlaces, showFavorites, favIds],
@@ -797,8 +801,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             />
           ))}
 
-        {/* 일반 장소 공유는 사용자가 레이어를 켠 경우에만 보인다. 등록 장소보다
-            우선순위를 낮춰 겹치면 검증된 카테고리 마커가 남는다. */}
+        {/* 추천 장소 모드는 일반 추천 장소만 보인다. 카테고리 필터와 배타적이므로
+            검증된 등록 장소와 같은 탐색 결과로 섞이지 않는다. */}
         {showRiderShares &&
           windowedSharedGeneralPlaces
             .filter(

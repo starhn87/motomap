@@ -18,7 +18,7 @@ interface MapStore {
   activeFilter: PlaceCategory | null;
   /** 즐겨찾기 지도 표시 — 켜면 즐겨찾기 장소가 별 뱃지 마커로 항상 보인다 */
   showFavorites: boolean;
-  /** 바이크 특화 등록과 분리된 일반 장소의 라이더 공유 레이어 */
+  /** 바이크 특화 등록과 분리된 일반 추천 장소 탐색 모드 */
   showRiderShares: boolean;
   setUserLocation: (location: Location) => void;
   setMapCenter: (center: Location) => void;
@@ -45,8 +45,13 @@ export const useMapStore = create<MapStore>((set) => ({
   setUserLocation: (location) => set({ userLocation: location }),
   setMapCenter: (center) => set({ mapCenter: center }),
   setSelectedPlaceId: (id) => set({ selectedPlaceId: id }),
-  setActiveFilter: (filter) => set({ activeFilter: filter }),
-  toggleRiderShares: () => set((state) => ({ showRiderShares: !state.showRiderShares })),
+  // 카테고리와 추천 장소는 같은 필터 행의 배타적인 탐색 범위다.
+  setActiveFilter: (filter) => set({ activeFilter: filter, showRiderShares: false }),
+  toggleRiderShares: () =>
+    set((state) => ({
+      activeFilter: null,
+      showRiderShares: !state.showRiderShares,
+    })),
   toggleShowFavorites: () =>
     set((s) => {
       const next = !s.showFavorites;
