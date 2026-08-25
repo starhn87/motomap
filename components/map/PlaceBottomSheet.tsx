@@ -41,6 +41,7 @@ import { usePlace } from '@/hooks/usePlace';
 import ReviewList from '@/components/review/ReviewList';
 import ReviewForm from '@/components/review/ReviewForm';
 import RiderPlaceFacts from '@/components/place/RiderPlaceFacts';
+import PlaceChangeReportSheet from '@/components/place/PlaceChangeReportSheet';
 import PhotoStrip from '@/components/map/PhotoStrip';
 import NearbyPlaces from '@/components/map/NearbyPlaces';
 import { useReviews } from '@/hooks/useReviews';
@@ -83,6 +84,7 @@ function PlaceBottomSheet({
   const insets = useSafeAreaInsets();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const [currentIndex, setCurrentIndex] = useState(1);
+  const [changeReportOpen, setChangeReportOpen] = useState(false);
   const animatedIndex = useSharedValue(1);
   const currentIndexRef = useRef(1);
 
@@ -189,6 +191,10 @@ function PlaceBottomSheet({
     } else {
       bottomSheetRef.current?.close();
     }
+  }, [place?.id]);
+
+  useEffect(() => {
+    setChangeReportOpen(false);
   }, [place?.id]);
 
   // 강조 리뷰로 스크롤: 콘텐츠 기준 y = 리뷰섹션 y + 리스트 wrapper y + 카드 y (onLayout 합산)
@@ -694,6 +700,30 @@ function PlaceBottomSheet({
 
           {displayPlace && <NearbyPlaces place={displayPlace} />}
 
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="장소 정보 제보"
+            onPress={() => {
+              if (!user) {
+                toast.info('로그인하면 장소 정보를 제보할 수 있어요.');
+                return;
+              }
+              setChangeReportOpen(true);
+            }}
+            style={({ pressed }) => [
+              styles.changeReportButton,
+              { borderColor: colors.border, opacity: pressed ? 0.65 : 1 },
+            ]}>
+            <MaterialIcons name="outlined-flag" size={19} color={colors.textSecondary} />
+            <View style={styles.changeReportCopy}>
+              <Text style={[styles.changeReportTitle, { color: colors.text }]}>장소 정보 제보</Text>
+              <Text style={[styles.changeReportDescription, { color: colors.textSecondary }]}>
+                폐업·휴업·이전 또는 달라진 정보를 알려주세요.
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={21} color={colors.textSecondary} />
+          </Pressable>
+
           <View
             style={[styles.reviewSection, { borderTopColor: colors.border }]}
             onLayout={(e) => {
@@ -754,6 +784,13 @@ function PlaceBottomSheet({
           <View style={styles.nameActions}>{renderActions(true)}</View>
         </Animated.View>
       )}
+
+      <PlaceChangeReportSheet
+        visible={changeReportOpen}
+        placeId={displayPlace.id}
+        placeName={displayPlace.name}
+        onClose={() => setChangeReportOpen(false)}
+      />
     </>
   );
 }
@@ -981,6 +1018,29 @@ const styles = StyleSheet.create({
   },
   reviewDivider: {
     height: 16,
+  },
+  changeReportButton: {
+    minHeight: 58,
+    marginTop: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  changeReportCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  changeReportTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  changeReportDescription: {
+    fontSize: 12,
+    lineHeight: 17,
   },
 });
 

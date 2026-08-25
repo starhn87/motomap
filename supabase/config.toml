@@ -393,6 +393,10 @@ verify_jwt = true
 [functions.discard-onboarding-account]
 verify_jwt = true
 
+# 로그인 사용자의 장소 운영 상태 제보만 받고, 장소 변경은 운영자 검토에 맡긴다.
+[functions.report-place-change]
+verify_jwt = true
+
 # Cron 전용 비밀 헤더를 함수 내부에서 검증한다.
 [functions.cleanup-onboarding-accounts]
 verify_jwt = false
