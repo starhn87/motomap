@@ -24,6 +24,7 @@ import {
   type PlaceChangeReason,
 } from '@/lib/api/placeChangeReports';
 import { haptics } from '@/lib/haptics';
+import { registerPushToken } from '@/lib/push';
 import { toast } from '@/lib/toast';
 import type { PlaceOperationalStatus } from '@/types';
 
@@ -109,6 +110,9 @@ export default function PlaceChangeReportSheet({
     setSubmitting(true);
     try {
       await submitPlaceChangeReport({ placeId, reason, description });
+      // 승인·반려 결과를 받을 맥락이 분명한 시점에 알림 권한을 확인한다.
+      // 내부에서 실패를 삼키므로 제보 접수 결과에는 영향을 주지 않는다.
+      await registerPushToken(true);
       haptics.success();
       toast.success('장소 정보 제보가 접수되었습니다.', '확인 후 안전하게 반영할게요.');
       bottomSheetRef.current?.close();
