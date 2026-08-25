@@ -1,17 +1,20 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetScrollView,
+} from '@gorhom/bottom-sheet';
+import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 import {
   Keyboard,
-  KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -39,6 +42,9 @@ export default function PlaceChangeReportSheet({
   operationalStatus,
   onClose,
 }: Props) {
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const didOpenRef = useRef(false);
+  const { height: windowHeight } = useWindowDimensions();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [reason, setReason] = useState<PlaceChangeReason | null>(null);
@@ -50,17 +56,49 @@ export default function PlaceChangeReportSheet({
       : option.key !== 'reopened',
   );
 
-  useEffect(() => {
-    if (visible) return;
+  const resetForm = () => {
     setReason(null);
     setDescription('');
+  };
+
+  // 닫힌 인스턴스를 계속 유지해 아래 스와이프·취소·제출 완료가 모두 같은
+  // 바텀시트 닫힘 전환을 탄다. 부모 상태는 애니메이션이 끝난 뒤에만 닫는다.
+  useLayoutEffect(() => {
+    if (visible) {
+      bottomSheetRef.current?.snapToIndex(0);
+    } else {
+      bottomSheetRef.current?.close();
+    }
   }, [visible]);
+
+  const handleSheetChange = (index: number) => {
+    if (index >= 0) {
+      didOpenRef.current = true;
+    } else if (didOpenRef.current) {
+      didOpenRef.current = false;
+      resetForm();
+      onClose();
+    }
+  };
 
   const handleClose = () => {
     if (submitting) return;
     Keyboard.dismiss();
-    onClose();
+    bottomSheetRef.current?.close();
   };
+
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop
+        {...props}
+        appearsOnIndex={0}
+        disappearsOnIndex={-1}
+        opacity={0.4}
+        pressBehavior={submitting ? 'none' : 'close'}
+      />
+    ),
+    [submitting],
+  );
 
   const handleSubmit = async () => {
     Keyboard.dismiss();
@@ -73,7 +111,7 @@ export default function PlaceChangeReportSheet({
       await submitPlaceChangeReport({ placeId, reason, description });
       haptics.success();
       toast.success('장소 정보 제보가 접수되었습니다.', '확인 후 안전하게 반영할게요.');
-      onClose();
+      bottomSheetRef.current?.close();
     } catch (error: any) {
       toast.error('장소 정보 제보에 실패했습니다.', error.message);
     } finally {
@@ -82,26 +120,34 @@ export default function PlaceChangeReportSheet({
   };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={handleClose}>
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <Pressable style={styles.backdrop} onPress={handleClose} />
-        <ScrollView
-          style={[
-            styles.sheet,
-            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-          ]}
-          contentContainerStyle={styles.sheetContent}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-          bounces={false}
-          showsVerticalScrollIndicator={false}>
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
+    <BottomSheet
+      ref={bottomSheetRef}
+      index={-1}
+      animateOnMount={false}
+      enableDynamicSizing
+      maxDynamicContentSize={windowHeight * 0.9}
+      enablePanDownToClose={!submitting}
+      enableBlurKeyboardOnGesture
+      keyboardBehavior="extend"
+      keyboardBlurBehavior="restore"
+      android_keyboardInputMode="adjustResize"
+      onChange={handleSheetChange}
+      backdropComponent={renderBackdrop}
+      backgroundStyle={{
+        backgroundColor: colors.surfaceElevated,
+        borderColor: colors.border,
+        borderWidth: 1,
+        borderBottomWidth: 0,
+        borderRadius: 24,
+      }}
+      handleIndicatorStyle={{ backgroundColor: colors.border }}
+      style={styles.sheet}>
+      <BottomSheetScrollView
+        contentContainerStyle={styles.sheetContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        bounces={false}
+        showsVerticalScrollIndicator={false}>
           <Text style={[styles.title, { color: colors.text }]}>장소 정보 제보</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={2}>
             {placeName}의 달라진 정보를 알려주세요.
@@ -190,39 +236,18 @@ export default function PlaceChangeReportSheet({
               </Text>
             </Pressable>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </Modal>
+      </BottomSheetScrollView>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
   sheet: {
-    maxHeight: '90%',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    overflow: 'hidden',
+    zIndex: 40,
   },
   sheetContent: {
     padding: 20,
     paddingBottom: 36,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 18,
   },
   title: {
     fontSize: 20,
