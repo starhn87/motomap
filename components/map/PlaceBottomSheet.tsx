@@ -687,7 +687,16 @@ function PlaceBottomSheet({
             </View>
           )}
 
-          <RiderPlaceFacts placeId={displayPlace.id} />
+          <RiderPlaceFacts
+            placeId={displayPlace.id}
+            onReportPlaceChange={() => {
+              if (!user) {
+                toast.info('로그인하면 장소 정보를 제보할 수 있어요.');
+                return;
+              }
+              setChangeReportOpen(true);
+            }}
+          />
 
           {photoItems.length > 0 && (
             <View style={styles.photoSection}>
@@ -699,30 +708,6 @@ function PlaceBottomSheet({
           )}
 
           {displayPlace && <NearbyPlaces place={displayPlace} />}
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="장소 정보 제보"
-            onPress={() => {
-              if (!user) {
-                toast.info('로그인하면 장소 정보를 제보할 수 있어요.');
-                return;
-              }
-              setChangeReportOpen(true);
-            }}
-            style={({ pressed }) => [
-              styles.changeReportButton,
-              { borderColor: colors.border, opacity: pressed ? 0.65 : 1 },
-            ]}>
-            <MaterialIcons name="outlined-flag" size={19} color={colors.textSecondary} />
-            <View style={styles.changeReportCopy}>
-              <Text style={[styles.changeReportTitle, { color: colors.text }]}>장소 정보 제보</Text>
-              <Text style={[styles.changeReportDescription, { color: colors.textSecondary }]}>
-                폐업·휴업·이전 또는 달라진 정보를 알려주세요.
-              </Text>
-            </View>
-            <MaterialIcons name="chevron-right" size={21} color={colors.textSecondary} />
-          </Pressable>
 
           <View
             style={[styles.reviewSection, { borderTopColor: colors.border }]}
@@ -1018,29 +1003,6 @@ const styles = StyleSheet.create({
   },
   reviewDivider: {
     height: 16,
-  },
-  changeReportButton: {
-    minHeight: 58,
-    marginTop: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  changeReportCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  changeReportTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  changeReportDescription: {
-    fontSize: 12,
-    lineHeight: 17,
   },
 });
 

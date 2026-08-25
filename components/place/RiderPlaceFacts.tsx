@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import Colors from '@/constants/Colors';
@@ -10,7 +11,12 @@ import { track } from '@/lib/analytics';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/useAuthStore';
 
-export default function RiderPlaceFacts({ placeId }: { placeId: string }) {
+interface RiderPlaceFactsProps {
+  placeId: string;
+  onReportPlaceChange: () => void;
+}
+
+export default function RiderPlaceFacts({ placeId, onReportPlaceChange }: RiderPlaceFactsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((state) => state.user);
@@ -103,6 +109,23 @@ export default function RiderPlaceFacts({ placeId }: { placeId: string }) {
           )}
         </View>
       )}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="장소 정보 제보"
+        onPress={onReportPlaceChange}
+        style={({ pressed }) => [
+          styles.changeReportButton,
+          { borderColor: colors.border, opacity: pressed ? 0.65 : 1 },
+        ]}>
+        <MaterialIcons name="outlined-flag" size={19} color={colors.textSecondary} />
+        <View style={styles.changeReportCopy}>
+          <Text style={[styles.changeReportTitle, { color: colors.text }]}>장소 정보 제보</Text>
+          <Text style={[styles.changeReportDescription, { color: colors.textSecondary }]}>
+            폐업·휴업·이전 또는 달라진 정보를 알려주세요.
+          </Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={21} color={colors.textSecondary} />
+      </Pressable>
     </View>
   );
 }
@@ -166,5 +189,28 @@ const styles = StyleSheet.create({
   rideBikeText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  changeReportButton: {
+    minHeight: 58,
+    marginTop: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  changeReportCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  changeReportTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  changeReportDescription: {
+    fontSize: 12,
+    lineHeight: 17,
   },
 });
