@@ -216,6 +216,7 @@ Sentry.wrap(
 | `place_rides` | 운영 기준선 + 후속 migration | 도착 시점 기종·유형 스냅샷, 원시 행은 본인만 조회 |
 | `place_rider_fact_votes` | `20260815120500` | 장소 편의 정보 1인 1표, 원시 행 비공개·집계 RPC만 노출 |
 | `place_change_monitor_state` · `place_change_reviews` | `20260822151044`, `20260822153636` | 외부 장소 변경 점검 상태·운영자 검토 대기열. 높은 신뢰도의 허용 필드 계획만 저장하며 승인 전에는 `places` 수정 없음 |
+| `place_change_reports` | `20260825105614`, `20260825113306` | 사용자의 폐업·휴업·영업 재개·이전·정보 변경 제보와 제보 당시 장소 스냅샷. 운영자 승인 전에는 변경하지 않으며 원문·처리 상태는 `service_role`만 접근 |
 
 **RPC 함수:**
 - `nearby_places(lat, lng, radius_meters, category_filter)` — PostGIS 반경 + 카테고리 질의
@@ -227,6 +228,8 @@ Sentry.wrap(
 - `claim_place_change_monitor_batch(limit)` — 다음 검증일이 지난 활성 장소를 소량 선점(`service_role` 전용). `get_place_change_monitor_batch`는 배포 전 읽기 전용 점검에만 사용
 - `enqueue_place_change_review_v2(...)` · `mark_place_change_review_reported(id)` — 감지 후보와 승인 계획 중복 제거·보고 재시도 상태(`service_role` 전용)
 - `resolve_place_change_review(id, decision, actor)` — Discord에서 승인한 고정 계획을 스냅샷 재검증 뒤 근거·조치와 원자적으로 반영하거나, 장소 변경 없이 검토 종료(`service_role` 전용)
+- `active_place_operational_statuses()` — 공개 중인 등록 장소의 운영 상태만 추가 조회. 기존 장소 RPC 응답 계약과 분리
+- `resolve_place_change_report(id, decision, actor)` — 사용자 제보 스냅샷을 재검증하고 임시 휴업·영업 재개·폐업 숨김·이전 숨김의 고정 동작과 감사 이력을 원자적으로 처리(`service_role` 전용)
 - `submit_riding_guide_proposal(...)` — 대표 목적지·선택 장소·추천 이유를 한 트랜잭션으로 저장
 - `search_riding_guides_v1(...)` — 제목·설명·지역·도로·연결 장소를 검색하고 대표 목적지 좌표 반환
 - `resolve_riding_guide_submission_review(...)` — Discord의 초안 생성·병합 대상 확정·반려를 원자적으로 처리(`service_role` 전용)
@@ -287,6 +290,8 @@ Sentry.wrap(
 | `20260824131321_seed_verified_riding_guides.sql` | 기존 코스 16개 중 장소 ID가 검증된 10개만 라이딩 추천으로 시드 |
 | `20260824131649_add_riding_guide_search.sql` | 구 코스 검색 계약과 분리된 라이딩 추천 검색 RPC |
 | `20260824133000_add_riding_guide_moderation.sql` | AI 판정 재시도, Discord 편집 준비·반려 RPC, 공개·병합 완료 알림 |
+| `20260825105614_add_place_change_reports.sql` | 등록 장소 변경 사용자 제보 전용 비공개 대기열과 계정 삭제 정리 |
+| `20260825113306_add_place_change_report_approval.sql` | 제보 당시 장소 스냅샷, 운영 상태 공개 RPC, Discord 승인용 원자적 상태 변경·감사 RPC |
 
 ---
 
@@ -303,7 +308,7 @@ Sentry.wrap(
 | Supabase Storage | `lib/uploadImage.ts` | 리뷰·제보 사진 (`ridemap-media` 버킷, base64 업로드) |
 | Expo Push | `lib/push.ts` + DB 트리거 | 장소 승인·반려, 라이딩 추천 공개·병합·반려, 건의 답변 푸시. 권한 요청은 제보 직후에만 |
 | Claude API | `supabase/functions/judge-submission` | 장소·라이딩 추천 제안 AI 판정. 추천 제안은 새 추천·기존 추천 병합·유보·반려를 제시하고 사람이 Discord에서 최종 선택 |
-| 디스코드 봇 심사·답변·장소 변경 승인 | `supabase/functions/discord-interactions` | Ed25519 검증 후 장소 승인·반려, 라이딩 추천 초안·병합 준비·반려, 장소 변경 계획, 건의 답변을 원자적으로 처리. 추천 준비는 공개가 아니며 실제 published/merged 뒤에만 사용자 알림 |
+| 디스코드 봇 심사·답변·장소 변경 승인 | `supabase/functions/discord-interactions` | Ed25519 검증 후 장소 승인·반려, 라이딩 추천 초안·병합 준비·반려, 정기 감지의 장소 변경 계획, 사용자 운영 상태 제보의 고정 동작, 건의 답변을 원자적으로 처리. 추천 준비는 공개가 아니며 실제 published/merged 뒤에만 사용자 알림 |
 | 장소 변경 감지 | `supabase/functions/place-change-monitor` + Supabase Cron | 매일 소량의 활성 장소를 카카오 로컬 상호·주소와 대조해 폐업 의심·상호·주소·전화·이전 후보와 보수적 반영 계획을 내부 큐와 Discord에 보고. 높은 신뢰도의 허용 필드도 Discord 승인 뒤에만 원자적으로 반영하며 커스텀 비밀 헤더 사용, JWT 검증 OFF |
 | 원클릭 심사 (폴백) | `supabase/functions/moderate` | 봇 미설정 시 웹훅 메시지의 승인·반려 링크(HMAC 서명) 탭 = 즉시 처리. 크롤러 방어는 봇 UA 필터+HEAD 무시+`<>` 임베드 억제. 반려 시 `ai_reject_reason`→`rejected_reason` 복사. JWT 검증 OFF. ⚠️ EF는 HTML 응답 불가(게이트웨이가 text/plain+CSP sandbox 로 강제) — 응답은 JSON |
 | 오피넷 유가 | `supabase/functions/gas-stations` + `lib/api/gasStations.ts`, `hooks/useGasStations.ts`·`useGasLayer.ts` | 주유소 필터 시 실시간 유가 레이어 — EF가 키 은닉·KATEC↔WGS84 변환·3분 캐시, 앱은 가격 마커(최저가 강조)+상세 카드. 주의: 오피넷 인증 파라미터는 `code=`(문서의 certkey 아님), 브랜드 필드는 aroundAll `POLL_DIV_CD`/detailById `POLL_DIV_CO`로 상이, 반경 최대 5km — 검색 커버리지는 뷰포트 적응(확대 시 화면 맞춤 반경 1콜, 축소 시 5km 원 최대 3×3 타일 병합·중복 제거) |

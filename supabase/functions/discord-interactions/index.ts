@@ -13,6 +13,7 @@
 //   reply:feedback:<uuid>                                   — 답변 모달 열기
 //   replymodal:feedback:<uuid>                              — 모달 제출 (답변 저장)
 //   placechange:apply:<uuid> / placechange:dismiss:<uuid>   — 장소 변경 계획 처리
+//   placereport:temporary|reopen|close|moved|dismiss:<uuid>  — 사용자 장소 변경 제보 처리
 //
 // 승인: approved=true → 승인 트리거가 알림·푸시. 반려: deleted_at+rejected_reason →
 // 015 트리거가 사유 포함 알림·푸시. 답변: feedback.reply 저장 → 021 트리거가 알림·푸시.
@@ -312,6 +313,74 @@ async function handlePlaceChange(
   );
 }
 
+// ── 사용자 장소 변경 제보 승인 ─────────────────────────────
+
+const PLACE_REPORT_DECISIONS: Record<string, string> = {
+  temporary: 'mark_temporarily_closed',
+  reopen: 'mark_operational',
+  close: 'hide_permanently_closed',
+  moved: 'hide_moved',
+  dismiss: 'dismiss',
+};
+
+const PLACE_REPORT_RESULT_LABELS: Record<string, string> = {
+  temporary: '임시 휴업 표시',
+  reopen: '영업 재개 반영',
+  close: '폐업 숨김',
+  moved: '이전 장소 숨김',
+};
+
+async function handlePlaceReport(
+  action: string,
+  reportId: string,
+  actorId: string,
+  baseContent: string,
+): Promise<Response> {
+  const decision = PLACE_REPORT_DECISIONS[action];
+  if (!decision || !UUID_RE.test(reportId)) {
+    return ephemeral('잘못된 사용자 장소 정보 제보 요청이에요.');
+  }
+  if (!/^\d{5,25}$/.test(actorId)) {
+    return ephemeral('처리자 정보를 확인할 수 없어요.');
+  }
+
+  const response = await sb('rpc/resolve_place_change_report', {
+    method: 'POST',
+    body: JSON.stringify({
+      p_report_id: reportId,
+      p_decision: decision,
+      p_acted_by: `discord:${actorId}`,
+    }),
+  });
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  if (!response.ok) {
+    const message = payload && typeof payload === 'object' && 'message' in payload
+      ? String((payload as { message: unknown }).message).slice(0, 220)
+      : `HTTP ${response.status}`;
+    return ephemeral(`처리하지 못했어요 — ${message}`);
+  }
+
+  const row = Array.isArray(payload) ? payload[0] : null;
+  const placeName = row && typeof row.place_name === 'string'
+    ? row.place_name
+    : '장소';
+  if (action === 'dismiss') {
+    return updateMessage(
+      baseContent,
+      `⚪ **변경 없음으로 종료** — ${placeName} · <@${actorId}>`,
+    );
+  }
+  return updateMessage(
+    baseContent,
+    `🟢 **${PLACE_REPORT_RESULT_LABELS[action]} 완료** — ${placeName} · <@${actorId}>`,
+  );
+}
+
 // ── 엔트리 ──────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -352,6 +421,12 @@ Deno.serve(async (req) => {
         interaction.member?.user?.id ?? interaction.user?.id ?? '',
       );
       return handlePlaceChange(parts[1], parts[2], actorId, baseContent);
+    }
+    if (parts[0] === 'placereport' && parts.length === 3) {
+      const actorId = String(
+        interaction.member?.user?.id ?? interaction.user?.id ?? '',
+      );
+      return handlePlaceReport(parts[1], parts[2], actorId, baseContent);
     }
     return ephemeral('알 수 없는 버튼이에요.');
   }
