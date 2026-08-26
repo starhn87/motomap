@@ -8,6 +8,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
     "typecheck:functions": "npx --yes deno@2.9.5 task --config supabase/functions/deno.json check",
     "types:supabase": "npx --yes supabase@2.115.0 gen types --linked --schema public > lib/database.types.ts",
     "check:release": "node scripts/check-release-compatibility.mjs",
@@ -71,6 +72,7 @@
     "@types/react": "~19.1.0",
     "patch-package": "^8.0.1",
     "sharp": "^0.34.5",
+    "tsx": "4.23.12",
     "typescript": "~5.9.2"
   },
   "expo": {

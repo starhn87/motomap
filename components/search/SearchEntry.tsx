@@ -41,7 +41,7 @@ export default function SearchEntry() {
       <Ionicons name="search" size={17} color={colors.textSecondary} style={styles.searchIcon} />
       <Text
         style={[styles.placeholder, { color: listening ? colors.tint : colors.textSecondary }]}>
-        {listening ? '듣고 있어요…' : '장소, 코스 검색'}
+        {listening ? '듣고 있어요…' : '장소, 라이딩 검색'}
       </Text>
       <Pressable onPress={toggle} hitSlop={10} style={styles.mic}>
         <Ionicons

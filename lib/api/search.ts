@@ -1,11 +1,13 @@
 import { supabase } from '@/lib/supabase';
-import { approxMeters } from '@/lib/distance';
 import type { Place, RidingGuideSearchResult } from '@/types';
 import { rowToPlace, type PlaceRow } from '@/lib/api/places';
 import {
   searchKakaoLocal,
   type KakaoLocalResult,
 } from '@/lib/api/kakaoLocal';
+import { isSamePlace } from '@/lib/searchMatching';
+
+export { isSamePlace } from '@/lib/searchMatching';
 
 export interface SearchResults {
   places: Place[];
@@ -17,21 +19,6 @@ export interface UnifiedPlaceSearchResults extends SearchResults {
 }
 
 export const SEARCH_RADIUS_M = 20_000;
-
-// 등록 장소와 카카오 일반 장소가 같은 곳인지 — 이름(정규화) 일치 + 좌표 근접.
-// 제보 폼이 카카오 좌표를 그대로 쓰므로 20m 이내는 이름이 조금 달라도 동일 장소다.
-const normName = (n: string) => n.replace(/\s/g, '').toLowerCase();
-export function isSamePlace(
-  p: { name: string; latitude: number; longitude: number },
-  k: { name: string; latitude: number; longitude: number },
-): boolean {
-  const dist = approxMeters(p, k);
-  if (dist > 150) return false;
-  if (dist < 20) return true;
-  const pn = normName(p.name);
-  const kn = normName(k.name);
-  return kn === pn || kn.includes(pn) || pn.includes(kn);
-}
 
 /**
  * 검색어가 이 필드들에 걸리는지.

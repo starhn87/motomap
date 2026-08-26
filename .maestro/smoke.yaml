@@ -1,0 +1,22 @@
+appId: com.ridemap.app
+name: 핵심 검색·장소 상세 스모크
+---
+- launchApp:
+    permissions:
+      location: allow
+- waitForAnimationToEnd:
+    timeout: 8000
+- assertVisible: "장소, 라이딩 검색"
+- tapOn: "장소, 라이딩 검색"
+- waitForAnimationToEnd
+- tapOn: "장소, 라이딩 검색"
+- inputText: "바이콩즈"
+- waitForAnimationToEnd:
+    timeout: 5000
+- assertVisible: "바이콩즈"
+- tapOn:
+    text: "바이콩즈"
+    index: 0
+- waitForAnimationToEnd:
+    timeout: 5000
+- assertVisible: "바이콩즈"

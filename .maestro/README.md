@@ -68,6 +68,14 @@ npx expo run:ios --device "iPhone 16 Pro Max"
 maestro test .maestro/main.yaml --debug-output ./screenshots
 ```
 
+### 핵심 동작 스모크
+
+검색 입력 → 고유 장소 선택 → 장소 상세 진입을 실제 네트워크와 시뮬레이터에서 확인한다.
+
+```bash
+maestro test .maestro/smoke.yaml
+```
+
 `./screenshots/` 디렉토리에 PNG 파일 저장.
 
 ### 개별 화면 캡처
@@ -124,4 +132,5 @@ maestro studio
 | `01_main_map.yaml` | 메인 지도만 |
 | `02_courses.yaml` | 코스 목록 + 상세 |
 | `03_profile.yaml` | 내 정보 탭만 |
+| `smoke.yaml` | 검색·장소 상세 핵심 동작 검증 |
 | `config.yaml` | 공통 설정 (현재 placeholder) |
