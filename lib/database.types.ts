@@ -912,6 +912,7 @@ export type Database = {
           bike_id: string | null
           bike_model: string | null
           created_at: string
+          excluded_from_place_stats: boolean
           general_place_id: string | null
           id: string
           latitude: number | null
@@ -927,6 +928,7 @@ export type Database = {
           bike_id?: string | null
           bike_model?: string | null
           created_at?: string
+          excluded_from_place_stats?: boolean
           general_place_id?: string | null
           id?: string
           latitude?: number | null
@@ -942,6 +944,7 @@ export type Database = {
           bike_id?: string | null
           bike_model?: string | null
           created_at?: string
+          excluded_from_place_stats?: boolean
           general_place_id?: string | null
           id?: string
           latitude?: number | null
@@ -1993,6 +1996,10 @@ export type Database = {
       delete_my_account: { Args: never; Returns: undefined }
       delete_user_bike: { Args: { p_bike_id: string }; Returns: undefined }
       disablelongtransactions: { Args: never; Returns: string }
+      exclude_personal_place_rides: {
+        Args: { p_ride_ids: string[] }
+        Returns: number
+      }
       dropgeometrycolumn:
         | {
             Args: {
@@ -2213,6 +2220,14 @@ export type Database = {
         Returns: undefined
       }
       my_ride_stats: { Args: never; Returns: Json }
+      my_unexcluded_place_ride_targets: {
+        Args: never
+        Returns: {
+          latitude: number
+          longitude: number
+          ride_id: string
+        }[]
+      }
       nearby_hazards: {
         Args: { lat: number; lng: number; radius_meters?: number }
         Returns: {

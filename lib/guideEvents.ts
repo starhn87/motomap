@@ -22,6 +22,9 @@ import { toast } from '@/lib/toast';
 import { createAnalyticsId, track } from '@/lib/analytics';
 import { recordCourseCompletion } from '@/lib/api/courseLibrary';
 import { coordToAddress } from '@/lib/api/kakaoLocal';
+import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
+import { buildPlaceRidesForArrival } from '@/lib/ridePlaceStats';
+import type { GuideViaPlace } from '@/lib/guideSession';
 
 // 길안내 전역 이벤트 — 안내가 시작되면 /navi 화면은 지도로 빠져 언마운트되므로
 // 종료·메뉴 처리는 화면이 아니라 여기(루트에서 1회 등록)가 맡는다.
@@ -189,26 +192,15 @@ async function distanceToGoal(goal: GuideGoal): Promise<number | null> {
 
 // 도착지 300m 안에서 끝난 라이딩만 장소 통계에 센다 — 도착지와, 지나온
 // 등록 장소 경유지에 각각 1회 (완주했으면 경유지도 지난 것으로 본다)
-function recordArrival(goal: GuideGoal, viaPlaceIds: string[]) {
-  void recordPlaceRides([
-    ...(goal.placeId ? [{ place_id: goal.placeId, role: 'goal' as const }] : []),
-    ...viaPlaceIds.map((id) => ({ place_id: id, role: 'via' as const })),
-    // 등록 장소도 코스도 아니면 일반 장소 도착 — 표시용이 아니라 "라이더가
-    // 갔는데 아직 등록 안 된 곳" 신호로만 남긴다(037)
-    ...(!goal.placeId && !goal.courseId && goal.name.trim()
-      ? [
-          {
-            role: 'goal' as const,
-            name: goal.name.trim(),
-            latitude: goal.latitude,
-            longitude: goal.longitude,
-            ...(goal.generalPlaceId
-              ? { general_place_id: goal.generalPlaceId }
-              : {}),
-          },
-        ]
-      : []),
-  ]);
+function recordArrival(goal: GuideGoal, viaPlaces: GuideViaPlace[]) {
+  // 로컬 집·회사 로딩과 통계 기록은 안내 종료·리뷰 제안을 막지 않도록 분리한다.
+  void (async () => {
+    const myPlacesStore = useMyPlacesStore.getState();
+    await myPlacesStore.load();
+    await recordPlaceRides(
+      buildPlaceRidesForArrival(goal, viaPlaces, useMyPlacesStore.getState().places),
+    );
+  })();
   if (goal.courseId) {
     void recordCourseCompletion(goal.courseId)
       .then((inserted) => {
@@ -282,7 +274,7 @@ async function suggestPlaceSubmission(goal: GuideGoal) {
 // 안내 종료 — 목적지 400m 이내면 도착으로 보고 리뷰를 제안한다.
 // 안내 화면이 걷힐 때 밑에는 이미 지도가 있으므로 화면 전환은 필요 없다.
 async function handleGuideEnd() {
-  const { goal, viaPlaceIds, clear } = useGuideSession.getState();
+  const { goal, viaPlaces, clear } = useGuideSession.getState();
   const active = await takeActiveGuide();
   clear();
   // 안내가 끝나도 라이더는 이동 중 — 지도가 내 위치를 따라간다.
@@ -296,7 +288,7 @@ async function handleGuideEnd() {
   const dist = await distanceToGoal(goal);
   const near = dist !== null && dist < 400;
   trackGuideEnd(active, near ? 'arrived' : 'cancelled');
-  if (dist !== null && dist <= 300) recordArrival(goal, viaPlaceIds);
+  if (dist !== null && dist <= 300) recordArrival(goal, viaPlaces);
   // 등록 장소·코스는 리뷰로, 일반 목적지는 이름·위치가 채워진 간편 제보로 잇는다.
   if (near && (goal.placeId || goal.generalPlaceId || goal.courseId)) suggestReview(goal);
   else if (dist !== null && dist <= 300 && !goal.placeId && !goal.generalPlaceId && !goal.courseId) {

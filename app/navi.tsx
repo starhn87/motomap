@@ -296,7 +296,15 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
         },
         priority,
         // 등록 장소 경유지 — 도착하면 경유지에도 라이딩 1회를 센다
-        userVias.flatMap((v) => (v?.placeId ? [v.placeId] : [])),
+        userVias.flatMap((v) =>
+          v?.placeId
+            ? [{
+                placeId: v.placeId,
+                latitude: v.latitude,
+                longitude: v.longitude,
+              }]
+            : [],
+        ),
       );
       // 오버레이(출발 도트·경로선)를 먼저 정상 해제시키고 화면을 뗀다
       setGuideStarted(true);

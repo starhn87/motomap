@@ -216,7 +216,7 @@ Sentry.wrap(
 | `blocks` | 운영 기준선 (이력 001) | (blocker, blocked) 유니크 + self-block 방지 |
 | `feedback` | 운영 기준선 | type(bug/feature/general) |
 | `user_bikes` | `20260815115054` | 여러 바이크와 활성 바이크, `profiles.bike_model` 호환 mirror |
-| `place_rides` | 운영 기준선 + 후속 migration | 도착 시점 기종·유형 스냅샷, 원시 행은 본인만 조회 |
+| `place_rides` | 운영 기준선 + 후속 migration | 도착 시점 기종·유형 스냅샷, 원시 행은 본인만 조회. 집·회사는 행을 보존하고 장소 통계 제외 플래그로 구분 |
 | `place_rider_fact_votes` | `20260815120500` | 장소 편의 정보 1인 1표, 원시 행 비공개·집계 RPC만 노출 |
 | `place_change_monitor_state` · `place_change_reviews` | `20260822151044`, `20260822153636` | 외부 장소 변경 점검 상태·운영자 검토 대기열. 높은 신뢰도의 허용 필드 계획만 저장하며 승인 전에는 `places` 수정 없음 |
 | `place_change_reports` | `20260825105614`, `20260825113306`, `20260825120542` | 사용자의 폐업·휴업·영업 재개·이전·정보 변경 제보와 제보 당시 장소 스냅샷. 운영자 승인 전에는 변경하지 않으며 원문·처리 상태는 `service_role`만 접근. 승인·반려 시 제보 ID로 멱등한 인앱 알림과 푸시를 생성 |
@@ -289,6 +289,7 @@ Sentry.wrap(
 | `20260814133044_edge_rate_limits.sql` | 외부 유료 API용 원자적 고정 윈도우 호출 제한. 요청자 식별자는 `RATE_LIMIT_SALT`로 HMAC 처리해 원문 IP·user_id를 저장하지 않고, 테이블·RPC는 `service_role`만 접근 |
 | `20260817103053_restrict_unregistered_ride_spots.sql` | 미등록 도착지 집계 RPC의 공개 실행 권한 회수 — `service_role` 운영만 허용 |
 | `20260817104023_add_private_ride_candidate_scores.sql` | 미등록 도착지 후보를 라이더 수·반복·최근성으로 점수화한 `private.unregistered_ride_candidates`. 주거지 이름 제외, `service_role` 전용 |
+| `20260826042447_exclude_personal_destinations_from_place_stats.sql` | 집·회사 도착 행은 보존하되 장소 방문·기종·추천 후보 집계에서 영구 제외. 개인 좌표는 서버로 보내지 않고 본인 기록과 로컬 비교한 뒤 기록 ID만 갱신 |
 | `20260824125750_add_riding_recommendations.sql` | 목적지 중심 라이딩 추천·제안 테이블, RLS, 원자적 제출 RPC |
 | `20260824131321_seed_verified_riding_guides.sql` | 기존 코스 16개 중 장소 ID가 검증된 10개만 라이딩 추천으로 시드 |
 | `20260824131649_add_riding_guide_search.sql` | 구 코스 검색 계약과 분리된 라이딩 추천 검색 RPC |

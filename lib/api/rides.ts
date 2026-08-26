@@ -4,6 +4,8 @@ import { getProfile } from '@/lib/nickname';
 import { BIKE_SPECS, canonicalBikeModel } from '@/constants/bikes';
 import type { PlaceCategory } from '@/types';
 import type { Json } from '@/lib/database.types';
+import { findPersonalPlaceRideIds } from '@/lib/ridePlaceStats';
+import type { MyPlace, MyPlaceSlot } from '@/stores/useMyPlacesStore';
 
 // 장소별 라이딩 기록 — 길안내를 그 장소(도착지/경유지)로 마치고 도착지 300m
 // 안에서 끝났을 때 1회. 기록은 로그인 라이더만(RLS), 집계 조회는 누구나(RPC).
@@ -13,10 +15,16 @@ import type { Json } from '@/lib/database.types';
  * 일반 장소분은 앱에 표시하지 않는다: 진입 경로마다 좌표가 미세하게 달라
  * 사람 간 집계가 과소계상된다. 미등록 장소 발굴(주간 다이제스트) 전용이다.
  */
+type PlaceRideBase = {
+  role: 'goal' | 'via';
+  excluded_from_place_stats: boolean;
+};
+
 export type PlaceRide =
-  | { role: 'goal' | 'via'; place_id: string }
+  | (PlaceRideBase & { place_id: string })
   | {
-      role: 'goal' | 'via';
+      role: PlaceRideBase['role'];
+      excluded_from_place_stats: boolean;
       name: string;
       latitude: number;
       longitude: number;
@@ -78,6 +86,32 @@ export async function recordPlaceRides(rides: PlaceRide[]) {
   }
 }
 
+/**
+ * 기존 기록은 본인의 목적지 좌표만 받아 로컬 집·회사와 비교한다. 서버에는
+ * 일치한 기록 id만 돌려주므로 집·회사 좌표나 슬롯 종류를 새로 저장하지 않는다.
+ */
+export async function syncPersonalPlaceRideExclusions(
+  places: Partial<Record<MyPlaceSlot, MyPlace>>,
+): Promise<number> {
+  if (!places.home && !places.work) return 0;
+
+  const { data: targets, error: targetError } = await supabase.rpc(
+    'my_unexcluded_place_ride_targets',
+  );
+  if (targetError) throw targetError;
+
+  const ids = findPersonalPlaceRideIds(targets ?? [], places);
+  let updated = 0;
+  for (let i = 0; i < ids.length; i += 1000) {
+    const { data, error } = await supabase.rpc('exclude_personal_place_rides', {
+      p_ride_ids: ids.slice(i, i + 1000),
+    });
+    if (error) throw error;
+    updated += data ?? 0;
+  }
+  return updated;
+}
+
 /** 장소의 누적 라이딩 횟수와 어떤 바이크들이 다녀갔는지 */
 export async function fetchPlaceRideSummary(placeId: string): Promise<PlaceRideSummary> {
   const { data, error } = await supabase.rpc('place_ride_summary', { p_place_id: placeId });
@@ -134,6 +168,7 @@ export async function fetchMyRides(): Promise<MyRidePlace[]> {
   const { data, error } = await supabase
     .from('place_rides')
     .select('place_id, general_place_id, name, latitude, longitude, role, bike_model, created_at, places(name, category)')
+    .eq('excluded_from_place_stats', false)
     .order('created_at', { ascending: false })
     .limit(1000);
   if (error || !data) return [];
