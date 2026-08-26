@@ -26,6 +26,58 @@ interface AuthStore {
 let authSubscription: { unsubscribe: () => void } | null = null;
 let sessionRevision = 0;
 
+type AuthRestoreStage = 'initialize' | 'session' | 'profile' | 'auth_state_change';
+
+/**
+ * Supabase의 PostgREST 오류는 Error가 아닌 { code, details, hint, message }
+ * 객체다. 그대로 captureException 하면 Sentry 제목이 "Object captured..."로
+ * 뭉개지므로 Error로 정규화하고 진단 필드는 별도 컨텍스트에 보존한다.
+ */
+function captureAuthRestoreError(error: unknown, stage: AuthRestoreStage) {
+  const structured =
+    error && typeof error === 'object'
+      ? error as Record<string, unknown>
+      : null;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof structured?.message === 'string'
+        ? structured.message
+        : String(error);
+  const normalized = error instanceof Error ? error : new Error(message);
+  const code = typeof structured?.code === 'string' ? structured.code : null;
+
+  if (!(error instanceof Error)) {
+    normalized.name = code ? `AuthRestoreError(${code})` : 'AuthRestoreError';
+  }
+
+  Sentry.withScope((scope) => {
+    scope.setTag('area', 'auth_restore');
+    scope.setTag('auth_restore_stage', stage);
+    if (code) scope.setTag('error_code', code);
+    if (structured) {
+      scope.setContext('auth_restore_error', {
+        code,
+        details: typeof structured.details === 'string' ? structured.details : null,
+        hint: typeof structured.hint === 'string' ? structured.hint : null,
+      });
+    }
+    Sentry.captureException(normalized);
+  });
+}
+
+function setAuthRestoreFailure(
+  set: (partial: Partial<AuthStore>) => void,
+  error: unknown,
+  stage: AuthRestoreStage,
+) {
+  captureAuthRestoreError(error, stage);
+  set({
+    status: 'restoring',
+    restoreError: '계정 정보를 불러오지 못했습니다.',
+  });
+}
+
 function syncSentryUser(user: User | null) {
   if (user) {
     Sentry.setUser({ id: user.id, email: user.email });
@@ -69,7 +121,7 @@ async function resolveSession(
   if (revision !== sessionRevision) return;
 
   if (error) {
-    Sentry.captureException(error, { tags: { area: 'auth_restore' } });
+    captureAuthRestoreError(error, 'profile');
     set({
       session,
       user: null,
@@ -97,11 +149,7 @@ async function restoreCurrentSession(set: (partial: Partial<AuthStore>) => void)
     if (error) throw error;
     await resolveSession(session, set);
   } catch (error) {
-    Sentry.captureException(error, { tags: { area: 'auth_restore' } });
-    set({
-      status: 'restoring',
-      restoreError: '계정 정보를 불러오지 못했습니다.',
-    });
+    setAuthRestoreFailure(set, error, 'session');
   }
 }
 
@@ -111,24 +159,30 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   status: 'restoring',
   restoreError: null,
   initialize: async () => {
-    authSubscription?.unsubscribe();
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      const current = get();
-      if (
-        event === 'TOKEN_REFRESHED' &&
-        session &&
-        current.status === 'signed_in' &&
-        current.user?.id === session.user.id
-      ) {
-        syncSentryUser(session.user);
-        set({ session, user: session.user });
-        return;
-      }
-      void resolveSession(session, set);
-    });
-    authSubscription = data.subscription;
+    try {
+      authSubscription?.unsubscribe();
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        const current = get();
+        if (
+          event === 'TOKEN_REFRESHED' &&
+          session &&
+          current.status === 'signed_in' &&
+          current.user?.id === session.user.id
+        ) {
+          syncSentryUser(session.user);
+          set({ session, user: session.user });
+          return;
+        }
+        void resolveSession(session, set).catch((error) => {
+          setAuthRestoreFailure(set, error, 'auth_state_change');
+        });
+      });
+      authSubscription = data.subscription;
 
-    await restoreCurrentSession(set);
+      await restoreCurrentSession(set);
+    } catch (error) {
+      setAuthRestoreFailure(set, error, 'initialize');
+    }
   },
   refreshOnboardingStatus: async () => {
     await restoreCurrentSession(set);
