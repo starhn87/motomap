@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import CloseIcon from '@/components/ui/CloseIcon';
+import PlaceSheetHeaderActions from '@/components/map/PlaceSheetHeaderActions';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, {
@@ -32,7 +33,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { openNavigation, useNavLaunching } from '@/lib/navigation';
-import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
+import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
+import { findSavedPlaceSlot } from '@/lib/myPlaces';
 import { toast } from '@/lib/toast';
 import { appAlert } from '@/lib/dialog';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -180,19 +182,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
       })
     : null;
 
-  const near = (a: number, b: number) => Math.abs(a - b) < 1e-5;
-  const savedSlot: MyPlaceSlot | null =
-    place &&
-    myPlaces.home &&
-    near(myPlaces.home.latitude, place.latitude) &&
-    near(myPlaces.home.longitude, place.longitude)
-      ? 'home'
-      : place &&
-          myPlaces.work &&
-          near(myPlaces.work.latitude, place.latitude) &&
-          near(myPlaces.work.longitude, place.longitude)
-        ? 'work'
-        : null;
+  const savedSlot = findSavedPlaceSlot(myPlaces, place);
 
   const handleFavorite = async () => {
     if (!place) return;
@@ -213,10 +203,6 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }
   };
-
-  const favoriteStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: favoriteScale.value }],
-  }));
 
   const handleSaveMyPlace = () => {
     if (!place) return;
@@ -340,43 +326,16 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   };
 
   const renderActions = (expanded: boolean) => (
-    <>
-      <TouchableOpacity
-        onPress={handleFavorite}
-        disabled={favPending}
-        style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
-        <Animated.View style={favoriteStyle}>
-          <Ionicons
-            name={isFavorite ? 'star' : 'star-outline'}
-            size={expanded ? 24 : 22}
-            color={isFavorite ? semantic.star : expanded ? colors.text : colors.textSecondary}
-          />
-        </Animated.View>
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={handleSaveMyPlace}
-        style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
-        <Ionicons
-          name={
-            savedSlot === 'home'
-              ? 'home'
-              : savedSlot === 'work'
-                ? 'business'
-                : 'bookmark-outline'
-          }
-          size={expanded ? 24 : 22}
-          color={expanded ? colors.text : savedSlot ? colors.tint : colors.textSecondary}
-        />
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={onClose}
-        style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
-        <CloseIcon
-          size={expanded ? 24 : 22}
-          color={expanded ? colors.text : colors.textSecondary}
-        />
-      </TouchableOpacity>
-    </>
+    <PlaceSheetHeaderActions
+      expanded={expanded}
+      isFavorite={isFavorite}
+      favoriteDisabled={favPending}
+      favoriteScale={favoriteScale}
+      savedSlot={savedSlot}
+      onFavorite={handleFavorite}
+      onSaveMyPlace={handleSaveMyPlace}
+      onClose={onClose}
+    />
   );
 
   const navigating = resolvingNavigation || navLaunching;

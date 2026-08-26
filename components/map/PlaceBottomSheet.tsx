@@ -16,6 +16,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import CloseIcon from '@/components/ui/CloseIcon';
+import PlaceSheetHeaderActions from '@/components/map/PlaceSheetHeaderActions';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import BottomSheet, {
@@ -48,7 +49,8 @@ import { useReviews } from '@/hooks/useReviews';
 import { toast } from '@/lib/toast';
 import type { Place } from '@/types';
 import { haptics } from '@/lib/haptics';
-import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
+import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
+import { findSavedPlaceSlot } from '@/lib/myPlaces';
 import { appAlert } from '@/lib/dialog';
 import { usePlaceOperationalStatus } from '@/hooks/usePlaceOperationalStatus';
 import Skeleton from '@/components/ui/Skeleton';
@@ -125,19 +127,7 @@ function PlaceBottomSheet({
     void loadMyPlaces();
   }, [loadMyPlaces]);
 
-  const near = (a: number, b: number) => Math.abs(a - b) < 1e-5;
-  const savedSlot: MyPlaceSlot | null =
-    displayPlace &&
-    myPlaces.home &&
-    near(myPlaces.home.latitude, displayPlace.latitude) &&
-    near(myPlaces.home.longitude, displayPlace.longitude)
-      ? 'home'
-      : displayPlace &&
-          myPlaces.work &&
-          near(myPlaces.work.latitude, displayPlace.latitude) &&
-          near(myPlaces.work.longitude, displayPlace.longitude)
-        ? 'work'
-        : null;
+  const savedSlot = findSavedPlaceSlot(myPlaces, displayPlace);
 
   // 장소 자체 사진과 리뷰 사진을 한곳에서 훑되 확대 화면에는 사진만 보여준다.
   const photoItems = useMemo(
@@ -171,10 +161,6 @@ function PlaceBottomSheet({
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }
   };
-
-  const heartStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: heartScale.value }],
-  }));
 
   const scrollRef = useRef<any>(null);
   const didInitRef = useRef(false);
@@ -341,44 +327,16 @@ function PlaceBottomSheet({
   };
 
   const renderActions = (expanded: boolean) => (
-    <>
-      <TouchableOpacity
-        onPress={handleFavorite}
-        disabled={favoritePending}
-        style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
-        <Animated.View style={heartStyle}>
-          {/* 별 — 즐겨찾기 지도 표시(별 뱃지 마커·필터 칩)와 같은 시각 언어 */}
-          <Ionicons
-            name={isFavorite ? 'star' : 'star-outline'}
-            size={expanded ? 24 : 22}
-            color={isFavorite ? semantic.star : expanded ? colors.text : colors.textSecondary}
-          />
-        </Animated.View>
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={handleSaveMyPlace}
-        style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
-        <Ionicons
-          name={
-            savedSlot === 'home'
-              ? 'home'
-              : savedSlot === 'work'
-                ? 'business'
-                : 'bookmark-outline'
-          }
-          size={expanded ? 24 : 22}
-          color={expanded ? colors.text : savedSlot ? colors.tint : colors.textSecondary}
-        />
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={onClose}
-        style={[styles.iconButton, expanded && styles.pageHeaderIconButton]}>
-        <CloseIcon
-          size={expanded ? 24 : 22}
-          color={expanded ? colors.text : colors.textSecondary}
-        />
-      </TouchableOpacity>
-    </>
+    <PlaceSheetHeaderActions
+      expanded={expanded}
+      isFavorite={isFavorite}
+      favoriteDisabled={favoritePending}
+      favoriteScale={heartScale}
+      savedSlot={savedSlot}
+      onFavorite={handleFavorite}
+      onSaveMyPlace={handleSaveMyPlace}
+      onClose={onClose}
+    />
   );
 
   // 핸들 영역은 항상 같은 높이로 렌더(인디케이터 색만 토글). handleComponent를
