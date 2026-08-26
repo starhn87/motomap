@@ -150,7 +150,6 @@ function GarageCard({
           <Pressable
             onPress={onEdit}
             style={({ pressed }) => [styles.editButton, { opacity: pressed ? 0.5 : 1 }]}>
-            <Ionicons name="pencil-outline" size={17} color={colors.textSecondary} />
             <Text style={[styles.editText, { color: colors.textSecondary }]}>편집</Text>
           </Pressable>
         </View>
@@ -617,7 +616,7 @@ const styles = StyleSheet.create({
   cardActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   activateButton: { minHeight: 32, justifyContent: 'center', paddingHorizontal: 10, borderWidth: 1, borderRadius: 9 },
   activateText: { fontSize: 11.5, fontWeight: '700' },
-  editButton: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 6 },
+  editButton: { marginLeft: 'auto', minWidth: 44, minHeight: 32, alignItems: 'center', justifyContent: 'center' },
   editText: { fontSize: 11.5, fontWeight: '600' },
   emptyCard: { alignItems: 'center', padding: 28, gap: 10, borderWidth: 1, borderRadius: 20 },
   emptyTitle: { marginTop: 4, fontSize: 18, fontWeight: '800' },
