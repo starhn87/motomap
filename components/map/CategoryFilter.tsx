@@ -119,7 +119,10 @@ function RiderShareFilterChip({ isActive, onPress }: { isActive: boolean; onPres
 }
 
 export default function CategoryFilter() {
-  const { activeFilter, setActiveFilter, showRiderShares, toggleRiderShares } = useMapStore();
+  const activeFilter = useMapStore((state) => state.activeFilter);
+  const setActiveFilter = useMapStore((state) => state.setActiveFilter);
+  const showRiderShares = useMapStore((state) => state.showRiderShares);
+  const toggleRiderShares = useMapStore((state) => state.toggleRiderShares);
 
   const handlePress = (key: PlaceCategory) => {
     haptics.selection(50);

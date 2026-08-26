@@ -6,7 +6,7 @@ import {
   Keyboard,
   useWindowDimensions,
 } from 'react-native';
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { memo, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { NaverMapView, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 import Animated, { FadeOut,
@@ -26,7 +26,6 @@ import { track } from '@/lib/analytics';
 import { isInMapRenderWindow, usePlaces, type MapCenter } from '@/hooks/usePlaces';
 import { useGasLayer } from '@/hooks/useGasLayer';
 import { useWeather } from '@/hooks/useWeather';
-import { useUserLocation } from '@/hooks/useUserLocation';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
 import { setMapFocusOverride } from '@/lib/mapFocus';
 import { useNearbyHazards } from '@/hooks/useHazards';
@@ -69,7 +68,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useIsFocused, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { UserLocationMarker } from '@/components/map/UserLocationMarker';
+import { TrackedUserLocationMarker } from '@/components/map/TrackedUserLocationMarker';
 import { toast } from '@/lib/toast';
 import { useSharedGeneralPlaces } from '@/hooks/useCommunityPlaceSignals';
 import { usePlaceOperationalStatuses } from '@/hooks/usePlaceOperationalStatus';
@@ -92,6 +91,51 @@ const TEMPORARILY_CLOSED_MARKER_ALPHA = 0.52;
 function markerCaption(name: string, temporarilyClosed: boolean): string {
   return temporarilyClosed ? `임시 휴업 · ${name}` : name;
 }
+
+const RegisteredPlaceMarkers = memo(function RegisteredPlaceMarkers({
+  places,
+  selectedPlaceId,
+  operationalStatuses,
+  dark,
+  onTap,
+}: {
+  places: Place[];
+  selectedPlaceId: string | null;
+  operationalStatuses: Record<string, string>;
+  dark: boolean;
+  onTap: (place: Place) => void;
+}) {
+  return places
+    .filter((place) => place.id !== selectedPlaceId)
+    .map((place) => {
+      const temporarilyClosed = operationalStatuses[place.id] === 'temporarily_closed';
+      return (
+        <NaverMapMarkerOverlay
+          key={place.id}
+          latitude={place.latitude}
+          longitude={place.longitude}
+          image={MARKER_IMAGES_CIRCLE[place.category]}
+          width={30}
+          height={30}
+          anchor={{ x: 0.5, y: 0.5 }}
+          alpha={temporarilyClosed ? TEMPORARILY_CLOSED_MARKER_ALPHA : 1}
+          globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
+          zIndex={10}
+          isForceShowIcon
+          isHideCollidedSymbols
+          isHideCollidedCaptions
+          caption={{
+            text: markerCaption(place.name, temporarilyClosed),
+            textSize: 12,
+            minZoom: 8,
+            color: dark ? '#F9FAFB' : '#111827',
+            haloColor: dark ? '#111827' : '#FFFFFF',
+          }}
+          onTap={() => onTap(place)}
+        />
+      );
+    });
+});
 
 // 장소 선택 시 상세 시트가 마커를 가리지 않도록 카메라 중심을 남쪽으로 내려
 // 마커를 화면 중심보다 위에 둔다. 등록·일반 장소가 같은 보정을 사용하며,
@@ -116,9 +160,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { userLocation, selectedPlaceId, activeFilter, setSelectedPlaceId, showRiderShares } =
-    useMapStore();
-  const { heading } = useUserLocation();
+  const userLocation = useMapStore((state) => state.userLocation);
+  const selectedPlaceId = useMapStore((state) => state.selectedPlaceId);
+  const activeFilter = useMapStore((state) => state.activeFilter);
+  const setSelectedPlaceId = useMapStore((state) => state.setSelectedPlaceId);
+  const showRiderShares = useMapStore((state) => state.showRiderShares);
   const isMapFocused = useIsFocused();
   const rootNavigation = useNavigation<NativeStackNavigationProp<ParamListBase>>('/');
 
@@ -771,46 +817,17 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           };
           persistSettledCamera(camera, e.region);
         }}>
-        {userLocation && (
-          <UserLocationMarker
-            latitude={userLocation.latitude}
-            longitude={userLocation.longitude}
-            heading={heading}
-          />
-        )}
+        <TrackedUserLocationMarker />
 
         {/* 등록 장소는 모든 줌에서 개별 원형 마커로 그린다. 아이콘은 숨기지 않고,
             겹치는 기본 심벌과 장소명 캡션만 SDK가 정리한다. */}
-        {windowedPlaces
-          .filter((p) => p.id !== selectedPlaceId)
-          .map((p) => {
-            const temporarilyClosed = operationalStatuses[p.id] === 'temporarily_closed';
-            return (
-              <NaverMapMarkerOverlay
-                key={p.id}
-                latitude={p.latitude}
-                longitude={p.longitude}
-                image={MARKER_IMAGES_CIRCLE[p.category]}
-                width={30}
-                height={30}
-                anchor={{ x: 0.5, y: 0.5 }}
-                alpha={temporarilyClosed ? TEMPORARILY_CLOSED_MARKER_ALPHA : 1}
-                globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
-                zIndex={10}
-                isForceShowIcon
-                isHideCollidedSymbols
-                isHideCollidedCaptions
-                caption={{
-                  text: markerCaption(p.name, temporarilyClosed),
-                  textSize: 12,
-                  minZoom: PLACE_CAPTION_MIN_ZOOM,
-                  color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
-                  haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
-                }}
-                onTap={() => handleMarkerPress(p)}
-              />
-            );
-          })}
+        <RegisteredPlaceMarkers
+          places={windowedPlaces}
+          selectedPlaceId={selectedPlaceId}
+          operationalStatuses={operationalStatuses}
+          dark={colorScheme === 'dark'}
+          onTap={handleMarkerPress}
+        />
 
         {/* 추천 장소 모드는 일반 추천 장소만 보인다. 카테고리 필터와 배타적이므로
             검증된 등록 장소와 같은 탐색 결과로 섞이지 않는다. */}
