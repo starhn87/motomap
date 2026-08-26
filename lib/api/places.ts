@@ -40,11 +40,6 @@ interface SubmitPlaceParams {
   latitude: number;
   longitude: number;
   address: string;
-  phone?: string;
-  tags?: string[];
-  openingHours?: string;
-  hours?: Hours;
-  parkingInfo?: string;
   sourceProvider?: 'kakao' | 'coordinate';
   sourcePlaceId?: string;
 }
@@ -143,11 +138,6 @@ export async function submitPlace(params: SubmitPlaceParams): Promise<void> {
     category: params.category,
     location: `POINT(${params.longitude} ${params.latitude})`,
     address: params.address,
-    phone: params.phone,
-    tags: params.tags ?? [],
-    opening_hours: params.openingHours,
-    hours: params.hours as Json | undefined,
-    parking_info: params.parkingInfo,
     submitted_by: user.id,
     source_provider: params.sourceProvider ?? null,
     source_place_id: params.sourcePlaceId ?? null,

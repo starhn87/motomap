@@ -31,35 +31,7 @@ import SubmitRidingGuide from '@/components/submit/SubmitRidingGuide';
 import SubmitFeedback from '@/components/submit/SubmitFeedback';
 import SubmitHazard from '@/components/submit/SubmitHazard';
 import AddressSearchModal from '@/components/submit/AddressSearchModal';
-import TimeField from '@/components/submit/TimeField';
 import type { PlaceCategory } from '@/types';
-import { DAY_LABELS, WEEK, formatWeek, type DayKey, type Hours } from '@/lib/hours';
-
-/**
- * 폼 입력을 저장 형태로. hours(구조화)와 openingHours(사람이 읽는 원문)를 함께
- * 만든다 — 원문은 hours 를 못 읽는 화면과 예전 데이터 표시 경로가 쓴다.
- */
-function buildHours(
-  openInput: string,
-  closeInput: string,
-  closedDays: DayKey[],
-  note: string,
-): { hours?: Hours; openingHours?: string } {
-  const open = openInput || null;
-  const close = closeInput || null;
-  const span = open && close ? [{ open, close }] : null;
-  const trimmedNote = note.trim();
-  if (!span && closedDays.length === 0 && !trimmedNote) return {};
-
-  const hours: Hours = {};
-  for (const day of WEEK) {
-    hours[day] = closedDays.includes(day) ? [] : span;
-  }
-  if (trimmedNote) hours.note = trimmedNote;
-
-  const openingHours = [...formatWeek(hours), trimmedNote].filter(Boolean).join(' / ');
-  return { hours, openingHours: openingHours || undefined };
-}
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -116,13 +88,6 @@ function SubmitPlace() {
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [addressDetail, setAddressDetail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [tags, setTags] = useState('');
-  const [openAt, setOpenAt] = useState('');
-  const [closeAt, setCloseAt] = useState('');
-  const [closedDays, setClosedDays] = useState<DayKey[]>([]);
-  const [hoursNote, setHoursNote] = useState('');
-  const [parkingInfo, setParkingInfo] = useState('');
   const [sourceIdentity, setSourceIdentity] = useState<{
     provider: 'kakao' | 'coordinate';
     placeId: string;
@@ -132,13 +97,12 @@ function SubmitPlace() {
   const scrollRef = useRef<ScrollView>(null);
 
   // 지도의 "일반 장소" 시트에서 넘어온 프리필 (이름·주소·좌표)
-  const { prefillName, prefillAddress, prefillLat, prefillLng, prefillPhone, prefillProvider, prefillProviderId, prefillSource, prefillTs } =
+  const { prefillName, prefillAddress, prefillLat, prefillLng, prefillProvider, prefillProviderId, prefillSource, prefillTs } =
     useLocalSearchParams<{
       prefillName?: string;
       prefillAddress?: string;
       prefillLat?: string;
       prefillLng?: string;
-      prefillPhone?: string;
       prefillProvider?: string;
       prefillProviderId?: string;
       prefillSource?: string;
@@ -153,7 +117,6 @@ function SubmitPlace() {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
     setName(prefillName);
     if (prefillAddress) setAddress(prefillAddress);
-    if (prefillPhone) setPhone(prefillPhone);
     if (
       (prefillProvider === 'kakao' || prefillProvider === 'coordinate') &&
       prefillProviderId
@@ -176,7 +139,7 @@ function SubmitPlace() {
         setCoords({ latitude, longitude });
       }
     }
-  }, [prefillName, prefillAddress, prefillLat, prefillLng, prefillPhone, prefillProvider, prefillProviderId, prefillTs]);
+  }, [prefillName, prefillAddress, prefillLat, prefillLng, prefillProvider, prefillProviderId, prefillTs]);
 
   const submitScale = useSharedValue(1);
   const submitStyle = useAnimatedStyle(() => ({
@@ -221,10 +184,6 @@ function SubmitPlace() {
         latitude: coords.latitude,
         longitude: coords.longitude,
         address: [address.trim(), addressDetail.trim()].filter(Boolean).join(' '),
-        phone: phone.trim() || undefined,
-        tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
-        ...buildHours(openAt, closeAt, closedDays, hoursNote),
-        parkingInfo: parkingInfo.trim() || undefined,
         sourceProvider: sourceIdentity?.provider,
         sourcePlaceId: sourceIdentity?.placeId,
       });
@@ -252,13 +211,6 @@ function SubmitPlace() {
       setAddress('');
       setCoords(null);
       setAddressDetail('');
-      setPhone('');
-      setTags('');
-      setOpenAt('');
-      setCloseAt('');
-      setClosedDays([]);
-      setHoursNote('');
-      setParkingInfo('');
       setSourceIdentity(null);
     } catch (error: any) {
       toast.error('제보에 실패했습니다.', error.message);
@@ -330,51 +282,14 @@ function SubmitPlace() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>설명</Text>
         <TextInput style={[...inputStyle, styles.multiline]} placeholder="이 장소에 대해 알려주세요" placeholderTextColor={colors.textSecondary} value={description} onChangeText={setDescription} multiline numberOfLines={3} />
 
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>태그</Text>
-        <TextInput style={inputStyle} placeholder="쉼표로 구분 (예: 넓은주차장, 헬멧보관)" placeholderTextColor={colors.textSecondary} value={tags} onChangeText={setTags} />
-
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>전화번호</Text>
-        <TextInput style={inputStyle} placeholder="02-1234-5678" placeholderTextColor={colors.textSecondary} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>영업시간</Text>
-        <View style={styles.hoursRow}>
-          <TimeField label="09:00" value={openAt} onChange={setOpenAt} />
-          <Text style={[styles.hoursDash, { color: colors.textSecondary }]}>~</Text>
-          <TimeField label="22:00" value={closeAt} onChange={setCloseAt} />
-        </View>
-
-        <Text style={[styles.hoursHint, { color: colors.textSecondary }]}>쉬는 요일을 눌러주세요</Text>
-        <View style={styles.dayRow}>
-          {WEEK.map((day) => {
-            const off = closedDays.includes(day);
-            return (
-              <Pressable
-                key={day}
-                onPress={() =>
-                  setClosedDays((prev) =>
-                    prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
-                  )
-                }
-                style={[
-                  styles.dayChip,
-                  {
-                    backgroundColor: off ? colors.tint : 'transparent',
-                    borderColor: off ? colors.tint : colors.border,
-                  },
-                ]}>
-                <Text style={[styles.dayChipText, { color: off ? colors.background : colors.textSecondary }]}>
-                  {DAY_LABELS[day]}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <TextInput style={inputStyle} placeholder="특이사항 (예: 우천 휴무, 라스트오더 21:30)" placeholderTextColor={colors.textSecondary} value={hoursNote} onChangeText={setHoursNote} />
-
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>주차 정보</Text>
-        <TextInput style={inputStyle} placeholder="바이크 전용 주차 20대" placeholderTextColor={colors.textSecondary} value={parkingInfo} onChangeText={setParkingInfo} />
-
-        <AnimatedPressable onPress={handleSubmit} disabled={submitting} style={[styles.submitButton, submitStyle, { backgroundColor: colors.tint, opacity: submitting ? 0.6 : 1 }]}>
+        <AnimatedPressable
+          onPress={handleSubmit}
+          disabled={submitting}
+          style={[
+            styles.submitButton,
+            submitStyle,
+            { backgroundColor: colors.tint, opacity: submitting ? 0.6 : 1 },
+          ]}>
           <Text style={[styles.submitText, { color: colors.background }]}>{submitting ? '제보 중...' : '장소 제보하기'}</Text>
         </AnimatedPressable>
       </ScrollView>
@@ -462,18 +377,6 @@ const styles = StyleSheet.create({
   tabLabel: { fontSize: 14, fontWeight: '700' },
   content: { padding: 20, paddingBottom: 40 },
   sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: 16, marginBottom: 8 },
-  hoursRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  hoursDash: { fontSize: 15 },
-  hoursHint: { fontSize: 12, marginTop: 12, marginBottom: 6 },
-  dayRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
-  dayChip: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  dayChipText: { fontSize: 13, fontWeight: '600' },
   categories: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   categoryChip: {
     gap: 5,

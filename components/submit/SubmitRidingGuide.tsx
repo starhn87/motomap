@@ -77,7 +77,6 @@ export default function SubmitRidingGuide() {
   const titleEdited = useRef(false);
   const [title, setTitle] = useState('');
   const [reason, setReason] = useState('');
-  const [featuredRoads, setFeaturedRoads] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTags, setCustomTags] = useState('');
   const [primary, setPrimary] = useState<SelectedPlace | null>(null);
@@ -136,7 +135,6 @@ export default function SubmitRidingGuide() {
     titleEdited.current = false;
     setTitle('');
     setReason('');
-    setFeaturedRoads('');
     setSelectedTags([]);
     setCustomTags('');
     setPrimary(null);
@@ -156,12 +154,12 @@ export default function SubmitRidingGuide() {
 
     setSubmitting(true);
     try {
-      const roads = [...new Set(splitValues(featuredRoads))].slice(0, 8);
       const tags = [...new Set([...selectedTags, ...splitValues(customTags)])].slice(0, 12);
       await submitRidingGuideProposal({
         title,
         reason,
-        featuredRoads: roads,
+        // 구버전 제안과 운영 편집 계약은 유지하되 새 폼에서는 도로 문구를 받지 않는다.
+        featuredRoads: [],
         tags,
         stops: [
           {
@@ -179,7 +177,7 @@ export default function SubmitRidingGuide() {
       });
       track.ridingGuideSubmitted({
         place_count: allPlaces.length,
-        has_featured_roads: roads.length > 0,
+        has_featured_roads: false,
         tag_count: tags.length,
       });
       await queryClient.invalidateQueries({ queryKey: ['my-riding-guide-proposals'] });
@@ -336,18 +334,6 @@ export default function SubmitRidingGuide() {
           </Pressable>
         )}
 
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>추천 도로</Text>
-        <TextInput
-          style={[...inputStyle, styles.multiline]}
-          placeholder={'한 줄에 하나씩 적어주세요\n예: 6번 국도 팔당~양평 구간'}
-          placeholderTextColor={colors.textSecondary}
-          value={featuredRoads}
-          onChangeText={setFeaturedRoads}
-          multiline
-          maxLength={1600}
-          textAlignVertical="top"
-        />
-
         <Text style={[styles.sectionTitle, { color: colors.text }]}>태그</Text>
         <View style={styles.tags}>
           {SUGGESTED_TAGS.map((tag) => {
@@ -469,7 +455,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
   },
-  multiline: { minHeight: 84 },
   reasonInput: { minHeight: 112 },
   counter: { alignSelf: 'flex-end', fontSize: 11, marginTop: 5 },
   placePicker: {

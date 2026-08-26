@@ -316,7 +316,6 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
         prefillAddress: place.address,
         prefillLat: String(place.latitude),
         prefillLng: String(place.longitude),
-        prefillPhone: place.phone ?? '',
         prefillProvider: identity.provider,
         prefillProviderId: identity.providerId,
         prefillSource: 'temp_place',
