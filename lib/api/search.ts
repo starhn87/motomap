@@ -78,7 +78,7 @@ export async function searchAll(
   // 최근 검색의 일반 장소를 등록 장소로 승격하는 1회성 전체 장소 조회 경로. 실제
   // 검색은 2자 이상에서만 실행되므로 아래 RPC의 결과 상한과 분리한다.
   if (!trimmed && !nearOnly) {
-    const request = supabase.rpc('all_places', { category_filter: null });
+    const request = supabase.rpc('all_places', { category_filter: undefined });
     const placesRes = await (signal ? request.abortSignal(signal) : request);
     if (placesRes.error) throw placesRes.error;
     return {
@@ -90,8 +90,8 @@ export async function searchAll(
   const sharedParams = {
     p_query: trimmed,
     p_term_groups: searchTermGroups(trimmed),
-    p_lat: near?.latitude ?? null,
-    p_lng: near?.longitude ?? null,
+    p_lat: near?.latitude,
+    p_lng: near?.longitude,
     p_radius_meters: SEARCH_RADIUS_M,
     p_near_only: nearOnly,
   };

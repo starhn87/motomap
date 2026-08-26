@@ -3,12 +3,13 @@ import { AppState, Platform } from 'react-native';
 import { createClient, processLock } from '@supabase/supabase-js';
 
 import { authStorage } from '@/lib/authStorage';
+import type { Database } from '@/lib/database.types';
 import { requireEnv } from '@/lib/env';
 
 const supabaseUrl = requireEnv(process.env.EXPO_PUBLIC_SUPABASE_URL, 'EXPO_PUBLIC_SUPABASE_URL');
 const supabaseAnonKey = requireEnv(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY, 'EXPO_PUBLIC_SUPABASE_ANON_KEY');
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: authStorage,
     autoRefreshToken: true,

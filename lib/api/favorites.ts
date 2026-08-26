@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { Place } from '@/types';
-import { rowToPlace, type PlaceRow } from '@/lib/api/places';
+import { rowToPlace } from '@/lib/api/places';
 import { requireUser, getCurrentUser } from '@/lib/auth';
 import { ensureGeneralPlace, type GeneralPlaceInput } from '@/lib/api/generalPlaces';
 
@@ -83,14 +83,14 @@ export async function fetchFavoritePlaces(): Promise<FavoriteList> {
   if (placeIds.length === 0) return { places: [], general };
 
   const { data, error } = await supabase.rpc('all_places', {
-    category_filter: null,
+    category_filter: undefined,
   });
 
   if (error) throw error;
 
   return {
     places: (data ?? [])
-      .filter((row: PlaceRow) => placeIds.includes(row.id))
+      .filter((row) => placeIds.includes(row.id))
       .map(rowToPlace),
     general,
   };

@@ -32,6 +32,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { track } from '@/lib/analytics';
 import type { Place } from '@/types';
 import type { GeneralFavorite } from '@/lib/api/favorites';
+import { queryKeys } from '@/lib/queryKeys';
 
 // 혼잡도별 경로선 색 — 막힐수록 붉게. 원활은 기존 경로색, 정보 없음은 회색.
 // 서행은 semantic.warning(amber-600)보다 밝은 amber-500 — 지도 위 가시성 우선.
@@ -217,7 +218,7 @@ export default function PreviewMap({
       source: 'route_preview',
     });
     // 오버레이가 fetch 없이 바로 시트를 열도록 usePlace 캐시를 미리 채운다
-    queryClient.setQueryData(['place', place.id], place);
+    queryClient.setQueryData(queryKeys.places.detail(place.id), place);
     // lat/lng 는 오버레이 초기 카메라용 — 장소 fetch 전 첫 프레임에 쓴다
     router.push({
       pathname: '/place-preview',

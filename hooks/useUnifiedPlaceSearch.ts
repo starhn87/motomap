@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { searchUnifiedPlaces } from '@/lib/api/search';
+import { queryKeys } from '@/lib/queryKeys';
 
 export function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -33,7 +34,7 @@ export function useUnifiedPlaceSearch({
   const debouncedQuery = useDebouncedValue(normalizedQuery, debounceMs);
   const canSearch = enabled && debouncedQuery.length >= minimumLength;
   const result = useQuery({
-    queryKey: ['search', 'unified', debouncedQuery, nearKey],
+    queryKey: queryKeys.search.unified(debouncedQuery, nearKey),
     queryFn: ({ signal }) => searchUnifiedPlaces(debouncedQuery, near, { signal }),
     enabled: canSearch,
   });

@@ -15,7 +15,6 @@ import {
   InteractionManager,
 } from 'react-native';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,7 +27,7 @@ import {
 } from '@/lib/api/search';
 import { useSearchAnchor } from '@/hooks/useSearchAnchor';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
-import { fetchFavoritePlaces } from '@/lib/api/favorites';
+import { useFavoritePlaces } from '@/hooks/useFavorites';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { KakaoLocalResult } from '@/lib/api/kakaoLocal';
@@ -231,11 +230,7 @@ export default function SearchScreen() {
   const kakaoOnly = results?.kakaoOnly ?? [];
   const isLoading = unifiedSearch.isSearching;
 
-  const { data: favorites, isLoading: favoritesLoading } = useQuery({
-    queryKey: ['favorites', 'places', user?.id],
-    queryFn: fetchFavoritePlaces,
-    enabled: !!user,
-  });
+  const { data: favorites, isLoading: favoritesLoading } = useFavoritePlaces();
 
   const { data: recommended, isLoading: recommendedLoading } = useRecommendedPlaces();
   const landingLoading =

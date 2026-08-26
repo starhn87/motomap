@@ -4,6 +4,7 @@ import { track, type PlaceSource } from '@/lib/analytics';
 import { isMainMapFocused } from '@/lib/mapCamera';
 import { queryClient } from '@/lib/queryClient';
 import type { Place } from '@/types';
+import { queryKeys } from '@/lib/queryKeys';
 
 type FocusOverride = (
   placeId: string,
@@ -62,7 +63,7 @@ export function focusPlaceOnMap(
   }
   // 장소를 들고 있으면 usePlace 캐시를 채워 복귀 즉시 이동을 시작한다.
   if (opts?.place) {
-    queryClient.setQueryData(['place', placeId], opts.place);
+    queryClient.setQueryData(queryKeys.places.detail(placeId), opts.place);
   }
   // 기존 지도 탭까지 스택을 되감아 같은 네이티브 지도 인스턴스와 카메라를
   // 그대로 살린다. navigate('/')는 새 탭 route를 쌓아 지도를 재생성할 수 있다.

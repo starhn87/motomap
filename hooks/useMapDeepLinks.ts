@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { coordToAddress } from '@/lib/api/kakaoLocal';
 import { fetchPlaceById } from '@/hooks/usePlace';
+import { queryKeys } from '@/lib/queryKeys';
 import type { Place } from '@/types';
 import type { TempPlace } from '@/components/map/TempPlaceSheet';
 
@@ -125,7 +126,7 @@ export function useMapDeepLinks({
     (async () => {
       // usePlace 와 같은 캐시 키 — 미리보기가 push 전에 심어 두면 왕복이 없다
       const place = await queryClient.ensureQueryData({
-        queryKey: ['place', focusPlaceId],
+        queryKey: queryKeys.places.detail(focusPlaceId),
         queryFn: () => fetchPlaceById(focusPlaceId),
       });
       if (place && !cancelled) {

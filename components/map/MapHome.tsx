@@ -43,8 +43,8 @@ import {
   GENERAL_MARKER_CIRCLE,
   GENERAL_MARKER_FAV,
 } from '@/constants/markerImages';
-import { useQuery } from '@tanstack/react-query';
-import { fetchFavoritePlaces, findGeneralFavorite } from '@/lib/api/favorites';
+import { findGeneralFavorite } from '@/lib/api/favorites';
+import { useFavoritePlaces } from '@/hooks/useFavorites';
 import { useAuthStore } from '@/stores/useAuthStore';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
 import CourseReturnChip from '@/components/map/CourseReturnChip';
@@ -359,11 +359,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const showFavorites = useMapStore((s) => s.showFavorites);
   const toggleShowFavorites = useMapStore((s) => s.toggleShowFavorites);
   const user = useAuthStore((s) => s.user);
-  const { data: favoritePlaces } = useQuery({
-    queryKey: ['favorites', 'places', user?.id],
-    queryFn: fetchFavoritePlaces,
-    enabled: showFavorites && !!user,
-  });
+  const { data: favoritePlaces } = useFavoritePlaces(showFavorites);
   const favIds = useMemo(
     () => new Set((favoritePlaces?.places ?? []).map((p) => p.id)),
     [favoritePlaces],

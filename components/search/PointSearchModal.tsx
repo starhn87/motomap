@@ -10,7 +10,6 @@ import {
   View,
 } from 'react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -18,7 +17,7 @@ import CategoryIcon from '@/components/ui/CategoryIcon';
 import { CATEGORIES } from '@/constants/categories';
 import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { fetchFavoritePlaces } from '@/lib/api/favorites';
+import { useFavoritePlaces } from '@/hooks/useFavorites';
 import type { KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { getSearchAnchor } from '@/hooks/useSearchAnchor';
 import { searchUnifiedPlaces } from '@/lib/api/search';
@@ -88,11 +87,7 @@ export default function PointSearchModal({
   // 지도 탭과 같은 쿼리 키라 이미 받아둔 목록이 있으면 즉시 보인다.
   const user = useAuthStore((s) => s.user);
   const [showFavList, setShowFavList] = useState(false);
-  const { data: favorites } = useQuery({
-    queryKey: ['favorites', 'places', user?.id],
-    queryFn: fetchFavoritePlaces,
-    enabled: visible && allowSaved && !!user,
-  });
+  const { data: favorites } = useFavoritePlaces(visible && allowSaved);
   // 등록 장소와 일반 장소를 함께 보여준다. 일반 즐겨찾기는 모양이 카카오 결과와
   // 같아서(이름·주소·좌표·전화) 그 행을 그대로 재사용한다.
   const favItems = useMemo<ResultItem[]>(

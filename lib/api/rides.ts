@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { getProfile } from '@/lib/nickname';
 import { BIKE_SPECS, canonicalBikeModel } from '@/constants/bikes';
 import type { PlaceCategory } from '@/types';
+import type { Json } from '@/lib/database.types';
 
 // 장소별 라이딩 기록 — 길안내를 그 장소(도착지/경유지)로 마치고 도착지 300m
 // 안에서 끝났을 때 1회. 기록은 로그인 라이더만(RLS), 집계 조회는 누구나(RPC).
@@ -36,6 +37,24 @@ export interface PlaceRideSummary {
 
 export const EMPTY_RIDE_SUMMARY: PlaceRideSummary = { total: 0, bikes: [] };
 
+function jsonObject(value: Json): { [key: string]: Json | undefined } | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? value : null;
+}
+
+function jsonNumber(value: Json | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function parseRideBikes(value: Json | undefined): RideBike[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const bike = jsonObject(item);
+    return bike && typeof bike.model === 'string'
+      ? [{ model: bike.model, riders: jsonNumber(bike.riders) }]
+      : [];
+  });
+}
+
 /**
  * 도착 라이딩 기록. 비로그인이거나 실패해도 조용히 넘어간다 —
  * 통계가 안내 종료 흐름(리뷰 제안 등)을 방해하면 안 된다.
@@ -63,7 +82,9 @@ export async function recordPlaceRides(rides: PlaceRide[]) {
 export async function fetchPlaceRideSummary(placeId: string): Promise<PlaceRideSummary> {
   const { data, error } = await supabase.rpc('place_ride_summary', { p_place_id: placeId });
   if (error || !data) return EMPTY_RIDE_SUMMARY;
-  return { total: data.total ?? 0, bikes: data.bikes ?? [] };
+  const summary = jsonObject(data);
+  if (!summary) return EMPTY_RIDE_SUMMARY;
+  return { total: jsonNumber(summary.total), bikes: parseRideBikes(summary.bikes) };
 }
 
 export interface MyRideStats {
@@ -73,6 +94,16 @@ export interface MyRideStats {
 }
 
 export const EMPTY_MY_RIDE_STATS: MyRideStats = { rides: 0, places: 0, bikes: [] };
+
+function parseMyRideBikes(value: Json | undefined): MyRideStats['bikes'] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const bike = jsonObject(item);
+    return bike && typeof bike.model === 'string'
+      ? [{ model: bike.model, rides: jsonNumber(bike.rides) }]
+      : [];
+  });
+}
 
 export interface MyRideBreakdown {
   goals: number;
@@ -154,5 +185,11 @@ export async function fetchMyRides(): Promise<MyRidePlace[]> {
 export async function fetchMyRideStats(): Promise<MyRideStats> {
   const { data, error } = await supabase.rpc('my_ride_stats');
   if (error || !data) return EMPTY_MY_RIDE_STATS;
-  return { rides: data.rides ?? 0, places: data.places ?? 0, bikes: data.bikes ?? [] };
+  const stats = jsonObject(data);
+  if (!stats) return EMPTY_MY_RIDE_STATS;
+  return {
+    rides: jsonNumber(stats.rides),
+    places: jsonNumber(stats.places),
+    bikes: parseMyRideBikes(stats.bikes),
+  };
 }

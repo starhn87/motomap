@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { Place, PlaceCategory } from '@/types';
 import type { Hours } from '@/lib/hours';
+import type { Json } from '@/lib/database.types';
 import { requireUser } from '@/lib/auth';
 
 // nearby_places / all_places RPC 가 반환하는 행 (PostGIS location 을 lat/lng 로 풀어서 준다)
@@ -8,7 +9,7 @@ export interface PlaceRow {
   id: string;
   name: string;
   description: string | null;
-  category: PlaceCategory;
+  category: string;
   latitude: number;
   longitude: number;
   address: string;
@@ -18,7 +19,7 @@ export interface PlaceRow {
   review_count: number | null;
   tags: string[] | null;
   opening_hours: string | null;
-  hours: Hours | null;
+  hours: Hours | Json | null;
   parking_info: string | null;
   submitted_by: string;
   approved: boolean;
@@ -53,7 +54,8 @@ export function rowToPlace(row: PlaceRow): Place {
     id: row.id,
     name: row.name,
     description: row.description ?? '',
-    category: row.category,
+    // public RPC는 text로 노출되지만 places_category_check가 앱 카테고리만 허용한다.
+    category: row.category as PlaceCategory,
     latitude: row.latitude,
     longitude: row.longitude,
     address: row.address,
@@ -63,7 +65,7 @@ export function rowToPlace(row: PlaceRow): Place {
     reviewCount: row.review_count ?? 0,
     tags: row.tags ?? [],
     openingHours: row.opening_hours ?? undefined,
-    hours: row.hours ?? undefined,
+    hours: (row.hours as Hours | null) ?? undefined,
     parkingInfo: row.parking_info ?? undefined,
     submittedBy: row.submitted_by,
     approved: row.approved,
@@ -81,7 +83,7 @@ export async function fetchNearbyPlaces({
     lat: latitude,
     lng: longitude,
     radius_meters: radiusMeters,
-    category_filter: category ?? null,
+    category_filter: category ?? undefined,
   });
 
   if (error) throw error;
@@ -109,7 +111,7 @@ export async function fetchAllPlaces(
   category?: PlaceCategory | null
 ): Promise<Place[]> {
   const { data, error } = await supabase.rpc('all_places', {
-    category_filter: category ?? null,
+    category_filter: category ?? undefined,
   });
 
   if (error) throw error;
@@ -144,7 +146,7 @@ export async function submitPlace(params: SubmitPlaceParams): Promise<void> {
     phone: params.phone,
     tags: params.tags ?? [],
     opening_hours: params.openingHours,
-    hours: params.hours,
+    hours: params.hours as Json | undefined,
     parking_info: params.parkingInfo,
     submitted_by: user.id,
     source_provider: params.sourceProvider ?? null,

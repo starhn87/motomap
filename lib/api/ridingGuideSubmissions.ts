@@ -52,7 +52,8 @@ export async function submitRidingGuideProposal(
   }));
 
   const { data, error } = await supabase.rpc('submit_riding_guide_proposal', {
-    p_title: input.title?.trim() || null,
+    // RPC가 빈 문자열을 내부에서 null로 정규화한다. 생성 타입의 text 계약도 지킨다.
+    p_title: input.title?.trim() || '',
     p_reason: input.reason.trim(),
     p_featured_roads: uniqueTrimmed(input.featuredRoads, 8, 200),
     p_tags: uniqueTrimmed(input.tags, 12, 30),
@@ -111,7 +112,9 @@ export async function fetchMyRidingGuideProposals(): Promise<MyRidingGuidePropos
   for (const stop of primaryStops ?? []) {
     const name = stop.place_id
       ? placeNames.get(stop.place_id)
-      : generalPlaceNames.get(stop.general_place_id);
+      : stop.general_place_id
+        ? generalPlaceNames.get(stop.general_place_id)
+        : undefined;
     if (name) primaryBySubmission.set(stop.submission_id, name);
   }
 

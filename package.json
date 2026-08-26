@@ -9,6 +9,7 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "typecheck:functions": "npx --yes deno@2.9.5 task --config supabase/functions/deno.json check",
+    "types:supabase": "npx --yes supabase@2.115.0 gen types --linked --schema public > lib/database.types.ts",
     "check:release": "node scripts/check-release-compatibility.mjs",
     "seed:bike-cafes": "node scripts/seed-bike-cafes.mjs",
     "sync:bikes": "node scripts/sync-bike-models.mjs",

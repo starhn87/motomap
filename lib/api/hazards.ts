@@ -5,7 +5,7 @@ import type { HazardType, RoadHazard } from '@/types';
 // RPC 가 돌려주는 행 (PostGIS location 을 lat/lng 로 풀어서 준다)
 interface HazardRow {
   id: string;
-  type: HazardType;
+  type: string;
   note: string | null;
   photo: string | null;
   address: string | null;
@@ -21,7 +21,7 @@ interface HazardRow {
 function rowToHazard(row: HazardRow): RoadHazard {
   return {
     id: row.id,
-    type: row.type,
+    type: row.type as HazardType,
     note: row.note,
     photo: row.photo,
     address: row.address,

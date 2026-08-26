@@ -43,6 +43,7 @@ import { createAnalyticsId, track, type SearchSource } from '@/lib/analytics';
 import { describeOpenState, getOpenState } from '@/lib/hours';
 import { approxMeters } from '@/lib/distance';
 import { focusPlaceOnMap, focusPointOnMap } from '@/lib/mapFocus';
+import { queryKeys } from '@/lib/queryKeys';
 import type { Place, RidingGuideSearchResult } from '@/types';
 import Skeleton from '@/components/ui/Skeleton';
 
@@ -170,12 +171,17 @@ export default function SearchResultsScreen() {
 
   const requestEnabled = !!activeNear && (browseMode || !!query.trim());
   const resultsQuery = useQuery({
-    queryKey: ['search', searchQuery, nearKey, browseMode, areaSearchRevision],
+    queryKey: queryKeys.search.registered(
+      searchQuery,
+      nearKey,
+      browseMode,
+      areaSearchRevision,
+    ),
     queryFn: ({ signal }) => searchAll(searchQuery, activeNear, true, signal),
     enabled: requestEnabled,
   });
   const kakaoQuery = useQuery({
-    queryKey: ['search-kakao', query, nearKey, areaSearchRevision],
+    queryKey: queryKeys.search.kakao(query, nearKey, areaSearchRevision),
     queryFn: ({ signal }) =>
       searchKakaoLocalPage(query, activeNear, { throwOnError: true, signal }),
     enabled: requestEnabled && !browseMode,

@@ -64,6 +64,7 @@ export async function submitCourse(params: {
   description: string;
   distance: number;
   duration: number;
+  difficulty: 'easy' | 'medium' | 'hard';
   coordinates: [number, number][];
   tags?: string[];
 }): Promise<void> {
@@ -74,6 +75,7 @@ export async function submitCourse(params: {
     description: params.description,
     distance: params.distance,
     duration: params.duration,
+    difficulty: params.difficulty,
     coordinates: params.coordinates,
     tags: params.tags ?? [],
     created_by: user.id,

@@ -8,15 +8,14 @@ import {
   FlatList,
   RefreshControl,
 } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import EmptyState from '@/components/ui/EmptyState';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { CATEGORIES } from '@/constants/categories';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fetchFavoritePlaces, type GeneralFavorite } from '@/lib/api/favorites';
-import { useAuthStore } from '@/stores/useAuthStore';
+import type { GeneralFavorite } from '@/lib/api/favorites';
+import { useFavoritePlaces } from '@/hooks/useFavorites';
 import { focusPlaceOnMap, focusPointOnMap } from '@/lib/mapFocus';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import type { Place } from '@/types';
@@ -41,12 +40,7 @@ function PlaceSkeletonList() {
 export default function FavoritesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const user = useAuthStore((s) => s.user);
-
-  const { data: places, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['favorites', 'places', user?.id],
-    queryFn: fetchFavoritePlaces,
-  });
+  const { data: places, isLoading, refetch, isRefetching } = useFavoritePlaces();
 
   // 등록 장소와 일반 장소를 한 목록으로 — 사용자에겐 둘 다 "내 즐겨찾기"다.
   // 일반 장소는 카테고리·평점이 없어 뱃지 자리를 중립 라벨로 채운다.

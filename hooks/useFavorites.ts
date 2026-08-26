@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import {
   fetchFavorites,
+  fetchFavoritePlaces,
   findGeneralFavorite,
   setFavorite,
   setGeneralFavorite,
@@ -11,14 +12,24 @@ import {
 } from '@/lib/api/favorites';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { track } from '@/lib/analytics';
+import { queryKeys } from '@/lib/queryKeys';
 
 export function useFavorites() {
   const user = useAuthStore((s) => s.user);
 
   return useQuery({
-    queryKey: ['favorites', user?.id],
+    queryKey: queryKeys.favorites.summary(user?.id),
     queryFn: fetchFavorites,
     enabled: !!user,
+  });
+}
+
+export function useFavoritePlaces(enabled = true) {
+  const user = useAuthStore((state) => state.user);
+  return useQuery({
+    queryKey: queryKeys.favorites.places(user?.id),
+    queryFn: fetchFavoritePlaces,
+    enabled: enabled && !!user,
   });
 }
 
@@ -32,7 +43,7 @@ export function useToggleFavorite() {
     // 탭 즉시 캐시를 토글해 별 채움이 팝 애니메이션과 동시에 일어나게 한다.
     // 실패하면 이전 목록으로 롤백하고, 성공 여부와 무관하게 서버 기준으로 재검증.
     onMutate: async ({ placeId, on }) => {
-      const key = ['favorites', user?.id];
+      const key = queryKeys.favorites.summary(user?.id);
       await queryClient.cancelQueries({ queryKey: key });
       const prev = queryClient.getQueryData<Favorites>(key);
       const current = prev ?? { placeIds: [], general: [] };
@@ -53,7 +64,7 @@ export function useToggleFavorite() {
       track.favoriteToggled({ on, place_id: placeId, source: 'map_marker' });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['favorites'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.favorites.all });
     },
   });
 }
@@ -65,7 +76,7 @@ export function useToggleGeneralFavorite() {
   return useMutation({
     mutationFn: setGeneralFavorite,
     onMutate: async ({ place, on }: GeneralFavoriteChange) => {
-      const key = ['favorites', user?.id];
+      const key = queryKeys.favorites.summary(user?.id);
       await queryClient.cancelQueries({ queryKey: key });
       const prev = queryClient.getQueryData<Favorites>(key);
       const current = prev ?? { placeIds: [], general: [] };
@@ -94,7 +105,7 @@ export function useToggleGeneralFavorite() {
       else queryClient.removeQueries({ queryKey: context.key, exact: true });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['favorites'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.favorites.all });
       queryClient.invalidateQueries({ queryKey: ['general-place'] });
     },
   });

@@ -35,6 +35,9 @@
 핵심 결정:
 - **상태는 두 갈래** — 전역 UI·세션 상태는 zustand(`stores/`), 서버에서 온 데이터는 react-query(`hooks/`)가 캐싱한다. 둘을 섞지 않는다.
 - **백엔드는 Supabase 단일** — 인증·DB·스토리지를 한곳에서. 공간 질의는 PostGIS RPC로 위임.
+- **DB 타입은 운영 스키마에서 생성** — `lib/database.types.ts`를 `createClient<Database>`에
+  연결하고 RPC·테이블 계약 변경 뒤 `npm run types:supabase`로 함께 갱신한다. JSON 반환 RPC는
+  런타임 형태를 확인한 뒤 앱 모델로 변환하며 `any`로 직접 단정하지 않는다.
 - **지도/지오코딩은 네이버, 경로는 카카오(이륜차) 우선**, 턴바이턴 내비는 앱 안 KNSDK 길안내 화면으로 제공한다.
 
 ---

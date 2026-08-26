@@ -51,7 +51,7 @@ export async function fetchBikePlaceMatches(
     chunks.map((chunk) =>
       supabase.rpc('bike_place_matches_v1', {
         p_place_ids: chunk,
-        p_bike_category: bikeCategory ?? null,
+        p_bike_category: bikeCategory ?? undefined,
       }),
     ),
   );
