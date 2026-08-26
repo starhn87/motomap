@@ -86,6 +86,23 @@ function syncSentryUser(user: User | null) {
   }
 }
 
+/**
+ * 소셜 identity를 연결하면 Supabase Auth의 avatar_url이 새 제공자 사진으로
+ * 바뀔 수 있다. 사용자가 모토맵에 저장한 프로필 사진이 있으면 그것을 정본으로
+ * 유지하고, 저장된 사진이 없을 때만 Auth 제공자 사진을 그대로 쓴다.
+ */
+function withProfileAvatar(user: User, profileAvatar: unknown): User {
+  const avatarUrl = typeof profileAvatar === 'string' ? profileAvatar.trim() : '';
+  if (!avatarUrl || user.user_metadata?.avatar_url === avatarUrl) return user;
+  return {
+    ...user,
+    user_metadata: {
+      ...user.user_metadata,
+      avatar_url: avatarUrl,
+    },
+  };
+}
+
 async function resolveSession(
   session: Session | null,
   set: (partial: Partial<AuthStore>) => void,
@@ -114,7 +131,7 @@ async function resolveSession(
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('onboarding_completed_at')
+    .select('onboarding_completed_at, avatar_url')
     .eq('id', session.user.id)
     .maybeSingle();
 
@@ -134,10 +151,14 @@ async function resolveSession(
   await confirmAuthStorageMigration();
 
   const complete = Boolean(data?.onboarding_completed_at);
-  if (complete) identifyUser(session.user.id);
+  const resolvedUser = withProfileAvatar(session.user, data?.avatar_url);
+  const resolvedSession = resolvedUser === session.user
+    ? session
+    : { ...session, user: resolvedUser };
+  if (complete) identifyUser(resolvedUser.id);
   set({
-    session,
-    user: complete ? session.user : null,
+    session: resolvedSession,
+    user: complete ? resolvedUser : null,
     status: complete ? 'signed_in' : 'needs_onboarding',
     restoreError: null,
   });
@@ -169,8 +190,19 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           current.status === 'signed_in' &&
           current.user?.id === session.user.id
         ) {
-          syncSentryUser(session.user);
-          set({ session, user: session.user });
+          // 토큰 갱신이 소셜 제공자 메타데이터를 다시 보내더라도 현재 세션에
+          // 반영해 둔 모토맵 프로필 사진을 덮어쓰지 않는다.
+          const refreshedUser = withProfileAvatar(
+            session.user,
+            current.user.user_metadata?.avatar_url,
+          );
+          syncSentryUser(refreshedUser);
+          set({
+            session: refreshedUser === session.user
+              ? session
+              : { ...session, user: refreshedUser },
+            user: refreshedUser,
+          });
           return;
         }
         void resolveSession(session, set).catch((error) => {
