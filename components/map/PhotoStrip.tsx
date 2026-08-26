@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { FlatList } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
 
 import ImageViewer from '@/components/ui/ImageViewer';
@@ -23,37 +23,43 @@ export default function PhotoStrip({
   bleed?: number;
 }) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const photoUrls = useMemo(() => items.map((item) => item.url), [items]);
 
   if (items.length === 0) return null;
 
   return (
     <>
-      <ScrollView
+      <FlatList
+        data={items}
         horizontal
         showsHorizontalScrollIndicator={false}
         style={bleed > 0 && { marginHorizontal: -bleed }}
-        contentContainerStyle={bleed > 0 && { paddingHorizontal: bleed }}>
-        <View style={styles.row}>
-          {items.map((item, i) => (
-            <Pressable
-              key={`${item.url}-${i}`}
-              accessibilityLabel={`장소 사진 ${i + 1} 확대`}
-              accessibilityRole="button"
-              onPress={() => setViewerIndex(i)}
-              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-              <Image
-                source={{ uri: item.url }}
-                style={[styles.photo, { width: size, height: size }]}
-                transition={100}
-              />
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
+        contentContainerStyle={bleed > 0 && { paddingHorizontal: bleed }}
+        keyExtractor={(item, index) => `${item.url}-${index}`}
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={3}
+        ItemSeparatorComponent={PhotoSeparator}
+        renderItem={({ item, index }) => (
+          <Pressable
+            accessibilityLabel={`장소 사진 ${index + 1} 확대`}
+            accessibilityRole="button"
+            onPress={() => setViewerIndex(index)}
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+            <Image
+              source={{ uri: item.url }}
+              style={[styles.photo, { width: size, height: size }]}
+              cachePolicy="memory-disk"
+              recyclingKey={item.url}
+              transition={100}
+            />
+          </Pressable>
+        )}
+      />
 
       <ImageViewer
         visible={viewerIndex !== null}
-        photos={items.map((item) => item.url)}
+        photos={photoUrls}
         initialIndex={viewerIndex ?? 0}
         onClose={() => setViewerIndex(null)}
       />
@@ -62,11 +68,14 @@ export default function PhotoStrip({
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    gap: 8,
-  },
   photo: {
     borderRadius: 12,
   },
+  separator: {
+    width: 8,
+  },
 });
+
+function PhotoSeparator() {
+  return <View style={styles.separator} />;
+}

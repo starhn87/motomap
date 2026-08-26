@@ -11,7 +11,7 @@ import {
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { Image as RNImage } from 'expo-image';
 import { TouchableOpacity } from 'react-native-gesture-handler';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -103,7 +103,7 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
     hasNextPage,
     isFetchingNextPage,
   } = useReviews(target);
-  const reviews = reviewPages?.pages.flat();
+  const reviews = useMemo(() => reviewPages?.pages.flat(), [reviewPages]);
   const { mutate: toggleLike } = useToggleReviewLike(target);
 
   // 내 리뷰에서 진입한 강조 대상이 아직 안 실린 페이지에 있으면 찾을 때까지 더 받는다
@@ -126,17 +126,27 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
   const [reportingId, setReportingId] = useState<string | null>(null);
   const [viewer, setViewer] = useState<ViewerState | null>(null);
 
-  const visibleReviews = reviews?.filter((r) => !blockedIds.has(r.userId));
-  const reviewPhotoItems: ReviewPhotoItem[] =
-    visibleReviews?.flatMap((review) =>
-      review.photos.map((url, indexInReview) => ({ url, review, indexInReview })),
-    ) ?? [];
+  const visibleReviews = useMemo(
+    () => reviews?.filter((review) => !blockedIds.has(review.userId)),
+    [reviews, blockedIds],
+  );
+  const reviewPhotoItems = useMemo<ReviewPhotoItem[]>(
+    () =>
+      visibleReviews?.flatMap((review) =>
+        review.photos.map((url, indexInReview) => ({ url, review, indexInReview })),
+      ) ?? [],
+    [visibleReviews],
+  );
   const viewerReviewItems = viewer?.kind === 'reviews' ? viewer.items : null;
-  const viewerPhotos = viewerReviewItems
-    ? viewerReviewItems.map((item) => item.url)
-    : viewer?.kind === 'avatar'
-      ? viewer.photos
-      : [];
+  const viewerPhotos = useMemo(
+    () =>
+      viewerReviewItems
+        ? viewerReviewItems.map((item) => item.url)
+        : viewer?.kind === 'avatar'
+          ? viewer.photos
+          : [],
+    [viewer, viewerReviewItems],
+  );
 
   if (isLoading) {
     return <ReviewListSkeleton />;

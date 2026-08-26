@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import CloseIcon from '@/components/ui/CloseIcon';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, {
   Extrapolation,
   FadeIn,
@@ -129,9 +129,10 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
     ? ({ kind: 'general', id: generalPlaceId } as const)
     : null;
   const { data: reviewPages, isLoading: reviewsLoading } = useReviews(reviewTarget);
-  const reviews = reviewPages?.pages.flat() ?? [];
-  const photoItems = reviews.flatMap((review) =>
-    review.photos.map((url) => ({ url })),
+  const reviews = useMemo(() => reviewPages?.pages.flat() ?? [], [reviewPages]);
+  const photoItems = useMemo(
+    () => reviews.flatMap((review) => review.photos.map((url) => ({ url }))),
+    [reviews],
   );
 
   const { data: gas, isLoading: gasLoading } = useGasPricesAt(place);

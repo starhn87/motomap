@@ -21,7 +21,7 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 import BottomSheet, {
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
-import { useRef, useEffect, useState, useCallback, memo } from 'react';
+import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react';
 
 import { placeWebUrl } from '@/constants/app';
 import { formatWeek } from '@/lib/hours';
@@ -116,7 +116,7 @@ function PlaceBottomSheet({
   const { data: latestPlace } = usePlace(place?.id ?? null);
   const reviewTarget = place ? ({ kind: 'place', id: place.id } as const) : null;
   const { data: reviewPages, isLoading: reviewsLoading } = useReviews(reviewTarget);
-  const reviews = reviewPages?.pages.flat();
+  const reviews = useMemo(() => reviewPages?.pages.flat(), [reviewPages]);
   const displayPlace = latestPlace ?? place;
   const operationalStatus = usePlaceOperationalStatus(displayPlace?.id);
   const isFavorite = useIsFavorite(place?.id ?? '');
@@ -140,10 +140,13 @@ function PlaceBottomSheet({
         : null;
 
   // 장소 자체 사진과 리뷰 사진을 한곳에서 훑되 확대 화면에는 사진만 보여준다.
-  const photoItems = [
-    ...(displayPlace?.photos ?? []).map((url) => ({ url })),
-    ...(reviews ?? []).flatMap((review) => review.photos.map((url) => ({ url }))),
-  ];
+  const photoItems = useMemo(
+    () => [
+      ...(displayPlace?.photos ?? []).map((url) => ({ url })),
+      ...(reviews ?? []).flatMap((review) => review.photos.map((url) => ({ url }))),
+    ],
+    [displayPlace?.photos, reviews],
+  );
   const { mutateAsync: toggleFav, isPending: favoritePending } = useToggleFavorite();
 
   // 하트 팝 — 즐겨찾기를 추가할 때만 커졌다 돌아온다 (해제 시엔 효과 없음)

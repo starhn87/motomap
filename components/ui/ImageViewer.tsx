@@ -182,18 +182,27 @@ export default function ImageViewer({
         <Animated.View style={[styles.backdrop, backdropStyle]} />
         <GestureDetector gesture={gesture}>
           <Animated.View style={[styles.strip, { width: width * photos.length }, stripStyle]}>
-            {photos.map((uri, i) => (
-              <View key={`${uri}-${i}`} style={[styles.page, { width, height }]}>
-                <Animated.View style={[{ width, height }, imageStyle]}>
-                  <Image
-                    source={{ uri }}
-                    style={{ width, height }}
-                    contentFit="contain"
-                    transition={150}
-                  />
-                </Animated.View>
-              </View>
-            ))}
+            {photos.map((uri, photoIndex) => {
+              // 제스처 계산용 페이지 폭은 전부 유지하되 원본 이미지는 현재 장과
+              // 앞뒤 한 장만 마운트한다. 리뷰를 더 불러와도 메모리가 선형 증가하지 않는다.
+              const shouldRender = Math.abs(photoIndex - index) <= 1;
+              return (
+                <View key={`${uri}-${photoIndex}`} style={[styles.page, { width, height }]}>
+                  {shouldRender && (
+                    <Animated.View style={[{ width, height }, imageStyle]}>
+                      <Image
+                        source={{ uri }}
+                        style={{ width, height }}
+                        contentFit="contain"
+                        cachePolicy="memory-disk"
+                        recyclingKey={uri}
+                        transition={150}
+                      />
+                    </Animated.View>
+                  )}
+                </View>
+              );
+            })}
           </Animated.View>
         </GestureDetector>
 
