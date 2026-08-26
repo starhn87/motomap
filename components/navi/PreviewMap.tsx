@@ -16,7 +16,7 @@ import { latLngsFromFlat, type BikeRoute } from '@/modules/kakao-navi';
 import type { NavTarget } from '@/lib/navigation';
 import type { TrafficPart } from '@/lib/api/directions';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
-import { usePlaces } from '@/hooks/usePlaces';
+import { isInMapRenderWindow, usePlaces, type MapCenter } from '@/hooks/usePlaces';
 import { useFavorites } from '@/hooks/useFavorites';
 import {
   VIA_MARKERS,
@@ -90,16 +90,14 @@ export default function PreviewMap({
   const mapRef = useRef<NaverMapViewRef>(null);
 
   // 경로 주변의 등록 장소·즐겨찾기 — "가는 길에 들를 곳"을 미리보기에서 보여준다.
-  // 탭하면 시트가 미리보기 위로 열리고, 닫으면 경로·옵션 상태 그대로 돌아온다.
-  const { data: allPlaces } = usePlaces(null, null, true);
+  // 첫 프레임도 목적지 주변만 조회하고, 카메라가 멈추면 실제 화면 창으로 갱신한다.
+  const [mapCenter, setMapCenter] = useState<MapCenter>(() => ({
+    latitude: goal.latitude,
+    longitude: goal.longitude,
+    zoom: 12,
+  }));
+  const { data: nearbyPlaces } = usePlaces(null, mapCenter, true);
   const { data: favorites } = useFavorites();
-  // 화면에 보이는 영역(SW + delta). 카메라가 멈출 때만 갱신된다
-  const [viewport, setViewport] = useState<{
-    latitude: number;
-    longitude: number;
-    latitudeDelta: number;
-    longitudeDelta: number;
-  } | null>(null);
 
   // 폴리라인은 수천 좌표라 리렌더마다 새로 만들면 네이티브 브리지로 통째로
   // 재전송된다 — 경로가 바뀔 때만 변환하고, 혼잡도 색 경로가 있으면 단색용
@@ -124,25 +122,18 @@ export default function PreviewMap({
   // 화면에 보이는 장소·즐겨찾기만 그린다 — 전량을 뿌리면 전국 뷰에서 마커가
   // 수백 개가 되고, 뷰포트 기준이면 카메라가 멈출 때만 다시 거른다.
   const visibleOnMap = useMemo(() => {
-    if (!viewport) return { places: [], favs: [] };
-    // 가장자리 걸친 마커가 뚝 사라지지 않게 10% 여유
-    const latPad = viewport.latitudeDelta * 0.1;
-    const lngPad = viewport.longitudeDelta * 0.1;
-    const south = viewport.latitude - latPad;
-    const north = viewport.latitude + viewport.latitudeDelta + latPad;
-    const west = viewport.longitude - lngPad;
-    const east = viewport.longitude + viewport.longitudeDelta + lngPad;
-    const inView = (lat: number, lng: number) =>
-      lat >= south && lat <= north && lng >= west && lng <= east;
-
     // 등록 장소·즐겨찾기는 경로 지점(출발·경유·도착)이어도 저 자신의 마커로
     // 보인다 — 정체성은 이 레이어가, 역할은 위에 겹치는 출발 도트·경유지
     // 번호(중앙 앵커라 핀 발치에 얹힌다)가 맡는다. 예전엔 겹침을 피해 뺐는데,
     // 그러면 도착지가 즐겨찾기한 카페여도 중립 핀으로만 보였다(실사용 피드백).
-    const places = (allPlaces ?? []).filter((pl) => inView(pl.latitude, pl.longitude));
-    const favs = (favorites?.general ?? []).filter((f) => inView(f.latitude, f.longitude));
+    const places = (nearbyPlaces ?? []).filter((place) =>
+      isInMapRenderWindow(place, mapCenter),
+    );
+    const favs = (favorites?.general ?? []).filter((favorite) =>
+      isInMapRenderWindow(favorite, mapCenter),
+    );
     return { places, favs };
-  }, [viewport, allPlaces, favorites]);
+  }, [nearbyPlaces, favorites, mapCenter]);
   const favoriteIds = useMemo(() => new Set(favorites?.placeIds ?? []), [favorites]);
 
   // 도착지 자리에 등록 장소·즐겨찾기 마커가 이미 있으면 슬레이트 핀은 접는다 —
@@ -275,7 +266,14 @@ export default function PreviewMap({
       isScrollGesturesEnabled
       isRotateGesturesEnabled
       isTiltGesturesEnabled
-      onCameraIdle={(e) => setViewport(e.region)}
+      onCameraIdle={(e) =>
+        setMapCenter({
+          latitude: e.latitude,
+          longitude: e.longitude,
+          zoom: e.zoom ?? 12,
+          region: e.region,
+        })
+      }
       onTapSymbol={handleSymbolTap}
       initialCamera={{ latitude: goal.latitude, longitude: goal.longitude, zoom: 12 }}>
       {start && (
