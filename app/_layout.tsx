@@ -1,4 +1,3 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { initializeKakaoSDK } from '@react-native-kakao/core';
 import { registerGuideEvents } from '@/lib/guideEvents';
 import { checkStartupNotices } from '@/lib/updateCheck';
@@ -67,7 +66,7 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync();
 
 function RootLayout() {
-  const [loaded, error] = useFonts(FontAwesome.font);
+  const [loaded, error] = useFonts(Ionicons.font);
 
   useEffect(() => {
     if (error) throw error;

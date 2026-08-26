@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Modal, Pressable } from 'react-native';
-import Feather from '@expo/vector-icons/Feather';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -25,7 +25,7 @@ export default function WarningDetailModal({
           style={[styles.card, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
           onPress={() => {}}>
           <View style={styles.titleRow}>
-            <Feather name="alert-triangle" size={17} color={semantic.warning} />
+            <Ionicons name="warning-outline" size={17} color={semantic.warning} />
             <Text style={[styles.title, { color: colors.text }]}>발효 중인 기상특보</Text>
           </View>
 

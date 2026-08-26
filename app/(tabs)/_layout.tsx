@@ -1,7 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import Feather from '@expo/vector-icons/Feather';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -76,7 +75,7 @@ function NotificationBell() {
       onPress={() => router.push('/notifications')}
       hitSlop={8}
       style={bellStyles.button}>
-      <Feather name="bell" size={20} color={colors.text} />
+      <Ionicons name="notifications-outline" size={20} color={colors.text} />
       {unreadCount > 0 && (
         <View style={bellStyles.badge}>
           <Text style={bellStyles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -115,7 +114,7 @@ function TabBarIcon({
   color,
   scale,
 }: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
+  name: React.ComponentProps<typeof Ionicons>['name'];
   color: string;
   scale: SharedValue<number>;
 }) {
@@ -125,7 +124,7 @@ function TabBarIcon({
 
   return (
     <Animated.View style={animatedStyle}>
-      <FontAwesome size={24} name={name} color={color} />
+      <Ionicons size={24} name={name} color={color} />
     </Animated.View>
   );
 }
@@ -187,7 +186,7 @@ export default function TabLayout() {
         options={{
           title: '제보',
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="plus-circle" color={color} scale={submitTab.scale} />
+            <TabBarIcon name="add-circle" color={color} scale={submitTab.scale} />
           ),
           tabBarButton: (props) => <TabButton tab={submitTab} props={props} />,
         }}
@@ -210,7 +209,7 @@ export default function TabLayout() {
             borderRadius: 8.5,
           },
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="user" color={color} scale={profileTab.scale} />
+            <TabBarIcon name="person" color={color} scale={profileTab.scale} />
           ),
           tabBarButton: (props) => <TabButton tab={profileTab} props={props} />,
         }}

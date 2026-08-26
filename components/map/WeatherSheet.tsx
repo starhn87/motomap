@@ -4,7 +4,7 @@ import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/botto
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 
 import { useQuery } from '@tanstack/react-query';
-import Feather from '@expo/vector-icons/Feather';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { coordToRegion } from '@/lib/api/kakaoLocal';
 import { fetchAirQuality, AIR_GRADE_LABEL, AIR_GRADE_COLOR } from '@/lib/api/air';
 import { sunEvents, type SunEvent } from '@/lib/sun';
@@ -38,7 +38,7 @@ function SunGlyph({ type, lineColor, arrowColor }: { type: 'sunrise' | 'sunset';
   const sunColor = type === 'sunrise' ? '#FBBF24' : '#F97316';
   return (
     <View style={glyph.wrap}>
-      <Feather
+      <Ionicons
         name={type === 'sunrise' ? 'arrow-up' : 'arrow-down'}
         size={13}
         color={arrowColor}
@@ -285,8 +285,8 @@ export default function WeatherSheet({
                       opacity: pressed ? 0.65 : 1,
                     },
                   ]}>
-                  <Feather
-                    name="alert-triangle"
+                  <Ionicons
+                    name="warning-outline"
                     size={12}
                     color={topWarning.level === '경보' ? semantic.danger : semantic.warning}
                   />
