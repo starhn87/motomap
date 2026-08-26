@@ -2,10 +2,18 @@ import { supabase } from '@/lib/supabase';
 import { approxMeters } from '@/lib/distance';
 import type { Place, RidingGuideSearchResult } from '@/types';
 import { rowToPlace, type PlaceRow } from '@/lib/api/places';
+import {
+  searchKakaoLocal,
+  type KakaoLocalResult,
+} from '@/lib/api/kakaoLocal';
 
 export interface SearchResults {
   places: Place[];
   ridingGuides: RidingGuideSearchResult[];
+}
+
+export interface UnifiedPlaceSearchResults extends SearchResults {
+  kakaoOnly: KakaoLocalResult[];
 }
 
 export const SEARCH_RADIUS_M = 20_000;
@@ -64,12 +72,14 @@ export async function searchAll(
   near?: { latitude: number; longitude: number },
   /** true면 반경 밖 결과로 폴백하지 않는다 — 결과 지도의 '이 지역' 범위용 */
   nearOnly = false,
+  signal?: AbortSignal,
 ): Promise<SearchResults> {
   const trimmed = query.trim();
   // 최근 검색의 일반 장소를 등록 장소로 승격하는 1회성 전체 장소 조회 경로. 실제
   // 검색은 2자 이상에서만 실행되므로 아래 RPC의 결과 상한과 분리한다.
   if (!trimmed && !nearOnly) {
-    const placesRes = await supabase.rpc('all_places', { category_filter: null });
+    const request = supabase.rpc('all_places', { category_filter: null });
+    const placesRes = await (signal ? request.abortSignal(signal) : request);
     if (placesRes.error) throw placesRes.error;
     return {
       places: (placesRes.data ?? []).map((row: PlaceRow) => rowToPlace(row)),
@@ -85,9 +95,14 @@ export async function searchAll(
     p_radius_meters: SEARCH_RADIUS_M,
     p_near_only: nearOnly,
   };
+  const placesRequest = supabase.rpc('search_places_v2', { ...sharedParams, p_limit: 50 });
+  const ridingGuidesRequest = supabase.rpc('search_riding_guides_v1', {
+    ...sharedParams,
+    p_limit: 30,
+  });
   const [placesRes, ridingGuidesRes] = await Promise.all([
-    supabase.rpc('search_places_v2', { ...sharedParams, p_limit: 50 }),
-    supabase.rpc('search_riding_guides_v1', { ...sharedParams, p_limit: 30 }),
+    signal ? placesRequest.abortSignal(signal) : placesRequest,
+    signal ? ridingGuidesRequest.abortSignal(signal) : ridingGuidesRequest,
   ]);
   if (placesRes.error) throw placesRes.error;
   if (ridingGuidesRes.error) throw ridingGuidesRes.error;
@@ -106,4 +121,27 @@ export async function searchAll(
       primaryLongitude: row.primary_longitude,
     })),
   };
+}
+
+/** 등록 장소·라이딩 추천·카카오 일반 장소를 같은 검색 요청 생명주기로 묶는다. */
+export async function searchUnifiedPlaces(
+  query: string,
+  near?: { latitude: number; longitude: number },
+  options: { signal?: AbortSignal; nearOnly?: boolean } = {},
+): Promise<UnifiedPlaceSearchResults> {
+  const [registered, kakao] = await Promise.all([
+    searchAll(query, near, options.nearOnly, options.signal),
+    searchKakaoLocal(query, near, { signal: options.signal }),
+  ]);
+  const kakaoOnly = kakao.filter(
+    (result) =>
+      !registered.places.some((place) =>
+        isSamePlace(place, {
+          name: result.placeName,
+          latitude: result.latitude,
+          longitude: result.longitude,
+        }),
+      ),
+  );
+  return { ...registered, kakaoOnly };
 }

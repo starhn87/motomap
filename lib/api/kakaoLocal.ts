@@ -54,7 +54,7 @@ export function findKakaoLocalMatch(
   return veryClose.length === 1 ? veryClose[0].result : undefined;
 }
 
-type KakaoSearchOptions = { throwOnError?: boolean };
+type KakaoSearchOptions = { throwOnError?: boolean; signal?: AbortSignal };
 
 // 카카오 로컬 키워드 검색 — 상호·주소로 장소를 찾아 좌표까지 반환한다.
 // 네이버 지오코딩(정확한 주소만)과 달리 상호로도 검색되어 제보 UX에 적합.
@@ -89,6 +89,7 @@ export async function searchKakaoLocalPage(
   try {
     const res = await fetch(url, {
       headers: { Authorization: `KakaoAK ${REST_KEY}` },
+      signal: options.signal,
     });
     if (!res.ok) {
       if (options.throwOnError) throw new Error(`카카오 장소 검색 실패 (${res.status})`);
@@ -112,6 +113,8 @@ export async function searchKakaoLocalPage(
       isEnd: data.meta?.is_end === true,
     };
   } catch (error) {
+    // React Query가 취소한 검색을 정상적인 0건으로 캐시하지 않는다.
+    if (options.signal?.aborted) throw error;
     if (options.throwOnError) throw error;
     return { results: [], totalCount: 0, pageableCount: 0, isEnd: false };
   }

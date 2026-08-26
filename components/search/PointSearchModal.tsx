@@ -19,9 +19,9 @@ import { CATEGORIES } from '@/constants/categories';
 import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
-import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import type { KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { getSearchAnchor } from '@/hooks/useSearchAnchor';
-import { isSamePlace, searchAll } from '@/lib/api/search';
+import { searchUnifiedPlaces } from '@/lib/api/search';
 import type { NavTarget } from '@/lib/navigation';
 import type { Place } from '@/types';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
@@ -72,6 +72,7 @@ export default function PointSearchModal({
   const [results, setResults] = useState<ResultItem[]>([]);
   const [searching, setSearching] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestAbort = useRef<AbortController | null>(null);
   const requestSequence = useRef(0);
   const activeSearch = useRef<{ query: string; id: string } | null>(null);
 
@@ -119,6 +120,7 @@ export default function PointSearchModal({
   useEffect(() => {
     if (!visible) {
       if (debounce.current) clearTimeout(debounce.current);
+      requestAbort.current?.abort();
       setQuery('');
       setResults([]);
       setShowFavList(false);
@@ -131,6 +133,7 @@ export default function PointSearchModal({
   const handleChange = (text: string) => {
     setQuery(text);
     const sequence = ++requestSequence.current;
+    requestAbort.current?.abort();
     if (text.trim()) setShowFavList(false); // 검색을 시작하면 즐겨찾기 목록은 접는다
     if (debounce.current) clearTimeout(debounce.current);
     if (!text.trim()) {
@@ -142,19 +145,16 @@ export default function PointSearchModal({
     debounce.current = setTimeout(async () => {
       const session = getSearchSession(text);
       setSearching(true);
+      const controller = new AbortController();
+      requestAbort.current = controller;
       try {
         // 지금 보는 지도(없으면 내 위치) 주변 우선 — 통합 검색과 같은 기준
         const { near } = getSearchAnchor();
-        const [places, kakao] = await Promise.all([
-          searchAll(text, near).then((r) => r.places).catch(() => [] as Place[]),
-          searchKakaoLocal(text, near).catch(() => [] as KakaoLocalResult[]),
-        ]);
-        const kakaoOnly = kakao.filter(
-          (k) =>
-            !places.some((p) =>
-              isSamePlace(p, { name: k.placeName, latitude: k.latitude, longitude: k.longitude }),
-            ),
-        );
+        const unified = await searchUnifiedPlaces(text, near, {
+          signal: controller.signal,
+        });
+        const places = unified.places;
+        const kakaoOnly = unified.kakaoOnly;
         if (sequence !== requestSequence.current) return;
         setResults([
           ...places.map((place) => ({ kind: 'place' as const, place })),
@@ -178,6 +178,9 @@ export default function PointSearchModal({
             kakao_count: kakaoOnly.length,
           });
         }
+      } catch {
+        if (controller.signal.aborted) return;
+        if (sequence === requestSequence.current) setResults([]);
       } finally {
         if (sequence === requestSequence.current) setSearching(false);
       }

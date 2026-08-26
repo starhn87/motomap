@@ -171,12 +171,13 @@ export default function SearchResultsScreen() {
   const requestEnabled = !!activeNear && (browseMode || !!query.trim());
   const resultsQuery = useQuery({
     queryKey: ['search', searchQuery, nearKey, browseMode, areaSearchRevision],
-    queryFn: () => searchAll(searchQuery, activeNear, true),
+    queryFn: ({ signal }) => searchAll(searchQuery, activeNear, true, signal),
     enabled: requestEnabled,
   });
   const kakaoQuery = useQuery({
     queryKey: ['search-kakao', query, nearKey, areaSearchRevision],
-    queryFn: () => searchKakaoLocalPage(query, activeNear, { throwOnError: true }),
+    queryFn: ({ signal }) =>
+      searchKakaoLocalPage(query, activeNear, { throwOnError: true, signal }),
     enabled: requestEnabled && !browseMode,
   });
   const results = resultsQuery.data;

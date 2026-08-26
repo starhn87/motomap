@@ -31,7 +31,7 @@ import PointSearchModal, { type Point } from '@/components/search/PointSearchMod
 import { fetchFavoritePlaces } from '@/lib/api/favorites';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import type { KakaoLocalResult } from '@/lib/api/kakaoLocal';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { openNavigation } from '@/lib/navigation';
 import { toast } from '@/lib/toast';
@@ -51,6 +51,7 @@ import {
   type RecentSearch,
 } from '@/lib/recentSearches';
 import type { Place, RidingGuideSearchResult } from '@/types';
+import { useUnifiedPlaceSearch } from '@/hooks/useUnifiedPlaceSearch';
 
 // 검색 전용 화면 — 입력 전에는 최근 검색·즐겨찾기·추천 목적지를 모아 보여주고,
 // 2자 이상 입력하면 통합 검색 결과로 전환된다. 장소 선택은 지도 탭의
@@ -210,33 +211,25 @@ export default function SearchScreen() {
 
   const trimmed = query.trim();
   const searching = trimmed.length >= 2;
+  // 입력이 잠시 안정된 검색어만 서버로 보낸다. 이전 요청은 React Query의
+  // AbortSignal로 취소되어 타이핑 중간 문자열이 결과 캐시에 남지 않는다.
+  const { near, key: nearKey } = useSearchAnchor();
+  const unifiedSearch = useUnifiedPlaceSearch({
+    query: trimmed,
+    near,
+    nearKey,
+    enabled: searching,
+  });
+  const searchTerm = unifiedSearch.debouncedQuery;
   const inlineSearchId = useMemo(
-    () => (searching ? createAnalyticsId('search') : null),
-    [searching, trimmed],
+    () => (searchTerm.length >= 2 ? createAnalyticsId('search') : null),
+    [searchTerm],
   );
 
   // 지금 보는 지도 주변을 우선 — 같은 "강릉 카페"라도 보고 있는 지역 것이 먼저
-  const { near, key: nearKey } = useSearchAnchor();
-  const { data: results, isLoading } = useQuery({
-    queryKey: ['search', trimmed, nearKey],
-    queryFn: () => searchAll(trimmed, near),
-    enabled: searching,
-  });
-
-  // "일반 장소" — DB(라이더 특화 장소)에 없는 곳도 카카오 로컬로 찾아 목적지로 쓸 수 있게
-  const { data: kakaoResults } = useQuery({
-    queryKey: ['search-kakao', trimmed, nearKey],
-    queryFn: () => searchKakaoLocal(trimmed, near),
-    enabled: searching,
-  });
-
-  // 이미 등록된 장소는 일반 장소 섹션에서 뺀다
-  const kakaoOnly = (kakaoResults ?? []).filter(
-    (k) =>
-      !(results?.places ?? []).some((p) =>
-        isSamePlace(p, { name: k.placeName, latitude: k.latitude, longitude: k.longitude }),
-      ),
-  );
+  const results = unifiedSearch.data;
+  const kakaoOnly = results?.kakaoOnly ?? [];
+  const isLoading = unifiedSearch.isSearching;
 
   const { data: favorites, isLoading: favoritesLoading } = useQuery({
     queryKey: ['favorites', 'places', user?.id],
@@ -256,7 +249,7 @@ export default function SearchScreen() {
   // 못 찾은 경우다. 함께 싣는 kakao_count 로 오타와 "제보할 곳"을 가른다.
   const reportedResults = useRef(new Set<string>());
   useEffect(() => {
-    if (!searching || !inlineSearchId || isLoading || kakaoResults === undefined) return;
+    if (!searching || !inlineSearchId || isLoading || !results) return;
     const registered = results?.places.length ?? 0;
     const ridingGuides = results?.ridingGuides.length ?? 0;
     if (reportedResults.current.has(inlineSearchId)) return;
@@ -267,7 +260,7 @@ export default function SearchScreen() {
       track.searchResultsViewed({
         search_id: inlineSearchId,
         source: 'search_screen',
-        query: trimmed,
+        query: searchTerm,
         registered_count: registered,
         kakao_count: kakaoOnly.length,
         course_count: 0,
@@ -278,7 +271,7 @@ export default function SearchScreen() {
         track.searchNoResults({
           search_id: inlineSearchId,
           source: 'search_screen',
-          query: trimmed,
+          query: searchTerm,
           kakao_count: kakaoOnly.length,
         });
       }
@@ -288,11 +281,11 @@ export default function SearchScreen() {
     searching,
     inlineSearchId,
     isLoading,
-    kakaoResults,
+    results,
     results?.places.length,
     results?.ridingGuides.length,
     kakaoOnly.length,
-    trimmed,
+    searchTerm,
     near,
   ]);
 
@@ -394,7 +387,7 @@ export default function SearchScreen() {
     router.push({
       pathname: '/search-results' as any,
       params: {
-        query: trimmed,
+        query: searchTerm,
         searchId: inlineSearchId,
         source: 'search_screen',
         browse: '1',
@@ -497,7 +490,7 @@ export default function SearchScreen() {
                     <View style={styles.rowInfo}>
                       <Text style={[styles.browseAreaTitle, { color: colors.text }]}>이 지역 둘러보기</Text>
                       <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
-                        {trimmed} 주변의 장소와 라이딩 추천을 모아볼게요
+                        {searchTerm} 주변의 장소와 라이딩 추천을 모아볼게요
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={colors.tint} />
