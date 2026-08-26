@@ -243,7 +243,7 @@ function LoggedInContent() {
           trailing={myPlaces.work ? '설정됨' : '설정 안 됨'}
           onPress={() => handleMyPlace('work')}
         />
-        <MenuItem icon={<Ionicons name="bookmark-outline" size={20} color={colors.text} />} label="저장·완주" onPress={() => router.push('/favorites')} />
+        <MenuItem icon={<Ionicons name="star-outline" size={20} color={colors.text} />} label="즐겨찾기" onPress={() => router.push('/favorites')} />
         <MenuItem icon={<Ionicons name="document-text-outline" size={20} color={colors.text} />} label="내 제보 목록" onPress={() => router.push('/my-submissions')} />
         <MenuItem icon={<Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />} label="내 리뷰" onPress={() => router.push('/my-reviews')} />
         <MenuItem
