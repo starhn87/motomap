@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -118,7 +119,7 @@ export default function MyBikeHero() {
           hitSlop={10}
           onPress={() => router.push('/edit-bike')}
           style={({ pressed }) => [styles.editButton, pressed && { opacity: 0.5 }]}>
-          <Ionicons name="pencil-outline" size={18} color={colors.textSecondary} />
+          <MaterialCommunityIcons name="pencil" size={20} color={colors.textSecondary} />
         </Pressable>
       </View>
 
