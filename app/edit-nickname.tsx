@@ -22,10 +22,12 @@ import {
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
 import Skeleton from '@/components/ui/Skeleton';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 export default function EditNicknameScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const syncProfileNickname = useAuthStore((state) => state.syncProfileNickname);
 
   const [nickname, setNickname] = useState('');
   const [currentNickname, setCurrentNickname] = useState('');
@@ -100,7 +102,9 @@ export default function EditNicknameScreen() {
         throw error;
       }
 
-      await supabase.auth.updateUser({ data: { name: nickname.trim() } });
+      const nextNickname = nickname.trim();
+      syncProfileNickname(nextNickname);
+      await supabase.auth.updateUser({ data: { name: nextNickname } });
 
       toast.success('닉네임이 변경되었습니다.');
       router.back();
