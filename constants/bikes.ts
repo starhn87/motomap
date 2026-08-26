@@ -1,7 +1,7 @@
 // 내 바이크 기종 목록·스펙 — moto-kr 데이터셋에서 생성된 파일이다.
 // ⚠️ 직접 수정하지 말 것. 기종 추가·수정은 https://github.com/starhn87/moto-kr 의
 // mapping/models.json 에 반영한 뒤 `node scripts/sync-bike-models.mjs` 로 동기화한다.
-// (생성: 2026-08-11, 1142종 / 스펙 1125종)
+// (생성: 2026-08-20, 1143종 / 스펙 1126종)
 // 완전한 전수는 아니므로 목록에 없는 기종은 자유 입력으로 저장한다.
 
 export const BIKE_MODELS: string[] = [
@@ -724,6 +724,7 @@ export const BIKE_MODELS: string[] = [
   '야마하 트리시티125',
   '야마하 트리시티155',
   '에너인포 M24',
+  '에스피모빌리티 캄페온',
   '에이치비 HB-200',
   '에이치비 타고타',
   '에이치엠지 델리D5',
@@ -1878,6 +1879,7 @@ export const BIKE_SPECS: Record<string, BikeSpec> = {
   '야마하 트리시티125': { cc: 125, category: '3륜', fuelGrade: 'regular', tankL: 7.2, seatMm: 765, weightKg: 164, powerPs: 12 },
   '야마하 트리시티155': { cc: 155, category: '3륜', fuelGrade: 'regular', tankL: 7.2, seatMm: 765, weightKg: 165, powerPs: 15 },
   '에너인포 M24': { category: '스쿠터', electric: true },
+  '에스피모빌리티 캄페온': { category: '스쿠터', electric: true },
   '에이치비 HB-200': { category: '3륜', electric: true },
   '에이치비 타고타': { category: '3륜', electric: true },
   '에이치엠지 델리D5': { category: '3륜', electric: true },
@@ -3018,6 +3020,7 @@ const BIKE_SEARCH_INDEX: [model: string, normalizedTerms: string][] = [
   ['야마하 트리시티125', '야마하트리시티125 트리시티125 mw125 mws125 mws125a mws125c'],
   ['야마하 트리시티155', '야마하트리시티155 트리시티155 mws155a'],
   ['에너인포 M24', '에너인포m24 m24 엠24'],
+  ['에스피모빌리티 캄페온', '에스피모빌리티캄페온 캄페온 campeon'],
   ['에이치비 HB-200', '에이치비hb200 hb200 에이치비200'],
   ['에이치비 타고타', '에이치비타고타 타고타'],
   ['에이치엠지 델리D5', '에이치엠지델리d5 델리d5'],
@@ -3451,15 +3454,29 @@ function normalizeBikeTerm(value: string): string {
 export function canonicalBikeModel(value: string): string | null {
   const q = normalizeBikeTerm(value);
   if (!q) return null;
-  const exact = BIKE_SEARCH_INDEX.filter(([, terms]) => terms.split(' ').includes(q));
-  return exact.length === 1 ? exact[0][0] : null;
+  let found: string | null = null;
+  for (const [model, terms] of BIKE_SEARCH_INDEX) {
+    const exact =
+      terms === q ||
+      terms.startsWith(q + ' ') ||
+      terms.endsWith(' ' + q) ||
+      terms.includes(' ' + q + ' ');
+    if (!exact) continue;
+    if (found && found !== model) return null;
+    found = model;
+  }
+  return found;
 }
 
 // 이름·별칭의 공백·대소문자 무시 부분 일치 검색 (canonical 이름, 최대 limit개)
 export function searchBikeModels(query: string, limit = 15): string[] {
   const q = normalizeBikeTerm(query);
-  if (!q) return [];
-  return BIKE_SEARCH_INDEX.filter(([, terms]) => terms.includes(q))
-    .map(([model]) => model)
-    .slice(0, limit);
+  if (!q || limit <= 0) return [];
+  const results: string[] = [];
+  for (const [model, terms] of BIKE_SEARCH_INDEX) {
+    if (!terms.includes(q)) continue;
+    results.push(model);
+    if (results.length >= limit) break;
+  }
+  return results;
 }

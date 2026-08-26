@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import CloseIcon from '@/components/ui/CloseIcon';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -184,9 +184,14 @@ export default function EditBikeScreen() {
     }
   }, [bikes]);
 
-  const suggestions = pickedModel
-    ? []
-    : searchBikeModels(draft.model).filter((model) => model !== draft.model.trim());
+  const deferredModel = useDeferredValue(draft.model);
+  const suggestions = useMemo(
+    () =>
+      pickedModel || deferredModel !== draft.model
+        ? []
+        : searchBikeModels(deferredModel).filter((model) => model !== deferredModel.trim()),
+    [deferredModel, draft.model, pickedModel],
+  );
   const spec = getBikeSpec(draft.model);
 
   const refreshBikes = async () => {

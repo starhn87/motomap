@@ -105,17 +105,31 @@ function normalizeBikeTerm(value: string): string {
 export function canonicalBikeModel(value: string): string | null {
   const q = normalizeBikeTerm(value);
   if (!q) return null;
-  const exact = BIKE_SEARCH_INDEX.filter(([, terms]) => terms.split(' ').includes(q));
-  return exact.length === 1 ? exact[0][0] : null;
+  let found: string | null = null;
+  for (const [model, terms] of BIKE_SEARCH_INDEX) {
+    const exact =
+      terms === q ||
+      terms.startsWith(q + ' ') ||
+      terms.endsWith(' ' + q) ||
+      terms.includes(' ' + q + ' ');
+    if (!exact) continue;
+    if (found && found !== model) return null;
+    found = model;
+  }
+  return found;
 }
 
 // 이름·별칭의 공백·대소문자 무시 부분 일치 검색 (canonical 이름, 최대 limit개)
 export function searchBikeModels(query: string, limit = 15): string[] {
   const q = normalizeBikeTerm(query);
-  if (!q) return [];
-  return BIKE_SEARCH_INDEX.filter(([, terms]) => terms.includes(q))
-    .map(([model]) => model)
-    .slice(0, limit);
+  if (!q || limit <= 0) return [];
+  const results: string[] = [];
+  for (const [model, terms] of BIKE_SEARCH_INDEX) {
+    if (!terms.includes(q)) continue;
+    results.push(model);
+    if (results.length >= limit) break;
+  }
+  return results;
 }
 `;
 
