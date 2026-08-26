@@ -36,6 +36,39 @@ import { appAlert } from '@/lib/dialog';
 import { toast } from '@/lib/toast';
 import { pickImage, removeUploadedImage, uploadImage } from '@/lib/uploadImage';
 import { useAuthStore } from '@/stores/useAuthStore';
+import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
+
+function GarageSkeleton({ backgroundColor }: { backgroundColor: string }) {
+  return (
+    <ScrollView
+      style={[styles.container, { backgroundColor }]}
+      contentContainerStyle={styles.listContent}
+      showsVerticalScrollIndicator={false}>
+      <View style={styles.listHeading}>
+        <View style={styles.listTitleBody}>
+          <Skeleton width={92} height={24} />
+          <Skeleton width="78%" height={13} style={{ marginTop: 5 }} />
+        </View>
+        <Skeleton width={72} height={36} radius={18} />
+      </View>
+      {[0, 1].map((index) => (
+        <SkeletonContainer key={index} style={styles.garageCardSkeleton}>
+          <Skeleton width={92} height={92} radius={14} />
+          <View style={styles.garageCardSkeletonBody}>
+            <Skeleton width="66%" height={18} />
+            <Skeleton width="84%" height={12} style={{ marginTop: 7 }} />
+            <Skeleton width="54%" height={12} style={{ marginTop: 7 }} />
+            <View style={styles.garageCardSkeletonActions}>
+              <Skeleton width={66} height={32} radius={9} />
+              <Skeleton width={44} height={20} />
+            </View>
+          </View>
+        </SkeletonContainer>
+      ))}
+      <Skeleton width="100%" height={72} radius={16} style={{ marginTop: 6 }} />
+    </ScrollView>
+  );
+}
 
 interface BikeDraft {
   model: string;
@@ -331,11 +364,7 @@ export default function EditBikeScreen() {
   };
 
   if (isLoading) {
-    return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="small" color={colors.tint} />
-      </View>
-    );
+    return <GarageSkeleton backgroundColor={colors.background} />;
   }
 
   if (error) {
@@ -572,6 +601,9 @@ const styles = StyleSheet.create({
   addButton: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 13, paddingVertical: 9, borderRadius: 18 },
   addText: { fontSize: 13, fontWeight: '800' },
   bikeCard: { flexDirection: 'row', gap: 14, padding: 14, borderWidth: 1, borderRadius: 18 },
+  garageCardSkeleton: { flexDirection: 'row', gap: 14, padding: 14, borderRadius: 18 },
+  garageCardSkeletonBody: { flex: 1, minHeight: 92 },
+  garageCardSkeletonActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' },
   bikePhoto: { width: 92, height: 92, borderRadius: 14, overflow: 'hidden' },
   bikePlaceholder: { alignItems: 'center', justifyContent: 'center' },
   bikeCardBody: { flex: 1, minHeight: 92, justifyContent: 'space-between', gap: 7 },

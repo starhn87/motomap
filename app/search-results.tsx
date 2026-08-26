@@ -44,6 +44,7 @@ import { describeOpenState, getOpenState } from '@/lib/hours';
 import { approxMeters } from '@/lib/distance';
 import { focusPlaceOnMap, focusPointOnMap } from '@/lib/mapFocus';
 import type { Place, RidingGuideSearchResult } from '@/types';
+import Skeleton from '@/components/ui/Skeleton';
 
 // 지도에 뿌리는 결과 상한 — 등록 장소가 광범위한 검색어(예: "카페")일 때
 // 마커 폭주를 막는다. 목록도 같은 상한을 쓴다.
@@ -65,6 +66,23 @@ const FILTERS: { key: SearchFilter; label: string }[] = [
   { key: 'rating', label: '평점 4+' },
   { key: 'bike', label: '내 바이크 추천' },
 ];
+
+function ResultListSkeleton() {
+  return (
+    <View style={styles.resultListSkeleton}>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <View key={index} style={styles.resultRowSkeleton}>
+          <Skeleton width={18} height={18} radius={9} />
+          <View style={styles.resultRowSkeletonBody}>
+            <Skeleton width="58%" height={14} />
+            <Skeleton width="82%" height={12} style={{ marginTop: 6 }} />
+          </View>
+          <Skeleton width={42} height={13} />
+        </View>
+      ))}
+    </View>
+  );
+}
 
 function hasParkingInfo(place: Place): boolean {
   return !!place.parkingInfo?.trim() || place.tags.some((tag) => /주차/.test(tag));
@@ -839,7 +857,7 @@ export default function SearchResultsScreen() {
           }
           ListEmptyComponent={
             loading ? (
-              <ActivityIndicator style={styles.empty} color={colors.textSecondary} />
+              <ResultListSkeleton />
             ) : (
               <Text style={[styles.empty, { color: colors.textSecondary }]}>
                 {filters.includes('bike')
@@ -1057,6 +1075,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  resultListSkeleton: {
+    paddingTop: 2,
+  },
+  resultRowSkeleton: {
+    minHeight: 62,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+  },
+  resultRowSkeletonBody: {
+    flex: 1,
   },
   rowTexts: {
     flex: 1,

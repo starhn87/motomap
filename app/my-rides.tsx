@@ -1,7 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   ScrollView,
@@ -21,6 +20,50 @@ import type { MyRideBreakdown, MyRidePlace } from '@/lib/api/rides';
 import { focusPlaceOnMap, focusPointOnMap } from '@/lib/mapFocus';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { PlaceCategory } from '@/types';
+import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
+
+function RideHistorySkeleton({ backgroundColor }: { backgroundColor: string }) {
+  return (
+    <ScrollView
+      style={{ backgroundColor }}
+      contentContainerStyle={styles.list}
+      showsVerticalScrollIndicator={false}>
+      <SkeletonContainer style={styles.passportSkeleton}>
+        <View style={styles.passportTop}>
+          <View style={styles.passportTitleBody}>
+            <Skeleton width={92} height={11} />
+            <Skeleton width="62%" height={22} style={{ marginTop: 8 }} />
+          </View>
+          <Skeleton width={40} height={40} radius={20} />
+        </View>
+        <View style={styles.statsRow}>
+          <Skeleton width={58} height={48} />
+          <Skeleton width={1} height={38} />
+          <Skeleton width={58} height={48} />
+        </View>
+        <View style={styles.milestones}>
+          <Skeleton width={82} height={29} radius={15} />
+          <Skeleton width={96} height={29} radius={15} />
+        </View>
+      </SkeletonContainer>
+      <View style={styles.rideFilterSkeletons}>
+        <Skeleton width={54} height={34} radius={17} />
+        <Skeleton width={112} height={34} radius={17} />
+      </View>
+      <Skeleton width={82} height={18} style={{ marginVertical: 2 }} />
+      {Array.from({ length: 4 }).map((_, index) => (
+        <SkeletonContainer key={index} style={styles.rideRowSkeleton}>
+          <Skeleton width={34} height={34} radius={17} />
+          <View style={styles.rideRowSkeletonBody}>
+            <Skeleton width="58%" height={15} />
+            <Skeleton width="76%" height={12} style={{ marginTop: 6 }} />
+          </View>
+          <Skeleton width={28} height={16} />
+        </SkeletonContainer>
+      ))}
+    </ScrollView>
+  );
+}
 
 // "8.10" — 목록에 연도까지는 과하고, 해가 바뀐 기록만 "24.12" 처럼 연도를 붙인다
 function shortDate(iso: string): string {
@@ -68,11 +111,7 @@ export default function MyRidesScreen() {
   const user = useAuthStore((state) => state.user);
 
   if (isLoading) {
-    return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="small" color={colors.tint} />
-      </View>
-    );
+    return <RideHistorySkeleton backgroundColor={colors.background} />;
   }
 
   if (!rides?.length) {
@@ -277,6 +316,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 18,
   },
+  passportSkeleton: {
+    padding: 20,
+    borderRadius: 20,
+    gap: 18,
+  },
   passportTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -371,6 +415,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 13,
+  },
+  rideFilterSkeletons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  rideRowSkeleton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  rideRowSkeletonBody: {
+    flex: 1,
   },
   categoryIcon: {
     width: 34,

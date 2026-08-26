@@ -21,6 +21,7 @@ import {
 } from '@/lib/nickname';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
+import Skeleton from '@/components/ui/Skeleton';
 
 export default function EditNicknameScreen() {
   const colorScheme = useColorScheme();
@@ -113,7 +114,13 @@ export default function EditNicknameScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.tint} />
+        <Skeleton width={52} height={14} />
+        <View style={styles.nicknameSkeletonRow}>
+          <Skeleton height={50} radius={12} style={{ flex: 1 }} />
+          <Skeleton width={54} height={50} radius={12} />
+          <Skeleton width={54} height={50} radius={12} />
+        </View>
+        <Skeleton width="100%" height={50} radius={12} style={{ marginTop: 24 }} />
       </View>
     );
   }
@@ -202,6 +209,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
+  },
+  nicknameSkeletonRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    marginTop: 8,
   },
   input: {
     flex: 1,

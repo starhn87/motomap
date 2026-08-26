@@ -25,6 +25,7 @@
 |---|---|---|
 | 지도·장소 상세·지도 날씨 | [map-place-details.md](map-place-details.md) | `components/map/`, `stores/useMapStore.ts` |
 | 공통 아이콘·터치 피드백 | [interaction-feedback.md](interaction-feedback.md) | `app/`, `components/`의 터치 액션 |
+| 레이아웃 안정성·로딩 UI | [layout-stability.md](layout-stability.md) | `components/ui/Skeleton.tsx`, 비동기 목록·상세 화면 |
 | 공유 URL·유니버설 링크 | [share-links.md](share-links.md) | `website/src/index.js`, `website/public/share.js`, `app/place/[id].tsx`, `app/course/[id].tsx` |
 | 통합 검색·검색 결과 지도 | [search.md](search.md) | `app/search.tsx`, `app/search-results.tsx`, `lib/api/search.ts` |
 | 라이딩 추천 콘텐츠 | [riding-recommendations.md](riding-recommendations.md) | `app/(tabs)/courses.tsx`, `app/riding/`, `riding_guides` |

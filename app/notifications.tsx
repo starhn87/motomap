@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 
@@ -12,6 +12,25 @@ import { registerPushToken } from '@/lib/push';
 import EmptyState from '@/components/ui/EmptyState';
 import HighlightPulse from '@/components/ui/HighlightPulse';
 import type { AppNotification } from '@/lib/api/notifications';
+import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
+
+function NotificationSkeletonList() {
+  return (
+    <View style={styles.list}>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <SkeletonContainer key={index} style={styles.notificationSkeleton}>
+          <Skeleton width={26} height={26} radius={13} />
+          <View style={styles.notificationSkeletonBody}>
+            <Skeleton width="52%" height={14} />
+            <Skeleton width="94%" height={13} style={{ marginTop: 8 }} />
+            <Skeleton width="72%" height={13} style={{ marginTop: 5 }} />
+            <Skeleton width={52} height={11} style={{ marginTop: 9 }} />
+          </View>
+        </SkeletonContainer>
+      ))}
+    </View>
+  );
+}
 
 // "3분 전", "2시간 전", "5일 전", 그 이상은 날짜
 function timeAgo(iso: string): string {
@@ -95,8 +114,8 @@ export default function NotificationsScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="small" color={colors.tint} />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <NotificationSkeletonList />
       </View>
     );
   }
@@ -188,11 +207,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   list: {
     padding: 16,
     gap: 10,
@@ -203,6 +217,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     padding: 14,
+  },
+  notificationSkeleton: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+  },
+  notificationSkeletonBody: {
+    flex: 1,
   },
   itemIcon: {
     width: 26,

@@ -1,7 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   Share,
@@ -27,6 +26,50 @@ import { focusPlaceOnMap, focusPointOnMap } from '@/lib/mapFocus';
 import { track } from '@/lib/analytics';
 import { toast } from '@/lib/toast';
 import type { RidingGuideStop } from '@/types';
+import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
+
+function RidingGuideSkeleton({ backgroundColor }: { backgroundColor: string }) {
+  return (
+    <ScrollView
+      style={[styles.container, { backgroundColor }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}>
+      <Skeleton width={96} height={12} />
+      <View style={[styles.titleRow, { marginTop: 8 }]}>
+        <View style={styles.titleCopy}>
+          <Skeleton width="78%" height={28} />
+          <Skeleton width="54%" height={28} style={{ marginTop: 6 }} />
+        </View>
+        <Skeleton width={40} height={40} radius={20} />
+      </View>
+      <Skeleton width="88%" height={18} style={{ marginTop: 20 }} />
+      <Skeleton width="100%" height={14} style={{ marginTop: 14 }} />
+      <Skeleton width="92%" height={14} style={{ marginTop: 7 }} />
+      <View style={styles.skeletonTags}>
+        <Skeleton width={62} height={27} radius={14} />
+        <Skeleton width={78} height={27} radius={14} />
+        <Skeleton width={68} height={27} radius={14} />
+      </View>
+      <Skeleton width="100%" height={280} radius={18} style={{ marginTop: 24 }} />
+      <Skeleton width="72%" height={12} style={{ marginTop: 9 }} />
+      <View style={styles.section}>
+        <Skeleton width={126} height={21} />
+        <Skeleton width="78%" height={15} style={{ marginTop: 16 }} />
+        <Skeleton width="64%" height={15} style={{ marginTop: 10 }} />
+      </View>
+      <View style={styles.section}>
+        <Skeleton width={138} height={21} />
+        {[0, 1].map((index) => (
+          <SkeletonContainer key={index} style={styles.guidePlaceSkeleton}>
+            <Skeleton width={62} height={18} radius={9} />
+            <Skeleton width="70%" height={18} style={{ marginTop: 12 }} />
+            <Skeleton width="88%" height={12} style={{ marginTop: 7 }} />
+          </SkeletonContainer>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
 
 function cameraFor(stops: RidingGuideStop[]) {
   const latitudes = stops.map((stop) => stop.place.latitude);
@@ -58,11 +101,7 @@ export default function RidingGuideDetailScreen() {
   }, [guide]);
 
   if (isLoading) {
-    return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.tint} />
-      </View>
-    );
+    return <RidingGuideSkeleton backgroundColor={colors.background} />;
   }
 
   if (!guide) {
@@ -262,6 +301,7 @@ const styles = StyleSheet.create({
   summary: { fontSize: 18, lineHeight: 26, fontWeight: '700', marginTop: 18 },
   description: { fontSize: 15, lineHeight: 24, marginTop: 10 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 18 },
+  skeletonTags: { flexDirection: 'row', gap: 7, marginTop: 18 },
   tag: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14 },
   tagText: { fontSize: 12, fontWeight: '700' },
   mapWrap: { height: 280, borderRadius: 18, overflow: 'hidden', borderWidth: 1, marginTop: 24 },
@@ -273,6 +313,7 @@ const styles = StyleSheet.create({
   roadText: { flex: 1, fontSize: 15, lineHeight: 22, fontWeight: '600' },
   placeList: { gap: 10 },
   placeCard: { borderWidth: 1, borderRadius: 15, padding: 15 },
+  guidePlaceSkeleton: { marginTop: 10, padding: 15, borderRadius: 15 },
   placeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   placeTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   primaryBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
