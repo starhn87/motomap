@@ -113,7 +113,8 @@ iOS의 `UIBackgroundModes: location`과 Always 사용 설명은 KNSDK가 초기�
 - 날짜: 2026-08-26
 - 상태: 활성
 - 관련 구현: `lib/ridePlaceStats.ts`, `components/PersonalPlaceRideSync.tsx`,
-  `supabase/migrations/20260826042447_exclude_personal_destinations_from_place_stats.sql`
+  `supabase/migrations/20260826042447_exclude_personal_destinations_from_place_stats.sql`,
+  `supabase/migrations/20260826043743_harden_personal_place_ride_rpcs.sql`
 
 ### 배경
 

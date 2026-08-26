@@ -290,6 +290,7 @@ Sentry.wrap(
 | `20260817103053_restrict_unregistered_ride_spots.sql` | 미등록 도착지 집계 RPC의 공개 실행 권한 회수 — `service_role` 운영만 허용 |
 | `20260817104023_add_private_ride_candidate_scores.sql` | 미등록 도착지 후보를 라이더 수·반복·최근성으로 점수화한 `private.unregistered_ride_candidates`. 주거지 이름 제외, `service_role` 전용 |
 | `20260826042447_exclude_personal_destinations_from_place_stats.sql` | 집·회사 도착 행은 보존하되 장소 방문·기종·추천 후보 집계에서 영구 제외. 개인 좌표는 서버로 보내지 않고 본인 기록과 로컬 비교한 뒤 기록 ID만 갱신 |
+| `20260826043743_harden_personal_place_ride_rpcs.sql` | 개인 목적지 읽기는 기존 본인 RLS를 따르고, 쓰기 권한 상승 구현은 `private`에 둔 뒤 공개 API에는 `SECURITY INVOKER` 래퍼만 노출 |
 | `20260824125750_add_riding_recommendations.sql` | 목적지 중심 라이딩 추천·제안 테이블, RLS, 원자적 제출 RPC |
 | `20260824131321_seed_verified_riding_guides.sql` | 기존 코스 16개 중 장소 ID가 검증된 10개만 라이딩 추천으로 시드 |
 | `20260824131649_add_riding_guide_search.sql` | 구 코스 검색 계약과 분리된 라이딩 추천 검색 RPC |
