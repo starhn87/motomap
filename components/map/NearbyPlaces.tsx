@@ -10,13 +10,30 @@ import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { haversine } from '@/lib/distance';
 import { formatMeters } from '@/lib/api/directions';
 import type { Place } from '@/types';
+import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 
 // 장소 상세의 "근처 다른 장소" — 여기서 저기로 발견이 이어지게 한다.
 // 근처가 없으면 아무것도 그리지 않는다.
 export default function NearbyPlaces({ place }: { place: Place }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { data: nearby = [] } = useNearbyPlacesOf(place);
+  const { data: nearby = [], isLoading } = useNearbyPlacesOf(place);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.section, { borderTopColor: colors.border }]}>
+        <Skeleton width={112} height={16} />
+        <View style={styles.nearbySkeletonRow}>
+          {[0, 1].map((index) => (
+            <SkeletonContainer key={index} style={styles.nearbySkeletonCard}>
+              <Skeleton width="78%" height={14} />
+              <Skeleton width="58%" height={12} style={{ marginTop: 8 }} />
+            </SkeletonContainer>
+          ))}
+        </View>
+      </View>
+    );
+  }
 
   if (nearby.length === 0) return null;
 
@@ -80,6 +97,16 @@ const styles = StyleSheet.create({
   cards: {
     flexDirection: 'row',
     gap: 8,
+  },
+  nearbySkeletonRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  nearbySkeletonCard: {
+    width: 150,
+    padding: 12,
+    borderRadius: 12,
   },
   card: {
     width: 150,

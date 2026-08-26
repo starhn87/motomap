@@ -51,6 +51,7 @@ import { haptics } from '@/lib/haptics';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { appAlert } from '@/lib/dialog';
 import { usePlaceOperationalStatus } from '@/hooks/usePlaceOperationalStatus';
+import Skeleton from '@/components/ui/Skeleton';
 
 interface Props {
   place: Place | null;
@@ -114,7 +115,7 @@ function PlaceBottomSheet({
   const removeMyPlace = useMyPlacesStore((s) => s.remove);
   const { data: latestPlace } = usePlace(place?.id ?? null);
   const reviewTarget = place ? ({ kind: 'place', id: place.id } as const) : null;
-  const { data: reviewPages } = useReviews(reviewTarget);
+  const { data: reviewPages, isLoading: reviewsLoading } = useReviews(reviewTarget);
   const reviews = reviewPages?.pages.flat();
   const displayPlace = latestPlace ?? place;
   const operationalStatus = usePlaceOperationalStatus(displayPlace?.id);
@@ -405,7 +406,7 @@ function PlaceBottomSheet({
   //
   // 아래 early return 보다 위에 있어야 한다. 시트가 닫힌 렌더에서만 훅이 빠지면
   // 순서가 어긋나 React 가 터진다.
-  const { data: googleHours } = usePlaceHours(
+  const { data: googleHours, isLoading: googleHoursLoading } = usePlaceHours(
     !displayPlace || displayPlace.hours
       ? null
       : {
@@ -458,6 +459,14 @@ function PlaceBottomSheet({
       // 비동기로 들어와도 이미 보이던 주차·전화 카드의 위치는 바꾸지 않는다.
       // 요일마다 다른 곳은 2열 그리드의 좁은 칸에 우겨넣으면 답답하다.
       wide: weekLines.length > 1,
+      loading: googleHoursLoading,
+    },
+    googleHoursLoading && !hoursText && {
+      icon: <Ionicons name="time-outline" size={16} color={colors.textSecondary} />,
+      label: '영업시간',
+      value: '',
+      wide: true,
+      loading: true,
     },
   ].filter(Boolean) as Array<{
     icon: React.ReactNode;
@@ -465,6 +474,7 @@ function PlaceBottomSheet({
     value: string;
     lines?: number;
     wide?: boolean;
+    loading?: boolean;
     onPress?: () => void;
   }>;
 
@@ -680,11 +690,19 @@ function PlaceBottomSheet({
                     pressed && { opacity: 0.6 },
                   ]}>
                   <View style={card.wide && styles.infoIconTop}>{card.icon}</View>
-                  <Text
-                    style={[styles.infoCardValue, { color: colors.text }]}
-                    numberOfLines={card.lines ?? 2}>
-                    {card.value}
-                  </Text>
+                  {card.loading ? (
+                    <View style={styles.infoCardLoading}>
+                      <Skeleton width="86%" height={13} />
+                      <Skeleton width="72%" height={13} />
+                      <Skeleton width="54%" height={13} />
+                    </View>
+                  ) : (
+                    <Text
+                      style={[styles.infoCardValue, { color: colors.text }]}
+                      numberOfLines={card.lines ?? 2}>
+                      {card.value}
+                    </Text>
+                  )}
                 </Pressable>
               ))}
             </View>
@@ -701,14 +719,19 @@ function PlaceBottomSheet({
             }}
           />
 
-          {photoItems.length > 0 && (
+          {photoItems.length > 0 ? (
             <View style={styles.photoSection}>
               <Text style={[styles.photoSectionTitle, { color: colors.text }]}>
                 사진 {photoItems.length}
               </Text>
               <PhotoStrip items={photoItems} bleed={CONTENT_PADDING} />
             </View>
-          )}
+          ) : reviewsLoading ? (
+            <View style={styles.photoSection}>
+              <Skeleton width={72} height={18} />
+              <Skeleton width={150} height={150} radius={12} />
+            </View>
+          ) : null}
 
           {displayPlace && <NearbyPlaces place={displayPlace} />}
 
@@ -942,6 +965,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '600',
+  },
+  infoCardLoading: {
+    flex: 1,
+    gap: 6,
   },
   actionRow: {
     flexDirection: 'row',

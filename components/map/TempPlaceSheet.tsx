@@ -54,7 +54,7 @@ import {
 } from '@/lib/api/generalPlaces';
 import { useGeneralPlace } from '@/hooks/useGeneralPlace';
 import ReviewForm from '@/components/review/ReviewForm';
-import ReviewList from '@/components/review/ReviewList';
+import ReviewList, { ReviewListSkeleton } from '@/components/review/ReviewList';
 import PhotoStrip from '@/components/map/PhotoStrip';
 import { useReviews } from '@/hooks/useReviews';
 import { haversine } from '@/lib/distance';
@@ -63,6 +63,7 @@ import {
   useGeneralPlaceShare,
   useToggleGeneralPlaceShare,
 } from '@/hooks/useCommunityPlaceSignals';
+import Skeleton from '@/components/ui/Skeleton';
 
 export interface TempPlace extends GeneralPlaceInput {
   /** 이미 DB에 연결된 일반 장소로 들어온 경우 */
@@ -120,14 +121,14 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const { mutateAsync: toggleFavorite, isPending: favPending } =
     useToggleGeneralFavorite();
   const favoriteScale = useSharedValue(1);
-  const { data: generalPlace } = useGeneralPlace(place);
+  const { data: generalPlace, isLoading: generalPlaceLoading } = useGeneralPlace(place);
   const { data: communityShare } = useGeneralPlaceShare(place);
   const toggleCommunityShare = useToggleGeneralPlaceShare(place);
   const generalPlaceId = generalPlace?.id ?? place?.generalPlaceId;
   const reviewTarget = generalPlaceId
     ? ({ kind: 'general', id: generalPlaceId } as const)
     : null;
-  const { data: reviewPages } = useReviews(reviewTarget);
+  const { data: reviewPages, isLoading: reviewsLoading } = useReviews(reviewTarget);
   const reviews = reviewPages?.pages.flat() ?? [];
   const photoItems = reviews.flatMap((review) =>
     review.photos.map((url) => ({ url })),
@@ -136,7 +137,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const { data: gas, isLoading: gasLoading } = useGasPricesAt(place);
   const isGasStation = !!place && looksLikeGasStation(place.name);
   const canLoadHours = !!place && !isGasStation;
-  const { data: placeHours } = usePlaceHours(
+  const { data: placeHours, isLoading: hoursLoading } = usePlaceHours(
     place && canLoadHours
       ? {
           sourceKey: poiSourceKey(place.latitude, place.longitude),
@@ -575,7 +576,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             </View>
           </View>
 
-          {(place.phone || hoursText) && (
+          {(place.phone || hoursText || hoursLoading) && (
             <View style={styles.infoGrid}>
               {!!place.phone && (
                 <Pressable
@@ -608,6 +609,23 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                     numberOfLines={7}>
                     {hoursText}
                   </Text>
+                </View>
+              )}
+              {hoursLoading && !hoursText && (
+                <View
+                  style={[
+                    styles.infoCard,
+                    styles.infoCardWide,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                  ]}>
+                  <View style={styles.infoIconTop}>
+                    <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                  </View>
+                  <View style={styles.infoCardLoading}>
+                    <Skeleton width="86%" height={13} />
+                    <Skeleton width="72%" height={13} />
+                    <Skeleton width="54%" height={13} />
+                  </View>
                 </View>
               )}
             </View>
@@ -734,14 +752,19 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             </Pressable>
           )}
 
-          {photoItems.length > 0 && (
+          {generalPlaceLoading || reviewsLoading ? (
+            <View style={styles.photoSection}>
+              <Skeleton width={72} height={18} />
+              <Skeleton width={150} height={150} radius={12} />
+            </View>
+          ) : photoItems.length > 0 ? (
             <View style={styles.photoSection}>
               <Text style={[styles.photoSectionTitle, { color: colors.text }]}>
                 사진 {photoItems.length}
               </Text>
               <PhotoStrip items={photoItems} bleed={CONTENT_PADDING} />
             </View>
-          )}
+          ) : null}
 
           <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
             <View style={styles.reviewSectionHeader}>
@@ -762,6 +785,8 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             <View style={styles.reviewDivider} />
             {reviewTarget ? (
               <ReviewList target={reviewTarget} />
+            ) : generalPlaceLoading ? (
+              <ReviewListSkeleton />
             ) : (
               <Text style={[styles.emptyReviews, { color: colors.textSecondary }]}>
                 아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
@@ -931,6 +956,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '600',
+  },
+  infoCardLoading: {
+    flex: 1,
+    gap: 6,
   },
   submitCard: {
     flexDirection: 'row',

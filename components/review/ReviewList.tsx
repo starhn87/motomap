@@ -24,6 +24,7 @@ import { appAlert } from '@/lib/dialog';
 import ReportSheet from '@/components/report/ReportSheet';
 import ImageViewer from '@/components/ui/ImageViewer';
 import HighlightPulse from '@/components/ui/HighlightPulse';
+import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import StarRating from './StarRating';
 import PhotoDragList from './PhotoDragList';
 import type { ReviewTarget } from '@/lib/api/reviews';
@@ -38,6 +39,28 @@ interface ReviewPhotoItem {
 type ViewerState =
   | { kind: 'avatar'; photos: string[]; index: number }
   | { kind: 'reviews'; items: ReviewPhotoItem[]; index: number };
+
+export function ReviewListSkeleton() {
+  return (
+    <View style={styles.container}>
+      {[0, 1].map((index) => (
+        <SkeletonContainer key={index} style={styles.reviewSkeleton}>
+          <View style={styles.reviewSkeletonHeader}>
+            <Skeleton width={28} height={28} radius={14} />
+            <View style={styles.reviewSkeletonUser}>
+              <Skeleton width="42%" height={13} />
+              <Skeleton width={76} height={11} style={{ marginTop: 5 }} />
+            </View>
+            <Skeleton width={72} height={14} />
+          </View>
+          <Skeleton width="92%" height={13} style={{ marginTop: 12 }} />
+          <Skeleton width="68%" height={13} style={{ marginTop: 6 }} />
+          <Skeleton width={64} height={11} style={{ marginTop: 12 }} />
+        </SkeletonContainer>
+      ))}
+    </View>
+  );
+}
 
 function ReviewPhotoOverlay({ review }: { review: Review }) {
   return (
@@ -116,7 +139,7 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
       : [];
 
   if (isLoading) {
-    return <ActivityIndicator size="small" color={colors.tint} style={{ marginVertical: 16 }} />;
+    return <ReviewListSkeleton />;
   }
 
   if (!visibleReviews?.length) {
@@ -521,6 +544,9 @@ const styles = StyleSheet.create({
   },
   moreText: { fontSize: 14, fontWeight: '600' },
   container: { gap: 10 },
+  reviewSkeleton: { padding: 14 },
+  reviewSkeletonHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  reviewSkeletonUser: { flex: 1 },
   empty: { fontSize: 13, textAlign: 'center', marginVertical: 16 },
   reviewItem: { padding: 14, borderRadius: 12, borderWidth: 1 },
   reviewHeader: {
