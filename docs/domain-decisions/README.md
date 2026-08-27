@@ -30,7 +30,7 @@
 | 통합 검색·검색 결과 지도 | [search.md](search.md) | `app/search.tsx`, `app/search-results.tsx`, `lib/api/search.ts` |
 | 라이딩 추천 콘텐츠 | [riding-recommendations.md](riding-recommendations.md) | `app/(tabs)/courses.tsx`, `app/riding/`, `riding_guides` |
 | 앱 내 길안내 | [navigation.md](navigation.md) | `app/navi.tsx`, `modules/kakao-navi/` |
-| 라이딩 경로 기록·리플레이 | [ride-history.md](ride-history.md) | `app/my-rides.tsx`, `lib/rideRecorder.ts`, `ride_sessions` |
+| 라이딩 경로 기록·지도 Visualizer | [ride-history.md](ride-history.md) | `app/ride-map.tsx`, `lib/rideRecorder.ts`, `ride_sessions` |
 | 노면 위험 정보 수명주기 | [hazard-lifecycle.md](hazard-lifecycle.md) | `road_hazards`, `hazard_votes`, `components/map/HazardSheet.tsx` |
 | 인증·세션 저장 | [authentication.md](authentication.md) | `lib/authStorage.ts`, `lib/supabase.ts`, `stores/useAuthStore.ts` |
 | 장소 선별·운영 상태 검증 | [place-curation.md](place-curation.md) | `public.places`, `scripts/seed-place-curation.mjs`, 장소 검증 마이그레이션 |
