@@ -33,6 +33,11 @@ import { posthog, useScreenTracking } from '@/lib/analytics';
 import { getAppReleaseContext } from '@/lib/appVersion';
 import { getKakaoNaviCapabilities } from '@/modules/kakao-navi';
 import PersonalPlaceRideSync from '@/components/PersonalPlaceRideSync';
+import ServiceSuspendedScreen from '@/components/ServiceSuspendedScreen';
+
+// 사업자 등록 및 위치기반서비스 관련 절차를 정비하는 동안 모든 앱 기능을
+// 초기화 전에 차단한다. 재개 조건은 docs/domain-decisions/service-suspension.md.
+const SERVICE_SUSPENDED = true;
 
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 const nativeCapabilities = getKakaoNaviCapabilities();
@@ -78,16 +83,21 @@ function RootLayout() {
 
   // 길안내 전역 이벤트 — 안내 중에는 /navi 화면이 지도로 빠져 언마운트되므로
   // 종료(도착 리뷰 제안)·메뉴(위험 제보 등) 처리는 루트에서 상시 구독한다.
-  useEffect(() => registerGuideEvents(), []);
+  useEffect(() => {
+    if (SERVICE_SUSPENDED) return;
+    return registerGuideEvents();
+  }, []);
 
   // 스토어 업데이트 또는 현재 버전의 새로운 기능을 안내한다. 첫 화면(지도) 로딩과
   // 겹치지 않게 잠시 미루고, 둘 다 대상이면 업데이트 안내만 우선해서 띄운다.
   useEffect(() => {
+    if (SERVICE_SUSPENDED) return;
     const t = setTimeout(() => void checkStartupNotices(), 3000);
     return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
+    if (SERVICE_SUSPENDED) return;
     initialize();
     loadMode();
     void useHapticsStore.getState().load();
@@ -117,6 +127,10 @@ function RootLayout() {
 
   if (!loaded) {
     return null;
+  }
+
+  if (SERVICE_SUSPENDED) {
+    return <ServiceSuspendedScreen />;
   }
 
   return <RootLayoutNav />;

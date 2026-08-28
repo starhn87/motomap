@@ -13,9 +13,6 @@ const association = {
   },
 };
 
-const APP_STORE_URL = 'https://apps.apple.com/kr/app/id6773636183';
-const APP_STORE_ID = '6773636183';
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const LEGAL_PATHS = {
   '/terms': 'terms',
   '/privacy': 'privacy',
@@ -121,117 +118,45 @@ function legalPage(type) {
 </html>`;
 }
 
-async function ridingGuideMetadata(id, env) {
-  if (!UUID_PATTERN.test(id) || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return null;
-
-  try {
-    const endpoint = new URL('/rest/v1/riding_guides', env.SUPABASE_URL);
-    endpoint.searchParams.set('id', `eq.${id}`);
-    endpoint.searchParams.set('published_at', 'not.is.null');
-    endpoint.searchParams.set('deleted_at', 'is.null');
-    endpoint.searchParams.set('select', 'title,summary');
-    endpoint.searchParams.set('limit', '1');
-
-    const response = await fetch(endpoint, {
-      headers: {
-        apikey: env.SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
-      },
-      signal: AbortSignal.timeout(1_500),
-    });
-    if (!response.ok) {
-      console.warn(JSON.stringify({
-        event: 'shared_riding_guide_metadata_failed',
-        status: response.status,
-      }));
-      return null;
-    }
-
-    const rows = await response.json();
-    const guide = Array.isArray(rows) ? rows[0] : null;
-    if (!guide || typeof guide.title !== 'string' || !guide.title.trim()) return null;
-
-    return {
-      title: guide.title.trim().slice(0, 120),
-      description:
-        typeof guide.summary === 'string' && guide.summary.trim()
-          ? guide.summary.trim().slice(0, 240)
-          : null,
-    };
-  } catch (error) {
-    console.warn(JSON.stringify({
-      event: 'shared_riding_guide_metadata_failed',
-      reason: error instanceof Error ? error.name : 'unknown',
-    }));
-    return null;
-  }
-}
-
-async function sharedContentPage(kind, encodedId, env) {
-  const label = kind === 'riding' ? '라이딩 추천' : kind === 'course' ? '코스' : '장소';
-  const fallbackDescription =
-    kind === 'riding'
-      ? '모토맵에서 추천 장소와 달리기 좋은 길을 확인하세요.'
-      : `모토맵에서 ${label} 정보와 라이더 기록을 확인하세요.`;
-  let decodedId;
-  try {
-    decodedId = decodeURIComponent(encodedId);
-  } catch {
-    decodedId = encodedId;
-  }
-  const routeId = encodeURIComponent(decodedId);
-  const metadata = kind === 'riding' ? await ridingGuideMetadata(decodedId, env) : null;
-  const canonicalUrl = `https://motomap.kr/${kind}/${routeId}`;
-  const appUrl = `ridemap://${kind}/${routeId}`;
-  const title = escapeHtml(metadata?.title ?? label);
-  const description = escapeHtml(metadata?.description ?? fallbackDescription);
-  const heading = metadata?.title ? title : `${label}를 여는 중이에요`;
-
+function maintenancePage() {
   return `<!doctype html>
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0b0c0e" />
-    <meta name="description" content="${description}" />
-    <meta name="apple-itunes-app" content="app-id=${APP_STORE_ID}, app-argument=${canonicalUrl}" />
-    <meta property="og:title" content="${title}: 모토맵" />
-    <meta property="og:description" content="${description}" />
+    <meta name="description" content="모토맵은 서비스 운영 체계를 정비하기 위해 운영을 잠시 중단했습니다." />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta property="og:title" content="운영 일시 중단: 모토맵" />
+    <meta property="og:description" content="서비스 운영 체계를 정비한 뒤 다시 안내드리겠습니다." />
     <meta property="og:image" content="https://motomap.kr/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="검은 배경 위 흰색 바이크 아이콘" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${title}: 모토맵" />
-    <meta name="twitter:description" content="${description}" />
+    <meta name="twitter:title" content="운영 일시 중단: 모토맵" />
+    <meta name="twitter:description" content="서비스 운영 체계를 정비한 뒤 다시 안내드리겠습니다." />
     <meta name="twitter:image" content="https://motomap.kr/og.png" />
-    <link rel="canonical" href="${canonicalUrl}" />
+    <link rel="canonical" href="https://motomap.kr/" />
     <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png" />
     <link rel="stylesheet" href="/styles.css" />
-    <title>${title}: 모토맵</title>
-    <script src="/share.js" defer></script>
+    <title>운영 일시 중단: 모토맵</title>
   </head>
-  <body class="shared-page">
-    <main
-      class="shared-card"
-      data-share-page
-      data-app-url="${escapeHtml(appUrl)}"
-      data-store-url="${APP_STORE_URL}">
-      <a class="brand shared-brand" href="/" aria-label="모토맵 홈">
-        <img src="/icon.png" alt="" width="48" height="48" />
-        <span>모토맵</span>
-      </a>
-      <div class="shared-app-icon" aria-hidden="true">
-        <img src="/icon.png" alt="" width="84" height="84" />
-      </div>
-      <p class="eyebrow">공유된 ${label}</p>
-      <h1>${heading}</h1>
-      <p data-share-status>앱이 설치되어 있으면 곧바로 ${label} 화면으로 이동해요.</p>
-      <div class="shared-actions">
-        <a class="primary-button" href="${escapeHtml(appUrl)}" data-open-app>모토맵에서 열기</a>
-        <a class="secondary-button" href="${APP_STORE_URL}">App Store에서 받기</a>
-      </div>
-      <a class="home-link" href="/">모토맵 소개 보기</a>
+  <body class="maintenance-page">
+    <main class="maintenance-card">
+      <img class="maintenance-icon" src="/icon.png" alt="모토맵" width="72" height="72" />
+      <p class="eyebrow">운영 일시 중단</p>
+      <h1>모토맵을 잠시 멈춥니다</h1>
+      <p class="maintenance-description">
+        서비스 운영 체계를 정비하고 있어요.<br />정비를 마친 뒤 다시 안내드리겠습니다.
+      </p>
+      <p class="maintenance-notice">현재 위치·지도·길안내 기능은 제공하지 않습니다.</p>
+      <a class="maintenance-contact" href="mailto:starhn87@gmail.com?subject=%5B%EB%AA%A8%ED%86%A0%EB%A7%B5%5D%20%EA%B3%84%EC%A0%95%C2%B7%EB%8D%B0%EC%9D%B4%ED%84%B0%20%EB%AC%B8%EC%9D%98">계정·데이터 문의</a>
+      <nav class="maintenance-links" aria-label="법률 문서">
+        <a href="/terms">이용약관</a>
+        <a href="/privacy">개인정보 처리방침</a>
+        <a href="/location-terms">위치기반 서비스 이용약관</a>
+      </nav>
     </main>
   </body>
 </html>`;
@@ -260,6 +185,12 @@ export default {
       });
     }
 
+    // Worker가 먼저 실행되므로 정적 자산은 명시적으로 assets binding에 넘긴다.
+    // 법률·운영 중단 페이지의 CSS와 아이콘까지 503 HTML로 바뀌는 것을 막는다.
+    if (/\.[a-z0-9]+$/i.test(url.pathname)) {
+      return env.ASSETS.fetch(request);
+    }
+
     const normalizedPath = url.pathname === '/' ? '/' : url.pathname.replace(/\/+$/, '');
     const legalType = LEGAL_PATHS[normalizedPath];
     if (legalType) {
@@ -272,17 +203,14 @@ export default {
       });
     }
 
-    const contentMatch = url.pathname.match(/^\/(place|course|riding)\/([^/]+)\/?$/);
-    if (contentMatch) {
-      return new Response(await sharedContentPage(contentMatch[1], contentMatch[2], env), {
-        headers: {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'private, no-store',
-          ...securityHeaders,
-        },
-      });
-    }
-
-    return env.ASSETS.fetch(request);
+    return new Response(maintenancePage(), {
+      status: 503,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'Retry-After': '86400',
+        ...securityHeaders,
+      },
+    });
   },
 };
