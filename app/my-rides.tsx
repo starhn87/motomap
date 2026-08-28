@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   FlatList,
@@ -28,6 +29,15 @@ function RideHistorySkeleton({ backgroundColor }: { backgroundColor: string }) {
       style={{ backgroundColor }}
       contentContainerStyle={styles.list}
       showsVerticalScrollIndicator={false}>
+      <SkeletonContainer style={styles.rideMapSkeleton}>
+        <View style={styles.rideMapSkeletonIcon}>
+          <Skeleton width={38} height={38} radius={19} />
+        </View>
+        <View style={styles.rideRowSkeletonBody}>
+          <Skeleton width={88} height={17} />
+          <Skeleton width="74%" height={12} style={{ marginTop: 7 }} />
+        </View>
+      </SkeletonContainer>
       <SkeletonContainer style={styles.passportSkeleton}>
         <View style={styles.passportTop}>
           <View style={styles.passportTitleBody}>
@@ -120,7 +130,9 @@ export default function MyRidesScreen() {
         <EmptyState
           icon={<Text style={styles.emptyEmoji}>🏍️</Text>}
           title="아직 주행 기록이 없습니다"
-          hint="길안내로 도착하면 자동으로 기록돼요."
+          hint="라이딩 지도에서 달린 길을 기록하고 되돌아보세요."
+          actionLabel="라이딩 지도 열기"
+          onAction={() => router.push('/ride-map' as any)}
         />
       </View>
     );
@@ -193,7 +205,26 @@ export default function MyRidesScreen() {
         keyExtractor={(item) => item.placeId ?? `pt:${item.name}`}
         ListHeaderComponent={
           <View style={styles.header}>
-            <View style={[styles.passport, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Pressable
+              onPress={() => router.push('/ride-map' as any)}
+              style={({ pressed }) => [
+                styles.rideMapCard,
+                { backgroundColor: colors.text, opacity: pressed ? 0.86 : 1 },
+              ]}>
+              <View style={[styles.rideMapIcon, { backgroundColor: colors.background }]}>
+                <Ionicons name="map-outline" size={21} color={colors.text} />
+              </View>
+              <View style={styles.rideMapBody}>
+                <Text style={[styles.rideMapTitle, { color: colors.background }]}>라이딩 지도</Text>
+                <Text style={[styles.rideMapDescription, { color: colors.background }]}>
+                  달린 길을 빠르게 재생하고 자주 간 지역을 확인해보세요.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.background} />
+            </Pressable>
+
+            <View
+              style={[styles.passport, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.passportTop}>
                 <View style={styles.passportTitleBody}>
                   <Text style={[styles.passportEyebrow, { color: colors.tint }]}>나의 주행 기록</Text>
@@ -309,6 +340,50 @@ const styles = StyleSheet.create({
   header: {
     gap: 16,
     marginBottom: 4,
+  },
+  rideMapCard: {
+    minHeight: 84,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  rideMapIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rideMapBody: {
+    flex: 1,
+    gap: 3,
+  },
+  rideMapTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  rideMapDescription: {
+    fontSize: 11.5,
+    lineHeight: 16,
+    opacity: 0.72,
+  },
+  rideMapSkeleton: {
+    minHeight: 84,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  rideMapSkeletonIcon: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   passport: {
     padding: 20,
