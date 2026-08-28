@@ -1,4 +1,10 @@
 const releasePolicy = require('./config/release-policy.json');
+// 운영 중단처럼 구버전까지 즉시 막아야 하는 비상 OTA에만 사용한다. 일반 빌드와
+// OTA에서는 비워 두어 release-policy.json이 계속 단일 기준이 되게 한다.
+const emergencyRuntimeVersion = process.env.MOTOMAP_EMERGENCY_RUNTIME_VERSION;
+if (emergencyRuntimeVersion) {
+  releasePolicy.appVersion = emergencyRuntimeVersion;
+}
 
 export default {
   expo: {
