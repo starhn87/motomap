@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import * as Sentry from '@sentry/react-native';
 import { supabase } from '@/lib/supabase';
 import { confirmAuthStorageMigration } from '@/lib/authStorage';
+import {
+  isJwtIssuedAtFutureError,
+  JWT_FUTURE_RETRY_DELAYS_MS,
+} from '@/lib/authRestoreError';
 import { queryClient } from '@/lib/queryClient';
 import { identifyUser, resetUser } from '@/lib/analytics';
 import { unregisterPushToken } from '@/lib/push';
@@ -151,11 +155,29 @@ async function resolveSession(
     restoreError: null,
   });
 
-  const { data, error } = await supabase
+  const fetchProfile = () => supabase
     .from('profiles')
     .select('onboarding_completed_at, nickname, avatar_url')
     .eq('id', session.user.id)
     .maybeSingle();
+
+  let profileResult = await fetchProfile();
+  for (const delayMs of JWT_FUTURE_RETRY_DELAYS_MS) {
+    if (!isJwtIssuedAtFutureError(profileResult.error)) break;
+    if (revision !== sessionRevision) return;
+
+    Sentry.addBreadcrumb({
+      category: 'auth.restore',
+      level: 'warning',
+      message: 'JWT 발급·검증 서버 시각 불일치로 프로필 조회 재시도',
+      data: { delay_ms: delayMs },
+    });
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    if (revision !== sessionRevision) return;
+    profileResult = await fetchProfile();
+  }
+
+  const { data, error } = profileResult;
 
   if (revision !== sessionRevision) return;
 
