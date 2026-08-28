@@ -31,7 +31,6 @@ import { formatMeters, formatSeconds } from '@/lib/api/directions';
 import { toast } from '@/lib/toast';
 import { useGuideSession } from '@/lib/guideSession';
 import { markGuideStarted } from '@/lib/guideEvents';
-import { startRideRecording } from '@/lib/rideRecorder';
 import { createAnalyticsId, track } from '@/lib/analytics';
 import {
   parseNaviParams,
@@ -279,7 +278,6 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   // 처리는 이 화면이 언마운트된 뒤에도 살아 있도록 전역(lib/guideEvents)이 맡는다.
   useEffect(() => {
     const started = KakaoNavi.addListener('onGuideStarted', () => {
-      const startContext = startTrackRef.current;
       if (startTrackRef.current) {
         const startTrack = startTrackRef.current;
         startTrackRef.current = null;
@@ -308,18 +306,6 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
             : [],
         ),
       );
-      void startRideRecording(
-        {
-          latitude: goal.latitude,
-          longitude: goal.longitude,
-          name: goal.name,
-          placeId: goal.placeId,
-          generalPlaceId: goal.generalPlaceId,
-        },
-        startContext?.mode ?? 'live',
-      ).catch(() => {
-        // 경로 기록 실패가 길안내 시작을 방해하면 안 된다.
-      });
       // 오버레이(출발 도트·경로선)를 먼저 정상 해제시키고 화면을 뗀다
       setGuideStarted(true);
       navigation.setOptions({ animation: 'none' });

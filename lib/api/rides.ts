@@ -67,10 +67,7 @@ function parseRideBikes(value: Json | undefined): RideBike[] {
  * 도착 라이딩 기록. 비로그인이거나 실패해도 조용히 넘어간다 —
  * 통계가 안내 종료 흐름(리뷰 제안 등)을 방해하면 안 된다.
  */
-export async function recordPlaceRides(
-  rides: PlaceRide[],
-  options: { rideSessionId?: string | null; throwOnError?: boolean } = {},
-) {
+export async function recordPlaceRides(rides: PlaceRide[]) {
   if (rides.length === 0) return;
   try {
     const user = await getCurrentUser();
@@ -81,18 +78,10 @@ export async function recordPlaceRides(
       ? canonicalBikeModel(bike_model) ?? bike_model.trim()
       : null;
     const bike_category = bikeKey ? BIKE_SPECS[bikeKey]?.category ?? null : null;
-    const { error } = await supabase
+    await supabase
       .from('place_rides')
-      .insert(rides.map((r) => ({
-        ...r,
-        user_id: user.id,
-        bike_model,
-        bike_category,
-        ride_session_id: options.rideSessionId ?? null,
-      })));
-    if (error) throw error;
-  } catch (error) {
-    if (options.throwOnError) throw error;
+      .insert(rides.map((r) => ({ ...r, user_id: user.id, bike_model, bike_category })));
+  } catch {
     // 테이블 미생성·네트워크 실패 등 — 카운트 하나 빠질 뿐이다
   }
 }

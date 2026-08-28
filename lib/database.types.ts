@@ -920,7 +920,6 @@ export type Database = {
           name: string | null
           place_id: string | null
           role: string
-          ride_session_id: string | null
           user_id: string
         }
         Insert: {
@@ -937,7 +936,6 @@ export type Database = {
           name?: string | null
           place_id?: string | null
           role?: string
-          ride_session_id?: string | null
           user_id: string
         }
         Update: {
@@ -954,17 +952,9 @@ export type Database = {
           name?: string | null
           place_id?: string | null
           role?: string
-          ride_session_id?: string | null
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "place_rides_ride_session_id_fkey"
-            columns: ["ride_session_id"]
-            isOneToOne: false
-            referencedRelation: "ride_sessions"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "place_rides_bike_id_fkey"
             columns: ["bike_id"]
@@ -982,140 +972,6 @@ export type Database = {
           {
             foreignKeyName: "place_rides_place_id_fkey"
             columns: ["place_id"]
-            isOneToOne: false
-            referencedRelation: "places"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ride_recording_consents: {
-        Row: {
-          consented_at: string
-          expires_at: string
-          id: string
-          policy_version: string
-          revoked_at: string | null
-          user_id: string
-        }
-        Insert: {
-          consented_at?: string
-          expires_at: string
-          id?: string
-          policy_version: string
-          revoked_at?: string | null
-          user_id: string
-        }
-        Update: {
-          consented_at?: string
-          expires_at?: string
-          id?: string
-          policy_version?: string
-          revoked_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      ride_sessions: {
-        Row: {
-          bike_id: string | null
-          bike_model: string | null
-          bike_nickname: string | null
-          consent_id: string
-          created_at: string
-          distance_m: number
-          duration_s: number
-          ended_at: string
-          ended_reason: string
-          goal_general_place_id: string | null
-          goal_latitude: number
-          goal_longitude: number
-          goal_name: string
-          goal_place_id: string | null
-          id: string
-          is_partial: boolean
-          moving_duration_s: number
-          path_segments: Json
-          point_count: number
-          segment_count: number
-          source_version: number
-          started_at: string
-          user_id: string
-        }
-        Insert: {
-          bike_id?: string | null
-          bike_model?: string | null
-          bike_nickname?: string | null
-          consent_id: string
-          created_at?: string
-          distance_m: number
-          duration_s: number
-          ended_at: string
-          ended_reason: string
-          goal_general_place_id?: string | null
-          goal_latitude: number
-          goal_longitude: number
-          goal_name: string
-          goal_place_id?: string | null
-          id?: string
-          is_partial?: boolean
-          moving_duration_s: number
-          path_segments: Json
-          point_count?: never
-          segment_count?: never
-          source_version?: number
-          started_at: string
-          user_id: string
-        }
-        Update: {
-          bike_id?: string | null
-          bike_model?: string | null
-          bike_nickname?: string | null
-          consent_id?: string
-          created_at?: string
-          distance_m?: number
-          duration_s?: number
-          ended_at?: string
-          ended_reason?: string
-          goal_general_place_id?: string | null
-          goal_latitude?: number
-          goal_longitude?: number
-          goal_name?: string
-          goal_place_id?: string | null
-          id?: string
-          is_partial?: boolean
-          moving_duration_s?: number
-          path_segments?: Json
-          point_count?: never
-          segment_count?: never
-          source_version?: number
-          started_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ride_sessions_consent_id_fkey"
-            columns: ["consent_id"]
-            isOneToOne: false
-            referencedRelation: "ride_recording_consents"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ride_sessions_bike_id_fkey"
-            columns: ["bike_id"]
-            isOneToOne: false
-            referencedRelation: "user_bikes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ride_sessions_goal_general_place_id_fkey"
-            columns: ["goal_general_place_id"]
-            isOneToOne: false
-            referencedRelation: "general_places"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ride_sessions_goal_place_id_fkey"
-            columns: ["goal_place_id"]
             isOneToOne: false
             referencedRelation: "places"
             referencedColumns: ["id"]
@@ -2124,14 +1980,6 @@ export type Database = {
         }[]
       }
       complete_onboarding: { Args: { p_nickname: string }; Returns: undefined }
-      consent_ride_recording: {
-        Args: never
-        Returns: {
-          consent_id: string
-          consented_at: string
-          expires_at: string
-        }[]
-      }
       consume_edge_rate_limit: {
         Args: {
           p_key_hash: string
@@ -2146,7 +1994,6 @@ export type Database = {
       }
       course_exists_with_name: { Args: { p_name: string }; Returns: string }
       delete_my_account: { Args: never; Returns: undefined }
-      revoke_ride_recording_consent: { Args: never; Returns: undefined }
       delete_user_bike: { Args: { p_bike_id: string }; Returns: undefined }
       disablelongtransactions: { Args: never; Returns: string }
       exclude_personal_place_rides: {
