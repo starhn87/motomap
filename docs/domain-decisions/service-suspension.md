@@ -86,4 +86,14 @@
   API 호스트가 해제된 것을 확인했다.
 - 1.0.0: EAS Update 설정 이전 바이너리라 OTA 대상이 아니다. 백엔드 중단과 외부 지도 공급자
   비활성화로 차단한다.
-- App Store 판매 중단과 Naver·Kakao 공급자 비활성화는 각 콘솔 로그인 후 완료 상태를 추가한다.
+- App Store: 175개 국가·지역 모두 `사용 불가` 상태로 전환했다. Apple 안내상 실제 스토어 노출
+  반영에는 최대 24시간이 걸릴 수 있고, 기존 이용자는 구입 목록에서 재다운로드할 수 있으므로
+  이것만을 중단 수단으로 보지 않는다.
+- Naver Maps: `ridemap` Application에서 앱과 서버가 사용하던 Dynamic Map, Directions 5,
+  Geocoding, Reverse Geocoding을 해제했다. 콘솔이 최소 1개 API 선택을 요구하므로 앱에서 사용하지
+  않는 Static Map만 남겼고 Web 서비스 URL은 등록하지 않았다. 앱 레코드와 기존 환경 값은 보존해
+  재개 시 동일 Application을 복구할 수 있다.
+- Kakao Maps: 카카오맵 제품의 사용 설정을 `OFF`로 전환했다.
+- Kakao Native App Key: 카카오맵 제품 OFF와 별개로 구버전의 카카오 SDK 직접 호출을 확실히
+  차단하기 위해 iOS 번들 ID와 App Store ID 연결을 일시 해제했다. 이 변경은 기존 설치본의 카카오
+  로그인과 길안내도 실패시키며, 재개 시 동일한 식별자를 다시 연결한다.
