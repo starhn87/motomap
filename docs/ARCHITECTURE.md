@@ -250,7 +250,7 @@ Sentry.wrap(
 |---|---|
 | `001_reports_blocks.sql` | `reports`·`blocks` 테이블 + RLS |
 | `002_account_deletion.sql` | `profiles.deleted_at` + `delete_my_account()` RPC |
-| `003_rides.sql` | `rides` 테이블 — **주행 기능 제거로 현재 미사용** |
+| `003_rides.sql` | 1.1.0 전체 경로용 `rides` 테이블 — 현재 미사용, 1.2.8 DB 정비 창에서 파기 예정(RIDE-004) |
 | `004_add_gear_shop_category.sql` | `places_category_check`에 `gear_shop` 추가 |
 | `005_submission_notifications.sql` | 제보·건의 INSERT 시 디스코드 웹훅 알림 (pg_net 트리거, URL은 Vault) |
 | `006_push_tokens_approval_push.sql` | `push_tokens` 테이블 + 제보 승인(approved false→true) 시 제보자 Expo 푸시 |
