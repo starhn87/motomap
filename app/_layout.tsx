@@ -33,6 +33,7 @@ import { posthog, useScreenTracking } from '@/lib/analytics';
 import { getAppReleaseContext } from '@/lib/appVersion';
 import { getKakaoNaviCapabilities } from '@/modules/kakao-navi';
 import PersonalPlaceRideSync from '@/components/PersonalPlaceRideSync';
+import RideSessionSync from '@/components/RideSessionSync';
 
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 const nativeCapabilities = getKakaoNaviCapabilities();
@@ -165,6 +166,7 @@ function RootLayoutNav() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <PersonalPlaceRideSync />
+        <RideSessionSync />
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack
             screenOptions={{

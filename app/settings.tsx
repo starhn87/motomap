@@ -26,6 +26,10 @@ import { supabase } from '@/lib/supabase';
 import type { SocialLoginProvider } from '@/lib/socialAuth';
 import { useHapticsStore } from '@/stores/useHapticsStore';
 import { haptics } from '@/lib/haptics';
+import {
+  isRideRecordingEnabled,
+  setRideRecordingEnabled,
+} from '@/lib/rideRecordingPreference';
 
 type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -171,11 +175,55 @@ export default function SettingsScreen() {
   const { mode, setMode } = useThemeStore();
   const hapticsEnabled = useHapticsStore((state) => state.enabled);
   const setHapticsEnabled = useHapticsStore((state) => state.setEnabled);
+  const [rideRecordingEnabled, setRideRecordingState] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setRideRecordingState(false);
+      return;
+    }
+    let cancelled = false;
+    void isRideRecordingEnabled(user.id).then((enabled) => {
+      if (!cancelled) setRideRecordingState(enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const handleHapticsChange = (enabled: boolean) => {
     if (hapticsEnabled) haptics.selection();
     void setHapticsEnabled(enabled);
     if (enabled) haptics.success();
+  };
+
+  const saveRideRecording = async (enabled: boolean) => {
+    if (!user) return;
+    try {
+      await setRideRecordingEnabled(user.id, enabled);
+      setRideRecordingState(enabled);
+    } catch {
+      toast.error('라이딩 기록 설정을 저장하지 못했습니다.');
+    }
+  };
+
+  const handleRideRecordingChange = (enabled: boolean) => {
+    if (!user) return;
+    if (!enabled) {
+      void saveRideRecording(false);
+      return;
+    }
+    appAlert(
+      '라이딩 경로 기록',
+      '모토맵에서 실제 길안내를 사용하는 동안에만 이동 경로를 기록해요. 앱이 화면에서 사라진 구간은 기록하지 않고, 경로는 본인만 볼 수 있어요.',
+      [
+        { text: '나중에', style: 'cancel' },
+        {
+          text: '기록 켜기',
+          onPress: () => void saveRideRecording(true),
+        },
+      ],
+    );
   };
 
   const handleDeleteAccount = () => {
@@ -226,7 +274,11 @@ export default function SettingsScreen() {
       </View>
 
       <View
-        style={[styles.settingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        style={[
+          styles.settingCard,
+          user && styles.settingCardAdjacent,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}>
         <View style={styles.settingText}>
           <Text style={[styles.settingLabel, { color: colors.text }]}>햅틱 피드백</Text>
           <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>버튼과 지도 선택의 진동 반응</Text>
@@ -243,6 +295,29 @@ export default function SettingsScreen() {
           />
         </View>
       </View>
+
+      {user ? (
+        <View
+          style={[styles.settingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.settingText}>
+            <Text style={[styles.settingLabel, { color: colors.text }]}>라이딩 경로 기록</Text>
+            <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+              길안내 중 달린 길을 라이딩 지도에 저장
+            </Text>
+            <Text style={[styles.settingHint, { color: colors.textSecondary }]}>
+              포그라운드의 실제 길안내만 기록하며 경로는 본인에게만 보여요.
+            </Text>
+          </View>
+          <View style={styles.settingSwitchSlot}>
+            <Switch
+              accessibilityLabel="라이딩 경로 기록"
+              value={rideRecordingEnabled}
+              onValueChange={handleRideRecordingChange}
+              trackColor={{ false: colors.border, true: semantic.success }}
+            />
+          </View>
+        </View>
+      ) : null}
 
       {user ? (
         <>
@@ -420,6 +495,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  settingCardAdjacent: {
+    marginBottom: 12,
   },
   settingText: {
     flex: 1,

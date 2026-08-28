@@ -5,6 +5,7 @@ import { confirmAuthStorageMigration } from '@/lib/authStorage';
 import { queryClient } from '@/lib/queryClient';
 import { identifyUser, resetUser } from '@/lib/analytics';
 import { unregisterPushToken } from '@/lib/push';
+import { clearPendingRideSessionsForUser } from '@/lib/rideRecorder';
 import type { User, Session } from '@supabase/supabase-js';
 
 export type AuthStatus =
@@ -247,7 +248,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     setResolvedUser(set, resolvedUser, current.session);
   },
   signOut: async (scope = 'global') => {
+    const userId = get().user?.id;
     await unregisterPushToken();
+    if (userId) await clearPendingRideSessionsForUser(userId).catch(() => {});
     await supabase.auth.signOut({ scope });
     // 계정 전환 시 이전 사용자의 캐시(즐겨찾기·주행·리뷰 등)가 노출되지 않도록 비움
     queryClient.clear();
