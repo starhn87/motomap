@@ -15,7 +15,8 @@ import {
   type RidePathPoint,
   type RidePathSegments,
 } from '@/lib/ridePath';
-import { isRideRecordingEnabled } from '@/lib/rideRecordingPreference';
+import { getRideRecordingPreference } from '@/lib/rideRecordingPreference';
+import { queryClient } from '@/lib/queryClient';
 
 export interface RideRecordingGoal {
   latitude: number;
@@ -30,6 +31,7 @@ interface RecordingDraft {
   state: 'recording';
   id: string;
   userId: string;
+  consentId: string;
   bikeId: string | null;
   bikeModel: string | null;
   bikeNickname: string | null;
@@ -225,6 +227,7 @@ function finalizedSession(
   return {
     id: draft.id,
     userId: draft.userId,
+    consentId: draft.consentId,
     bikeId: draft.bikeId,
     bikeModel: draft.bikeModel,
     bikeNickname: draft.bikeNickname,
@@ -257,6 +260,7 @@ async function readStoredDraft(uri: string): Promise<StoredDraft | null> {
       parsed.state !== 'recording'
       || typeof parsed.id !== 'string'
       || typeof parsed.userId !== 'string'
+      || typeof parsed.consentId !== 'string'
       || !Array.isArray(parsed.segments)
     ) return null;
     return parsed;
@@ -265,40 +269,64 @@ async function readStoredDraft(uri: string): Promise<StoredDraft | null> {
   }
 }
 
-async function syncStoredDraft(uri: string, draft: StoredDraft, userId: string) {
+async function syncStoredDraft(uri: string, draft: StoredDraft, userId: string): Promise<boolean> {
   let session: RideSessionInsert;
   if (draft.state === 'recording') {
     const recovered = finalizedSession(draft, 'interrupted', draft.updatedAtMs);
     if (!recovered) {
       await FileSystem.deleteAsync(uri, { idempotent: true });
-      return;
+      return false;
     }
     session = recovered;
     await queueWrite({ version: 1, state: 'ready', session });
   } else {
     session = draft.session;
   }
-  if (session.userId !== userId) return;
+  if (session.userId !== userId) return false;
+  const preference = await getRideRecordingPreference(userId);
+  if (
+    !preference
+    || preference.consentId !== session.consentId
+    || Date.parse(preference.expiresAt) <= Date.now()
+  ) {
+    // 보관 동의가 없거나 만료된 위치 파일은 서버에 재시도하지 않는다.
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+    return false;
+  }
   await insertRideSession(session);
   await FileSystem.deleteAsync(uri, { idempotent: true });
+  return true;
 }
 
 /** 로그인 복구·네트워크 재연결 뒤 남은 완성본과 강제 종료 초안을 동기화한다. */
-export async function syncPendingRideSessions(): Promise<void> {
+export async function syncPendingRideSessions(): Promise<number> {
   const user = await getCurrentUser();
-  if (!user) return;
+  if (!user) return 0;
   await ensureDirectory();
   const names = await FileSystem.readDirectoryAsync(RECORDING_DIRECTORY);
+  let synced = 0;
   for (const name of names.filter((entry) => entry.endsWith('.json'))) {
     const uri = `${RECORDING_DIRECTORY}${name}`;
     const draft = await readStoredDraft(uri);
-    if (!draft) continue;
+    if (!draft) {
+      // 강제 종료 도중 파일 자체가 손상됐다면 경로를 복구할 수 없다. 다음 계정에
+      // 민감 위치 파일이 남지 않도록 조용히 폐기한다.
+      await FileSystem.deleteAsync(uri, { idempotent: true });
+      continue;
+    }
     try {
-      await syncStoredDraft(uri, draft, user.id);
-    } catch {
+      if (await syncStoredDraft(uri, draft, user.id)) synced += 1;
+    } catch (error) {
+      const code = (error as { code?: unknown })?.code;
+      if (code === '23503' || code === '23514') {
+        // 서버에서 동의 철회·만료 또는 데이터 무결성 위반을 확정한 파일은
+        // 영구 재시도하지 않고 기기에서도 폐기한다.
+        await FileSystem.deleteAsync(uri, { idempotent: true });
+      }
       // 네트워크·미적용 마이그레이션이면 파일을 남겨 다음 기회에 재시도한다.
     }
   }
+  return synced;
 }
 
 /** 로그아웃한 계정의 미동기화 위치가 다음 사용자에게 남지 않게 기기에서도 지운다. */
@@ -318,7 +346,7 @@ export async function clearPendingRideSessionsForUser(userId: string): Promise<v
     const draftUserId = draft?.state === 'recording'
       ? draft.userId
       : draft?.session.userId;
-    if (draftUserId === userId) {
+    if (!draft || draftUserId === userId) {
       await FileSystem.deleteAsync(uri, { idempotent: true });
     }
   }
@@ -331,7 +359,12 @@ export async function startRideRecording(
 ): Promise<boolean> {
   if (mode !== 'live') return false;
   const user = await getCurrentUser();
-  if (!user || !(await isRideRecordingEnabled(user.id))) return false;
+  if (!user) return false;
+  const preference = await getRideRecordingPreference(user.id);
+  if (
+    !preference?.enabled
+    || Date.parse(preference.expiresAt) <= Date.now()
+  ) return false;
   if (activeDraft) await finishRideRecording('interrupted');
 
   const activeBike = await fetchUserBikes()
@@ -343,6 +376,7 @@ export async function startRideRecording(
     state: 'recording',
     id: Crypto.randomUUID(),
     userId: user.id,
+    consentId: preference.consentId,
     bikeId: activeBike?.id ?? null,
     bikeModel: activeBike?.model ?? null,
     bikeNickname: activeBike?.nickname ?? null,
@@ -377,12 +411,17 @@ export async function finishRideRecording(reason: RideSessionEndReason): Promise
   locationSubscription = null;
   const session = finalizedSession(draft, reason, Date.now());
   if (!session) {
+    await writeChain.catch(() => {});
     await FileSystem.deleteAsync(draftPath(draft.id), { idempotent: true });
     return null;
   }
   const ready: FinalizedDraft = { version: 1, state: 'ready', session };
   await queueWrite(ready);
-  void syncPendingRideSessions().catch(() => {});
+  void syncPendingRideSessions()
+    .then((synced) => {
+      if (synced > 0) void queryClient.invalidateQueries({ queryKey: ['ride-sessions'] });
+    })
+    .catch(() => {});
   return session.id;
 }
 

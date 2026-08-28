@@ -27,9 +27,16 @@ import type { SocialLoginProvider } from '@/lib/socialAuth';
 import { useHapticsStore } from '@/stores/useHapticsStore';
 import { haptics } from '@/lib/haptics';
 import {
-  isRideRecordingEnabled,
+  getRideRecordingPreference,
   setRideRecordingEnabled,
 } from '@/lib/rideRecordingPreference';
+import {
+  consentRideRecording,
+  fetchActiveRideRecordingConsent,
+  revokeRideRecordingConsent,
+} from '@/lib/api/rideRecordingConsent';
+import { clearPendingRideSessionsForUser } from '@/lib/rideRecorder';
+import { queryClient } from '@/lib/queryClient';
 
 type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -176,16 +183,32 @@ export default function SettingsScreen() {
   const hapticsEnabled = useHapticsStore((state) => state.enabled);
   const setHapticsEnabled = useHapticsStore((state) => state.setEnabled);
   const [rideRecordingEnabled, setRideRecordingState] = useState(false);
+  const [hasRideRecordingConsent, setHasRideRecordingConsent] = useState(false);
 
   useEffect(() => {
     if (!user) {
       setRideRecordingState(false);
+      setHasRideRecordingConsent(false);
       return;
     }
     let cancelled = false;
-    void isRideRecordingEnabled(user.id).then((enabled) => {
-      if (!cancelled) setRideRecordingState(enabled);
-    });
+    void Promise.all([
+      getRideRecordingPreference(user.id),
+      fetchActiveRideRecordingConsent(),
+    ])
+      .then(([preference, consent]) => {
+        if (cancelled) return;
+        setRideRecordingState(
+          !!preference?.enabled && preference.consentId === consent?.consentId,
+        );
+        setHasRideRecordingConsent(!!consent);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRideRecordingState(false);
+          setHasRideRecordingConsent(false);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -200,8 +223,10 @@ export default function SettingsScreen() {
   const saveRideRecording = async (enabled: boolean) => {
     if (!user) return;
     try {
-      await setRideRecordingEnabled(user.id, enabled);
+      const consent = enabled ? await consentRideRecording() : undefined;
+      await setRideRecordingEnabled(user.id, enabled, consent);
       setRideRecordingState(enabled);
+      if (consent) setHasRideRecordingConsent(true);
     } catch {
       toast.error('라이딩 기록 설정을 저장하지 못했습니다.');
     }
@@ -215,12 +240,38 @@ export default function SettingsScreen() {
     }
     appAlert(
       '라이딩 경로 기록',
-      '모토맵에서 실제 길안내를 사용하는 동안에만 이동 경로를 기록해요. 앱이 화면에서 사라진 구간은 기록하지 않고, 경로는 본인만 볼 수 있어요.',
+      '모토맵의 실제 길안내가 화면에 보이는 동안 GPS 이동 경로를 기록하고 서버에 저장해 라이딩 지도로 보여줘요. 경로는 본인만 볼 수 있어요. 보관 동의는 1년간 유효하며 해당 동의로 기록한 경로는 동의 만료와 함께 자동 삭제됩니다. 설정을 끄면 새 기록만 멈추며 기존 기록은 유지돼요.',
       [
         { text: '나중에', style: 'cancel' },
         {
-          text: '기록 켜기',
+          text: '동의하고 켜기',
           onPress: () => void saveRideRecording(true),
+        },
+      ],
+    );
+  };
+
+  const revokeRideRecording = () => {
+    if (!user) return;
+    appAlert(
+      '라이딩 경로 전체 삭제',
+      '저장된 모든 실제 경로와 기기의 동기화 대기 기록을 삭제하고 경로 기록 동의를 철회합니다. 장소 방문 횟수는 유지되며 이 작업은 되돌릴 수 없습니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '전체 삭제',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              await setRideRecordingEnabled(user.id, false);
+              setRideRecordingState(false);
+              await clearPendingRideSessionsForUser(user.id);
+              await revokeRideRecordingConsent();
+              setHasRideRecordingConsent(false);
+              await queryClient.invalidateQueries({ queryKey: ['ride-sessions'] });
+              toast.success('라이딩 경로를 모두 삭제했습니다.');
+            })().catch(() => toast.error('라이딩 경로를 삭제하지 못했습니다.'));
+          },
         },
       ],
     );
@@ -304,9 +355,18 @@ export default function SettingsScreen() {
             <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
               길안내 중 달린 길을 라이딩 지도에 저장
             </Text>
-            <Text style={[styles.settingHint, { color: colors.textSecondary }]}>
-              포그라운드의 실제 길안내만 기록하며 경로는 본인에게만 보여요.
+            <Text
+              style={[styles.settingHint, { color: colors.textSecondary }]}>
+              포그라운드의 실제 길안내만 기록하고 동의일부터 최대 1년 보관해요.
             </Text>
+            {hasRideRecordingConsent ? (
+              <Pressable
+                hitSlop={8}
+                onPress={revokeRideRecording}
+                style={({ pressed }) => [styles.deleteRideHistory, pressed && { opacity: 0.55 }]}>
+                <Text style={[styles.deleteRideHistoryText, { color: semantic.danger }]}>경로 전체 삭제 및 동의 철회</Text>
+              </Pressable>
+            ) : null}
           </View>
           <View style={styles.settingSwitchSlot}>
             <Switch
@@ -519,6 +579,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     marginTop: 5,
+  },
+  deleteRideHistory: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingVertical: 2,
+  },
+  deleteRideHistoryText: {
+    fontSize: 11.5,
+    fontWeight: '700',
   },
   loginMethodRow: {
     minHeight: 52,

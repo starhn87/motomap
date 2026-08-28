@@ -988,11 +988,39 @@ export type Database = {
           },
         ]
       }
+      ride_recording_consents: {
+        Row: {
+          consented_at: string
+          expires_at: string
+          id: string
+          policy_version: string
+          revoked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          consented_at?: string
+          expires_at: string
+          id?: string
+          policy_version: string
+          revoked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          consented_at?: string
+          expires_at?: string
+          id?: string
+          policy_version?: string
+          revoked_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       ride_sessions: {
         Row: {
           bike_id: string | null
           bike_model: string | null
           bike_nickname: string | null
+          consent_id: string
           created_at: string
           distance_m: number
           duration_s: number
@@ -1017,6 +1045,7 @@ export type Database = {
           bike_id?: string | null
           bike_model?: string | null
           bike_nickname?: string | null
+          consent_id: string
           created_at?: string
           distance_m: number
           duration_s: number
@@ -1041,6 +1070,7 @@ export type Database = {
           bike_id?: string | null
           bike_model?: string | null
           bike_nickname?: string | null
+          consent_id?: string
           created_at?: string
           distance_m?: number
           duration_s?: number
@@ -1062,6 +1092,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ride_sessions_consent_id_fkey"
+            columns: ["consent_id"]
+            isOneToOne: false
+            referencedRelation: "ride_recording_consents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ride_sessions_bike_id_fkey"
             columns: ["bike_id"]
@@ -2087,6 +2124,14 @@ export type Database = {
         }[]
       }
       complete_onboarding: { Args: { p_nickname: string }; Returns: undefined }
+      consent_ride_recording: {
+        Args: never
+        Returns: {
+          consent_id: string
+          consented_at: string
+          expires_at: string
+        }[]
+      }
       consume_edge_rate_limit: {
         Args: {
           p_key_hash: string
@@ -2101,6 +2146,7 @@ export type Database = {
       }
       course_exists_with_name: { Args: { p_name: string }; Returns: string }
       delete_my_account: { Args: never; Returns: undefined }
+      revoke_ride_recording_consent: { Args: never; Returns: undefined }
       delete_user_bike: { Args: { p_bike_id: string }; Returns: undefined }
       disablelongtransactions: { Args: never; Returns: string }
       exclude_personal_place_rides: {

@@ -33,6 +33,7 @@ export interface RideSession {
 export interface RideSessionInsert {
   id: string;
   userId: string;
+  consentId: string;
   bikeId: string | null;
   bikeModel: string | null;
   bikeNickname: string | null;
@@ -114,6 +115,7 @@ export async function insertRideSession(session: RideSessionInsert): Promise<voi
   const { error } = await supabase.from('ride_sessions').insert({
     id: session.id,
     user_id: session.userId,
+    consent_id: session.consentId,
     bike_id: session.bikeId,
     bike_model: session.bikeModel,
     bike_nickname: session.bikeNickname,
@@ -151,6 +153,30 @@ export async function fetchRideSessionPage(query: RideSessionQuery): Promise<Rid
     const session = toRideSession(row);
     return session ? [session] : [];
   });
+}
+
+export async function fetchRideSessions(
+  query: Omit<RideSessionQuery, 'before' | 'limit'>,
+): Promise<RideSession[]> {
+  const sessions: RideSession[] = [];
+  let before: string | undefined;
+  for (let page = 0; page < 20; page += 1) {
+    const next = await fetchRideSessionPage({ ...query, before, limit: 100 });
+    sessions.push(...next);
+    if (next.length < 100) break;
+    before = next[next.length - 1].startedAt;
+  }
+  return sessions;
+}
+
+export async function fetchRideSession(id: string): Promise<RideSession | null> {
+  const { data, error } = await supabase
+    .from('ride_sessions')
+    .select(RIDE_SESSION_SELECT)
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? toRideSession(data) : null;
 }
 
 export async function deleteRideSession(id: string): Promise<void> {
