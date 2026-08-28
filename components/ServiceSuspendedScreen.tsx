@@ -1,4 +1,4 @@
-import { Linking, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 const PRIVACY_URL = 'https://motomap.kr/privacy';
 const SUPPORT_EMAIL_URL =
@@ -8,9 +8,11 @@ export default function ServiceSuspendedScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.brandMark} accessibilityElementsHidden>
-          <View style={styles.brandRoad} />
-        </View>
+        <Image
+          accessibilityElementsHidden
+          source={require('../assets/images/icon.png')}
+          style={styles.brandIcon}
+        />
 
         <Text style={styles.eyebrow}>운영 일시 중단</Text>
         <Text style={styles.title}>모토맵을 잠시 멈춥니다</Text>
@@ -52,23 +54,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingBottom: 24,
   },
-  brandMark: {
-    width: 54,
-    height: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
+  brandIcon: {
+    width: 72,
+    height: 72,
     marginBottom: 34,
-    borderRadius: 17,
-    backgroundColor: '#17191C',
-    borderWidth: 1,
-    borderColor: '#292C31',
-  },
-  brandRoad: {
-    width: 8,
-    height: 31,
-    borderRadius: 4,
-    backgroundColor: '#79CFFF',
-    transform: [{ rotate: '28deg' }],
+    borderRadius: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
   },
   eyebrow: {
     marginBottom: 13,
