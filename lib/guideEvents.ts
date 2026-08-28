@@ -25,7 +25,11 @@ import { coordToAddress } from '@/lib/api/kakaoLocal';
 import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
 import { buildPlaceRidesForArrival } from '@/lib/ridePlaceStats';
 import type { GuideViaPlace } from '@/lib/guideSession';
-import { finishRideRecording, updateRideRecordingGoal } from '@/lib/rideRecorder';
+import {
+  finishRideRecording,
+  syncPendingRideSessions,
+  updateRideRecordingGoal,
+} from '@/lib/rideRecorder';
 
 // 길안내 전역 이벤트 — 안내가 시작되면 /navi 화면은 지도로 빠져 언마운트되므로
 // 종료·메뉴 처리는 화면이 아니라 여기(루트에서 1회 등록)가 맡는다.
@@ -199,14 +203,30 @@ async function distanceToGoal(goal: GuideGoal): Promise<number | null> {
 
 // 도착지 300m 안에서 끝난 라이딩만 장소 통계에 센다 — 도착지와, 지나온
 // 등록 장소 경유지에 각각 1회 (완주했으면 경유지도 지난 것으로 본다)
-function recordArrival(goal: GuideGoal, viaPlaces: GuideViaPlace[]) {
+function recordArrival(
+  goal: GuideGoal,
+  viaPlaces: GuideViaPlace[],
+  rideSessionId: string | null,
+) {
   // 로컬 집·회사 로딩과 통계 기록은 안내 종료·리뷰 제안을 막지 않도록 분리한다.
   void (async () => {
     const myPlacesStore = useMyPlacesStore.getState();
     await myPlacesStore.load();
-    await recordPlaceRides(
-      buildPlaceRidesForArrival(goal, viaPlaces, useMyPlacesStore.getState().places),
+    const rides = buildPlaceRidesForArrival(
+      goal,
+      viaPlaces,
+      useMyPlacesStore.getState().places,
     );
+    if (rideSessionId) {
+      await syncPendingRideSessions();
+      try {
+        await recordPlaceRides(rides, { rideSessionId, throwOnError: true });
+        return;
+      } catch {
+        // 오프라인 등으로 세션이 아직 없으면 기존 장소 기록은 연결 없이 보존한다.
+      }
+    }
+    await recordPlaceRides(rides);
   })();
   if (goal.courseId) {
     void recordCourseCompletion(goal.courseId)
@@ -293,13 +313,14 @@ async function handleGuideEnd() {
 
   const dist = await distanceToGoal(goal);
   const near = dist !== null && dist < 400;
-  await finishRideRecording(near ? 'arrived' : 'cancelled').catch(() => null);
+  const rideSessionId = await finishRideRecording(near ? 'arrived' : 'cancelled')
+    .catch(() => null);
   clear();
   // 안내가 끝나도 라이더는 이동 중 — 지도가 내 위치를 따라간다.
   // 드래그하면 SDK 가 따라가기를 알아서 푼다.
   followMyLocationOnMap();
   trackGuideEnd(active, near ? 'arrived' : 'cancelled');
-  if (dist !== null && dist <= 300) recordArrival(goal, viaPlaces);
+  if (dist !== null && dist <= 300) recordArrival(goal, viaPlaces, rideSessionId);
   // 등록 장소·코스는 리뷰로, 일반 목적지는 이름·위치가 채워진 간편 제보로 잇는다.
   if (near && (goal.placeId || goal.generalPlaceId || goal.courseId)) suggestReview(goal);
   else if (dist !== null && dist <= 300 && !goal.placeId && !goal.generalPlaceId && !goal.courseId) {
