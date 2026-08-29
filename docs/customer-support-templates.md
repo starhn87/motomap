@@ -16,7 +16,7 @@ I’m really sorry that MotoMap wasn’t available when you wanted to ride.
 
 MotoMap is temporarily paused while we complete essential operational and service preparations. I know this is frustrating, and I sincerely apologize for the inconvenience.
 
-MotoMap will resume service in September 2026. We’ll share the exact reopening date through a push notification and at motomap.kr as soon as it is finalized.
+MotoMap will resume service in September 2026. We’ll send you a push notification when the service is back and post the update at motomap.kr.
 
 Thank you for using MotoMap and for reaching out. Your message means a lot to us.
 
@@ -33,7 +33,7 @@ MotoMap
 
 현재 모토맵은 필수적인 운영 절차와 서비스 정비를 마무리하기 위해 잠시 운영을 중단했습니다. 불편하실 것을 알기에 더욱 죄송한 마음입니다.
 
-모토맵은 2026년 9월 중 운영을 재개합니다. 정확한 재개 날짜가 확정되면 앱 푸시 알림과 motomap.kr을 통해 안내드리겠습니다.
+모토맵은 2026년 9월 중 운영을 재개합니다. 서비스가 재개되면 앱 푸시 알림을 보내드리고 motomap.kr에도 안내하겠습니다.
 
 모토맵을 이용해 주시고 직접 연락해 주셔서 감사합니다. 보내주신 말씀을 소중히 새기겠습니다.
 
@@ -48,13 +48,13 @@ MotoMap
 ### 영어
 
 ```text
-MotoMap will resume service in September 2026. We’ll share the exact reopening date through a push notification and at motomap.kr as soon as it is finalized.
+MotoMap will resume service in September 2026. We’ll send you a push notification when the service is back and post the update at motomap.kr.
 ```
 
 ### 한국어
 
 ```text
-모토맵은 2026년 9월 중 운영을 재개합니다. 정확한 재개 날짜가 확정되면 앱 푸시 알림과 motomap.kr을 통해 안내드리겠습니다.
+모토맵은 2026년 9월 중 운영을 재개합니다. 서비스가 재개되면 앱 푸시 알림을 보내드리고 motomap.kr에도 안내하겠습니다.
 ```
 
 ## 응대 원칙
