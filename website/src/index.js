@@ -125,17 +125,17 @@ function maintenancePage() {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0b0c0e" />
-    <meta name="description" content="모토맵은 서비스 운영 체계를 정비하기 위해 운영을 잠시 중단했습니다." />
+    <meta name="description" content="모토맵은 필수적인 운영 절차와 서비스 정비를 거쳐 2026년 9월 중 운영을 재개할 예정입니다." />
     <meta name="robots" content="noindex, nofollow" />
     <meta property="og:title" content="운영 일시 중단: 모토맵" />
-    <meta property="og:description" content="서비스 운영 체계를 정비한 뒤 다시 안내드리겠습니다." />
+    <meta property="og:description" content="모토맵은 2026년 9월 중 운영을 재개할 예정입니다." />
     <meta property="og:image" content="https://motomap.kr/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="검은 배경 위 흰색 바이크 아이콘" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="운영 일시 중단: 모토맵" />
-    <meta name="twitter:description" content="서비스 운영 체계를 정비한 뒤 다시 안내드리겠습니다." />
+    <meta name="twitter:description" content="모토맵은 2026년 9월 중 운영을 재개할 예정입니다." />
     <meta name="twitter:image" content="https://motomap.kr/og.png" />
     <link rel="canonical" href="https://motomap.kr/" />
     <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png" />
@@ -148,8 +148,9 @@ function maintenancePage() {
       <p class="eyebrow">운영 일시 중단</p>
       <h1>모토맵을 잠시 멈춥니다</h1>
       <p class="maintenance-description">
-        서비스 운영 체계를 정비하고 있어요.<br />정비를 마친 뒤 다시 안내드리겠습니다.
+        필수적인 운영 절차와 서비스 정비를 진행하고 있어요.
       </p>
+      <p class="maintenance-resume-status">2026년 9월 중 운영 재개 예정</p>
       <p class="maintenance-notice">현재 위치·지도·길안내 기능은 제공하지 않습니다.</p>
       <a class="maintenance-contact" href="mailto:starhn87@gmail.com?subject=%5B%EB%AA%A8%ED%86%A0%EB%A7%B5%5D%20%EA%B3%84%EC%A0%95%C2%B7%EB%8D%B0%EC%9D%B4%ED%84%B0%20%EB%AC%B8%EC%9D%98">계정·데이터 문의</a>
       <nav class="maintenance-links" aria-label="법률 문서">

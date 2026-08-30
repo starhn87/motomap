@@ -17,8 +17,12 @@ export default function ServiceSuspendedScreen() {
         <Text style={styles.eyebrow}>운영 일시 중단</Text>
         <Text style={styles.title}>모토맵을 잠시 멈춥니다</Text>
         <Text style={styles.description}>
-          서비스 운영 체계를 정비하고 있어요.{`\n`}정비를 마친 뒤 다시 안내드리겠습니다.
+          필수적인 운영 절차와 서비스 정비를 진행하고 있어요.
         </Text>
+
+        <View style={styles.resumeStatus}>
+          <Text style={styles.resumeStatusText}>2026년 9월 중 운영 재개 예정</Text>
+        </View>
 
         <View style={styles.notice}>
           <Text style={styles.noticeText}>
@@ -85,8 +89,24 @@ const styles = StyleSheet.create({
     lineHeight: 27,
     letterSpacing: -0.35,
   },
+  resumeStatus: {
+    alignSelf: 'flex-start',
+    marginTop: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(121, 207, 255, 0.3)',
+    borderRadius: 999,
+    backgroundColor: 'rgba(121, 207, 255, 0.08)',
+  },
+  resumeStatusText: {
+    color: '#79CFFF',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
   notice: {
-    marginTop: 30,
+    marginTop: 18,
     marginBottom: 34,
     paddingHorizontal: 18,
     paddingVertical: 17,
