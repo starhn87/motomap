@@ -34,6 +34,7 @@
 | 노면 위험 정보 수명주기 | [hazard-lifecycle.md](hazard-lifecycle.md) | `road_hazards`, `hazard_votes`, `components/map/HazardSheet.tsx` |
 | 인증·세션 저장 | [authentication.md](authentication.md) | `lib/authStorage.ts`, `lib/supabase.ts`, `stores/useAuthStore.ts` |
 | 서비스 운영 중단·재개 | [service-suspension.md](service-suspension.md) | `app/_layout.tsx`, `website/src/index.js`, App Store·백엔드·지도 공급자 |
+| 외부 공급자 장애 대응 | [external-provider-resilience.md](external-provider-resilience.md) | 네이버 지도, 카카오 검색·길안내, 날씨·미세먼지·유가, 소셜 로그인 |
 | 장소 선별·운영 상태 검증 | [place-curation.md](place-curation.md) | `public.places`, `scripts/seed-place-curation.mjs`, 장소 검증 마이그레이션 |
 | 일반 장소 추천 | [community-place-recommendations.md](community-place-recommendations.md) | `public.general_place_shares`, 일반 장소 상세·지도 |
 | 장소·라이딩 추천 제보 심사 | [submission-moderation.md](submission-moderation.md) | `docs/submission-approval-policy.md`, `supabase/functions/judge-submission/` |
