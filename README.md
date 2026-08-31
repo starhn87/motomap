@@ -2,14 +2,19 @@
 
 > 오토바이 라이더를 위한 지도 앱
 
-[![Download on the App Store](https://img.shields.io/badge/Download_on_the-App_Store-0D96F6?style=flat-square&logo=apple&logoColor=white)](https://apps.apple.com/app/id6773636183)
+> [!IMPORTANT]
+> **운영 일시 중단**
+>
+> 모토맵은 필수 운영 및 서비스 준비를 위해 일시적으로 운영을 중단했습니다. 2026년 9월 중 운영을 재개할 예정이며, 재개 시 기존 이용자에게 앱 푸시 알림으로 안내합니다.
+
+![App Store temporarily unavailable](https://img.shields.io/badge/App_Store-temporarily_unavailable-6B7280?style=flat-square&logo=apple&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-iOS-lightgrey?style=flat-square)
 ![Expo SDK](https://img.shields.io/badge/Expo_SDK-54-000020?style=flat-square&logo=expo&logoColor=white)
 ![React Native](https://img.shields.io/badge/React_Native-0.81-61DAFB?style=flat-square&logo=react&logoColor=black)
 
 🌐 **공식 웹사이트:** [motomap.kr](https://motomap.kr)
 
-라이딩 갈 만한 카페, 맛집, 뷰포인트부터 주유소와 정비소 등을 지도에서 찾고, 목적지 중심 라이딩 추천을 살펴본 뒤 이륜차 전용 길안내로 바로 떠나는 앱입니다. 출발 전에는 기상청 예보 기반 라이딩 날씨로 비 소식을 확인할 수 있고, App Store에서 다운로드할 수 있습니다.
+라이딩 갈 만한 카페, 맛집, 뷰포인트부터 주유소와 정비소 등을 지도에서 찾고, 목적지 중심 라이딩 추천을 살펴본 뒤 이륜차 전용 길안내로 바로 떠나는 앱입니다. 출발 전에는 기상청 예보 기반 라이딩 날씨로 비 소식을 확인할 수 있습니다. 운영 재개 후 App Store에서 다시 제공할 예정입니다.
 
 <p align="center">
   <img src="./docs/screenshots/hero-1.png" width="340"/>
