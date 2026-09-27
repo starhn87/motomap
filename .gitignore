@@ -52,3 +52,6 @@ yarn-error.*
 
 # Claude Code 로컬 권한 (커밋 제외)
 .claude/settings.local.json
+
+!supabase/functions/_shared/vendor/jev-decisions/dist/
+!supabase/functions/_shared/vendor/jev-decisions/dist/**

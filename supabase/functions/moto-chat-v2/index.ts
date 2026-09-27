@@ -1,3 +1,4 @@
+import { assessMotoChat } from '../_shared/jevChat.ts';
 // 모토맵 AI 추천 챗 v2 — 등록 장소와 목적지 중심 라이딩 추천 안에서만 답한다.
 // 기존 moto-chat의 장소·고정 코스 응답 계약은 구버전 앱을 위해 그대로 유지한다.
 
@@ -304,6 +305,14 @@ Deno.serve(async (req) => {
   ) {
     return json({ error: '대화 내용이 너무 깁니다.' }, 413);
   }
+
+  const configuredThreshold = Deno.env.get('JEV_OFF_TOPIC_THRESHOLD');
+  const scope = await assessMotoChat(messages, {
+    apiKey: Deno.env.get('TYPESAFE_API_KEY') ?? '', mode: Deno.env.get('JEV_CHAT_MODE') ?? 'off',
+    threshold: configuredThreshold ? Number(configuredThreshold) : undefined, signal: req.signal,
+  });
+  if (scope.aborted || req.signal.aborted) return new Response(null, { status: 499 });
+  if (scope.decline) return json({ reply: '라이딩과 관련된 장소나 방문 추천을 도와드리고 있어요. 가고 싶은 지역이나 찾는 장소를 알려주세요.', places: [], ridingGuides: [] });
 
   try {
     const { places, guides, datasetText } = await loadData();

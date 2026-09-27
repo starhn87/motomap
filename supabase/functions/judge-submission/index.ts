@@ -1,3 +1,4 @@
+import { observeSubmission } from '../_shared/jevSubmission.ts';
 // 제보(장소·라이딩 추천·레거시 코스) AI 판정 — DB 트리거가 호출하는 Edge Function.
 // 1) 카카오 로컬 교차검증 + 웹 검색으로 라이더 근거 조사 → 2) 구조화 판정 →
 // 3) 결과와 근거를 디스코드로 발송. 장소·레거시 코스는 승인/반려, 라이딩 추천은
@@ -416,6 +417,11 @@ async function judgeRidingGuideSubmission(
     mergeGuideId: resolution === 'merge_existing' ? parsed.mergeGuideId : '',
     criteria: parsed.criteria.slice(0, 6),
   };
+  EdgeRuntime.waitUntil(observeSubmission({ table: 'riding_guide_submissions', category: '',
+    submitted: JSON.stringify({ title: record.title, reason: record.reason, featuredRoads: record.featured_roads,
+      tags: record.tags, places: submitted }),
+    evidence: `기존 공개 추천: ${JSON.stringify(existingGuides)}\n\n외부 조사: ${web}`, baseline: verdict.resolution,
+  }, { apiKey: Deno.env.get('TYPESAFE_API_KEY') ?? '', mode: Deno.env.get('JEV_SUBMISSION_MODE') ?? 'off' }));
   return { verdict, mergeGuideTitle: mergeGuide?.title ?? null };
 }
 
@@ -492,6 +498,9 @@ async function judge(table: string, record: Record<string, unknown>): Promise<{ 
 
   const text = response.content.find((b) => b.type === 'text')?.text ?? '{}';
   const verdict = JSON.parse(text) as Verdict;
+  EdgeRuntime.waitUntil(observeSubmission({ table, category: String(record.category ?? ''), submitted, evidence,
+    baseline: verdict.verdict,
+  }, { apiKey: Deno.env.get('TYPESAFE_API_KEY') ?? '', mode: Deno.env.get('JEV_SUBMISSION_MODE') ?? 'off' }));
   return { v: { ...verdict, criteria: verdict.criteria.slice(0, 6) }, evidence };
 }
 

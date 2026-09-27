@@ -38,6 +38,7 @@
 | 장소 선별·운영 상태 검증 | [place-curation.md](place-curation.md) | `public.places`, `scripts/seed-place-curation.mjs`, 장소 검증 마이그레이션 |
 | 일반 장소 추천 | [community-place-recommendations.md](community-place-recommendations.md) | `public.general_place_shares`, 일반 장소 상세·지도 |
 | 장소·라이딩 추천 제보 심사 | [submission-moderation.md](submission-moderation.md) | `docs/submission-approval-policy.md`, `supabase/functions/judge-submission/` |
+| Jev 판단 관찰 | [jev-observation.md](jev-observation.md) | `supabase/functions/_shared/jevChat.ts`, `jevSubmission.ts` |
 | 릴리스·버전 호환성 | [release-compatibility.md](release-compatibility.md) | `config/release-policy.json`, `lib/appCompatibility.ts`, `modules/kakao-navi/`, `.github/workflows/checks.yml` |
 
 새 도메인 문서를 추가할 때 이 표에도 반드시 연결한다.
