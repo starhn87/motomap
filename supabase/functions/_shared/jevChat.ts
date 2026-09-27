@@ -1,4 +1,5 @@
-import { createDecisionClient, type DecisionResult } from './vendor/jev-decisions/dist/index.js';
+import { TypeSafeClient, APIUserAbortError } from '@typesafe-ai/sdk';
+import { toObservation, type DecisionObservation } from './vendor/jev-decisions/dist/index.js';
 
 export const MOTO_CHAT_QUESTIONS = {
   scope: {
@@ -12,7 +13,7 @@ export const MOTO_CHAT_QUESTIONS = {
   },
 } as const;
 
-export function shouldDecline(result: DecisionResult<typeof MOTO_CHAT_QUESTIONS>, threshold?: number): boolean {
+export function shouldDecline(result: DecisionObservation<typeof MOTO_CHAT_QUESTIONS>, threshold?: number): boolean {
   return result.ok && threshold !== undefined && Number.isFinite(threshold) && threshold > .5 && threshold <= 1 &&
     result.answers.scope.choice === 'clearly_off_topic' && result.answers.scope.probabilities.clearly_off_topic >= threshold;
 }
@@ -23,9 +24,20 @@ export async function assessMotoChat(messages: { role: string; content: string }
   if (!config.apiKey || !['shadow', 'enforce'].includes(config.mode)) return { decline: false, aborted: false };
   const recent = messages.slice(-6);
   if (recent.reduce((sum, m) => sum + m.content.length, 0) > 6000) return { decline: false, aborted: false };
-  const result = await createDecisionClient({ apiKey: config.apiKey, model: 'jev-1.13.0', fetch: config.fetch }).decide({
-    definitionId: 'moto-chat-scope', definitionVersion: '1', state: { messages: recent }, questions: MOTO_CHAT_QUESTIONS,
-  }, { signal: config.signal, timeoutMs: 1000 });
+  const client = new TypeSafeClient({ apiKey: config.apiKey, baseURL: 'https://api.typesafe.ai',
+    defaultModel: 'jev-1.13.0', fetch: config.fetch, retry: { maxRetries: 0 }, logLevel: 'off' });
+  const started = performance.now();
+  let outcome;
+  try {
+    if (config.signal?.aborted) throw new APIUserAbortError();
+    outcome = await client.systemOne({ state: { messages: recent }, questions: MOTO_CHAT_QUESTIONS },
+      { signal: config.signal, timeout: 1000 }).withResponse();
+  } catch (error) { outcome = { error }; }
+  const result = toObservation(MOTO_CHAT_QUESTIONS, outcome, {
+    definitionId: 'moto-chat-scope', definitionVersion: '1', requestedModel: client.defaultModel,
+    durationMs: performance.now() - started,
+  });
+  result.meta.durationMs = performance.now() - started;
   const proposedDecline = shouldDecline(result, config.threshold);
   console.info('jev.moto-chat', { mode: config.mode, meta: result.meta, ok: result.ok, proposedDecline,
     ...(result.ok ? { answers: result.answers } : { error: result.error.kind }) });

@@ -5,12 +5,19 @@
   },
   "lint": {
     "rules": {
-      "exclude": ["no-import-prefix"]
+      "exclude": [
+        "no-import-prefix"
+      ]
     },
-    "exclude": ["_shared/vendor"]
+    "exclude": [
+      "_shared/vendor"
+    ]
   },
   "tasks": {
     "check": "deno lint . && deno check --frozen */index.ts",
     "test:jev": "deno test --frozen _shared/jev*.test.ts"
+  },
+  "imports": {
+    "@typesafe-ai/sdk": "npm:@typesafe-ai/sdk@0.6.0"
   }
 }

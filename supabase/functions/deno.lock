@@ -4,6 +4,7 @@
     "npm:@anthropic-ai/sdk@0.116.0": "0.116.0",
     "npm:@anthropic-ai/sdk@0.39.0": "0.39.0",
     "npm:@supabase/supabase-js@2.111.0": "2.111.0",
+    "npm:@typesafe-ai/sdk@0.6.0": "0.6.0",
     "npm:proj4@2.15.0": "2.15.0"
   },
   "npm": {
@@ -90,6 +91,9 @@
       "dependencies": [
         "undici-types"
       ]
+    },
+    "@typesafe-ai/sdk@0.6.0": {
+      "integrity": "sha512-IddX+Q0XM+VagOUZFeP7wZjaO4SHMdvnh2zEBdrZZnXedWI3BNK1lKhMx3ayrkFWvVLbVcUHJy6AVZlY+e6Jaw=="
     },
     "abort-controller@3.0.0": {
       "integrity": "sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==",
@@ -306,5 +310,10 @@
     "wkt-parser@1.5.6": {
       "integrity": "sha512-cqHU3lzGt/gt2OqIORP0uVy5yeOX43WABmgFkmJsmcqH3HhQo9PiJG6ftytwGKmpQUbegeX7+pQc2BuNCRfcrw=="
     }
+  },
+  "workspace": {
+    "dependencies": [
+      "npm:@typesafe-ai/sdk@0.6.0"
+    ]
   }
 }

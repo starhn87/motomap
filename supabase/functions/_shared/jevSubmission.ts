@@ -1,4 +1,5 @@
-import { createDecisionClient, type Questions } from './vendor/jev-decisions/dist/index.js';
+import { TypeSafeClient, TypeSafeError, type Questions } from '@typesafe-ai/sdk';
+import { toObservation } from './vendor/jev-decisions/dist/index.js';
 import { SUBMISSION_POLICY_PROMPT, SUBMISSION_POLICY_VERSION } from './submissionPolicy.ts';
 
 export function submissionQuestions(table: string, category: string): Questions {
@@ -23,11 +24,22 @@ export async function observeSubmission(input: {
   // 관찰 로그의 실패도 기존 심사 수명에 영향을 주지 않는다.
   const record = (value: unknown) => { try { emit(value); } catch { /* 관찰만 생략 */ } };
   try {
-    const result = await createDecisionClient({ apiKey: config.apiKey, model: 'jev-1.13.0', fetch: config.fetch }).decide({
+    const questions = submissionQuestions(input.table, input.category);
+    const client = new TypeSafeClient({ apiKey: config.apiKey, baseURL: 'https://api.typesafe.ai',
+      defaultModel: 'jev-1.13.0', fetch: config.fetch, retry: { maxRetries: 0 }, logLevel: 'off' });
+    const started = performance.now();
+    let outcome;
+    try {
+      const request = { model: client.defaultModel,
+        state: { submitted: input.submitted, evidence: input.evidence, policy: SUBMISSION_POLICY_PROMPT }, questions };
+      if (new TextEncoder().encode(JSON.stringify(request)).byteLength > 256_000) throw new TypeSafeError('Submission observation input budget exceeded');
+      outcome = await client.systemOne(request, { timeout: 2000 }).withResponse();
+    } catch (error) { outcome = { error }; }
+    const result = toObservation(questions, outcome, {
       definitionId: `submission-${input.table}`, definitionVersion: `1:${SUBMISSION_POLICY_VERSION}`,
-      state: { submitted: input.submitted, evidence: input.evidence, policy: SUBMISSION_POLICY_PROMPT },
-      questions: submissionQuestions(input.table, input.category),
-    }, { timeoutMs: 2000 });
+      requestedModel: client.defaultModel, durationMs: performance.now() - started,
+    });
+    result.meta.durationMs = performance.now() - started;
     record({ table: input.table, policyVersion: SUBMISSION_POLICY_VERSION, baseline: input.baseline,
       meta: result.meta, ok: result.ok, ...(result.ok ? { answers: result.answers } : { error: result.error.kind }) });
   } catch { record({ table: input.table, error: 'shadow-observation-failed' }); }

@@ -35,7 +35,9 @@ Deno.test('비활성·키 없음·과도한 입력·취소는 불필요한 요�
   assert(!(await assessMotoChat(messages, { apiKey: '', mode: 'shadow', fetch: noFetch })).decline);
   assert(!(await assessMotoChat([{ role: 'user', content: 'x'.repeat(6001) }], { apiKey: 'mock', mode: 'shadow', fetch: noFetch })).decline);
   const signal = AbortSignal.abort();
-  assert((await assessMotoChat(messages, { apiKey: 'mock', mode: 'shadow', signal, fetch: noFetch })).aborted);
+  let cancelledFetches = 0;
+  assert((await assessMotoChat(messages, { apiKey: 'mock', mode: 'shadow', signal, fetch: () => { cancelledFetches++; throw new Error('Unexpected request'); } })).aborted);
+  assert(cancelledFetches === 0);
 });
 
 Deno.test('짧은 후속 질문에도 이전 문맥을 전달하며 원문은 관측에 남기지 않는다', async () => {

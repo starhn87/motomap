@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "@typesafe-ai/sdk": "npm:@typesafe-ai/sdk@0.6.0"
+  }
+}
