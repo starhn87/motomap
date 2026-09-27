@@ -1,5 +1,5 @@
 import { TypeSafeClient, APIUserAbortError } from '@typesafe-ai/sdk';
-import { toObservation, type DecisionObservation } from './vendor/jev-decisions/dist/index.js';
+import { observe, type DecisionObservation } from './vendor/jev-decisions/dist/index.js';
 
 export const MOTO_CHAT_QUESTIONS = {
   scope: {
@@ -26,18 +26,13 @@ export async function assessMotoChat(messages: { role: string; content: string }
   if (recent.reduce((sum, m) => sum + m.content.length, 0) > 6000) return { decline: false, aborted: false };
   const client = new TypeSafeClient({ apiKey: config.apiKey, baseURL: 'https://api.typesafe.ai',
     defaultModel: 'jev-1.13.0', fetch: config.fetch, retry: { maxRetries: 0 }, logLevel: 'off' });
-  const started = performance.now();
-  let outcome;
-  try {
-    if (config.signal?.aborted) throw new APIUserAbortError();
-    outcome = await client.systemOne({ state: { messages: recent }, questions: MOTO_CHAT_QUESTIONS },
-      { signal: config.signal, timeout: 1000 }).withResponse();
-  } catch (error) { outcome = { error }; }
-  const result = toObservation(MOTO_CHAT_QUESTIONS, outcome, {
+  const result = await observe({ questions: MOTO_CHAT_QUESTIONS, context: {
     definitionId: 'moto-chat-scope', definitionVersion: '1', requestedModel: client.defaultModel,
-    durationMs: performance.now() - started,
-  });
-  result.meta.durationMs = performance.now() - started;
+  }, run: () => {
+    if (config.signal?.aborted) throw new APIUserAbortError();
+    return client.systemOne({ state: { messages: recent }, questions: MOTO_CHAT_QUESTIONS },
+      { signal: config.signal, timeout: 1000 }).withResponse();
+  } });
   const proposedDecline = shouldDecline(result, config.threshold);
   console.info('jev.moto-chat', { mode: config.mode, meta: result.meta, ok: result.ok, proposedDecline,
     ...(result.ok ? { answers: result.answers } : { error: result.error.kind }) });
