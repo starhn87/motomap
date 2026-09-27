@@ -8,7 +8,7 @@
 
 ### 배경
 
-여러 저장소의 Jev 전송·응답 검증을 agent-model-router의 `@starhn87/jev-decisions`에 모은다.
+여러 저장소의 Jev 전송·응답 검증을 jev-decision-kit의 `@starhn87/jev-decisions`에 모은다.
 모토맵의 라이딩 범위와 제보 승인 기준은 이 저장소가 소유한다. 운영 중단 기간에는
 OPS-003에 따라 공급자 실호출·키 복구·배포 없이 모의 검증만 한다.
 
