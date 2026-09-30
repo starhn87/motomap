@@ -5,7 +5,7 @@
 > [!IMPORTANT]
 > **운영 일시 중단**
 >
-> 모토맵은 필수 운영 및 서비스 준비를 위해 일시적으로 운영을 중단했습니다. 2026년 9월 중 운영을 재개할 예정이며, 재개 시 기존 이용자에게 앱 푸시 알림으로 안내합니다.
+> 모토맵은 필수 운영 및 서비스 준비를 위해 일시적으로 운영을 중단했습니다. 준비가 늦어져 죄송합니다. 2026년 10월 중 운영을 재개하겠습니다. 재개 시 기존 이용자에게 앱 푸시 알림으로 안내합니다.
 
 ![App Store temporarily unavailable](https://img.shields.io/badge/App_Store-temporarily_unavailable-6B7280?style=flat-square&logo=apple&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-iOS-lightgrey?style=flat-square)
