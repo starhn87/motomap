@@ -112,6 +112,8 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
     route,
     trafficParts,
     loading,
+    routeError,
+    retryRoute,
     courseOnly,
     activeVias,
     effVias,
@@ -406,6 +408,16 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
     return out;
   }, [isCourseMode, activeVias, effVias]);
 
+  // 오류·닫기 모두 오버레이와 장소 시트를 남기지 않고 지도 탭으로 돌아간다.
+  const returnToMap = () => {
+    useMapStore.getState().requestMapReset();
+    if (hasMapOverlayInStack()) {
+      router.dismissAll();
+    } else {
+      router.back();
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {!guideStarted && (
@@ -510,18 +522,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
             {/* 오른쪽 열 — 닫기는 상단, 스왑은 최하단(닫기와 오터치 안 나게 멀리) */}
             <View style={styles.routeSide}>
               <Pressable
-                onPress={() => {
-                  // 닫기의 기대는 "다 접고 맨 지도로" — 지도 탭에 남아 있던
-                  // 장소 시트·카드도 함께 정리한다
-                  useMapStore.getState().requestMapReset();
-                  // 오버레이(장소 상세 지도)를 거쳐 여기까지 왔다면 back 은
-                  // 오버레이→미리보기→… 를 되감을 뿐이다 — 탭 루트로 바로.
-                  if (hasMapOverlayInStack()) {
-                    router.dismissAll();
-                  } else {
-                    router.back();
-                  }
-                }}
+                onPress={returnToMap}
                 hitSlop={8}
                 style={styles.routeClose}>
                 <CloseIcon size={20} color={colors.text} />
@@ -591,21 +592,42 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
           })}
         </View>
 
-        <View style={[styles.infoRow, (loading || !route) && styles.infoRowCentered]}>
-          {loading || !route ? (
-            <ActivityIndicator size="small" color={colors.textSecondary} />
-          ) : (
-            <>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
-                {formatMeters(route.distance)}
-              </Text>
-              <View style={[styles.dot, { backgroundColor: colors.border }]} />
-              <Text style={[styles.infoValue, { color: colors.text }]}>
-                {formatSeconds(route.duration)}
-              </Text>
-            </>
-          )}
-        </View>
+        {routeError && !loading ? (
+          <View style={[styles.routeError, { borderColor: colors.border }]}>
+            <Text style={[styles.routeErrorTitle, { color: colors.text }]}>
+              경로를 불러오지 못했어요
+            </Text>
+            <Text style={[styles.routeErrorMessage, { color: colors.textSecondary }]}>
+              {routeError}
+            </Text>
+            <View style={styles.routeErrorActions}>
+              <Pressable onPress={retryRoute} accessibilityRole="button" hitSlop={8}>
+                <Text style={[styles.routeErrorAction, { color: colors.tint }]}>다시 시도</Text>
+              </Pressable>
+              <Pressable onPress={returnToMap} accessibilityRole="button" hitSlop={8}>
+                <Text style={[styles.routeErrorAction, { color: colors.textSecondary }]}>
+                  지도로 돌아가기
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <View style={[styles.infoRow, (loading || !route) && styles.infoRowCentered]}>
+            {loading || !route ? (
+              <ActivityIndicator size="small" color={colors.textSecondary} />
+            ) : (
+              <>
+                <Text style={[styles.infoValue, { color: colors.text }]}>
+                  {formatMeters(route.distance)}
+                </Text>
+                <View style={[styles.dot, { backgroundColor: colors.border }]} />
+                <Text style={[styles.infoValue, { color: colors.text }]}>
+                  {formatSeconds(route.duration)}
+                </Text>
+              </>
+            )}
+          </View>
+        )}
 
         <Pressable
           onPress={startGuide}
@@ -781,6 +803,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  routeError: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    gap: 8,
+  },
+  routeErrorTitle: { fontSize: 15, fontWeight: '700' },
+  routeErrorMessage: { fontSize: 13, lineHeight: 19 },
+  routeErrorActions: { flexDirection: 'row', gap: 22, marginTop: 4 },
+  routeErrorAction: { fontSize: 13, fontWeight: '700' },
   dot: {
     width: 4,
     height: 4,

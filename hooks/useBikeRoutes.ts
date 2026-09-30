@@ -13,6 +13,8 @@ import { fetchBikeTraffic, type TrafficPart } from '@/lib/api/directions';
 import { toast } from '@/lib/toast';
 import { track } from '@/lib/analytics';
 
+const ROUTE_LOAD_TIMEOUT_MS = 20_000;
+
 // 미리보기 화면의 "지점 → 경로" 도메인 — 옵션별 경로·혼잡 캐시, 20412 경유지
 // 축소 사다리, 원거리 코스의 출발지 폴백까지 여기가 맡는다. 화면은 지점 편집과
 // 안내 시작만 다루고, 경로가 어떻게 확보되는지는 모른다.
@@ -35,6 +37,7 @@ export function useBikeRoutes(args: {
   // 옵션별 혼잡 구간(경로선 색칠용). 없으면 SDK 선형을 단색으로 그린다.
   const [traffic, setTraffic] = useState<Partial<Record<RoutePriority, TrafficPart[]>>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<{ priority: RoutePriority; message: string } | null>(null);
   // 현재 위치에서 도로가 이어지지 않는 원거리 코스(예: 육지→제주)는
   // 코스 출발지 기준 미리보기로 폴백한다. 이때 안내 시작은 막는다.
   const [courseOnly, setCourseOnly] = useState(false);
@@ -51,12 +54,19 @@ export function useBikeRoutes(args: {
     : start;
   const effVias = courseOnly ? flatVias.slice(2) : flatVias;
   const route = routes[priority];
+  const routeError = error?.priority === priority ? error.message : null;
 
   // 지점이 바뀌면 옵션별 캐시가 전부 낡는다 — 경로·혼잡도를 비워 재조회를 태운다
   const resetRoutes = () => {
     setRoutes({});
     setTraffic({});
     setActiveVias(null);
+    setError(null);
+  };
+
+  const retryRoute = () => {
+    setError(null);
+    setRoutes((previous) => ({ ...previous, [priority]: undefined }));
   };
 
   // 선택된 옵션의 경로 확보 (옵션별 캐시).
@@ -66,6 +76,13 @@ export function useBikeRoutes(args: {
     if (!effStart || routes[priority]) return;
     let cancelled = false;
     setLoading(true);
+    setError(null);
+    const timeout = setTimeout(() => {
+      if (cancelled) return;
+      cancelled = true;
+      setError({ priority, message: '길안내 응답이 늦어지고 있어요. 잠시 후 다시 시도해 주세요.' });
+      setLoading(false);
+    }, ROUTE_LOAD_TIMEOUT_MS);
 
     (async () => {
       // SDK 는 여기서 처음 초기화된다(lazy — 배터리 사유는 lib/kakaoNaviInit.ts)
@@ -73,10 +90,11 @@ export function useBikeRoutes(args: {
         await ensureKakaoNaviReady();
       } catch (err) {
         if (!cancelled) {
-          toast.error('길안내를 준비할 수 없습니다', friendlyRouteError(err));
+          setError({ priority, message: friendlyRouteError(err) });
         }
         return;
       }
+      if (cancelled) return;
       const requestVias = activeVias ?? effVias;
       // 실패 시 경유지를 줄여가며 재시도하는 사다리 — 축소는 사전 추림(20개)과
       // 같은 샘플러를 쓴다. 20413(도로 자체가 안 이어짐)은 경유지를 줄여도
@@ -107,6 +125,7 @@ export function useBikeRoutes(args: {
           });
           return;
         } catch (err) {
+          if (cancelled) return;
           lastErr = err;
           if (routeErrorCode(err) === 20413) break;
         }
@@ -127,13 +146,15 @@ export function useBikeRoutes(args: {
         code: routeErrorCode(lastErr),
         via_count: pairsFromFlat(requestVias).length,
       });
-      toast.error('경로를 찾을 수 없습니다', friendlyRouteError(lastErr));
+      setError({ priority, message: friendlyRouteError(lastErr) });
     })().finally(() => {
+      clearTimeout(timeout);
       if (!cancelled) setLoading(false);
     });
 
     return () => {
       cancelled = true;
+      clearTimeout(timeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias·userVias·courseOnly 에서 파생
   }, [effStart?.[0], effStart?.[1], priority, routes, goal.longitude, goal.latitude, courseVias.join(','), userVias, courseOnly, activeVias]);
@@ -166,6 +187,8 @@ export function useBikeRoutes(args: {
     /** 선택된 옵션의 혼잡 구간 — 없으면 단색으로 그린다 */
     trafficParts: traffic[priority],
     loading,
+    routeError,
+    retryRoute,
     courseOnly,
     activeVias,
     effStart,

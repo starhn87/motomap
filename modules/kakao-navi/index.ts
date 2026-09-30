@@ -1,5 +1,7 @@
 import { requireOptionalNativeModule } from 'expo-modules-core';
 
+export { friendlyRouteError, routeErrorCode } from '@/lib/kakaoRouteErrors';
+
 // 카카오내비 SDK(KNSDK) 네이티브 브리지. iOS 전용.
 export interface BikeRoute {
   /** 미터 */
@@ -40,35 +42,6 @@ export function latLngsFromFlat(flat: number[]): { latitude: number; longitude: 
     coords.push({ longitude: flat[i], latitude: flat[i + 1] });
   }
   return coords;
-}
-
-/**
- * 경로 에러에서 KNSDK 코드를 꺼낸다.
- *
- * 네이티브가 reject 코드를 `E_KNSDK_ROUTE_20413` 처럼 붙여 보내고
- * (안내 실패 이벤트는 `code` 필드), 그걸 그대로 읽는다. 사람이 읽는 문구를
- * 파싱하지 않으므로 SDK 메시지가 바뀌어도 분기가 깨지지 않는다.
- */
-export function routeErrorCode(err: unknown): number | null {
-  const e = err as { code?: unknown; message?: string } | null;
-  const raw = typeof e?.code === 'string' ? e.code : null;
-  const m = raw?.match(/_(\d+)$/);
-  return m ? Number(m[1]) : null;
-}
-
-/**
- * 경로 에러를 사용자 문구로. 미리보기·안내 시작의 토스트가 함께 쓴다.
- * 안내 실패 이벤트처럼 코드와 문구가 따로 오는 경우엔 code 를 직접 넘긴다.
- */
-export function friendlyRouteError(err: unknown, knCode?: string | null): string {
-  const code = knCode ? Number(knCode) : routeErrorCode(err);
-  if (code === 20413) {
-    return '자동차 전용도로를 빼면 이어지는 도로가 없어요. 바다 건너나 도로가 끊긴 곳은 안내할 수 없어요.';
-  }
-  if (code === 20412) {
-    return '경유지가 도로와 이어지지 않아요.';
-  }
-  return String((err as { message?: string })?.message ?? err);
 }
 
 export const KAKAO_NAVI_FEATURES = [
