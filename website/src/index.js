@@ -148,7 +148,7 @@ function maintenancePage() {
       <p class="eyebrow">운영 일시 중단</p>
       <h1>모토맵을 잠시 멈춥니다</h1>
       <p class="maintenance-description">
-        준비가 늦어져 죄송합니다. 필수적인 운영 절차와 서비스 정비를 마무리하고 있어요.
+        준비가 늦어져 죄송합니다.<br />필수적인 운영 절차와 서비스 정비를 마무리하고 있어요.
       </p>
       <p class="maintenance-resume-status">2026년 10월 중 운영을 재개하겠습니다</p>
       <p class="maintenance-notice">현재 위치·지도·길안내 기능은 제공하지 않습니다.</p>

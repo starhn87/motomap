@@ -17,7 +17,7 @@ export default function ServiceSuspendedScreen() {
         <Text style={styles.eyebrow}>운영 일시 중단</Text>
         <Text style={styles.title}>모토맵을 잠시 멈춥니다</Text>
         <Text style={styles.description}>
-          준비가 늦어져 죄송합니다. 필수적인 운영 절차와 서비스 정비를 마무리하고 있어요.
+          준비가 늦어져 죄송합니다.{'\n'}필수적인 운영 절차와 서비스 정비를 마무리하고 있어요.
         </Text>
 
         <View style={styles.resumeStatus}>
