@@ -1,4 +1,5 @@
 import { LEGAL_DOCS } from '../../constants/legal.ts';
+import { serviceStatus } from './serviceStatus.js';
 
 const APP_IDENTIFIER = 'QD4486Q3L8.com.ridemap.app';
 
@@ -183,6 +184,19 @@ export default {
           'Cache-Control': 'public, max-age=3600',
           ...securityHeaders,
         },
+      });
+    }
+
+    if (url.pathname === '/service-status') {
+      if (request.method !== 'GET') {
+        return new Response(null, {
+          status: 405,
+          headers: { Allow: 'GET', 'Cache-Control': 'no-store', ...securityHeaders },
+        });
+      }
+
+      return Response.json(serviceStatus, {
+        headers: { 'Cache-Control': 'no-store', ...securityHeaders },
       });
     }
 

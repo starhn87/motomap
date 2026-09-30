@@ -4,7 +4,12 @@ const PRIVACY_URL = 'https://motomap.kr/privacy';
 const SUPPORT_EMAIL_URL =
   'mailto:starhn87@gmail.com?subject=' + encodeURIComponent('[모토맵] 계정·데이터 문의');
 
-export default function ServiceSuspendedScreen() {
+interface Props {
+  preparing?: boolean;
+  onCheckStatus?: () => void;
+}
+
+export default function ServiceSuspendedScreen({ preparing, onCheckStatus }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -21,7 +26,9 @@ export default function ServiceSuspendedScreen() {
         </Text>
 
         <View style={styles.resumeStatus}>
-          <Text style={styles.resumeStatusText}>2026년 10월 중 운영을 재개하겠습니다</Text>
+          <Text style={styles.resumeStatusText}>
+            {preparing ? '운영 재개를 준비하고 있어요' : '2026년 10월 중 운영을 재개하겠습니다'}
+          </Text>
         </View>
 
         <View style={styles.notice}>
@@ -42,6 +49,14 @@ export default function ServiceSuspendedScreen() {
           style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}>
           <Text style={styles.linkButtonText}>개인정보 처리방침</Text>
         </Pressable>
+        {onCheckStatus && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onCheckStatus}
+            style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}>
+            <Text style={styles.linkButtonText}>운영 상태 다시 확인</Text>
+          </Pressable>
+        )}
       </View>
     </SafeAreaView>
   );
