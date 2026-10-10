@@ -235,3 +235,14 @@ Node/Xcode/빌드 image, 검증 통과/미검증 항목, 보안 잔여 근거, n
 - 2.8.0 patch는 상류 manager 변경 때문에 무수정 적용에 실패했다. 새 소스에 rebase해 기존
   심벌 탭 계약을 보존했다. 설치된 소스의 SDK·이벤트 연결 테스트를 추가했다.
 - 새 SDK의 실제 메모리·CPU 개선, native compile·렌더·마커 회귀는 미검증이다.
+
+### U3 · 카카오 로그인
+
+- core/user를 같은 안정판 2.4.10으로 고정했다. wrapper가 지정한 iOS Kakao SDK는 2.22.1,
+  Android는 2.20.1이다. 별도 native 최신 버전을 강제로 섞지 않았다.
+- KNSDK-UI의 CocoaPods 공개 배포를 확인했고 최신 안정판이 현재 사용 중인 1.12.14여서 유지한다.
+  SDK 내부 지도 downloader의 hang은 해결됐다고 주장하지 않는다.
+- 상류 PR #126의 Scene URL callback·React Native SPM 경로 수정은 3.0.0-next.2 계열이다.
+  안정판 갱신만으로 해당 수정이 적용됐다고 하지 않는다. native 프로젝트 생성 승인 후 실제
+  Swift AppDelegate·SPM 결과와 대조하고 필요한 최소 수정만 backport한다. prerelease major는 설치하지 않았다.
+- 타입 검사 통과. 실제 카카오톡→앱 복귀·취소·계정 연결과 KNSDK framework 공존은 빌드 후 검증한다.
