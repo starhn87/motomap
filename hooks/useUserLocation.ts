@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import * as Location from 'expo-location';
 
 import { useMapStore } from '@/stores/useMapStore';
 import { useGuideSession } from '@/lib/guideSession';
 import { toast } from '@/lib/toast';
-import { startUserLocationTracking } from '@/lib/userLocationTracking';
+import { shouldTrackUserLocation, startUserLocationTracking } from '@/lib/userLocationTracking';
 
 /**
  * 포그라운드 위치 권한을 얻어 현재 위치를 추적해 스토어에 반영하고,
@@ -15,13 +16,22 @@ import { startUserLocationTracking } from '@/lib/userLocationTracking';
  * 쓰이지도 않으면서 위치·나침반 콜백마다 리렌더를 일으켜 발열만 보탠다.
  * 특히 heading 은 필터가 없어 주행 중 초당 수십 번 들어온다.
  */
-export function useUserLocation() {
+export function useUserLocation(enabled = true, trackHeading = true) {
   const setUserLocation = useMapStore((s) => s.setUserLocation);
   const [heading, setHeading] = useState(0);
   const guiding = useGuideSession((s) => !!s.goal);
+  const [appState, setAppState] = useState(AppState.currentState);
+  const tracking = shouldTrackUserLocation(enabled, appState, guiding);
 
   useEffect(() => {
-    if (guiding) return;
+    const subscription = AppState.addEventListener('change', setAppState);
+    setAppState(AppState.currentState);
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    // 지도 인스턴스·카메라는 보존하되 가려진 지도와 비활성 앱의 센서는 정리한다.
+    if (!tracking) return;
     return startUserLocationTracking(
       {
         requestPermission: () => Location.requestForegroundPermissionsAsync(),
@@ -37,8 +47,9 @@ export function useUserLocation() {
       () => {
         toast.info('현재 위치를 확인할 수 없습니다.', '위치 서비스와 권한을 확인해주세요.');
       },
+      trackHeading,
     );
-  }, [setUserLocation, guiding]);
+  }, [setUserLocation, tracking, trackHeading]);
 
   return { heading };
 }

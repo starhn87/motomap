@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { startUserLocationTracking, type UserLocationSource } from '../lib/userLocationTracking';
+import { shouldTrackUserLocation, startUserLocationTracking, type UserLocationSource } from '../lib/userLocationTracking';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -10,6 +10,16 @@ function deferred<T>() {
 }
 const flush = () => new Promise<void>((done) => setImmediate(done));
 const coords = { latitude: 37, longitude: 127 };
+
+test('지도 센서는 실제 지도 노출·앱 활성·안내 중이 아님을 모두 요구한다', () => {
+  for (const enabled of [true, false]) {
+    for (const state of ['active', 'inactive', 'background', 'unknown', null]) {
+      for (const guiding of [true, false]) {
+        assert.equal(shouldTrackUserLocation(enabled, state, guiding), enabled && state === 'active' && !guiding);
+      }
+    }
+  }
+});
 
 function fixture() {
   const calls: string[] = [];
@@ -31,7 +41,7 @@ function fixture() {
   };
   return {
     source, calls, positions, headings, positionSub, headingSub,
-    start: () => startUserLocationTracking(source, (value) => positions.push(value), (value) => headings.push(value), () => { errors += 1; }),
+    start: (trackHeading = true) => startUserLocationTracking(source, (value) => positions.push(value), (value) => headings.push(value), () => { errors += 1; }, trackHeading),
     emit: () => {
       positionCallback({ coords });
       headingCallback({ trueHeading: -1, magHeading: 45 });
@@ -172,4 +182,30 @@ test('종료된 첫 세션의 늦은 위치가 새 세션으로 새지 않는다
   assert.equal(next.positions.length, 2);
   assert.ok(!old.calls.includes('position'));
   stopNext();
+});
+
+test('지도 진입과 이탈을 10회 반복해도 매번 위치·방향 구독을 정리한다', async () => {
+  const f = fixture();
+  for (let i = 0; i < 10; i += 1) {
+    const stop = f.start();
+    await flush();
+    f.emit();
+    stop();
+    const before = f.positions.length;
+    f.emit();
+    assert.equal(f.positions.length, before);
+  }
+  assert.deepEqual(f.counts(), { errors: 0, positionRemoved: 10, headingRemoved: 10 });
+});
+
+test('경로 미리보기는 위치 구독을 유지하고 방향 센서를 생성하지 않는다', async () => {
+  const f = fixture();
+  const stop = f.start(false);
+  await flush();
+  assert.deepEqual(f.calls, ['permission', 'cached', 'current', 'position']);
+  f.emit();
+  assert.equal(f.positions.length, 3);
+  assert.deepEqual(f.headings, []);
+  stop();
+  assert.deepEqual(f.counts(), { errors: 0, positionRemoved: 1, headingRemoved: 0 });
 });

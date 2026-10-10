@@ -2,6 +2,11 @@ type Position = { coords: { latitude: number; longitude: number } };
 type Heading = { trueHeading: number; magHeading: number };
 type Subscription = { remove(): void };
 
+// 지도 노출, 앱 활성, 길안내 소유권이 모두 맞을 때만 지도 센서를 사용한다.
+export function shouldTrackUserLocation(enabled: boolean, appState: string | null, guiding: boolean): boolean {
+  return enabled && appState === 'active' && !guiding;
+}
+
 export interface UserLocationSource {
   requestPermission(): Promise<{ status: string }>;
   lastKnown(): Promise<Position | null>;
@@ -16,6 +21,7 @@ export function startUserLocationTracking(
   onPosition: (position: Position['coords']) => void,
   onHeading: (heading: number) => void,
   onUnavailable: () => void,
+  trackHeading = true,
 ): () => void {
   let stopped = false;
   let positionSub: Subscription | null = null;
@@ -47,6 +53,8 @@ export function startUserLocationTracking(
         return;
       }
       positionSub = position;
+      // 경로 미리보기는 최신 위치만 필요하고 방향 센서는 사용하지 않는다.
+      if (!trackHeading) return;
 
       const heading = await source.watchHeading((value) => {
         if (!stopped) onHeading(value.trueHeading >= 0 ? value.trueHeading : value.magHeading);

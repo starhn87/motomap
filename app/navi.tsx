@@ -2,6 +2,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import { Gesture } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -25,6 +26,7 @@ import { haversine } from '@/lib/distance';
 import PreviewMap from '@/components/navi/PreviewMap';
 import RouteFieldRow, { ROW_H, nearestSlot } from '@/components/navi/RouteFieldRow';
 import { useBikeRoutes } from '@/hooks/useBikeRoutes';
+import { useUserLocation } from '@/hooks/useUserLocation';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { formatMeters, formatSeconds } from '@/lib/api/directions';
@@ -71,6 +73,9 @@ function InvalidNaviParams() {
 function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   const router = useRouter();
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
+  // 가려진 홈 센서에 의존하지 않고 이 화면이 최신 위치를 소유한다. 방향 센서는 필요 없다.
+  useUserLocation(isFocused, false);
   const startGuideSession = useGuideSession((st) => st.start);
   const userLocation = useMapStore((st) => st.userLocation);
   const insets = useSafeAreaInsets();
@@ -333,7 +338,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
       : false;
 
   // 출발지 확보 — 지정돼 있으면 그대로(초기값), 아니면 현재 위치.
-  // 지도 탭이 위치를 상시 추적 중이라 대개는 스토어 값으로 즉시 시작하고,
+  // 화면의 위치 구독과 지도에서 가져온 캐시로 대개는 즉시 시작하고,
   // 없을 때만(권한 전 딥링크 등) 새 픽스를 기다린다. 상단 카드에서 출발지를
   // '현재 위치'로 되돌리면 start 가 null 이 되어 여기가 다시 돈다.
   useEffect(() => {

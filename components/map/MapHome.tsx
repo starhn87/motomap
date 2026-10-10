@@ -814,7 +814,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           };
           persistSettledCamera(camera, e.region);
         }}>
-        <TrackedUserLocationMarker />
+        {/* 가려진 홈과 장소 지도 오버레이가 센서를 동시에 소유하지 않게 한다.
+            지도·카메라는 그대로 유지하고 실제 노출 완료 뒤 구독만 재개한다. */}
+        <TrackedUserLocationMarker enabled={isMapFocused && (overlay || mapPresentationReady)} />
 
         {/* 등록 장소는 모든 줌에서 개별 원형 마커로 그린다. 아이콘은 숨기지 않고,
             겹치는 기본 심벌과 장소명 캡션만 SDK가 정리한다. */}
