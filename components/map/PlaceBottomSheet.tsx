@@ -443,6 +443,8 @@ function PlaceBottomSheet({
     <>
       <BottomSheet
         ref={bottomSheetRef}
+        // 시트 전체를 하나로 묶으면 사진·헤더·리뷰 버튼이 접근성 트리에서 숨는다.
+        accessible={false}
         index={1}
         animateOnMount={false}
         snapPoints={SNAP_POINTS}

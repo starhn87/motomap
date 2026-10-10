@@ -396,6 +396,8 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
     <>
       <BottomSheet
         ref={bottomSheetRef}
+        // 등록 장소와 같이 내부 액션을 각각의 접근성 요소로 노출한다.
+        accessible={false}
         index={-1}
         animateOnMount={false}
         snapPoints={SNAP_POINTS}
