@@ -307,3 +307,13 @@ DB·공급자·중단 게이트는 복구하지 않았고 푸시·빌드·배포
 - `npm audit signatures`: 설치된 744개 registry signature와 218개 attestation 검증 통과.
 - 앱·타일·GPS·소셜 로그인·리플레이·푸시 실기기 검증, native compile과 CPU/메모리 측정은 남아 있다.
 - dependency/SDK 갱신, 위치 구독 수명주기 수정, 보안 도구 수정은 독립 논리 커밋으로 분리했다.
+
+### 후속 로컬 빌드 승인·준비 결과
+
+- 사용자가 1.2.8 측정용 로컬 빌드·기기 설치를 승인했다. EAS 빌드·submit·OTA·푸시 및 운영 복구는 미승인이다.
+- `26cc80e` snapshot에서 재현 설치·Naver patch·iOS prebuild와 plist 검사를 통과했다.
+  원래 저장소의 로컬 native 폴더는 덮어쓰지 않았다. Pods는 다운로드 중 중단해 native compile은 미완료다.
+- macOS 27.0에서 Xcode 26.6 앱이 OS 비호환으로 실행을 거부했다. 안정판 Xcode 27 갱신을
+  별도로 요청했으며, 승인 후 scene·소셜 callback·KNSDK 수명주기·deployment target 검토를 이어간다.
+  [측정 준비 기록](performance-optimization-plan.md#11-2026-10-10-실기기-측정-준비-결과--설치실측-미완료)을 기준으로 재개한다.
+- 기기 설치·프로파일 수집·CPU/메모리 효과 측정은 아직 하지 않았다. 중단 게이트·DB·공급자 상태도 변경하지 않았다.
