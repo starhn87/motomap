@@ -11,7 +11,7 @@
 > 실기기 온라인 연결을 확인했고 Pods 설치를 재개했다. 설치·실측 완료와는 구분한다.
 
 - 작성일: 2026-10-04
-- 현재 상태: **소스 개선·로컬 측정 준비 진행, 도구 호환성으로 기기 설치·실측 대기**
+- 현재 상태: **Release 컴파일 통과, 개발자 계약·서명 갱신으로 기기 설치·실측 대기**
 - 조사 기준: 앱 저장소 `db51616`, Expo 54 / React Native 0.81.5 / 앱 1.2.7
 - 범위: 앱 시작·화면 로드, 지도·길안내, JS·네이티브 CPU, 메모리, 네트워크·캐시, 이미지·목록, 번들·배터리
 - 원칙: [성능 의사결정](domain-decisions/performance.md), 기존 [성능 백로그](../PLAN.md#성능구조-후순위-백로그)
@@ -351,3 +351,26 @@ UI 성능 문제를 해결하는 작은 JS 수정도 이번 계획 실행 범위
   실기기가 Offline이 아닌 온라인으로 표시된다. 이전 연결 실패가 현재는 재현되지 않는다.
 - 기존 앱·데이터는 아직 교체하지 않았다. Pods·개발용 Release 서명 빌드·설치·프로파일을
   이어가되 운영 복구·게이트 우회·공개 배포는 하지 않는다. 지도·길안내 성능은 환경 복구 승인 뒤에 측정한다.
+
+### 후속 실행 — Pods·Release 컴파일 통과, Apple 개발자 계약에서 서명 차단
+
+- CocoaPods 목록 갱신으로 NMapsMap 3.24.0 조회 실패를 해결했다. 최종 설치는 **128 dependencies /
+  141 pods**, 전체 iOS codegen을 통과했다. Expo post-install이 KakaoNavi의 iOS target도 16.4로
+  맞췄으므로 모듈 podspec을 선제 변경하지 않았다.
+- RN core·dependencies·Hermes의 동일 공급자 URL 아카이브를 재사용했다. 중복 다운로드가 느려
+  임시 실행에만 URL allowlist·공급자 SHA1 재확인 후 복사하는 다운로드 캐시를 사용했다.
+  원래 추출·prepare·Pod 검사와 Release 전환 스크립트는 유지했다. SDK 버전·podspec·전역 도구는 변경하지 않았다.
+- 별도 snapshot의 Xcode 27 / iOS 27 SDK / Release **서명 없는 컴파일(exit 0)**과 번들 생성을
+  확인했다. 소스는 `26cc80e`에 `675b7ca`의 scene 설정을 적용한 후보 1.2.8이며 원래 `ios/`는 보존했다.
+  `-quiet` 실행은 Swift 경고와 함께 ‘exit code 0 but produced no further output’ 진단을
+  출력했지만 최종 종료 코드는 0이었다. 진단 문구만으로 컴파일 실패/해결을 단정하지 않는다.
+  이어서 `-quiet` 없이 재확인한 Release 빌드도 **BUILD SUCCEEDED / exit 0**을 확인했다.
+  생성된 앱의 version·runtime은 모두 1.2.8이다. 이것은 서명 없는 산출물이라 기기에 설치하지 않는다.
+- 기존 개발 프로필에는 Apple 로그인·Associated Domains 권한이 없었다. 사용자가 모토맵의
+  개발용 서명 갱신을 승인해 `-allowProvisioningUpdates`를 실행했으나 Apple 서버가
+  **PLA Update available**로 거부했다. 최신 **Apple Developer Program License Agreement**는
+  Xcode·SDK 약관과 별개이며 사용자 검토·동의가 필요하다. 권한을 빼거나 대신 수락하지 않았다.
+- 개발자 계약 동의 후 프로필 갱신·서명 빌드를 재시도하고 entitlements·bundle/runtime을
+  확인한 뒤 기존 앱 위에 설치한다. 앱 삭제·데이터 초기화, EAS 제출·공개 배포는 하지 않는다.
+- 앱 설치·실행·CPU·메모리·프레임·에너지는 **아직 미측정**이다. 현재 설치 앱은 여전히 1.2.7이며
+  운영 DB·공급자·게이트도 유지한다. 실제 지도 비교는 운영 환경 복구의 별도 승인 이후에 가능하다.

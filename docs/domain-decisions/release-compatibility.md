@@ -257,6 +257,10 @@ OTA가 먼저 적용되도록 한 뒤 제거 마이그레이션을 적용한다.
 - prebuild·plist와 소스 회귀 검사만 통과했다. 설치·콜드/웜 링크·로그인·길안내의
   background/foreground 실기기 검증이 끝나기 전에는 지원 완료로 표시하지 않는다.
 
+후속으로 iOS 27 SDK의 Pods·codegen 및 Release 서명 없는 컴파일을 통과했다.
+개발용 서명 갱신은 Apple Developer Program License Agreement 동의 요구로 차단됐다.
+서명·설치·콜드/웜 링크·SDK 실행 검증은 남아 있으므로 공개 호환성 검증 완료로 표시하지 않는다.
+
 ## 릴리스 체크리스트
 
 1. `config/release-policy.json`의 앱·지원·계약 버전을 결정한다.

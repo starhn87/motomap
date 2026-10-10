@@ -341,3 +341,16 @@ DB·공급자·중단 게이트는 복구하지 않았고 푸시·빌드·배포
 후속으로 사용자가 직접 약관 동의를 완료했다. Xcode 27.0/27A266a의 첫 실행 구성 검사와
 iOS SDK 27.0, CoreDevice DDI 및 Instruments 실기기 온라인 연결을 확인했다. Pods 설치를 재개했으며
 전체 native compile·설치·실측 완료를 의미하지 않는다. 운영 복구·푸시·공개 배포는 여전히 별도 승인 대상이다.
+
+### 후속 네이티브 검증 — 컴파일 통과·서명 대기
+
+- CocoaPods spec 갱신 후 141 pods와 전체 iOS codegen 설치를 통과했다. NMapsMap 3.24.0,
+  KNSDK-UI 1.12.14 및 Kakao SDK 2.22.1을 유지하며 Expo가 KakaoNavi target을 iOS 16.4로 맞췄다.
+- Xcode 27 / iOS SDK 27의 Release 서명 없는 컴파일과 번들 생성은 exit 0으로 통과했다.
+  `-quiet` 없이 재확인한 빌드도 BUILD SUCCEEDED / exit 0이며 산출물 version·runtime은 1.2.8이다.
+  설치·실제 SDK 실행·공개 제출 성공을 의미하지 않는다. 동일 upstream archive를 SHA1 확인 후
+  재사용한 임시 다운로드 캐시는 앱 SDK·podspec·전역 도구 설정을 변경하지 않았다.
+- 사용자가 개발용 프로필 갱신을 승인했지만 Apple 서버가 최신 Program License Agreement
+  동의를 요구해 서명을 거부했다. Xcode EULA와 별개다. 계약 동의 후 기존 Apple 로그인·
+  Associated Domains를 포함한 프로필 갱신·서명·설치를 재개하며 기능 권한을 빼지 않는다.
+- 상세 결과·재개 지점은 성능 계획 11절에 연결한다. 기기 설치·성능 개선율·운영 복구는 미완료다.
