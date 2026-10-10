@@ -1107,3 +1107,23 @@ MAP-031은 닫힘 애니메이션이 끝난 뒤 부모의 `visible`을 `false`�
 리뷰가 여러 페이지이고 사진이 많은 장소에서 연속 넘김, 첫·마지막 장 저항, 핀치 확대 후 다음
 사진 이동, 리뷰 사진 하단 오버레이를 실기기에서 확인한다. 빠른 넘김에서 빈 프레임이 반복되면
 전체 마운트로 돌아가기보다 이웃 범위를 두 장으로 늘린다.
+
+## MAP-035 — 지도 wrapper 갱신 시 심벌 탭과 SDK 버전을 함께 보존한다
+
+- 날짜: 2026-10-10
+- 상태: 소스 적용 / 네이티브·실기기 검증 대기
+- 관련 구현: `patches/@mj-studio+react-native-naver-map+2.9.1.patch`, `tests/naverMapPatch.test.ts`
+
+### 결정과 시행착오
+
+- wrapper 2.9.1의 상류 native SDK는 3.23.2다. 공식 3.24.0의 안정성·카메라 갱신 수정 후보를
+  채택해 iOS Pod와 Android 기본 Gradle 속성을 같은 정확 버전으로 patch했다.
+- 기존 2.8.0 심벌 탭 patch는 Android manager의 InfoWindow import 추가 때문에 그대로 적용되지 않는다.
+  새 상류 소스에 spec·JS/타입·iOS emitter·Android listener/event/등록을 의미 단위로 옮겨 새 patch를 생성했다.
+  이전 patch는 Git 기록으로 보존하며 실행 대상에서는 제거했다.
+- 설치된 소스 검사와 타입 검사는 실제 심벌 탭 동작·native SDK 지원 증거가 아니다.
+  공개 전 clean 설치·codegen·양 플랫폼 compile·POI 탭·줌·마커·검색 복귀를 확인한다.
+- SDK 위치 tracking, 클러스터, 고빈도 marker bitmap 갱신은 다시 켜지 않는다.
+  InfoWindow는 기존 장소 시트와 중복되므로 이번 업데이트에서 사용하지 않는다.
+- 실제 load/render readiness 이벤트의 앱 활용은 별도 브리지·장애 UX 검토 항목으로 남긴다.
+  onInitialized를 타일 렌더 완료로 바꾸어 해석하지 않는다.

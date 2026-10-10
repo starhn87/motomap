@@ -228,3 +228,10 @@ Node/Xcode/빌드 image, 검증 통과/미검증 항목, 보안 잔여 근거, n
   prebuild·Pods·codegen·서명 빌드·실기기 동작/성능은 **미검증**이다.
 - 보안 점검(omit=dev): moderate 12 / high 24 / critical 1. critical shell-quote는 CLI 간접 의존성이고
   별도 보안 수정·경로 분류 대상으로 남겼다. 이 수치는 업그레이드 직후 기록이며 공개 허용 판정이 아니다.
+
+### U3 · 네이버 지도
+
+- wrapper 정확 버전 2.9.1, 양 플랫폼 SDK 3.24.0 후보를 patch로 고정했다(MAP-035).
+- 2.8.0 patch는 상류 manager 변경 때문에 무수정 적용에 실패했다. 새 소스에 rebase해 기존
+  심벌 탭 계약을 보존했다. 설치된 소스의 SDK·이벤트 연결 테스트를 추가했다.
+- 새 SDK의 실제 메모리·CPU 개선, native compile·렌더·마커 회귀는 미검증이다.
