@@ -1,16 +1,32 @@
 // ============================================================
-// 법률 문서 템플릿
-// 실제 배포 전 법무 검토 또는 한국인터넷진흥원(KISA) 표준 양식
-// 확인 필요. 아래 내용은 KISA 가이드 기반 템플릿.
+// 앱과 웹이 같은 법률 문서를 사용한다.
+// 재개 배포 전 신고 내용·실제 처리·필수 고지 항목을 대조한다.
 // ============================================================
 
 export type LegalDocType = 'terms' | 'privacy' | 'location';
+
+export const LEGAL_OPERATOR = {
+  tradeName: '모토맵',
+  representative: '이승우',
+  contactEmail: 'starhn87@gmail.com',
+  businessAddress: '서울 서대문구 이화여대7길 37, 3층 가9호',
+  contactPhone: '010-9537-8467',
+} as const;
+
+const operatorContact = `· 상호: ${LEGAL_OPERATOR.tradeName}
+· 대표자: ${LEGAL_OPERATOR.representative}
+· 사업장 주소: ${LEGAL_OPERATOR.businessAddress}
+· 전화번호: ${LEGAL_OPERATOR.contactPhone}
+· 문의 이메일: ${LEGAL_OPERATOR.contactEmail}`;
 
 export const LEGAL_DOCS: Record<LegalDocType, { title: string; content: string }> = {
   terms: {
     title: '서비스 이용약관',
     content: `제1조 (목적)
-본 약관은 모토맵(이하 "회사")이 제공하는 모바일 애플리케이션 및 관련 서비스(이하 "서비스")의 이용과 관련하여 회사와 이용자의 권리·의무 및 책임사항을 규정함을 목적으로 합니다.
+본 약관은 ${LEGAL_OPERATOR.tradeName}(대표: ${LEGAL_OPERATOR.representative}, 이하 "회사")이 제공하는 모바일 애플리케이션 및 관련 서비스(이하 "서비스")의 이용과 관련하여 회사와 이용자의 권리·의무 및 책임사항을 규정함을 목적으로 합니다.
+
+운영자 정보
+${operatorContact}
 
 제2조 (정의)
 1. "서비스"란 회사가 제공하는 라이딩 경로·장소 정보 공유 및 관련 부가서비스를 말합니다.
@@ -90,7 +106,10 @@ export const LEGAL_DOCS: Record<LegalDocType, { title: string; content: string }
 
   privacy: {
     title: '개인정보 처리방침',
-    content: `모토맵(이하 "회사")은 이용자의 개인정보를 중요시하며 「개인정보 보호법」 등 관련 법령을 준수하고 있습니다. 본 개인정보 처리방침은 회사가 어떤 정보를 수집하고 수집된 정보를 어떻게 사용하며 필요에 따라 누구와 정보를 공유하는지, 그리고 이용자가 자신의 정보를 어떻게 보호할 수 있는지 알려드립니다.
+    content: `${LEGAL_OPERATOR.tradeName}(대표: ${LEGAL_OPERATOR.representative}, 이하 "회사")은 이용자의 개인정보를 중요시하며 「개인정보 보호법」 등 관련 법령을 준수하고 있습니다. 본 개인정보 처리방침은 회사가 어떤 정보를 수집하고 수집된 정보를 어떻게 사용하며 필요에 따라 누구와 정보를 공유하는지, 그리고 이용자가 자신의 정보를 어떻게 보호할 수 있는지 알려드립니다.
+
+운영자 정보
+${operatorContact}
 
 1. 수집하는 개인정보 항목
 회사는 회원가입 및 서비스 제공을 위하여 다음의 개인정보를 수집합니다.
@@ -151,7 +170,7 @@ export const LEGAL_DOCS: Record<LegalDocType, { title: string; content: string }
 · Google LLC: Google 로그인 이용 시 계정 식별 정보 처리, 앱 배포 플랫폼 운영
 
 6. 이용자의 권리
-이용자는 언제든지 본인의 개인정보를 조회·수정할 수 있으며 회원 탈퇴를 통해 개인정보의 삭제를 요청할 수 있습니다. 개인정보 열람·정정·삭제·처리정지 요구는 서비스 내 설정 화면 또는 starhn87@gmail.com으로 요청할 수 있습니다.
+이용자는 언제든지 본인의 개인정보를 조회·수정할 수 있으며 회원 탈퇴를 통해 개인정보의 삭제를 요청할 수 있습니다. 개인정보 열람·정정·삭제·처리정지 요구는 서비스 내 설정 화면 또는 ${LEGAL_OPERATOR.contactEmail}으로 요청할 수 있습니다.
 
 7. 개인정보의 파기 절차 및 방법
 · 전자적 파일: 복구 및 재생이 불가능한 방법으로 영구 삭제
@@ -159,8 +178,8 @@ export const LEGAL_DOCS: Record<LegalDocType, { title: string; content: string }
 
 8. 개인정보 보호책임자
 이용자는 개인정보 보호 관련 문의사항을 아래 연락처로 제출할 수 있습니다.
-· 개인정보 보호책임자: 모토맵 운영자
-· 연락처: starhn87@gmail.com
+· 개인정보 보호책임자: ${LEGAL_OPERATOR.representative}
+· 연락처: ${LEGAL_OPERATOR.contactEmail}
 
 9. 개인정보 처리방침의 변경
 본 개인정보 처리방침은 법령·정책 또는 보안기술의 변경에 따라 내용의 추가·삭제 및 수정이 있을 수 있으며 변경 시 서비스 내 공지사항을 통해 고지합니다.
@@ -172,7 +191,10 @@ export const LEGAL_DOCS: Record<LegalDocType, { title: string; content: string }
   location: {
     title: '위치기반 서비스 이용약관',
     content: `제1조 (목적)
-본 약관은 모토맵(이하 "회사")이 제공하는 위치기반 서비스(이하 "서비스")와 관련하여 회사와 이용자의 권리·의무 및 책임사항을 규정함을 목적으로 합니다.
+본 약관은 ${LEGAL_OPERATOR.tradeName}(대표: ${LEGAL_OPERATOR.representative}, 이하 "회사")이 제공하는 위치기반 서비스(이하 "서비스")와 관련하여 회사와 이용자의 권리·의무 및 책임사항을 규정함을 목적으로 합니다.
+
+운영자 정보
+${operatorContact}
 
 제2조 (이용약관의 효력 및 변경)
 1. 본 약관은 이용자가 본 약관에 동의하고 회사가 정한 절차에 따라 서비스 이용자로 등록함으로써 효력이 발생합니다.
@@ -200,15 +222,15 @@ export const LEGAL_DOCS: Record<LegalDocType, { title: string; content: string }
 
 제7조 (위치정보 보호책임자)
 회사는 이용자의 위치정보를 적절히 관리·보호하고 이용자의 위치정보 관련 불만을 원활히 처리하기 위해 다음과 같이 위치정보 보호책임자를 지정합니다.
-· 위치정보 보호책임자: 모토맵 운영자
-· 연락처: starhn87@gmail.com
+· 위치정보 보호책임자: ${LEGAL_OPERATOR.representative}
+· 연락처: ${LEGAL_OPERATOR.contactEmail}
 
 제8조 (손해배상)
 이용자가 본 약관의 규정을 위반함으로 인하여 회사에 손해가 발생한 경우 이용자는 회사에 대하여 손해를 배상할 책임이 있습니다.
 
 제9조 (분쟁 조정 및 기타)
 1. 회사와 이용자 간 발생한 분쟁은 상호 협의하여 해결하는 것을 원칙으로 합니다.
-2. 협의가 이루어지지 않을 경우 방송통신위원회의 재정을 신청하거나 관할 법원에 소를 제기할 수 있습니다.
+2. 협의가 이루어지지 않을 경우 방송미디어통신위원회의 재정을 신청하거나 관할 법원에 소를 제기할 수 있습니다.
 
 부칙
 본 약관은 2026년 8월 18일부터 시행됩니다. (2026년 4월 22일 시행된 이전 약관은 본 약관으로 대체됩니다)`,
