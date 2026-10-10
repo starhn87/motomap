@@ -303,3 +303,7 @@ KNSDK가 현재 링크의 자동차전용도로 속성이나 공식 진입 이�
 위치만 구독한다. 지도 홈과 같은 High/10m 조건과 MAP-036 cleanup을 재사용하고 방향 watch는
 만들지 않는다. KNSDK 안내가 시작되거나 다른 장소 오버레이가 앞에 오면 이 구독도 중지한다.
 카메라·경로 출발점 편집 규칙·이륜차 경로·SDK 안내 GPS와 백그라운드 처리는 변경하지 않는다.
+
+후속 로컬 번들 검사에서 `@react-navigation/native` 직접 import는 Expo 57의 Router 호환성
+검사에 거부됐다. 기존 지도와 같은 `expo-router/react-navigation`의 useIsFocused로 수정했다.
+검사 비활성화 환경 변수나 별도 navigation 의존성 설치로 우회하지 않는다.
