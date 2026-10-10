@@ -277,3 +277,33 @@ Node/Xcode/빌드 image, 검증 통과/미검증 항목, 보안 잔여 근거, n
 - 리플레이 마스킹·콘솔 수집 금지·화면 패턴·개발 빌드 수집 금지·기존 이벤트 목록은 바꾸지 않았다.
   운영 PostHog 조회·설정 변경·새 이벤트 전송은 수행하지 않았다.
 - 타입 검사 통과. 새 native plugin의 실제 마스킹·버전 태그·CPU/메모리 부하는 실기기 검증 대상이다.
+
+### 보안 수정과 미해결 항목
+
+- `shell-quote`를 상위 의존성의 semver 범위 안에서 1.12.0으로 갱신했다. comment 뒤 줄바꿈
+  command-injection 문자열이 거부되는 회귀 테스트를 추가했으며 실제 셸 명령으로 실행하지 않았다.
+- 이미지 생성 도구 sharp를 수정판 0.35.5로 고정하고 메모리 내 SVG→PNG·크기·알파 검사를 통과했다.
+  앱 이미지 자산은 재생성하지 않았다. 로컬 Node 22는 sharp 요구 ≥20.9를 충족한다.
+- 2026-10-10 최종 lock audit: 전체 **moderate 12 / high 27 / critical 0**,
+  omit=dev **moderate 12 / high 25 / critical 0**. 상위 패키지로 전파된 집계라 독립 취약점 수가 아니다.
+- critical 제거는 보안 검토 완료가 아니다. 아래 실제 advisory 경로를 공개 전 별도로 해결하거나
+  명시적인 위험·완화 근거를 검토해 승인받는다. 강제 downgrade·무검증 override는 하지 않았다.
+
+| 잔여 원인 | 확인 경로·위험 | 공개 전 처리 |
+|---|---|---|
+| decode-uri-component ≤0.4.2 | Router의 query-string 7 및 Kakao core의 query-string 9. malformed URL에서 CPU 과사용 가능 ([GHSA](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr)) | 수정판 0.5의 CJS/ESM·정상/비정상 URI 호환성 또는 최소 backport 검증. 실제 공유·소셜 callback·콜드스타트 회귀 필요 |
+| node-forge 1.4.0 | Expo CLI / code-signing-certificates의 RSA 서명 검증 ([GHSA](https://github.com/advisories/GHSA-86w9-cpqp-85rv)) | 빌드·업데이트 서명 도구 경로와 수정판 확인. 네이티브 업데이트 검증과 동일 구현이라고 가정하지 않음 |
+| braces 3.0.3 | patch-package → find-yarn-workspace-root → micromatch. 깊은 glob의 stack exhaustion ([GHSA](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)) | CI/빌드 입력을 신뢰된 고정 경로로 제한하고 수정판 검토. 사용자 glob을 넣지 않음 |
+| uuid 7.0.3 | Expo plugin → xcode. v3/v5/v6 buffer 사용의 bounds 문제 ([GHSA](https://github.com/advisories/GHSA-w5hq-g745-h8pq)) | xcode의 실제 호출 API·입력 경로를 확인하고 상류 수정 검토. major override로 설정 생성 호환성을 깨지 않음 |
+
+다음 단계는 승인된 native 프로젝트 생성·Pods·codegen·compile과 실기기 검증이다.
+카카오 Scene/SPM과 모토맵 모듈의 iOS deployment target, 새 bridge 이벤트 필요성은 그 검토에서 확정한다.
+DB·공급자·중단 게이트는 복구하지 않았고 푸시·빌드·배포도 수행하지 않았다.
+
+### 최종 소스 검증
+
+- `npm ci --ignore-scripts` 후 `patch-package --error-on-fail`로 새 심벌 patch의 재현 설치를 확인했다.
+- `npx tsc --noEmit`, 순수 테스트 **42개**, `npm run check:release`, Expo 의존성 검사 통과.
+- `npm audit signatures`: 설치된 744개 registry signature와 218개 attestation 검증 통과.
+- 앱·타일·GPS·소셜 로그인·리플레이·푸시 실기기 검증, native compile과 CPU/메모리 측정은 남아 있다.
+- dependency/SDK 갱신, 위치 구독 수명주기 수정, 보안 도구 수정은 독립 논리 커밋으로 분리했다.
