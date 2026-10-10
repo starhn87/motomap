@@ -93,6 +93,7 @@ def summarize(path):
         'last_cpu_time_s': last['cpu_s'],
         'cpu_10_20': weighted_cpu(rows, 10, 20),
         'cpu_20_30': weighted_cpu(rows, 20, 30),
+        'cpu_60_90': weighted_cpu(rows, 60, 90),
     }
 
 
@@ -112,8 +113,9 @@ def aggregate(runs):
     result = {'attempts': len(runs), 'valid': len(valid), 'failed': len(runs) - len(valid)}
     for key in ['peak_footprint_mib', 'last_footprint_mib', 'last_cpu_time_s']:
         result[key] = distribution([r[key] for r in valid if r[key] is not None])
-    for key in ['cpu_10_20', 'cpu_20_30']:
-        result[key] = distribution([r[key]['percent'] for r in valid if r[key]['covered_s'] >= 8])
+    for key in ['cpu_10_20', 'cpu_20_30', 'cpu_60_90']:
+        minimum = 28 if key == 'cpu_60_90' else 8
+        result[key] = distribution([r[key]['percent'] for r in valid if key in r and r[key]['covered_s'] >= minimum])
     return result
 
 
@@ -131,11 +133,40 @@ def command(args, log):
         subprocess.run(args, stdout=stream, stderr=subprocess.STDOUT, check=True, timeout=240)
 
 
+def record_command(args, prefix, trace):
+    cmd = ['xcrun', 'xctrace', 'record', '--template', 'Activity Monitor',
+           '--device', args.device, '--time-limit', f'{args.seconds}s',
+           '--output', trace, '--launch', '--', BUNDLE]
+    log = Path(str(prefix) + '-record.log')
+    if not args.search_idle:
+        return command(cmd, log)
+    # 모델·사용자 응답 지연에 의존하지 않고 같은 20초 뒤 고정 검색 화면만 연다.
+    with log.open('wb') as stream:
+        process = subprocess.Popen(cmd, stdout=stream, stderr=subprocess.STDOUT)
+        try:
+            time.sleep(20)
+            if process.poll() is not None:
+                raise ValueError('화면 이동 전에 기록이 종료됨')
+            command(['xcrun', 'devicectl', 'device', 'process', 'launch', '--device', args.device,
+                     '--payload-url', 'ridemap://search', '--json-output', str(prefix) + '-route.json', BUNDLE],
+                    Path(str(prefix) + '-route.log'))
+            if process.wait(timeout=240) != 0:
+                raise ValueError('기록 실패')
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=15)
+
+
 def record(args):
     out = private_output(args.output)
     runs = []
     metadata = {
-        'scenario': 'process-launch-map', 'label': args.label,
+        'scenario': 'search-idle' if args.search_idle else 'process-launch-map', 'label': args.label,
         'duration_s': args.seconds, 'rest_s': args.rest,
         'conditions': 'user confirmed wired/unlocked/same Wi-Fi/low-power off; brightness/thermal/cache uncontrolled',
         'tool': 'Activity Monitor', 'rows': runs,
@@ -148,9 +179,7 @@ def record(args):
         runs.append(entry)
         print(f'[{index}/{args.count}] 모토맵 {args.seconds}초 기록 시작', flush=True)
         try:
-            command(['xcrun', 'xctrace', 'record', '--template', 'Activity Monitor',
-                     '--device', args.device, '--time-limit', f'{args.seconds}s',
-                     '--output', trace, '--launch', '--', BUNDLE], Path(str(prefix) + '-record.log'))
+            record_command(args, prefix, trace)
             command(['xcrun', 'xctrace', 'export', '--input', trace, '--toc',
                      '--output', str(prefix) + '-toc.xml'], Path(str(prefix) + '-toc.log'))
             toc = ET.parse(str(prefix) + '-toc.xml').getroot()
@@ -194,12 +223,15 @@ def main():
     runner.add_argument('--count', type=int, choices=range(1, 21), default=3)
     runner.add_argument('--seconds', type=int, choices=range(30, 151), default=30)
     runner.add_argument('--rest', type=int, choices=range(0, 61), default=10)
+    runner.add_argument('--search-idle', action='store_true', help='90초 기록 중 20초 뒤 고정 검색 화면을 연다')
     args = parser.parse_args()
     if args.action == 'summarize':
         print(json.dumps(summarize(args.xml), ensure_ascii=False, indent=2))
         return 0
     if not re.fullmatch(r'[a-zA-Z0-9_-]{1,64}', args.label):
         parser.error('label은 익명 시나리오 이름만 사용한다')
+    if args.search_idle and args.seconds != 90:
+        parser.error('--search-idle은 --seconds 90과 함께 사용한다')
     return record(args)
 
 

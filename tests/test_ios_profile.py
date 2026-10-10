@@ -1,6 +1,8 @@
 import importlib.util
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location('ios_profile', Path(__file__).resolve().parents[1] / 'scripts/profile-ios.py')
@@ -52,6 +54,19 @@ class ProfileTests(unittest.TestCase):
     def test_raw_output_cannot_be_inside_repo(self):
         with self.assertRaises(ValueError):
             profile.private_output(profile.ROOT / 'private-traces')
+
+    def test_search_route_is_dispatched_by_collector_at_twenty_seconds(self):
+        process = Mock()
+        process.poll.side_effect = [None, 0]
+        process.wait.return_value = 0
+        args = SimpleNamespace(device='fixture-device', seconds=90, search_idle=True)
+        with tempfile.TemporaryDirectory() as tmp, patch.object(profile.subprocess, 'Popen', return_value=process), \
+             patch.object(profile.time, 'sleep') as sleep, patch.object(profile, 'command') as run:
+            profile.record_command(args, Path(tmp) / 'sample', 'fixture.trace')
+            sleep.assert_called_once_with(20)
+            self.assertIn('ridemap://search', run.call_args.args[0])
+            self.assertNotIn('--terminate-existing', run.call_args.args[0])
+            process.terminate.assert_not_called()
 
 
 if __name__ == '__main__':
