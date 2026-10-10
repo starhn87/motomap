@@ -1,6 +1,6 @@
 {
-  "appVersion": "1.2.7",
-  "supportedPreviousVersion": "1.2.6",
+  "appVersion": "1.2.8",
+  "supportedPreviousVersion": "1.2.7",
   "minimumSupportedVersion": "1.2.4",
   "nativeBridgeVersion": 1,
   "apiContractVersion": 1

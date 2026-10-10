@@ -1,13 +1,27 @@
 # 운영 재개 전 패키지 업그레이드 준비 계획
 
 - 작성·조사일: 2026-10-04
-- 상태: **준비 완료 / 버전 후보·실행 절차 초안 — 설치·빌드·실기기 검증 미착수**
+- 상태: **2026-10-10 소스·패키지 전환 착수 / 네이티브 빌드·실기기 검증 미착수**
 - 코드·lock 기준: `5ed9fee`, 앱 1.2.7, `package-lock.json` v3
 - 재개 버전 후보: 1.2.8. 지금 앱 버전·runtime·릴리스 계약은 변경하지 않는다.
 - 연결: [성능 계획](performance-optimization-plan.md), [릴리스 정책](domain-decisions/release-compatibility.md),
   [운영 재개 조건](relaunch-readiness.md)
 
-## 1. 준비 범위와 실행 순서
+## 2026-10-10 실행 승인과 경계
+
+- 사용자 승인: 최종 Expo 57 권장 조합으로 업데이트하고 메모리·CPU 개선도 검토한다.
+- 복원 기준: `f1af77c`의 SDK 54 manifest·lock·네이버 심벌 탭 patch·native 설정 묶음.
+- SDK 55/56은 로컬 의존성·정적 검사 단계다. 최종 설치용 후보는 SDK 57 / 앱 1.2.8이며,
+  중간 SDK를 TestFlight·production·OTA로 발행하지 않는다.
+- 공개 레지스트리 조회, 로컬 설치·patch 적용, 타입·순수 테스트와 논리 단위 커밋까지 허용됐다.
+  DB·공급자 복구, prebuild·Pods·codegen·네이티브 빌드, 푸시·제출·OTA·웹 배포는 별도 승인한다.
+- 10월 4일 조사표와 준비 단계는 당시 기록으로 보존한다. 현재 실행 결과·새 버전은 아래에 추가한다.
+- 패키지 갱신과 자원 해제 수정은 별도 커밋으로 구분한다. 명확한 수명주기 결함은 순수 테스트로
+  우선 수정할 수 있지만, CPU·메모리 개선율은 승인된 실기기 측정 전까지 **미측정**이다.
+- SDK 57에서 최소 iOS 16.4로 올라가는 지원 범위 변경은 공개 전 확인한다. 구 iOS 이용자를
+  위해 1.2.7 중단 안내를 유지하며, 설치할 수 없는 버전으로 업데이트를 강요하는 정책은 배포하지 않는다.
+
+## 1. 준비 범위와 실행 순서 (2026-10-04 기록)
 
 현재는 신고 보완·대기 중이다. 이번 준비는 기존 소스·lock·패치 검토, 공식 릴리스 문서와
 npm 공개 메타데이터 조회, 의존성 보안 점검, 문서 작성만 포함한다. 앱 실행, 패키지 설치,
@@ -190,3 +204,27 @@ Node/Xcode/빌드 image, 검증 통과/미검증 항목, 보안 잔여 근거, n
 
 준비 문서가 있다고 실제 업그레이드·보안 수정·성능 검증이 끝난 것은 아니다. 실행은 별도 합의 후
 진행하고, 계획 기반 다영역·의존성·네이티브 변경은 검증·커밋까지만 한 뒤 푸시·배포 승인을 받는다.
+
+## 9. 실행 기록 — 2026-10-10
+
+### U2 · Expo 지원 조합의 소스 전환
+
+- SDK 55.0.31: 지원 매핑으로 설치, 심벌 탭 patch 적용·타입 검사·순수 테스트 25개·의존성 검사 통과.
+- SDK 56.0.23: 의존성 검사·순수 테스트 25개 통과. Router import 이동·ColorValue·absoluteFill
+  호환 수정 확인. TypeScript 권장 버전 6.0.3 전환 후 Node 테스트 타입의 명시 등록이 필요해 최종 단계에서 처리했다.
+- SDK 57.0.27: RN 0.86.3 / React 19.2.3 / Reanimated 4.5.1 / Worklets 0.10.1,
+  Expo 모듈·Sentry 7.11.0·View Shot 5.1.0을 지원 매핑으로 설치했다.
+- TypeScript 6.0.3은 Expo 의존성 검사가 요구하는 버전이다. 원래 TS 5.9 유지 후보를 대체하며,
+  npm 최신 major 7을 채택한 것은 아니다. Node 22 타입을 직접 선언하고 테스트 타입을 명시했다.
+- Router 56+는 React Navigation을 내부 fork로 바꾸므로 import를 공개 Router entry로 옮겼다.
+  외부 navigation 직접 의존성은 제거하고 지도 복귀의 transitionEnd 이벤트 계약은 유지했다.
+- RN의 unspecified 테마는 기존 기본 light로 정규화했다. 삭제된 absoluteFillObject는 absoluteFill로
+  옮겼다. SDK가 지원하지 않는 newArchEnabled·edgeToEdgeEnabled 설정 및 애니메이션 install 예외는 제거했다.
+- 앱/runtime 후보 1.2.8, 직전 1.2.7, native/API 계약 1. 원격 정책·운영 상태는 변경하지 않았다.
+- bundle diff 지원을 명시했다. 실제 EAS 차분 전달·크기 절감과 cold start 적용은 아직 검증하지 않았다.
+- 최종 정적 검사: 타입·순수 테스트 25개·check:release·expo install --check·Expo Doctor 21/21 통과.
+  npm의 전환 중 이전 RN/Reanimated peer 경고는 최종 npm ls의 유효한 지원 조합으로 확인했다.
+- 기존 네이버 2.8.0 patch 적용은 통과했지만 지도·로그인·음성의 개별 업데이트는 후속 단위다.
+  prebuild·Pods·codegen·서명 빌드·실기기 동작/성능은 **미검증**이다.
+- 보안 점검(omit=dev): moderate 12 / high 24 / critical 1. critical shell-quote는 CLI 간접 의존성이고
+  별도 보안 수정·경로 분류 대상으로 남겼다. 이 수치는 업그레이드 직후 기록이며 공개 허용 판정이 아니다.

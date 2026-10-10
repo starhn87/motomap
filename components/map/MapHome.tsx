@@ -5,6 +5,7 @@ import {
   Pressable,
   Keyboard,
   useWindowDimensions,
+  type PressableStateCallbackType,
 } from 'react-native';
 import { memo, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { NaverMapView, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
@@ -66,8 +67,8 @@ import {
 import SearchEntry from '@/components/search/SearchEntry';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
-import { useIsFocused, type ParamListBase } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useIsFocused, type ParamListBase } from 'expo-router/react-navigation';
+import type { NativeStackNavigationProp } from 'expo-router';
 import { TrackedUserLocationMarker } from '@/components/map/TrackedUserLocationMarker';
 import { toast } from '@/lib/toast';
 import { useSharedGeneralPlaces } from '@/hooks/useCommunityPlaceSignals';
@@ -1123,7 +1124,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           entering={FadeIn.duration(200)}
           disabled={gasFetching}
           onPress={refreshGasHere}
-          style={({ pressed }) => [
+          style={({ pressed }: PressableStateCallbackType) => [
             styles.gasRefreshButton,
             { backgroundColor: colors.background, borderColor: colors.border },
             (pressed || gasFetching) && styles.controlPressed,

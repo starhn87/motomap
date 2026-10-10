@@ -11,7 +11,7 @@ import Animated, {
   Easing,
   type SharedValue,
 } from 'react-native-reanimated';
-import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
+import type { BottomTabBarButtonProps } from 'expo-router/js-tabs';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -115,7 +115,7 @@ function TabBarIcon({
   scale,
 }: {
   name: React.ComponentProps<typeof Ionicons>['name'];
-  color: string;
+  color: React.ComponentProps<typeof Ionicons>['color'];
   scale: SharedValue<number>;
 }) {
   const animatedStyle = useAnimatedStyle(() => ({

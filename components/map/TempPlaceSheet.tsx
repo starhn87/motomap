@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 22, fontWeight: '700' },
   nameRowPressTarget: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   nameContent: {
     flex: 1,

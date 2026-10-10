@@ -10,19 +10,20 @@ export default {
   expo: {
     name: '모토맵',
     slug: 'ridemap',
-    // 1.2.7: 길안내 수명주기·접근성 충돌 방어와 네이티브 기능 계약을 묶는다.
+    // 1.2.8: Expo 57 네이티브 조합은 구버전 OTA와 분리한다.
     version: releasePolicy.appVersion,
     runtimeVersion: {
       policy: 'appVersion',
     },
     updates: {
       url: 'https://u.expo.dev/46277971-d460-4e19-82eb-df05f18ff9f7',
+      // 차분 다운로드 지원만 켠다. 서비스 게이트·적용 시점은 기존 정책을 유지한다.
+      enableBsdiffPatchSupport: true,
     },
     orientation: 'portrait',
     icon: './assets/images/icon-v2.png',
     scheme: 'ridemap',
     userInterfaceStyle: 'automatic',
-    newArchEnabled: true,
     splash: {
       image: './assets/images/splash-icon.png',
       resizeMode: 'contain',
@@ -72,7 +73,6 @@ export default {
         foregroundImage: './assets/images/icon-v2.png',
         backgroundColor: '#0A0A0A',
       },
-      edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       permissions: [
         'ACCESS_FINE_LOCATION',
