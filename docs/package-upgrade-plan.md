@@ -251,3 +251,14 @@ Node/Xcode/빌드 image, 검증 통과/미검증 항목, 보안 잔여 근거, n
 
 - Expo 57 대응 안정판 57.1.1로 고정했다. 기존 한국어·중간 결과·단일 세션·녹음 미저장 설정은 유지했다.
 - 타입 검사 통과. 마이크 권한·중단·취소·화면 전환과 실제 iOS/Android 인식은 빌드 후 확인한다.
+
+### U3 · Supabase 클라이언트
+
+- 정확 버전 2.117.3 / lock으로 고정했다. Node 요구 ≥22.0.0에 로컬 22.23.0이 부합한다.
+  공개 changelog의 서버 adapter 폐기와 DB minor 변경은 클라이언트 전환과 분리한다.
+- SecureStore·processLock·PKCE·프로필 정본·JWT 제한 재시도·RLS는 바꾸지 않았다.
+- fake fetch로 프로필 조회/RPC 경로와 AbortSignal이 취소된 TimeoutError의 재요청 금지를 검사했다.
+  신호가 취소되지 않은 일반 TimeoutError까지 무조건 취소로 해석하는 것은 상류 계약이 아니므로 검사하지 않는다.
+- 타입 검사와 클라이언트 계약 테스트 2개 통과. `npm audit signatures`: 743개 registry signature,
+  217개 attestation 검증 통과. 최근 공개 패치 후보는 ignore-scripts로 설치했다.
+- 실제 DB query·로그인·계정 연결·Storage·RLS 검증은 운영 복구 승인 후 수행한다. 현재 DB는 열지 않았다.

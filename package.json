@@ -25,7 +25,7 @@
     "@react-native-kakao/core": "2.4.10",
     "@react-native-kakao/user": "2.4.10",
     "@sentry/react-native": "~7.11.0",
-    "@supabase/supabase-js": "^2.111.0",
+    "@supabase/supabase-js": "2.117.3",
     "@tanstack/react-query": "^5.101.4",
     "base64-arraybuffer": "^1.0.2",
     "expo": "~57.0.27",
