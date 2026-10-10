@@ -1127,3 +1127,24 @@ MAP-031은 닫힘 애니메이션이 끝난 뒤 부모의 `visible`을 `false`�
   InfoWindow는 기존 장소 시트와 중복되므로 이번 업데이트에서 사용하지 않는다.
 - 실제 load/render readiness 이벤트의 앱 활용은 별도 브리지·장애 UX 검토 항목으로 남긴다.
   onInitialized를 타일 렌더 완료로 바꾸어 해석하지 않는다.
+
+## MAP-036 — 종료 뒤 늦게 생성된 위치·방향 구독도 해제한다
+
+- 날짜: 2026-10-10
+- 상태: 소스 적용 / 실기기 자원 측정 대기
+- 관련 구현: `hooks/useUserLocation.ts`, `lib/userLocationTracking.ts`, `tests/userLocationTracking.test.ts`
+
+### 원인과 결정
+
+기존 effect는 cleanup 순간 이미 할당된 구독만 remove했다. 권한·현재 위치·native watch 생성이
+await 중이면 cleanup 뒤 구독이 할당돼 남을 수 있었다. 길안내 시작 시 기존 지도 센서를 멈추려는
+MAP-033의 경계도 같은 경쟁 조건 영향을 받는다.
+
+- effect마다 종료 플래그를 먼저 닫고 생성된 구독을 해제한다. await 뒤 종료 여부를 확인하고,
+  늦게 생성된 구독은 즉시 remove하며 다음 센서 구독을 시작하지 않는다.
+- 늦은 native 위치/방향 콜백·오류는 종료된 세션에서 스토어·UI를 갱신하지 않는다.
+- 위치는 기존 위경도만 전달한다. 정확도 High·10m 간격·진북/자북 폴백·길안내 중 중지는 유지한다.
+- 마지막 위치 캐시 실패는 최신 위치 조회를 막지 않는다. 권한·최신 위치 실패는 활성 세션에서만
+  기존 오류 UX로 처리하고 unhandled rejection을 남기지 않는다.
+- 순수 테스트로 생성/종료의 각 await 경합을 확인했다. 실제 CPU·메모리 감소율은 아직 미측정이며
+  반복 지도↔길안내와 종료 후 센서 callback·기기 idle CPU를 실기기에서 확인한다.
