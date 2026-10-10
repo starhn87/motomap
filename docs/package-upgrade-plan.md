@@ -262,3 +262,9 @@ Node/Xcode/빌드 image, 검증 통과/미검증 항목, 보안 잔여 근거, n
 - 타입 검사와 클라이언트 계약 테스트 2개 통과. `npm audit signatures`: 743개 registry signature,
   217개 attestation 검증 통과. 최근 공개 패치 후보는 ignore-scripts로 설치했다.
 - 실제 DB query·로그인·계정 연결·Storage·RLS 검증은 운영 복구 승인 후 수행한다. 현재 DB는 열지 않았다.
+
+### U3 · 서버 캐시·로컬 상태
+
+- React Query 5.104.1 / Zustand 5.0.15로 고정했다. 앱의 staleTime·gcTime·retry·selector·persist 형식은 유지했다.
+- 타입 검사와 기존 순수 테스트, 취소 뒤 낙관적 캐시 보존·clearStorage 이후 지연 복원 무효화 테스트를 통과했다.
+  실제 화면의 낙관적 반영·로그아웃·기존 저장 데이터 복원은 실기기에서 확인한다.
