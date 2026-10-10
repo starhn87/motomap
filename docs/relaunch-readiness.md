@@ -105,3 +105,27 @@ OPS-003을 따른다.
    검증하고, suspended/preparing·법률 문서·정적 자산·AASA 경계를 유지한다.
 6. 재개 공지는 캠페인 식별자로 한 번만 등록·발송하고 ticket/receipt를 구분한다.
    APNs 전달 성공을 실제 열람 성공으로 표시하지 않는다. 본인 기기 검증 뒤 전체 발송한다.
+
+## 2026-10-10 복구 전 점검 후속
+
+사용자가 로컬 1.2.8의 중단 안내 표시를 확인하고 내부 검증용 DB·네이버·카카오 복구와
+진입 준비를 승인했다. 공개 재개·Git 푸시·공개 배포·알림은 별도다.
+
+| 점검 대상 | 확인 결과 | 다음 실행 조건 |
+|---|---|---|
+| production Supabase | `INACTIVE` | 기존 API 접근과 자동 작업 재개 영향을 포함한 정비 창 범위 확정 |
+| 공개 상태·웹 | `suspended` / 홈 503 | 공개 서비스는 닫고 내부 진입만 허용할 승인된 preparing 변경 |
+| 네이버 `ridemap` | 사용자 재로그인 뒤 Static Map만 확인 | 기존 자격 증명 복구가 구 설치본에도 적용됨을 반영 |
+| 설치한 로컬 Release | Expo update channel 헤더 없음 | 정식 내부 채널 설정을 포함한 재빌드·설치. JS에서 채널을 위조하지 않음 |
+| DB 자동 작업 | 저장소에 계정 정리·장소 검토 cron 존재 | 실제 cron·Vault·Edge Function 설정 확인 전 자동 작업 비활성 보장 불가 |
+| 카카오·App Store | 이번 점검에서 콘솔 재확인하지 않음 | 과거 기록만으로 현재 상태를 확정하지 않음 |
+
+내부 채널은 UI 분기이며 서버 보안 통제가 아니다. Supabase Network Restrictions도 HTTPS
+Auth·Data API·Storage에는 적용되지 않는다. 구버전까지 완전히 닫는 격리를 새로 구성할지,
+기존 키를 복구하는 정비 창에서 일부 구버전 호출 가능성을 받아들일지 먼저 확정한다.
+이 선택 전에는 원격 복구를 실행하지 않았다. 상세 근거는 OPS-006 후속 기록을 따른다.
+
+복구 시 Supabase가 보존된 데이터·설정을 되살리거나 서비스 버전을 갱신할 수 있으므로 실제
+Postgres·확장·마이그레이션·cron·데이터 보존을 대조한다. 최신 Postgres 17.11 변경의
+ltree·pgcrypto·btree_gist·사용자 정의 operator 해당 여부도 실제 카탈로그에서 확인한다.
+[공식 변경 안내](https://supabase.com/changelog/postgres-15-19-17-11-breaking-changes)
