@@ -266,6 +266,15 @@ OTA가 먼저 적용되도록 한 뒤 제거 마이그레이션을 적용한다.
 중단 안내 표시까지 확인했지만 콜드/웜 링크·로그인·지도·길안내의 활성 기능 회귀는 남아 있다.
 단일 중단 화면 CPU 예비 기록을 공개 호환성 검증 완료나 성능 개선 결과로 사용하지 않는다.
 
+### 내부 채널 로컬 빌드
+
+사용자가 내부 채널 빌드·DB·지도 공급자 복구·실기기 검증을 승인했다. 로컬 Release에서는
+EAS의 자동 채널 주입이 없으므로 `EAS_BUILD_PROFILE=internal-testflight`를 명시한 설정만
+`updates.requestHeaders['expo-channel-name']`을 생성한다. 기본·production 프로필에는 내부
+헤더를 넣지 않는다. 생성된 Expo.plist와 서명된 앱에서 다시 확인하며 JS에서 채널을 위조하거나
+중단 게이트를 제거하지 않는다. 같은 1.2.8 네이티브 조합의 채널 지정이며 브리지/API 계약은 1이다.
+이는 TestFlight 업로드·production 제출·OTA 발행·공개 재개 승인이 아니다.
+
 ## 릴리스 체크리스트
 
 1. `config/release-policy.json`의 앱·지원·계약 버전을 결정한다.

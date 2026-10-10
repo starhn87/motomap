@@ -2,6 +2,8 @@ const releasePolicy = require('./config/release-policy.json');
 // 운영 중단처럼 구버전까지 즉시 막아야 하는 비상 OTA에만 사용한다. 일반 빌드와
 // OTA에서는 비워 두어 release-policy.json이 계속 단일 기준이 되게 한다.
 const emergencyRuntimeVersion = process.env.MOTOMAP_EMERGENCY_RUNTIME_VERSION;
+// 로컬 Release도 EAS와 같은 프로필을 명시해야 내부 채널로 서명·생성된다.
+const internalTestFlight = process.env.EAS_BUILD_PROFILE === 'internal-testflight';
 if (emergencyRuntimeVersion) {
   releasePolicy.appVersion = emergencyRuntimeVersion;
 }
@@ -19,6 +21,9 @@ export default {
       url: 'https://u.expo.dev/46277971-d460-4e19-82eb-df05f18ff9f7',
       // 차분 다운로드 지원만 켠다. 서비스 게이트·적용 시점은 기존 정책을 유지한다.
       enableBsdiffPatchSupport: true,
+      ...(internalTestFlight
+        ? { requestHeaders: { 'expo-channel-name': 'internal-testflight' } }
+        : {}),
     },
     orientation: 'portrait',
     icon: './assets/images/icon-v2.png',
