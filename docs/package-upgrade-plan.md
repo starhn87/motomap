@@ -268,3 +268,12 @@ Node/Xcode/빌드 image, 검증 통과/미검증 항목, 보안 잔여 근거, n
 - React Query 5.104.1 / Zustand 5.0.15로 고정했다. 앱의 staleTime·gcTime·retry·selector·persist 형식은 유지했다.
 - 타입 검사와 기존 순수 테스트, 취소 뒤 낙관적 캐시 보존·clearStorage 이후 지연 복원 무효화 테스트를 통과했다.
   실제 화면의 낙관적 반영·로그아웃·기존 저장 데이터 복원은 실기기에서 확인한다.
+
+### U3 · 분석 SDK
+
+- PostHog RN 4.81.0 / native plugin 2.12.5를 같은 검토 단위로 고정했다. SDK의 plugin peer ≥2.9.3을 충족한다.
+- 공개 SDK changelog와 peer를 확인했다. 4.81은 capture 속성이 SDK 기본 context보다 우선하므로
+  기존 app_version 등 명시 속성·버전 태그의 의미를 유지하는지 재개 후 확인한다.
+- 리플레이 마스킹·콘솔 수집 금지·화면 패턴·개발 빌드 수집 금지·기존 이벤트 목록은 바꾸지 않았다.
+  운영 PostHog 조회·설정 변경·새 이벤트 전송은 수행하지 않았다.
+- 타입 검사 통과. 새 native plugin의 실제 마스킹·버전 태그·CPU/메모리 부하는 실기기 검증 대상이다.
