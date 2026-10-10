@@ -317,3 +317,14 @@ DB·공급자·중단 게이트는 복구하지 않았고 푸시·빌드·배포
   별도로 요청했으며, 승인 후 scene·소셜 callback·KNSDK 수명주기·deployment target 검토를 이어간다.
   [측정 준비 기록](performance-optimization-plan.md#11-2026-10-10-실기기-측정-준비-결과--설치실측-미완료)을 기준으로 재개한다.
 - 기기 설치·프로파일 수집·CPU/메모리 효과 측정은 아직 하지 않았다. 중단 게이트·DB·공급자 상태도 변경하지 않았다.
+
+### Xcode 27 업데이트 승인 및 scene 설정 준비
+
+- 사용자 승인 후 App Store의 Xcode 27 안정판 업데이트를 시작했다. 다른 앱의 업데이트는 실행하지 않았다.
+- `expo-build-properties.ios.enableSceneSupport: true`를 추가하고 기존 snapshot에서
+  `prebuild --no-clean --no-install` 및 plist 검사를 통과했다. 원래 로컬 native 폴더는 그대로 보존했다.
+- 생성된 AppDelegate는 ExpoReactNativeFactoryProvider를 제공하고 카카오·React Native URL 및
+  universal link 처리도 유지한다. Expo의 SceneEventForwarder가 KNSDK subscriber로 이어지는
+  기존 AppDelegate 수명주기를 호출하므로 임의의 중복 observer·프리릴리스 Kakao 패치는 추가하지 않았다.
+- 설정·상류 전달 경로의 회귀 테스트 2개를 추가했다. 총 44개 테스트 통과는 native compile·
+  콜드/웜 링크·로그인·길안내의 실기기 검증을 대체하지 않는다. 이 변경은 1.2.8 새 빌드 전용이다.

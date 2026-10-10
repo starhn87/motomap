@@ -245,6 +245,18 @@ OTA가 먼저 적용되도록 한 뒤 제거 마이그레이션을 적용한다.
 5. iOS 최소 지원 버전 상승(16.4)과 SDK 공급자의 대응 여부는 공개 전 점검한다.
    CPU·메모리 개선 코드는 패키지 전환과 분리하며 PERF-003의 검증 경계를 따른다.
 
+### iOS 27 SDK의 scene 실행 경계
+
+- 사용자 승인으로 Xcode 27 안정판 업데이트를 시작했다. Expo 57.0.27의
+  `expo-build-properties.ios.enableSceneSupport`를 켜 iOS 27 SDK의 필수 scene 실행 경로를 사용한다.
+- Expo는 scene 이벤트를 기존 AppDelegate의 URL·universal link·수명주기 훅으로 전달한다.
+  생성물에서 카카오 URL 처리와 React Native 전달이 유지됨을 확인했다. KNSDK subscriber를
+  scene별로 중복 등록하거나 SDK를 미리 초기화하지 않는다.
+- JS 메서드·이벤트·상수 계약은 바꾸지 않아 native/API 계약은 1을 유지한다.
+  공개 전 후보 1.2.8 안의 네이티브 설정 변경이며 1.2.7 OTA에는 포함하지 않는다.
+- prebuild·plist와 소스 회귀 검사만 통과했다. 설치·콜드/웜 링크·로그인·길안내의
+  background/foreground 실기기 검증이 끝나기 전에는 지원 완료로 표시하지 않는다.
+
 ## 릴리스 체크리스트
 
 1. `config/release-policy.json`의 앱·지원·계약 버전을 결정한다.

@@ -148,6 +148,10 @@ export default {
       [
         'expo-build-properties',
         {
+          ios: {
+            // iOS 27 SDK는 scene 기반 실행이 필수다. Expo가 기존 URL·수명주기 훅으로 전달한다.
+            enableSceneSupport: true,
+          },
           android: {
             extraMavenRepos: [
               'https://repository.map.naver.com/archive/maven',

@@ -139,6 +139,13 @@ SDK의 비공개 `accessibilityWithType:view:`는 ABI를 확인한 뒤 경계에
 앱의 예외 경계를 제거한다. 앱 멈춤이 빈번해지거나 3초 이상으로 늘면 KNSDK 공급사 문의와
 대체 화면을 검토한다.
 
+### 2026-10-10 scene 설정 전환의 준비 확인
+
+Expo 57.0.27의 scene delegate는 앱의 AppDelegate로 활성·비활성·foreground·background
+이벤트를 전달한다. 기존 KNSDK subscriber와 초기화 후 전달 guard를 유지하고 scene에 별도
+중복 observer를 추가하지 않는다. 이 경로는 설치된 소스에서 확인했으며 실제 길안내 수명주기
+검증은 남아 있다. 상세 경계는 REL-007과 패키지 업그레이드 계획을 따른다.
+
 ## NAV-004 — 하단 안내의 카카오프렌즈 장식 제거
 
 - 날짜: 2026-08-24
