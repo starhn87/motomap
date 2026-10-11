@@ -33,6 +33,14 @@ production은 로그인 이전에 막히므로 리뷰어 계정만으로 접근�
 제출한다. `--latest`로 내부 채널 바이너리를 공개 제출본으로 선택하지 않는다. 초안 작성은
 빌드·업로드·공개 운영·알림 승인이나 CPU/메모리 개선·프리 웜업 완료를 의미하지 않는다.
 
+2026-10-11 후속 승인: 사용자가 최신 내부 빌드·실기기 검증과 통과 후 TestFlight 업로드를
+승인했다. 공개 운영·Git 푸시·App Store 심사는 포함하지 않는다. 로컬 검증한 Xcode 27.0
+(27A266a)과 같은 안정판을 쓰도록 internal-testflight 프로필의 iOS image를
+`macos-tahoe-26.6-xcode-27.0`으로 고정한다. Expo 57의 자동 sdk-57 이미지(Xcode 26.6)나
+움직이는 latest 별칭으로 검증 툴체인이 바뀌지 않도록 한다. production 프로필은 이번에
+바꾸지 않으며 공개 제출 전 툴체인을 별도로 대조한다.
+[공식 이미지 목록](https://docs.expo.dev/build-reference/infrastructure/)
+
 ## 먼저 확인할 활성 원칙
 
 1. `runtimeVersion`은 `appVersion` 정책을 유지한다. 네이티브 코드·플러그인·권한·

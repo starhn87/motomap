@@ -22,7 +22,10 @@
     },
     "internal-testflight": {
       "extends": "production",
-      "channel": "internal-testflight"
+      "channel": "internal-testflight",
+      "ios": {
+        "image": "macos-tahoe-26.6-xcode-27.0"
+      }
     }
   },
   "submit": {
