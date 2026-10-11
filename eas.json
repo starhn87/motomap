@@ -18,7 +18,10 @@
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production",
+      "ios": {
+        "image": "macos-tahoe-26.6-xcode-27.0"
+      }
     },
     "internal-testflight": {
       "extends": "production",
