@@ -3,7 +3,27 @@
 // 재개 배포 전 신고 내용·실제 처리·필수 고지 항목을 대조한다.
 // ============================================================
 
+import publication from '../config/legal-publication.json';
+import { legalPublicationErrors } from '../lib/legalPublication';
+import { LAST_PUBLISHED_LEGAL_DOCS } from './legal-history';
+
 export type LegalDocType = 'terms' | 'privacy' | 'location';
+
+// 시행일은 재개일 확정 후 고지·동의 계약과 함께 변경한다. 기기 시각으로 자동 승격하지 않는다.
+export const LEGAL_PUBLICATION = publication;
+export const LEGAL_RELAUNCH_READY = legalPublicationErrors(publication, true).length === 0;
+export const LEGAL_DRAFT_NOTICE = '운영 재개를 위한 개정안입니다. 시행일은 실제 운영 재개일에 맞춰 확정 후 안내합니다. 현재 적용 중인 문서를 대체하지 않습니다.';
+export const LEGAL_CHANGE_SUMMARY = [
+  '운영 주체·대표자·사업장 주소·연락처와 개인정보·위치정보 보호책임자를 명확히 안내합니다.',
+  '네이버 API HUB 검색 보완과 전달 정보(검색어), 전달하지 않는 정보(현재 위치·지도 범위·계정 식별자)를 안내합니다.',
+  '현재 위치의 기능별 처리와 목적지 근처에서 길안내 종료 시 저장되는 방문 정보를 구분합니다. 연속 이동 경로는 서버에 저장하지 않습니다.',
+  '집·회사 근처의 방문 기록은 서버에 저장될 수 있지만 라이딩 화면과 장소 통계에서 제외됨을 안내합니다.',
+] as const;
+
+const effectiveDate = publication.effectiveDate as string | null;
+const effectiveNotice = effectiveDate
+  ? `시행일: ${effectiveDate} (2026년 8월 18일 시행 문서를 대체합니다.)`
+  : '개정안 시행일: 실제 운영 재개일에 맞춰 확정 후 안내합니다. 아직 시행되지 않은 개정안입니다.';
 
 export const LEGAL_OPERATOR = {
   tradeName: '모토맵',
@@ -19,7 +39,7 @@ const operatorContact = `· 상호: ${LEGAL_OPERATOR.tradeName}
 · 전화번호: ${LEGAL_OPERATOR.contactPhone}
 · 문의 이메일: ${LEGAL_OPERATOR.contactEmail}`;
 
-export const LEGAL_DOCS: Record<LegalDocType, { title: string; content: string }> = {
+export const LEGAL_RELAUNCH_DOCS: Record<LegalDocType, { title: string; content: string }> = {
   terms: {
     title: '서비스 이용약관',
     content: `제1조 (목적)
@@ -101,7 +121,7 @@ ${operatorContact}
 본 약관에 관한 소송은 대한민국 법령에 따라 처리되며 회사와 이용자 간 발생한 분쟁에 관한 소송은 민사소송법에 따른 관할 법원에 제기합니다.
 
 부칙
-본 약관은 2026년 8월 18일부터 시행됩니다. (2026년 4월 22일 시행된 이전 약관은 본 약관으로 대체됩니다)`,
+${effectiveNotice}`,
   },
 
   privacy: {
@@ -135,6 +155,7 @@ ${operatorContact}
 위치 정보
 · 현재 위치는 이용자가 요청한 기능(길안내, 주변 장소·날씨·유가 조회, AI 추천)의 수행 중에만 처리하며 연속 이동 경로나 실시간 위치를 회사 서버에 저장하지 않습니다.
 · 로그인한 이용자가 목적지 근처에서 길안내를 끝내면 방문 기록 제공과 장소 품질 개선을 위해 도착지·등록 장소 경유지, 도착 시각, 당시 바이크 기종을 저장합니다. 미등록 일반 장소는 장소명과 좌표가 함께 저장될 수 있습니다.
+· 집·회사로 설정한 위치 근처의 방문 기록도 저장될 수 있으나 라이딩 화면과 장소 통계에서는 제외합니다. 이는 서버 기록을 삭제하거나 저장을 막는 기능은 아닙니다.
 · 코스 안내를 도착지 근처에서 끝내면 개인 완주 기록 제공을 위해 코스, 완주 시각, 당시 바이크 기종을 저장합니다.
 
 음성 정보
@@ -188,8 +209,7 @@ ${operatorContact}
 9. 개인정보 처리방침의 변경
 본 개인정보 처리방침은 법령·정책 또는 보안기술의 변경에 따라 내용의 추가·삭제 및 수정이 있을 수 있으며 변경 시 서비스 내 공지사항을 통해 고지합니다.
 
-시행일: 2026년 8월 18일
-(2026년 4월 22일 시행된 이전 방침은 본 방침으로 대체됩니다)`,
+${effectiveNotice}`,
   },
 
   location: {
@@ -215,6 +235,7 @@ ${operatorContact}
 1. 회사는 위치정보사업자로부터 이용자의 개인위치정보를 전송받아 본 약관 제3조에 명시된 서비스 제공 외의 목적으로는 이용하지 않습니다.
 2. 회사는 이용자의 사전 동의 없이 개인위치정보를 제3자에게 제공하지 않습니다. 다만 이용자가 길안내 등 위치 기반 기능을 직접 요청한 경우 해당 기능의 수행에 필요한 범위에서 위치·경로 좌표가 기능 제공사(카카오내비 등)에 전달됩니다.
 3. 회사는 연속 이동 경로나 실시간 위치를 별도로 저장하지 않습니다. 다만 로그인한 이용자가 목적지 근처에서 길안내를 종료하면 도착지·등록 장소 경유지, 도착 시각, 당시 바이크 기종을 방문 기록으로 저장합니다. 미등록 일반 장소는 장소명과 좌표가 함께 저장될 수 있으며, 코스 안내를 끝낸 경우 코스 완주 기록을 저장합니다.
+4. 집·회사로 설정한 위치 근처의 방문 기록은 라이딩 화면과 장소 통계에서 제외합니다. 해당 기록의 서버 저장 자체를 막거나 삭제하는 기능은 아니며 삭제 요청은 제6조에 따른 경로로 접수합니다.
 
 제5조 (개인위치정보의 보유 목적 및 이용기간)
 회사는 이용자의 요청에 따라 현재 위치를 실시간으로 처리하며 연속 경로는 보관하지 않습니다. 제4조 제3항의 도착·코스 완주 기록은 개인 라이딩 기록 제공과 장소 품질 개선을 위해 회원 탈퇴 또는 삭제 요청 시까지 보관합니다.
@@ -237,6 +258,11 @@ ${operatorContact}
 2. 협의가 이루어지지 않을 경우 방송미디어통신위원회의 재정을 신청하거나 관할 법원에 소를 제기할 수 있습니다.
 
 부칙
-본 약관은 2026년 8월 18일부터 시행됩니다. (2026년 4월 22일 시행된 이전 약관은 본 약관으로 대체됩니다)`,
+${effectiveNotice}`,
   },
 };
+
+// 가입 링크·현재 고지는 기존 동의 버전의 본문을 유지한다. 초안은 명시적 미리보기로만 노출한다.
+export const LEGAL_DOCS = LEGAL_RELAUNCH_READY
+  ? LEGAL_RELAUNCH_DOCS
+  : LAST_PUBLISHED_LEGAL_DOCS;

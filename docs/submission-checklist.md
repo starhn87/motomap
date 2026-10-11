@@ -75,6 +75,9 @@ smoke와 스플래시 전환은 확인했다. 당시 최신 길안내·날씨/�
 ### A-5. 개인정보 처리방침 확인
 - [ ] `https://motomap.kr/privacy` 접속 가능 확인 (로그인 없이 열림)
 - [ ] 수집 항목과 앱 실제 동작 일치 확인 (`docs/app-store-submission.md` 섹션 3 비교)
+- [ ] `npm run check:legal -- --ready`: 재개 시행일·실제 고지일·동의 버전 동기화 확인
+  현재 `draft`는 준비 상태다. `/privacy/upcoming` 등 개정안을 정식 Privacy Policy URL로
+  등록하거나 옛 동의 버전으로 새 본문을 시행하지 않는다. 기존 동의 기록은 보존한다.
 
 ### A-6. 최소 시드 데이터 확인
 - [ ] 앱 첫 실행 시 빈 화면 아닌지 확인

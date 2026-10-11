@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 import test from 'node:test';
-import { LEGAL_DOCS } from '../constants/legal';
+import * as legal from '../constants/legal';
 import { loadModule } from './helpers/loadModule';
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
@@ -11,7 +11,7 @@ test('AASA·앱 entitlement·라우트는 장소/구 코스/라이딩 추천 계
   const worker = loadModule<{ default: {
     fetch: (request: Request, env: unknown) => Promise<Response>;
   } }>('website/src/index.js', {
-    '../../constants/legal.ts': { LEGAL_DOCS },
+    '../../constants/legal.ts': legal,
     './serviceStatus.js': { serviceStatus: { status: 'suspended' } },
   }, { Response });
   const env = { ASSETS: { fetch: async () => new Response('asset') } };

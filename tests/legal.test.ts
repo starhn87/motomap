@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { LEGAL_DOCS, LEGAL_OPERATOR } from '../constants/legal';
+import { LEGAL_DOCS, LEGAL_RELAUNCH_DOCS, LEGAL_PUBLICATION, LEGAL_RELAUNCH_READY,
+  LEGAL_OPERATOR } from '../constants/legal';
+import { LAST_PUBLISHED_LEGAL_DOCS } from '../constants/legal-history';
+import { legalPublicationErrors } from '../lib/legalPublication';
 
 test('앱·웹 공통 법률 문서의 운영 주체는 확인된 상호와 대표자로 일치한다', () => {
   assert.equal(LEGAL_OPERATOR.tradeName, '모토맵');
   assert.equal(LEGAL_OPERATOR.representative, '이승우');
-  for (const document of Object.values(LEGAL_DOCS)) {
+  for (const document of Object.values(LEGAL_RELAUNCH_DOCS)) {
     assert.ok(document.content.includes(`${LEGAL_OPERATOR.tradeName}(대표: ${LEGAL_OPERATOR.representative}`));
     assert.ok(document.content.includes(`사업장 주소: ${LEGAL_OPERATOR.businessAddress}`));
     assert.ok(document.content.includes(`전화번호: ${LEGAL_OPERATOR.contactPhone}`));
@@ -17,7 +20,41 @@ test('앱·웹 공통 법률 문서의 운영 주체는 확인된 상호와 대�
 
 test('개인정보·위치정보 문의는 같은 책임자와 이메일로 연결한다', () => {
   for (const type of ['privacy', 'location'] as const) {
-    assert.ok(LEGAL_DOCS[type].content.includes(`보호책임자: ${LEGAL_OPERATOR.representative}`));
-    assert.ok(LEGAL_DOCS[type].content.includes(`연락처: ${LEGAL_OPERATOR.contactEmail}`));
+    assert.ok(LEGAL_RELAUNCH_DOCS[type].content.includes(`보호책임자: ${LEGAL_OPERATOR.representative}`));
+    assert.ok(LEGAL_RELAUNCH_DOCS[type].content.includes(`연락처: ${LEGAL_OPERATOR.contactEmail}`));
   }
+});
+
+test('시행일 미정 개정안은 기존 문서·가입 동의 본문을 대체하지 않는다', () => {
+  assert.equal(LEGAL_PUBLICATION.status, 'draft');
+  assert.equal(LEGAL_PUBLICATION.effectiveDate, null);
+  assert.equal(LEGAL_PUBLICATION.consentVersion, null);
+  assert.equal(LEGAL_RELAUNCH_READY, false);
+  assert.equal(LEGAL_DOCS, LAST_PUBLISHED_LEGAL_DOCS);
+  for (const document of Object.values(LEGAL_RELAUNCH_DOCS)) {
+    assert.match(document.content, /아직 시행되지 않은 개정안/);
+    assert.doesNotMatch(document.content, /2026년 8월 18일부터 시행됩니다|시행일: 2026년 8월 18일/);
+  }
+  for (const document of Object.values(LEGAL_DOCS)) assert.match(document.content, /2026년 8월 18일/);
+});
+
+test('개정안은 검색어 전송과 위치 기록·집/회사 표시 제외를 실제 처리대로 구분한다', () => {
+  const privacy = LEGAL_RELAUNCH_DOCS.privacy.content;
+  assert.match(privacy, /네이버클라우드 API HUB/);
+  assert.match(privacy, /현재 위치·지도 중심·반경·계정 식별자를 전달하지 않습니다/);
+  assert.match(privacy, /집·회사.*방문 기록도 저장될 수/);
+  assert.match(LEGAL_RELAUNCH_DOCS.location.content, /서버 저장 자체를 막거나 삭제하는 기능은 아니며/);
+});
+
+test('초안 정적 검사는 통과하되 시행 준비 검사는 날짜·고지·동의 동기화를 요구한다', () => {
+  assert.deepEqual(legalPublicationErrors(LEGAL_PUBLICATION), []);
+  assert.ok(legalPublicationErrors(LEGAL_PUBLICATION, true).length > 0);
+  const ready = {
+    ...LEGAL_PUBLICATION, status: 'active', effectiveDate: '2026-10-20', noticeDate: '2026-10-12',
+    consentVersion: '2026-10-20', currentConsentVersion: '2026-10-20',
+  };
+  assert.deepEqual(legalPublicationErrors(ready, true), []);
+  assert.ok(legalPublicationErrors({ ...ready, currentConsentVersion: '2026-08-18' }).length > 0);
+  assert.ok(legalPublicationErrors({ ...ready, noticeDate: '2026-10-21' }).length > 0);
+  assert.ok(legalPublicationErrors({ ...ready, effectiveDate: '2026-02-30' }).length > 0);
 });

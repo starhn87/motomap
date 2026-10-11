@@ -1,4 +1,5 @@
-import { LEGAL_DOCS } from '../../constants/legal.ts';
+import { LEGAL_DOCS, LEGAL_RELAUNCH_DOCS, LEGAL_RELAUNCH_READY, LEGAL_DRAFT_NOTICE,
+  LEGAL_CHANGE_SUMMARY } from '../../constants/legal.ts';
 import { serviceStatus } from './serviceStatus.js';
 
 const APP_IDENTIFIER = 'QD4486Q3L8.com.ridemap.app';
@@ -26,6 +27,11 @@ const LEGAL_CANONICAL_PATHS = {
   terms: '/terms',
   privacy: '/privacy',
   location: '/location-terms',
+};
+const LEGAL_UPCOMING_PATHS = {
+  '/terms/upcoming': 'terms',
+  '/privacy/upcoming': 'privacy',
+  '/location-terms/upcoming': 'location',
 };
 const securityHeaders = {
   'Content-Security-Policy':
@@ -70,10 +76,10 @@ function legalContent(content) {
     .join('');
 }
 
-function legalPage(type) {
-  const document = LEGAL_DOCS[type];
-  const canonicalPath = LEGAL_CANONICAL_PATHS[type];
-  const title = escapeHtml(document.title);
+function legalPage(type, preview = false) {
+  const document = (preview ? LEGAL_RELAUNCH_DOCS : LEGAL_DOCS)[type];
+  const canonicalPath = LEGAL_CANONICAL_PATHS[type] + (preview ? '/upcoming' : '');
+  const title = escapeHtml(document.title + (preview ? ' (개정안)' : ''));
 
   return `<!doctype html>
 <html lang="ko">
@@ -81,6 +87,7 @@ function legalPage(type) {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0b0c0e" />
+    ${preview ? '<meta name="robots" content="noindex, nofollow" />' : ''}
     <meta name="description" content="모토맵 ${title}" />
     <meta property="og:title" content="${title}: 모토맵" />
     <meta property="og:description" content="모토맵 ${title}" />
@@ -108,7 +115,10 @@ function legalPage(type) {
     <main class="legal-document">
       <p class="eyebrow">LEGAL</p>
       <h1>${title}</h1>
+      ${preview ? `<aside aria-label="개정안 안내"><p>${escapeHtml(LEGAL_DRAFT_NOTICE)}</p>
+        <h2>주요 변경 사항</h2><ul>${LEGAL_CHANGE_SUMMARY.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></aside>` : ''}
       <div class="legal-content">${legalContent(document.content)}</div>
+      ${!LEGAL_RELAUNCH_READY ? `<p><a href="${preview ? LEGAL_CANONICAL_PATHS[type] : canonicalPath + '/upcoming'}">${preview ? '현재 적용 중인 문서 보기' : '운영 재개 개정안과 변경 사항 보기'}</a></p>` : ''}
       <nav class="legal-document-nav" aria-label="법률 문서">
         <a href="/terms">서비스 이용약관</a>
         <a href="/privacy">개인정보 처리방침</a>
@@ -207,7 +217,17 @@ export default {
     }
 
     const normalizedPath = url.pathname === '/' ? '/' : url.pathname.replace(/\/+$/, '');
-    const legalType = LEGAL_PATHS[normalizedPath];
+    const previewType = Object.hasOwn(LEGAL_UPCOMING_PATHS, normalizedPath)
+      ? LEGAL_UPCOMING_PATHS[normalizedPath] : undefined;
+    if (previewType) {
+      if (LEGAL_RELAUNCH_READY) {
+        return Response.redirect(`https://motomap.kr${LEGAL_CANONICAL_PATHS[previewType]}`, 308);
+      }
+      return new Response(legalPage(previewType, true), {
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...securityHeaders },
+      });
+    }
+    const legalType = Object.hasOwn(LEGAL_PATHS, normalizedPath) ? LEGAL_PATHS[normalizedPath] : undefined;
     if (legalType) {
       return new Response(legalPage(legalType), {
         headers: {

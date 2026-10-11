@@ -38,6 +38,105 @@ CPU·메모리 개선율, 프리 웜업·라이딩 경로 Visualizer의 구현 �
 개정 약관 시행일은 실제 운영 재개일로 맞춘다. 날짜 확정 전에는 개정안·고지·동의 버전의
 동기화 준비만 하고 시행일을 임의 지정하거나 기존 동의 기록을 덮어쓰지 않는다.
 
+## 1.2.8 운영자·개인정보 고지 동기화 초안
+
+2026-10-11 소스 준비 기준이다. 실제 ASC 입력·웹 배포·법률 검토 완료 기록이 아니다.
+`constants/legal.ts`의 운영자·개정안과 `config/legal-publication.json`의 상태/시행일/동의 버전을
+기준으로 한다. 현재 상태는 `draft`, 시행일·고지일·새 동의 버전은 `null`이다.
+
+- 상호: 모토맵 / 대표자·개인정보 및 위치정보 보호책임자: 이승우
+- 사업장 주소: 서울 서대문구 이화여대7길 37, 3층 가9호
+- 공개 문의 이메일: starhn87@gmail.com / 전화: 010-9537-8467
+- 개인정보 처리방침: `https://motomap.kr/privacy`
+- 위치기반서비스 이용약관: `https://motomap.kr/location-terms`
+- 서비스 이용약관: `https://motomap.kr/terms`
+- 시행일은 실제 재개일 확정 후 지정한다. 신고 수리일 2026-10-08과 구분한다.
+
+현재 문서와 시행일 미정 개정안은 분리한다. 앱의 법률 문서 화면에는 개정안/현재 문서 전환을,
+웹에는 각 URL 뒤 `/upcoming` 개정안을 준비했다. 배포 전이므로 공개 URL에 새 고지가
+반영됐다고 안내하지 않는다. 준비 중 개정안 URL을 ASC의 정식 Privacy Policy URL로 바꾸지 않는다.
+정식 문서는 실제 고지·동의 계약 동기화 후 승격한다.
+
+### 현재 1.2.8 기능 설명 후보
+
+```text
+바이크 라이더를 위한 지도, 모토맵.
+
+라이더 친화 장소를 찾고, 라이딩 추천의 목적지를 골라 이륜차 길안내로 출발하세요.
+
+· 지도에서 라이더 친화 장소와 일반 장소를 검색하고, 카카오 검색으로 찾지 못한 장소는 네이버 지역 검색으로 보완해요.
+· 라이딩 추천에 담긴 장소를 살펴보고 원하는 목적지로 이동해요.
+· 앱 안에서 이륜차 경로를 비교하고 길안내를 이용해요. 실제 도로 상황과 교통 법규가 항상 우선해요.
+· 장소 리뷰·사진·즐겨찾기·일반 장소 추천과 장소·위험 제보를 이용할 수 있어요.
+· 내 바이크를 등록하고 도착한 장소의 라이딩 기록을 확인해요. 연속 이동 경로를 기록하거나 재생하는 기능은 포함하지 않아요.
+· Apple·카카오·네이버·Google 또는 이메일로 로그인할 수 있어요.
+· 장소·라이딩 추천을 링크로 공유하고 날씨·유가를 확인해요.
+
+운영: 모토맵 (대표 이승우)
+문의: starhn87@gmail.com
+```
+
+### App Privacy 대조 후보
+
+아래는 실제 제품 흐름에 맞춘 입력 준비다. 기존 ASC 값은 이번에 조회/변경하지 않았다.
+법률상 위탁·제공 분류와 Apple의 App Privacy 분류를 같은 개념으로 취급하지 않는다.
+
+| 항목 | 실제 처리와 대조할 고지 |
+|---|---|
+| Precise Location | 기능별 현재 위치 처리와 계정에 연결된 도착지/경유지 기록. 연속 GPS 경로 미저장이 위치 데이터 미수집을 뜻하지 않음 |
+| Search History | 앱 내 검색어 분석·검색 품질 개선. 네이버 API HUB에는 검색어만 보내며 현재 위치·지도 중심·반경·계정 식별자는 보내지 않음 |
+| Photos / Other User Content | 프로필·바이크·리뷰·제보 사진과 닉네임·본문 등 실제 업로드 범위 |
+| Contact Info / User ID | 이메일·계정 식별자. 소셜 identity가 연결돼도 모토맵 프로필 닉네임·사진 보존 |
+| Product Interaction / Diagnostics | PostHog 마스킹된 화면 기록·이벤트, Sentry 오류/성능 진단. 광고 목적 추적 없음 |
+| Audio Data | 기기 운영체제 음성인식 사용, 회사 서버 저장 없음. OS 처리와 앱의 데이터 수집 분류는 별도 대조 |
+
+집·회사 도착 기록은 저장 자체를 금지하는 기능이 아니라 라이딩 화면·장소 통계에서 제외하는
+기능이다. 탈퇴·삭제 요청 시 파기는 기존 절차를 따른다. 신규 라이딩 추천의 목적지형 이동은
+장소 방문 기록을 사용하며, 기존 코스 경로의 완주 저장·조회는 유지한다.
+
+### 1.2.8 심사 메모 후보 (KO/EN)
+
+일반 서비스 진입을 승인 후 연다는 OPS-007 기준이다. 별도 코드·숨은 데모 기능은 없다.
+실제로 동작하는 리뷰어 계정은 승인된 계정 정보를 ASC의 Sign-In Information에 입력한다.
+아래 `<REVIEWER_EMAIL>`은 미확정 표시이며 과거 예시 이메일을 실제 계정으로 단정하지 않는다.
+비밀번호·인증 토큰은 저장소에 쓰지 않는다. 실제 URL 복구·production 산출물 확인 후 제출한다.
+
+```text
+[KO]
+모토맵은 한국 오토바이 라이더를 위한 지도 앱입니다. 심사용 별도 모드 없이 일반 서비스와 같은 기능을 제공합니다.
+1. 지도·검색·장소·라이딩 추천 탐색은 로그인 없이 이용할 수 있습니다.
+2. 장소 상세의 "도착" 버튼에서 이륜차 경로를 선택해 길안내를 시작할 수 있습니다. 실제 주행은 필요하지 않습니다.
+3. 리뷰·즐겨찾기·제보·내 바이크·개인 라이딩 기록은 Sign-In Information에 제공한 계정(<REVIEWER_EMAIL>)으로 확인할 수 있습니다.
+4. 로그인한 이용자가 목적지 300m 이내에서 길안내를 종료하면 목적지·등록 장소 경유지, 기록 시각과 당시 바이크 정보를 계정에 연결해 저장할 수 있습니다.
+5. 집·회사로 설정한 위치 근처의 기록은 라이딩 화면과 장소 통계에서 제외됩니다. 서버 저장을 금지하거나 삭제하는 기능은 아닙니다. 연속 이동 경로는 서버에 저장하지 않습니다.
+6. 목적지형 라이딩 추천에는 별도 추천 완주 기록을 만들지 않습니다. 기존 코스의 완주 기록·조회 경로는 유지합니다.
+7. 카카오 검색으로 찾지 못한 장소는 네이버 API HUB 검색으로 보완합니다. 해당 네이버 요청에는 검색어만 전달하고 현재 위치·지도 범위·계정 식별자는 전달하지 않습니다.
+8. 위치 권한을 거부해도 장소·라이딩 추천 탐색은 이용할 수 있습니다. 공유 링크는 설치된 앱에서 해당 상세를 열도록 제공합니다.
+운영·문의: 모토맵 / 이승우 / starhn87@gmail.com / 010-9537-8467
+
+[EN]
+MotoMap is a map app for motorcycle riders in Korea. Reviewers use the same service and features as regular users; there is no separate review mode.
+1. Map, search, place, and riding recommendation browsing are available without signing in.
+2. Tap "도착" (Destination) in a place detail, choose a motorcycle route, and start guidance. Actual riding is not required.
+3. Use the account provided in Sign-In Information (<REVIEWER_EMAIL>) for reviews, favorites, submissions, My Bike, and personal ride history.
+4. When a signed-in user ends guidance within 300 meters of the destination, destination and registered-place waypoint records, timestamps, and the bike information used at the time may be stored with the account.
+5. Records near saved home or work locations are excluded from displayed ride history and place statistics. This does not prevent server storage or delete those records. Continuous movement routes are not stored on the server.
+6. Destination-based riding recommendations do not create separate recommendation completion records. Legacy course completion records and their access paths are maintained.
+7. Naver API HUB supplements places not found by Kakao search. Only the search query is sent to that Naver service, not the current location, map area, or account identifier.
+8. Place and riding recommendation browsing remain available without location permission. Shared links are provided to open the relevant detail in the installed app.
+Operator/contact: MotoMap / 이승우 / starhn87@gmail.com / +82-10-9537-8467
+```
+
+대표자 이름은 확인된 한글 표기를 유지했다. ASC Contact Information에 영문 표기를 사용할
+경우 운영자가 지정한 정확한 표기를 사용하고 저장소에서 추정하지 않는다.
+
+### 실행 전 확인
+
+`npm run check:legal`은 준비 상태의 정적 동기화만 확인한다.
+공개 재개/제출 전에는 `npm run check:legal -- --ready`도 통과시키고 실제 고지·동의 계약·
+ASC 설정을 대조한다. 현재 `--ready` 실패는 시행일·고지일·동의 버전이 미확정인 준비 상태를
+표시하는 것이며 기능 검증을 반복하라는 뜻이 아니다.
+
 아래 메타데이터·리뷰어 노트는 **과거 1.2.7 참고 기록**이다. 설명·개인정보·계정·연령 설문은
 1.2.8의 실제 동작과 현재 ASC 설정에 대조하기 전 그대로 복사하지 않는다.
 
