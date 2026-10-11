@@ -126,10 +126,11 @@ final class MotoMapProfile: XCTestCase {
         screenshot.name = "private-profile-read-only"
         screenshot.lifetime = .keepAlways
         add(screenshot)
-        let settings = app.staticTexts["설정"].firstMatch
+        // Pressable이 아이콘과 문구를 하나의 Other 접근성 요소로 묶는다.
+        let settings = app.otherElements.matching(NSPredicate(format: "label ENDSWITH %@", ", 설정")).firstMatch
         XCTAssertTrue(settings.waitForExistence(timeout: 15))
         settings.tap()
-        XCTAssertTrue(app.staticTexts["햅틱 피드백"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "햅틱 피드백")).firstMatch.waitForExistence(timeout: 15))
     }
 
     func testReleaseColdWarmPlaceLink() throws {
@@ -140,9 +141,11 @@ final class MotoMapProfile: XCTestCase {
         app.open(link)
         let detail = app.buttons["다산생태공원 상세 펼치기"]
         XCTAssertTrue(detail.waitForExistence(timeout: 25), "콜드 링크가 실제 장소 상세를 열어야 한다")
+        leaveSharedPlaceBeforeWarmLink()
         XCUIDevice.shared.press(.home)
         app.open(link)
         XCTAssertTrue(detail.waitForExistence(timeout: 15), "웜 링크에서도 같은 장소 상세를 열어야 한다")
+        XCTAssertFalse(app.textFields["장소, 라이딩 검색"].exists)
     }
 
     func testReleaseUniversalPlaceLink() throws {
@@ -152,10 +155,20 @@ final class MotoMapProfile: XCTestCase {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20), "HTTPS 링크는 OS가 앱으로 전달해야 한다")
         let detail = app.buttons["다산생태공원 상세 펼치기"]
         XCTAssertTrue(detail.waitForExistence(timeout: 20))
+        leaveSharedPlaceBeforeWarmLink()
         XCUIDevice.shared.press(.home)
         XCUIDevice.shared.system.open(link)
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         XCTAssertTrue(detail.waitForExistence(timeout: 15))
+        XCTAssertFalse(app.textFields["장소, 라이딩 검색"].exists)
+    }
+
+    func leaveSharedPlaceBeforeWarmLink() {
+        // 상세를 남겨둔 채 복귀만 확인하면 링크 이벤트가 누락돼도 성공할 수 있다.
+        let search = app.otherElements.matching(NSPredicate(format: "label CONTAINS %@", "장소, 라이딩 검색")).firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        XCTAssertTrue(app.textFields["장소, 라이딩 검색"].waitForExistence(timeout: 10))
     }
 
     func testPhotoLoops() throws {
