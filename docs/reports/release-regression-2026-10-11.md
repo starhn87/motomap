@@ -178,3 +178,85 @@ NAV-009/PROVIDER-001의 일부를 보완했다. 확인된 설정 오류는 재�
   SDK 지도 실패 감시·원격 플래그·Sentry fingerprint 검증은 남는다.
 - 운영 DB의 승인된 2건 외에 추가 마이그레이션·공급자 설정·자동 작업·공개 상태는 변경하지
   않았다. 푸시·빌드·OTA·웹 배포·알림은 하지 않았고 성능 측정/프리 웜업은 계속 보류한다.
+
+## 최신 내부 빌드·실기기 회귀 (TestFlight 업로드 승인 후)
+
+사용자가 최신 내부 빌드·실기기 검증과 **검증 통과 후 TestFlight 업로드**를 승인했다.
+Git 푸시·App Store 심사·판매 재개·공개 상태 active·OTA·사용자 재개 알림은 승인 범위가 아니다.
+
+- 앱 소스 기준: `08b21d3`(최신 길안내·날씨/유가 실패 처리와 1.2.8 공지 포함).
+  기존 스플래시·Expo 57/RN 0.86.3 네이티브 조합을 유지했다. 내부 EAS image만 로컬과 같은
+  Xcode 27.0 안정판(27A266a)으로 고정했고 production 프로필은 바꾸지 않았다.
+- private 스냅샷에서 Release 서명 빌드·기존 앱 위 설치를 통과했다. 앱/runtime 1.2.8,
+  내부 채널 `internal-testflight`와 codesign을 검사했다. 로컬 개발 서명의 build 1은
+  TestFlight 배포 번호가 아니다. 원본 저장소의 unrelated 로컬 파일과 사용자 데이터는 지웠거나
+  덮어쓰지 않았다. 초기 작업 디렉터리 오류로 시작한 이전 소스 빌드는 중단했고 최신 파일의
+  동일성을 확인한 뒤 새 빌드를 수행했다. 그 중단을 앱 컴파일 결함으로 집계하지 않는다.
+- 같은 설치본의 XCTest 기능 smoke **5개 통과, 실패 0**: 사진 3장 이동·핀치·확대 중 pan,
+  날씨 열기/닫기, 내 정보·설정 읽기, 커스텀 장소 콜드/웜 링크, HTTPS 콜드/웜 링크.
+- 추가 등록 장소 경로 미리보기 smoke **1개 통과**: 실제 경로 옵션 4개·거리·예상 시간과
+  안내 시작 버튼을 확인한 뒤 앱을 재실행해 지도로 복귀했다. 첫 검사는 옵션을 StaticText로만
+  찾는 러너 오류로 실패했다. 실제 캡처와 접근성 계층의 Other를 확인해 러너를 수정·재빌드했다.
+  안내 시작/종료는 누르지 않았다. 실제 주행·안내 정상 종료·방문 기록 생성 검증은 아니다.
+- 공개 테스트 좌표에서 **현재 앱 API 모듈+실제 FunctionsClient**를 실행했다. 세션을 저장하지
+  않는 public 키로 유가 주변 52개·상세 가격 3개와 날씨 12개 시간 예보의 응답 계약을 통과했다.
+  운영 공급자를 끄거나 실제 이용자 좌표를 테스트 입력으로 쓰지 않았다. 이 API 검사는
+  유가 지도/카드의 모든 실기기 상태나 장애 주입 검증을 대신하지 않는다.
+- DB 재대조: 리뷰 16개·장소 방문 39개의 전체 행 체크섬과 기존 즐겨찾기 18개의 체크섬은
+  정비 전과 동일하다. 즐겨찾기 총 20개 중 추가 2개는 이번 설치·smoke 전 생성됐다. 추가분을
+  데이터 손상으로 오인하지 않는다. 장소 운영시간 캐시 771개는 수가 같지만 전체 체크섬은
+  달라졌다. 이를 사용자 기록의 손실이나 캐시 내용 불변의 근거로 삼지 않는다.
+  계정·리뷰·즐겨찾기·방문 기록을 변경하는 테스트는 실행하지 않았다.
+- 클라우드 입력은 커밋된 소스의 clean clone으로 분리했다. 아카이브 623개 파일에 앱 설정,
+  lockfile·KNSDK podspec/plugin·Naver patch·원본 스플래시가 포함됐고, generated native·
+  node_modules·인증서·실제 .env·untracked 에이전트 파일은 제외했다. `.env.example`만 포함했다.
+  EAS production 변수의 존재와 필요한 client 값 일치를 확인했으며 값·키·로그·기기 원본
+  xcresult와 캡처는 저장소 밖 private 경로에 둔다.
+- EAS 내부 빌드 요청: `fd4e959b-47fc-4428-abf7-203cf8fee415`, 앱 1.2.8 / build 36,
+  profile/channel `internal-testflight`, 소스 커밋 `08b21d3`. 당시 클라우드 빌드는 진행 중이며
+  TestFlight 제출·Apple 처리·설치 가능 확인은 아직 완료로 표시하지 않는다.
+- 로그인한 ASC에서 기존 `internal`은 본인 1명의 내부 그룹이고 외부 그룹이 없음을 확인했다.
+  새 계정·테스터·외부 그룹이나 공개 링크를 만들지 않는다. 최종 성공 산출물의 build ID를
+  지정해 이 내부 그룹에만 제출하고 후속 결과를 기록한다.
+
+현재 검증은 내부 TestFlight 후보 업로드를 위한 기본 회귀다. 전체 외부 장애 주입·실제 주행·
+제공자별 OAuth·알림/탈퇴·App Store 심사 접근·개인정보 최종 대조가 끝난 것으로 표시하지 않는다.
+CPU/메모리 측정·최적화와 첫 지도 렌더 기반 스플래시/PERF-007은 계속 보류다.
+
+### 클라우드 산출물·제출 후속
+
+위 내부 빌드는 `FINISHED`를 확인했다. IPA를 private 경로에 내려받아 실제 plist의 앱/runtime
+1.2.8, build 36, `com.ridemap.app`, `internal-testflight`, iOS 27 SDK·Xcode 27A266a와
+엄격한 codesign 검증을 통과했다. verifier도 로컬 빌드·러너 빌드·xcresult 5+1과 IPA의
+서명·허용한 메타데이터를 독립 대조했다. 타입·114개 테스트·릴리스·diff 검사는 재통과했다.
+
+첫 EAS 제출 예약은 `--what-to-test`의 changelog 전송이 Enterprise 플랜 전용이라는 이유로
+거부됐다. Apple 업로드 실패나 앱 빌드 결함으로 집계하지 않는다. 플랜·요금·권한을 변경하지
+않고 해당 옵션만 제거해 같은 build ID·기존 internal 그룹으로 다시 예약했다.
+제출 ID `51a74030-40d6-4a4d-a8d4-b7c183898bd0`는 예약됐지만 당시 Apple 업로드·처리·
+TestFlight 설치 가능 확인은 아직 완료로 표시하지 않는다. 테스트 안내문은 필요하면 ASC에서
+업로드와 별도로 기재하며 외부 그룹·새 테스터는 추가하지 않는다.
+
+후속: 같은 제출 ID의 EAS 명령이 exit 0으로 종료하고 `Submitted your app to Apple App Store
+Connect` / 성공 업로드 응답을 확인했다. ASC 목록에서도 **1.2.8 (36)** 도착과 Apple 처리 중
+상태를 확인했다. 이 시점의 업로드 완료와 설치 가능 상태는 구분하며, 후속 그룹/처리 상태를
+아래에 기록한다. 제출 프로필 이름 production은 기존 Apple 계정·ASC 앱 설정의 이름일 뿐,
+바이너리의 실제 build profile/channel은 internal-testflight다. `--latest`를 사용하지 않았다.
+
+로컬·IPA의 KNSDK 1.12.14, Naver NMapsMap 3.24.0, Realm/RealmSwift 10.54.5도 일치했다.
+TestFlight 배포 서명 IPA 자체는 아직 실기기에 설치한 것이 아니며, 같은 앱 소스·native SDK
+조합의 개발 서명 Release에서 통과한 회귀와 IPA 정적 검증을 합쳐 기록한다.
+
+최종 ASC 확인: Apple 처리가 끝나 1.2.8 (36)이 빌드 목록의 ‘제출 준비 완료’로 표시됐고,
+상세에 **그룹(1) → internal → 내부 → 테스터 1명**이 연결됐다. 개별 추가 테스터는 0명이며
+외부 그룹·공개 테스트 링크·App Store 심사는 추가하지 않았다. 기존 내부 테스터가
+TestFlight에서 설치할 수 있는 단계까지 확인했지만 실제 배포 서명 앱 설치는 아직 하지 않았다.
+EAS 플랜 제한 때문에 자동 전송하지 못한 한국어 테스트 안내는 ASC의 테스트 내용에 별도로
+입력하고 ‘저장 완료’와 저장된 내용까지 확인했다. 캡처는 private 경로에만 보관한다.
+
+- [EAS 내부 빌드](https://expo.dev/accounts/ridemapper/projects/ridemap/builds/fd4e959b-47fc-4428-abf7-203cf8fee415)
+- [EAS 제출](https://expo.dev/accounts/ridemapper/projects/ridemap/submissions/51a74030-40d6-4a4d-a8d4-b7c183898bd0)
+- [ASC 1.2.8 (36)](https://appstoreconnect.apple.com/teams/62e49918-4e28-4d61-9730-c241f60d17b8/apps/6773636183/testflight/ios/9c8be202-4df3-4b15-823b-59e6795e1dda)
+
+공개 재개·판매 가용성·심사 접근의 검증은 별도다. Git 푸시·OTA·웹 배포·자동 작업 재개·
+사용자 운영 재개 공지/푸시는 하지 않았다. 승인된 내부 TestFlight 업로드와 기본 회귀 기록이다.

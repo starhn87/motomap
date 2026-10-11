@@ -97,6 +97,46 @@ final class MotoMapProfile: XCTestCase {
         photoCycle(capture: true)
     }
 
+    // 등록 장소 미리보기까지만 연다. 안내 시작/종료·방문 기록 쓰기는 실행하지 않는다.
+    func testReleaseNavigationPreviewReadOnly() throws {
+        openSearch()
+        let input = app.textFields["장소, 라이딩 검색"]
+        XCTAssertTrue(input.waitForExistence(timeout: 15))
+        input.tap()
+        input.typeText("다산생태공원")
+        let result = app.otherElements.matching(NSPredicate(format: "label CONTAINS %@", "다산생태공원,")).firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 20))
+        result.tap()
+        let destination = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "도착")).firstMatch
+        XCTAssertTrue(destination.waitForExistence(timeout: 15))
+        XCTAssertTrue(destination.isHittable)
+        destination.tap()
+        let warning = app.alerts.firstMatch
+        if warning.waitForExistence(timeout: 3) {
+            let proceed = warning.buttons["출발"]
+            XCTAssertTrue(proceed.exists, "경로 진입 전 안내만 승인한다")
+            proceed.tap()
+        }
+        let start = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "안내 시작")).firstMatch
+        XCTAssertTrue(start.waitForExistence(timeout: 30))
+        XCTAssertFalse(app.staticTexts["경로를 불러오지 못했어요"].exists)
+        for option in ["추천", "시간 우선", "거리 우선", "큰길 우선"] {
+            XCTAssertTrue(app.otherElements[option].exists, "경로 옵션 표시: \(option)")
+        }
+        let distance = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "([0-9]+m|[0-9]+\\.[0-9]km)")).firstMatch
+        XCTAssertTrue(distance.waitForExistence(timeout: 5), "실제 경로 거리가 표시돼야 한다")
+        let duration = app.staticTexts.matching(NSPredicate(format: "label MATCHES %@", "([0-9]+분|[0-9]+시간 [0-9]+분)")).firstMatch
+        XCTAssertTrue(duration.exists, "실제 경로 예상 시간이 표시돼야 한다")
+        let preview = XCTAttachment(screenshot: app.screenshot())
+        preview.name = "private-navigation-preview"
+        preview.lifetime = .keepAlways
+        add(preview)
+        app.terminate()
+        app.launch()
+        let search = app.otherElements.matching(NSPredicate(format: "label CONTAINS %@", "장소, 라이딩 검색")).firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 20))
+    }
+
     // 출시 검증용 읽기 전용 smoke다. measure/trace·계정 변경은 실행하지 않는다.
     func testReleaseWeatherToggle() throws {
         openSearch()
