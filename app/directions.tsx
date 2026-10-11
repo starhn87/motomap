@@ -1,3 +1,4 @@
+import { withLocationUse } from '@/stores/useLocationPrivacyStore';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -359,12 +360,14 @@ export default function DirectionsScreen() {
 }
 
 async function currentAsTarget(): Promise<NavTarget> {
+  return withLocationUse('route','device',async () => {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') throw new Error('permission');
   const { coords } = await Location.getCurrentPositionAsync({
     accuracy: Location.Accuracy.Balanced,
   });
   return { name: '현재 위치', latitude: coords.latitude, longitude: coords.longitude };
+  });
 }
 
 function FieldRow({

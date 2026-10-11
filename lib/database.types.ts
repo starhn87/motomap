@@ -1791,6 +1791,10 @@ export type Database = {
       }
     }
     Functions: {
+      location_privacy: {
+        Args: { p_action: string; p_secret?: string; p_payload?: Json }
+        Returns: Json
+      }
       _postgis_deprecate: {
         Args: { newname: string; oldname: string; version: string }
         Returns: undefined

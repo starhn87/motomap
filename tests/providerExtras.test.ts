@@ -4,6 +4,7 @@ import { FunctionsClient } from '@supabase/functions-js';
 import * as providerErrors from '../lib/providerErrors';
 import * as distance from '../lib/distance';
 import { loadModule } from './helpers/loadModule';
+import { allowedLocationPrivacy } from './helpers/allowedLocationPrivacy';
 import type * as Gas from '../lib/api/gasStations';
 import type * as Weather from '../lib/api/weather';
 import type { GasSearchSpec } from '../hooks/useGasStations';
@@ -38,11 +39,13 @@ function fixture(body: unknown, options: { status?: number; hangs?: boolean; tex
   } } };
   const gas = loadModule<typeof Gas>('lib/api/gasStations.ts', {
     '@/lib/supabase': { supabase }, '@/lib/distance': distance, '@/lib/providerErrors': providerErrors,
+    '@/stores/useLocationPrivacyStore': allowedLocationPrivacy,
   });
   const weather = loadModule<typeof Weather>('lib/api/weather.ts', {
     '@/lib/supabase': { supabase }, '@/lib/api/kakaoLocal': { coordToRegion: async () => null },
     '@/lib/sun': { isNightAt: () => false }, '@/constants/weather': { NIGHT_PARTLY_CLOUDY_EMOJI: 'night-cloud' },
     '@/lib/providerErrors': providerErrors,
+    '@/stores/useLocationPrivacyStore': allowedLocationPrivacy,
   });
   return { gas, weather, calls };
 }

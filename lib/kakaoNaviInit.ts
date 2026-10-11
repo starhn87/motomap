@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 
-import KakaoNavi, { isKakaoNaviAvailable } from '@/modules/kakao-navi';
+import KakaoNavi, { isKakaoNaviAvailable, supportsKakaoNaviFeature } from '@/modules/kakao-navi';
+import { requireLocationUse, withLocationUse } from '@/stores/useLocationPrivacyStore';
 import { kakaoNaviProviderError } from '@/lib/kakaoRouteErrors';
 import { ProviderError, rememberProviderFailure, requireProviderAvailable } from '@/lib/providerErrors';
 
@@ -12,6 +13,8 @@ let pending: Promise<void> | null = null;
 
 export function ensureKakaoNaviReady(): Promise<void> {
   try {
+    requireLocationUse();
+    if (!supportsKakaoNaviFeature('location_privacy_stop')) throw new Error('위치정보 보호 기능이 포함된 새 앱으로 업데이트해 주세요.');
     requireProviderAvailable('kakao-navi');
   } catch (error) {
     return Promise.reject(error);
@@ -26,7 +29,11 @@ export function ensureKakaoNaviReady(): Promise<void> {
       rememberProviderFailure(failure);
       return Promise.reject(failure);
     }
-    pending = Promise.resolve().then(() => KakaoNavi.initialize(appKey))
+    pending = Promise.resolve().then(() => withLocationUse('route','kakao',async () => {
+      await KakaoNavi.setLocationUseAllowed(true);
+      requireLocationUse();
+      return KakaoNavi.initialize(appKey);
+    }))
       .then((initialized) => {
         if (initialized !== true) throw new ProviderError('kakao-navi', 'initialize', 'invalid_response');
       })
@@ -37,5 +44,5 @@ export function ensureKakaoNaviReady(): Promise<void> {
         throw failure;
       });
   }
-  return pending;
+  return pending.then(() => withLocationUse('route','kakao',() => KakaoNavi.setLocationUseAllowed(true)));
 }

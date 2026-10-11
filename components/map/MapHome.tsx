@@ -1,3 +1,4 @@
+import { withLocationUse, locationUseAllowed } from '@/stores/useLocationPrivacyStore';
 import {
   StyleSheet,
   View,
@@ -68,6 +69,7 @@ import { findGeneralPlace } from '@/lib/api/generalPlaces';
 import SearchEntry from '@/components/search/SearchEntry';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import type { Href } from 'expo-router';
 import { useIsFocused, type ParamListBase } from 'expo-router/react-navigation';
 import type { NativeStackNavigationProp } from 'expo-router';
 import { TrackedUserLocationMarker } from '@/components/map/TrackedUserLocationMarker';
@@ -474,13 +476,13 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     isMapFocused,
     isMapPresented: overlay || mapPresentationReady,
     onFollow: () => {
+      if (!locationUseAllowed()) return;
       followingRef.current = true;
       // 안내 중엔 위치 구독이 멈춰 스토어가 출발지에 얼어 있다 — 스토어를
       // 그대로 쓰면(handleMyLocation) 카메라가 출발지로 되돌아갔다가 구독
       // 재개 후에야 현재 위치로 끌려온다(실주행 증상). KNSDK 가 주행 내내
       // 갱신해 둔 시스템 캐시로 마커와 카메라를 한 번에 되돌린다.
-      void (async () => {
-        const pos = await Location.getLastKnownPositionAsync();
+      void withLocationUse('map','device',() => Location.getLastKnownPositionAsync()).then((pos) => {
         // 조회를 기다리는 사이 장소 포커스가 들어오면 따라가기가 해제된다.
         // 오래된 위치 응답이 목적지 이동을 다시 내 위치로 덮지 않게 한다.
         if (!pos || !followingRef.current) return;
@@ -490,7 +492,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         };
         useMapStore.getState().setUserLocation(coords);
         mapRef.current?.animateCameraTo({ ...coords, duration: 0 });
-      })();
+      }).catch(() => { followingRef.current = false; });
     },
     onSelectPlace: handleSearchSelect,
     onSelectPoint: handleSearchPointSelect,
@@ -718,6 +720,15 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   }, [isMapFocused, userLocation]);
 
   const handleMyLocation = () => {
+    if (!locationUseAllowed()) {
+      toast.info('위치 이용 설정이 필요해요', '현재 위치를 이용하려면 동의하고 다시 시작해 주세요.');
+      router.push('/location-privacy' as Href);
+      return;
+    }
+    if (!userLocation) {
+      toast.info('현재 위치를 확인할 수 없어요', '기기의 위치 서비스와 권한을 확인해 주세요.');
+      return;
+    }
     if (!userLocation || !mapRef.current) return;
     haptics.selection(90);
     // 내 위치를 지도 중앙으로 이동(현재 줌 유지)

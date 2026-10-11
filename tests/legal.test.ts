@@ -43,7 +43,7 @@ test('개정안은 검색어 전송과 위치 기록·집/회사 표시 제외�
   assert.match(privacy, /네이버클라우드 API HUB/);
   assert.match(privacy, /현재 위치·지도 중심·반경·계정 식별자를 전달하지 않습니다/);
   assert.match(privacy, /집·회사.*방문 기록도 저장될 수/);
-  assert.match(LEGAL_RELAUNCH_DOCS.location.content, /서버 저장 자체를 막거나 삭제하는 기능은 아니며/);
+  assert.match(LEGAL_RELAUNCH_DOCS.location.content, /본인의 위치정보 관리 화면에서 열람·삭제할 수 있습니다/);
 });
 
 test('초안 정적 검사는 통과하되 시행 준비 검사는 날짜·고지·동의 동기화를 요구한다', () => {

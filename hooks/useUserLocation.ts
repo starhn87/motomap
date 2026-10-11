@@ -6,6 +6,7 @@ import { useMapStore } from '@/stores/useMapStore';
 import { useGuideSession } from '@/lib/guideSession';
 import { toast } from '@/lib/toast';
 import { shouldTrackUserLocation, startUserLocationTracking } from '@/lib/userLocationTracking';
+import { useLocationPrivacyStore, locationUseAllowed, withLocationUse } from '@/stores/useLocationPrivacyStore';
 
 /**
  * 포그라운드 위치 권한을 얻어 현재 위치를 추적해 스토어에 반영하고,
@@ -21,7 +22,8 @@ export function useUserLocation(enabled = true, trackHeading = true) {
   const [heading, setHeading] = useState(0);
   const guiding = useGuideSession((s) => !!s.goal);
   const [appState, setAppState] = useState(AppState.currentState);
-  const tracking = shouldTrackUserLocation(enabled, appState, guiding);
+  const revision = useLocationPrivacyStore((s) => s.revision);
+  const tracking = shouldTrackUserLocation(enabled && locationUseAllowed(), appState, guiding);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', setAppState);
@@ -32,24 +34,34 @@ export function useUserLocation(enabled = true, trackHeading = true) {
   useEffect(() => {
     // 지도 인스턴스·카메라는 보존하되 가려진 지도와 비활성 앱의 센서는 정리한다.
     if (!tracking) return;
+    const currentLease = () => locationUseAllowed() && revision === useLocationPrivacyStore.getState().revision;
+    const assertLease = () => { if (!currentLease()) throw new Error('위치 이용이 중지됐어요.'); };
     return startUserLocationTracking(
       {
-        requestPermission: () => Location.requestForegroundPermissionsAsync(),
-        lastKnown: () => Location.getLastKnownPositionAsync(),
-        current: () => Location.getCurrentPositionAsync({}),
-        watchPosition: (callback) => Location.watchPositionAsync(
-          { accuracy: Location.Accuracy.High, distanceInterval: 10 }, callback,
-        ),
-        watchHeading: (callback) => Location.watchHeadingAsync(callback),
+        requestPermission: () => withLocationUse('map', 'naver', () => Location.requestForegroundPermissionsAsync()),
+        lastKnown: () => { assertLease(); return Location.getLastKnownPositionAsync(); },
+        current: () => { assertLease(); return Location.getCurrentPositionAsync({}); },
+        watchPosition: async (callback) => {
+          assertLease();
+          const sub = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, distanceInterval: 10 }, callback);
+          if (!currentLease()) sub.remove();
+          return sub;
+        },
+        watchHeading: async (callback) => {
+          assertLease();
+          const sub = await Location.watchHeadingAsync(callback);
+          if (!currentLease()) sub.remove();
+          return sub;
+        },
       },
-      setUserLocation,
-      setHeading,
+      (coords) => { if (currentLease()) setUserLocation(coords); },
+      (value) => { if (currentLease()) setHeading(value); },
       () => {
-        toast.info('현재 위치를 확인할 수 없습니다.', '위치 서비스와 권한을 확인해주세요.');
+        if (currentLease()) toast.info('현재 위치를 확인할 수 없습니다.', '위치 서비스와 권한을 확인해주세요.');
       },
       trackHeading,
     );
-  }, [setUserLocation, tracking, trackHeading]);
+  }, [setUserLocation, tracking, trackHeading, revision]);
 
   return { heading };
 }

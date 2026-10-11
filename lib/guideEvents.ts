@@ -1,3 +1,4 @@
+import { withLocationUse, locationUseAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 
@@ -110,9 +111,9 @@ async function reportHazard() {
   // 위치는 버튼을 누른 "순간"에 찍는다. 타입을 고른 뒤에 찍으면 시트를 보며
   // 달린 5~10초(시속 60km 면 100m+)까지 오차에 들어간다 — 위험 지점과의
   // 간격은 어차피 지나친 뒤 누르는 물리적 지연만큼만 남긴다.
-  const posPromise = Location.getCurrentPositionAsync({
+  const posPromise = withLocationUse('map','motomap',() => Location.getCurrentPositionAsync({
     accuracy: Location.Accuracy.Balanced,
-  });
+  })).catch(() => null);
   const picked = await KakaoNavi.showGuideOptions(
     '노면 위험 제보',
     HAZARD_LIST.map((h) => h.label),
@@ -120,6 +121,7 @@ async function reportHazard() {
   if (picked < 0) return;
   try {
     const pos = await posPromise;
+    if (!pos || !locationUseAllowed()) return;
     await submitHazard({
       type: HAZARD_LIST[picked].key,
       latitude: pos.coords.latitude,
@@ -135,9 +137,9 @@ async function reportHazard() {
 async function nearbyPlaces() {
   const { priority, changeGoal } = useGuideSession.getState();
   try {
-    const pos = await Location.getCurrentPositionAsync({
+    const pos = await withLocationUse('search','device',() => Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Balanced,
-    });
+    }));
     const here = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
     const places = (await fetchNearbyPlaces({ ...here, radiusMeters: 5000 }))
       .map((p) => ({ ...p, dist: haversine(here, p) }))
@@ -153,12 +155,12 @@ async function nearbyPlaces() {
     );
     if (picked < 0) return;
     const target = places[picked];
-    await KakaoNavi.changeGuideDestination(
+    await withLocationUse('navigation','kakao',() => KakaoNavi.changeGuideDestination(
       target.longitude,
       target.latitude,
       target.name,
       priority,
-    );
+    ));
     changeGoal({
       latitude: target.latitude,
       longitude: target.longitude,
@@ -176,11 +178,11 @@ type GuideGoal = NonNullable<ReturnType<typeof useGuideSession.getState>['goal']
 // 종료 지점에서 목적지까지의 거리(m). 위치를 못 읽으면 null — 제안을 못 띄울 뿐
 async function distanceToGoal(goal: GuideGoal): Promise<number | null> {
   try {
-    const pos =
+    const pos = await withLocationUse('map','device',async () =>
       (await Location.getLastKnownPositionAsync()) ??
       (await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
-      }));
+      })));
     return haversine(
       { latitude: pos.coords.latitude, longitude: pos.coords.longitude },
       goal,
@@ -193,6 +195,7 @@ async function distanceToGoal(goal: GuideGoal): Promise<number | null> {
 // 도착지 300m 안에서 끝난 라이딩만 장소 통계에 센다 — 도착지와, 지나온
 // 등록 장소 경유지에 각각 1회 (완주했으면 경유지도 지난 것으로 본다)
 function recordArrival(goal: GuideGoal, viaPlaces: GuideViaPlace[]) {
+  if (!locationUseAllowed() || !useLocationPrivacyStore.getState().historyAllowed) return;
   // 로컬 집·회사 로딩과 통계 기록은 안내 종료·리뷰 제안을 막지 않도록 분리한다.
   void (async () => {
     const myPlacesStore = useMyPlacesStore.getState();
@@ -317,7 +320,7 @@ export function registerGuideEvents(): () => void {
           if (picked !== 0) return;
           const { priority, changeGoal } = useGuideSession.getState();
           try {
-            await KakaoNavi.changeGuideDestination(longitude, latitude, label, priority);
+            await withLocationUse('navigation','kakao',() => KakaoNavi.changeGuideDestination(longitude, latitude, label, priority));
             changeGoal({ latitude, longitude, name: label });
             void KakaoNavi.showGuideNotice(`${label}(으)로 안내를 변경했어요.`);
           } catch {

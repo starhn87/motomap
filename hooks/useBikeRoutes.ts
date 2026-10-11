@@ -1,3 +1,4 @@
+import { withLocationUse, providerLocationAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import { useEffect, useState } from 'react';
 
 import KakaoNavi, {
@@ -32,6 +33,7 @@ export function useBikeRoutes(args: {
   courseVias: number[];
   isCourseMode: boolean;
 }) {
+  const privacyRevision = useLocationPrivacyStore((s) => s.revision);
   const { start, startName, goal, userVias, courseVias, isCourseMode } = args;
 
   const [priority, setPriority] = useState<RoutePriority>(0);
@@ -77,6 +79,12 @@ export function useBikeRoutes(args: {
   // 20412 는 경유지 좌표가 도로에 스냅되지 않는 경우라, 경유지를
   // [전체 → 코스 출발지만 → 없음] 순으로 줄여가며 재시도한다.
   useEffect(() => {
+    if (!providerLocationAllowed('kakao')) {
+      if (Object.keys(routes).length) setRoutes({});
+      setLoading(false);
+      setError({priority,message:'위치정보 설정에서 현재 위치 이용과 카카오 위치 전달을 선택해 주세요.',canRetry:false});
+      return;
+    }
     if (!effStart || routes[priority]) return;
     let cancelled = false;
     setLoading(true);
@@ -112,9 +120,9 @@ export function useBikeRoutes(args: {
       let lastErr: unknown = null;
       for (const tryVias of ladder) {
         try {
-          const result = await KakaoNavi.requestBikeRoute(
+          const result = await withLocationUse('route','kakao',() => KakaoNavi.requestBikeRoute(
             effStart[0], effStart[1], goal.longitude, goal.latitude, tryVias, priority,
-          );
+          ));
           if (cancelled) return;
           if (tryVias.length < requestVias.length) {
             setActiveVias(tryVias);
@@ -173,7 +181,7 @@ export function useBikeRoutes(args: {
       clearTimeout(timeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias·userVias·courseOnly 에서 파생
-  }, [effStart?.[0], effStart?.[1], priority, routes, goal.longitude, goal.latitude, courseVias.join(','), userVias, courseOnly, activeVias]);
+  }, [effStart?.[0], effStart?.[1], priority, routes, goal.longitude, goal.latitude, courseVias.join(','), userVias, courseOnly, activeVias, privacyRevision]);
 
   // 혼잡 구간 색칠 — 같은 엔진인 REST 로 같은 조건을 조회한다. 경유지가 없으면
   // 입력이 이미 확정이라 SDK 경로 요청과 병렬로 바로 쏘고(색칠이 SDK 왕복만큼
@@ -181,6 +189,10 @@ export function useBikeRoutes(args: {
   // 기다린다. 경로 useEffect 안에서 부르면 setRoutes 가 deps(routes)를 바꿔
   // cleanup 이 돌고 응답이 cancelled 에 막혀 버려진다(실측). 실패하면 단색 그대로.
   useEffect(() => {
+    if (!providerLocationAllowed('kakao')) {
+      if (Object.keys(traffic).length) setTraffic({});
+      return;
+    }
     if (!effStart || traffic[priority]) return;
     if (effVias.length > 0 && !route) return;
     let cancelled = false;
@@ -193,7 +205,7 @@ export function useBikeRoutes(args: {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias·userVias·courseOnly 에서 파생
-  }, [effStart?.[0], effStart?.[1], route, priority, goal.longitude, goal.latitude, activeVias]);
+  }, [effStart?.[0], effStart?.[1], route, priority, goal.longitude, goal.latitude, activeVias, privacyRevision]);
 
   return {
     priority,

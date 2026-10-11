@@ -17,7 +17,7 @@ public class KakaoNaviModule: Module {
     // JS가 앱 버전 문자열을 추측하지 않고 실제 바이너리 기능을 확인한다.
     // 기능을 추가·삭제하거나 wire 계약이 바뀌면 bridgeVersion을 올린다.
     Constants([
-      "bridgeVersion": 1,
+      "bridgeVersion": 2,
       "features": [
         "bike_route_preview",
         "guide_options",
@@ -26,6 +26,7 @@ public class KakaoNaviModule: Module {
         "custom_car_image_guard",
         "app_lifecycle_forwarding",
         "accessibility_nil_guard",
+        "location_privacy_stop",
       ],
     ])
 
@@ -38,7 +39,17 @@ public class KakaoNaviModule: Module {
           promise.resolve(true)
         }
       }
-    }
+    }.runOnQueue(.main)
+
+    AsyncFunction("setLocationUseAllowed") { (allowed: Bool) in
+      KNSDKBridge.setLocationUseAllowed(allowed)
+    }.runOnQueue(.main)
+
+    AsyncFunction("stopLocationUse") { (promise: Promise) in
+      KNNaviPresenter.stopLocationUse {
+        promise.resolve(nil)
+      }
+    }.runOnQueue(.main)
 
     // 이륜차 경로 — 길안내 전 미리보기용. 안내와 같은 엔진이라 결과가 일치한다.
     AsyncFunction("requestBikeRoute") {
@@ -58,7 +69,7 @@ public class KakaoNaviModule: Module {
           ])
         }
       }
-    }
+    }.runOnQueue(.main)
 
     // 길안내는 네이티브 전체화면으로 띄운다(이유는 KNNaviPresenter.h 참고).
     // 경로 탐색이 비동기라 결과는 이벤트로 알린다.
@@ -88,7 +99,7 @@ public class KakaoNaviModule: Module {
           self?.sendEvent("onGuideFailed", ["code": code as Any, "message": message])
         }
       )
-    }
+    }.runOnQueue(.main)
 
     // 안내 화면 위 액션시트 — JS 가 항목을 채우고, 고른 인덱스를 받는다(취소 -1)
     AsyncFunction("showGuideOptions") { (title: String, labels: [String], promise: Promise) in

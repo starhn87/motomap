@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { withCoordinateUse } from '@/stores/useLocationPrivacyStore';
 import type { Place, PlaceCategory } from '@/types';
 import type { Hours } from '@/lib/hours';
 import type { Json } from '@/lib/database.types';
@@ -74,12 +75,12 @@ export async function fetchNearbyPlaces({
   radiusMeters = 5000,
   category,
 }: NearbyParams): Promise<Place[]> {
-  const { data, error } = await supabase.rpc('nearby_places', {
+  const { data, error } = await withCoordinateUse({latitude,longitude},'search','motomap',async () => await supabase.rpc('nearby_places', {
     lat: latitude,
     lng: longitude,
     radius_meters: radiusMeters,
     category_filter: category ?? undefined,
-  });
+  }));
 
   if (error) throw error;
 

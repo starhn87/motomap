@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
+import { allowedLocationPrivacy } from './helpers/allowedLocationPrivacy';
 import type * as Provider from '../lib/providerErrors';
 import type * as Errors from '../lib/kakaoRouteErrors';
 import type { BikeRoute } from '../modules/kakao-navi';
@@ -9,7 +10,7 @@ import type { useBikeRoutes } from '../hooks/useBikeRoutes';
 const route: BikeRoute = { distance: 1200, duration: 100, polyline: [127, 37, 128, 38] };
 
 // 실제 훅의 effect·상태를 실행한다. 자동화 SDK·서버·계정 데이터는 사용하지 않는다.
-function setup(request: (vias: number[]) => Promise<BikeRoute>, course = true) {
+function setup(request: (vias: number[]) => Promise<BikeRoute>, course = true, allowed = true) {
   const provider = loadModule<typeof Provider>('lib/providerErrors.ts', {});
   const errors = loadModule<typeof Errors>('lib/kakaoRouteErrors.ts', { '@/lib/providerErrors': provider });
   const values: unknown[] = [];
@@ -21,6 +22,7 @@ function setup(request: (vias: number[]) => Promise<BikeRoute>, course = true) {
   let effectIndex = 0;
   let calls = 0;
   const module = loadModule<{ useBikeRoutes: typeof useBikeRoutes }>('hooks/useBikeRoutes.ts', {
+    '@/stores/useLocationPrivacyStore': { ...allowedLocationPrivacy,providerLocationAllowed: () => allowed },
     react: {
       useState(initial: unknown) {
         const index = stateIndex++;
@@ -80,6 +82,15 @@ function setup(request: (vias: number[]) => Promise<BikeRoute>, course = true) {
     unmount: () => effects.forEach((effect) => effect.cleanup?.()),
   };
 }
+
+test('위치 미사용·공급자 미선택 상태는 SDK 요청과 영구 로딩 대신 설정 안내로 종료한다', async () => {
+  const f=setup(async()=>route,false,false);
+  const view=await f.settle();
+  assert.equal(view.loading,false);
+  assert.match(view.routeError ?? '',/위치정보 설정/);
+  assert.equal(view.canRetryRoute,false);
+  assert.equal(f.calls(),0);
+});
 
 test('인증·일시 장애는 경유지 축소/코스 출발지 재요청 없이 오류 상태로 끝난다', async () => {
   for (const code of ['G401', 'G503', 'C103', '20411']) {

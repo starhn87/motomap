@@ -4,6 +4,7 @@
 // 경로 날씨 경고만 Open-Meteo 유지 — 멀티 좌표 1콜과 강수형태 중심 판정 때문.
 
 import { supabase } from '@/lib/supabase';
+import { withCoordinateUse } from '@/stores/useLocationPrivacyStore';
 import { coordToRegion } from '@/lib/api/kakaoLocal';
 import { isNightAt } from '@/lib/sun';
 import { NIGHT_PARTLY_CLOUDY_EMOJI } from '@/constants/weather';
@@ -185,10 +186,10 @@ export async function checkRouteWeather(
     const sampled = sampleRoutePoints(points, 4);
     const results = await Promise.all(
       sampled.map(async (p) => {
-        const { data, error } = await supabase.functions.invoke('weather-kr', {
+        const { data, error } = await withCoordinateUse(p,'weather','kma',() => supabase.functions.invoke('weather-kr', {
           body: { lat: p.latitude, lng: p.longitude },
           timeout: 20_000,
-        });
+        }));
         if (error) return null;
         const hours: KmaHour[] = data?.hours ?? [];
         return { point: p, hours };
@@ -413,9 +414,9 @@ function kmaHourAt(hour: KmaHour): Date {
 export async function fetchRidingWeather(latitude: number, longitude: number): Promise<RidingWeather> {
   let hours: KmaHour[];
   try {
-    const { data, error } = await supabase.functions.invoke('weather-kr', {
+    const { data, error } = await withCoordinateUse({ latitude,longitude },'weather','kma',() => supabase.functions.invoke('weather-kr', {
       body: { lat: latitude, lng: longitude }, timeout: 20_000,
-    });
+    }));
     if (error) throw error;
     if (!Array.isArray(data?.hours) || data.hours.length === 0 || !data.hours.every(isKmaHour)) {
       throw new ProviderError('kma', 'forecast', 'invalid_response');

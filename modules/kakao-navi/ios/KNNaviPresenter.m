@@ -231,16 +231,23 @@ static void InstallMotoMapInfoCharacterGuard(void) {
 // 경로 미리보기 — 실제 GPS 대신 경로를 따라 스스로 진행한다
 @property(nonatomic, assign) BOOL preview;
 @property(nonatomic, assign) BOOL previewNoticed;
+@property(nonatomic, assign) BOOL finished;
 @end
 
 // 안내 화면 위 상호작용(액션시트·알림·목적지 변경)을 모듈 함수가 쓸 수 있도록
 // 살아 있는 컨트롤러를 하나 기억한다.
 static __weak KNNaviViewController *gActiveNavi = nil;
+static NSUInteger gLocationGeneration = 0;
+
+static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
+  @synchronized(KNNaviPresenter.class) { return generation == gLocationGeneration && [KNSDKBridge isLocationUseAllowed]; }
+}
 
 @implementation KNNaviViewController
 
 - (void)viewDidLoad {
   [super viewDidLoad];
+  if (![KNSDKBridge isLocationUseAllowed]) { [self finish]; return; }
   self.view.backgroundColor = UIColor.blackColor;
   InstallMotoMapAccessibilityGuard();
   InstallMotoMapInfoCharacterGuard();
@@ -637,6 +644,8 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 }
 
 - (void)finish {
+  if (self.finished) return;
+  self.finished = YES;
   [self.guidance stop];
   // 안내가 끝나면 백그라운드 위치를 다시 차단한다 — 종료 후에도 GPS 구독이
   // 남아 밤새 배터리를 먹었다(locationd 실측). 도착 자동 종료도 이 경로다.
@@ -655,6 +664,13 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 @end
 
 @implementation KNNaviPresenter
+
++ (void)stopLocationUseWithCompletion:(void (^)(void))completion {
+  @synchronized(self) { gLocationGeneration += 1; }
+  [KNSDKBridge setLocationUseAllowed:NO];
+  [gActiveNavi finish];
+  completion();
+}
 
 // 앱의 키 윈도우. UIApplication.keyWindow 는 iOS 13 에서 폐기됐다 — 연결된
 // 모든 씬을 가로질러 하나를 돌려주기 때문. 씬 하나짜리 앱이라 결과는 같지만
@@ -684,6 +700,9 @@ static __weak KNNaviViewController *gActiveNavi = nil;
               onPoiTap:(void (^_Nullable)(NSString *, double, double))onPoiTap
              onDismiss:(void (^)(void))onDismiss
                onError:(void (^)(NSString *_Nullable, NSString *))onError {
+  if (![KNSDKBridge isLocationUseAllowed]) { onError(nil,@"위치 이용이 중지됐다"); return; }
+  __block NSUInteger generation;
+  @synchronized(self) { generation = ++gLocationGeneration; }
   KNSDK *sdk = [KNSDK sharedInstance];
   if (sdk == nil) {
     onError(nil, @"KNSDK 인스턴스를 가져오지 못했다");
@@ -700,6 +719,8 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                     goal:goalPOI
                     vias:[KNSDKBridge viasFromFlat:flatVias]
               completion:^(KNError *_Nullable tripError, KNTrip *_Nullable trip) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                if (!IsLocationGenerationCurrent(generation)) { onError(nil,@"위치 이용이 중지됐다"); return; }
                 if (tripError != nil || trip == nil) {
                   onError([KNSDKBridge errorCodeOf:tripError],
                           tripError ? (tripError.msg ?: @"경로 생성 실패") : @"경로를 만들지 못했다");
@@ -711,6 +732,8 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                            avoidOptions:KNRouteAvoidOption_None
                              completion:^(KNError *_Nullable routeError,
                                           NSArray<KNRoute *> *_Nullable routes) {
+                               dispatch_async(dispatch_get_main_queue(), ^{
+                               if (!IsLocationGenerationCurrent(generation)) { onError(nil,@"위치 이용이 중지됐다"); return; }
                                if (routeError != nil || routes.count == 0) {
                                  onError([KNSDKBridge errorCodeOf:routeError],
                                          routeError ? (routeError.msg ?: @"경로 탐색 실패")
@@ -718,6 +741,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                                  return;
                                }
                                [self presentWithTrip:trip
+                                          generation:generation
                                             priority:(KNRoutePriority)priority
                                              preview:preview
                                            onStarted:onStarted
@@ -725,11 +749,14 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                                             onPoiTap:onPoiTap
                                            onDismiss:onDismiss
                                              onError:onError];
+                               });
                              }];
+                });
               }];
 }
 
 + (void)presentWithTrip:(KNTrip *)trip
+             generation:(NSUInteger)generation
                priority:(KNRoutePriority)priority
                 preview:(BOOL)preview
               onStarted:(void (^_Nullable)(void))onStarted
@@ -738,6 +765,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
               onDismiss:(void (^)(void))onDismiss
                 onError:(void (^)(NSString *_Nullable, NSString *))onError {
   dispatch_async(dispatch_get_main_queue(), ^{
+    if (!IsLocationGenerationCurrent(generation)) { onError(nil,@"위치 이용이 중지됐다"); return; }
     UIViewController *top = [self keyWindow].rootViewController;
     while (top.presentedViewController != nil) top = top.presentedViewController;
     if (top == nil) {
@@ -811,6 +839,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                       priority:(NSInteger)priority
                     completion:(void (^)(NSString *_Nullable, NSString *_Nullable))completion {
   dispatch_async(dispatch_get_main_queue(), ^{
+    if (![KNSDKBridge isLocationUseAllowed]) { completion(nil,@"위치 이용이 중지됐다"); return; }
     KNNaviViewController *navi = gActiveNavi;
     KNSDK *sdk = [KNSDK sharedInstance];
     if (navi == nil || navi.naviView == nil || sdk == nil) {
@@ -835,6 +864,9 @@ static __weak KNNaviViewController *gActiveNavi = nil;
                       vias:nil
                 completion:^(KNError *_Nullable error, KNTrip *_Nullable trip) {
                   dispatch_async(dispatch_get_main_queue(), ^{
+                    if (![KNSDKBridge isLocationUseAllowed] || navi != gActiveNavi || navi.finished) {
+                      completion(nil,@"위치 이용이 중지됐다"); return;
+                    }
                     if (error != nil || trip == nil) {
                       completion([KNSDKBridge errorCodeOf:error],
                                  error ? (error.msg ?: @"경로 생성 실패") : @"경로를 만들지 못했다");

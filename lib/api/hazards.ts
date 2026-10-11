@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { withCoordinateUse } from '@/stores/useLocationPrivacyStore';
 import { requireUser } from '@/lib/auth';
 import type { HazardType, RoadHazard } from '@/types';
 
@@ -40,11 +41,11 @@ export async function fetchNearbyHazards(
   longitude: number,
   radiusMeters = 20_000
 ): Promise<RoadHazard[]> {
-  const { data, error } = await supabase.rpc('nearby_hazards', {
+  const { data, error } = await withCoordinateUse({latitude,longitude},'map','motomap',async () => await supabase.rpc('nearby_hazards', {
     lat: latitude,
     lng: longitude,
     radius_meters: radiusMeters,
-  });
+  }));
   if (error) throw error;
   return (data ?? []).map(rowToHazard);
 }

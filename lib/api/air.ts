@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { withCoordinateUse } from '@/stores/useLocationPrivacyStore';
 
 // 미세먼지(에어코리아) — 좌표를 카카오 transcoord 로 TM 좌표로 바꾼 뒤
 // air-kr Edge Function(최근접 측정소 실시간 측정값)을 호출한다.
@@ -36,17 +37,18 @@ export async function fetchAirQuality(
   if (!REST_KEY) return null;
   try {
     // WGS84 → TM (에어코리아 측정소 좌표계)
-    const res = await fetch(
+    const point = { latitude, longitude };
+    const res = await withCoordinateUse(point,'weather','kakao',() => fetch(
       `https://dapi.kakao.com/v2/local/geo/transcoord.json?x=${longitude}&y=${latitude}&input_coord=WGS84&output_coord=TM`,
       { headers: { Authorization: `KakaoAK ${REST_KEY}` } },
-    );
+    ));
     if (!res.ok) return null;
     const doc = (await res.json()).documents?.[0];
     if (!doc) return null;
 
-    const { data, error } = await supabase.functions.invoke('air-kr', {
+    const { data, error } = await withCoordinateUse(point,'weather','airkorea',() => supabase.functions.invoke('air-kr', {
       body: { tmX: doc.x, tmY: doc.y },
-    });
+    }));
     if (error || !data?.station) return null;
     return data as AirQuality;
   } catch {

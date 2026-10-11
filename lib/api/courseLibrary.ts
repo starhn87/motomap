@@ -1,3 +1,4 @@
+import { withLocationUse, locationUseAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import { getCurrentUser, requireUser } from '@/lib/auth';
 import { rowToCourse } from '@/lib/api/courses';
 import { supabase } from '@/lib/supabase';
@@ -62,9 +63,10 @@ export async function setCourseSaved(courseId: string, on: boolean): Promise<voi
 
 /** 실제 코스 안내가 도착지 근처에서 끝난 경우만 호출한다. true면 새 완주 기록. */
 export async function recordCourseCompletion(courseId: string): Promise<boolean> {
-  const { data, error } = await supabase.rpc('record_course_completion', {
+  if (!locationUseAllowed() || !useLocationPrivacyStore.getState().historyAllowed) return false;
+  const { data, error } = await withLocationUse('arrival','motomap',async () => await supabase.rpc('record_course_completion', {
     p_course_id: courseId,
-  });
+  }));
   if (error) throw error;
   return data === true;
 }

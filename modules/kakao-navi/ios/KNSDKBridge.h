@@ -7,6 +7,9 @@ NS_ASSUME_NONNULL_BEGIN
 // Swift 에서 `import KNSDK` 가 되지 않는다. ObjC 로 한 겹 감싸 필요한 것만 넘긴다.
 @interface KNSDKBridge : NSObject
 
++ (void)setLocationUseAllowed:(BOOL)allowed NS_SWIFT_NAME(setLocationUseAllowed(_:));
++ (BOOL)isLocationUseAllowed;
+
 // 인증 성공이면 errorMessage 가 nil. errorCode 는 KNError 의 코드 —
 // JS 가 문구가 아니라 코드로 분기할 수 있게 메시지와 분리해 넘긴다.
 // SDK 밖에서 난 실패(인스턴스 없음 등)는 코드 없이 메시지만 온다.

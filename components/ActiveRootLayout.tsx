@@ -7,7 +7,7 @@ import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
 import { Stack, router } from 'expo-router';
 import { useEffect } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +17,10 @@ import { PostHogProvider } from 'posthog-react-native';
 import PendingAccountLinkPrompt from '@/components/auth/PendingAccountLinkPrompt';
 import LegalConsentScreen from '@/components/auth/LegalConsentScreen';
 import ServiceLoadingScreen from '@/components/ServiceLoadingScreen';
+import ServiceResumeScreen from '@/components/ServiceResumeScreen';
+import { APP_STORE_URL } from '@/constants/app';
+import LocationPrivacyPanel from '@/components/LocationPrivacyPanel';
+import { useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import PersonalPlaceRideSync from '@/components/PersonalPlaceRideSync';
 import { useColorScheme } from '@/components/useColorScheme';
 import DialogHost from '@/components/ui/DialogHost';
@@ -112,6 +116,7 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
             <Stack.Screen name="chat" options={{ headerShown: false }} />
             <Stack.Screen name="notifications" options={{ title: '알림' }} />
             <Stack.Screen name="settings" options={{ title: '설정' }} />
+            <Stack.Screen name="location-privacy" options={{ title: '위치정보 관리' }} />
             <Stack.Screen name="edit-nickname" options={{ title: '닉네임 변경' }} />
             <Stack.Screen name="edit-bike" options={{ title: '내 차고' }} />
             <Stack.Screen name="my-rides" options={{ title: '주행 기록' }} />
@@ -149,6 +154,17 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
   const loadMode = useThemeStore((state) => state.loadMode);
   const authStatus = useAuthStore((state) => state.status);
   const restoreError = useAuthStore((state) => state.restoreError);
+  const actor = useAuthStore((state) => state.session?.user.id ?? null);
+  const privacyReady = useLocationPrivacyStore((state) => state.ready);
+  const privacyBrowsing = useLocationPrivacyStore((state) => state.browsing);
+  const privacyStatus = useLocationPrivacyStore((state) => state.status);
+  const privacyActor = useLocationPrivacyStore((state) => state.actor);
+  const privacyError = useLocationPrivacyStore((state) => state.error);
+
+  useEffect(() => {
+    if (authStatus==='restoring') return;
+    void useLocationPrivacyStore.getState().load(actor);
+  },[actor,authStatus]);
 
   useEffect(() => {
     if (error) throw error;
@@ -177,6 +193,9 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
   }, [initialize, loadMode]);
 
   if (!loaded) return null;
+  // 같은 1.2.8 테스트 바이너리라도 중지 브리지가 없는 앱에는 새 위치 기능을 열지 않는다.
+  if (Platform.OS === 'ios' && nativeCapabilities.bridgeVersion < 2) return <ServiceResumeScreen
+    mode="update" storeUrl={APP_STORE_URL} onRetry={() => {}} />;
   // 기존 계정의 새 동의를 확인하기 전 지도 Stack·개인 기록 동기화를 마운트하지 않는다.
   // 모듈 import/Sentry 초기화까지 차단한다는 의미는 아니다.
   if (authStatus === 'restoring') {
@@ -192,6 +211,11 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
     );
   }
   if (authStatus === 'needs_consent') return <LegalConsentScreen onReady={onReady} />;
+  if (authStatus !== 'needs_onboarding') {
+    if (!privacyReady && !privacyError) return <ServiceLoadingScreen />;
+    if (actor !== privacyActor || (!privacyBrowsing && privacyStatus !== 'active'))
+      return <LocationPrivacyPanel key={actor ?? 'guest'} intro onReady={onReady} />;
+  }
   return <ActiveRootLayoutNav onReady={onReady} />;
 }
 

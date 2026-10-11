@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { locationUseAllowed, useLocationPrivacyStore, withLocationUse } from '@/stores/useLocationPrivacyStore';
 import { getCurrentUser } from '@/lib/auth';
 import { getProfile } from '@/lib/nickname';
 import { BIKE_SPECS, canonicalBikeModel } from '@/constants/bikes';
@@ -69,6 +70,7 @@ function parseRideBikes(value: Json | undefined): RideBike[] {
  */
 export async function recordPlaceRides(rides: PlaceRide[]) {
   if (rides.length === 0) return;
+  if (!locationUseAllowed() || !useLocationPrivacyStore.getState().historyAllowed) return;
   try {
     const user = await getCurrentUser();
     if (!user) return;
@@ -78,9 +80,12 @@ export async function recordPlaceRides(rides: PlaceRide[]) {
       ? canonicalBikeModel(bike_model) ?? bike_model.trim()
       : null;
     const bike_category = bikeKey ? BIKE_SPECS[bikeKey]?.category ?? null : null;
-    await supabase
+    await withLocationUse('arrival','motomap',async () => {
+      const { error } = await supabase
       .from('place_rides')
       .insert(rides.map((r) => ({ ...r, user_id: user.id, bike_model, bike_category })));
+      if (error) throw error;
+    });
   } catch {
     // 테이블 미생성·네트워크 실패 등 — 카운트 하나 빠질 뿐이다
   }

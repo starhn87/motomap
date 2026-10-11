@@ -303,6 +303,11 @@ export default function SettingsScreen() {
       <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 20 }]}>
         약관 및 정책
       </Text>
+      <Pressable accessibilityRole="button" onPress={() => router.push('/location-privacy' as any)}
+        style={[styles.linkButton,{ backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.linkText,{ color: colors.text }]}>위치정보 동의·기록 관리</Text>
+        <Text style={[styles.linkArrow,{ color: colors.textSecondary }]}>›</Text>
+      </Pressable>
       <Pressable
         onPress={() => router.push('/legal/terms' as any)}
         style={[

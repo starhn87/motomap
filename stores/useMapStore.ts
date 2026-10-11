@@ -20,7 +20,7 @@ interface MapStore {
   showFavorites: boolean;
   /** 바이크 특화 등록과 분리된 일반 추천 장소 탐색 모드 */
   showRiderShares: boolean;
-  setUserLocation: (location: Location) => void;
+  setUserLocation: (location: Location | null) => void;
   setMapCenter: (center: Location) => void;
   setSelectedPlaceId: (id: string | null) => void;
   setActiveFilter: (filter: PlaceCategory | null) => void;

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { withCoordinateUse } from '@/stores/useLocationPrivacyStore';
 import { approxMeters } from '@/lib/distance';
 import { ProviderError, edgeProviderError } from '@/lib/providerErrors';
 
@@ -98,12 +99,12 @@ export async function fetchNearbyGasStations(params: {
   radius?: number;
   prod?: FuelCode;
 }): Promise<GasStation[]> {
-  const data = await requestGasInfo({
+  const data = await withCoordinateUse(params,'gas','opinet',() => requestGasInfo({
     lat: params.latitude,
     lng: params.longitude,
     radius: params.radius ?? 5000,
     prod: params.prod ?? 'B027',
-  }, 'nearby');
+  }, 'nearby'));
   if (!isRecord(data) || !Array.isArray(data.stations) || !data.stations.every(isStation)) {
     throw new ProviderError('opinet', 'nearby', 'invalid_response');
   }

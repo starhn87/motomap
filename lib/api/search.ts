@@ -6,6 +6,7 @@ import { searchExternalPlacesPage } from '@/lib/api/externalPlaces';
 import { approxMeters } from '@/lib/distance';
 import { isSameExternalPlace } from '@/lib/searchMatching';
 import { ProviderError, providerHttpError } from '@/lib/providerErrors';
+import { locationUseAllowed, withCoordinateUse } from '@/stores/useLocationPrivacyStore';
 
 export { isSamePlace, isSameExternalPlace } from '@/lib/searchMatching';
 
@@ -62,6 +63,7 @@ export async function searchAll(
   nearOnly = false,
   signal?: AbortSignal,
 ): Promise<SearchResults> {
+  if (!locationUseAllowed()) { near=undefined; nearOnly=false; }
   const trimmed = query.trim();
   // 최근 검색의 일반 장소를 등록 장소로 승격하는 1회성 전체 장소 조회 경로. 실제
   // 검색은 2자 이상에서만 실행되므로 아래 RPC의 결과 상한과 분리한다.
@@ -88,10 +90,11 @@ export async function searchAll(
     ...sharedParams,
     p_limit: 30,
   });
-  const [placesResult, guidesResult] = await Promise.allSettled([
+  const requests = async () => Promise.allSettled([
     signal ? placesRequest.abortSignal(signal) : placesRequest,
     signal ? ridingGuidesRequest.abortSignal(signal) : ridingGuidesRequest,
   ]);
+  const [placesResult, guidesResult] = near ? await withCoordinateUse(near,'search','motomap',requests) : await requests();
   if (signal?.aborted) throw new ProviderError('supabase', 'search', 'cancelled');
   const placesRes = placesResult.status === 'fulfilled' ? placesResult.value : null;
   const ridingGuidesRes = guidesResult.status === 'fulfilled' ? guidesResult.value : null;

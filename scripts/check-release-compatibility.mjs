@@ -9,6 +9,11 @@ const pkg = JSON.parse(read('package.json'));
 const packageLock = JSON.parse(read('package-lock.json'));
 const errors = [];
 const versionPattern = /^\d+\.\d+\.\d+$/;
+const candidate = policy.unreleasedCandidateVersion;
+if (candidate !== undefined && candidate !== null && candidate !== policy.appVersion)
+  errors.push('unreleasedCandidateVersion은 현재 미출시 앱 버전과 같아야 합니다.');
+if (process.argv.includes('--ota') && candidate)
+  errors.push('미출시 네이티브 후보에는 OTA를 발행하지 않습니다. 새 바이너리를 검증하고 후보 표시를 해제하세요.');
 
 function compareVersions(a, b) {
   const pa = a.split('.').map(Number);
@@ -90,7 +95,7 @@ if (baseSha && !/^0+$/.test(baseSha)) {
         stdio: ['ignore', 'pipe', 'pipe'],
       }),
     );
-    const changed = execFileSync('git', ['diff', '--name-only', baseSha, 'HEAD'], {
+    const changed = execFileSync('git', ['diff', '--name-only', baseSha], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     })
@@ -105,9 +110,11 @@ if (baseSha && !/^0+$/.test(baseSha)) {
     const bridgeChanged = changed.some((path) =>
       /^modules\/[^/]+\/(ios|android)\//.test(path),
     );
-    if (nativeChanged && basePolicy.appVersion === policy.appVersion) {
+    if (nativeChanged && basePolicy.appVersion === policy.appVersion && candidate !== policy.appVersion) {
       errors.push('네이티브 경계가 바뀌었지만 appVersion이 올라가지 않았습니다.');
     }
+    // TestFlight 후보는 같은 스토어 버전에서 build number를 올려 검증한다.
+    // 공개된 버전에는 이 예외를 쓰지 않으며 OTA 검사는 후보를 항상 거부한다.
     if (bridgeChanged && basePolicy.nativeBridgeVersion === policy.nativeBridgeVersion) {
       errors.push('네이티브 모듈이 바뀌었지만 nativeBridgeVersion이 올라가지 않았습니다.');
     }

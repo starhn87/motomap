@@ -1,4 +1,5 @@
 import { requireEnv } from '@/lib/env';
+import { withLocationUse } from '@/stores/useLocationPrivacyStore';
 import type { RoutePriority } from '@/modules/kakao-navi';
 
 const KAKAO_KEY = requireEnv(
@@ -38,7 +39,7 @@ export async function fetchBikeTraffic(
   waypoints: [number, number][],
   priority: RoutePriority
 ): Promise<TrafficPart[]> {
-  const res = await fetch('https://apis-navi.kakaomobility.com/v1/waypoints/directions', {
+  const res = await withLocationUse('route','kakao',() => fetch('https://apis-navi.kakaomobility.com/v1/waypoints/directions', {
     method: 'POST',
     headers: { Authorization: `KakaoAK ${KAKAO_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -49,7 +50,7 @@ export async function fetchBikeTraffic(
       car_type: KAKAO_CAR_TYPE_MOTORCYCLE,
       road_details: true,
     }),
-  });
+  }));
   if (!res.ok) throw new Error(`교통 정보 요청 실패 (HTTP ${res.status})`);
 
   const data = await res.json();

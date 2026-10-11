@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
+import { allowedLocationPrivacy } from './helpers/allowedLocationPrivacy';
 
 import type * as Provider from '../lib/providerErrors';
 import type * as Errors from '../lib/kakaoRouteErrors';
@@ -10,7 +11,9 @@ function setup(initialize: (key: string) => Promise<boolean>, key: string | unde
   const errors = loadModule<typeof Errors>('lib/kakaoRouteErrors.ts', { '@/lib/providerErrors': provider });
   const init = loadModule<{ ensureKakaoNaviReady: () => Promise<void> }>('lib/kakaoNaviInit.ts', {
     'expo-constants': { expoConfig: { extra: { kakaoNativeAppKey: key } } },
-    '@/modules/kakao-navi': { __esModule: true, default: { initialize }, isKakaoNaviAvailable: () => available },
+    '@/modules/kakao-navi': { __esModule: true, default: { initialize, setLocationUseAllowed: async () => {} },
+      isKakaoNaviAvailable: () => available, supportsKakaoNaviFeature: () => true },
+    '@/stores/useLocationPrivacyStore': allowedLocationPrivacy,
     '@/lib/kakaoRouteErrors': errors,
     '@/lib/providerErrors': provider,
   });
@@ -71,14 +74,14 @@ test('false 응답과 동기 예외는 초기화 성공 캐시에 남지 않는�
   assert.equal(calls, 3);
 });
 
-test('초기화가 아직 끝나지 않으면 재시도 요청도 같은 Promise를 공유한다', async () => {
+test('초기화 대기는 공유하되 재진입마다 위치 동의를 다시 검사한다', async () => {
   let resolve!: (value: boolean) => void;
   let calls = 0;
   const sdk = setup(() => { calls += 1; return new Promise<boolean>((done) => { resolve = done; }); });
   const first = sdk.ensureKakaoNaviReady();
-  await Promise.resolve();
-  assert.equal(sdk.ensureKakaoNaviReady(), first);
+  const second = sdk.ensureKakaoNaviReady();
+  await new Promise((done) => setImmediate(done));
   assert.equal(calls, 1);
   resolve(true);
-  await first;
+  await Promise.all([first,second]);
 });

@@ -1,4 +1,5 @@
-import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { withLocationUse, providerLocationAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
+import { useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,6 +73,8 @@ function InvalidNaviParams() {
 }
 
 function NaviContent({ initial }: { initial: ParsedNaviParams }) {
+  const privacyRevision = useLocationPrivacyStore((s) => s.revision);
+  const locationBlocked = !providerLocationAllowed('kakao');
   const router = useRouter();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
@@ -344,36 +347,41 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   // 없을 때만(권한 전 딥링크 등) 새 픽스를 기다린다. 상단 카드에서 출발지를
   // '현재 위치'로 되돌리면 start 가 null 이 되어 여기가 다시 돈다.
   useEffect(() => {
+    if (locationBlocked && !startName) setStart(null);
+  },[locationBlocked,startName]);
+  useEffect(() => {
     if (start) return;
+    if (locationBlocked) return;
     const cached = useMapStore.getState().userLocation;
     if (cached) {
       setStart([cached.longitude, cached.latitude]);
       return;
     }
     let cancelled = false;
-    (async () => {
+    let permissionDenied = false;
+    withLocationUse('route','device',async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        toast.error('위치 권한이 필요합니다', '길안내를 시작할 수 없습니다.');
-        router.back();
-        return;
+        permissionDenied = true;
+        throw new Error('위치 권한을 허용해 주세요.');
       }
-      const current = await Location.getCurrentPositionAsync({
+      return Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
+    }).then((current) => {
       if (!cancelled) {
         setStart([current.coords.longitude, current.coords.latitude]);
       }
-    })().catch(() => {
+    }).catch(() => {
       if (!cancelled) {
-        toast.error('현재 위치를 확인할 수 없습니다');
+        toast.error(permissionDenied ? '위치 권한이 필요합니다' : '현재 위치를 확인할 수 없습니다');
         router.back();
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [router, start]);
+  }, [router, start, locationBlocked, privacyRevision]);
 
   const startGuide = () => {
     if (!start || starting || courseOnly) return;
@@ -388,10 +396,10 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
       via_count: pairsFromFlat(activeVias ?? flatVias).length,
       distance_m: route?.distance,
     };
-    ensureKakaoNaviReady().then(() => KakaoNavi.startGuide(
+    ensureKakaoNaviReady().then(() => withLocationUse('navigation','kakao',() => KakaoNavi.startGuide(
       start[0], start[1], goal.longitude, goal.latitude, goal.name,
       activeVias ?? flatVias, priority, previewOnly,
-    )).catch((err) => {
+    ))).catch((err) => {
       setStarting(false);
       toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(err));
     });
@@ -429,11 +437,11 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {!guideStarted && (
         <PreviewMap
-          start={start}
+          start={locationBlocked ? null : start}
           goal={goal}
           viaMarkers={viaMarkers}
-          route={route}
-          trafficParts={trafficParts}
+          route={locationBlocked ? undefined : route}
+          trafficParts={locationBlocked ? undefined : trafficParts}
           isCourseMode={isCourseMode}
           topCardH={topCardH}
           bottomCardH={bottomCardH}
@@ -599,7 +607,15 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
           })}
         </View>
 
-        {routeError && !loading ? (
+        {locationBlocked ? (
+          <View style={[styles.routeError, { borderColor: colors.border }]}>
+            <Text style={[styles.routeErrorTitle, { color: colors.text }]}>위치 이용 설정이 필요해요</Text>
+            <Text style={[styles.routeErrorMessage, { color: colors.textSecondary }]}>길안내는 현재 위치 이용과 카카오 위치 전달을 선택한 뒤 사용할 수 있어요.</Text>
+            <Pressable accessibilityRole="button" onPress={() => router.push('/location-privacy' as Href)}>
+              <Text style={[styles.routeErrorAction, { color: colors.tint }]}>위치정보 설정</Text>
+            </Pressable>
+          </View>
+        ) : routeError && !loading ? (
           <View style={[styles.routeError, { borderColor: colors.border }]}>
             <Text style={[styles.routeErrorTitle, { color: colors.text }]}>
               경로를 불러오지 못했어요
@@ -640,12 +656,12 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
 
         <Pressable
           onPress={startGuide}
-          disabled={!route || starting || courseOnly}
+          disabled={locationBlocked || !route || starting || courseOnly}
           style={({ pressed }) => [
             styles.startButton,
             {
               backgroundColor: colors.tint,
-              opacity: !route || starting || courseOnly ? 0.5 : pressed ? 0.85 : 1,
+              opacity: locationBlocked || !route || starting || courseOnly ? 0.5 : pressed ? 0.85 : 1,
             },
           ]}>
           {starting ? (

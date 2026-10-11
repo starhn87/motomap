@@ -52,6 +52,7 @@ export const KAKAO_NAVI_FEATURES = [
   'custom_car_image_guard',
   'app_lifecycle_forwarding',
   'accessibility_nil_guard',
+  'location_privacy_stop',
 ] as const;
 
 export type KakaoNaviFeature = (typeof KAKAO_NAVI_FEATURES)[number];
@@ -77,6 +78,9 @@ type GuideEventPayload = {
 };
 
 interface KakaoNaviModule {
+  /** 동의 철회·일시 중지: 대기 중 경로/화면까지 취소하고 SDK 위치 구독 중단. */
+  stopLocationUse(): Promise<void>;
+  setLocationUseAllowed(allowed: boolean): Promise<void>;
   /** 네이티브 wire 계약. 구버전 바이너리에는 없을 수 있어 optional이다. */
   bridgeVersion?: number;
   features?: string[];
@@ -129,6 +133,8 @@ interface KakaoNaviModule {
 const nativeModule = requireOptionalNativeModule<KakaoNaviModule>('KakaoNavi');
 const unavailable = () => Promise.reject(new Error('이 기기에서는 앱 내 길안내를 지원하지 않습니다.'));
 const unavailableModule = {
+  stopLocationUse: async () => {},
+  setLocationUseAllowed: unavailable,
   bridgeVersion: 0,
   features: [],
   initialize: unavailable,

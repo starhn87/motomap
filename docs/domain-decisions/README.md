@@ -34,6 +34,7 @@
 | 라이딩 경로 기록·지도 Visualizer (계획) | [ride-history.md](ride-history.md) | 구현 전 |
 | 노면 위험 정보 수명주기 | [hazard-lifecycle.md](hazard-lifecycle.md) | `road_hazards`, `hazard_votes`, `components/map/HazardSheet.tsx` |
 | 인증·세션 저장 | [authentication.md](authentication.md) | `lib/authStorage.ts`, `lib/supabase.ts`, `stores/useAuthStore.ts` |
+| 위치정보 동의·중지·철회·자료 관리 | [location-privacy.md](location-privacy.md) | `stores/useLocationPrivacyStore.ts`, `app/location-privacy.tsx`, `location_private` |
 | DB 공개 권한·재개 정비 | [database-security.md](database-security.md) | `supabase/migrations/`, 공개 RPC·RLS·관리용 함수 |
 | 서비스 운영 중단·재개 | [service-suspension.md](service-suspension.md) | `app/_layout.tsx`, `website/src/index.js`, App Store·백엔드·지도 공급자 |
 | 외부 공급자 장애 대응 | [external-provider-resilience.md](external-provider-resilience.md) | 네이버 지도, 카카오 검색·길안내, 날씨·미세먼지·유가, 소셜 로그인 |

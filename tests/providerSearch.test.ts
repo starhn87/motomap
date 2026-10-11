@@ -5,6 +5,7 @@ import * as region from '../lib/region';
 import * as distance from '../lib/distance';
 import { isSameExternalPlace } from '../lib/searchMatching';
 import { loadModule } from './helpers/loadModule';
+import { allowedLocationPrivacy } from './helpers/allowedLocationPrivacy';
 
 type KakaoModule = {
   searchKakaoLocalPage: (query: string, near?: { latitude: number; longitude: number },
@@ -20,6 +21,7 @@ function kakaoFixture(options: { status?: number; body?: unknown; key?: string; 
   let requests = 0;
   const api = loadModule<KakaoModule>('lib/api/kakaoLocal.ts', {
     '@/lib/distance': distance, '@/lib/region': region, '@/lib/providerErrors': errors,
+    '@/stores/useLocationPrivacyStore': allowedLocationPrivacy,
   }, {
     AbortController, process: { env: { EXPO_PUBLIC_KAKAO_REST_API_KEY: options.key ?? 'test-only-key' } },
     // 제한 시간의 실제 분기는 유지하되 공급자 호출 없이 빠르게 재현한다.
@@ -115,6 +117,7 @@ type SearchModule = {
 };
 function searchFixture(options: { placesFail?: boolean; guidesFail?: boolean; kakaoFail?: boolean } = {}) {
   return loadModule<SearchModule>('lib/api/search.ts', {
+    '@/stores/useLocationPrivacyStore': allowedLocationPrivacy,
     '@/lib/supabase': { supabase: { rpc: (name: string) => {
       const failed = name === 'search_places_v2' ? options.placesFail : options.guidesFail;
       const data = name === 'search_places_v2'

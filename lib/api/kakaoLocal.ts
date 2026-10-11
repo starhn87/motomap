@@ -1,4 +1,5 @@
 import { approxMeters } from '@/lib/distance';
+import { providerLocationAllowed, withCoordinateUse } from '@/stores/useLocationPrivacyStore';
 import { ProviderError, providerHttpError, rememberProviderFailure, requireProviderAvailable } from '@/lib/providerErrors';
 
 // 카카오 로컬 REST API 키 (developers.kakao.com > 내 앱 > 앱 키 > REST API 키).
@@ -81,6 +82,8 @@ export async function searchKakaoLocalPage(
   options: KakaoSearchOptions = {},
 ): Promise<KakaoLocalSearchPage> {
   const q = query.trim();
+  // 비동의·중지 상태에도 텍스트 검색은 가능하되 위치 편향은 전달하지 않는다.
+  if (!providerLocationAllowed('kakao')) near = undefined;
   if (!q) return { results: [], totalCount: 0, pageableCount: 0, isEnd: true };
   const bias = near ? `&x=${near.longitude}&y=${near.latitude}` : '';
   const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=15${bias}`;
@@ -98,10 +101,11 @@ export async function searchKakaoLocalPage(
       Math.abs(near.latitude) > 90 || Math.abs(near.longitude) > 180)) {
       throw new ProviderError('kakao-local', 'search', 'invalid_request');
     }
-    const res = await fetch(url, {
+    const request = () => fetch(url, {
       headers: { Authorization: `KakaoAK ${REST_KEY}` },
       signal: controller.signal,
     });
+    const res = near ? await withCoordinateUse(near,'search','kakao',request) : await request();
     if (!res.ok) throw providerHttpError('kakao-local', 'search', res.status);
     let data;
     try { data = await res.json(); }
@@ -158,9 +162,9 @@ export async function coordToAddress(latitude: number, longitude: number): Promi
   if (!REST_KEY) return null;
   const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${longitude}&y=${latitude}`;
   try {
-    const res = await fetch(url, {
+    const res = await withCoordinateUse({ latitude,longitude },'address','kakao',() => fetch(url, {
       headers: { Authorization: `KakaoAK ${REST_KEY}` },
-    });
+    }));
     if (!res.ok) return null;
     const doc = (await res.json()).documents?.[0];
     const address = doc?.road_address?.address_name ?? doc?.address?.address_name;
@@ -177,9 +181,9 @@ async function fetchRegionDoc(latitude: number, longitude: number): Promise<any 
   if (!REST_KEY) return null;
   const url = `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${longitude}&y=${latitude}`;
   try {
-    const res = await fetch(url, {
+    const res = await withCoordinateUse({ latitude,longitude },'address','kakao',() => fetch(url, {
       headers: { Authorization: `KakaoAK ${REST_KEY}` },
-    });
+    }));
     if (!res.ok) return null;
     const docs = (await res.json()).documents ?? [];
     return docs.find((d: any) => d.region_type === 'H') ?? docs[0] ?? null;

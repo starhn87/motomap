@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { withLocationUse } from '@/stores/useLocationPrivacyStore';
 
 // AI 추천 챗(Edge Function moto-chat-v2) 클라이언트
 
@@ -35,7 +36,7 @@ export async function sendChat(
   location?: { latitude: number; longitude: number } | null,
   bike?: string | null,
 ): Promise<ChatResponse> {
-  const { data, error } = await supabase.functions.invoke('moto-chat-v2', {
+  const invoke = () => supabase.functions.invoke('moto-chat-v2', {
     // 서버도 다시 검증하지만, 오래 대화해도 불필요한 이전 턴을 전송하지 않는다.
     body: {
       messages: messages.slice(-10),
@@ -43,6 +44,7 @@ export async function sendChat(
       bike: bike ?? undefined,
     },
   });
+  const { data,error } = location ? await withLocationUse('ai','anthropic',invoke) : await invoke();
   if (error) throw new Error(`추천을 불러오지 못했습니다: ${error.message}`);
   if (data?.error) throw new Error(data.error);
   return data as ChatResponse;

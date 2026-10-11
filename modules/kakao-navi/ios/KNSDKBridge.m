@@ -16,21 +16,55 @@
 static BOOL gBackgroundLocationAllowed = NO;
 static NSHashTable<CLLocationManager *> *gBackgroundRequesters;
 static BOOL gKNSDKInitialized = NO;
+static BOOL gLocationUseAllowed = NO;
+static BOOL IsSDKLocationManager(CLLocationManager *manager) {
+  @synchronized(KNSDKBridge.class) {
+    if ([gBackgroundRequesters containsObject:manager]) return YES;
+    NSString *delegate = NSStringFromClass([manager.delegate class]);
+    NSString *stack = [[NSThread callStackSymbols] componentsJoinedByString:@"\n"];
+    if ([delegate hasPrefix:@"KN"] || [delegate containsString:@"KNSDK"] || [delegate containsString:@"KMLocation"] ||
+        [stack containsString:@"KNSDK"] || [stack containsString:@"KMLocationSDK"]) {
+      [gBackgroundRequesters addObject:manager];
+      return YES;
+    }
+    return NO;
+  }
+}
 
 @interface CLLocationManager (MotoMapBackgroundGate)
 @end
 
 @implementation CLLocationManager (MotoMapBackgroundGate)
+- (void)mm_startUpdatingLocation {
+  @synchronized(KNSDKBridge.class) {
+  if (IsSDKLocationManager(self) && ![KNSDKBridge isLocationUseAllowed]) return;
+  [self mm_startUpdatingLocation];
+  }
+}
+- (void)mm_startUpdatingHeading {
+  @synchronized(KNSDKBridge.class) {
+  if (IsSDKLocationManager(self) && ![KNSDKBridge isLocationUseAllowed]) return;
+  [self mm_startUpdatingHeading];
+  }
+}
+- (void)mm_startMonitoringSignificantLocationChanges {
+  @synchronized(KNSDKBridge.class) {
+  if (IsSDKLocationManager(self) && ![KNSDKBridge isLocationUseAllowed]) return;
+  [self mm_startMonitoringSignificantLocationChanges];
+  }
+}
 - (void)mm_setAllowsBackgroundLocationUpdates:(BOOL)allows {
+  @synchronized(KNSDKBridge.class) {
   if (allows) {
     [gBackgroundRequesters addObject:self];
-    if (!gBackgroundLocationAllowed) {
+    if (!gBackgroundLocationAllowed || ![KNSDKBridge isLocationUseAllowed]) {
       NSLog(@"[KNSDK] 백그라운드 위치 요청 차단(안내 중 아님)");
       [self mm_setAllowsBackgroundLocationUpdates:NO]; // 스위즐 후 원본 구현
       return;
     }
   }
   [self mm_setAllowsBackgroundLocationUpdates:allows];
+  }
 }
 @end
 
@@ -43,20 +77,51 @@ static void installBackgroundGate(void) {
     Method swz = class_getInstanceMethod(CLLocationManager.class,
                                          @selector(mm_setAllowsBackgroundLocationUpdates:));
     method_exchangeImplementations(orig, swz);
+    method_exchangeImplementations(class_getInstanceMethod(CLLocationManager.class,@selector(startUpdatingLocation)),
+      class_getInstanceMethod(CLLocationManager.class,@selector(mm_startUpdatingLocation)));
+    method_exchangeImplementations(class_getInstanceMethod(CLLocationManager.class,@selector(startUpdatingHeading)),
+      class_getInstanceMethod(CLLocationManager.class,@selector(mm_startUpdatingHeading)));
+    method_exchangeImplementations(class_getInstanceMethod(CLLocationManager.class,@selector(startMonitoringSignificantLocationChanges)),
+      class_getInstanceMethod(CLLocationManager.class,@selector(mm_startMonitoringSignificantLocationChanges)));
   });
 }
 
 @implementation KNSDKBridge
 
++ (void)setLocationUseAllowed:(BOOL)allowed {
+  installBackgroundGate();
+  @synchronized(KNSDKBridge.class) {
+  gLocationUseAllowed = allowed;
+  NSArray *managers = gBackgroundRequesters.allObjects;
+  for (CLLocationManager *manager in managers) {
+    if (allowed) {
+      [manager startUpdatingLocation];
+    } else {
+      [manager stopUpdatingLocation];
+      [manager stopUpdatingHeading];
+      [manager stopMonitoringSignificantLocationChanges];
+      [manager mm_setAllowsBackgroundLocationUpdates:NO];
+    }
+  }
+  if (!allowed) gBackgroundLocationAllowed = NO;
+  }
+}
++ (BOOL)isLocationUseAllowed {
+  @synchronized(KNSDKBridge.class) { return gLocationUseAllowed; }
+}
+
 + (void)setBackgroundLocationAllowed:(BOOL)allowed {
   dispatch_async(dispatch_get_main_queue(), ^{
-    gBackgroundLocationAllowed = allowed;
-    for (CLLocationManager *manager in gBackgroundRequesters) {
+    @synchronized(KNSDKBridge.class) {
+    gBackgroundLocationAllowed = allowed && [self isLocationUseAllowed];
+    NSArray *managers = gBackgroundRequesters.allObjects;
+    for (CLLocationManager *manager in managers) {
       // 스위즐 후의 mm_ 셀렉터가 원본 구현 — 게이트를 거치지 않고 직접 적용
-      [manager mm_setAllowsBackgroundLocationUpdates:allowed];
+      [manager mm_setAllowsBackgroundLocationUpdates:gBackgroundLocationAllowed];
     }
     NSLog(@"[KNSDK] 백그라운드 위치 %@ (매니저 %lu개)", allowed ? @"허용" : @"차단",
-          (unsigned long)gBackgroundRequesters.count);
+          (unsigned long)managers.count);
+    }
   });
 }
 
@@ -64,6 +129,7 @@ static void installBackgroundGate(void) {
                clientVersion:(NSString *)clientVersion
                   completion:(void (^)(NSString *_Nullable, NSString *_Nullable))completion {
   installBackgroundGate(); // SDK 가 첫 YES 를 설정하기 전에 걸어야 한다
+  if (![self isLocationUseAllowed]) { completion(nil,@"위치 이용이 중지됐다"); return; }
   KNSDK *sdk = [KNSDK sharedInstance];
   if (sdk == nil) {
     completion(nil, @"KNSDK 인스턴스를 가져오지 못했다");
@@ -83,6 +149,7 @@ static void installBackgroundGate(void) {
               clientVersion:clientVersion
                  completion:^(KNError *_Nullable error) {
                    if (error == nil) {
+                     if (![self isLocationUseAllowed]) { completion(nil,@"위치 이용이 중지됐다"); return; }
                      gKNSDKInitialized = YES;
                      // 초기화만으로 백그라운드 위치 구독이 켜져, 안내를 안 해도
                      // 앱이 백그라운드에서 GPS 를 계속 받는다(locationd 실측 —
@@ -124,6 +191,7 @@ static void installBackgroundGate(void) {
                        priority:(NSInteger)priority
                      completion:(void (^)(NSString *_Nullable, NSString *_Nullable, NSInteger,
                                           NSInteger, NSArray<NSNumber *> *_Nullable))completion {
+  if (![self isLocationUseAllowed]) { completion(nil,@"위치 이용이 중지됐다",0,0,nil); return; }
   KNSDK *sdk = [KNSDK sharedInstance];
   if (sdk == nil) {
     completion(nil, @"KNSDK 인스턴스를 가져오지 못했다", 0, 0, nil);
@@ -141,6 +209,8 @@ static void installBackgroundGate(void) {
                     goal:goalPOI
                     vias:[self viasFromFlat:flatVias]
               completion:^(KNError *_Nullable tripError, KNTrip *_Nullable trip) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                if (![self isLocationUseAllowed]) { completion(nil,@"위치 이용이 중지됐다",0,0,nil); return; }
                 if (tripError != nil || trip == nil) {
                   completion([self errorCodeOf:tripError],
                              tripError ? (tripError.msg ?: @"경로 생성 실패") : @"경로를 만들지 못했다",
@@ -152,6 +222,8 @@ static void installBackgroundGate(void) {
                 [trip routeWithPriority:(KNRoutePriority)priority
                            avoidOptions:KNRouteAvoidOption_None
                              completion:^(KNError *_Nullable routeError, NSArray<KNRoute *> *_Nullable routes) {
+                               dispatch_async(dispatch_get_main_queue(), ^{
+                               if (![self isLocationUseAllowed]) { completion(nil,@"위치 이용이 중지됐다",0,0,nil); return; }
                                KNRoute *route = routes.firstObject;
                                if (routeError != nil || route == nil) {
                                  completion([self errorCodeOf:routeError],
@@ -169,7 +241,9 @@ static void installBackgroundGate(void) {
                                  return;
                                }
                                completion(nil, nil, route.totalDist, route.totalTime, polyline);
+                               });
                              }];
+                });
               }];
 }
 
