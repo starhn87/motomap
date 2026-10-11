@@ -161,59 +161,59 @@ async function resolveSession(
     .eq('id', session.user.id)
     .maybeSingle();
 
-  let profileResult = await fetchProfile();
-  for (const delayMs of JWT_FUTURE_RETRY_DELAYS_MS) {
-    if (!isJwtIssuedAtFutureError(profileResult.error)) break;
+  try {
+    let profileResult = await fetchProfile();
+    for (const delayMs of JWT_FUTURE_RETRY_DELAYS_MS) {
+      if (!isJwtIssuedAtFutureError(profileResult.error)) break;
+      if (revision !== sessionRevision) return;
+
+      Sentry.addBreadcrumb({
+        category: 'auth.restore',
+        level: 'warning',
+        message: 'JWT 발급·검증 서버 시각 불일치로 프로필 조회 재시도',
+        data: { delay_ms: delayMs },
+      });
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      if (revision !== sessionRevision) return;
+      profileResult = await fetchProfile();
+    }
+
+    const { data, error } = profileResult;
+    if (revision !== sessionRevision) return;
+    if (error) throw error;
+
+    await confirmAuthStorageMigration();
+    // 저장소 정리 중 로그아웃·계정 전환이 일어나면 이전 세션을 반영하지 않는다.
     if (revision !== sessionRevision) return;
 
-    Sentry.addBreadcrumb({
-      category: 'auth.restore',
-      level: 'warning',
-      message: 'JWT 발급·검증 서버 시각 불일치로 프로필 조회 재시도',
-      data: { delay_ms: delayMs },
-    });
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-    if (revision !== sessionRevision) return;
-    profileResult = await fetchProfile();
-  }
-
-  const { data, error } = profileResult;
-
-  if (revision !== sessionRevision) return;
-
-  if (error) {
-    captureAuthRestoreError(error, 'profile');
+    const complete = Boolean(data?.onboarding_completed_at);
+    const resolvedUser = withProfileMetadata(session.user, data ?? {});
+    const resolvedSession = resolvedUser === session.user
+      ? session
+      : { ...session, user: resolvedUser };
+    if (complete) identifyUser(resolvedUser.id);
     set({
-      session,
-      user: null,
-      status: 'restoring',
-      restoreError: '계정 정보를 불러오지 못했습니다.',
+      session: resolvedSession,
+      user: complete ? resolvedUser : null,
+      status: complete ? 'signed_in' : 'needs_onboarding',
+      restoreError: null,
     });
-    return;
+  } catch (error) {
+    // 오래된 요청의 예외도 새 인증 상태와 Sentry를 오염시키지 않는다.
+    if (revision !== sessionRevision) return;
+    setAuthRestoreFailure(set, error, 'profile');
   }
-
-  await confirmAuthStorageMigration();
-
-  const complete = Boolean(data?.onboarding_completed_at);
-  const resolvedUser = withProfileMetadata(session.user, data ?? {});
-  const resolvedSession = resolvedUser === session.user
-    ? session
-    : { ...session, user: resolvedUser };
-  if (complete) identifyUser(resolvedUser.id);
-  set({
-    session: resolvedSession,
-    user: complete ? resolvedUser : null,
-    status: complete ? 'signed_in' : 'needs_onboarding',
-    restoreError: null,
-  });
 }
 
 async function restoreCurrentSession(set: (partial: Partial<AuthStore>) => void) {
+  const revision = sessionRevision;
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
+    if (revision !== sessionRevision) return;
     if (error) throw error;
     await resolveSession(session, set);
   } catch (error) {
+    if (revision !== sessionRevision) return;
     setAuthRestoreFailure(set, error, 'session');
   }
 }
@@ -234,6 +234,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           current.status === 'signed_in' &&
           current.user?.id === session.user.id
         ) {
+          sessionRevision++;
           // 토큰 갱신이 소셜 제공자 메타데이터를 다시 보내더라도 현재 세션에
           // 반영해 둔 모토맵 닉네임과 프로필 사진을 덮어쓰지 않는다.
           const refreshedUser = withProfileMetadata(
@@ -270,7 +271,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
   signOut: async (scope = 'global') => {
     await unregisterPushToken();
-    await supabase.auth.signOut({ scope });
+    const { error } = await supabase.auth.signOut({ scope });
+    if (error) throw error;
+    // SDK 이벤트가 오기 전에도 진행 중인 복원 요청을 무효화한다.
+    sessionRevision++;
     // 계정 전환 시 이전 사용자의 캐시(즐겨찾기·주행·리뷰 등)가 노출되지 않도록 비움
     queryClient.clear();
     syncSentryUser(null);
