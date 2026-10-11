@@ -31,6 +31,11 @@ function fixture(options: { stop?: () => Promise<void>; rpc?: (action: string) =
         else if (intent!=='withdraw' && !(intent==='withdraw_history' && value==='pause')) intent=value;
       },
       parseLocationPrivacy: (value: unknown) => value,
+      setLocationHistoryEnabled: async (enabled: boolean,expectedActor: string) => {
+        assert.equal(expectedActor,actor);
+        calls.push({action:'history_setting',expectedActor,payload:{enabled}});
+        return options.rpc ? options.rpc('history_setting') : {...active,historyAllowed:enabled};
+      },
       privacyObject: (value: unknown) => value,
       PURPOSE_LABELS: { search: '주변 검색' }, RECIPIENT_LABELS: { kakao: '카카오' },
       locationPrivacyRpc: async (action: string, _secret: string, payload: unknown, expectedActor: string | null) => {
@@ -184,12 +189,53 @@ test('서버 요청은 시작 당시 계정을 CAS 인자로 고정한다', asyn
   await module.locationPrivacyRpc('withdraw','private-token',{},'A');
   assert.deepEqual(JSON.parse(JSON.stringify(args)),{p_action:'withdraw',p_secret:'private-token',p_payload:{expectedActor:'A'}});
 });
-test('위치 관리 화면 전체를 마스킹하고 체크박스는 기본 미선택이다', () => {
+test('위치 관리 화면 전체를 마스킹하고 최초 동의는 별도 단일 화면에서 미선택이다', () => {
   const panel=readFileSync(new URL('../components/LocationPrivacyPanel.tsx',import.meta.url),'utf8');
   assert.match(panel,/<PostHogMaskView/); assert.match(panel,/<\/PostHogMaskView>/);
-  assert.match(panel,/\[age, setAge\] = useState\(false\)/);
-  assert.match(panel,/\[agreed, setAgreed\] = useState\(false\)/);
-  assert.match(panel,/\[history, setHistory\] = useState\(false\)/);
+  const consent=readFileSync(new URL('../components/auth/LegalConsentScreen.tsx',import.meta.url),'utf8');
+  assert.match(consent,/useState<Partial<Record<LegalDocType, boolean>>>\(\{\}\)/);
+  assert.doesNotMatch(panel,/intro/);
+});
+test('기록 저장 스위치는 기존 자료·공급자·길안내를 건드리지 않는다', async()=>{
+  const f=fixture();
+  await f.store.getState().setHistoryAllowed(false);
+  assert.equal(f.store.getState().historyAllowed,false);
+  assert.equal(f.store.getState().historyCount,3);
+  assert.deepEqual(f.store.getState().providers,active.providers);
+  await f.store.getState().setHistoryAllowed(true);
+  assert.equal(f.store.getState().historyAllowed,true);
+  assert.equal(f.stopped(),0); assert.equal(f.positions.length,0);
+  assert.deepEqual(f.calls.map(c=>c.action),['history_setting','history_setting']);
+});
+test('기록 설정 실패는 기록 저장을 닫고 재실행에서도 자동 재개하지 않는다', async()=>{
+  const f=fixture({rpc:async action=>{if(action==='history_setting') throw new Error('offline'); return active;}});
+  await assert.rejects(f.store.getState().setHistoryAllowed(false));
+  assert.equal(f.store.getState().status,'paused'); assert.equal(f.stopped(),1);
+  await f.store.getState().load('A');
+  assert.equal(f.store.getState().status,'paused'); assert.equal(f.store.getState().historyAllowed,false);
+});
+test('늦은 기록 설정 응답은 이후 위치 중지를 active로 되돌리지 않는다', async()=>{
+  const pending=deferred<unknown>();
+  const f=fixture({rpc:async action=>action==='history_setting' ? pending.promise : {...active,status:'paused'}});
+  const setting=f.store.getState().setHistoryAllowed(false);
+  await new Promise(done=>setTimeout(done,0));
+  const pause=f.store.getState().change('pause');
+  pending.resolve({...active,historyAllowed:false});
+  await Promise.all([setting,pause]);
+  assert.equal(f.store.getState().status,'paused'); assert.equal(f.locationUseAllowed(),false);
+});
+test('같은 계정의 토큰 갱신·약관 완료는 위치 상태를 재초기화하지 않는다',()=>{
+  const root=readFileSync(new URL('../components/ActiveRootLayout.tsx',import.meta.url),'utf8');
+  const body=root.match(/useEffect\(\(\) => \{([\s\S]*?)\},\[actor,authStatus\]\)/)?.[1];
+  assert.ok(body);
+  const execute=new Function('authStatus','actor','privacyScope','useLocationPrivacyStore',body);
+  const scope={current:undefined as string | null | undefined}; const calls: unknown[]=[];
+  const store={getState:()=>({load:(actor:unknown)=>{calls.push(actor); return Promise.resolve();}})};
+  execute('restoring',null,scope,store); assert.equal(calls.length,0);
+  execute('needs_consent','A',scope,store);
+  execute('restoring','A',scope,store); execute('signed_in','A',scope,store);
+  assert.deepEqual(calls,['A']);
+  execute('signed_out',null,scope,store); assert.deepEqual(calls,['A',null]);
 });
 test('기록 삭제 후 재조회는 렌더 시점이 아닌 조회 시작 상태를 기준으로 갱신한다', async () => {
   const panel=readFileSync(new URL('../components/LocationPrivacyPanel.tsx',import.meta.url),'utf8');
@@ -198,13 +244,13 @@ test('기록 삭제 후 재조회는 렌더 시점이 아닌 조회 시작 상�
     const body=panel.match(new RegExp(`async function ${name}\\(more = false\\) \\{([\\s\\S]*?)\\n  \\}`))?.[1];
     assert.ok(body);
     const request=new AsyncFunction('more','state','useLocationPrivacyStore','locationPrivacyRpc',
-      'events','rides','listFrom','setEvents','setRides','setLoadedEvents','setLoadedRides',
+      'events','rides','listFrom','setEvents','setRides','setLoadedEvents','setLoadedRides','useAuthStore',
       body.replace(/listFrom<[^>]+>/g,'listFrom'));
     const rendered={actor:'A',secret:'private',revision:1};
     let current={...rendered,revision:3}; let applied=0; let requested=0;
     let onRequest=() => {};
     const invoke=()=>request(false,rendered,{getState:()=>({...current})},async()=>{requested++; onRequest(); return {};},
-      [],[],()=>[],()=>{applied++;},()=>{applied++;},()=>{},()=>{});
+      [],[],()=>[],()=>{applied++;},()=>{applied++;},()=>{},()=>{}, {getState:()=>({session:{user:{id:'A'}}})});
     await invoke();
     assert.equal(applied,1,'삭제로 revision이 증가해도 현재 조회 결과는 반영한다');
     onRequest=()=>{current={...current,revision:current.revision+1};};

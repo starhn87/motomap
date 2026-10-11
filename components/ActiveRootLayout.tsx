@@ -6,7 +6,7 @@ import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
 import { Stack, router } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
@@ -19,7 +19,6 @@ import LegalConsentScreen from '@/components/auth/LegalConsentScreen';
 import ServiceLoadingScreen from '@/components/ServiceLoadingScreen';
 import ServiceResumeScreen from '@/components/ServiceResumeScreen';
 import { APP_STORE_URL } from '@/constants/app';
-import LocationPrivacyPanel from '@/components/LocationPrivacyPanel';
 import { useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import PersonalPlaceRideSync from '@/components/PersonalPlaceRideSync';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -160,9 +159,13 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
   const privacyStatus = useLocationPrivacyStore((state) => state.status);
   const privacyActor = useLocationPrivacyStore((state) => state.actor);
   const privacyError = useLocationPrivacyStore((state) => state.error);
+  const privacyScope = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     if (authStatus==='restoring') return;
+    // 같은 계정의 약관 완료·토큰 갱신은 GPS와 진행 중 길안내를 다시 초기화하지 않는다.
+    if (privacyScope.current === actor) return;
+    privacyScope.current = actor;
     void useLocationPrivacyStore.getState().load(actor);
   },[actor,authStatus]);
 
@@ -210,11 +213,10 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
       </View>
     );
   }
-  if (authStatus === 'needs_consent') return <LegalConsentScreen onReady={onReady} />;
   if (authStatus !== 'needs_onboarding') {
-    if (!privacyReady && !privacyError) return <ServiceLoadingScreen />;
-    if (actor !== privacyActor || (!privacyBrowsing && privacyStatus !== 'active'))
-      return <LocationPrivacyPanel key={actor ?? 'guest'} intro onReady={onReady} />;
+    if (actor !== privacyActor || (!privacyReady && !privacyError)) return <ServiceLoadingScreen />;
+    if (authStatus === 'needs_consent' || (!privacyBrowsing && privacyStatus !== 'active'))
+      return <LegalConsentScreen key={actor ?? 'guest'} needsLegal={authStatus === 'needs_consent'} onReady={onReady} />;
   }
   return <ActiveRootLayoutNav onReady={onReady} />;
 }

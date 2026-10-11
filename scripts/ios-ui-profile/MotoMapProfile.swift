@@ -173,6 +173,71 @@ final class MotoMapProfile: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "햅틱 피드백")).firstMatch.waitForExistence(timeout: 15))
     }
 
+    // 법률 동의는 이용자가 직접 한다. 자동 검증은 미선택 상태와 문서 보기만 확인한다.
+    func testReleaseConsentReadOnly() throws {
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.staticTexts["모토맵 시작하기"].waitForExistence(timeout: 20))
+        let start = app.buttons["동의하고 시작하기"]
+        XCTAssertTrue(start.exists)
+        XCTAssertFalse(start.isEnabled, "자동으로 동의 체크를 채우지 않아야 한다")
+        let document = app.buttons["위치기반 서비스 이용약관 보기"]
+        XCTAssertTrue(document.exists)
+        document.tap()
+        XCTAssertTrue(app.staticTexts["위치 전달 범위"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["약관 문서 닫기"].exists)
+        app.buttons["약관 문서 닫기"].tap()
+        XCTAssertTrue(start.waitForExistence(timeout: 5))
+        XCTAssertFalse(start.isEnabled, "문서를 읽어도 자동 동의되지 않아야 한다")
+    }
+
+    func openLocationPrivacySettings() {
+        app.terminate()
+        app.launch()
+        let profile = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "내 정보")).firstMatch
+        XCTAssertTrue(profile.waitForExistence(timeout: 20))
+        profile.tap()
+        let settings = app.otherElements.matching(NSPredicate(format: "label ENDSWITH %@", ", 설정")).firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 15))
+        settings.tap()
+        let privacy = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "위치정보 동의·기록 관리")).firstMatch
+        XCTAssertTrue(privacy.waitForExistence(timeout: 10))
+        if !privacy.isHittable { app.swipeUp() }
+        privacy.tap()
+        XCTAssertTrue(app.staticTexts["위치정보 관리"].waitForExistence(timeout: 10))
+    }
+
+    // 기존 자료 삭제·전체 철회는 하지 않고 현재 위치만 OFF/ON 후 원상태로 둔다.
+    func testReleaseLocationPrivacyControls() throws {
+        openLocationPrivacySettings()
+        let location = app.switches["현재 위치 사용"]
+        XCTAssertTrue(location.waitForExistence(timeout: 5))
+        XCTAssertEqual(location.value as? String, "1")
+        location.tap()
+        let off = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@ AND enabled == true", "0"), object: location)
+        XCTAssertEqual(XCTWaiter.wait(for: [off], timeout: 15), .completed)
+        location.tap()
+        let on = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@ AND enabled == true", "1"), object: location)
+        XCTAssertEqual(XCTWaiter.wait(for: [on], timeout: 15), .completed)
+        let history = app.switches["방문 기록 저장"]
+        if history.exists {
+            let original = history.value as? String ?? "0"
+            history.tap()
+            let changed = original == "1" ? "0" : "1"
+            let updated = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@ AND enabled == true", changed), object: history)
+            XCTAssertEqual(XCTWaiter.wait(for: [updated], timeout: 15), .completed)
+            history.tap()
+            let restored = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@ AND enabled == true", original), object: history)
+            XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 15), .completed)
+        }
+        app.buttons["내 기록 열람·삭제"].tap()
+        XCTAssertTrue(app.staticTexts["내 기록 열람·삭제"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["이용·제공 내역"].exists)
+        app.buttons["위치정보 관리로 돌아가기"].tap()
+        XCTAssertTrue(location.waitForExistence(timeout: 5))
+        XCTAssertEqual(location.value as? String, "1")
+    }
+
     func testReleaseColdWarmPlaceLink() throws {
         // 공개·미삭제 fixture의 ID만 쓴다. OS 전달을 검증하며 앱 상태를 직접 주입하지 않는다.
         let placeID = "fc26f71a-ee51-4c66-af61-8bb955ca8796"

@@ -41,11 +41,13 @@ try {
     insert into public.place_rides(id,user_id,name,role) values('${id}','${uidA}','기존 장소','goal');
     insert into public.reviews values('${id}','${uidA}'); insert into public.favorites values('${id}','${uidA}');
   `);
-  const migration=await readFile(new URL('../supabase/migrations/20261011131542_add_location_privacy_controls.sql',import.meta.url),'utf8');
+  const migration=await readFile(new URL('../supabase/migrations/20261011142734_add_location_privacy_controls.sql',import.meta.url),'utf8');
   await db.exec(migration);
+  await db.exec(await readFile(new URL('../supabase/migrations/20261011150411_add_location_history_setting.sql',import.meta.url),'utf8'));
   assert.equal((await query('select count(*)::int n from public.place_rides'))[0].n,1); checks++;
   await db.exec('set role anon');
   assert.equal((await call('status')).status,'unknown'); checks++;
+  await fails(`select public.set_location_history_enabled(true,'${uidA}')`);
   await fails("select * from location_private.subjects");
   await fails("select public.location_privacy('consent','bad','{}')");
   await assert.rejects(() => call('consent',{version:'wrong',ageConfirmed:true,locationAgreed:true})); checks++;
@@ -72,7 +74,15 @@ try {
   assert.equal((await call('status')).historyCount,1); checks++;
   await call('consent',{...consent,historyAgreed:true});
   assert.equal((await call('rides')).rides[0].id,id); checks++;
+  const beforeHistory=await call('status');
+  const disabled=(await db.query('select public.set_location_history_enabled(false,$1::uuid) as data',[uidA])).rows[0].data;
+  assert.equal(disabled.historyAllowed,false); assert.equal(disabled.historyCount,1);
+  assert.deepEqual(disabled.providers,beforeHistory.providers); assert.equal(disabled.acceptedAt,beforeHistory.acceptedAt); checks++;
+  await fails(`select public.set_location_history_enabled(true,'${uidB}')`);
+  await db.query('select public.set_location_history_enabled(true,$1::uuid)',[uidA]);
+  assert.equal((await call('status')).historyAllowed,true); checks++;
   await call('pause'); assert.equal((await call('rides')).rides.length,1); checks++;
+  await fails(`select public.set_location_history_enabled(true,'${uidA}')`);
   await call('resume');
   await db.exec(`reset role; insert into public.place_rides(id,user_id,name,role)
     select gen_random_uuid(),'${uidA}','동일 시각 기록','goal' from generate_series(1,105); set role authenticated;`);

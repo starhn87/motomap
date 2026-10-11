@@ -35,6 +35,14 @@ export function saveLocationStopIntent(actor: string | null, intent: LocationSto
 }
 export type LocationPurpose = 'map' | 'search' | 'address' | 'weather' | 'gas' | 'route' | 'navigation' | 'ai' | 'arrival';
 export type LocationRecipient = 'device' | 'motomap' | 'naver' | 'kakao' | 'kma' | 'airkorea' | 'opinet' | 'anthropic';
+export const LOCATION_PROVIDERS = ['kakao', 'kma', 'airkorea', 'opinet', 'anthropic'] as const;
+export const LOCATION_PROVIDER_DETAILS = {
+  kakao: '주변 검색·주소 확인·경로/길안내: 기준 좌표·출발지·경유지·도착지',
+  kma: '날씨: 조회 지점의 격자 위치',
+  airkorea: '미세먼지: 조회 지점의 TM 좌표(카카오 좌표 변환도 필요)',
+  opinet: '주변 유가: 조회 기준 좌표',
+  anthropic: 'AI 추천: 함께 보낸 근사 위치·대화',
+};
 export type LocationPrivacyStatus = 'unknown' | 'active' | 'paused' | 'withdrawn';
 export interface LocationPrivacyState {
   status: LocationPrivacyStatus;
@@ -82,6 +90,16 @@ export async function locationPrivacyRpc(action: string, secret: string, payload
 export function privacyObject(value: Json): Record<string, Json | undefined> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error('잘못된 위치정보 응답입니다.');
   return value;
+}
+
+export async function setLocationHistoryEnabled(enabled: boolean, actor: string): Promise<LocationPrivacyState> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(),8000);
+  try {
+    const { data,error } = await supabase.rpc('set_location_history_enabled',{p_enabled:enabled,p_actor:actor}).abortSignal(controller.signal);
+    if(error || data===null) throw new Error('방문 기록 설정을 저장하지 못했어요. 다시 시도해 주세요.');
+    return parseLocationPrivacy(data);
+  } finally { clearTimeout(timer); }
 }
 export function parseLocationPrivacy(value: Json): LocationPrivacyState {
   const v = privacyObject(value);

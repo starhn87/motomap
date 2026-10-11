@@ -1795,6 +1795,10 @@ export type Database = {
         Args: { p_action: string; p_secret?: string; p_payload?: Json }
         Returns: Json
       }
+      set_location_history_enabled: {
+        Args: { p_enabled: boolean; p_actor: string }
+        Returns: Json
+      }
       _postgis_deprecate: {
         Args: { newname: string; oldname: string; version: string }
         Returns: undefined

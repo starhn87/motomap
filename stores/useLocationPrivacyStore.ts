@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as Crypto from 'expo-crypto';
-import { deviceLocationSecret, loadLocationStopIntent, saveLocationStopIntent, LOCATION_CONSENT_VERSION, locationPrivacyRpc, parseLocationPrivacy, privacyObject,
+import { deviceLocationSecret, loadLocationStopIntent, saveLocationStopIntent, setLocationHistoryEnabled, LOCATION_CONSENT_VERSION, locationPrivacyRpc, parseLocationPrivacy, privacyObject,
   type LocationPrivacyState, type LocationPurpose, type LocationRecipient } from '@/lib/locationPrivacy';
 import { useMapStore } from '@/stores/useMapStore';
 import { useGuideSession } from '@/lib/guideSession';
@@ -14,6 +14,7 @@ interface PrivacyStore extends LocationPrivacyState {
   ready: boolean; browsing: boolean; secret: string; actor: string | null; error: string | null; revision: number;
   load: (actor: string | null) => Promise<void>;
   consent: (ageConfirmed: boolean, locationAgreed: boolean, historyAgreed: boolean, providers: LocationRecipient[]) => Promise<void>;
+  setHistoryAllowed: (enabled: boolean) => Promise<void>;
   change: (action: 'pause' | 'resume' | 'withdraw' | 'withdraw_history' | 'delete_history' | 'delete_ride', id?: string, kind?: string) => Promise<void>;
   browse: () => void;
 }
@@ -82,6 +83,33 @@ export const useLocationPrivacyStore = create<PrivacyStore>((set, get) => ({
       if (generation !== loadRevision) return;
       set({ ...result, secret, ready: true, browsing: true, error: null, revision: get().revision + 1 });
     });
+  },
+  setHistoryAllowed: async (enabled) => {
+    const before = get();
+    if (!before.actor || !locationUseAllowed()) throw new Error('위치 이용에 동의한 뒤 기록 저장을 설정해 주세요.');
+    const generation = ++loadRevision;
+    set({ historyAllowed: false, revision: before.revision + 1 });
+    try {
+      await serialize(async () => {
+        if (generation !== loadRevision) throw new Error('위치정보 설정이 변경됐어요. 다시 확인해 주세요.');
+        assertActor(before.actor);
+        if (await loadLocationStopIntent(before.actor)) throw new Error('이전 중지·철회 요청을 먼저 완료해 주세요.');
+        if (generation !== loadRevision) throw new Error('위치정보 설정이 변경됐어요. 다시 확인해 주세요.');
+        const result = await setLocationHistoryEnabled(enabled,before.actor!);
+        if (generation !== loadRevision) return;
+        assertActor(before.actor);
+        set({ ...result, error: null, revision: get().revision + 1 });
+      });
+    } catch (error) {
+      if (generation === loadRevision) {
+        // 저장 OFF 실패가 조용히 이전 설정으로 돌아가지 않게 중지 의도를 남긴다.
+        set({ status:'paused',historyAllowed:false,error:'기록 설정을 저장하지 못했어요. 다시 확인해 주세요.' });
+        const stopping = stopLocationProcessing();
+        void stopping.catch(()=>{});
+        try { await saveLocationStopIntent(before.actor,'pause'); } finally { await stopping; }
+      }
+      throw error;
+    }
   },
   change: async (action, id, kind) => {
     const before = get();

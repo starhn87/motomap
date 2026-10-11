@@ -1,0 +1,156 @@
+-- 운영 DB 적용 후 계약 검사. 임시 계정·자료만 생성하고 전체 트랜잭션을 되돌린다.
+-- 기존 이용자의 ID·위치·검색어·리뷰·즐겨찾기를 조회하거나 변경하지 않는다.
+begin;
+set local lock_timeout = '5s';
+set local statement_timeout = '30s';
+do $$
+declare
+  actor_a uuid := gen_random_uuid();
+  actor_b uuid := gen_random_uuid();
+  visit_id uuid := gen_random_uuid();
+  event_id uuid := gen_random_uuid();
+  token text := encode(extensions.gen_random_bytes(32),'hex');
+  value jsonb;
+  before_setting jsonb;
+  consent jsonb := jsonb_build_object('expectedActor',null,'version','2026-10-11-location-v2',
+    'ageConfirmed',true,'locationAgreed',true,'historyAgreed',false,'providers',jsonb_build_array('kakao'));
+  denied boolean;
+  checks integer := 0;
+begin
+  perform set_config('request.jwt.claim.sub','',true);
+  perform set_config('request.jwt.claims','{}',true);
+  execute 'set local role anon';
+  value := public.location_privacy('status',token,jsonb_build_object('expectedActor',null));
+  if value->>'status'<>'unknown' then raise exception 'unknown status failed'; end if;
+  checks := checks+1;
+  denied := false;
+  begin perform 1 from location_private.subjects; exception when insufficient_privilege then denied:=true; end;
+  if not denied then raise exception 'private table access allowed'; end if;
+  checks := checks+1;
+  denied := false;
+  begin perform public.location_privacy('consent',token,consent||'{"version":"wrong"}'::jsonb);
+  exception when raise_exception then denied:=true; end;
+  if not denied then raise exception 'wrong version allowed'; end if;
+  checks := checks+1;
+  value := public.location_privacy('consent',token,consent);
+  if value->>'status'<>'active' then raise exception 'guest consent failed'; end if;
+  checks := checks+1;
+  value := public.location_privacy('record',token,jsonb_build_object('expectedActor',null,'id',event_id,'purpose','search','recipient','kakao'));
+  if value->>'createdAt' is null then raise exception 'server timestamp missing'; end if;
+  checks := checks+1;
+  denied := false;
+  begin perform public.location_privacy('record',token,jsonb_build_object('expectedActor',null,'id',gen_random_uuid(),'purpose','weather','recipient','kma'));
+  exception when raise_exception then denied:=true; end;
+  if not denied then raise exception 'unselected provider allowed'; end if;
+  checks := checks+1;
+  perform public.location_privacy('pause',token,jsonb_build_object('expectedActor',null));
+  denied := false;
+  begin perform public.location_privacy('record',token,jsonb_build_object('expectedActor',null,'id',gen_random_uuid(),'purpose','search','recipient','kakao'));
+  exception when raise_exception then denied:=true; end;
+  if not denied then raise exception 'paused request allowed'; end if;
+  checks := checks+1;
+  perform public.location_privacy('resume',token,jsonb_build_object('expectedActor',null));
+  perform public.location_privacy('complete',token,jsonb_build_object('expectedActor',null,'id',event_id,'outcome','completed'));
+  value := public.location_privacy('events',token,jsonb_build_object('expectedActor',null));
+  if value->'events'->0->>'outcome'<>'completed' then raise exception 'event completion failed'; end if;
+  checks := checks+1;
+  value := public.location_privacy('events',encode(extensions.gen_random_bytes(32),'hex'),jsonb_build_object('expectedActor',null));
+  if jsonb_array_length(value->'events')<>0 then raise exception 'other guest read allowed'; end if;
+  checks := checks+1;
+  perform public.location_privacy('consent',token,consent||'{"providers":[]}'::jsonb);
+  value := public.location_privacy('events',token,jsonb_build_object('expectedActor',null));
+  if jsonb_array_length(value->'events')<>0 then raise exception 'provider withdrawal retention failed'; end if;
+  checks := checks+1;
+  perform public.location_privacy('withdraw',token,jsonb_build_object('expectedActor',null));
+  denied := false;
+  begin perform public.location_privacy('resume',token,jsonb_build_object('expectedActor',null));
+  exception when raise_exception then denied:=true; end;
+  if not denied then raise exception 'withdrawn resume allowed'; end if;
+  checks := checks+1;
+  denied := false;
+  begin perform public.set_location_history_enabled(false,actor_a);
+  exception when insufficient_privilege then denied:=true; end;
+  if not denied then raise exception 'anonymous history setting allowed'; end if;
+  checks := checks+1;
+
+  execute 'reset role';
+  insert into auth.users(id) values(actor_a),(actor_b);
+  insert into public.profiles(id,nickname) values(actor_a,'privacy-test-'||actor_a),(actor_b,'privacy-test-'||actor_b);
+  perform set_config('request.jwt.claim.sub',actor_a::text,true);
+  perform set_config('request.jwt.claims',jsonb_build_object('sub',actor_a,'role','authenticated')::text,true);
+  execute 'set local role authenticated';
+  consent := consent||jsonb_build_object('expectedActor',actor_a,'historyAgreed',true);
+  perform public.location_privacy('consent',null,consent);
+  insert into public.place_rides(id,user_id,name,latitude,longitude) values(visit_id,actor_a,'privacy fixture',0,0);
+  value := public.location_privacy('rides',null,jsonb_build_object('expectedActor',actor_a));
+  if jsonb_array_length(value->'rides')<>1 then raise exception 'own history read failed'; end if;
+  checks := checks+1;
+  value := public.location_privacy('status',null,jsonb_build_object('expectedActor',actor_a));
+  before_setting := value;
+  value := public.set_location_history_enabled(false,actor_a);
+  if value->>'historyAllowed'<>'false' or value->>'historyCount'<>'1'
+    or value->>'status'<>'active' or value->>'acceptedAt'<>before_setting->>'acceptedAt'
+    or value->'providers'<>before_setting->'providers' then raise exception 'history OFF changed other state'; end if;
+  checks := checks+1;
+  denied := false;
+  begin perform public.set_location_history_enabled(true,actor_b);
+  exception when raise_exception then denied:=true; end;
+  if not denied then raise exception 'history setting actor mismatch allowed'; end if;
+  checks := checks+1;
+  value := public.set_location_history_enabled(true,actor_a);
+  if value->>'historyAllowed'<>'true' or value->>'historyCount'<>'1' then raise exception 'history ON failed'; end if;
+  checks := checks+1;
+  denied := false;
+  begin perform public.location_privacy('delete_history',null,jsonb_build_object('expectedActor',actor_b));
+  exception when raise_exception then denied:=true; end;
+  if not denied then raise exception 'actor mismatch allowed'; end if;
+  checks := checks+1;
+  perform set_config('request.jwt.claim.sub',actor_b::text,true);
+  perform set_config('request.jwt.claims',jsonb_build_object('sub',actor_b,'role','authenticated')::text,true);
+  value := public.location_privacy('rides',null,jsonb_build_object('expectedActor',actor_b));
+  if jsonb_array_length(value->'rides')<>0 then raise exception 'other member read allowed'; end if;
+  perform public.location_privacy('delete_ride',null,jsonb_build_object('expectedActor',actor_b,'id',visit_id,'kind','visit'));
+  perform set_config('request.jwt.claim.sub',actor_a::text,true);
+  perform set_config('request.jwt.claims',jsonb_build_object('sub',actor_a,'role','authenticated')::text,true);
+  value := public.location_privacy('rides',null,jsonb_build_object('expectedActor',actor_a));
+  if jsonb_array_length(value->'rides')<>1 then raise exception 'other member deletion allowed'; end if;
+  checks := checks+1;
+  perform public.location_privacy('pause',null,jsonb_build_object('expectedActor',actor_a));
+  denied := false;
+  begin perform public.set_location_history_enabled(true,actor_a);
+  exception when raise_exception then denied:=true; end;
+  if not denied then raise exception 'history setting resumed paused subject'; end if;
+  checks := checks+1;
+  denied := false;
+  begin insert into public.place_rides(user_id,name,latitude,longitude) values(actor_a,'denied fixture',0,0);
+  exception when raise_exception then denied:=true; end;
+  if not denied then raise exception 'history INSERT while paused allowed'; end if;
+  checks := checks+1;
+  perform public.location_privacy('resume',null,jsonb_build_object('expectedActor',actor_a));
+  perform public.location_privacy('withdraw_history',null,jsonb_build_object('expectedActor',actor_a));
+  value := public.location_privacy('status',null,jsonb_build_object('expectedActor',actor_a));
+  if value->>'status'<>'active' or value->>'historyAllowed'<>'false' or value->>'historyCount'<>'0' then
+    raise exception 'history-only withdrawal failed';
+  end if;
+  checks := checks+1;
+  denied := false;
+  begin insert into public.place_rides(user_id,name,latitude,longitude) values(actor_a,'denied fixture',0,0);
+  exception when raise_exception then denied:=true; end;
+  if not denied then raise exception 'history INSERT without storage consent allowed'; end if;
+  checks := checks+1;
+  execute 'reset role';
+  insert into location_private.usage_events(id,subject_id,purpose,recipient,outcome,created_at)
+    select gen_random_uuid(),id,'map','device','completed',now()-interval '7 months'
+    from location_private.subjects where user_id=actor_a;
+  perform location_private.purge_expired_events();
+  if exists(select 1 from location_private.usage_events e join location_private.subjects s on s.id=e.subject_id
+    where s.user_id=actor_a and e.created_at<now()-interval '6 months') then raise exception 'expiry deletion failed'; end if;
+  checks := checks+1;
+  delete from public.profiles where id=actor_a;
+  if exists(select 1 from location_private.subjects where user_id=actor_a) then raise exception 'profile cascade failed'; end if;
+  checks := checks+1;
+  perform set_config('validation.location_privacy_checks',checks::text,true);
+end $$;
+select jsonb_build_object('checksPassed',current_setting('validation.location_privacy_checks')::integer,
+  'rolledBack',true,'scope','temporary fixtures only; existing user data untouched') as validation_result;
+rollback;

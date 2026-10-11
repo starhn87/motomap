@@ -23,14 +23,15 @@ export async function hasCurrentLegalConsent(): Promise<boolean> {
   }
 }
 
-export async function acceptCurrentLegalDocuments(): Promise<void> {
+export async function acceptCurrentLegalDocuments(session: { access_token: string; user: { id: string } }): Promise<void> {
+  if (!session?.access_token || !session.user?.id) throw new Error('로그인 상태를 다시 확인해 주세요.');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
   try {
     const { error } = await supabase.rpc('accept_legal_documents', {
       p_version: currentLegalVersion(),
-    }).abortSignal(controller.signal);
-    if (error) throw error;
+    }).setHeader('Authorization',`Bearer ${session.access_token}`).abortSignal(controller.signal);
+    if (error) throw new Error('동의를 저장하지 못했어요. 다시 시도해 주세요.');
   } finally {
     clearTimeout(timer);
   }
