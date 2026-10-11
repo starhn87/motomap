@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const previous = readFileSync(new URL('../supabase/migrations/20260825105614_add_place_change_reports.sql', import.meta.url), 'utf8');
-const legacy = readFileSync(new URL('../supabase/migrations/20261011030530_drop_unused_legacy_rides.sql', import.meta.url), 'utf8');
-const cache = readFileSync(new URL('../supabase/migrations/20261011030532_restrict_maintenance_cache_cleanup.sql', import.meta.url), 'utf8');
+const legacy = readFileSync(new URL('../supabase/migrations/20261011031348_drop_unused_legacy_rides.sql', import.meta.url), 'utf8');
+const cache = readFileSync(new URL('../supabase/migrations/20261011031406_restrict_maintenance_cache_cleanup.sql', import.meta.url), 'utf8');
 const body = (sql: string) => sql.match(/function public\.prepare_account_deletion\(p_user_id uuid\)[\s\S]*?as \$\$([\s\S]*?)\$\$/)![1];
 const withoutComments = (sql: string) => sql.replace(/--[^\n]*/g, '');
 
