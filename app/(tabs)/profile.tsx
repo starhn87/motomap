@@ -187,7 +187,14 @@ function LoggedInContent() {
   const handleSignOut = () => {
     appAlert('로그아웃', '정말 로그아웃하시겠습니까?', [
       { text: '취소', style: 'cancel' },
-      { text: '로그아웃', style: 'destructive', onPress: signOut },
+      {
+        text: '로그아웃', style: 'destructive',
+        onPress: () => {
+          void signOut().catch(() => {
+            toast.error('로그아웃하지 못했어요.', '연결 상태를 확인하고 다시 시도해 주세요.');
+          });
+        },
+      },
     ]);
   };
 
