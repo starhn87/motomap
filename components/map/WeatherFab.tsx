@@ -64,9 +64,9 @@ export default function WeatherFab({ weather, failed = false, refreshing = false
       ) : (
         <Ionicons name="cloud-offline-outline" size={18} color={colors.textSecondary} />
       )}
-      <Text style={[styles.temp, { color: colors.text }]}>
-        {weather ? failed ? '이전 예보' : `${weather.current.temp}°` : refreshing ? '확인 중' : '재시도'}
-      </Text>
+      {(weather || !refreshing) && <Text style={[styles.temp, { color: colors.text }]}>
+        {weather ? failed ? '이전 예보' : `${weather.current.temp}°` : '재시도'}
+      </Text>}
     </AnimatedPressable>
   );
 }

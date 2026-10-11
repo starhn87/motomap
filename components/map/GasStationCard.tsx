@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, Text, Pressable, StyleSheet } from 'react-native';
 import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
@@ -168,11 +168,15 @@ export default function GasStationCard({ station, onClose }: Props) {
             accessibilityState={{ disabled: isFetching, busy: isFetching }}
             disabled={isFetching}
             onPress={() => { void refetch(); }}>
-            <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
-              {detail ? '이전 유가' : '유가 조회 실패'}
-              {' · '}
-              <Text style={{ color: colors.tint }}>{isFetching ? '확인 중' : '다시 시도'}</Text>
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={[styles.meta, { color: colors.textSecondary, flex: 0, flexShrink: 1 }]} numberOfLines={1}>
+                {detail ? '이전 유가' : '유가 조회 실패'}{' · '}
+              </Text>
+              <View>
+                <Text accessible={false} style={[styles.meta, { flex: 0, color: colors.tint, opacity: isFetching ? 0 : 1 }]}>다시 시도</Text>
+                {isFetching && <ActivityIndicator size="small" color={colors.tint} style={StyleSheet.absoluteFill} />}
+              </View>
+            </View>
           </Pressable>
         ) : (
           <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>

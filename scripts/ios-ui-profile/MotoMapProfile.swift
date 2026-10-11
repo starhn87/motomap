@@ -177,7 +177,15 @@ final class MotoMapProfile: XCTestCase {
     func testReleaseConsentReadOnly() throws {
         app.terminate()
         app.launch()
-        XCTAssertTrue(app.staticTexts["모토맵 시작하기"].waitForExistence(timeout: 20))
+        let title = app.staticTexts["모토맵 시작하기"]
+        if !title.waitForExistence(timeout: 5) {
+            // 이미 본인이 동의한 계정은 재동의 화면을 읽기만 한다. 저장·철회하지 않는다.
+            openLocationPrivacySettings()
+            let scope = app.buttons["동의 범위 변경"]
+            XCTAssertTrue(scope.waitForExistence(timeout: 5))
+            scope.tap()
+        }
+        XCTAssertTrue(title.waitForExistence(timeout: 15))
         let start = app.buttons["동의하고 시작하기"]
         XCTAssertTrue(start.exists)
         XCTAssertFalse(start.isEnabled, "자동으로 동의 체크를 채우지 않아야 한다")

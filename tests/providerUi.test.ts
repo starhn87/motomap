@@ -54,7 +54,10 @@ test('날씨 최초 실패·조회 중에도 동일한 버튼 공간과 재시�
   const loading = render({ refreshing: true, open: false });
   assert.equal(loading.props.disabled, true);
   assert.equal(loading.props.accessibilityState.busy, true);
-  assert.equal(loading.props.children[1].props.children, '확인 중');
+  assert.equal(loading.props.children[0].type, 'Spinner');
+  assert.equal(loading.props.children[1], false);
+  assert.equal(loading.props.style[0].width, 52);
+  assert.equal(loading.props.style[0].height, 52);
 });
 
 test('이전 날씨는 명시적으로 표시하고 기존 상세 토글·터치 해제 즉시 복원을 유지한다', () => {
@@ -73,6 +76,46 @@ test('이전 날씨는 명시적으로 표시하고 기존 상세 토글·터치
   assert.match(cached.props.accessibilityLabel, /이전 예보.*닫기/);
   cached.props.onPress();
   assert.equal(opens, 1);
+});
+
+test('날씨·유가 재시도는 안내와 원래 문구 공간을 유지하고 진행 문구 대신 스피너를 표시한다',()=>{
+  const cases=[
+    {file:'WeatherSheet',label:'날씨 다시 확인',flag:'refreshing'},
+    {file:'GasStationCard',label:'주유소 상세 유가 다시 확인',flag:'isFetching'},
+    {file:'TempPlaceSheet',label:'이 장소의 유가 다시 확인',flag:'gasFetching'},
+  ];
+  function nodes(node:any):Element[]{
+    if(Array.isArray(node)) return node.flatMap(nodes);
+    return node?.props ? [node,...nodes(node.props.children)] : [];
+  }
+  for(const item of cases){
+    const source=readFileSync(new URL(`../components/map/${item.file}.tsx`,import.meta.url),'utf8');
+    const start=source.lastIndexOf('<Pressable',source.indexOf(`accessibilityLabel="${item.label}"`));
+    const end=source.indexOf('</Pressable>',start)+'</Pressable>'.length;
+    assert.ok(start>=0 && end>start);
+    const fragment=source.slice(start,end);
+    const {code}=transformSync(`export default function Retry(){return (${fragment});}`,{loader:'tsx',format:'cjs',jsx:'automatic'});
+    function render(loading:boolean){
+      const module={exports:{} as {default:()=>Element}};
+      new Script(code).runInNewContext({module,exports:module.exports,
+        require:()=>({jsx:(type:unknown,props:unknown)=>({type,props}),jsxs:(type:unknown,props:unknown)=>({type,props})}),
+        Pressable:'Pressable',View:'View',Text:'Text',ActivityIndicator:'Spinner',
+        styles:{gradeComment:{},meta:{},tradeAt:{},providerRetry:{}},StyleSheet:{absoluteFill:{position:'absolute',top:0,bottom:0,left:0,right:0}},
+        colors:{textSecondary:'gray',tint:'green'},[item.flag]:loading,
+        detail:true,fuelPrices:[{}],onRetry(){},refetch(){},refetchGas(){},
+      });
+      return module.exports.default();
+    }
+    const idle=render(false),loading=render(true);
+    assert.equal(idle.props.disabled,false); assert.equal(loading.props.disabled,true);
+    assert.equal(loading.props.accessibilityState.busy,true);
+    assert.equal(nodes(loading).filter(n=>n.type==='Spinner').length,1);
+    const idleTexts=nodes(idle).filter(n=>n.type==='Text'),loadingTexts=nodes(loading).filter(n=>n.type==='Text');
+    assert.equal(JSON.stringify(loadingTexts.map(n=>n.props.children)),JSON.stringify(idleTexts.map(n=>n.props.children)));
+    assert.ok(!loadingTexts.some(n=>String(n.props.children).includes('확인 중')));
+    const action=loadingTexts.find(n=>n.props.children==='다시 시도')!;
+    assert.ok(action.props.style.some((s:any)=>s?.opacity===0),'스피너 중에도 원래 문구의 공간은 유지한다');
+  }
 });
 
 function gasLayer() {

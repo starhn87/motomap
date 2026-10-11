@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
@@ -316,10 +316,11 @@ export default function WeatherSheet({
                 disabled={refreshing}
                 onPress={onRetry}
                 style={({ pressed }) => ({ opacity: pressed || refreshing ? 0.65 : 1 })}>
-                <Text style={[styles.gradeComment, { color: colors.textSecondary }]}>
-                  {'갱신하지 못해 이전 예보를 표시해요.\n'}
-                  <Text style={{ color: colors.tint }}>{refreshing ? '확인 중' : '다시 시도'}</Text>
-                </Text>
+                <Text style={[styles.gradeComment, { color: colors.textSecondary }]}>갱신하지 못해 이전 예보를 표시해요.</Text>
+                <View style={{ alignSelf: 'flex-start' }}>
+                  <Text accessible={false} style={[styles.gradeComment, { color: colors.tint, opacity: refreshing ? 0 : 1 }]}>다시 시도</Text>
+                  {refreshing && <ActivityIndicator size="small" color={colors.tint} style={StyleSheet.absoluteFill} />}
+                </View>
               </Pressable>
             ) : (
               <Text style={[styles.gradeComment, { color: colors.text }]}>{weather.comment}</Text>

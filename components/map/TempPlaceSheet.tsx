@@ -660,9 +660,10 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                   <Text style={[styles.tradeAt, { color: colors.textSecondary }]}>
                     {fuelPrices.length ? '갱신하지 못해 이전 유가를 표시하고 있어요.' : '유가를 확인하지 못했어요.'}
                   </Text>
-                  <Text style={[styles.tradeAt, { color: colors.tint }]}>
-                    {gasFetching ? '확인 중' : '다시 시도'}
-                  </Text>
+                  <View style={{ alignSelf: 'flex-end' }}>
+                    <Text accessible={false} style={[styles.tradeAt, { color: colors.tint, opacity: gasFetching ? 0 : 1 }]}>다시 시도</Text>
+                    {gasFetching && <ActivityIndicator size="small" color={colors.tint} style={StyleSheet.absoluteFill} />}
+                  </View>
                 </Pressable>
               )}
             </View>

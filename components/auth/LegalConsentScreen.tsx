@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LEGAL_DOCS, type LegalDocType } from '@/constants/legal';
 import { acceptCurrentLegalDocuments } from '@/lib/legalConsent';
 import { LOCATION_CONSENT_VERSION, LOCATION_PROVIDERS, LOCATION_PROVIDER_DETAILS, RECIPIENT_LABELS,
@@ -64,18 +64,19 @@ export default function LegalConsentScreen({ needsLegal = true, onReady, onCompl
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: !!agreed[type], disabled: loading }}
           disabled={loading} style={styles.agreement} onPress={() => setAgreed(old => ({ ...old, [type]: !old[type] }))}>
           <View style={[styles.checkbox, agreed[type] && styles.checked]}>{agreed[type] && <Text style={styles.checkmark}>✓</Text>}</View>
-          <Text style={styles.label}>{type === 'terms' ? '만 14세 이상이며 이용약관에 동의해요.'
-            : type === 'privacy' ? '개인정보 처리방침에 동의해요.'
-            : `${needsLegal ? '' : '만 14세 이상이며 '}위치정보 이용·전달에 동의해요.`}</Text>
+          <Text style={styles.label}>{type === 'terms' ? '만 14세 이상 · 이용약관 동의'
+            : type === 'privacy' ? '개인정보 처리방침 동의'
+            : needsLegal ? '위치정보 이용·전달 동의' : '만 14세 이상 · 위치 이용·전달 동의'}</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={`${LEGAL_DOCS[type].title} 보기`}
           style={styles.viewLink} onPress={() => setViewing(type)}><Text style={styles.link}>보기</Text></Pressable>
       </View>)}
       <Text style={styles.body}>현재 위치는 네이버 지도와 카카오 길안내·날씨·유가·AI 추천에 사용될 수 있어요.
         {'\n'}위치 동의의 자세히 보기에서 전달 범위를 선택할 수 있어요. 방문 기록 저장은 설정에서 따로 켤 수 있어요.</Text>
-      <Pressable accessibilityRole="button" disabled={!accepted || loading} accessibilityState={{ disabled: !accepted || loading }}
+      <Pressable accessibilityRole="button" accessibilityLabel="동의하고 시작하기" disabled={!accepted || loading}
+        accessibilityState={{ disabled: !accepted || loading, busy: loading }}
         onPress={() => void accept()} style={({ pressed }) => [styles.button, (!accepted || loading || pressed) && styles.dimmed]}>
-        <Text style={styles.buttonText}>{loading ? '확인 중…' : '동의하고 시작하기'}</Text>
+        {loading ? <ActivityIndicator size="small" color="#0A0A0A" /> : <Text style={styles.buttonText}>동의하고 시작하기</Text>}
       </Pressable>
       {!onComplete && <Pressable accessibilityRole="button" disabled={loading} style={styles.browse} onPress={() => void browse()}>
         <Text style={styles.link}>{needsLegal ? '로그아웃하고 둘러보기' : '현재 위치 없이 둘러보기'}</Text>

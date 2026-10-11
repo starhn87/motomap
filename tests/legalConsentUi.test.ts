@@ -20,7 +20,7 @@ function fixture(options: { needsLegal?: boolean; consent?:()=>Promise<void>; le
       return [states[i],(v:any)=>{states[i]=typeof v==='function'?v(states[i]):v;}];},
       useRef(initial:any){const i=cursor++; if(!(i in states)) states[i]={current:initial}; return states[i];}},
     'react/jsx-runtime':{jsx:(type:unknown,props:unknown)=>({type,props}),jsxs:(type:unknown,props:unknown)=>({type,props})},
-    'react-native':{Modal:'Modal',Pressable:'Pressable',SafeAreaView:'SafeAreaView',ScrollView:'ScrollView',Text:'Text',View:'View',StyleSheet:{create:(v:unknown)=>v}},
+    'react-native':{ActivityIndicator:'ActivityIndicator',Modal:'Modal',Pressable:'Pressable',SafeAreaView:'SafeAreaView',ScrollView:'ScrollView',Text:'Text',View:'View',StyleSheet:{create:(v:unknown)=>v}},
     '@/constants/legal':{LEGAL_DOCS:documents},
     '@/lib/legalConsent':{acceptCurrentLegalDocuments:async()=>{calls.push('legal'); await options.legal?.();}},
     '@/lib/locationPrivacy':{LOCATION_CONSENT_VERSION:'2026-10-11-location-v2',LOCATION_PROVIDERS:['kakao','kma','airkorea','opinet','anthropic'],
@@ -44,8 +44,7 @@ function checkAll(f:ReturnType<typeof fixture>){
   elements(f.render()).filter(n=>n.props.accessibilityRole==='checkbox').forEach(n=>n.props.onPress());
 }
 function submit(f:ReturnType<typeof fixture>){
-  return elements(f.render()).find(n=>n.type==='Pressable' && n.props.accessibilityState?.disabled!==undefined
-    && elements(n).some(c=>c.props.children==='동의하고 시작하기'))!;
+  return elements(f.render()).find(n=>n.type==='Pressable' && n.props.accessibilityLabel==='동의하고 시작하기')!;
 }
 test('처음에는 미선택 기본 동의만 보이고 공급자 선택은 자세히 보기에 담는다',()=>{
   const f=fixture(); const nodes=elements(f.render());
@@ -97,4 +96,29 @@ test('동의 도중 계정이 바뀌면 새 계정에 약관을 수락시키지 
 test('이미 약관을 확인한 이용자는 위치 동의만 저장하고 두 번째 동의 화면을 만들지 않는다',async()=>{
   const f=fixture({needsLegal:false}); checkAll(f); submit(f).props.onPress(); await new Promise(done=>setTimeout(done,0));
   assert.deepEqual(f.calls,['location']);
+});
+
+test('동의 문구는 연령·이용·전달 의미를 유지하면서 짧게 표시한다',()=>{
+  const f=fixture({needsLegal:false});
+  const checkbox=elements(f.render()).find(n=>n.props.accessibilityRole==='checkbox')!;
+  assert.ok(elements(checkbox).some(n=>n.props.children==='만 14세 이상 · 위치 이용·전달 동의'));
+  const terms=elements(fixture().render()).filter(n=>n.props.accessibilityRole==='checkbox');
+  assert.ok(elements(terms[0]).some(n=>n.props.children==='만 14세 이상 · 이용약관 동의'));
+});
+
+test('저장 중 버튼에는 문구 대신 스피너만 표시하고 크기·접근성·중복 탭 차단을 유지한다',async()=>{
+  let resolve!:()=>void; const pending=new Promise<void>(done=>{resolve=done;});
+  const f=fixture({consent:()=>pending}); checkAll(f);
+  const before=submit(f); const beforeStyle=before.props.style({pressed:false})[0];
+  before.props.onPress();
+  const during=submit(f);
+  assert.equal(during.props.disabled,true);
+  assert.equal(during.props.accessibilityState.busy,true);
+  assert.deepEqual(during.props.style({pressed:false})[0],beforeStyle);
+  assert.equal(elements(during).filter(n=>n.type==='ActivityIndicator').length,1);
+  assert.equal(elements(during).filter(n=>n.type==='Text').length,0);
+  during.props.onPress(); assert.deepEqual(f.calls,['location']);
+  resolve(); await new Promise(done=>setTimeout(done,0));
+  assert.equal(submit(f).props.accessibilityState.busy,false);
+  assert.ok(elements(submit(f)).some(n=>n.props.children==='동의하고 시작하기'));
 });
