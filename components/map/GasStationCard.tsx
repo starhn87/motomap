@@ -22,7 +22,7 @@ interface Props {
 export default function GasStationCard({ station, onClose }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { data: detail, isLoading } = useGasStationDetail(station.id);
+  const { data: detail, isLoading, isError, isFetching, refetch } = useGasStationDetail(station.id);
   // 내 바이크를 등록했으면 그 유종을 강조하고 가득 주유비를 보여준다
   const { spec: myBike } = useMyBike();
   const myProd = myFuelProd(myBike);
@@ -160,6 +160,20 @@ export default function GasStationCard({ station, onClose }: Props) {
       <View style={styles.footer}>
         {isLoading ? (
           <View style={[styles.skeleton, styles.metaSkeleton, { backgroundColor: colors.surfaceMuted }]} />
+        ) : isError ? (
+          <Pressable
+            style={({ pressed }) => [styles.providerRetry, { opacity: pressed || isFetching ? 0.65 : 1 }]}
+            accessibilityRole="button"
+            accessibilityLabel="주유소 상세 유가 다시 확인"
+            accessibilityState={{ disabled: isFetching, busy: isFetching }}
+            disabled={isFetching}
+            onPress={() => { void refetch(); }}>
+            <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
+              {detail ? '이전 유가' : '유가 조회 실패'}
+              {' · '}
+              <Text style={{ color: colors.tint }}>{isFetching ? '확인 중' : '다시 시도'}</Text>
+            </Text>
+          </Pressable>
         ) : (
           <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
             {[detail?.address, tradeAt].filter(Boolean).join(' · ')}
@@ -259,6 +273,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 40,
   },
+  providerRetry: { flex: 1, marginRight: 12 },
   fuelLabel: {
     fontSize: 14,
   },

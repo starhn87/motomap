@@ -25,7 +25,7 @@ export function useGasLayer(args: {
   const { active, mapCenter, mapReady, screenWidth, screenHeight } = args;
   const [selectedStation, setSelectedStation] = useState<GasStation | null>(null);
   const [searchSpec, setSearchSpec] = useState<GasSearchSpec | null>(null);
-  const { data: gasStations, isFetching: gasFetching } = useGasStations(
+  const { data: gasStations, isFetching: gasFetching, error: gasError, refetch } = useGasStations(
     searchSpec,
     active && mapReady,
   );
@@ -56,19 +56,27 @@ export function useGasLayer(args: {
       ? approxMeters(mapCenter, searchSpec) > 300 ||
         Math.abs(mapCenter.zoom - searchSpec.zoom) > 0.5
       : false;
-  const showGasRefresh = active && !!searchSpec && (moved || gasFetching);
+  const showGasRefresh = active && !!searchSpec && (moved || gasFetching || !!gasError);
 
   // "현 지도에서 재검색" — 열려 있는 카드를 닫고 스냅샷을 현재 화면으로 교체
   const refreshHere = () => {
     if (!mapCenter) return;
     setSelectedStation(null);
-    setSearchSpec({ ...mapCenter, widthDp: screenWidth, heightDp: screenHeight });
+    const next = { ...mapCenter, widthDp: screenWidth, heightDp: screenHeight };
+    // 같은 쿼리키로 객체만 교체하면 실패한 조회가 다시 실행되지 않는다.
+    const sameQuery = searchSpec
+      && searchSpec.latitude.toFixed(3) === next.latitude.toFixed(3)
+      && searchSpec.longitude.toFixed(3) === next.longitude.toFixed(3)
+      && Math.round(searchSpec.zoom * 2) === Math.round(next.zoom * 2);
+    setSearchSpec(next);
+    if (sameQuery && !gasFetching) void refetch();
   };
 
   return {
     stations,
     cheapestId,
     gasFetching,
+    gasError,
     showGasRefresh,
     selectedStation,
     setSelectedStation,

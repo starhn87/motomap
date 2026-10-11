@@ -299,6 +299,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     stations,
     cheapestId,
     gasFetching,
+    gasError,
     showGasRefresh,
     selectedStation,
     setSelectedStation,
@@ -321,7 +322,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 라이딩 날씨 — 내 위치 우선, 없으면 지도 중심 기준
   const weatherLat = userLocation?.latitude ?? mapCenter?.latitude;
   const weatherLng = userLocation?.longitude ?? mapCenter?.longitude;
-  const { data: weather, refetch: refetchWeather } = useWeather(weatherLat, weatherLng);
+  const { data: weather, isError: weatherFailed, isFetching: weatherFetching, refetch: refetchWeather } = useWeather(weatherLat, weatherLng);
   const [weatherOpen, setWeatherOpen] = useState(false);
 
   // 시트를 여는 순간엔 캐시 신선도와 무관하게 서버에 재확인한다 — 발표분이 바뀌었으면
@@ -1082,9 +1083,12 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         </Animated.View>
       )}
 
-      {!overlay && weather && (
+      {!overlay && (weather || weatherFailed || weatherFetching) && (
         <WeatherFab
           weather={weather}
+          failed={weatherFailed}
+          refreshing={weatherFetching}
+          onRetry={() => { void refetchWeather(); }}
           open={weatherOpen && !placeDetailOpen}
           onPress={handleWeatherPress}
         />
@@ -1132,7 +1136,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             (pressed || gasFetching) && styles.controlPressed,
           ]}>
           <Text style={[styles.gasRefreshText, { color: colors.tint }]}>
-            {gasFetching ? '검색 중...' : '↻ 현 지도에서 재검색'}
+            {gasFetching ? '검색 중...' : gasError
+              ? stations.length ? '이전 유가 · 다시 확인' : '유가 조회 실패 · 다시 시도'
+              : '↻ 현 지도에서 재검색'}
           </Text>
         </AnimatedPressable>
       )}
@@ -1183,6 +1189,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           weather={weather}
           latitude={weatherLat}
           longitude={weatherLng}
+          failed={weatherFailed}
+          refreshing={weatherFetching}
+          onRetry={() => { void refetchWeather(); }}
           onClose={() => setWeatherOpen(false)}
         />
       )}

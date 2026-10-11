@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { approxMeters } from '@/lib/distance';
+import { ProviderError, retryProviderQuery } from '@/lib/providerErrors';
 
 import {
   fetchNearbyGasStations,
@@ -75,14 +76,15 @@ export function useGasStations(spec: GasSearchSpec | null, enabled: boolean, pro
     ],
     queryFn: async () => {
       const { points, radius } = buildSearchPlan(spec!);
+      let firstError: unknown;
       const results = await Promise.all(
         points.map((p) =>
           fetchNearbyGasStations({ latitude: p.latitude, longitude: p.longitude, radius, prod })
             // 타일 일부가 실패해도 나머지로 그린다 (단일 지점이면 아래 throw 로 에러 전파)
-            .catch(() => null),
+            .catch((error) => { firstError ??= error; return null; }),
         ),
       );
-      if (results.every((r) => r === null)) throw new Error('주유소 정보를 불러오지 못했습니다');
+      if (results.every((r) => r === null)) throw firstError ?? new ProviderError('opinet', 'nearby', 'invalid_response');
       // 타일 경계가 겹치므로 id 로 중복 제거. 거리도 호출 지점 기준이라 지도 중심
       // 기준으로 다시 계산해 "최저가 동가 중 최근접" 판정이 일관되게 한다.
       const byId = new Map<string, GasStation>();
@@ -101,6 +103,7 @@ export function useGasStations(spec: GasSearchSpec | null, enabled: boolean, pro
     enabled: enabled && !!spec,
     staleTime: 3 * 60 * 1000,
     placeholderData: (prev) => prev,
+    retry: retryProviderQuery,
   });
 }
 
@@ -110,6 +113,7 @@ export function useGasStationDetail(id: string | null) {
     queryFn: () => fetchGasStationDetail(id!),
     enabled: !!id,
     staleTime: 3 * 60 * 1000,
+    retry: retryProviderQuery,
   });
 }
 
@@ -122,5 +126,6 @@ export function useGasPricesAt(
     queryFn: () => fetchGasPricesAt(place!),
     enabled: !!place && looksLikeGasStation(place.name),
     staleTime: 3 * 60 * 1000,
+    retry: retryProviderQuery,
   });
 }

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { approxMeters } from '@/lib/distance';
+import { ProviderError, edgeProviderError } from '@/lib/providerErrors';
 
 // 오피넷 유가 프록시(Edge Function gas-stations) 클라이언트.
 // 유가는 DB places 와 별개의 실시간 레이어 — 주유소 카테고리 필터가 켜졌을 때만 조회한다.
@@ -48,6 +49,43 @@ export interface GasStationDetail {
   prices: { prod: string; price: number; tradeAt: string }[];
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isStation(value: unknown): value is GasStation {
+  if (!isRecord(value)) return false;
+  return typeof value.id === 'string' && value.id.trim().length > 0
+    && typeof value.name === 'string' && value.name.trim().length > 0
+    && typeof value.brand === 'string' && typeof value.isSelf === 'boolean'
+    && typeof value.price === 'number' && Number.isFinite(value.price) && value.price >= 0
+    && typeof value.distance === 'number' && Number.isFinite(value.distance) && value.distance >= 0
+    && typeof value.latitude === 'number' && Number.isFinite(value.latitude) && Math.abs(value.latitude) <= 90
+    && typeof value.longitude === 'number' && Number.isFinite(value.longitude) && Math.abs(value.longitude) <= 180;
+}
+
+function isStationDetail(value: unknown): value is GasStationDetail {
+  if (!isRecord(value)) return false;
+  return typeof value.id === 'string' && value.id.trim().length > 0
+    && typeof value.name === 'string' && value.name.trim().length > 0
+    && ['brand', 'address', 'tel'].every((key) => typeof value[key] === 'string')
+    && ['isSelf', 'carWash', 'convenience', 'repair'].every((key) => typeof value[key] === 'boolean')
+    && Array.isArray(value.prices) && value.prices.every((price: unknown) =>
+      isRecord(price) && typeof price.prod === 'string'
+      && typeof price.price === 'number' && Number.isFinite(price.price) && price.price >= 0
+      && typeof price.tradeAt === 'string');
+}
+
+async function requestGasInfo(body: Record<string, unknown>, operation: string): Promise<unknown> {
+  try {
+    const { data, error } = await supabase.functions.invoke('gas-stations', { body, timeout: 15_000 });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    throw edgeProviderError('opinet', operation, error);
+  }
+}
+
 // 상세의 TRADE_DT/TM("20260714 175951") → "07.14 17:59 기준"
 export function formatTradeAt(tradeAt: string): string {
   const m = tradeAt.match(/^\d{4}(\d{2})(\d{2})\s+(\d{2})(\d{2})/);
@@ -60,27 +98,25 @@ export async function fetchNearbyGasStations(params: {
   radius?: number;
   prod?: FuelCode;
 }): Promise<GasStation[]> {
-  const { data, error } = await supabase.functions.invoke('gas-stations', {
-    body: {
-      lat: params.latitude,
-      lng: params.longitude,
-      radius: params.radius ?? 5000,
-      prod: params.prod ?? 'B027',
-    },
-  });
-  if (error) throw new Error(`주유소 정보를 불러오지 못했습니다: ${error.message}`);
-  const stations = (data?.stations ?? []) as GasStation[];
+  const data = await requestGasInfo({
+    lat: params.latitude,
+    lng: params.longitude,
+    radius: params.radius ?? 5000,
+    prod: params.prod ?? 'B027',
+  }, 'nearby');
+  if (!isRecord(data) || !Array.isArray(data.stations) || !data.stations.every(isStation)) {
+    throw new ProviderError('opinet', 'nearby', 'invalid_response');
+  }
+  const stations = data.stations;
   // 이륜차는 고속도로 진입 금지 — 휴게소 주유소는 애초에 갈 수 없는 곳이라 뺀다.
   // ex알뜰(RTX)은 도로공사 고속도로 휴게소 전용 브랜드, 그 외 브랜드 휴게소는 상호로 거른다.
   return stations.filter((s) => s.brand !== 'ex알뜰' && !s.name.includes('휴게소'));
 }
 
 export async function fetchGasStationDetail(id: string): Promise<GasStationDetail> {
-  const { data, error } = await supabase.functions.invoke('gas-stations', {
-    body: { id },
-  });
-  if (error) throw new Error(`주유소 상세를 불러오지 못했습니다: ${error.message}`);
-  return data as GasStationDetail;
+  const data = await requestGasInfo({ id }, 'detail');
+  if (!isStationDetail(data)) throw new ProviderError('opinet', 'detail', 'invalid_response');
+  return data;
 }
 
 // 지도 POI·즐겨찾기의 이름이 주유소로 보이는지. 오피넷은 좌표 반경으로만 찾을 수

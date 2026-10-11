@@ -1,4 +1,5 @@
-import { Pressable, Text, StyleSheet } from 'react-native';
+import { ActivityIndicator, Pressable, Text, StyleSheet } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -12,7 +13,10 @@ import type { RidingWeather } from '@/lib/api/weather';
 import WeatherEmoji from '@/components/weather/WeatherEmoji';
 
 interface Props {
-  weather: RidingWeather;
+  weather?: RidingWeather;
+  failed?: boolean;
+  refreshing?: boolean;
+  onRetry?: () => void;
   open: boolean;
   onPress: () => void;
 }
@@ -21,7 +25,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // 지도 좌측(카테고리 필터 아래)의 라이딩 날씨 플로팅 버튼 — 상태·기온 요약,
 // 테두리 색이 라이딩 적합도 등급을 나타낸다. 탭하면 상세 바텀시트.
-export default function WeatherFab({ weather, open, onPress }: Props) {
+export default function WeatherFab({ weather, failed = false, refreshing = false, onRetry, open, onPress }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const scale = useSharedValue(1);
@@ -31,10 +35,13 @@ export default function WeatherFab({ weather, open, onPress }: Props) {
 
   return (
     <AnimatedPressable
-      accessibilityLabel={`라이딩 날씨 ${weather.current.temp}도, 상세 ${open ? '닫기' : '보기'}`}
+      accessibilityLabel={weather
+        ? `라이딩 날씨 ${weather.current.temp}도, ${failed ? '이전 예보, ' : ''}상세 ${open ? '닫기' : '보기'}`
+        : refreshing ? '날씨 확인 중' : '날씨를 불러오지 못했어요. 다시 시도'}
       accessibilityRole="button"
-      accessibilityState={{ expanded: open }}
-      onPress={onPress}
+      accessibilityState={{ expanded: !!weather && open, disabled: !weather && refreshing, busy: refreshing }}
+      disabled={!weather && refreshing}
+      onPress={weather ? onPress : onRetry}
       onPressIn={() => {
         scale.value = withTiming(0.82, { duration: 90 });
       }}
@@ -47,15 +54,19 @@ export default function WeatherFab({ weather, open, onPress }: Props) {
         animatedStyle,
         {
           backgroundColor: colors.background,
-          borderColor: weather.gradeColor,
+          borderColor: weather && !failed ? weather.gradeColor : colors.border,
         },
       ]}>
-      <WeatherEmoji
-        emoji={weather.current.emoji}
-        size={18}
-        lineHeight={20}
-      />
-      <Text style={[styles.temp, { color: colors.text }]}>{weather.current.temp}°</Text>
+      {weather ? (
+        <WeatherEmoji emoji={weather.current.emoji} size={18} lineHeight={20} />
+      ) : refreshing ? (
+        <ActivityIndicator size="small" color={colors.textSecondary} />
+      ) : (
+        <Ionicons name="cloud-offline-outline" size={18} color={colors.textSecondary} />
+      )}
+      <Text style={[styles.temp, { color: colors.text }]}>
+        {weather ? failed ? '이전 예보' : `${weather.current.temp}°` : refreshing ? '확인 중' : '재시도'}
+      </Text>
     </AnimatedPressable>
   );
 }

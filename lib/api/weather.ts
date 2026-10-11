@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { coordToRegion } from '@/lib/api/kakaoLocal';
 import { isNightAt } from '@/lib/sun';
 import { NIGHT_PARTLY_CLOUDY_EMOJI } from '@/constants/weather';
+import { ProviderError, edgeProviderError } from '@/lib/providerErrors';
 
 export interface HourlyWeather {
   /** KMA 예보 시각을 KST에서 절대 시각으로 변환한 ISO 문자열 */
@@ -186,6 +187,7 @@ export async function checkRouteWeather(
       sampled.map(async (p) => {
         const { data, error } = await supabase.functions.invoke('weather-kr', {
           body: { lat: p.latitude, lng: p.longitude },
+          timeout: 20_000,
         });
         if (error) return null;
         const hours: KmaHour[] = data?.hours ?? [];
@@ -237,7 +239,7 @@ export interface WeatherWarning {
 /** 전국 발효 특보 (EF weather-warnings, 10분 캐시). 실패해도 시트가 떠야 하니 빈 배열. */
 export async function fetchWeatherWarnings(): Promise<WeatherWarning[]> {
   try {
-    const { data, error } = await supabase.functions.invoke('weather-warnings');
+    const { data, error } = await supabase.functions.invoke('weather-warnings', { timeout: 20_000 });
     if (error) return [];
     return data?.warnings ?? [];
   } catch {
@@ -379,6 +381,25 @@ interface KmaHour {
   reh: number | null;
 }
 
+function isKmaHour(value: unknown): value is KmaHour {
+  if (!value || typeof value !== 'object') return false;
+  const hour = value as Record<string, unknown>;
+  if (typeof hour.date !== 'string' || !/^\d{8}$/.test(hour.date)) return false;
+  const year = Number(hour.date.slice(0, 4));
+  const month = Number(hour.date.slice(4, 6));
+  const day = Number(hour.date.slice(6, 8));
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return false;
+  return typeof hour.date === 'string'
+    && typeof hour.time === 'string' && /^(?:[01]\d|2[0-3])[0-5]\d$/.test(hour.time)
+    && (hour.tmp === null || (typeof hour.tmp === 'number' && Number.isFinite(hour.tmp)))
+    && ['pop', 'pty', 'sky'].every((key) => typeof hour[key] === 'number' && Number.isFinite(hour[key]))
+    && (hour.wsd === null || (typeof hour.wsd === 'number' && Number.isFinite(hour.wsd)))
+    && (hour.reh === null || (typeof hour.reh === 'number' && Number.isFinite(hour.reh)))
+    && (hour.lgt === undefined || (typeof hour.lgt === 'number' && Number.isFinite(hour.lgt)))
+    && (hour.pop as number) >= 0 && (hour.pop as number) <= 100;
+}
+
 // 기상청 date/time은 KST이므로 기기 시간대와 무관한 절대 시각으로 바꾼다.
 function kmaHourAt(hour: KmaHour): Date {
   const year = Number(hour.date.slice(0, 4));
@@ -390,20 +411,31 @@ function kmaHourAt(hour: KmaHour): Date {
 }
 
 export async function fetchRidingWeather(latitude: number, longitude: number): Promise<RidingWeather> {
-  const { data, error } = await supabase.functions.invoke('weather-kr', {
-    body: { lat: latitude, lng: longitude },
-  });
-  if (error) throw new Error(`날씨 요청 실패 (${error.message})`);
-  const hours: KmaHour[] = data?.hours ?? [];
-  if (hours.length === 0) throw new Error('날씨 데이터가 비어 있습니다');
+  let hours: KmaHour[];
+  try {
+    const { data, error } = await supabase.functions.invoke('weather-kr', {
+      body: { lat: latitude, lng: longitude }, timeout: 20_000,
+    });
+    if (error) throw error;
+    if (!Array.isArray(data?.hours) || data.hours.length === 0 || !data.hours.every(isKmaHour)) {
+      throw new ProviderError('kma', 'forecast', 'invalid_response');
+    }
+    hours = data.hours;
+  } catch (error) {
+    throw edgeProviderError('kma', 'forecast', error);
+  }
 
   const next12 = hours.slice(0, 12);
-  const hourly: HourlyWeather[] = next12.map((h) => {
+  const now = hours[0];
+  if (now.tmp === null) throw new ProviderError('kma', 'forecast', 'invalid_response');
+  // 미래 슬롯의 기온 결측은 Edge 계약상 정상이다. 0도로 만들지 않고 해당 칸만 생략하며
+  // 강수·낙뢰 점수와 코멘트에는 기온 유무와 무관하게 원래 6/12시간 범위를 사용한다.
+  const hourly: HourlyWeather[] = next12.filter((h): h is KmaHour & { tmp: number } => h.tmp !== null).map((h) => {
     const at = kmaHourAt(h);
     return {
       at: at.toISOString(),
       hour: `${parseInt(h.time.slice(0, 2), 10)}시`,
-      temp: Math.round(h.tmp ?? 0),
+      temp: Math.round(h.tmp),
       pop: h.pop,
       emoji: describeKma(
         h.sky,
@@ -414,8 +446,7 @@ export async function fetchRidingWeather(latitude: number, longitude: number): P
     };
   });
 
-  const now = hours[0];
-  const temp = now.tmp ?? 0;
+  const temp = now.tmp;
   const windMs = now.wsd ?? 0;
   // 점수는 라이딩 판단에 유의미한 향후 6시간의 강수확률만 반영 (표시는 12시간)
   const popMax = Math.max(0, ...next12.slice(0, 6).map((h) => h.pop));

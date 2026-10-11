@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { fetchRidingWeather } from '@/lib/api/weather';
 import { fetchAirQuality } from '@/lib/api/air';
+import { retryProviderQuery } from '@/lib/providerErrors';
 
 // 라이딩 날씨 — 좌표를 ~1km 격자로 스냅해 캐시를 공유하고 10분간 신선하게 유지
 export function useWeather(latitude?: number | null, longitude?: number | null) {
@@ -31,5 +32,6 @@ export function useWeather(latitude?: number | null, longitude?: number | null) 
     // 기상청 초단기예보가 매시간 갱신되므로 지도가 떠 있는 동안 주기적으로 따라간다
     refetchInterval: 10 * 60 * 1000,
     placeholderData: (prev) => prev,
+    retry: retryProviderQuery,
   });
 }

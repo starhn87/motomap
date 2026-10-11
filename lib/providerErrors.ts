@@ -26,6 +26,25 @@ export function providerHttpError(provider: string, operation: string, status: n
   return new ProviderError(provider, operation, kind, status);
 }
 
+/** Edge gateway 인증과 외부 공급자 키 오류를 동일한 설정 장애로 오인하지 않는다. */
+export function edgeProviderError(provider: string, operation: string, error: unknown): ProviderError {
+  if (error instanceof ProviderError) return error;
+  const candidate = error as { name?: unknown; context?: { name?: unknown; status?: unknown } } | null;
+  if (candidate?.name === 'AbortError' || candidate?.context?.name === 'AbortError') {
+    return new ProviderError(provider, operation, 'timeout');
+  }
+  const status = candidate?.context?.status;
+  if (typeof status === 'number' && Number.isInteger(status) && status >= 400 && status <= 599) {
+    // 사용자 JWT 만료·권한 문제일 수도 있다. 공급자 설정 오류라는 기계 판정 없이 세션을 차단하지 않는다.
+    if (status === 401 || status === 403) return new ProviderError(provider, operation, 'invalid_request', status);
+    return providerHttpError(provider, operation, status);
+  }
+  if (candidate?.name === 'FunctionsFetchError' || candidate?.name === 'FunctionsRelayError') {
+    return new ProviderError(provider, operation, 'temporary');
+  }
+  return new ProviderError(provider, operation, 'invalid_response');
+}
+
 // 앱 프로세스 단위다. 설정 오류에는 검색어 변경·refetch로 같은 키를 계속 쓰지 않는다.
 const configurationFailures = new Map<string, ProviderError>();
 export function rememberProviderFailure(error: ProviderError): void {

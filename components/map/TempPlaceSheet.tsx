@@ -137,7 +137,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
     [reviews],
   );
 
-  const { data: gas, isLoading: gasLoading } = useGasPricesAt(place);
+  const { data: gas, isLoading: gasLoading, isError: gasFailed, isFetching: gasFetching, refetch: refetchGas } = useGasPricesAt(place);
   const isGasStation = !!place && looksLikeGasStation(place.name);
   const canLoadHours = !!place && !isGasStation;
   const { data: placeHours, isLoading: hoursLoading } = usePlaceHours(
@@ -592,7 +592,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             </View>
           )}
 
-          {(gasLoading || fuelPrices.length > 0) && (
+          {(gasLoading || gasFailed || fuelPrices.length > 0) && (
             <View style={[styles.priceRows, { borderColor: colors.border }]}>
               {gasLoading
                 ? [0, 1, 2].map((i) => (
@@ -634,18 +634,34 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                       </View>
                     );
                   })}
-              <Text style={[styles.tradeAt, { color: colors.textSecondary }]}>
+              {(gasLoading || fuelPrices.length > 0) && <Text style={[styles.tradeAt, { color: colors.textSecondary }]}>
                 {gasLoading
                   ? ''
                   : [
                       tankCost
                         ? `가득 약 ${tankCost.toLocaleString()}원 (${myBike!.tankL}L)`
                         : null,
-                      formatTradeAt(fuelPrices[0].tradeAt),
+                      fuelPrices[0] ? formatTradeAt(fuelPrices[0].tradeAt) : null,
                     ]
                       .filter(Boolean)
                       .join(' · ')}
-              </Text>
+              </Text>}
+              {gasFailed && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="이 장소의 유가 다시 확인"
+                  accessibilityState={{ disabled: gasFetching, busy: gasFetching }}
+                  disabled={gasFetching}
+                  onPress={() => { void refetchGas(); }}
+                  style={({ pressed }) => [styles.providerRetry, { opacity: pressed || gasFetching ? 0.65 : 1 }]}>
+                  <Text style={[styles.tradeAt, { color: colors.textSecondary }]}>
+                    {fuelPrices.length ? '갱신하지 못해 이전 유가를 표시하고 있어요.' : '유가를 확인하지 못했어요.'}
+                  </Text>
+                  <Text style={[styles.tradeAt, { color: colors.tint }]}>
+                    {gasFetching ? '확인 중' : '다시 시도'}
+                  </Text>
+                </Pressable>
+              )}
             </View>
           )}
 
@@ -781,6 +797,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
 }
 
 const styles = StyleSheet.create({
+  providerRetry: { gap: 6 },
   sheetContainer: { zIndex: 20 },
   content: { padding: 20, paddingBottom: 120 },
   handleContainer: {

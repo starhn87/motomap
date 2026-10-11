@@ -20,6 +20,9 @@ interface Props {
   /** 장소 상세 전환처럼 다른 시트와 겹치면 안 되는 경우에만 즉시 닫는다 */
   closeImmediately?: boolean;
   weather: RidingWeather;
+  failed?: boolean;
+  refreshing?: boolean;
+  onRetry?: () => void;
   /** 예보 기준 좌표 — 하단에 동네 이름으로 표기해 "어디 날씨인지" 혼동을 없앤다 */
   latitude?: number;
   longitude?: number;
@@ -118,6 +121,9 @@ export default function WeatherSheet({
   open,
   closeImmediately = false,
   weather,
+  failed = false,
+  refreshing = false,
+  onRetry,
   latitude,
   longitude,
   onClose,
@@ -263,11 +269,11 @@ export default function WeatherSheet({
           />
           <View style={styles.gradeInfo}>
             <View style={styles.gradeTitleRow}>
-              <Text style={[styles.gradeTitle, { color: weather.gradeColor }]}>
-                라이딩 {weather.grade}
+              <Text style={[styles.gradeTitle, { color: failed ? colors.textSecondary : weather.gradeColor }]}>
+                {failed ? '이전 예보' : `라이딩 ${weather.grade}`}
               </Text>
               <Text style={[styles.gradeScore, { color: colors.textSecondary }]}>
-                {weather.score}점
+                {failed ? '이전 ' : ''}{weather.score}점
               </Text>
               {/* 발효 중인 특보 — 점수 줄 우측 끝. 조회가 늦어도 이 줄 높이는
                   이미 있어서 나타날 때 레이아웃 시프트가 없다 */}
@@ -302,7 +308,22 @@ export default function WeatherSheet({
                 </Pressable>
               )}
             </View>
-            <Text style={[styles.gradeComment, { color: colors.text }]}>{weather.comment}</Text>
+            {failed ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="날씨 다시 확인"
+                accessibilityState={{ disabled: refreshing, busy: refreshing }}
+                disabled={refreshing}
+                onPress={onRetry}
+                style={({ pressed }) => ({ opacity: pressed || refreshing ? 0.65 : 1 })}>
+                <Text style={[styles.gradeComment, { color: colors.textSecondary }]}>
+                  {'갱신하지 못해 이전 예보를 표시해요.\n'}
+                  <Text style={{ color: colors.tint }}>{refreshing ? '확인 중' : '다시 시도'}</Text>
+                </Text>
+              </Pressable>
+            ) : (
+              <Text style={[styles.gradeComment, { color: colors.text }]}>{weather.comment}</Text>
+            )}
           </View>
         </View>
 
