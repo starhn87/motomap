@@ -344,7 +344,7 @@ export default function PointSearchModal({
           keyExtractor={(item, i) =>
             item.kind === 'place' ? `place-${item.place.id}` : `kakao-${item.k.placeName}-${i}`
           }
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps={confirmSlot ? 'always' : 'handled'}
           ListHeaderComponent={
             query.trim() ? (searchIssue ? (
               <Text style={{ color: colors.textSecondary, padding: 20 }}>{searchIssue}</Text>

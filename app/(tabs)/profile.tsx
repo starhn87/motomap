@@ -346,6 +346,7 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView
+      keyboardShouldPersistTaps="handled"
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}>
       {settingsButton}

@@ -49,9 +49,10 @@ export function DialogCard({ dialog, onPress, onDismiss }: {
   const MessageWrap = dialog.maskMessage ? PostHogMaskView : View;
 
   return (
-      <Pressable style={styles.backdrop} onPress={onDismiss}>
+      <Pressable style={styles.backdrop} onPress={onDismiss} accessible={false}>
         {/* 카드 자체 탭은 닫히지 않게 — 내부 Pressable 이 이벤트를 삼킨다 */}
         <Pressable
+          accessible={false}
           style={[styles.card, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
           onPress={() => {}}>
           <Text style={[styles.title, { color: colors.text }]}>{dialog.title}</Text>
