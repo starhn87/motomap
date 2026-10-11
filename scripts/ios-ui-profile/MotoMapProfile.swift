@@ -103,8 +103,8 @@ final class MotoMapProfile: XCTestCase {
         let input = app.textFields["장소, 라이딩 검색"]
         XCTAssertTrue(input.waitForExistence(timeout: 15))
         input.tap()
-        input.typeText("다산생태공원")
-        let result = app.otherElements.matching(NSPredicate(format: "label CONTAINS %@", "다산생태공원,")).firstMatch
+        input.typeText("RSG")
+        let result = app.otherElements.matching(NSPredicate(format: "label CONTAINS %@", "RSG 성수")).firstMatch
         XCTAssertTrue(result.waitForExistence(timeout: 20))
         result.tap()
         let destination = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "도착")).firstMatch
@@ -135,6 +135,77 @@ final class MotoMapProfile: XCTestCase {
         app.launch()
         let search = app.otherElements.matching(NSPredicate(format: "label CONTAINS %@", "장소, 라이딩 검색")).firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 20))
+    }
+
+    // 실제 주행 없이 안내 중 native 중지 API를 디버거로 검사하는 전용 러너다.
+    // 서버 동의·기록을 주입하지 않으며 확인 체크·삭제·철회도 대신 실행하지 않는다.
+    func testReleaseGuidanceLocationStopInspection() throws {
+        // 검사 중 실패하더라도 안내 프로세스를 남겨 백그라운드 위치 사용을 계속하지 않는다.
+        defer { app.terminate() }
+        openLocationPrivacySettings()
+        let location = app.switches["현재 위치 사용"]
+        XCTAssertEqual(location.value as? String, "1")
+        let history = app.switches["방문 기록 저장"]
+        XCTAssertTrue(history.exists)
+        XCTAssertEqual(history.value as? String, "0", "안내 검사 중 새 방문 저장은 OFF여야 한다")
+        openSearch()
+        let input = app.textFields["장소, 라이딩 검색"]
+        XCTAssertTrue(input.waitForExistence(timeout: 15))
+        input.tap()
+        input.typeText("RSG")
+        let result = app.otherElements.matching(NSPredicate(format: "label CONTAINS %@", "RSG 성수")).firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 20))
+        result.tap()
+        let destination = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "도착")).firstMatch
+        XCTAssertTrue(destination.waitForExistence(timeout: 15))
+        destination.tap()
+        let warning = app.alerts.firstMatch
+        if warning.waitForExistence(timeout: 3) {
+            let proceed = warning.buttons["출발"]
+            XCTAssertTrue(proceed.exists)
+            proceed.tap()
+        }
+        let start = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "안내 시작")).firstMatch
+        XCTAssertTrue(start.waitForExistence(timeout: 30))
+        start.tap()
+        let end = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "종료")).firstMatch
+        XCTAssertTrue(end.waitForExistence(timeout: 30), "실제 native 안내가 열려야 한다")
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 5)
+        app.activate()
+        XCTAssertTrue(end.waitForExistence(timeout: 10))
+        NSLog("MOTOMAP_GUIDANCE_STOP_INSPECTION_READY")
+        // 디버거는 stopLocationUse와 같은 native 진입점만 호출한다. 실제 종료를 확인한다.
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: end)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 60), .completed)
+        NSLog("MOTOMAP_GUIDANCE_STOP_INSPECTION_DISMISSED")
+        // 안내 검사와 별도로 실제 설정 OFF를 통해 JS 센서 종료·서버 중지 경로를 실행한다.
+        // 이 단계가 '활성 안내 중 설정 스위치 OFF'라고 주장하지 않는다.
+        let profile = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "내 정보")).firstMatch
+        XCTAssertTrue(profile.waitForExistence(timeout: 15))
+        profile.tap()
+        let settings = app.otherElements.matching(NSPredicate(format: "label ENDSWITH %@", ", 설정")).firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 15))
+        settings.tap()
+        let privacy = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "위치정보 동의·기록 관리")).firstMatch
+        XCTAssertTrue(privacy.waitForExistence(timeout: 10))
+        if !privacy.isHittable { app.swipeUp() }
+        privacy.tap()
+        let locationSwitch = app.switches["현재 위치 사용"]
+        XCTAssertTrue(locationSwitch.waitForExistence(timeout: 10))
+        locationSwitch.tap()
+        let off = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@ AND enabled == true", "0"), object: locationSwitch)
+        XCTAssertEqual(XCTWaiter.wait(for: [off], timeout: 15), .completed)
+        NSLog("MOTOMAP_LOCATION_PAUSED_INSPECTION_READY")
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 15)
+        app.activate()
+        XCTAssertEqual(locationSwitch.value as? String, "0")
+        locationSwitch.tap()
+        let restored = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@ AND enabled == true", "1"), object: locationSwitch)
+        XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 15), .completed)
+        XCTAssertEqual(app.switches["방문 기록 저장"].value as? String, "0")
+        NSLog("MOTOMAP_LOCATION_PAUSED_INSPECTION_RESTORED")
     }
 
     // 출시 검증용 읽기 전용 smoke다. measure/trace·계정 변경은 실행하지 않는다.
