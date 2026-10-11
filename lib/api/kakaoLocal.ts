@@ -1,5 +1,5 @@
-import { toast } from '@/lib/toast';
 import { approxMeters } from '@/lib/distance';
+import { ProviderError, providerHttpError, rememberProviderFailure, requireProviderAvailable } from '@/lib/providerErrors';
 
 // 카카오 로컬 REST API 키 (developers.kakao.com > 내 앱 > 앱 키 > REST API 키).
 // 네이티브 앱 키(KAKAO_NATIVE_APP_KEY)와는 다른 키다.
@@ -78,25 +78,47 @@ export async function searchKakaoLocalPage(
 ): Promise<KakaoLocalSearchPage> {
   const q = query.trim();
   if (!q) return { results: [], totalCount: 0, pageableCount: 0, isEnd: true };
-  if (!REST_KEY) {
-    if (options.throwOnError) throw new Error('KAKAO REST API 키가 설정되지 않았습니다.');
-    toast.error('주소 검색을 사용할 수 없습니다.', 'KAKAO REST API 키가 설정되지 않았습니다.');
-    return { results: [], totalCount: 0, pageableCount: 0, isEnd: false };
-  }
-
   const bias = near ? `&x=${near.longitude}&y=${near.latitude}` : '';
   const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=15${bias}`;
+  const controller = new AbortController();
+  let timedOut = false;
+  const abort = () => controller.abort();
+  options.signal?.addEventListener('abort', abort, { once: true });
+  if (options.signal?.aborted) controller.abort();
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 10_000);
   try {
+    if (options.signal?.aborted) throw new ProviderError('kakao-local', 'search', 'cancelled');
+    requireProviderAvailable('kakao-local');
+    if (!REST_KEY) throw new ProviderError('kakao-local', 'search', 'configuration');
+    if (near && (!Number.isFinite(near.latitude) || !Number.isFinite(near.longitude) ||
+      Math.abs(near.latitude) > 90 || Math.abs(near.longitude) > 180)) {
+      throw new ProviderError('kakao-local', 'search', 'invalid_request');
+    }
     const res = await fetch(url, {
       headers: { Authorization: `KakaoAK ${REST_KEY}` },
-      signal: options.signal,
+      signal: controller.signal,
     });
-    if (!res.ok) {
-      if (options.throwOnError) throw new Error(`카카오 장소 검색 실패 (${res.status})`);
-      return { results: [], totalCount: 0, pageableCount: 0, isEnd: false };
+    if (!res.ok) throw providerHttpError('kakao-local', 'search', res.status);
+    let data;
+    try { data = await res.json(); }
+    catch { throw new ProviderError('kakao-local', 'search', 'invalid_response'); }
+    const documents = data?.documents;
+    const meta = data?.meta;
+    if (!Array.isArray(documents) || !meta || typeof meta.is_end !== 'boolean' ||
+      !Number.isInteger(meta.total_count) || meta.total_count < 0 ||
+      !Number.isInteger(meta.pageable_count) || meta.pageable_count < 0 ||
+      documents.some((d: any) => !d || typeof d.place_name !== 'string' || !d.place_name.trim() ||
+        (typeof d.x !== 'string' && typeof d.x !== 'number') ||
+        (typeof d.y !== 'string' && typeof d.y !== 'number') ||
+        !Number.isFinite(Number(d.x)) || !Number.isFinite(Number(d.y)) ||
+        (typeof d.x === 'string' && !d.x.trim()) || (typeof d.y === 'string' && !d.y.trim()) ||
+        Math.abs(Number(d.x)) > 180 || Math.abs(Number(d.y)) > 90 ||
+        (d.address_name != null && typeof d.address_name !== 'string') ||
+        (d.road_address_name != null && typeof d.road_address_name !== 'string'))) {
+      throw new ProviderError('kakao-local', 'search', 'invalid_response');
     }
-    const data = await res.json();
-    const documents = Array.isArray(data.documents) ? data.documents : [];
+    if (options.signal?.aborted) throw new ProviderError('kakao-local', 'search', 'cancelled');
+    if (timedOut) throw new ProviderError('kakao-local', 'search', 'timeout');
     return {
       results: documents.map((d: any) => ({
         providerId: d.id || undefined,
@@ -108,15 +130,21 @@ export async function searchKakaoLocalPage(
         longitude: Number(d.x),
         phone: d.phone ?? '',
       })),
-      totalCount: Number(data.meta?.total_count ?? documents.length),
-      pageableCount: Number(data.meta?.pageable_count ?? documents.length),
-      isEnd: data.meta?.is_end === true,
+      totalCount: meta.total_count,
+      pageableCount: meta.pageable_count,
+      isEnd: meta.is_end,
     };
   } catch (error) {
     // React Query가 취소한 검색을 정상적인 0건으로 캐시하지 않는다.
-    if (options.signal?.aborted) throw error;
-    if (options.throwOnError) throw error;
+    if (options.signal?.aborted) throw new ProviderError('kakao-local', 'search', 'cancelled');
+    const normalized = timedOut ? new ProviderError('kakao-local', 'search', 'timeout')
+      : error instanceof ProviderError ? error : new ProviderError('kakao-local', 'search', 'offline');
+    rememberProviderFailure(normalized);
+    if (options.throwOnError !== false) throw normalized;
     return { results: [], totalCount: 0, pageableCount: 0, isEnd: false };
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener('abort', abort);
   }
 }
 

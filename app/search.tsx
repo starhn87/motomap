@@ -244,7 +244,7 @@ export default function SearchScreen() {
   // 못 찾은 경우다. 함께 싣는 kakao_count 로 오타와 "제보할 곳"을 가른다.
   const reportedResults = useRef(new Set<string>());
   useEffect(() => {
-    if (!searching || !inlineSearchId || isLoading || !results) return;
+    if (!searching || !inlineSearchId || isLoading || !results || results.failedSources?.length) return;
     const registered = results?.places.length ?? 0;
     const ridingGuides = results?.ridingGuides.length ?? 0;
     if (reportedResults.current.has(inlineSearchId)) return;
@@ -477,6 +477,13 @@ export default function SearchScreen() {
           <FlatList
             ListHeaderComponent={
               <>
+                {(unifiedSearch.isError || !!results?.failedSources?.length) && (
+                  <Text style={[styles.rowSub, { color: colors.textSecondary, padding: 20 }]}>
+                    {unifiedSearch.isError
+                      ? '검색 결과를 불러오지 못했어요. 연결 상태를 확인하고 다시 시도해 주세요.'
+                      : '일부 검색 결과를 불러오지 못했어요. 확인된 결과만 표시해요.'}
+                  </Text>
+                )}
                 {(results?.places.length ?? 0) === 0 && kakaoOnly.length > 0 && (
                   <Pressable
                     onPress={browseArea}
@@ -519,7 +526,7 @@ export default function SearchScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
+            ListEmptyComponent={unifiedSearch.isError || results?.failedSources?.length ? null :
               <Text style={[styles.noResult, { color: colors.textSecondary }]}>
                 검색 결과가 없습니다
               </Text>

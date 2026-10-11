@@ -6,12 +6,14 @@ import {
   type KakaoLocalResult,
 } from '@/lib/api/kakaoLocal';
 import { isSamePlace } from '@/lib/searchMatching';
+import { ProviderError, providerHttpError } from '@/lib/providerErrors';
 
 export { isSamePlace } from '@/lib/searchMatching';
 
 export interface SearchResults {
   places: Place[];
   ridingGuides: RidingGuideSearchResult[];
+  failedSources?: ('places' | 'ridingGuides' | 'kakao')[];
 }
 
 export interface UnifiedPlaceSearchResults extends SearchResults {
@@ -87,15 +89,27 @@ export async function searchAll(
     ...sharedParams,
     p_limit: 30,
   });
-  const [placesRes, ridingGuidesRes] = await Promise.all([
+  const [placesResult, guidesResult] = await Promise.allSettled([
     signal ? placesRequest.abortSignal(signal) : placesRequest,
     signal ? ridingGuidesRequest.abortSignal(signal) : ridingGuidesRequest,
   ]);
-  if (placesRes.error) throw placesRes.error;
-  if (ridingGuidesRes.error) throw ridingGuidesRes.error;
+  if (signal?.aborted) throw new ProviderError('supabase', 'search', 'cancelled');
+  const placesRes = placesResult.status === 'fulfilled' ? placesResult.value : null;
+  const ridingGuidesRes = guidesResult.status === 'fulfilled' ? guidesResult.value : null;
+  const placesFailed = !placesRes || !!placesRes.error;
+  const guidesFailed = !ridingGuidesRes || !!ridingGuidesRes.error;
+  if (placesFailed && guidesFailed) {
+    const status = placesRes?.status ?? ridingGuidesRes?.status;
+    throw status ? providerHttpError('supabase', 'search', status)
+      : new ProviderError('supabase', 'search', 'offline');
+  }
   return {
-    places: (placesRes.data ?? []).map((row: PlaceRow) => rowToPlace(row)),
-    ridingGuides: (ridingGuidesRes.data ?? []).map((row: any) => ({
+    failedSources: [
+      ...(placesFailed ? ['places' as const] : []),
+      ...(guidesFailed ? ['ridingGuides' as const] : []),
+    ],
+    places: (placesFailed ? [] : placesRes!.data ?? []).map((row: PlaceRow) => rowToPlace(row)),
+    ridingGuides: (guidesFailed ? [] : ridingGuidesRes!.data ?? []).map((row: any) => ({
       id: row.id,
       title: row.title,
       summary: row.summary,
@@ -116,10 +130,17 @@ export async function searchUnifiedPlaces(
   near?: { latitude: number; longitude: number },
   options: { signal?: AbortSignal; nearOnly?: boolean } = {},
 ): Promise<UnifiedPlaceSearchResults> {
-  const [registered, kakao] = await Promise.all([
+  const [registeredResult, kakaoResult] = await Promise.allSettled([
     searchAll(query, near, options.nearOnly, options.signal),
     searchKakaoLocal(query, near, { signal: options.signal }),
   ]);
+  if (options.signal?.aborted) throw new ProviderError('search', 'query', 'cancelled');
+  if (registeredResult.status === 'rejected' && kakaoResult.status === 'rejected') {
+    throw kakaoResult.reason;
+  }
+  const registered: SearchResults = registeredResult.status === 'fulfilled' ? registeredResult.value
+    : { places: [], ridingGuides: [], failedSources: ['places', 'ridingGuides'] };
+  const kakao = kakaoResult.status === 'fulfilled' ? kakaoResult.value : [];
   const kakaoOnly = kakao.filter(
     (result) =>
       !registered.places.some((place) =>
@@ -130,5 +151,7 @@ export async function searchUnifiedPlaces(
         }),
       ),
   );
-  return { ...registered, kakaoOnly };
+  return { ...registered, kakaoOnly, failedSources: [
+    ...(registered.failedSources ?? []), ...(kakaoResult.status === 'rejected' ? ['kakao' as const] : []),
+  ] };
 }

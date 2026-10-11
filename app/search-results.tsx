@@ -46,6 +46,7 @@ import { focusPlaceOnMap, focusPointOnMap } from '@/lib/mapFocus';
 import { queryKeys } from '@/lib/queryKeys';
 import type { Place, RidingGuideSearchResult } from '@/types';
 import Skeleton from '@/components/ui/Skeleton';
+import { friendlyProviderError, retryProviderQuery, ProviderError } from '@/lib/providerErrors';
 
 // 지도에 뿌리는 결과 상한 — 등록 장소가 광범위한 검색어(예: "카페")일 때
 // 마커 폭주를 막는다. 목록도 같은 상한을 쓴다.
@@ -179,12 +180,14 @@ export default function SearchResultsScreen() {
     ),
     queryFn: ({ signal }) => searchAll(searchQuery, activeNear, true, signal),
     enabled: requestEnabled,
+    retry: retryProviderQuery,
   });
   const kakaoQuery = useQuery({
     queryKey: queryKeys.search.kakao(query, nearKey, areaSearchRevision),
     queryFn: ({ signal }) =>
       searchKakaoLocalPage(query, activeNear, { throwOnError: true, signal }),
     enabled: requestEnabled && !browseMode,
+    retry: retryProviderQuery,
   });
   const results = resultsQuery.data;
   const kakaoPage = kakaoQuery.data;
@@ -282,14 +285,17 @@ export default function SearchResultsScreen() {
     ];
   }, [results, nearbyKakaoResults, filters, bikeMatches.data]);
 
-  const sourcesReady =
-    requestEnabled && resultsQuery.isSuccess && (browseMode || kakaoQuery.isSuccess);
   const rawResultCount =
     (results?.places.length ?? 0) +
     (results?.ridingGuides.length ?? 0) +
     nearbyKakaoResults.length;
-  const searchFailed =
+  const searchIncomplete = !!results?.failedSources?.length ||
     resultsQuery.isError || (!browseMode && kakaoQuery.isError);
+  const sourcesReady = requestEnabled && !searchIncomplete &&
+    resultsQuery.isSuccess && (browseMode || kakaoQuery.isSuccess);
+  const searchFailed = searchIncomplete && rawResultCount === 0;
+  const searchError = resultsQuery.error ?? kakaoQuery.error;
+  const configurationFailure = searchError instanceof ProviderError && searchError.kind === 'configuration';
   const uniqueExactKakaoIsRemote =
     !!uniqueExactKakao &&
     !!activeNear &&
@@ -324,7 +330,7 @@ export default function SearchResultsScreen() {
     (!browseMode && kakaoQuery.isLoading) ||
     (hasRegisteredResults && (bikeMatches.isLoading || bikeMatches.bikesLoading)) ||
     resolvingExactRemote ||
-    exactTransitionPending ||
+    (!searchIncomplete && exactTransitionPending) ||
     redirectingToExact;
 
   // 현재 지도 주변에 아무 결과도 없지만 카카오에서 고유한 상호가 정확히 하나
@@ -634,7 +640,7 @@ export default function SearchResultsScreen() {
     </View>
   );
 
-  if (!searchFailed && (resolvingExactRemote || exactTransitionPending || redirectingToExact)) {
+  if (!searchIncomplete && (resolvingExactRemote || exactTransitionPending || redirectingToExact)) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         {statusHeader}
@@ -652,9 +658,10 @@ export default function SearchResultsScreen() {
         <EmptyState
           icon={<Ionicons name="cloud-offline-outline" size={44} color={colors.textSecondary} />}
           title="검색 결과를 불러오지 못했어요"
-          hint="연결 상태를 확인하고 다시 시도해 주세요."
-          actionLabel="다시 시도"
+          hint={friendlyProviderError(searchError)}
+          actionLabel={configurationFailure ? '검색으로 돌아가기' : '다시 시도'}
           onAction={() => {
+            if (configurationFailure) { router.back(); return; }
             void resultsQuery.refetch();
             if (!browseMode) void kakaoQuery.refetch();
           }}
@@ -821,6 +828,11 @@ export default function SearchResultsScreen() {
           contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
           ListHeaderComponent={
             <View>
+              {searchIncomplete && (
+                <Text style={[styles.countText, { color: colors.textSecondary }]}>
+                  일부 검색 결과를 불러오지 못했어요. 확인된 결과만 표시해요.
+                </Text>
+              )}
               <Text style={[styles.countText, { color: colors.textSecondary }]}>
                 {loading ? '검색 중…' : `${browseMode ? '주변 결과' : '검색 결과'} ${items.length}개`}
               </Text>

@@ -15,6 +15,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import { friendlyProviderError } from '@/lib/providerErrors';
 
 interface Props {
   visible: boolean;
@@ -30,32 +31,42 @@ export default function AddressSearchModal({ visible, onClose, onSelect }: Props
   const [results, setResults] = useState<KakaoLocalResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   // 입력 디바운스 — 타이핑을 멈추면(300ms) 자동으로 검색한다.
   useEffect(() => {
     const q = query.trim();
-    if (!q) {
+    setSearchError(null);
+    if (!visible || !q) {
       setResults([]);
       setSearched(false);
       setLoading(false);
       return;
     }
+    const controller = new AbortController();
     setLoading(true);
     const t = setTimeout(() => {
-      searchKakaoLocal(query).then((r) => {
+      searchKakaoLocal(query, undefined, { signal: controller.signal }).then((r) => {
+        if (controller.signal.aborted) return;
         setResults(r);
         setSearched(true);
-        setLoading(false);
+      }).catch((error) => {
+        if (controller.signal.aborted) return;
+        setResults([]);
+        setSearchError(friendlyProviderError(error));
+      }).finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
       });
     }, 300);
-    return () => clearTimeout(t);
-  }, [query]);
+    return () => { clearTimeout(t); controller.abort(); };
+  }, [query, visible]);
 
   const reset = () => {
     setQuery('');
     setResults([]);
     setSearched(false);
     setLoading(false);
+    setSearchError(null);
   };
 
   const handleSelect = (item: KakaoLocalResult) => {
@@ -108,7 +119,7 @@ export default function AddressSearchModal({ visible, onClose, onSelect }: Props
             keyboardDismissMode="on-drag"
             ListEmptyComponent={
               <Text style={[styles.empty, { color: colors.textSecondary }]}>
-                {searched ? '검색 결과가 없습니다.' : '상호나 주소를 입력하세요.'}
+                {searchError ?? (searched ? '검색 결과가 없습니다.' : '상호나 주소를 입력하세요.')}
               </Text>
             }
             renderItem={({ item }) => (

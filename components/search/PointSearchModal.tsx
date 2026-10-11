@@ -70,6 +70,7 @@ export default function PointSearchModal({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ResultItem[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchIssue, setSearchIssue] = useState<string | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestAbort = useRef<AbortController | null>(null);
   const requestSequence = useRef(0);
@@ -120,6 +121,7 @@ export default function PointSearchModal({
       setResults([]);
       setShowFavList(false);
       setSearching(false);
+      setSearchIssue(null);
       activeSearch.current = null;
       requestSequence.current += 1;
     }
@@ -127,6 +129,7 @@ export default function PointSearchModal({
 
   const handleChange = (text: string) => {
     setQuery(text);
+    setSearchIssue(null);
     const sequence = ++requestSequence.current;
     requestAbort.current?.abort();
     if (text.trim()) setShowFavList(false); // 검색을 시작하면 즐겨찾기 목록은 접는다
@@ -155,6 +158,10 @@ export default function PointSearchModal({
           ...places.map((place) => ({ kind: 'place' as const, place })),
           ...kakaoOnly.map((k) => ({ kind: 'kakao' as const, k })),
         ]);
+        if (unified.failedSources?.some((source) => source !== 'ridingGuides')) {
+          setSearchIssue('일부 검색 결과를 불러오지 못했어요. 확인된 결과만 표시해요.');
+          return;
+        }
         const isMyPlaceSetup = !allowSaved;
         track.searchResultsViewed({
           search_id: session.id,
@@ -175,7 +182,10 @@ export default function PointSearchModal({
         }
       } catch {
         if (controller.signal.aborted) return;
-        if (sequence === requestSequence.current) setResults([]);
+        if (sequence === requestSequence.current) {
+          setResults([]);
+          setSearchIssue('검색 결과를 불러오지 못했어요. 연결 상태를 확인하고 다시 시도해 주세요.');
+        }
       } finally {
         if (sequence === requestSequence.current) setSearching(false);
       }
@@ -305,7 +315,9 @@ export default function PointSearchModal({
           }
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
-            query.trim() ? null : (
+            query.trim() ? (searchIssue ? (
+              <Text style={{ color: colors.textSecondary, padding: 20 }}>{searchIssue}</Text>
+            ) : null) : (
               <>
                 {/* 바로가기 한 줄 — 현재 위치·집·회사·즐겨찾기.
                     앞의 셋은 누르면 바로 선택되고, 즐겨찾기만 목록을 편다. */}

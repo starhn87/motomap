@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { searchUnifiedPlaces } from '@/lib/api/search';
 import { queryKeys } from '@/lib/queryKeys';
+import { retryProviderQuery } from '@/lib/providerErrors';
 
 export function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -37,6 +38,7 @@ export function useUnifiedPlaceSearch({
     queryKey: queryKeys.search.unified(debouncedQuery, nearKey),
     queryFn: ({ signal }) => searchUnifiedPlaces(debouncedQuery, near, { signal }),
     enabled: canSearch,
+    retry: retryProviderQuery,
   });
 
   return {

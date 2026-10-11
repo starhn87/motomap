@@ -610,7 +610,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     });
     // 심벌 이벤트에는 외부 장소 ID·전화번호가 없다 — 이름으로 검색해 같은 자리
     // 결과를 찾아 리뷰·즐겨찾기가 이후에도 같은 장소를 바라보게 한다.
-    void searchKakaoLocal(caption, { latitude, longitude }).then((results) => {
+    void searchKakaoLocal(caption, { latitude, longitude }, { throwOnError: false }).then((results) => {
       const match = findKakaoLocalMatch(caption, { latitude, longitude }, results);
       if (!match) return;
       setTempPlace((prev) =>
