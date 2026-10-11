@@ -1,6 +1,7 @@
 import * as SplashScreen from 'expo-splash-screen';
 import * as Updates from 'expo-updates';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
 
 import ServiceLoadingScreen from '@/components/ServiceLoadingScreen';
 import ServiceResumeScreen from '@/components/ServiceResumeScreen';
@@ -8,6 +9,7 @@ import ServiceSuspendedScreen from '@/components/ServiceSuspendedScreen';
 import { APP_STORE_URL } from '@/constants/app';
 import { getInstalledAppVersion } from '@/lib/appVersion';
 import { fetchServiceStatus, resolveServiceGate } from '@/lib/serviceStatus';
+import { scheduleStartupSplashHide, STARTUP_SPLASH_FADE_MS } from '@/lib/startupSplash';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -16,6 +18,7 @@ export const unstable_settings = {
 };
 
 SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ fade: true, duration: STARTUP_SPLASH_FADE_MS });
 
 // 중단 화면에서는 이 모듈을 평가하지 않는다. 지도·인증·분석은 진입 후에만 시작한다.
 const ActiveRootLayout = lazy(() => import('@/components/ActiveRootLayout'));
@@ -26,6 +29,9 @@ export default function RootLayout() {
   const [stage, setStage] = useState<GateStage>('checking');
   const [storeUrl, setStoreUrl] = useState(APP_STORE_URL);
   const requestSequence = useRef(0);
+  const startupStartedAt = useRef(performance.now());
+  const splashHidden = useRef(false);
+  const [startupReady, setStartupReady] = useState(false);
 
   async function checkStatus() {
     const requestId = ++requestSequence.current;
@@ -69,37 +75,54 @@ export default function RootLayout() {
   }
 
   useEffect(() => {
-    void SplashScreen.hideAsync();
     void checkStatus();
     return () => {
       requestSequence.current += 1;
+      // 오류 경계 등으로 루트가 사라지면 안내 화면을 스플래시로 가리지 않는다.
+      SplashScreen.hide();
     };
   }, []);
 
+  useEffect(() => {
+    if (!startupReady || stage === 'checking' || splashHidden.current) return;
+    return scheduleStartupSplashHide(startupStartedAt.current, () => {
+      splashHidden.current = true;
+      SplashScreen.hide();
+    });
+  }, [stage, startupReady]);
+
+  let content;
   if (stage === 'active') {
-    return (
+    content = (
       <Suspense fallback={<ServiceLoadingScreen />}>
-        <ActiveRootLayout />
+        <ActiveRootLayout onReady={() => setStartupReady(true)} />
       </Suspense>
     );
-  }
-
-  if (stage === 'checking') return <ServiceLoadingScreen />;
-
-  if (stage === 'update' || stage === 'retry') {
-    return (
+  } else if (stage === 'checking') {
+    content = <ServiceLoadingScreen />;
+  } else if (stage === 'update' || stage === 'retry') {
+    content = (
       <ServiceResumeScreen
         mode={stage}
         onRetry={() => void checkStatus()}
         storeUrl={storeUrl}
       />
     );
+  } else {
+    content = (
+      <ServiceSuspendedScreen
+        preparing={stage === 'preparing'}
+        onCheckStatus={() => void checkStatus()}
+      />
+    );
   }
 
   return (
-    <ServiceSuspendedScreen
-      preparing={stage === 'preparing'}
-      onCheckStatus={() => void checkStatus()}
-    />
+    <View
+      key={stage}
+      style={{ flex: 1 }}
+      onLayout={stage !== 'checking' && stage !== 'active' ? () => setStartupReady(true) : undefined}>
+      {content}
+    </View>
   );
 }

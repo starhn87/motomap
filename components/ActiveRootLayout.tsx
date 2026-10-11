@@ -81,7 +81,7 @@ function AppHeader({ title, colorScheme }: { title: string; colorScheme: 'light'
   );
 }
 
-function ActiveRootLayoutNav() {
+function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
 
@@ -89,7 +89,7 @@ function ActiveRootLayoutNav() {
   useScreenTracking();
 
   const tree = (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onReady}>
       <QueryClientProvider client={queryClient}>
         <PersonalPlaceRideSync />
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -141,7 +141,7 @@ function ActiveRootLayoutNav() {
   );
 }
 
-function ActiveRootLayout() {
+function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
   const [loaded, error] = useFonts(Ionicons.font);
   const initialize = useAuthStore((state) => state.initialize);
   const loadMode = useThemeStore((state) => state.loadMode);
@@ -173,7 +173,7 @@ function ActiveRootLayout() {
   }, [initialize, loadMode]);
 
   if (!loaded) return null;
-  return <ActiveRootLayoutNav />;
+  return <ActiveRootLayoutNav onReady={onReady} />;
 }
 
 export default Sentry.wrap(ActiveRootLayout);
