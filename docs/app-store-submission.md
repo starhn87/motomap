@@ -4,7 +4,35 @@
 Expo 57 / 최소 iOS 16.4 조합의 네이티브·실기기 검증과 운영·심사 접근 승인 후
 ASC > My Apps > 모토맵 > 1.2.8에 실제 기능·개인정보·리뷰 접근 정보에 맞춘 값을 입력한다.
 현재 빌드 업로드·제출·운영 재개는 미실행이다.
-Xcode 27 / iOS 27 SDK용 scene 설정을 추가했으며 실제 설치·링크·로그인·길안내 수명주기 검증은 대기 중이다.
+Xcode 27 / iOS 27 SDK 조합의 로컬 내부 Release 설치·기본 길안내/복귀/종료와 콜드/웜
+장소 링크 smoke는 통과했다. 로그인 정상 동작은 운영자가 확인했다. 최신 길안내·날씨/유가
+실패 대응 소스는 아직 미설치이며 제공자별 로그인·TestFlight 전체 회귀는 남아 있다.
+[실제 검증 범위](reports/release-regression-2026-10-11.md)를 따른다.
+
+## 1.2.8 새로운 기능 초안
+
+아래 문구는 최종 내부/TestFlight 회귀 후 확정할 후보이며 ASC에 입력하지 않았다.
+CPU·메모리 개선율, 프리 웜업·라이딩 경로 Visualizer의 구현 완료를 주장하지 않는다.
+
+```text
+- 앱 실행 기반과 주요 라이브러리를 업데이트했어요.
+- iOS 27 앱 실행 호환성을 보완하고 지도 위치 추적의 종료 처리를 개선했어요.
+- 로그인 세션 복구와 장소 검색·공유 링크의 오류 대응을 다듬었어요.
+- 길안내 초기화·경로 조회 실패 시 안내를 보완했어요.
+- 날씨·유가 조회가 실패하면 상태를 확인하고 다시 시도할 수 있어요.
+- 기존 바이크 시작 화면을 유지하고 지도 전환을 다듬었어요.
+```
+
+### 1.2.8 심사 접근 확정 전에는 제출하지 않는다
+
+`preparing`에서 production 앱은 로그인 이전에 차단된다. 아래 과거 리뷰어 계정·노트만으로
+진입할 수 있다고 안내하지 않는다. 실제 서비스와 같은 기능에 접근하는 승인된 심사 경로를
+먼저 구현·검증하고 KO/EN 노트를 확정한다. `internal-testflight` 바이너리를 App Store에
+그대로 제출하지 않으며 검증된 소스의 별도 production 빌드 ID를 명시해 제출한다.
+[재개 게이트](relaunch-readiness.md)의 운영·심사·공개 승인 경계는 유지한다.
+
+아래 메타데이터·리뷰어 노트는 **과거 1.2.7 참고 기록**이다. 설명·개인정보·계정·연령 설문은
+1.2.8의 실제 동작과 현재 ASC 설정에 대조하기 전 그대로 복사하지 않는다.
 
 ---
 
@@ -351,7 +379,7 @@ ASC > Build > 1.0.0 (xxx) > Export Compliance Information
 - [ ] EAS 빌드 성공 → TestFlight 업로드
 - [ ] 리뷰어용 테스트 계정 생성 (apple-review@ridemap.app)
 - [ ] 스크린샷 캡처 완료 (6.9" 필수, 6.5" 권장)
-- [ ] 개인정보 처리방침 Notion 공개 URL 확정
+- [ ] 개인정보 처리방침 `https://motomap.kr/privacy` 공개 접근·최종 내용 확인
 - [ ] 위 메타데이터 전부 ASC에 복붙
 - [ ] App Privacy 설문 답변
 - [ ] Age Rating 설문 답변
@@ -361,7 +389,7 @@ ASC > Build > 1.0.0 (xxx) > Export Compliance Information
 
 ## 자주 묻는 심사 리젝 사유 대비
 
-1. **Privacy Policy 누락/불일치** — Notion 페이지에 수집 항목 전부 명시 확인
+1. **Privacy Policy 누락/불일치** — `https://motomap.kr/privacy`와 앱의 실제 처리 항목 대조
 2. **Demo Account 미제공** — 위 Sign-In Information 필수 입력
 3. **앱 설명과 실제 기능 불일치** — Description 작성 후 한 번 더 검수
 4. **위치 권한 사용 목적 불명확** — Info.plist의 `NSLocationWhenInUseUsageDescription` 한국어 명확히 (이미 설정됨)

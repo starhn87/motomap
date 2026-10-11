@@ -16,6 +16,11 @@
 [회귀 검증 보고서](reports/release-regression-2026-10-11.md)에 기록했다.
 74개 자동 테스트 통과는 위 네이티브·실기기·TestFlight 체크를 대신하지 않는다.
 
+2026-10-11 후속: 로컬 내부 Release 기본 길안내·사진·날씨·설정·콜드/웜 장소 링크 smoke와
+스플래시 전환 확인은 완료했다. 최신 길안내·날씨/유가 실패 처리 소스는 미설치이며 자동
+테스트는 114개 통과했다. 아래 전체 회귀나 심사 접근이 완료된 것으로 체크하지 않는다.
+과거 가입·새 앱 등록 단계는 첫 출시 참고이며 기존 앱을 다시 등록하지 않는다.
+
 ---
 
 ## Phase A: 사전 준비
@@ -58,7 +63,7 @@
 - [ ] 닉네임, 프로필 사진 등 설정
 
 ### A-5. 개인정보 처리방침 확인
-- [ ] Notion 공개 URL 접속 가능 확인 (로그인 없이 열림)
+- [ ] `https://motomap.kr/privacy` 접속 가능 확인 (로그인 없이 열림)
 - [ ] 수집 항목과 앱 실제 동작 일치 확인 (`docs/app-store-submission.md` 섹션 3 비교)
 
 ### A-6. 최소 시드 데이터 확인
@@ -87,10 +92,14 @@ Distribution Certificate, Provisioning Profile, Push Key와 ASC API Key는 EAS�
 
 빌드 완료 후:
 ```bash
-eas submit --platform ios --latest --profile production
+eas submit --platform ios --id <PRODUCTION_BUILD_ID> --profile production
 ```
 
 자동으로 ASC에 업로드됨. 5~10분 후 ASC > TestFlight 탭에서 빌드 확인 가능.
+
+`<PRODUCTION_BUILD_ID>`는 승인된 production 빌드의 실제 ID로 바꾼다. 제출 전 버전·runtime·
+빌드 profile과 채널을 확인하고 `--latest`는 쓰지 않는다. 가장 최근 빌드가 내부 채널일 수
+있으며 내부 검증 바이너리를 공개 제출본으로 오선택하면 안 된다.
 
 ### B-3. TestFlight 내부 테스트
 - [ ] ASC > TestFlight > 빌드 선택 → **Provide Export Compliance Information**
@@ -187,15 +196,15 @@ ASC > App Privacy > **Get Started**
 - Used for tracking: **No**
 - Purposes: **App Functionality** (Diagnostics는 + Analytics)
 
-### D-4. Version Information (1.2.7)
-- [x] `lib/updateCheck.ts`의 `RELEASE_NOTES`에 출시 버전 공지 추가 (다음 버전에도 반복)
+### D-4. Version Information (1.2.8)
+- [ ] `config/release-notes.json`의 1.2.8 공지를 최종 회귀·승인 결과에 맞춰 확정
 - [ ] **Promotional Text** (170자)
 - [ ] **Description** (4000자)
 - [ ] **Keywords** (100자)
 - [ ] Support URL: GitHub Issues
 - [ ] Marketing URL: `https://motomap.kr`
 - [ ] Copyright: `© 2026 모토맵`
-- [ ] **What's New**: `docs/app-store-listing.md`의 1.2.7 새로운 기능
+- [ ] **What's New**: `docs/app-store-submission.md` / `docs/app-store-listing.md`의 1.2.8 초안 최종 확정
 - [ ] **Screenshots**: 6.9" Display에 드래그앤드롭
 
 ### D-5. App Review Information
@@ -203,7 +212,8 @@ ASC > App Privacy > **Get Started**
 - [ ] Username: `apple-review@ridemap.app`
 - [ ] Password: (Phase A-4에서 만든 비밀번호)
 - [ ] Contact: 이름/전화/이메일
-- [ ] Notes: `docs/app-store-submission.md` 섹션 5의 KO+EN 노트 전체 복붙
+- [ ] preparing에서 production 앱으로 실제 진입 가능한 심사 경로 검증 (계정만으로는 해결되지 않음)
+- [ ] Notes: `docs/app-store-submission.md`의 과거 1.2.7 노트를 그대로 복사하지 않고 1.2.8 KO+EN 노트 확정
 
 ### D-6. Age Rating
 - [ ] **Edit** 클릭 → 설문 답변
