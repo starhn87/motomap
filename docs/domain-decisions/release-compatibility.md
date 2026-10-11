@@ -282,6 +282,19 @@ EAS의 자동 채널 주입이 없으므로 `EAS_BUILD_PROFILE=internal-testflig
 
 ## 릴리스 체크리스트
 
+### 2026-10-11 스플래시 생성 회귀 복원
+
+기존 `splash-icon.png` 파일은 바뀌지 않았지만 Expo 57로 생성한 storyboard에 이전
+`expo.splash`의 이미지·검은 배경·전체 화면 contain이 반영되지 않았다. 사용자 요청으로
+`expo-splash-screen` 플러그인을 명시하고 iOS `enableFullScreenImage_legacy`를 켜 기존
+디자인을 복원한다. 새 이미지·앱 아이콘으로 대체하거나 JS 진입 화면을 추가하지 않는다.
+
+공개 전 1.2.8 후보의 네이티브 생성 설정 수정이다. 앱/runtime 1.2.8과 native/API 계약 1은
+유지하며 OTA로만 복원됐다고 표시하지 않는다. 생성 storyboard·원본 자산·서명 Release의
+콜드 실행을 확인한다. 플러그인의 legacy 옵션은 향후 제거될 수 있으므로 Expo 업그레이드마다
+기존 디자인과 실제 생성물을 비교하고, 대체 방식이 필요하면 디자인 유지 조건으로 검토한다.
+[Expo 스플래시 설정 안내](https://docs.expo.dev/versions/latest/sdk/splash-screen/)
+
 1. `config/release-policy.json`의 앱·지원·계약 버전을 결정한다.
 2. `config/release-notes.json`, App Store 문서, 이 문서의 현재 계약을 함께 갱신한다.
 3. 백엔드 변경은 구버전 요청을 먼저 수용하고 직전 버전 최신 OTA와 새 TestFlight 양쪽에서

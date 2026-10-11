@@ -92,6 +92,16 @@ export default {
     plugins: [
       'expo-router',
       [
+        'expo-splash-screen',
+        {
+          image: './assets/images/splash-icon.png',
+          resizeMode: 'contain',
+          backgroundColor: '#0A0A0A',
+          // Expo 57에서도 기존 전체 화면 바이크 이미지의 크기·배치를 유지한다.
+          ios: { enableFullScreenImage_legacy: true },
+        },
+      ],
+      [
         'expo-secure-store',
         {
           // 인증 토큰은 Keychain에 저장하지만 생체 인증 잠금은 사용하지 않는다.
