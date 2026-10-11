@@ -302,6 +302,15 @@ EAS의 자동 채널 주입이 없으므로 `EAS_BUILD_PROFILE=internal-testflig
 
 ## 릴리스 체크리스트
 
+### 2026-10-11 재개 고지 계약 추가
+
+앱/runtime 1.2.8·native/API 계약 1은 유지한다. 기존 가입 RPC와 8/18 동의는 보존하고
+별도 이력과 `accept_legal_documents`·`has_accepted_legal_documents`·`complete_onboarding_v2`를
+추가한다. 기존 클라이언트를 깨는 API 교체가 아니다. 현재 1.2.8은 10/11 명시적 동의만
+확인하며 이전 계정의 닉네임·사진·기존 기록을 재생성하지 않는다(OPS-009).
+production 클라우드 이미지도 검증한 내부 조합과 같은 Xcode 27 이미지로 고정한다.
+TestFlight (36)은 내부 채널·이전 소스라 제출하지 않고 새 production ID를 사용한다.
+
 ### 2026-10-11 스플래시 생성 회귀 복원
 
 기존 `splash-icon.png` 파일은 바뀌지 않았지만 Expo 57로 생성한 storyboard에 이전

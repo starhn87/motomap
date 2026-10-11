@@ -1,8 +1,8 @@
 {
   "revision": "relaunch-1.2.8",
-  "status": "draft",
-  "effectiveDate": null,
-  "noticeDate": null,
-  "consentVersion": null,
-  "currentConsentVersion": "2026-08-18"
+  "status": "active",
+  "effectiveDate": "2026-10-11",
+  "noticeDate": "2026-10-11",
+  "consentVersion": "2026-10-11",
+  "currentConsentVersion": "2026-10-11"
 }

@@ -9,12 +9,14 @@ import {
 import { queryClient } from '@/lib/queryClient';
 import { identifyUser, resetUser } from '@/lib/analytics';
 import { unregisterPushToken } from '@/lib/push';
+import { hasCurrentLegalConsent } from '@/lib/legalConsent';
 import type { User, Session } from '@supabase/supabase-js';
 
 export type AuthStatus =
   | 'restoring'
   | 'signed_out'
   | 'needs_onboarding'
+  | 'needs_consent'
   | 'signed_in';
 
 interface AuthStore {
@@ -187,15 +189,17 @@ async function resolveSession(
     if (revision !== sessionRevision) return;
 
     const complete = Boolean(data?.onboarding_completed_at);
+    const consented = complete ? await hasCurrentLegalConsent() : false;
+    if (revision !== sessionRevision) return;
     const resolvedUser = withProfileMetadata(session.user, data ?? {});
     const resolvedSession = resolvedUser === session.user
       ? session
       : { ...session, user: resolvedUser };
-    if (complete) identifyUser(resolvedUser.id);
+    if (complete && consented) identifyUser(resolvedUser.id);
     set({
       session: resolvedSession,
-      user: complete ? resolvedUser : null,
-      status: complete ? 'signed_in' : 'needs_onboarding',
+      user: complete && consented ? resolvedUser : null,
+      status: !complete ? 'needs_onboarding' : consented ? 'signed_in' : 'needs_consent',
       restoreError: null,
     });
   } catch (error) {

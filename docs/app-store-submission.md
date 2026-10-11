@@ -20,6 +20,8 @@ CPU·메모리 개선율, 프리 웜업·라이딩 경로 Visualizer의 구현 �
 - 앱 실행 기반과 주요 라이브러리를 업데이트했어요.
 - iOS 27 앱 실행 호환성을 보완하고 지도 위치 추적의 종료 처리를 개선했어요.
 - 로그인 세션 복구와 장소 검색·공유 링크의 오류 대응을 다듬었어요.
+- 네이버 지역 검색으로 장소 검색을 보완했어요.
+- 집·회사 설정 전에 선택한 장소를 확인할 수 있어요.
 - 길안내 초기화·경로 조회 실패 시 안내를 보완했어요.
 - 날씨·유가 조회가 실패하면 상태를 확인하고 다시 시도할 수 있어요.
 - 기존 바이크 시작 화면을 유지하고 지도 전환을 다듬었어요.
@@ -35,14 +37,14 @@ CPU·메모리 개선율, 프리 웜업·라이딩 경로 Visualizer의 구현 �
 그대로 제출하지 않으며 검증된 소스의 별도 production 빌드 ID를 명시해 제출한다.
 [재개 게이트](relaunch-readiness.md)의 운영·심사·공개 승인 경계는 유지한다.
 
-개정 약관 시행일은 실제 운영 재개일로 맞춘다. 날짜 확정 전에는 개정안·고지·동의 버전의
-동기화 준비만 하고 시행일을 임의 지정하거나 기존 동의 기록을 덮어쓰지 않는다.
+개정 약관 시행일·고지일·동의 버전은 운영자가 재개일로 확정한 2026-10-11이다(OPS-009).
+기존 동의는 보존하고 새 명시적 수락을 별도 이력으로 추가한다.
 
 ## 1.2.8 운영자·개인정보 고지 동기화 초안
 
 2026-10-11 소스 준비 기준이다. 실제 ASC 입력·웹 배포·법률 검토 완료 기록이 아니다.
 `constants/legal.ts`의 운영자·개정안과 `config/legal-publication.json`의 상태/시행일/동의 버전을
-기준으로 한다. 현재 상태는 `draft`, 시행일·고지일·새 동의 버전은 `null`이다.
+기준으로 한다. 현재 소스 상태는 `active`, 시행일·고지일·새 동의 버전은 2026-10-11이다.
 
 - 상호: 모토맵 / 대표자·개인정보 및 위치정보 보호책임자: 이승우
 - 사업장 주소: 서울 서대문구 이화여대7길 37, 3층 가9호
@@ -50,7 +52,7 @@ CPU·메모리 개선율, 프리 웜업·라이딩 경로 Visualizer의 구현 �
 - 개인정보 처리방침: `https://motomap.kr/privacy`
 - 위치기반서비스 이용약관: `https://motomap.kr/location-terms`
 - 서비스 이용약관: `https://motomap.kr/terms`
-- 시행일은 실제 재개일 확정 후 지정한다. 신고 수리일 2026-10-08과 구분한다.
+- 시행일은 2026-10-11이며 신고 수리일 2026-10-08과 구분한다.
 
 현재 문서와 시행일 미정 개정안은 분리한다. 앱의 법률 문서 화면에는 개정안/현재 문서 전환을,
 웹에는 각 URL 뒤 `/upcoming` 개정안을 준비했다. 배포 전이므로 공개 URL에 새 고지가
@@ -98,7 +100,7 @@ CPU·메모리 개선율, 프리 웜업·라이딩 경로 Visualizer의 구현 �
 
 일반 서비스 진입을 승인 후 연다는 OPS-007 기준이다. 별도 코드·숨은 데모 기능은 없다.
 실제로 동작하는 리뷰어 계정은 승인된 계정 정보를 ASC의 Sign-In Information에 입력한다.
-아래 `<REVIEWER_EMAIL>`은 미확정 표시이며 과거 예시 이메일을 실제 계정으로 단정하지 않는다.
+현재 ASC에 등록된 `apple_review@motormap.app`의 계정·완료 프로필 존재를 확인했다.
 비밀번호·인증 토큰은 저장소에 쓰지 않는다. 실제 URL 복구·production 산출물 확인 후 제출한다.
 
 ```text
@@ -106,7 +108,7 @@ CPU·메모리 개선율, 프리 웜업·라이딩 경로 Visualizer의 구현 �
 모토맵은 한국 오토바이 라이더를 위한 지도 앱입니다. 심사용 별도 모드 없이 일반 서비스와 같은 기능을 제공합니다.
 1. 지도·검색·장소·라이딩 추천 탐색은 로그인 없이 이용할 수 있습니다.
 2. 장소 상세의 "도착" 버튼에서 이륜차 경로를 선택해 길안내를 시작할 수 있습니다. 실제 주행은 필요하지 않습니다.
-3. 리뷰·즐겨찾기·제보·내 바이크·개인 라이딩 기록은 Sign-In Information에 제공한 계정(<REVIEWER_EMAIL>)으로 확인할 수 있습니다.
+3. 리뷰·즐겨찾기·제보·내 바이크·개인 라이딩 기록은 Sign-In Information에 제공한 계정(apple_review@motormap.app)으로 확인할 수 있습니다.
 4. 로그인한 이용자가 목적지 300m 이내에서 길안내를 종료하면 목적지·등록 장소 경유지, 기록 시각과 당시 바이크 정보를 계정에 연결해 저장할 수 있습니다.
 5. 집·회사로 설정한 위치 근처의 기록은 라이딩 화면과 장소 통계에서 제외됩니다. 서버 저장을 금지하거나 삭제하는 기능은 아닙니다. 연속 이동 경로는 서버에 저장하지 않습니다.
 6. 목적지형 라이딩 추천에는 별도 추천 완주 기록을 만들지 않습니다. 기존 코스의 완주 기록·조회 경로는 유지합니다.
@@ -118,7 +120,7 @@ CPU·메모리 개선율, 프리 웜업·라이딩 경로 Visualizer의 구현 �
 MotoMap is a map app for motorcycle riders in Korea. Reviewers use the same service and features as regular users; there is no separate review mode.
 1. Map, search, place, and riding recommendation browsing are available without signing in.
 2. Tap "도착" (Destination) in a place detail, choose a motorcycle route, and start guidance. Actual riding is not required.
-3. Use the account provided in Sign-In Information (<REVIEWER_EMAIL>) for reviews, favorites, submissions, My Bike, and personal ride history.
+3. Use the account provided in Sign-In Information (apple_review@motormap.app) for reviews, favorites, submissions, My Bike, and personal ride history.
 4. When a signed-in user ends guidance within 300 meters of the destination, destination and registered-place waypoint records, timestamps, and the bike information used at the time may be stored with the account.
 5. Records near saved home or work locations are excluded from displayed ride history and place statistics. This does not prevent server storage or delete those records. Continuous movement routes are not stored on the server.
 6. Destination-based riding recommendations do not create separate recommendation completion records. Legacy course completion records and their access paths are maintained.
@@ -134,8 +136,8 @@ Operator/contact: MotoMap / 이승우 / starhn87@gmail.com / +82-10-9537-8467
 
 `npm run check:legal`은 준비 상태의 정적 동기화만 확인한다.
 공개 재개/제출 전에는 `npm run check:legal -- --ready`도 통과시키고 실제 고지·동의 계약·
-ASC 설정을 대조한다. 현재 `--ready` 실패는 시행일·고지일·동의 버전이 미확정인 준비 상태를
-표시하는 것이며 기능 검증을 반복하라는 뜻이 아니다.
+ASC 설정을 대조한다. 시행일·고지일·동의 버전은 2026-10-11로 확정했다. 준비 검사를 실제 웹 배포·
+ASC 제출 완료의 증거로 사용하거나 완료한 기능 검증을 반복하지 않는다.
 
 아래 메타데이터·리뷰어 노트는 **과거 1.2.7 참고 기록**이다. 설명·개인정보·계정·연령 설문은
 1.2.8의 실제 동작과 현재 ASC 설정에 대조하기 전 그대로 복사하지 않는다.

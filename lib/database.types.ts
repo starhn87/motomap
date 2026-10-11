@@ -576,6 +576,47 @@ export type Database = {
           },
         ]
       }
+      legal_consent_history: {
+        Row: {
+          location_accepted_at: string
+          location_version: string
+          privacy_accepted_at: string
+          privacy_version: string
+          source: string
+          terms_accepted_at: string
+          terms_version: string
+          user_id: string
+        }
+        Insert: {
+          location_accepted_at: string
+          location_version: string
+          privacy_accepted_at: string
+          privacy_version: string
+          source: string
+          terms_accepted_at: string
+          terms_version: string
+          user_id: string
+        }
+        Update: {
+          location_accepted_at?: string
+          location_version?: string
+          privacy_accepted_at?: string
+          privacy_version?: string
+          source?: string
+          terms_accepted_at?: string
+          terms_version?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_consent_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string
@@ -1839,6 +1880,10 @@ export type Database = {
         Returns: unknown
       }
       _st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      accept_legal_documents: {
+        Args: { p_version: string }
+        Returns: undefined
+      }
       active_place_operational_statuses: {
         Args: never
         Returns: {
@@ -1938,6 +1983,10 @@ export type Database = {
         }[]
       }
       complete_onboarding: { Args: { p_nickname: string }; Returns: undefined }
+      complete_onboarding_v2: {
+        Args: { p_nickname: string; p_version: string }
+        Returns: undefined
+      }
       consume_edge_rate_limit: {
         Args: {
           p_key_hash: string
@@ -2152,6 +2201,10 @@ export type Database = {
         }[]
       }
       gettransactionid: { Args: never; Returns: unknown }
+      has_accepted_legal_documents: {
+        Args: { p_version: string }
+        Returns: boolean
+      }
       hazard_expire_interval: { Args: { hazard_type: string }; Returns: string }
       hazard_fresh_interval: { Args: { hazard_type: string }; Returns: string }
       hazards_near_course: {

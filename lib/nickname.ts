@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { canonicalBikeModel } from '@/constants/bikes';
 import { requireUser, getCurrentUser } from '@/lib/auth';
+import { currentLegalVersion } from '@/lib/legalConsent';
 
 const ADJECTIVES = [
   '달리는', '질주하는', '멋진', '용감한', '자유로운',
@@ -37,8 +38,9 @@ export async function checkNicknameAvailable(nickname: string): Promise<boolean>
 }
 
 export async function completeOnboarding(nickname: string): Promise<void> {
-  const { error } = await supabase.rpc('complete_onboarding', {
+  const { error } = await supabase.rpc('complete_onboarding_v2', {
     p_nickname: nickname,
+    p_version: currentLegalVersion(),
   });
 
   if (error) {

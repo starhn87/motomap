@@ -1,9 +1,8 @@
-// 내부 검증 정비 창: 공개 채널은 계속 닫고 내부 1.2.8만 진입한다.
-// active 전환은 OPS-003의 실기기 검증 후 별도 승인으로 진행한다.
+// OPS-009: 고지·동의 반영 후 승인된 정상 진입. 판매·소개/공유·전체 알림은 별도다.
 export const serviceStatus = Object.freeze({
   schemaVersion: 1,
-  status: 'preparing',
+  status: 'active',
   minimumAppVersion: '1.2.8',
   storeUrl: 'https://apps.apple.com/kr/app/id6773636183',
-  message: '모토맵 운영 재개를 준비하고 있어요.',
+  message: '모토맵 서비스를 이용할 수 있어요.',
 });

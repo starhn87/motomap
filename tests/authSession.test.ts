@@ -35,6 +35,7 @@ function fixture(options: {
   getSession?: () => Promise<{ data: { session: Session | null }; error: unknown }>;
   migrate?: () => Promise<void>;
   signOutError?: Error;
+  fetchConsent?: () => Promise<boolean>;
 } = {}) {
   let authEvent!: (event: string, session: Session | null) => void;
   let cleared = 0;
@@ -69,6 +70,7 @@ function fixture(options: {
       '@/lib/queryClient': { queryClient: { clear() { cleared++; } } },
       '@/lib/analytics': { identifyUser() {}, resetUser() {} },
       '@/lib/push': { unregisterPushToken: async () => {} },
+      '@/lib/legalConsent': { hasCurrentLegalConsent: options.fetchConsent ?? (async () => true) },
     },
   );
   return { store, errors, emit: (event: string, value: Session | null) => authEvent(event, value),
@@ -90,6 +92,34 @@ test('소셜 세션 복원·갱신에도 기존 닉네임과 사진을 보존하
   assert.equal(store.getState().user?.user_metadata.name, '수정한 이름');
   assert.equal(store.getState().session?.user.user_metadata.name, '수정한 이름');
   assert.equal(session.user.user_metadata.name, '제공자 이름');
+});
+
+test('기존 계정의 새 동의가 없으면 계정 데이터는 보존하고 재동의 상태로 진입한다', async () => {
+  const { store } = fixture({ fetchConsent: async () => false });
+  await store.getState().initialize();
+  assert.equal(store.getState().status, 'needs_consent');
+  assert.equal(store.getState().user, null);
+  assert.equal(store.getState().session?.user.user_metadata.name, profile.nickname);
+});
+
+test('동의 조회 실패를 동의 완료로 바꾸거나 로그아웃하지 않는다', async () => {
+  const { store } = fixture({ fetchConsent: async () => { throw new Error('offline'); } });
+  await store.getState().initialize();
+  assert.equal(store.getState().status, 'restoring');
+  assert.ok(store.getState().restoreError);
+  assert.equal(store.getState().session?.user.id, session.user.id);
+});
+
+test('늦은 동의 조회는 로그아웃 뒤 계정을 복원하지 않는다', async () => {
+  const pending = deferred<boolean>();
+  const { store } = fixture({ fetchConsent: () => pending.promise });
+  const restoring = store.getState().initialize();
+  await new Promise<void>((done) => setImmediate(done));
+  await store.getState().signOut();
+  pending.resolve(true);
+  await restoring;
+  assert.equal(store.getState().status, 'signed_out');
+  assert.equal(store.getState().user, null);
 });
 
 test('프로필이 없으면 로그인 완료로 오인하지 않고 온보딩 상태로 남는다', async () => {

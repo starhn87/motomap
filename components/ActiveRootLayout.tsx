@@ -15,6 +15,8 @@ import Toast from 'react-native-toast-message';
 import { PostHogProvider } from 'posthog-react-native';
 
 import PendingAccountLinkPrompt from '@/components/auth/PendingAccountLinkPrompt';
+import LegalConsentScreen from '@/components/auth/LegalConsentScreen';
+import ServiceLoadingScreen from '@/components/ServiceLoadingScreen';
 import PersonalPlaceRideSync from '@/components/PersonalPlaceRideSync';
 import { useColorScheme } from '@/components/useColorScheme';
 import DialogHost from '@/components/ui/DialogHost';
@@ -145,6 +147,8 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
   const [loaded, error] = useFonts(Ionicons.font);
   const initialize = useAuthStore((state) => state.initialize);
   const loadMode = useThemeStore((state) => state.loadMode);
+  const authStatus = useAuthStore((state) => state.status);
+  const restoreError = useAuthStore((state) => state.restoreError);
 
   useEffect(() => {
     if (error) throw error;
@@ -173,6 +177,21 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
   }, [initialize, loadMode]);
 
   if (!loaded) return null;
+  // 기존 계정의 새 동의를 확인하기 전 지도 Stack·개인 기록 동기화를 마운트하지 않는다.
+  // 모듈 import/Sentry 초기화까지 차단한다는 의미는 아니다.
+  if (authStatus === 'restoring') {
+    if (!restoreError) return <ServiceLoadingScreen />;
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0A0A0A', justifyContent: 'center', padding: 28 }} onLayout={onReady}>
+        <Text style={{ color: '#F5F5F2', fontSize: 18, lineHeight: 28 }}>{restoreError}</Text>
+        <Pressable accessibilityRole="button" style={{ paddingVertical: 18 }}
+          onPress={() => { void useAuthStore.getState().refreshOnboardingStatus(); }}>
+          <Text style={{ color: '#F5F5F2', fontSize: 16 }}>다시 확인하기</Text>
+        </Pressable>
+      </View>
+    );
+  }
+  if (authStatus === 'needs_consent') return <LegalConsentScreen onReady={onReady} />;
   return <ActiveRootLayoutNav onReady={onReady} />;
 }
 

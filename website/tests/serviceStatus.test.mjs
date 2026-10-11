@@ -8,13 +8,13 @@ const env = {
   ASSETS: { fetch: async () => new Response('asset') },
 };
 
-test('정비 창 상태는 preparing이며 공개 서비스 활성화와 구분한다', () => {
+test('승인된 정상 진입은 active이며 판매·소개/공유 복구와 구분한다', () => {
   assert.deepEqual(serviceStatus, {
     schemaVersion: 1,
-    status: 'preparing',
+    status: 'active',
     minimumAppVersion: '1.2.8',
     storeUrl: 'https://apps.apple.com/kr/app/id6773636183',
-    message: '모토맵 운영 재개를 준비하고 있어요.',
+    message: '모토맵 서비스를 이용할 수 있어요.',
   });
   assert.equal(Object.isFrozen(serviceStatus), true);
 });
