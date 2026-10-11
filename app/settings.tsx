@@ -23,6 +23,7 @@ import { deleteAccount } from '@/lib/api/account';
 import { toast } from '@/lib/toast';
 import { appAlert } from '@/lib/dialog';
 import { supabase } from '@/lib/supabase';
+import { friendlySocialAuthError } from '@/lib/socialAuthError';
 import type { SocialLoginProvider } from '@/lib/socialAuth';
 import { useHapticsStore } from '@/stores/useHapticsStore';
 import { haptics } from '@/lib/haptics';
@@ -101,7 +102,7 @@ function LoginMethods({ initialProviders }: { initialProviders: string[] }) {
       await refresh();
       toast.success('로그인 수단을 연결했어요.');
     } catch (error) {
-      toast.error('로그인 수단을 연결하지 못했습니다.', (error as Error).message);
+      toast.error('로그인 수단을 연결하지 못했습니다.', friendlySocialAuthError(error));
     } finally {
       setLinking(null);
     }

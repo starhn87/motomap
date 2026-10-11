@@ -7,6 +7,7 @@ import type { Provider } from '@supabase/supabase-js';
 
 import { setRecentLoginProvider, type LoginProvider } from '@/lib/recentLogin';
 import { supabase } from '@/lib/supabase';
+import { isSocialAuthCancelled } from '@/lib/socialAuthError';
 
 export type SocialLoginProvider = Exclude<LoginProvider, 'email'>;
 type AuthMode = 'sign_in' | 'link';
@@ -30,7 +31,10 @@ function callbackParams(url: string): URLSearchParams {
 async function completeBrowserAuth(url: string): Promise<void> {
   const params = callbackParams(url);
   const error = params.get('error_description') ?? params.get('error');
-  if (error) throw new Error(error);
+  if (error) {
+    // UI 분기는 오류 코드만 사용하고 공급자 원문은 그대로 유지한다.
+    throw Object.assign(new Error(error), { code: params.get('error') });
+  }
 
   const code = params.get('code');
   if (code) {
@@ -129,10 +133,15 @@ async function kakaoAuth(mode: AuthMode): Promise<boolean> {
 }
 
 async function runSocialAuth(provider: SocialLoginProvider, mode: AuthMode): Promise<boolean> {
-  if (provider === 'apple') return appleAuth(mode);
-  if (provider === 'kakao') return kakaoAuth(mode);
-  if (provider === 'naver') return browserAuth('custom:naver', mode);
-  return browserAuth('google', mode);
+  try {
+    if (provider === 'apple') return await appleAuth(mode);
+    if (provider === 'kakao') return await kakaoAuth(mode);
+    if (provider === 'naver') return await browserAuth('custom:naver', mode);
+    return await browserAuth('google', mode);
+  } catch (error) {
+    if (isSocialAuthCancelled(error)) return false;
+    throw error;
+  }
 }
 
 export async function signInWithSocialProvider(

@@ -8,6 +8,7 @@ import {
   socialProviderFromIdentity,
 } from '@/lib/pendingAccountLink';
 import { toast } from '@/lib/toast';
+import { friendlySocialAuthError } from '@/lib/socialAuthError';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 export default function PendingAccountLinkPrompt() {
@@ -47,7 +48,7 @@ export default function PendingAccountLinkPrompt() {
                     toast.success(`${label} 로그인을 연결했어요.`);
                   })
                   .catch((error) => {
-                    toast.error('로그인 수단을 연결하지 못했습니다.', (error as Error).message);
+                    toast.error('로그인 수단을 연결하지 못했습니다.', friendlySocialAuthError(error));
                   });
               },
             },

@@ -8,6 +8,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import type { LoginProvider } from '@/lib/recentLogin';
 import type { SocialLoginProvider } from '@/lib/socialAuth';
 import { toast } from '@/lib/toast';
+import { friendlySocialAuthError } from '@/lib/socialAuthError';
 
 // Apple 네이티브 버튼의 시각 규격에 맞춰 나머지 공급자도 같은 크기로 보이게 한다.
 const PROVIDER_ICON_SIZE = 18;
@@ -73,7 +74,7 @@ export default function SocialLoginButtons({
       const { signInWithSocialProvider } = await import('@/lib/socialAuth');
       await signInWithSocialProvider(provider);
     } catch (error) {
-      toast.error('로그인에 실패했습니다.', (error as Error).message);
+      toast.error('로그인에 실패했습니다.', friendlySocialAuthError(error));
     } finally {
       setLoadingProvider(null);
     }
