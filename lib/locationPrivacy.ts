@@ -35,6 +35,16 @@ export function saveLocationStopIntent(actor: string | null, intent: LocationSto
 }
 export type LocationPurpose = 'map' | 'search' | 'address' | 'weather' | 'gas' | 'route' | 'navigation' | 'ai' | 'arrival';
 export type LocationRecipient = 'device' | 'motomap' | 'naver' | 'kakao' | 'kma' | 'airkorea' | 'opinet' | 'anthropic';
+// 본인에게 결과를 돌려주는 기존 서비스 요청만 분류한다. 새 외부 전달은 자동으로 제외하지 않는다.
+const SERVICE_LOCATION_RECIPIENTS: Record<LocationPurpose, readonly LocationRecipient[]> = {
+  map: ['naver'], search: ['kakao'], address: ['kakao'],
+  weather: ['kakao', 'kma', 'airkorea'], gas: ['opinet'],
+  route: ['kakao'], navigation: ['kakao'], ai: ['anthropic'], arrival: [],
+};
+export function requiresLocationProvisionNotice(purpose: LocationPurpose, recipient: LocationRecipient): boolean {
+  if (recipient === 'device' || recipient === 'motomap') return false;
+  return !SERVICE_LOCATION_RECIPIENTS[purpose]?.includes(recipient);
+}
 export const LOCATION_PROVIDERS = ['kakao', 'kma', 'airkorea', 'opinet', 'anthropic'] as const;
 export const LOCATION_PROVIDER_DETAILS = {
   kakao: '주변 검색·주소 확인·경로/길안내: 기준 좌표·출발지·경유지·도착지',

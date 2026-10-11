@@ -1,9 +1,12 @@
 # App Store Connect 제출용 메타데이터
 
-2026-10-11 위치정보 후속(LOC-001/OPS-010): 새 동의·중지·철회/열람·삭제 기능과
+2026-10-12 위치정보 후속(LOC-001/LOC-003/OPS-010): 새 동의·중지·철회/열람·삭제 기능과
 native bridge 2를 포함한 새 production 빌드가 필요하다. 기존 내부 36/production 후보 37은
 제출하지 않는다. 아래 ASC 입력·실기기 결과는 그 이전 후보에 대한 기록이며 새 기능 검증을
-대체하지 않는다. 원격 migration·빌드·최신 메타데이터 저장·심사 제출은 별도 승인 대기다.
+대체하지 않는다. 위치 관리 DB 적용·보존 검사와 새 내부 빌드/설치·동의 보기·설정/날씨 검증은
+사용자 승인으로 완료했다. 반복 요청 안내 정리는 앱·웹 정본에 동기화했고 이번 수정의 실기기
+재검증은 사용자가 생략했다. [최신 증빙과 남은 범위](reports/location-privacy-controls-2026-10-11.md)를
+따른다. 새 production 빌드·실제 고지/active 배포·최신 ASC 저장·업로드·심사 제출은 승인 대기다.
 
 1.2.8 제출 후보를 준비한다. 아래 1.2.7 메타데이터는 과거 기록이며 그대로 제출하지 않는다.
 Expo 57 / 최소 iOS 16.4 조합의 네이티브·실기기 검증과 운영·심사 접근 승인 후
@@ -116,11 +119,12 @@ CPU·메모리 개선율, 프리 웜업·라이딩 경로 Visualizer의 구현 �
 1. 지도·검색·장소·라이딩 추천 탐색은 로그인 없이 이용할 수 있습니다.
 2. 장소 상세의 "도착" 버튼에서 이륜차 경로를 선택해 길안내를 시작할 수 있습니다. 실제 주행은 필요하지 않습니다.
 3. 리뷰·즐겨찾기·제보·내 바이크·개인 라이딩 기록은 Sign-In Information에 제공한 계정(apple_review@motormap.app)으로 확인할 수 있습니다.
-4. 로그인한 이용자가 목적지 300m 이내에서 길안내를 종료하면 목적지·등록 장소 경유지, 기록 시각과 당시 바이크 정보를 계정에 연결해 저장할 수 있습니다.
+4. 로그인 후 '방문 기록 저장'을 선택한 이용자가 목적지 300m 이내에서 길안내를 종료하면 목적지·등록 장소 경유지, 기록 시각과 당시 바이크 정보를 계정에 연결해 저장할 수 있습니다. 새 저장 선택은 기본 OFF이며 OFF로 바꿔도 기존 기록을 삭제하지 않습니다.
 5. 집·회사로 설정한 위치 근처의 기록은 라이딩 화면과 장소 통계에서 제외됩니다. 서버 저장을 금지하거나 삭제하는 기능은 아닙니다. 연속 이동 경로는 서버에 저장하지 않습니다.
 6. 목적지형 라이딩 추천에는 별도 추천 완주 기록을 만들지 않습니다. 기존 코스의 완주 기록·조회 경로는 유지합니다.
 7. 카카오 검색으로 찾지 못한 장소는 네이버 API HUB 검색으로 보완합니다. 해당 네이버 요청에는 검색어만 전달하고 현재 위치·지도 범위·계정 식별자는 전달하지 않습니다.
 8. 위치 권한을 거부해도 장소·라이딩 추천 탐색은 이용할 수 있습니다. 공유 링크는 설치된 앱에서 해당 상세를 열도록 제공합니다.
+9. 현재 위치 기능 이용 전 별도 위치 약관 동의를 받습니다. 설정의 '위치정보 동의·기록 관리'에서 위치 사용 중지·재시작, 동의 범위 및 본인 기록 열람·삭제·철회를 관리할 수 있습니다. 기존 날씨·검색 등 서비스 요청마다 반복 팝업을 표시하지 않으며 확인자료는 유지합니다.
 운영·문의: 모토맵 / 이승우 / starhn87@gmail.com / 010-9537-8467
 
 [EN]
@@ -128,11 +132,12 @@ MotoMap is a map app for motorcycle riders in Korea. Reviewers use the same serv
 1. Map, search, place, and riding recommendation browsing are available without signing in.
 2. Tap "도착" (Destination) in a place detail, choose a motorcycle route, and start guidance. Actual riding is not required.
 3. Use the account provided in Sign-In Information (apple_review@motormap.app) for reviews, favorites, submissions, My Bike, and personal ride history.
-4. When a signed-in user ends guidance within 300 meters of the destination, destination and registered-place waypoint records, timestamps, and the bike information used at the time may be stored with the account.
+4. When a signed-in user opts into visit-history storage and ends guidance within 300 meters of the destination, destination and registered-place waypoint records, timestamps, and the bike information used at the time may be stored with the account. New storage is OFF by default; switching it OFF does not delete existing records.
 5. Records near saved home or work locations are excluded from displayed ride history and place statistics. This does not prevent server storage or delete those records. Continuous movement routes are not stored on the server.
 6. Destination-based riding recommendations do not create separate recommendation completion records. Legacy course completion records and their access paths are maintained.
 7. Naver API HUB supplements places not found by Kakao search. Only the search query is sent to that Naver service, not the current location, map area, or account identifier.
 8. Place and riding recommendation browsing remain available without location permission. Shared links are provided to open the relevant detail in the installed app.
+9. Location-service consent is requested separately before current-location features are used. Settings > '위치정보 동의·기록 관리' provides pause/resume, consent-scope controls, and access, deletion, and withdrawal for the user's own records. Routine weather and search service requests do not show repeated pop-ups; usage records are retained.
 Operator/contact: MotoMap / 이승우 / starhn87@gmail.com / +82-10-9537-8467
 ```
 

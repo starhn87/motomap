@@ -8,15 +8,20 @@ import type * as Contract from '../lib/locationPrivacy';
 
 const version = '2026-10-11-location-v2';
 const active = { status: 'active', version, historyAllowed: true, historyCount: 3, providers: ['naver','kakao'] };
+const noticePolicy = loadModule<typeof Contract>('lib/locationPrivacy.ts', {
+  'expo-crypto': {}, '@/lib/authStorage': {authStorage:{}}, '@/lib/supabase': {supabase:{}},
+});
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => { resolve=done; });
   return { promise, resolve };
 }
-function fixture(options: { stop?: () => Promise<void>; rpc?: (action: string) => Promise<unknown>; storageFailure?: 'read' | 'write' } = {}) {
+function fixture(options: { stop?: () => Promise<void>; rpc?: (action: string) => Promise<unknown>; record?: () => Promise<unknown>; storageFailure?: 'read' | 'write'; guiding?: boolean; notice?: () => Promise<void> } = {}) {
   let actor: string | null = 'A';
   const calls: { action: string; expectedActor: string | null; payload: unknown }[]=[];
   const positions: unknown[]=[];
+  const toasts: {title: string; message: string}[]=[];
+  const guideNotices: string[]=[];
   let stopped=0;
   let intent: 'pause' | 'withdraw' | 'withdraw_history' | null=null;
   const module=loadModule<typeof Privacy>('stores/useLocationPrivacyStore.ts', {
@@ -37,26 +42,85 @@ function fixture(options: { stop?: () => Promise<void>; rpc?: (action: string) =
         return options.rpc ? options.rpc('history_setting') : {...active,historyAllowed:enabled};
       },
       privacyObject: (value: unknown) => value,
-      PURPOSE_LABELS: { search: '주변 검색' }, RECIPIENT_LABELS: { kakao: '카카오' },
+      PURPOSE_LABELS: noticePolicy.PURPOSE_LABELS, RECIPIENT_LABELS: noticePolicy.RECIPIENT_LABELS,
+      requiresLocationProvisionNotice: noticePolicy.requiresLocationProvisionNotice,
       locationPrivacyRpc: async (action: string, _secret: string, payload: unknown, expectedActor: string | null) => {
         assert.equal(expectedActor,actor);
         calls.push({ action,expectedActor,payload });
-        if(action==='record') return {id:'event-id',createdAt:'2026-10-11T00:00:00Z'};
+        if(action==='record') return options.record ? options.record() : {id:'event-id',createdAt:'2026-10-11T00:00:00Z'};
         return options.rpc ? options.rpc(action) : (action==='pause' || action==='withdraw' ? { ...active,status:'paused' } : active);
       },
     },
     '@/stores/useMapStore': { useMapStore: { setState: (value: unknown) => positions.push(value) } },
-    '@/lib/guideSession': { useGuideSession: { getState: () => ({ goal: null,clear() {} }) } },
+    '@/lib/guideSession': { useGuideSession: { getState: () => ({ goal: options.guiding ? {} : null,clear() {} }) } },
     '@/modules/kakao-navi': { __esModule: true, supportsKakaoNaviFeature: () => true,
-      default: { stopLocationUse: async () => { stopped++; await options.stop?.(); } } },
-    '@/lib/toast': { toast: { info() {} } },
+      default: { stopLocationUse: async () => { stopped++; await options.stop?.(); },
+        showGuideNotice: async (message: string) => { guideNotices.push(message); await options.notice?.(); } } },
+    '@/lib/toast': { toast: { info(title: string,message: string) { toasts.push({title,message}); } } },
     '@/lib/queryClient': {queryClient:{clear() {}}},
     '@/stores/useAuthStore': { useAuthStore: { getState: () => ({ status: actor ? 'signed_in' : 'signed_out',session: actor ? {user:{id:actor}} : null }) } },
   });
   const store=module.useLocationPrivacyStore;
   store.setState({ ...active,actor:'A',secret:'a'.repeat(64),ready:true,browsing:true } as never);
-  return { ...module,store,calls,positions,stopped: () => stopped,actor: (next: string | null) => { actor=next; } };
+  return { ...module,store,calls,positions,toasts,guideNotices,stopped: () => stopped,actor: (next: string | null) => { actor=next; } };
 }
+
+test('기존 서비스 요청은 반복 통지 없이 동의 검사와 확인자료 기록을 유지한다',async()=>{
+  const pairs: [Contract.LocationPurpose,Contract.LocationRecipient][] = [
+    ['map','naver'],['search','kakao'],['address','kakao'],['weather','kakao'],
+    ['weather','kma'],['weather','airkorea'],['gas','opinet'],['route','kakao'],
+    ['navigation','kakao'],['ai','anthropic'],['map','device'],['arrival','motomap'],
+  ];
+  for(const guiding of [false,true]) {
+    const f=fixture({guiding});
+    f.store.setState({providers:['naver','kakao','kma','airkorea','opinet','anthropic']});
+    for(const [purpose,recipient] of pairs) {
+      assert.equal(await f.withLocationUse(purpose,recipient,async()=>7),7);
+      assert.equal(noticePolicy.requiresLocationProvisionNotice(purpose,recipient),false);
+    }
+    assert.equal(f.toasts.length,0); assert.equal(f.guideNotices.length,0);
+    assert.equal(f.calls.filter(c=>c.action==='record').length,pairs.length);
+    assert.equal(f.calls.filter(c=>c.action==='complete').length,pairs.length);
+  }
+});
+test('미분류 외부 전달은 자동 통지 생략하지 않고 공급자·목적·서버 시각을 알린다',async()=>{
+  for(const guiding of [false,true]) {
+    const f=fixture({guiding});
+    assert.equal(await f.withLocationUse('ai','kakao',async()=>1),1);
+    assert.equal(noticePolicy.requiresLocationProvisionNotice('ai','kakao'),true);
+    const message=guiding ? f.guideNotices[0] : f.toasts[0].message;
+    assert.match(message,/카카오 · AI 추천/);
+    assert.ok(message.includes(new Date('2026-10-11T00:00:00Z').toLocaleString('ko-KR')));
+    assert.equal(f.toasts.length,guiding ? 0 : 1);
+    assert.equal(f.guideNotices.length,guiding ? 1 : 0);
+    assert.deepEqual(f.calls.map(c=>c.action),['record','complete']);
+  }
+  assert.equal(noticePolicy.requiresLocationProvisionNotice('new-purpose' as Contract.LocationPurpose,'kakao'),true);
+});
+test('통지 생략은 동의 거절·기록 실패·API 실패를 우회하지 않는다',async()=>{
+  for(const setup of ['provider','paused','record'] as const) {
+    const f=fixture({record:async()=>{throw new Error('offline');}}); let worked=0;
+    f.store.setState({providers:['kma']});
+    if(setup==='provider') f.store.setState({providers:[]});
+    if(setup==='paused') f.store.setState({status:'paused'});
+    await assert.rejects(f.withLocationUse('weather','kma',async()=>{worked++;}));
+    assert.equal(worked,0); assert.equal(f.toasts.length,0);
+    assert.equal(f.calls.length,setup==='record' ? 1 : 0);
+  }
+  const f=fixture();
+  await assert.rejects(f.withLocationUse('search','kakao',async()=>{throw new Error('network');}));
+  assert.equal(f.toasts.length,0);
+  assert.deepEqual(JSON.parse(JSON.stringify(f.calls[1].payload)),{id:'event-id',outcome:'failed'});
+});
+test('미분류 안내 중 위치 이용이 중지되면 외부 작업을 실행하지 않는다',async()=>{
+  const pending=deferred<void>(); const f=fixture({guiding:true,notice:()=>pending.promise}); let worked=0;
+  const request=f.withLocationUse('ai','kakao',async()=>{worked++;});
+  await new Promise(done=>setImmediate(done));
+  f.store.setState({status:'paused',revision:f.store.getState().revision+1});
+  pending.resolve(); await assert.rejects(request);
+  assert.equal(worked,0);
+  assert.deepEqual(JSON.parse(JSON.stringify(f.calls[1].payload)),{id:'event-id',outcome:'failed'});
+});
 
 test('미동의·중지·철회 상태에서는 위치 기능과 API 작업을 시작하지 않는다', async () => {
   const f=fixture(); let worked=0;

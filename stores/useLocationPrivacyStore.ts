@@ -7,7 +7,7 @@ import { useGuideSession } from '@/lib/guideSession';
 import KakaoNavi, { supportsKakaoNaviFeature } from '@/modules/kakao-navi';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { PURPOSE_LABELS, RECIPIENT_LABELS } from '@/lib/locationPrivacy';
+import { PURPOSE_LABELS, RECIPIENT_LABELS, requiresLocationProvisionNotice } from '@/lib/locationPrivacy';
 import { queryClient } from '@/lib/queryClient';
 
 interface PrivacyStore extends LocationPrivacyState {
@@ -192,7 +192,7 @@ export async function withLocationUse<T>(purpose: LocationPurpose, recipient: Lo
   let result!: T;
   try {
     requireLocationUse();
-    if (!['device','motomap'].includes(recipient)) {
+    if (requiresLocationProvisionNotice(purpose, recipient)) {
       const message = `${RECIPIENT_LABELS[recipient]} · ${PURPOSE_LABELS[purpose]} · ${new Date(receipt.createdAt).toLocaleString('ko-KR')}`;
       if (useGuideSession.getState().goal) await KakaoNavi.showGuideNotice(`위치정보 전달 요청: ${message}`);
       else toast.info('위치정보 전달 요청', message);

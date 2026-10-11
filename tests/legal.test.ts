@@ -46,6 +46,13 @@ test('개정안은 검색어 전송과 위치 기록·집/회사 표시 제외�
   assert.match(LEGAL_RELAUNCH_DOCS.location.content, /본인의 위치정보 관리 화면에서 열람·삭제할 수 있습니다/);
 });
 
+test('기능 이용 기록과 이용자 지정 제3자 제공의 동의·즉시 통지를 구분한다',()=>{
+  const location=LEGAL_RELAUNCH_DOCS.location.content;
+  assert.match(location,/기능 요청의 공급자·목적·시각·요청 결과는 확인자료에서 열람/);
+  assert.match(location,/이용자가 지정한 제3자.*별도 동의.*매회 제공받는 자·제공일시·제공목적을 즉시 통보/);
+  assert.doesNotMatch(location,/위치 전달 요청 시 공급자·목적·시각을 앱 화면 또는 안내 화면에 표시/);
+});
+
 test('초안 정적 검사는 통과하되 시행 준비 검사는 날짜·고지·동의 동기화를 요구한다', () => {
   assert.deepEqual(legalPublicationErrors(LEGAL_PUBLICATION), []);
   assert.deepEqual(legalPublicationErrors(LEGAL_PUBLICATION, true), []);
