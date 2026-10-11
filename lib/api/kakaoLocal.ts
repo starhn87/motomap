@@ -8,11 +8,14 @@ const REST_KEY = process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY;
 import { normalizeSido } from '@/lib/region';
 
 export interface KakaoLocalResult {
+  source?: 'kakao' | 'naver';
   /** 카카오 로컬에서 장소를 안정적으로 식별하는 ID */
   providerId?: string;
   placeUrl?: string;
   /** 즐겨찾기 등 앱 내부에서 이미 연결한 일반 장소 ID */
   generalPlaceId?: string;
+  /** 기존 행을 재사용한 경우 제보 승격도 그 행의 실제 식별자를 따른다. */
+  generalPlaceSource?: { provider: 'kakao' | 'coordinate'; providerId: string };
   placeName: string; // 상호 (예: "카페 모토라드")
   address: string; // 지번 주소
   roadAddress: string; // 도로명 주소
@@ -22,6 +25,7 @@ export interface KakaoLocalResult {
 }
 
 export interface KakaoLocalSearchPage {
+  failedSources?: ('kakao' | 'naver')[];
   results: KakaoLocalResult[];
   totalCount: number;
   pageableCount: number;

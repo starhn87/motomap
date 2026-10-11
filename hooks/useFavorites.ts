@@ -9,6 +9,7 @@ import {
   type Favorites,
   type GeneralFavorite,
   type GeneralFavoriteChange,
+  type GeneralFavoritePoint,
 } from '@/lib/api/favorites';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { track } from '@/lib/analytics';
@@ -92,6 +93,7 @@ export function useToggleGeneralFavorite() {
         phone: place.phone,
         providerId: place.providerId,
         placeUrl: place.placeUrl,
+        generalPlaceId: place.generalPlaceId,
       };
       queryClient.setQueryData<Favorites>(key, {
         ...current,
@@ -116,12 +118,12 @@ export function useIsFavorite(placeId: string) {
   return favorites?.placeIds.includes(placeId) ?? false;
 }
 
-/** 일반 장소 즐겨찾기 행 — 좌표 근사 일치로 본다. */
-export function useGeneralFavorite(point: { latitude: number; longitude: number } | null) {
+/** 일반 장소 즐겨찾기는 canonical ID 우선, 구자료만 좌표로 보완한다. */
+export function useGeneralFavorite(point: GeneralFavoritePoint | null) {
   const { data: favorites } = useFavorites();
   return favorites && point ? findGeneralFavorite(favorites.general, point) : undefined;
 }
 
-export function useIsGeneralFavorite(point: { latitude: number; longitude: number } | null) {
+export function useIsGeneralFavorite(point: GeneralFavoritePoint | null) {
   return !!useGeneralFavorite(point);
 }

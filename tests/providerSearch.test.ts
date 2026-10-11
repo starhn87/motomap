@@ -3,7 +3,7 @@ import test from 'node:test';
 import * as providerErrors from '../lib/providerErrors';
 import * as region from '../lib/region';
 import * as distance from '../lib/distance';
-import { isSamePlace } from '../lib/searchMatching';
+import { isSameExternalPlace } from '../lib/searchMatching';
 import { loadModule } from './helpers/loadModule';
 
 type KakaoModule = {
@@ -124,12 +124,13 @@ function searchFixture(options: { placesFail?: boolean; guidesFail?: boolean; ka
       return Object.assign(request, { abortSignal: () => request });
     } } },
     '@/lib/api/places': { rowToPlace: (row: unknown) => row },
-    '@/lib/api/kakaoLocal': { searchKakaoLocal: async () => {
+    '@/lib/api/externalPlaces': { searchExternalPlacesPage: async () => {
       if (options.kakaoFail) throw new providerErrors.ProviderError('kakao-local', 'search', 'temporary');
-      return [{ placeName: '테스트 카페', latitude: 37.5, longitude: 127.1 },
-        { placeName: '다른 카페', latitude: 37.6, longitude: 127.2 }];
+      return { results: [{ placeName: '테스트 카페', latitude: 37.5, longitude: 127.1 },
+        { placeName: '다른 카페', latitude: 37.6, longitude: 127.2 }] };
     } },
-    '@/lib/searchMatching': { isSamePlace }, '@/lib/providerErrors': providerErrors,
+    '@/lib/searchMatching': { isSameExternalPlace }, '@/lib/providerErrors': providerErrors,
+    '@/lib/distance': distance,
   });
 }
 
@@ -139,7 +140,7 @@ test('통합 검색은 정상 중복을 제거하고 실패한 소스와 성공�
   assert.equal(normal.failedSources?.length, 0);
   const kakaoFail = await searchFixture({ kakaoFail: true }).searchUnifiedPlaces('카페');
   assert.equal(kakaoFail.places.length, 1); assert.equal(kakaoFail.ridingGuides.length, 1);
-  assert.deepEqual(Array.from(kakaoFail.failedSources ?? []), ['kakao']);
+  assert.deepEqual(Array.from(kakaoFail.failedSources ?? []), ['kakao', 'naver']);
   const placesFail = await searchFixture({ placesFail: true }).searchUnifiedPlaces('카페');
   assert.equal(placesFail.ridingGuides.length, 1); assert.equal(placesFail.kakaoOnly.length, 2);
   assert.deepEqual(Array.from(placesFail.failedSources ?? []), ['places']);

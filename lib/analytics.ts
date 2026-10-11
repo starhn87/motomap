@@ -63,7 +63,7 @@ export type PlaceSource =
   | 'my_rides';
 
 export type SearchSource = 'map_bar' | 'search_screen' | 'point_modal';
-export type SearchResultType = 'registered' | 'kakao' | 'course' | 'riding_guide';
+export type SearchResultType = 'registered' | 'kakao' | 'naver' | 'course' | 'riding_guide';
 
 type Props = Record<string, string | number | boolean | null | undefined>;
 
@@ -107,6 +107,8 @@ export const track = {
     query?: string;
     registered_count: number;
     kakao_count: number;
+    naver_count?: number;
+    external_count?: number;
     course_count: number;
     riding_guide_count?: number;
     scope: 'near' | 'all';
@@ -117,6 +119,8 @@ export const track = {
     source: SearchSource;
     query?: string;
     kakao_count: number;
+    naver_count?: number;
+    external_count?: number;
   }) =>
     capture('search_no_results', p),
 

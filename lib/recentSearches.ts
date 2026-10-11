@@ -21,6 +21,8 @@ export type RecentSearch =
       phone?: string;
       providerId?: string;
       placeUrl?: string;
+      generalPlaceId?: string;
+      source?: 'kakao' | 'naver';
     };
 
 export function recentKey(entry: RecentSearch): string {
@@ -84,6 +86,7 @@ function recentAsTarget(entry: RecentSearch): (NavTarget & { address?: string })
       latitude: entry.latitude,
       longitude: entry.longitude,
       address: entry.address,
+      generalPlaceId: entry.generalPlaceId,
     };
   }
   return null;

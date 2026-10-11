@@ -19,6 +19,7 @@ import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useFavoritePlaces } from '@/hooks/useFavorites';
 import type { KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import { externalPlaceAttribution, externalPlaceCounts, externalPlaceSource } from '@/lib/api/externalPlaces';
 import { getSearchAnchor } from '@/hooks/useSearchAnchor';
 import { searchUnifiedPlaces } from '@/lib/api/search';
 import type { NavTarget } from '@/lib/navigation';
@@ -168,7 +169,7 @@ export default function PointSearchModal({
           source: 'point_modal',
           query: isMyPlaceSetup ? undefined : session.query,
           registered_count: places.length,
-          kakao_count: kakaoOnly.length,
+          ...externalPlaceCounts(kakaoOnly),
           course_count: 0,
           scope: near ? 'near' : 'all',
         });
@@ -177,7 +178,7 @@ export default function PointSearchModal({
             search_id: session.id,
             source: 'point_modal',
             query: isMyPlaceSetup ? undefined : session.query,
-            kakao_count: kakaoOnly.length,
+            ...externalPlaceCounts(kakaoOnly),
           });
         }
       } catch {
@@ -197,7 +198,7 @@ export default function PointSearchModal({
     if (session) {
       track.searchResultSelected({
         search_id: session.id,
-        result_type: item.kind === 'place' ? 'registered' : 'kakao',
+        result_type: item.kind === 'place' ? 'registered' : externalPlaceSource(item.k),
         rank,
         source: 'point_modal',
       });
@@ -415,7 +416,7 @@ export default function PointSearchModal({
           ListFooterComponent={
             !showFavList && results.some((r) => r.kind === 'kakao') ? (
               <Text style={[styles.kakaoAttribution, { color: colors.textSecondary }]}>
-                장소 정보 제공: 카카오
+                {externalPlaceAttribution(results.flatMap((r) => r.kind === 'kakao' ? [r.k] : []))}
               </Text>
             ) : null
           }

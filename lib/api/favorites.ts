@@ -31,12 +31,25 @@ export interface Favorites {
 // 같은 기준(5자리 ≈ 1m)으로 맞춘다.
 const sameSpot = (a: number, b: number) => Math.abs(a - b) < 1e-5;
 
+export type GeneralFavoritePoint = Pick<GeneralPlaceInput, 'latitude' | 'longitude' | 'generalPlaceId' | 'providerId'>;
+
 export function findGeneralFavorite(
   list: GeneralFavorite[],
-  point: { latitude: number; longitude: number },
+  point: GeneralFavoritePoint,
 ): GeneralFavorite | undefined {
+  if (point.generalPlaceId) {
+    const exact = list.find((favorite) => favorite.generalPlaceId === point.generalPlaceId);
+    if (exact) return exact;
+  }
+  const compatibleIds = (favorite: GeneralFavorite) => !(point.generalPlaceId && favorite.generalPlaceId &&
+    point.generalPlaceId !== favorite.generalPlaceId);
+  if (point.providerId) {
+    const exact = list.find((favorite) => compatibleIds(favorite) && favorite.providerId === point.providerId);
+    if (exact) return exact;
+  }
   return list.find(
-    (f) => sameSpot(f.latitude, point.latitude) && sameSpot(f.longitude, point.longitude),
+    (f) => compatibleIds(f) && !(point.providerId && f.providerId && point.providerId !== f.providerId) &&
+      sameSpot(f.latitude, point.latitude) && sameSpot(f.longitude, point.longitude),
   );
 }
 

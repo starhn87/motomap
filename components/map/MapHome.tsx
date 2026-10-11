@@ -62,8 +62,9 @@ import HazardSheet from '@/components/map/HazardSheet';
 import {
   coordToAddress,
   findKakaoLocalMatch,
-  searchKakaoLocal,
 } from '@/lib/api/kakaoLocal';
+import { searchExternalPlaces } from '@/lib/api/externalPlaces';
+import { findGeneralPlace } from '@/lib/api/generalPlaces';
 import SearchEntry from '@/components/search/SearchEntry';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
@@ -611,9 +612,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     });
     // 심벌 이벤트에는 외부 장소 ID·전화번호가 없다 — 이름으로 검색해 같은 자리
     // 결과를 찾아 리뷰·즐겨찾기가 이후에도 같은 장소를 바라보게 한다.
-    void searchKakaoLocal(caption, { latitude, longitude }, { throwOnError: false }).then((results) => {
+    void Promise.all([
+      findGeneralPlace({ name: caption, address: '', latitude, longitude }).catch(() => null),
+      searchExternalPlaces(caption, { latitude, longitude }, { throwOnError: false }),
+    ]).then(([existing, results]) => {
       const match = findKakaoLocalMatch(caption, { latitude, longitude }, results);
       if (!match) return;
+      if (match.source === 'naver' && match.placeName.normalize('NFKC').replace(/\s/g, '') !==
+          caption.normalize('NFKC').replace(/\s/g, '')) return;
       setTempPlace((prev) =>
         prev && prev.name === caption && prev.latitude === latitude
           ? {
@@ -621,6 +627,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
               phone: match.phone || prev.phone,
               providerId: match.providerId,
               placeUrl: match.placeUrl,
+              generalPlaceId: existing?.id ?? match.generalPlaceId ?? prev.generalPlaceId,
+              // ID 없는 네이버 건물은 검색 선택과 심벌 선택의 동일한 좌표 스냅샷을 쓴다.
+              ...(match.source === 'naver' && !existing && !prev.generalPlaceId ? { name: match.placeName,
+                address: match.roadAddress || match.address,
+                latitude: match.latitude, longitude: match.longitude } : {}),
             }
           : prev,
       );
@@ -839,7 +850,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
                   Math.abs(shared.latitude - tempPlace.latitude) >= 1e-5 ||
                   Math.abs(shared.longitude - tempPlace.longitude) >= 1e-5) &&
                 (!showFavorites ||
-                  !findGeneralFavorite(favoritePlaces?.general ?? [], shared)),
+                  !findGeneralFavorite(favoritePlaces?.general ?? [], { ...shared, generalPlaceId: shared.id,
+                    providerId: shared.provider === 'kakao' ? shared.providerId : undefined })),
             )
             .map((shared) => (
               <NaverMapMarkerOverlay

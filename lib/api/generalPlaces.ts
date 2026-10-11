@@ -1,8 +1,12 @@
 import { supabase } from '@/lib/supabase';
+import { approxMeters } from '@/lib/distance';
+import { normalizeSido } from '@/lib/region';
 
 export type GeneralPlaceProvider = 'kakao' | 'coordinate';
 
 export interface GeneralPlaceInput {
+  generalPlaceId?: string;
+  provider?: GeneralPlaceProvider;
   name: string;
   address: string;
   latitude: number;
@@ -53,17 +57,22 @@ export function generalPlaceIdentity(place: GeneralPlaceInput): {
   provider: GeneralPlaceProvider;
   providerId: string;
 } {
-  return place.providerId
+  if (place.provider === 'coordinate' && place.providerId) {
+    return { provider: 'coordinate', providerId: place.providerId };
+  }
+  return place.providerId && place.provider !== 'coordinate'
     ? { provider: 'kakao', providerId: place.providerId }
     : { provider: 'coordinate', providerId: coordinateKey(place) };
 }
 
 export function generalPlaceQueryKey(place: GeneralPlaceInput) {
+  if (place.generalPlaceId) return ['general-place', 'id', place.generalPlaceId] as const;
   const identity = generalPlaceIdentity(place);
   return ['general-place', identity.provider, identity.providerId] as const;
 }
 
 export function generalPlaceUploadKey(place: GeneralPlaceInput): string {
+  if (place.generalPlaceId) return `general-${place.generalPlaceId}`;
   const { provider, providerId } = generalPlaceIdentity(place);
   return `${provider}-${providerId.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 }
@@ -90,19 +99,28 @@ export function rowToGeneralPlace(row: GeneralPlaceRow): GeneralPlace {
  * 이미 알려진 일반 장소를 찾는다. 카카오 ID가 아직 전파되지 않았던 즐겨찾기와
  * 지도 심벌도 같은 곳으로 합쳐지도록, 정확한 ID가 없으면 좌표를 한 번 대조한다.
  */
-export async function findGeneralPlace(place: GeneralPlaceInput): Promise<GeneralPlace | null> {
+export async function findGeneralPlace(place: GeneralPlaceInput, signal?: AbortSignal): Promise<GeneralPlace | null> {
+  if (place.generalPlaceId) {
+    const request = supabase.from('general_places').select(GENERAL_PLACE_SELECT)
+      .eq('id', place.generalPlaceId);
+    const { data, error } = await (signal ? request.abortSignal(signal) : request).maybeSingle();
+    if (error) throw error;
+    // 알려진 ID가 사라졌다면 다른 행을 신설해 기존 기록을 분단하지 않는다.
+    if (!data) throw new Error('general_place_unavailable');
+    return rowToGeneralPlace(data as GeneralPlaceRow);
+  }
   const { provider, providerId } = generalPlaceIdentity(place);
-  const { data: exact, error: exactError } = await supabase
+  const exactRequest = supabase
     .from('general_places')
     .select(GENERAL_PLACE_SELECT)
     .eq('provider', provider)
-    .eq('provider_place_id', providerId)
-    .maybeSingle();
+    .eq('provider_place_id', providerId);
+  const { data: exact, error: exactError } = await (signal ? exactRequest.abortSignal(signal) : exactRequest).maybeSingle();
   if (exactError) throw exactError;
   if (exact) return rowToGeneralPlace(exact as GeneralPlaceRow);
 
   const delta = 2e-5;
-  const { data: nearby, error: nearbyError } = await supabase
+  const nearbyRequest = supabase
     .from('general_places')
     .select(GENERAL_PLACE_SELECT)
     .gte('latitude', place.latitude - delta)
@@ -110,6 +128,7 @@ export async function findGeneralPlace(place: GeneralPlaceInput): Promise<Genera
     .gte('longitude', place.longitude - delta)
     .lte('longitude', place.longitude + delta)
     .limit(5);
+  const { data: nearby, error: nearbyError } = await (signal ? nearbyRequest.abortSignal(signal) : nearbyRequest);
   if (nearbyError) throw nearbyError;
 
   const normalizedName = place.name.normalize('NFKC').trim().toLowerCase();
@@ -119,7 +138,24 @@ export async function findGeneralPlace(place: GeneralPlaceInput): Promise<Genera
       sameSpot(row.longitude, place.longitude) &&
       String(row.name).normalize('NFKC').trim().toLowerCase() === normalizedName,
   );
-  return match ? rowToGeneralPlace(match as GeneralPlaceRow) : null;
+  if (match) return rowToGeneralPlace(match as GeneralPlaceRow);
+  if (!place.placeUrl?.startsWith('https://map.naver.com/') || !place.address.trim()) return null;
+  // 공급자 좌표 차이는 이름·주소까지 정확히 같은 유일한 기존 행만 읽어 재사용한다.
+  // 건물 안 다른 업체, 같은 이름의 지점, 주소 없는 후보는 넓게 합치지 않는다.
+  const candidateRequest = supabase.from('general_places')
+    .select(GENERAL_PLACE_SELECT)
+    .gte('latitude', place.latitude - 0.0015).lte('latitude', place.latitude + 0.0015)
+    .gte('longitude', place.longitude - 0.002).lte('longitude', place.longitude + 0.002)
+    .limit(100);
+  const { data: candidates, error: candidatesError } = await (signal ? candidateRequest.abortSignal(signal) : candidateRequest);
+  if (candidatesError) throw candidatesError;
+  if ((candidates?.length ?? 0) >= 100) return null;
+  const compact = (value: string) => value.normalize('NFKC').replace(/\s/g, '').toLowerCase();
+  const matches = (candidates ?? []).filter((row: any) =>
+    compact(String(row.name)) === compact(place.name) &&
+    compact(normalizeSido(String(row.address))) === compact(normalizeSido(place.address)) &&
+    approxMeters(place, row) <= 150);
+  return matches.length === 1 ? rowToGeneralPlace(matches[0] as GeneralPlaceRow) : null;
 }
 
 /** 즐겨찾기·리뷰·길안내처럼 기록이 생기는 순간에만 일반 장소 행을 만든다. */

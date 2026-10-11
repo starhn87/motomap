@@ -4,6 +4,10 @@
 # working directory name when running `supabase init`.
 project_id = "motomap"
 
+# 공개 검색은 프로젝트 apikey(비로그인)·사용자 JWT(로그인)를 받으며 서버에서 호출 제한한다.
+[functions.naver-local-search]
+verify_jwt = true
+
 [api]
 enabled = true
 # Port to use for the API URL.

@@ -14,7 +14,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { searchKakaoLocal, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import type { KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import { searchExternalPlacesPage, externalPlaceAttribution } from '@/lib/api/externalPlaces';
 import { friendlyProviderError } from '@/lib/providerErrors';
 
 interface Props {
@@ -37,7 +38,7 @@ export default function AddressSearchModal({ visible, onClose, onSelect }: Props
   useEffect(() => {
     const q = query.trim();
     setSearchError(null);
-    if (!visible || !q) {
+    if (!visible || q.length < 2) {
       setResults([]);
       setSearched(false);
       setLoading(false);
@@ -46,9 +47,10 @@ export default function AddressSearchModal({ visible, onClose, onSelect }: Props
     const controller = new AbortController();
     setLoading(true);
     const t = setTimeout(() => {
-      searchKakaoLocal(query, undefined, { signal: controller.signal }).then((r) => {
+      searchExternalPlacesPage(query, undefined, { signal: controller.signal }).then((page) => {
         if (controller.signal.aborted) return;
-        setResults(r);
+        setResults(page.results);
+        setSearchError(page.failedSources?.length ? '일부 검색 결과를 불러오지 못했어요. 확인된 결과만 표시해요.' : null);
         setSearched(true);
       }).catch((error) => {
         if (controller.signal.aborted) return;
@@ -117,6 +119,14 @@ export default function AddressSearchModal({ visible, onClose, onSelect }: Props
             keyExtractor={(item, i) => `${item.placeName}-${i}`}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
+            ListHeaderComponent={results.length && searchError ? (
+              <Text style={[styles.empty, { color: colors.textSecondary }]}>{searchError}</Text>
+            ) : null}
+            ListFooterComponent={results.length ? (
+              <Text style={[styles.empty, { color: colors.textSecondary }]}>
+                {externalPlaceAttribution(results)}
+              </Text>
+            ) : null}
             ListEmptyComponent={
               <Text style={[styles.empty, { color: colors.textSecondary }]}>
                 {searchError ?? (searched ? '검색 결과가 없습니다.' : '상호나 주소를 입력하세요.')}

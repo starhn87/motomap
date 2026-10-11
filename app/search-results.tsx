@@ -30,14 +30,15 @@ import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet'
 import { CATEGORIES } from '@/constants/categories';
 import { MARKER_IMAGES, MARKER_IMAGES_CIRCLE } from '@/constants/markerImages';
 import {
-  isSamePlace,
+  isSameExternalPlace,
   searchAll,
   SEARCH_RADIUS_M,
 } from '@/lib/api/search';
 import { useSearchAnchor } from '@/hooks/useSearchAnchor';
 import { useBikePlaceMatches } from '@/hooks/useRiderInsights';
 import { usePlaceOperationalStatuses } from '@/hooks/usePlaceOperationalStatus';
-import { searchKakaoLocalPage, type KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import type { KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import { searchExternalPlacesPage, externalPlaceAttribution, externalPlaceCounts, externalPlaceSource } from '@/lib/api/externalPlaces';
 import { addRecentSearch } from '@/lib/recentSearches';
 import { createAnalyticsId, track, type SearchSource } from '@/lib/analytics';
 import { describeOpenState, getOpenState } from '@/lib/hours';
@@ -185,7 +186,7 @@ export default function SearchResultsScreen() {
   const kakaoQuery = useQuery({
     queryKey: queryKeys.search.kakao(query, nearKey, areaSearchRevision),
     queryFn: ({ signal }) =>
-      searchKakaoLocalPage(query, activeNear, { throwOnError: true, signal }),
+      searchExternalPlacesPage(query, activeNear, { throwOnError: true, signal }),
     enabled: requestEnabled && !browseMode,
     retry: retryProviderQuery,
   });
@@ -226,11 +227,7 @@ export default function SearchResultsScreen() {
             activeNear,
           ) <= SEARCH_RADIUS_M &&
           !(results?.places ?? []).some((place) =>
-            isSamePlace(place, {
-              name: k.placeName,
-              latitude: k.latitude,
-              longitude: k.longitude,
-            }),
+            isSameExternalPlace(place, k),
           ),
       ),
     [kakaoResults, results?.places, activeNear],
@@ -243,11 +240,7 @@ export default function SearchResultsScreen() {
       .map((place) => ({ kind: 'place' as const, place }));
     for (const k of exactKakaoMatches ?? []) {
       const registeredMatch = registered.find((place) =>
-        isSamePlace(place, {
-          name: k.placeName,
-          latitude: k.latitude,
-          longitude: k.longitude,
-        }),
+        isSameExternalPlace(place, k),
       );
       if (registeredMatch) {
         const alreadyAdded = targets.some(
@@ -289,7 +282,7 @@ export default function SearchResultsScreen() {
     (results?.places.length ?? 0) +
     (results?.ridingGuides.length ?? 0) +
     nearbyKakaoResults.length;
-  const searchIncomplete = !!results?.failedSources?.length ||
+  const searchIncomplete = !!results?.failedSources?.length || !!kakaoPage?.failedSources?.length ||
     resultsQuery.isError || (!browseMode && kakaoQuery.isError);
   const sourcesReady = requestEnabled && !searchIncomplete &&
     resultsQuery.isSuccess && (browseMode || kakaoQuery.isSuccess);
@@ -374,14 +367,14 @@ export default function SearchResultsScreen() {
     if (viewedResultSets.current.has(resultSet)) return;
     viewedResultSets.current.add(resultSet);
     const registeredCount = results?.places.length ?? 0;
-    const kakaoCount = nearbyKakaoResults.length;
+    const externalCounts = externalPlaceCounts(nearbyKakaoResults);
     const ridingGuideCount = results?.ridingGuides.length ?? 0;
     track.searchResultsViewed({
       search_id: searchId,
       source: searchSource,
       query: browseMode ? undefined : query,
       registered_count: registeredCount,
-      kakao_count: kakaoCount,
+      ...externalCounts,
       course_count: 0,
       riding_guide_count: ridingGuideCount,
       scope: exactFallbackQuery === compactQuery ? 'all' : 'near',
@@ -391,7 +384,7 @@ export default function SearchResultsScreen() {
         search_id: searchId,
         source: searchSource,
         query,
-        kakao_count: kakaoCount,
+        ...externalCounts,
       });
     }
   }, [
@@ -537,7 +530,7 @@ export default function SearchResultsScreen() {
     } else {
       track.searchResultSelected({
         search_id: searchId,
-        result_type: 'kakao',
+        result_type: externalPlaceSource(item.k),
         rank,
         source: searchSource,
       });
@@ -551,6 +544,8 @@ export default function SearchResultsScreen() {
         phone: k.phone,
         providerId: k.providerId,
         placeUrl: k.placeUrl,
+        generalPlaceId: k.generalPlaceId,
+        source: k.source,
       });
       setSelectedPlace(null);
       setSelectedTemp({
@@ -561,6 +556,7 @@ export default function SearchResultsScreen() {
         phone: k.phone || undefined,
         providerId: k.providerId,
         placeUrl: k.placeUrl,
+        generalPlaceId: k.generalPlaceId,
       });
       mapRef.current?.animateCameraTo({
         latitude: k.latitude - sheetLatOffset(zoom, screenH, k.latitude),
@@ -592,7 +588,7 @@ export default function SearchResultsScreen() {
     const { k } = exactFocusTarget;
     track.searchResultSelected({
       search_id: searchId,
-      result_type: 'kakao',
+      result_type: externalPlaceSource(k),
       rank: 0,
       source: searchSource,
     });
@@ -605,6 +601,8 @@ export default function SearchResultsScreen() {
       phone: k.phone,
       providerId: k.providerId,
       placeUrl: k.placeUrl,
+      generalPlaceId: k.generalPlaceId,
+      source: k.source,
     });
     focusPointOnMap({
       name: k.placeName,
@@ -826,6 +824,11 @@ export default function SearchResultsScreen() {
                 : `kakao-${item.k.placeName}-${i}`
           }
           contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+          ListFooterComponent={items.some((item) => item.kind === 'kakao') ? (
+            <Text style={{ color: colors.textSecondary, textAlign: 'center', fontSize: 12, padding: 16 }}>
+              {externalPlaceAttribution(nearbyKakaoResults)}
+            </Text>
+          ) : null}
           ListHeaderComponent={
             <View>
               {searchIncomplete && (

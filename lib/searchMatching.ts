@@ -19,3 +19,13 @@ export function isSamePlace(
     placeName.includes(externalName)
   );
 }
+
+/** 안정 ID 없는 건물 결과는 같은 좌표의 다른 상호와 합치지 않는다. */
+export function isSameExternalPlace(
+  place: { name: string; latitude: number; longitude: number },
+  external: { placeName: string; latitude: number; longitude: number; source?: string },
+): boolean {
+  if (external.source === 'naver' &&
+      normalizePlaceName(place.name.normalize('NFKC')) !== normalizePlaceName(external.placeName.normalize('NFKC'))) return false;
+  return isSamePlace(place, { ...external, name: external.placeName });
+}

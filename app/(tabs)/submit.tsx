@@ -23,6 +23,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { CATEGORY_LIST } from '@/constants/categories';
 import { submitPlace, checkPlaceDuplicate } from '@/lib/api/places';
+import { generalPlaceIdentity } from '@/lib/api/generalPlaces';
 import { registerPushToken } from '@/lib/push';
 import { toast } from '@/lib/toast';
 import { track } from '@/lib/analytics';
@@ -299,9 +300,10 @@ function SubmitPlace() {
         onSelect={(r) => {
           setAddress(r.roadAddress || r.address);
           setCoords({ latitude: r.latitude, longitude: r.longitude });
-          setSourceIdentity(
-            r.providerId ? { provider: 'kakao', placeId: r.providerId } : null,
-          );
+          const identity = generalPlaceIdentity({ name: r.placeName, address: r.roadAddress || r.address,
+            latitude: r.latitude, longitude: r.longitude, providerId: r.providerId });
+          setSourceIdentity({ provider: r.generalPlaceSource?.provider ?? identity.provider,
+            placeId: r.generalPlaceSource?.providerId ?? identity.providerId });
           // 장소명은 검색 결과가 정한다(다시 선택하면 갱신). 카카오에 없는
           // 장소(뷰포인트 등)를 위해 필드 자체는 수정 가능하게 둔다.
           if (r.placeName) setName(r.placeName);

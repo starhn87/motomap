@@ -1,19 +1,18 @@
 import { supabase } from '@/lib/supabase';
 import type { Place, RidingGuideSearchResult } from '@/types';
 import { rowToPlace, type PlaceRow } from '@/lib/api/places';
-import {
-  searchKakaoLocal,
-  type KakaoLocalResult,
-} from '@/lib/api/kakaoLocal';
-import { isSamePlace } from '@/lib/searchMatching';
+import type { KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import { searchExternalPlacesPage } from '@/lib/api/externalPlaces';
+import { approxMeters } from '@/lib/distance';
+import { isSameExternalPlace } from '@/lib/searchMatching';
 import { ProviderError, providerHttpError } from '@/lib/providerErrors';
 
-export { isSamePlace } from '@/lib/searchMatching';
+export { isSamePlace, isSameExternalPlace } from '@/lib/searchMatching';
 
 export interface SearchResults {
   places: Place[];
   ridingGuides: RidingGuideSearchResult[];
-  failedSources?: ('places' | 'ridingGuides' | 'kakao')[];
+  failedSources?: ('places' | 'ridingGuides' | 'kakao' | 'naver')[];
 }
 
 export interface UnifiedPlaceSearchResults extends SearchResults {
@@ -124,7 +123,7 @@ export async function searchAll(
   };
 }
 
-/** 등록 장소·라이딩 추천·카카오 일반 장소를 같은 검색 요청 생명주기로 묶는다. */
+/** 등록 장소·라이딩 추천·일반 장소를 같은 검색 요청 생명주기로 묶는다. */
 export async function searchUnifiedPlaces(
   query: string,
   near?: { latitude: number; longitude: number },
@@ -132,7 +131,7 @@ export async function searchUnifiedPlaces(
 ): Promise<UnifiedPlaceSearchResults> {
   const [registeredResult, kakaoResult] = await Promise.allSettled([
     searchAll(query, near, options.nearOnly, options.signal),
-    searchKakaoLocal(query, near, { signal: options.signal }),
+    searchExternalPlacesPage(query, near, { signal: options.signal }),
   ]);
   if (options.signal?.aborted) throw new ProviderError('search', 'query', 'cancelled');
   if (registeredResult.status === 'rejected' && kakaoResult.status === 'rejected') {
@@ -140,18 +139,17 @@ export async function searchUnifiedPlaces(
   }
   const registered: SearchResults = registeredResult.status === 'fulfilled' ? registeredResult.value
     : { places: [], ridingGuides: [], failedSources: ['places', 'ridingGuides'] };
-  const kakao = kakaoResult.status === 'fulfilled' ? kakaoResult.value : [];
+  const kakao = kakaoResult.status === 'fulfilled' ? kakaoResult.value.results : [];
   const kakaoOnly = kakao.filter(
     (result) =>
+      (!options.nearOnly || !near || approxMeters(near, result) <= SEARCH_RADIUS_M) &&
       !registered.places.some((place) =>
-        isSamePlace(place, {
-          name: result.placeName,
-          latitude: result.latitude,
-          longitude: result.longitude,
-        }),
+        isSameExternalPlace(place, result),
       ),
   );
   return { ...registered, kakaoOnly, failedSources: [
-    ...(registered.failedSources ?? []), ...(kakaoResult.status === 'rejected' ? ['kakao' as const] : []),
+    ...(registered.failedSources ?? []), ...(kakaoResult.status === 'rejected'
+      ? ((kakaoResult.reason as { failedSources?: ('kakao' | 'naver')[] })?.failedSources ?? ['kakao' as const, 'naver' as const])
+      : kakaoResult.value.failedSources ?? []),
   ] };
 }

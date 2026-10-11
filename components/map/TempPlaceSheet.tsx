@@ -55,6 +55,7 @@ import {
   type GeneralPlaceInput,
 } from '@/lib/api/generalPlaces';
 import { useGeneralPlace } from '@/hooks/useGeneralPlace';
+import { externalPlaceAttribution } from '@/lib/api/externalPlaces';
 import ReviewForm from '@/components/review/ReviewForm';
 import ReviewList, { ReviewListSkeleton } from '@/components/review/ReviewList';
 import PhotoStrip from '@/components/map/PhotoStrip';
@@ -118,14 +119,16 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
   const saveMyPlace = useMyPlacesStore((s) => s.save);
   const removeMyPlace = useMyPlacesStore((s) => s.remove);
-  const favorite = useGeneralFavorite(place);
+  const { data: generalPlace, isLoading: generalPlaceLoading } = useGeneralPlace(place);
+  const resolvedPlace = place ? { ...place, generalPlaceId: generalPlace?.id ?? place.generalPlaceId,
+    providerId: generalPlace?.provider === 'kakao' ? generalPlace.providerId : place.providerId } : null;
+  const favorite = useGeneralFavorite(resolvedPlace);
   const isFavorite = !!favorite;
   const { mutateAsync: toggleFavorite, isPending: favPending } =
     useToggleGeneralFavorite();
   const favoriteScale = useSharedValue(1);
-  const { data: generalPlace, isLoading: generalPlaceLoading } = useGeneralPlace(place);
-  const { data: communityShare } = useGeneralPlaceShare(place);
-  const toggleCommunityShare = useToggleGeneralPlaceShare(place);
+  const { data: communityShare } = useGeneralPlaceShare(resolvedPlace);
+  const toggleCommunityShare = useToggleGeneralPlaceShare(resolvedPlace);
   const generalPlaceId = generalPlace?.id ?? place?.generalPlaceId;
   const reviewTarget = generalPlaceId
     ? ({ kind: 'general', id: generalPlaceId } as const)
@@ -197,7 +200,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
       );
     }
     try {
-      await toggleFavorite({ place, on: !isFavorite, favoriteId: favorite?.id });
+      await toggleFavorite({ place: resolvedPlace ?? place, on: !isFavorite, favoriteId: favorite?.id });
       haptics.selection();
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
@@ -256,7 +259,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
       let resolved = generalPlace;
       if (!resolved && user) {
         try {
-          resolved = await ensureGeneralPlace(place);
+          resolved = await ensureGeneralPlace(resolvedPlace ?? place);
         } catch {
           // 기록 연결이 실패해도 길안내 자체는 계속한다.
         }
@@ -758,7 +761,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                 </View>
               )}
             </View>
-            <ReviewForm target={{ kind: 'general', place }} />
+            <ReviewForm target={{ kind: 'general', place: resolvedPlace ?? place }} />
             <View style={styles.reviewDivider} />
             {reviewTarget ? (
               <ReviewList target={reviewTarget} />
@@ -771,7 +774,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             )}
           </View>
 
-            <Text style={[styles.attribution, { color: colors.textSecondary }]}>장소 정보 제공: 카카오</Text>
+            <Text style={[styles.attribution, { color: colors.textSecondary }]}>{externalPlaceAttribution([place])}</Text>
           </BottomSheetScrollView>
         ) : null}
       </BottomSheet>

@@ -31,6 +31,7 @@ import { useFavoritePlaces } from '@/hooks/useFavorites';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { KakaoLocalResult } from '@/lib/api/kakaoLocal';
+import { externalPlaceAttribution, externalPlaceCounts, externalPlaceSource } from '@/lib/api/externalPlaces';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { openNavigation } from '@/lib/navigation';
 import { toast } from '@/lib/toast';
@@ -257,7 +258,7 @@ export default function SearchScreen() {
         source: 'search_screen',
         query: searchTerm,
         registered_count: registered,
-        kakao_count: kakaoOnly.length,
+        ...externalPlaceCounts(kakaoOnly),
         course_count: 0,
         riding_guide_count: ridingGuides,
         scope: near ? 'near' : 'all',
@@ -267,7 +268,7 @@ export default function SearchScreen() {
           search_id: inlineSearchId,
           source: 'search_screen',
           query: searchTerm,
-          kakao_count: kakaoOnly.length,
+          ...externalPlaceCounts(kakaoOnly),
         });
       }
     }, 400);
@@ -310,12 +311,14 @@ export default function SearchScreen() {
       providerId?: string,
       placeUrl?: string,
       rank?: number,
+      generalPlaceId?: string,
+      source?: 'kakao' | 'naver',
     ) => {
       Keyboard.dismiss();
       if (rank !== undefined && inlineSearchId) {
         track.searchResultSelected({
           search_id: inlineSearchId,
-          result_type: 'kakao',
+          result_type: externalPlaceSource({ source, placeUrl }),
           rank,
           source: 'search_screen',
         });
@@ -329,6 +332,8 @@ export default function SearchScreen() {
         phone,
         providerId,
         placeUrl,
+        generalPlaceId,
+        source,
       });
       focusPointOnMap({
         name,
@@ -338,6 +343,7 @@ export default function SearchScreen() {
         phone,
         providerId,
         placeUrl,
+        generalPlaceId,
       });
     },
     [inlineSearchId],
@@ -536,7 +542,7 @@ export default function SearchScreen() {
                 sectionTitle('일반 장소')
               ) : item.type === 'kakao-footer' ? (
                 <Text style={[styles.kakaoAttribution, { color: colors.textSecondary }]}>
-                  장소 정보 제공: 카카오
+                  {externalPlaceAttribution(results?.kakaoOnly ?? [])}
                 </Text>
               ) : item.type === 'kakao' ? (
                 (() => {
@@ -553,6 +559,8 @@ export default function SearchScreen() {
                           k.providerId,
                           k.placeUrl,
                           index - 1,
+                          k.generalPlaceId,
+                          k.source,
                         )
                       }
                       style={({ pressed }) => [
@@ -699,6 +707,9 @@ export default function SearchScreen() {
                           entry.phone,
                           entry.providerId,
                           entry.placeUrl,
+                          undefined,
+                          entry.generalPlaceId,
+                          entry.source,
                         );
                     }}
                     style={({ pressed }) => [
@@ -759,6 +770,8 @@ export default function SearchScreen() {
                         f.phone,
                         f.providerId,
                         f.placeUrl,
+                        undefined,
+                        f.generalPlaceId,
                       )
                     }
                     style={({ pressed }) => [

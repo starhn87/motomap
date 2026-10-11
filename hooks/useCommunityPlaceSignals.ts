@@ -7,7 +7,7 @@ import {
 } from '@/lib/api/communityPlaceSignals';
 import {
   fetchSharedGeneralPlaces,
-  generalPlaceIdentity,
+  generalPlaceQueryKey,
   type GeneralPlaceBounds,
   type GeneralPlaceInput,
 } from '@/lib/api/generalPlaces';
@@ -17,11 +17,9 @@ import { MAP_WINDOW_OVERSCAN, type MapCenter } from '@/hooks/usePlaces';
 
 function generalPlaceShareKey(place: GeneralPlaceInput | null, userId: string | undefined) {
   if (!place) return ['general-place-share', 'none', userId ?? 'anonymous'] as const;
-  const identity = generalPlaceIdentity(place);
   return [
     'general-place-share',
-    identity.provider,
-    identity.providerId,
+    ...generalPlaceQueryKey(place).slice(1),
     userId ?? 'anonymous',
   ] as const;
 }
