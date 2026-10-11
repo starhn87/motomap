@@ -216,6 +216,16 @@ final class MotoMapProfile: XCTestCase {
     }
 
     // 기존 자료 삭제·전체 철회는 하지 않고 현재 위치만 OFF/ON 후 원상태로 둔다.
+    func testReleaseRestoreLocationAfterPause() throws {
+        // 앞선 검증이 OFF 직후 중단된 경우에만 명시적으로 원래 ON 상태를 복원한다.
+        openLocationPrivacySettings()
+        let location = app.switches["현재 위치 사용"]
+        XCTAssertTrue(location.waitForExistence(timeout: 5))
+        if location.value as? String == "0" { location.tap() }
+        let restored = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@ AND enabled == true", "1"), object: location)
+        XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 15), .completed)
+    }
+
     func testReleaseLocationPrivacyControls() throws {
         openLocationPrivacySettings()
         let location = app.switches["현재 위치 사용"]

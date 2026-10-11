@@ -237,6 +237,19 @@ test('같은 계정의 토큰 갱신·약관 완료는 위치 상태를 재초�
   assert.deepEqual(calls,['A']);
   execute('signed_out',null,scope,store); assert.deepEqual(calls,['A',null]);
 });
+test('현재 동의의 일시 중지는 설정 화면을 유지하되 미동의·철회·구버전·조회 실패는 우회하지 않는다',()=>{
+  const root=readFileSync(new URL('../components/ActiveRootLayout.tsx',import.meta.url),'utf8');
+  const expression=root.match(/const privacyConfirmed = ([\s\S]*?);/)?.[1];
+  assert.ok(expression);
+  const confirmed=new Function('privacyReady','privacyVersion','privacyStatus','LOCATION_CONSENT_VERSION',`return ${expression};`);
+  const version='2026-10-11-location-v2';
+  assert.equal(confirmed(true,version,'active',version),true);
+  assert.equal(confirmed(true,version,'paused',version),true);
+  for(const status of ['unknown','withdrawn']) assert.equal(confirmed(true,version,status,version),false);
+  for(const value of [null,'old']) assert.equal(confirmed(true,value,'paused',version),false);
+  assert.equal(confirmed(false,version,'paused',version),false);
+  assert.match(root,/authStatus === 'needs_consent' \|\| \(!privacyBrowsing && !privacyConfirmed\)/);
+});
 test('기록 삭제 후 재조회는 렌더 시점이 아닌 조회 시작 상태를 기준으로 갱신한다', async () => {
   const panel=readFileSync(new URL('../components/LocationPrivacyPanel.tsx',import.meta.url),'utf8');
   const AsyncFunction=Object.getPrototypeOf(async function() {}).constructor;

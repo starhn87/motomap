@@ -20,6 +20,7 @@ import ServiceLoadingScreen from '@/components/ServiceLoadingScreen';
 import ServiceResumeScreen from '@/components/ServiceResumeScreen';
 import { APP_STORE_URL } from '@/constants/app';
 import { useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
+import { LOCATION_CONSENT_VERSION } from '@/lib/locationPrivacy';
 import PersonalPlaceRideSync from '@/components/PersonalPlaceRideSync';
 import { useColorScheme } from '@/components/useColorScheme';
 import DialogHost from '@/components/ui/DialogHost';
@@ -157,6 +158,7 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
   const privacyReady = useLocationPrivacyStore((state) => state.ready);
   const privacyBrowsing = useLocationPrivacyStore((state) => state.browsing);
   const privacyStatus = useLocationPrivacyStore((state) => state.status);
+  const privacyVersion = useLocationPrivacyStore((state) => state.version);
   const privacyActor = useLocationPrivacyStore((state) => state.actor);
   const privacyError = useLocationPrivacyStore((state) => state.error);
   const privacyScope = useRef<string | null | undefined>(undefined);
@@ -215,7 +217,10 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
   }
   if (authStatus !== 'needs_onboarding') {
     if (actor !== privacyActor || (!privacyReady && !privacyError)) return <ServiceLoadingScreen />;
-    if (authStatus === 'needs_consent' || (!privacyBrowsing && privacyStatus !== 'active'))
+    // 일시 중지한 이용자는 설정에서 직접 재시작할 수 있다. GPS 허용은 active일 때만 별도로 검사한다.
+    const privacyConfirmed = privacyReady && privacyVersion === LOCATION_CONSENT_VERSION
+      && (privacyStatus === 'active' || privacyStatus === 'paused');
+    if (authStatus === 'needs_consent' || (!privacyBrowsing && !privacyConfirmed))
       return <LegalConsentScreen key={actor ?? 'guest'} needsLegal={authStatus === 'needs_consent'} onReady={onReady} />;
   }
   return <ActiveRootLayoutNav onReady={onReady} />;
