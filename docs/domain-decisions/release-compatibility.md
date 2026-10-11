@@ -295,6 +295,13 @@ EAS의 자동 채널 주입이 없으므로 `EAS_BUILD_PROFILE=internal-testflig
 기존 디자인과 실제 생성물을 비교하고, 대체 방식이 필요하면 디자인 유지 조건으로 검토한다.
 [Expo 스플래시 설정 안내](https://docs.expo.dev/versions/latest/sdk/splash-screen/)
 
+같은 날 실기기 후속: 원본 스플래시 직후 별도 화면이 보인다는 사용자 확인으로 복원 미완료를
+발견했다. 네이티브 생성물은 맞았지만 `ServiceLoadingScreen`이 운영 상태 조회와 lazy 로딩
+동안 앱 아이콘·별도 문구·스피너를 그렸다. 해당 대기 화면도 동일 원본·검은 배경·전체 화면
+contain으로 이어지게 수정한다. SafeArea 안의 72px 아이콘으로 대체하지 않고 운영 상태/OTA
+검사·실패 폐쇄·모듈 초기화 경계는 그대로 둔다. 네이티브 파일 비교만으로 시작 UX 완료를
+판정하지 않으며 설치 후 콜드 실행의 연속 화면을 다시 확인한다.
+
 1. `config/release-policy.json`의 앱·지원·계약 버전을 결정한다.
 2. `config/release-notes.json`, App Store 문서, 이 문서의 현재 계약을 함께 갱신한다.
 3. 백엔드 변경은 구버전 요청을 먼저 수용하고 직전 버전 최신 OTA와 새 TestFlight 양쪽에서
