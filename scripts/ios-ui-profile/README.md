@@ -4,6 +4,17 @@
 > 통과했다. `photo` 연속 trace/PID 연결·회복 export는 미완료이며 검증된 수집 절차로
 > 간주하지 않는다. 사용자가 성능 작업 재개를 요청하기 전에는 실행하지 않는다.
 
+2026-10-11 후속: 사용자가 출시 실기기 검증을 승인했다. 기존 승인된 XCTest 러너로
+`testPhotoGestureSmoke`, `testReleaseWeatherToggle`, `testReleaseProfileSettingsReadOnly`,
+`testReleaseColdWarmPlaceLink`, `testReleaseUniversalPlaceLink`만
+선택해 기능 smoke를 실행할 수 있다. 이 다섯 테스트는 measure/CPU/메모리/trace와 계정·리뷰·
+즐겨찾기 변경을 실행하지 않는다. 성능 시나리오 `photo`/`search`의 보류는 그대로다.
+`test-without-building`은 위 다섯 `-only-testing:MotoMapProfile/MotoMapProfile/<함수명>`을
+명시하고 `-parallel-testing-enabled NO -collect-test-diagnostics never`로 실행한다.
+성능 테스트가 함께 실행되는 전체 suite 명령은 쓰지 않는다. 최초 실행은 UI 자동화 활성화
+시간 초과로 테스트 시작 전에 실패했으므로 기능 실패나 성능 결과로 집계하지 않는다.
+UI 자동화 허용은 사용자만 기기에서 확인하며 원본 xcresult는 저장소 밖에 유지한다.
+
 사용자가 승인한 Xcode 기본 XCTest 러너다. 이미 설치된 `com.ridemap.app`을 제어하며,
 별도 `com.ridemap.app.perf-uitests.xctrunner`만 자동 서명·설치한다. 앱 데이터·캐시를
 지우거나 DB/공급자/운영 상태를 바꾸지 않는다. Git/EAS/OTA 배포 명령은 없다.

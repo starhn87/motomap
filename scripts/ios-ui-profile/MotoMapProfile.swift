@@ -97,6 +97,67 @@ final class MotoMapProfile: XCTestCase {
         photoCycle(capture: true)
     }
 
+    // 출시 검증용 읽기 전용 smoke다. measure/trace·계정 변경은 실행하지 않는다.
+    func testReleaseWeatherToggle() throws {
+        openSearch()
+        app.terminate()
+        app.launch()
+        let weather = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "라이딩 날씨 ")).firstMatch
+        XCTAssertTrue(weather.waitForExistence(timeout: 30), "실제 날씨 데이터와 진입 버튼이 필요하다")
+        weather.tap()
+        let opened = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label ENDSWITH %@", "닫기"), object: weather)
+        XCTAssertEqual(XCTWaiter.wait(for: [opened], timeout: 5), .completed)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "private-weather-open"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        weather.tap()
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label ENDSWITH %@", "보기"), object: weather)
+        XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
+    }
+
+    func testReleaseProfileSettingsReadOnly() throws {
+        app.terminate()
+        app.launch()
+        let profile = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "내 정보")).firstMatch
+        XCTAssertTrue(profile.waitForExistence(timeout: 20))
+        profile.tap()
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "private-profile-read-only"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let settings = app.staticTexts["설정"].firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 15))
+        settings.tap()
+        XCTAssertTrue(app.staticTexts["햅틱 피드백"].waitForExistence(timeout: 15))
+    }
+
+    func testReleaseColdWarmPlaceLink() throws {
+        // 공개·미삭제 fixture의 ID만 쓴다. OS 전달을 검증하며 앱 상태를 직접 주입하지 않는다.
+        let placeID = "fc26f71a-ee51-4c66-af61-8bb955ca8796"
+        let link = URL(string: "ridemap://place/\(placeID)")!
+        app.terminate()
+        app.open(link)
+        let detail = app.buttons["다산생태공원 상세 펼치기"]
+        XCTAssertTrue(detail.waitForExistence(timeout: 25), "콜드 링크가 실제 장소 상세를 열어야 한다")
+        XCUIDevice.shared.press(.home)
+        app.open(link)
+        XCTAssertTrue(detail.waitForExistence(timeout: 15), "웜 링크에서도 같은 장소 상세를 열어야 한다")
+    }
+
+    func testReleaseUniversalPlaceLink() throws {
+        let link = URL(string: "https://motomap.kr/place/fc26f71a-ee51-4c66-af61-8bb955ca8796")!
+        app.terminate()
+        XCUIDevice.shared.system.open(link)
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20), "HTTPS 링크는 OS가 앱으로 전달해야 한다")
+        let detail = app.buttons["다산생태공원 상세 펼치기"]
+        XCTAssertTrue(detail.waitForExistence(timeout: 20))
+        XCUIDevice.shared.press(.home)
+        XCUIDevice.shared.system.open(link)
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
+        XCTAssertTrue(detail.waitForExistence(timeout: 15))
+    }
+
     func testPhotoLoops() throws {
         openPhotoFixture()
         NSLog("MOTOMAP_PHOTO_READY")
