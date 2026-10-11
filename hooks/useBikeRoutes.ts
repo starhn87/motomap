@@ -12,6 +12,8 @@ import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
 import { fetchBikeTraffic, type TrafficPart } from '@/lib/api/directions';
 import { toast } from '@/lib/toast';
 import { track } from '@/lib/analytics';
+import { canFallbackToCourseStart, kakaoNaviProviderError, shouldReduceRouteVias } from '@/lib/kakaoRouteErrors';
+import { rememberProviderFailure } from '@/lib/providerErrors';
 
 const ROUTE_LOAD_TIMEOUT_MS = 20_000;
 
@@ -37,7 +39,7 @@ export function useBikeRoutes(args: {
   // 옵션별 혼잡 구간(경로선 색칠용). 없으면 SDK 선형을 단색으로 그린다.
   const [traffic, setTraffic] = useState<Partial<Record<RoutePriority, TrafficPart[]>>>({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ priority: RoutePriority; message: string } | null>(null);
+  const [error, setError] = useState<{ priority: RoutePriority; message: string; canRetry: boolean } | null>(null);
   // 현재 위치에서 도로가 이어지지 않는 원거리 코스(예: 육지→제주)는
   // 코스 출발지 기준 미리보기로 폴백한다. 이때 안내 시작은 막는다.
   const [courseOnly, setCourseOnly] = useState(false);
@@ -55,6 +57,7 @@ export function useBikeRoutes(args: {
   const effVias = courseOnly ? flatVias.slice(2) : flatVias;
   const route = routes[priority];
   const routeError = error?.priority === priority ? error.message : null;
+  const canRetryRoute = error?.priority === priority ? error.canRetry : true;
 
   // 지점이 바뀌면 옵션별 캐시가 전부 낡는다 — 경로·혼잡도를 비워 재조회를 태운다
   const resetRoutes = () => {
@@ -65,6 +68,7 @@ export function useBikeRoutes(args: {
   };
 
   const retryRoute = () => {
+    if (!canRetryRoute) return;
     setError(null);
     setRoutes((previous) => ({ ...previous, [priority]: undefined }));
   };
@@ -80,7 +84,7 @@ export function useBikeRoutes(args: {
     const timeout = setTimeout(() => {
       if (cancelled) return;
       cancelled = true;
-      setError({ priority, message: '길안내 응답이 늦어지고 있어요. 잠시 후 다시 시도해 주세요.' });
+      setError({ priority, message: '길안내 응답이 늦어지고 있어요. 잠시 후 다시 시도해 주세요.', canRetry: true });
       setLoading(false);
     }, ROUTE_LOAD_TIMEOUT_MS);
 
@@ -90,7 +94,8 @@ export function useBikeRoutes(args: {
         await ensureKakaoNaviReady();
       } catch (err) {
         if (!cancelled) {
-          setError({ priority, message: friendlyRouteError(err) });
+          const failure = kakaoNaviProviderError(err, 'initialize');
+          setError({ priority, message: friendlyRouteError(failure), canRetry: failure.kind !== 'configuration' });
         }
         return;
       }
@@ -126,14 +131,17 @@ export function useBikeRoutes(args: {
           return;
         } catch (err) {
           if (cancelled) return;
-          lastErr = err;
-          if (routeErrorCode(err) === 20413) break;
+          const failure = kakaoNaviProviderError(err, 'route');
+          lastErr = failure;
+          rememberProviderFailure(failure);
+          // 경유지 단절만 사다리로 해결한다. 인증·네트워크·서버 실패에는 같은 요청을 반복하지 않는다.
+          if (!shouldReduceRouteVias(lastErr)) break;
         }
       }
       if (cancelled) return;
 
       // 현재 위치 출발이 막힌 코스 안내는 코스 출발지 기준으로 재시도
-      if (!courseOnly && isCourseMode && flatVias.length >= 2) {
+      if (!courseOnly && isCourseMode && flatVias.length >= 2 && canFallbackToCourseStart(lastErr)) {
         setRoutes({});
         setTraffic({});
         setCourseOnly(true);
@@ -146,8 +154,16 @@ export function useBikeRoutes(args: {
         code: routeErrorCode(lastErr),
         via_count: pairsFromFlat(requestVias).length,
       });
-      setError({ priority, message: friendlyRouteError(lastErr) });
-    })().finally(() => {
+      const failure = kakaoNaviProviderError(lastErr, 'route');
+      setError({ priority, message: friendlyRouteError(failure), canRetry: failure.kind !== 'configuration' });
+    })().catch((err) => {
+      // 샘플링·후처리 등 SDK 요청 바깥의 예외도 영구 스피너나 unhandled로 남기지 않는다.
+      if (!cancelled) {
+        const failure = kakaoNaviProviderError(err, 'route');
+        rememberProviderFailure(failure);
+        setError({ priority, message: friendlyRouteError(failure), canRetry: failure.kind !== 'configuration' });
+      }
+    }).finally(() => {
       clearTimeout(timeout);
       if (!cancelled) setLoading(false);
     });
@@ -189,6 +205,7 @@ export function useBikeRoutes(args: {
     loading,
     routeError,
     retryRoute,
+    canRetryRoute,
     courseOnly,
     activeVias,
     effStart,

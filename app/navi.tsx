@@ -33,6 +33,7 @@ import { formatMeters, formatSeconds } from '@/lib/api/directions';
 import { toast } from '@/lib/toast';
 import { useGuideSession } from '@/lib/guideSession';
 import { markGuideStarted } from '@/lib/guideEvents';
+import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
 import { createAnalyticsId, track } from '@/lib/analytics';
 import {
   parseNaviParams,
@@ -119,6 +120,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
     loading,
     routeError,
     retryRoute,
+    canRetryRoute,
     courseOnly,
     activeVias,
     effVias,
@@ -386,10 +388,10 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
       via_count: pairsFromFlat(activeVias ?? flatVias).length,
       distance_m: route?.distance,
     };
-    KakaoNavi.startGuide(
+    ensureKakaoNaviReady().then(() => KakaoNavi.startGuide(
       start[0], start[1], goal.longitude, goal.latitude, goal.name,
       activeVias ?? flatVias, priority, previewOnly,
-    ).catch((err) => {
+    )).catch((err) => {
       setStarting(false);
       toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(err));
     });
@@ -606,9 +608,11 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
               {routeError}
             </Text>
             <View style={styles.routeErrorActions}>
-              <Pressable onPress={retryRoute} accessibilityRole="button" hitSlop={8}>
-                <Text style={[styles.routeErrorAction, { color: colors.tint }]}>다시 시도</Text>
-              </Pressable>
+              {canRetryRoute && (
+                <Pressable onPress={retryRoute} accessibilityRole="button" hitSlop={8}>
+                  <Text style={[styles.routeErrorAction, { color: colors.tint }]}>다시 시도</Text>
+                </Pressable>
+              )}
               <Pressable onPress={returnToMap} accessibilityRole="button" hitSlop={8}>
                 <Text style={[styles.routeErrorAction, { color: colors.textSecondary }]}>
                   지도로 돌아가기

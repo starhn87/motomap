@@ -10,6 +10,7 @@ export class ProviderError extends Error {
     readonly operation: string,
     readonly kind: ProviderErrorKind,
     readonly status?: number,
+    readonly vendorCode?: string,
   ) {
     super(`${provider}:${operation}:${kind}`);
     this.name = 'ProviderError';
