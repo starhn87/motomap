@@ -3,7 +3,7 @@ import { PostHogMaskView } from 'posthog-react-native';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { useDialogStore, type DialogButton } from '@/lib/dialog';
+import { useDialogStore, type AppDialog, type DialogButton } from '@/lib/dialog';
 
 // 앱 다이얼로그 렌더 — 루트에 1회 장착. 특보·전화 카드와 같은 팔레트 카드에
 // 버튼을 세로로 쌓는다. 위계는 iOS 관례대로: 취소는 맨 아래, 본 행동 중
@@ -11,9 +11,33 @@ import { useDialogStore, type DialogButton } from '@/lib/dialog';
 export default function DialogHost() {
   const dialog = useDialogStore((s) => s.dialog);
   const hide = useDialogStore((s) => s.hide);
+  if (!dialog) return null;
+
+  const press = (button: DialogButton | undefined) => {
+    // 다음 확인창을 여는 액션을 위해 현재 창부터 닫는다.
+    if (dialog.dismissible !== false) hide();
+    button?.onPress?.();
+  };
+
+  const dismiss = () => {
+    if (dialog.dismissible !== false) press(dialog.buttons.find((b) => b.style === 'cancel'));
+  };
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={dismiss}>
+      <DialogCard dialog={dialog} onPress={press} onDismiss={dismiss} />
+    </Modal>
+  );
+}
+
+// 이미 열린 검색 모달 안에서도 같은 카드를 사용한다. 네이티브 Modal을 중첩하지 않는다.
+export function DialogCard({ dialog, onPress, onDismiss }: {
+  dialog: AppDialog;
+  onPress: (button: DialogButton | undefined) => void;
+  onDismiss: () => void;
+}) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  if (!dialog) return null;
 
   // 취소는 항상 맨 아래 — 시스템 Alert 은 배열 위치가 제각각이라 여기서 정렬
   const sorted = [
@@ -21,24 +45,11 @@ export default function DialogHost() {
     ...dialog.buttons.filter((b) => b.style === 'cancel'),
   ];
   const primaryIndex = sorted.findIndex((b) => !b.style || b.style === 'default');
-  const cancel = sorted.find((b) => b.style === 'cancel');
-
-  // 버튼을 먼저 닫고 실행 — onPress 가 다음 다이얼로그를 열 수 있다(탈퇴 재확인)
-  const press = (b: DialogButton | undefined) => {
-    // 강제 업데이트는 App Store에서 돌아와도 계속 남아 있어야 우회할 수 없다.
-    if (dialog.dismissible !== false) hide();
-    b?.onPress?.();
-  };
 
   const MessageWrap = dialog.maskMessage ? PostHogMaskView : View;
 
-  const dismiss = () => {
-    if (dialog.dismissible !== false) press(cancel);
-  };
-
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={dismiss}>
-      <Pressable style={styles.backdrop} onPress={dismiss}>
+      <Pressable style={styles.backdrop} onPress={onDismiss}>
         {/* 카드 자체 탭은 닫히지 않게 — 내부 Pressable 이 이벤트를 삼킨다 */}
         <Pressable
           style={[styles.card, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
@@ -64,7 +75,8 @@ export default function DialogHost() {
               return (
                 <Pressable
                   key={`${b.text}-${i}`}
-                  onPress={() => press(b)}
+                  onPress={() => onPress(b)}
+                  accessibilityRole="button"
                   style={({ pressed }) => [
                     styles.button,
                     isPrimary
@@ -86,7 +98,6 @@ export default function DialogHost() {
           </View>
         </Pressable>
       </Pressable>
-    </Modal>
   );
 }
 

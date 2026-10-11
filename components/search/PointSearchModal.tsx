@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   Modal,
   Pressable,
   StyleSheet,
@@ -15,7 +16,10 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { CATEGORIES } from '@/constants/categories';
-import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
+import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
+import { DialogCard } from '@/components/ui/DialogHost';
+import type { AppDialog } from '@/lib/dialog';
+import { createMyPlaceConfirmation } from '@/lib/myPlaceConfirmation';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useFavoritePlaces } from '@/hooks/useFavorites';
 import type { KakaoLocalResult } from '@/lib/api/kakaoLocal';
@@ -55,6 +59,7 @@ export default function PointSearchModal({
   title,
   onClose,
   onSelect,
+  confirmSlot,
 }: {
   visible: boolean;
   allowCurrent: boolean;
@@ -64,11 +69,33 @@ export default function PointSearchModal({
   title?: string;
   onClose: () => void;
   onSelect: (point: Point, address?: string) => void;
+  /** 집·회사 설정에만 확인을 요구한다. 일반 출발/도착 선택에는 적용하지 않는다. */
+  confirmSlot?: MyPlaceSlot | null;
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const myPlaces = useMyPlacesStore((s) => s.places);
   const [query, setQuery] = useState('');
+  const [selectionConfirmation, setSelectionConfirmation] = useState<AppDialog | null>(null);
+  const selectPoint = (point: Point, address?: string) => {
+    if (!confirmSlot || point === 'current') {
+      onSelect(point, address);
+      return;
+    }
+    Keyboard.dismiss();
+    setSelectionConfirmation(createMyPlaceConfirmation(
+      confirmSlot,
+      { ...point, address: address ?? '' },
+      () => {
+        setSelectionConfirmation(null);
+        onSelect(point, address);
+      },
+      () => setSelectionConfirmation(null),
+    ));
+  };
+  const closeConfirmation = () => {
+    selectionConfirmation?.buttons.find((button) => button.style === 'cancel')?.onPress?.();
+  };
   const [results, setResults] = useState<ResultItem[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchIssue, setSearchIssue] = useState<string | null>(null);
@@ -119,6 +146,7 @@ export default function PointSearchModal({
       if (debounce.current) clearTimeout(debounce.current);
       requestAbort.current?.abort();
       setQuery('');
+      setSelectionConfirmation(null);
       setResults([]);
       setShowFavList(false);
       setSearching(false);
@@ -204,7 +232,7 @@ export default function PointSearchModal({
       });
     }
     if (item.kind === 'place') {
-      onSelect(
+      selectPoint(
         {
           name: item.place.name,
           latitude: item.place.latitude,
@@ -232,7 +260,7 @@ export default function PointSearchModal({
           // 장소 연결 실패가 지점 선택 자체를 막으면 안 된다.
         }
       }
-      onSelect(
+      selectPoint(
         {
           name: item.k.placeName,
           latitude: item.k.latitude,
@@ -262,8 +290,10 @@ export default function PointSearchModal({
   });
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={selectionConfirmation ? closeConfirmation : onClose}>
       <View style={[styles.modal, { backgroundColor: colors.background }]}>
+        <View style={{ flex: 1 }} accessibilityElementsHidden={!!selectionConfirmation}
+          importantForAccessibility={selectionConfirmation ? 'no-hide-descendants' : 'auto'}>
         <View style={styles.modalHeader}>
           <View
             style={[
@@ -324,7 +354,7 @@ export default function PointSearchModal({
                     앞의 셋은 누르면 바로 선택되고, 즐겨찾기만 목록을 편다. */}
                 <View style={[styles.quickRow, { borderBottomColor: colors.border }]}>
                   {allowCurrent && (
-                    <Pressable style={styles.quickItem} onPress={() => onSelect('current')}>
+                    <Pressable style={styles.quickItem} onPress={() => selectPoint('current')}>
                       <View style={[styles.quickIcon, { backgroundColor: colors.surfaceMuted }]}>
                         <Ionicons name="locate" size={20} color={colors.tint} />
                       </View>
@@ -345,7 +375,7 @@ export default function PointSearchModal({
                           key={slot}
                           style={styles.quickItem}
                           onPress={() =>
-                            onSelect(
+                            selectPoint(
                               {
                                 name: saved.name,
                                 latitude: saved.latitude,
@@ -387,7 +417,7 @@ export default function PointSearchModal({
                     <Pressable
                       key={`${r.name}-${r.longitude}-${r.latitude}`}
                       onPress={() =>
-                        onSelect(
+                        selectPoint(
                           r,
                           r.address,
                         )
@@ -463,6 +493,13 @@ export default function PointSearchModal({
           )}
         />
         </Mask>
+        </View>
+        {selectionConfirmation && (
+          <View style={StyleSheet.absoluteFill} accessibilityViewIsModal>
+            <DialogCard dialog={selectionConfirmation}
+              onPress={(button) => button?.onPress?.()} onDismiss={closeConfirmation} />
+          </View>
+        )}
       </View>
     </Modal>
   );

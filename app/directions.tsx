@@ -336,6 +336,7 @@ export default function DirectionsScreen() {
 
       <PointSearchModal
         visible={editing !== null}
+        confirmSlot={editing === 'home' || editing === 'work' ? editing : null}
         allowCurrent={editing === 'origin' || editing === 'dest'}
         allowSaved={editing !== 'home' && editing !== 'work'}
         recents={recentRows.map((r) => r.target)}

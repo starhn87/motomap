@@ -815,6 +815,7 @@ export default function SearchScreen() {
 
       <PointSearchModal
         visible={editingSlot !== null}
+        confirmSlot={editingSlot}
         allowCurrent={false}
         title={editingSlot === 'home' ? '집 설정' : '회사 설정'}
         onClose={() => setEditingSlot(null)}
