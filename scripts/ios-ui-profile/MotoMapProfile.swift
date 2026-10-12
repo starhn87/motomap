@@ -9,14 +9,23 @@ final class MotoMapProfile: XCTestCase {
     }
 
     override func tearDownWithError() throws {
-        let hierarchy = XCTAttachment(string: app.debugDescription)
-        hierarchy.name = "private-ui-hierarchy"
-        hierarchy.lifetime = .keepAlways
-        add(hierarchy)
-        let screenshot = XCTAttachment(screenshot: app.screenshot())
-        screenshot.name = "private-ui-screen"
-        screenshot.lifetime = .keepAlways
-        add(screenshot)
+        // XCTest의 중단형 assertion은 Swift 함수의 defer를 건너뛸 수 있다.
+        // 안내 검사에서는 화면 수집 실패보다 실행 중인 안내 종료를 우선한다.
+        if name.contains("testReleaseGuidanceLocationStopInspection") {
+            app.terminate()
+            return
+        }
+        let state = app.state
+        if state == .runningForeground || state == .runningBackground {
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "private-ui-hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "private-ui-screen"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
     }
 
     func openSearch() {
@@ -104,7 +113,7 @@ final class MotoMapProfile: XCTestCase {
         XCTAssertTrue(input.waitForExistence(timeout: 15))
         input.tap()
         input.typeText("RSG")
-        let result = app.otherElements.matching(NSPredicate(format: "label CONTAINS %@", "RSG 성수")).firstMatch
+        let result = app.otherElements.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "RSG", "연무장15길 11")).firstMatch
         XCTAssertTrue(result.waitForExistence(timeout: 20))
         result.tap()
         let destination = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "도착")).firstMatch
@@ -153,7 +162,7 @@ final class MotoMapProfile: XCTestCase {
         XCTAssertTrue(input.waitForExistence(timeout: 15))
         input.tap()
         input.typeText("RSG")
-        let result = app.otherElements.matching(NSPredicate(format: "label CONTAINS %@", "RSG 성수")).firstMatch
+        let result = app.otherElements.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "RSG", "연무장15길 11")).firstMatch
         XCTAssertTrue(result.waitForExistence(timeout: 20))
         result.tap()
         let destination = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "도착")).firstMatch
@@ -177,7 +186,8 @@ final class MotoMapProfile: XCTestCase {
         NSLog("MOTOMAP_GUIDANCE_STOP_INSPECTION_READY")
         // 디버거는 stopLocationUse와 같은 native 진입점만 호출한다. 실제 종료를 확인한다.
         let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: end)
-        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 60), .completed)
+        // 무선 디버거의 첫 심벌 연결 대기는 허용하되 실제 OFF 관찰은 아래 15초로 고정한다.
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 180), .completed)
         NSLog("MOTOMAP_GUIDANCE_STOP_INSPECTION_DISMISSED")
         // 안내 검사와 별도로 실제 설정 OFF를 통해 JS 센서 종료·서버 중지 경로를 실행한다.
         // 이 단계가 '활성 안내 중 설정 스위치 OFF'라고 주장하지 않는다.
