@@ -21,6 +21,7 @@ test('루트 연결은 서버·지도 의존성 없이 고정된 App Store URL�
         setupServiceResumeNotification: (value: typeof deps) => { deps = value; return { dispose() {}, settleStartup: async () => 'none' }; },
       },
       './foregroundLink': { createForegroundWaiter: () => ({ waitForActive: async () => true, dispose() {} }) },
+      './notificationNavigation': { getNavigationNotificationData: () => null },
     },
   );
   setupResumeStoreLink();

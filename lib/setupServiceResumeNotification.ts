@@ -4,6 +4,7 @@ import { AppState, Linking } from 'react-native';
 import { APP_STORE_URL } from '@/constants/app';
 import { RESUME_NOTIFICATION_KEY, RESUME_PENDING_KEY, setupServiceResumeNotification } from './serviceResumeNotification';
 import { createForegroundWaiter } from './foregroundLink';
+import { getNavigationNotificationData } from './notificationNavigation';
 
 // 권한 요청·토큰 발급·서버 접근 없이 알림 탭만 연결한다.
 export function setupResumeStoreLink(onOpenFailure?: () => void) {
@@ -24,6 +25,7 @@ export function setupResumeStoreLink(onOpenFailure?: () => void) {
     cancelActiveWait: foreground.cancelPending,
     openStore: () => Linking.openURL(APP_STORE_URL),
     onOpenFailure,
+    hasNavigationTarget: (response) => getNavigationNotificationData(response) !== null,
   });
   return {
     ...controller,

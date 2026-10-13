@@ -58,8 +58,8 @@ export default function RootLayout() {
       setStage('update');
       return;
     }
-    if (resumeOutcome === 'opened' || resumeOutcome === 'unavailable') {
-      // 스토어를 여는 사용자 동작을 앱 내부 OTA 재시작으로 덮어쓰지 않는다.
+    if (resumeOutcome === 'opened' || resumeOutcome === 'unavailable' || resumeOutcome === 'navigation') {
+      // 스토어·상세를 여는 사용자 동작을 앱 내부 OTA 재시작으로 덮어쓰지 않는다.
       setStage('active');
       return;
     }
@@ -83,7 +83,7 @@ export default function RootLayout() {
         // 다운로드 중에도 새 알림을 탭할 수 있다. 직전 응답을 다시 정리한다.
         const lateResumeOutcome = await resumeController.current?.settleStartup();
         if (requestId !== requestSequence.current) return;
-        if (lateResumeOutcome === 'opened' || lateResumeOutcome === 'unavailable') {
+        if (lateResumeOutcome === 'opened' || lateResumeOutcome === 'unavailable' || lateResumeOutcome === 'navigation') {
           setStage('active');
           return;
         }

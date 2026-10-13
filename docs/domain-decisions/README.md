@@ -42,6 +42,7 @@
 | 장소 선별·운영 상태 검증 | [place-curation.md](place-curation.md) | `public.places`, `scripts/seed-place-curation.mjs`, 장소 검증 마이그레이션 |
 | 일반 장소 추천 | [community-place-recommendations.md](community-place-recommendations.md) | `public.general_place_shares`, 일반 장소 상세·지도 |
 | 장소·라이딩 추천 제보 심사 | [submission-moderation.md](submission-moderation.md) | `docs/submission-approval-policy.md`, `supabase/functions/judge-submission/` |
+| 알림 탭·승인 상세 진입 | [notifications.md](notifications.md) | `lib/push.ts`, `lib/serviceResumeNotification.ts`, `app/_layout.tsx` |
 | Jev 판단 관찰 | [jev-observation.md](jev-observation.md) | `supabase/functions/_shared/jevChat.ts`, `jevSubmission.ts` |
 | 릴리스·버전 호환성 | [release-compatibility.md](release-compatibility.md) | `config/release-policy.json`, `lib/appCompatibility.ts`, `modules/kakao-navi/`, `.github/workflows/checks.yml` |
 

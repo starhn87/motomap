@@ -27,19 +27,25 @@ export type ResumeResponse = {
   } };
 };
 
+/** 가공된 data와 iOS push 원문의 body/data를 같은 순서로 확인한다. */
+export function getNotificationResponsePayloads(response: ResumeResponse): Record<string, unknown>[] {
+  const request = response.notification.request;
+  const candidates = [objectPayload(request.content.data)];
+  const trigger = objectPayload(request.trigger);
+  if (trigger?.type === 'push') {
+    const payload = objectPayload(trigger.payload);
+    candidates.push(objectPayload(payload?.body), objectPayload(payload?.data));
+  }
+  return candidates.filter((value): value is Record<string, unknown> => value !== null);
+}
+
 /** iOS의 가공된 data가 없으면 push 원문의 body/data만 엄격하게 확인한다. */
 export function isServiceResumeResponse(response: ResumeResponse): boolean {
-  const request = response.notification.request;
-  if (isServiceResumeNotification(objectPayload(request.content.data))) return true;
-  const trigger = objectPayload(request.trigger);
-  if (trigger?.type !== 'push') return false;
-  const payload = objectPayload(trigger.payload);
-  return isServiceResumeNotification(objectPayload(payload?.body)) ||
-    isServiceResumeNotification(objectPayload(payload?.data));
+  return getNotificationResponsePayloads(response).some(isServiceResumeNotification);
 }
 
 export type PendingResumeIntent = { identifier: string; expiresAt: number };
-export type ResumeStartupOutcome = 'none' | 'opened' | 'failed' | 'pending' | 'unavailable';
+export type ResumeStartupOutcome = 'none' | 'opened' | 'failed' | 'pending' | 'unavailable' | 'navigation';
 export type ResumeNotificationController = {
   dispose: () => void;
   settleStartup: () => Promise<ResumeStartupOutcome>;
@@ -59,6 +65,7 @@ type ResumeDependencies = {
   openStore: () => Promise<unknown>;
   onOpenFailure?: () => void;
   startupDeadlineMs?: number;
+  hasNavigationTarget?: (response: ResumeResponse) => boolean;
 };
 
 /** 명시적인 탭을 보존해 OTA/언마운트 뒤 복구하고, 완료한 탭은 재실행하지 않는다. */
@@ -113,7 +120,8 @@ export function setupServiceResumeNotification(deps: ResumeDependencies): Resume
       const id = response.notification.request.identifier;
       if (!id) return;
       if (!isServiceResumeResponse(response)) {
-        outcome = 'none';
+        // 일반 알림의 상세 진입도 OTA reload로 native 응답이 사라지지 않게 보호한다.
+        outcome = deps.hasNavigationTarget?.(response) ? 'navigation' : 'none';
         try { await deps.clearPendingIntent(); } catch { /* 현재 실행에서는 최신 일반 알림을 우선한다. */ }
         return;
       }
@@ -161,8 +169,9 @@ export function setupServiceResumeNotification(deps: ResumeDependencies): Resume
     // 늦은 콜드 응답·옛 pending이 최신 사용자 탭을 덮어쓰지 않는다.
     responseSequence++;
     deps.cancelActiveWait?.();
-    outcome = response.actionIdentifier === deps.defaultActionIdentifier && isServiceResumeResponse(response)
-      ? 'pending' : 'none';
+    outcome = response.actionIdentifier !== deps.defaultActionIdentifier ? 'none'
+      : isServiceResumeResponse(response) ? 'pending'
+      : deps.hasNavigationTarget?.(response) ? 'navigation' : 'none';
     enqueue(response, false, responseSequence);
   });
   const startup = deps.getLastResponse().then((response) => {
