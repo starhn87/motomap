@@ -292,7 +292,7 @@ provider·계정·프로필·DB·지도 설정은 변경하지 않았다. nonce/
 ## AUTH-008 — 카카오 SDK 전용 콜백은 화면 라우팅에서 제외
 
 - 날짜: 2026-10-13
-- 상태: 활성(소스·회귀 검증 완료 / 푸시·OTA 승인 대기)
+- 상태: 활성(소스·회귀 검증·production OTA 발행 완료 / 실기기 왕복 확인 대기)
 - 관련: `app/+native-intent.tsx`, `tests/nativeIntent.test.ts`, `app/+not-found.tsx`
 
 ### 원인 경로와 결정
@@ -322,3 +322,17 @@ OTA 적용 후 카카오 로그인·설정 연결/취소와 정상 공유 링크
 소스 검증: 앱217/217·타입·OTA 정책·diff 검사 통과. 설치 Router의 실제 콜드/웜 처리
 모듈을 대역 의존성과 연결해 null에서 미이동·공유 원문 전달을 확인했다. 범위 밖의
 native scene·실제 계정 연결/취소 왕복·모든 공유 화면 검증까지 완료한 것은 아니다.
+
+### 2026-10-13 승인 후 푸시·OTA 반영
+
+운영자가 앞선 인증 기록·회귀 테스트와 JS 콜백 수정의 main 푸시·1.2.8 OTA를 승인했다.
+`8b2db3a`·`cc6b1eb`·`640813b`를 main/origin에 반영했다. 최종 iOS export의 루트·socialAuth·
+native-intent source map을 실제 소스와 대조하고, 앱1.2.8/native2/API1 OTA 정책 검사와
+reviewer 검토를 다시 통과했다. 무관한 로컬 파일은 제외했다.
+
+- 채널/브랜치: production / 플랫폼: iOS / runtime: 1.2.8
+- update group: `09a96de2-b8f8-4f22-aed2-dc261e6fcb34`
+- iOS update: `01a134e5-6c5f-7cfd-acbe-e6c44de1c6fa` / 소스: `640813b`
+- 새 네이티브 빌드·웹 배포·추가 공급자/DB 변경은 하지 않았다. 구 SDK54 연결용 번들은 유지했다.
+- 전체 재개 푸시는 승인 범위에서 명시적으로 보류했다. 실제 기기에서 OTA 적용 후 카카오
+  로그인 복귀·연결/취소와 공유 링크를 확인하기 전 깜빡임 해소를 검증 완료로 표시하지 않는다.
