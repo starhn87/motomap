@@ -7,7 +7,7 @@ import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
 import { getCurrentUser } from '@/lib/auth';
-import { isServiceResumeNotification } from '@/lib/serviceResumeNotification';
+import { isServiceResumeNotification, isServiceResumeResponse } from '@/lib/serviceResumeNotification';
 
 const DEVICE_PUSH_TOKEN_KEY = 'device-push-token';
 
@@ -81,11 +81,13 @@ function routeFromNotification(data: Record<string, unknown> | undefined) {
 /** 알림 탭 처리 등록 — cold start(알림으로 앱 실행)와 실행 중 탭 모두 커버 */
 export function setupNotificationTapHandling(): () => void {
   void Notifications.getLastNotificationResponseAsync().then((resp) => {
+    if (resp && isServiceResumeResponse(resp)) return;
     routeFromNotification(
       resp?.notification.request.content.data as Record<string, unknown> | undefined,
     );
-  });
+  }).catch(() => {});
   const sub = Notifications.addNotificationResponseReceivedListener((resp) => {
+    if (isServiceResumeResponse(resp)) return;
     routeFromNotification(
       resp.notification.request.content.data as Record<string, unknown>,
     );

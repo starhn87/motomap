@@ -10,7 +10,7 @@ export function loadModule<T>(
 ): T {
   const source = readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
   const { outputText } = ts.transpileModule(source, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
     fileName: path,
   });
   const module = { exports: {} };

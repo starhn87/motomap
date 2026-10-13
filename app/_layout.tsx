@@ -30,6 +30,7 @@ export default function RootLayout() {
   const [stage, setStage] = useState<GateStage>('checking');
   const [storeUrl, setStoreUrl] = useState(APP_STORE_URL);
   const requestSequence = useRef(0);
+  const resumeController = useRef<ReturnType<typeof setupResumeStoreLink> | null>(null);
   const startupStartedAt = useRef(performance.now());
   const splashHidden = useRef(false);
   const [startupReady, setStartupReady] = useState(false);
@@ -50,6 +51,19 @@ export default function RootLayout() {
       return;
     }
 
+    // 알림의 비동기 조회·저장을 끝내기 전에 OTA로 native emitter를 교체하지 않는다.
+    const resumeOutcome = await resumeController.current?.settleStartup();
+    if (requestId !== requestSequence.current) return;
+    if (resumeOutcome === 'failed' || resumeOutcome === 'pending') {
+      setStage('update');
+      return;
+    }
+    if (resumeOutcome === 'opened' || resumeOutcome === 'unavailable') {
+      // 스토어를 여는 사용자 동작을 앱 내부 OTA 재시작으로 덮어쓰지 않는다.
+      setStage('active');
+      return;
+    }
+
     // 개발 서버는 expo-updates 확인 API가 지원되지 않는다.
     if (__DEV__) {
       setStage('active');
@@ -66,6 +80,17 @@ export default function RootLayout() {
           setStage('retry');
           return;
         }
+        // 다운로드 중에도 새 알림을 탭할 수 있다. 직전 응답을 다시 정리한다.
+        const lateResumeOutcome = await resumeController.current?.settleStartup();
+        if (requestId !== requestSequence.current) return;
+        if (lateResumeOutcome === 'opened' || lateResumeOutcome === 'unavailable') {
+          setStage('active');
+          return;
+        }
+        if (lateResumeOutcome === 'failed' || lateResumeOutcome === 'pending') {
+          setStage('update');
+          return;
+        }
         await Updates.reloadAsync();
         return;
       }
@@ -76,10 +101,12 @@ export default function RootLayout() {
   }
 
   useEffect(() => {
-    const cleanupStoreLink = setupResumeStoreLink();
+    const controller = setupResumeStoreLink(() => setStage('update'));
+    resumeController.current = controller;
     void checkStatus();
     return () => {
-      cleanupStoreLink();
+      controller.dispose();
+      resumeController.current = null;
       requestSequence.current += 1;
       // 오류 경계 등으로 루트가 사라지면 안내 화면을 스플래시로 가리지 않는다.
       SplashScreen.hide();

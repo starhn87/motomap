@@ -16,10 +16,12 @@ const rn = JSON.parse(readFileSync(join(stage, 'node_modules/react-native/packag
 if (sdk !== source.sdk || !sdk.startsWith('54.') || rn !== '0.81.5') throw new Error('SDK54/RN0.81.5 계약 불일치');
 copyFileSync(join(root, 'scripts/resume-bridge/App.tsx'), join(stage, 'App.tsx'));
 copyFileSync(join(root, 'lib/serviceResumeNotification.ts'), join(stage, 'serviceResumeNotification.ts'));
+copyFileSync(join(root, 'lib/foregroundLink.ts'), join(stage, 'foregroundLink.ts'));
 const adapter = source.group === 'legacy'
-  ? 'export function setupResumeStoreLink(): () => void { return () => {}; }\n'
+  ? "export function setupResumeStoreLink() { return { dispose() {}, settleStartup: async () => 'none' as const }; }\n"
   : readFileSync(join(root, 'scripts/resume-bridge/notificationAdapter.ts'), 'utf8')
-      .replace('../../lib/serviceResumeNotification', './serviceResumeNotification');
+      .replace('../../lib/serviceResumeNotification', './serviceResumeNotification')
+      .replace('../../lib/foregroundLink', './foregroundLink');
 writeFileSync(join(stage, 'notificationAdapter.ts'), adapter);
 const output = `dist-${runtime}`;
 const result = spawnSync(join(stage, 'node_modules/.bin/expo'), [

@@ -27,9 +27,9 @@ export default function App() {
   }
 
   useEffect(() => {
-    const cleanup = setupResumeStoreLink();
+    const controller = setupResumeStoreLink();
     void checkStatus();
-    return cleanup;
+    return () => controller.dispose();
   }, []);
 
   async function openStore() {

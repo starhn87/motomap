@@ -33,11 +33,13 @@ writeFileSync(join(stage, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
 writeFileSync(join(stage, 'package-lock.json'), lockText);
 copyFileSync(join(root, 'scripts/resume-bridge/App.tsx'), join(stage, 'App.tsx'));
 copyFileSync(join(root, 'lib/serviceResumeNotification.ts'), join(stage, 'serviceResumeNotification.ts'));
+copyFileSync(join(root, 'lib/foregroundLink.ts'), join(stage, 'foregroundLink.ts'));
 copyFileSync(join(root, 'assets/images/icon-v2.png'), join(stage, 'icon.png'));
 const adapter = group.notifications
   ? readFileSync(join(root, 'scripts/resume-bridge/notificationAdapter.ts'), 'utf8')
       .replace('../../lib/serviceResumeNotification', './serviceResumeNotification')
-  : 'export function setupResumeStoreLink(): () => void { return () => {}; }\n';
+      .replace('../../lib/foregroundLink', './foregroundLink')
+  : "export function setupResumeStoreLink() { return { dispose() {}, settleStartup: async () => 'none' as const }; }\n";
 writeFileSync(join(stage, 'notificationAdapter.ts'), adapter);
 writeFileSync(join(stage, 'resume-entry.js'), "import { registerRootComponent } from 'expo';\nimport App from './App';\nregisterRootComponent(App);\n");
 writeFileSync(join(stage, 'app.config.js'), `

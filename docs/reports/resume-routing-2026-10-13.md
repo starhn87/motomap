@@ -4,7 +4,8 @@
 
 사용자는 전체 재개 푸시, 알림 탭 자동 App Store 연결, 홈페이지 중단 해제와 검증 후 main
 푸시·웹 배포·연결용 OTA를 승인했다. 구현·검증·main 푸시·웹 배포·13 runtime OTA를 완료했다.
-본인 기기 테스트 푸시 1건은 Expo에서 접수했고 탭 결과 확인 대기다. 전체 방송은 **미실행**이다.
+본인 기기 테스트 푸시 1건은 Expo/APNs에서 접수했으나 실제 탭은 로딩→지도 진입으로
+스토어 연결에 실패했다. 재시작 경계 보완 후 재검증하며 전체 방송은 **미실행**이다.
 새 네이티브 빌드·자동 작업·EU 거래자 자격·DB 스키마 변경은 승인 범위가 아니다.
 
 ## 구현
@@ -82,7 +83,7 @@ production/iOS 발행 후 EAS update 목록에서 13 runtime·group·메시지�
 - 본인 계정 token1에 테스트 알림 1건 전송. pg_net request3, HTTP200/timeoutfalse/
   transport error없음, Expo ticket `01a132b2-0157-732b-9f61-184859bc9dfe` statusok.
   receipt 조회 request4도 HTTP200/statusok로 APNs 접수를 확인했다. 기기 표시·사용자 열람·
-  실제 App Store 이동의 증명은 아니다. 알림 탭 결과는 운영자 확인 대기다.
+  실제 App Store 이동의 증명은 아니다. 운영자가 로딩→지도 진입을 확인해 연결 실패로 기록한다.
 - `scripts/broadcast-service-resumed-2026-10-13.sql`: 캠페인 advisory lock·기존 캠페인 거부,
   기존 broadcast RPC, queue request IDs 보존·배치 수 검증 후 commit. 새 schema/RPC/권한
   변경 없음. notifications 사용자 트리거0으로, 공지 INSERT에서 트리거가 추가 푸시를
@@ -94,3 +95,16 @@ production/iOS 발행 후 EAS update 목록에서 13 runtime·group·메시지�
   성공 증거가 아니다. 실제 응답을 별도 조회한다.
 - 전체 방송은 아직 실행하지 않았다. 사용자 탭 확인 전 실행하거나 확인자료를 실제 수신으로
   표시하지 않는다. 기존 리뷰·즐겨찾기·방문·동의는 변경하지 않았다.
+
+### 첫 테스트 실패 후 수정
+
+- SDK57.0.27/notifications57.0.22/RN0.86.3은 build38 의존성과 일치한다. native iOS 소스상
+  마지막 응답은 모듈 인스턴스에 있어 이미 처리한 응답이 OTA reload 후 보존되지 않을 수 있다.
+  test1 실제 원본 응답은 관측하지 못했으므로 실패 원인을 확정하지 않는다.
+- 원본 push body/data 엄격 판별, 실제 active 대기, 로컬 ID·만료 시각만 10분 유효하게 보존,
+  시작/다운로드 후 reload 경계에서 판정한다. 조회 대기 1.5초 상한과 최신 알림 취소를 추가했다.
+  완료한 ID 재조회·만료 연장·일반 실행 정지·오래된 재개 알림 재생을 회귀 테스트한다.
+- 루트 TSX 실행 테스트와 SDK54 독립 export는 검증 범위를 넓히지만 실제 iOS 알림 탭
+  검증을 대신하지 않는다. 새 OTA 적용과 본인 재테스트 결과는 후속 실행에 기록한다.
+- 수정본 앱210/210·타입·OTA 정책·diff 검사 통과. 기존 웹5/5·고지 ready는 이번에 웹/고지
+  구현을 바꾸지 않아 유지했다. 단위/루트 테스트 결과를 실기기 알림 이동 성공으로 표시하지 않는다.
