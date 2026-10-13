@@ -28,6 +28,7 @@
 | 레이아웃 안정성·로딩 UI | [layout-stability.md](layout-stability.md) | `components/ui/Skeleton.tsx`, 비동기 목록·상세 화면 |
 | 앱 성능 측정·최적화 (계획) | [performance.md](performance.md) | `docs/performance-optimization-plan.md`, 앱 시작·지도·길안내·메모리·CPU |
 | 공유 URL·유니버설 링크 | [share-links.md](share-links.md) | `website/src/index.js`, `website/public/share.js`, `app/place/[id].tsx`, `app/course/[id].tsx` |
+| 홈페이지 디자인 | [homepage.md](homepage.md) | `website/public/`, `website/prototypes/` |
 | 통합 검색·검색 결과 지도 | [search.md](search.md) | `app/search.tsx`, `app/search-results.tsx`, `lib/api/search.ts`, `lib/api/externalPlaces.ts`, 네이버 지역 검색 프록시 |
 | 라이딩 추천 콘텐츠 | [riding-recommendations.md](riding-recommendations.md) | `app/(tabs)/courses.tsx`, `app/riding/`, `riding_guides` |
 | 앱 내 길안내 | [navigation.md](navigation.md) | `app/navi.tsx`, `modules/kakao-navi/` |
