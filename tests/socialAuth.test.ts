@@ -9,12 +9,13 @@ type AuthModule = {
   linkSocialProvider: (provider: Provider) => Promise<boolean>;
 };
 
-function fixture(options: { error?: unknown; browserResult?: Record<string, string>; appleAvailable?: boolean } = {}) {
+function fixture(options: { error?: unknown; authError?: unknown; browserResult?: Record<string, string>; appleAvailable?: boolean } = {}) {
   const calls: { method: string; args: Record<string, unknown> }[] = [];
+  const kakaoCalls: Record<string, unknown>[] = [];
   const recent: string[] = [];
   const record = (method: string) => async (args: Record<string, unknown>) => {
     calls.push({ method, args });
-    return { data: { url: 'https://provider.test/authorize' }, error: null };
+    return { data: { url: 'https://provider.test/authorize' }, error: options.authError ?? null };
   };
   const authenticate = async () => {
     if (options.error) throw options.error;
@@ -37,7 +38,10 @@ function fixture(options: { error?: unknown; browserResult?: Record<string, stri
         return options.browserResult ?? { type: 'success', url: 'ridemap://auth/callback?code=test-code' };
       },
     },
-    '@react-native-kakao/user': { login: authenticate },
+    '@react-native-kakao/user': { login: async (args: Record<string, unknown>) => {
+      kakaoCalls.push(args);
+      return authenticate();
+    } },
     '@/lib/recentLogin': { setRecentLoginProvider: async (provider: string) => { recent.push(provider); } },
     '@/lib/socialAuthError': authErrors,
     '@/lib/supabase': { supabase: { auth: {
@@ -46,8 +50,32 @@ function fixture(options: { error?: unknown; browserResult?: Record<string, stri
       setSession: record('setSession'),
     } } },
   });
-  return { auth, calls, recent };
+  return { auth, calls, kakaoCalls, recent };
 }
+
+test('카카오 nonce는 SDK에 해시·서버에 원문으로 전달하고 access token 검증을 유지한다', async () => {
+  for (const mode of ['signInWithSocialProvider', 'linkSocialProvider'] as const) {
+    const { auth, calls, kakaoCalls } = fixture();
+    assert.equal(await auth[mode]('kakao'), true);
+    assert.equal(kakaoCalls.length, 1);
+    assert.equal(kakaoCalls[0].nonce, 'hashed-nonce');
+    assert.deepEqual(Object.keys(kakaoCalls[0]), ['nonce']);
+    assert.equal(calls[0].args.nonce, 'raw-nonce');
+    assert.equal(calls[0].args.access_token, 'kakao-access');
+  }
+});
+
+test('카카오 서버 audience 거절은 로그인 성공이나 취소로 숨기지 않는다', async () => {
+  const error = { code: 'validation_failed', status: 400, message: 'Unacceptable audience in id_token: [test-client]' };
+  for (const mode of ['signInWithSocialProvider', 'linkSocialProvider'] as const) {
+    const { auth, calls, recent } = fixture({ authError: error });
+    await assert.rejects(auth[mode]('kakao'), (actual) => actual === error);
+    assert.equal(calls.length, 1);
+    assert.deepEqual(recent, []);
+    assert.equal(authErrors.isSocialAuthCancelled(error), false);
+    assert.equal(authErrors.friendlySocialAuthError(error).includes('test-client'), false);
+  }
+});
 
 for (const provider of ['apple', 'kakao', 'naver', 'google'] as const) {
   test(`${provider}의 로그인·수동 연결 경로와 최근 로그인 기록을 분리한다`, async () => {

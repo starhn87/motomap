@@ -228,3 +228,43 @@ Apple·카카오·네이버·Google 인증, 서버 identity 자동 연결, TestF
 로그아웃 요청이 실패하면 기존 로그인 상태를 유지하고 내 정보 화면에서 재시도 안내를 표시한다.
 확인 대화상자의 비동기 콜백에서도 실패를 처리해 처리되지 않은 Promise 오류로 남기지 않는다.
 공급자의 기술 원문은 안내에 넣지 않는다.
+
+## AUTH-007 — 카카오 native ID token과 REST OAuth의 허용 식별자를 함께 관리
+
+- 날짜: 2026-10-13
+- 상태: 활성(운영 설정 보완 승인 대기·실제 로그인 검증 대기)
+- 관련: `lib/socialAuth.ts`, `tests/socialAuth.test.ts`, Supabase Kakao 공급자 설정
+
+### 배경과 확인
+
+운영자의 실제 카카오 로그인 실패 뒤 Auth 로그에서 `/token`의 `id_token` 요청 3건이
+HTTP400 `Unacceptable audience in id_token`으로 거절됐음을 확인했다. 관리 콘솔의 Kakao
+REST API Key에는 식별자 한 개만 있었다. native SDK에서 토큰 발급은 됐지만 서버 audience
+허용 목록과 맞지 않는 단계이므로 SDK 실패·nonce 오류·계정 데이터 손실로 분류하지 않는다.
+카카오 콘솔에서 같은 RideMap 앱의 REST 값이 서버 첫 항목과 같고 native 값은 빠져 있음을
+대조했다. 실패 3건의 audience는 native 식별자와 일치했다. 값 자체는 기록하지 않는다.
+
+### 결정과 경계
+
+카카오의 REST API 키와 native 앱 키는 같은 앱에 속해도 토큰 audience가 서로 다르다.
+Supabase 카카오 허용 ClientID는 기존 REST 식별자를 **첫 항목**으로 유지하고, 이 앱이 실제
+사용하는 native 식별자를 추가한다. Auth 서버는 전체 목록으로 ID token audience를 검사하고
+브라우저 OAuth는 첫 항목을 client_id로 사용하므로 REST 값을 native 값으로 교체하지 않는다.
+출처: [Supabase ID token 검증](https://github.com/supabase/auth/blob/master/internal/api/token_oidc.go),
+[Kakao OAuth 구성](https://github.com/supabase/auth/blob/master/internal/api/provider/kakao.go).
+
+- 기존 Client Secret·provider 활성 상태·이메일 조건·다른 로그인 수단은 변경하지 않는다.
+- nonce는 SDK에 SHA256 해시, Supabase에 원문으로 전달하는 기존 방식을 유지한다.
+  signature/audience/nonce 검증을 끄거나 issuer를 임의로 허용하지 않는다.
+- 허용 목록 추가는 운영 인증 설정 변경이므로 실행 전에 승인받는다. 새 키를 만들거나
+  기존 키를 회전시키는 작업이 아니다. 값 자체·토큰·이메일은 문서/로그에 남기지 않는다.
+- 앱 재빌드·OTA·DB 마이그레이션이 필요한 앱 코드 오류로 오인해 우회 경로를 추가하지 않는다.
+  기존 사용자·identity·프로필·리뷰·즐겨찾기를 삭제하거나 다시 생성하지 않는다.
+
+### 검증과 재검토
+
+대역 테스트는 native hashed nonce·서버 raw nonce·access token 전달과 audience 거절의
+실패 전달·최근 로그인 수단 미갱신·원문 비노출을 검증한다. 운영 설정의 실제 일치를 증명하지는
+않는다. 설정 저장 후 REST 첫 항목 유지·native 포함·나머지 옵션 불변을 재조회하고, 실제
+카카오 로그인 성공과 기존 계정/닉네임/사진·기록을 확인한다. 성공 전 전체 재개 푸시는 보류한다.
+native 키·OAuth 설정 변경이나 향후 Android 출시 때 같은 allowlist 검증을 다시 수행한다.
