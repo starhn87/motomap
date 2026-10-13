@@ -281,3 +281,44 @@ provider·계정·프로필·DB·지도 설정은 변경하지 않았다. nonce/
 추가 회귀 검사를 포함한 로컬 테스트212/212·타입·diff 검사는 통과했다. 콘솔 저장 성공을
 실기기 로그인 성공으로 표시하지 않으며, 운영자에게 재로그인과 기존 프로필/기록 확인을
 요청했다. 실제 결과 확인 전 전체 재개 푸시는 계속 보류한다.
+
+### 2026-10-13 서버 로그인 성공 후 복귀 화면 회귀
+
+설정 반영 이후 05:07~06:16 UTC Auth 로그에서 Kakao `id_token` 로그인 HTTP200 두 건을
+확인했다. 운영자도 로그인 뒤 정상 화면으로 넘어감을 알렸지만 잠깐 ‘페이지를 찾을 수
+없습니다’ 화면을 보는 별도 UX 문제를 제보했다. 서버 audience 오류는 이 화면 문제와
+구분하며 기존 프로필·리뷰·즐겨찾기 전체 보존 검증을 대신하지 않는다.
+
+## AUTH-008 — 카카오 SDK 전용 콜백은 화면 라우팅에서 제외
+
+- 날짜: 2026-10-13
+- 상태: 활성(소스·회귀 검증 완료 / 푸시·OTA 승인 대기)
+- 관련: `app/+native-intent.tsx`, `tests/nativeIntent.test.ts`, `app/+not-found.tsx`
+
+### 원인 경로와 결정
+
+카카오 SDK의 복귀 주소는 해당 native 앱 키의 `kakao…://oauth`다. Expo57의 scene 전달은
+native AppDelegate/카카오 SDK가 처리한 URL도 React Native Linking에 전달할 수 있다.
+앱에 해당 페이지는 없어 코드상 Expo Router가 `+not-found`를 잠깐 렌더한 뒤 로그인 완료
+화면으로 넘어갈 수 있다. 문구가 운영자 제보와 같은 원인 후보이며, 실제 기기의 Linking
+이벤트 원문을 관측한 것은 아니다. 민감한 콜백 query를 진단 목적으로 수집하지 않는다.
+
+설치된 Expo Router의 콜드 initial URL·웜 subscribe는 `redirectSystemPath`의 null을
+화면 이동 없음으로 처리한다. `+native-intent`에서 **설정된 native 키의 정확한 scheme과
+oauth host·루트 path**만 null을 반환한다. 기존 로그인/설정 연결 화면을 유지한 채 native
+SDK가 원래 URL을 처리하고, 기존 성공·취소·오류 처리에 따라 후속 화면을 결정한다.
+[Expo NativeIntent 계약](https://docs.expo.dev/versions/latest/sdk/router/#nativeintent)
+
+- 콜백 query를 읽거나 토큰으로 해석·저장·출력하지 않는다. nonce·서명·서버 허용 목록과
+  세션 복원, SDK URL 처리·로그인 호출은 변경하지 않는다.
+- SDK 콜백을 임의 홈/로딩 화면으로 보내거나 not-found 자체를 숨기지 않는다.
+- 다른 Kakao 키/host/path, Google·네이버 콜백, 공유 URL, 일반·잘못된 경로는 기존대로 전달한다.
+- 네이티브 설정/의존성·앱/runtime·API 계약 변경 없는 1.2.8 JS 수정이다. 초기화 때 SDK를
+  새로 불러오지 않는다. SDK54 구버전 연결 번들은 Router·로그인을 사용하지 않아 대상이 아니다.
+
+대역 검사·SDK 계약 확인은 실제 iOS 로그인 왕복에서 깜빡임이 사라졌다는 증명이 아니다.
+OTA 적용 후 카카오 로그인·설정 연결/취소와 정상 공유 링크를 확인한다.
+
+소스 검증: 앱217/217·타입·OTA 정책·diff 검사 통과. 설치 Router의 실제 콜드/웜 처리
+모듈을 대역 의존성과 연결해 null에서 미이동·공유 원문 전달을 확인했다. 범위 밖의
+native scene·실제 계정 연결/취소 왕복·모든 공유 화면 검증까지 완료한 것은 아니다.
