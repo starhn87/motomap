@@ -1,4 +1,4 @@
-// OPS-009: 고지·동의 반영 후 승인된 정상 진입. 판매·소개/공유·전체 알림은 별도다.
+// OPS-012: 승인된 정상 진입·소개/공유 복구. 자동 작업 재개는 별도 승인한다.
 export const serviceStatus = Object.freeze({
   schemaVersion: 1,
   status: 'active',

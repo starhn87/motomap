@@ -19,18 +19,19 @@ test('승인된 정상 진입은 active이며 판매·소개/공유 복구와 �
   assert.equal(Object.isFrozen(serviceStatus), true);
 });
 
-test('상태 조회만 200으로 제공하고 홈페이지는 계속 중단한다', async () => {
+test('정상 상태에서 홈페이지와 공유 화면을 제공한다', async () => {
   const statusResponse = await worker.fetch(new Request('https://motomap.kr/service-status'), env);
   assert.equal(statusResponse.status, 200);
   assert.equal(statusResponse.headers.get('Cache-Control'), 'no-store');
   assert.deepEqual(await statusResponse.json(), serviceStatus);
 
   const homeResponse = await worker.fetch(new Request('https://motomap.kr/'), env);
-  assert.equal(homeResponse.status, 503);
-  assert.equal(homeResponse.headers.get('Cache-Control'), 'no-store');
+  assert.equal(homeResponse.status, 200);
+  assert.equal(await homeResponse.text(), 'asset');
   for (const path of ['/place/test', '/course/test', '/riding/test']) {
     const response = await worker.fetch(new Request(`https://motomap.kr${path}`), env);
-    assert.equal(response.status, 503);
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /data-share-page/);
   }
 });
 

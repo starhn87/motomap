@@ -7,7 +7,7 @@ import { legalDocsPlugin } from '../legalDocsPlugin.js';
 
 const env = { ASSETS: { fetch: async () => new Response('asset') } };
 
-test('승인된 10월 11일 정식 고지를 제공하고 홈/공유 중단은 유지한다', async () => {
+test('홈페이지를 복구해도 승인된 10월 11일 정식 고지를 유지한다', async () => {
   for (const [path, type] of [['/terms', 'terms'], ['/privacy', 'privacy'], ['/location-terms', 'location']]) {
     const current = await worker.fetch(new Request(`https://motomap.kr${path}`), env);
     assert.equal(current.status, 200);
@@ -21,7 +21,7 @@ test('승인된 10월 11일 정식 고지를 제공하고 홈/공유 중단은 �
     assert.ok(LEGAL_DOCS[type].content.includes('시행일: 2026-10-11'));
   }
   for (const path of ['/', '/place/test', '/riding/test', '/toString']) {
-    assert.equal((await worker.fetch(new Request(`https://motomap.kr${path}`), env)).status, 503);
+    assert.equal((await worker.fetch(new Request(`https://motomap.kr${path}`), env)).status, 200);
   }
 });
 

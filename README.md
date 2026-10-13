@@ -3,18 +3,18 @@
 > 오토바이 라이더를 위한 지도 앱
 
 > [!IMPORTANT]
-> **운영 일시 중단**
+> **운영 재개 · 1.2.8 출시**
 >
-> 모토맵은 필수 운영 및 서비스 준비를 위해 일시적으로 운영을 중단했습니다. 준비가 늦어져 죄송합니다. 2026년 10월 중 운영을 재개하겠습니다. 재개 시 기존 이용자에게 앱 푸시 알림으로 안내합니다.
+> 모토맵을 다시 이용할 수 있습니다. 기존 이용자는 App Store에서 1.2.8로 업데이트해 주세요. 기존 리뷰·즐겨찾기·방문 기록은 유지됩니다.
 
-![App Store temporarily unavailable](https://img.shields.io/badge/App_Store-temporarily_unavailable-6B7280?style=flat-square&logo=apple&logoColor=white)
+[![App Store](https://img.shields.io/badge/App_Store-download-22C55E?style=flat-square&logo=apple&logoColor=white)](https://apps.apple.com/kr/app/id6773636183)
 ![Platform](https://img.shields.io/badge/platform-iOS-lightgrey?style=flat-square)
-![Expo SDK](https://img.shields.io/badge/Expo_SDK-54-000020?style=flat-square&logo=expo&logoColor=white)
-![React Native](https://img.shields.io/badge/React_Native-0.81-61DAFB?style=flat-square&logo=react&logoColor=black)
+![Expo SDK](https://img.shields.io/badge/Expo_SDK-57-000020?style=flat-square&logo=expo&logoColor=white)
+![React Native](https://img.shields.io/badge/React_Native-0.86-61DAFB?style=flat-square&logo=react&logoColor=black)
 
 🌐 **공식 웹사이트:** [motomap.kr](https://motomap.kr)
 
-라이딩 갈 만한 카페, 맛집, 뷰포인트부터 주유소와 정비소 등을 지도에서 찾고, 목적지 중심 라이딩 추천을 살펴본 뒤 이륜차 전용 길안내로 바로 떠나는 앱입니다. 출발 전에는 기상청 예보 기반 라이딩 날씨로 비 소식을 확인할 수 있습니다. 운영 재개 후 App Store에서 다시 제공할 예정입니다.
+라이딩 갈 만한 카페, 맛집, 뷰포인트부터 주유소와 정비소 등을 지도에서 찾고, 목적지 중심 라이딩 추천을 살펴본 뒤 이륜차 전용 길안내로 바로 떠나는 앱입니다. 출발 전에는 기상청 예보 기반 라이딩 날씨로 비 소식을 확인할 수 있습니다.
 
 <p align="center">
   <img src="./docs/screenshots/hero-1.png" width="340"/>
@@ -50,13 +50,13 @@
 
 | 영역 | 사용 |
 | --- | --- |
-| 앱 | React Native 0.81 / Expo SDK 54 / TypeScript |
+| 앱 | React Native 0.86 / Expo SDK 57 / TypeScript |
 | 라우팅 | expo-router (typed routes) |
 | 지도 | @mj-studio/react-native-naver-map (+ 심벌 탭 패치, patch-package) |
 | 길안내 | 카카오내비 SDK(KNSDK) 이륜차 모드: 네이티브 모듈 직접 브리징 (`modules/kakao-navi/`) |
 | 교통 혼잡도 | 카카오모빌리티 길찾기 REST (미리보기 경로선 색칠) |
 | 위치 | expo-location (현재 위치 표시) |
-| 검색과 지오코딩 | 카카오 로컬 API |
+| 검색과 지오코딩 | 카카오 로컬 API + 네이버 지역 검색 (서버 프록시) |
 | 날씨 | 기상청 단기예보 + 에어코리아 미세먼지 (Supabase Edge Function 프록시) |
 | 유가 | 오피넷 API (Supabase Edge Function 프록시) |
 | AI | Anthropic Claude (제보 심사와 추천 챗) |

@@ -34,6 +34,12 @@ test('AASA·앱 entitlement·라우트는 장소/구 코스/라이딩 추천 계
   for (const path of ['/terms', '/privacy', '/location-terms']) {
     assert.equal((await worker.default.fetch(new Request(`https://motomap.kr${path}`), env)).status, 200);
   }
+  const spaEnv = { ASSETS: { fetch: async () => new Response('cinematic', { headers: { 'Content-Type': 'text/html' } }) } };
+  for (const path of ['/index.html', '/missing.js', '/other.html']) {
+    const closed = await worker.default.fetch(new Request(`https://motomap.kr${path}`), spaEnv);
+    assert.equal(closed.status, 503);
+    assert.doesNotMatch(await closed.text(), /data-ride-story/);
+  }
 });
 
 function browserFixture() {
