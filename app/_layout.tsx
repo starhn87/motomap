@@ -10,6 +10,7 @@ import { APP_STORE_URL } from '@/constants/app';
 import { getInstalledAppVersion } from '@/lib/appVersion';
 import { fetchServiceStatus, resolveServiceGate } from '@/lib/serviceStatus';
 import { scheduleStartupSplashHide, STARTUP_SPLASH_FADE_MS } from '@/lib/startupSplash';
+import { setupResumeStoreLink } from '@/lib/setupServiceResumeNotification';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -75,8 +76,10 @@ export default function RootLayout() {
   }
 
   useEffect(() => {
+    const cleanupStoreLink = setupResumeStoreLink();
     void checkStatus();
     return () => {
+      cleanupStoreLink();
       requestSequence.current += 1;
       // 오류 경계 등으로 루트가 사라지면 안내 화면을 스플래시로 가리지 않는다.
       SplashScreen.hide();

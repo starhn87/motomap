@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
 import { getCurrentUser } from '@/lib/auth';
+import { isServiceResumeNotification } from '@/lib/serviceResumeNotification';
 
 const DEVICE_PUSH_TOKEN_KEY = 'device-push-token';
 
@@ -24,6 +25,8 @@ Notifications.setNotificationHandler({
 function routeFromNotification(data: Record<string, unknown> | undefined) {
   try {
     if (!data) return;
+    // 재개 알림은 루트가 스토어로 연결한다. 알림 목록으로 중복 이동하지 않는다.
+    if (isServiceResumeNotification(data)) return;
     if (
       (data.type === 'place_approved' || data.type === 'place_change_resolved') &&
       typeof data.placeId === 'string'
