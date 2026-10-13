@@ -3,8 +3,8 @@
 ## 승인·진행 상태
 
 사용자는 전체 재개 푸시, 알림 탭 자동 App Store 연결, 홈페이지 중단 해제와 검증 후 main
-푸시·웹 배포·연결용 OTA를 승인했다. 구현·정적 검증 중이며 이 문서 작성 시점의 원격 반영·
-OTA·테스트 푸시·전체 방송은 **미실행**이다. 실행 뒤 산출물과 실제 결과를 아래 추가한다.
+푸시·웹 배포·연결용 OTA를 승인했다. 구현·검증·main 푸시·웹 배포·13 runtime OTA를 완료했다.
+본인 기기 테스트 푸시 1건은 Expo에서 접수했고 탭 결과 확인 대기다. 전체 방송은 **미실행**이다.
 새 네이티브 빌드·자동 작업·EU 거래자 자격·DB 스키마 변경은 승인 범위가 아니다.
 
 ## 구현
@@ -49,4 +49,48 @@ OTA를 못 받는 초기 바이너리·아직 옛 번들을 실행하는 장기 
 
 ## 실제 실행 결과
 
-미실행. 검증 결과·커밋·웹 deployment ID·runtime별 OTA ID·테스트 연결·방송 결과를 후속 기록한다.
+- 소스: `2ed016a` 홈페이지·공유 복구, `d1f4834` 알림 연결·SDK54 연결 도구. main/origin에 반영했다.
+- 타입·앱191/191·웹5/5·고지 ready·OTA 정책·diff·웹 빌드/dry-run 통과. reviewer의 HTML/SPA
+  우회와 지연된 콜드 응답 경합 지적을 수정하고 재검증했다.
+- SDK54 네 그룹과 각 runtime iOS Hermes export 통과. source map에서 auth/GPS/map/analytics
+  서비스 import 미포함을 확인했다. 초기 두 runtime에는 notifications import도 없다.
+- 1.2.8 SDK57 iOS export 통과. 새 native 빌드·과거 바이너리 설치/삭제는 하지 않았다.
+- Worker `ac0aed48-81ef-4567-9ed5-a9a3aa3a8674` (`--keep-vars`): 실제 홈200/시네마틱 배경
+  브라우저 확인, 공유 장소·라이딩200, 약관3·status·AASA·최신 길안내 PNG200. 홈페이지의
+  전체 단계/모바일 상호작용을 이번에 새로 전부 검증했다고 표시하지 않는다.
+
+production/iOS 발행 후 EAS update 목록에서 13 runtime·group·메시지를 재조회했다.
+
+| runtime | update group ID |
+| --- | --- |
+| 1.1.0 | f9b8a5a9-64cd-40b2-be9d-35ff40e50804 |
+| 1.1.1 | ce7240ab-f1a7-4000-b310-aee9b53c9b28 |
+| 1.1.2 | bc327253-d0d5-426a-b3f7-bfe2fb7b1f0e |
+| 1.1.3 | 8ac0a1da-7607-4bc3-9b60-9a7b44b118dc |
+| 1.2.0 | 3b7ba344-b25a-4dee-ac6b-f962a3308b2d |
+| 1.2.1 | c2a4f11d-7d53-4d7d-8092-5c35534df228 |
+| 1.2.2 | 89041590-d0a7-4d77-b462-f3f6474456ca |
+| 1.2.3 | f839b25e-5188-4fff-a6be-60f933cab2d2 |
+| 1.2.4 | 64cf94a7-f3d1-473f-8440-7375261e4bb4 |
+| 1.2.5 | c014055d-70d0-4b5f-85a6-cc55a83922f7 |
+| 1.2.6 | a61d0b10-a483-455d-b977-1cf9f156cdb5 |
+| 1.2.7 | 75a19ecf-d6de-4ba9-877c-4754eaebe8e8 |
+| 1.2.8 | 5307f595-a185-4a78-82b2-b470ed73337f |
+
+### 테스트 푸시·방송 경계
+
+- 본인 계정 token1에 테스트 알림 1건 전송. pg_net request3, HTTP200/timeoutfalse/
+  transport error없음, Expo ticket `01a132b2-0157-732b-9f61-184859bc9dfe` statusok.
+  receipt 조회 request4도 HTTP200/statusok로 APNs 접수를 확인했다. 기기 표시·사용자 열람·
+  실제 App Store 이동의 증명은 아니다. 알림 탭 결과는 운영자 확인 대기다.
+- `scripts/broadcast-service-resumed-2026-10-13.sql`: 캠페인 advisory lock·기존 캠페인 거부,
+  기존 broadcast RPC, queue request IDs 보존·배치 수 검증 후 commit. 새 schema/RPC/권한
+  변경 없음. notifications 사용자 트리거0으로, 공지 INSERT에서 트리거가 추가 푸시를
+  보내는 경로는 없음을 확인했다. 시스템 전체의 중복 발송 가능성 부재를 뜻하지 않는다.
+- SQL을 ROLLBACK으로 2회 테스트하여 캠페인 notices0/실제 전송0을 유지했다. sequence의
+  번호 소비는 롤백 대상이 아니며 테스트 푸시 request3과 구분한다.
+- 캠페인 공지가 보존되고 같은 잠금 절차로 실행할 때 멱등성이 유지된다. 공지 전체를 지우고
+  같은 방송을 재실행하지 않는다. statement_timeout은 문장별 제한이며 요청 수 일치는 수신
+  성공 증거가 아니다. 실제 응답을 별도 조회한다.
+- 전체 방송은 아직 실행하지 않았다. 사용자 탭 확인 전 실행하거나 확인자료를 실제 수신으로
+  표시하지 않는다. 기존 리뷰·즐겨찾기·방문·동의는 변경하지 않았다.
