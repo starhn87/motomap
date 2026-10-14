@@ -1278,3 +1278,22 @@ Android 뒤로가기와 모든 진입점의 실기기 반복 검증까지 완료
 종료 후 이 키만 원래 값으로 병합 복원하고 앱 재실행 뒤 원본 문자열의 정확한 일치를 확인했다.
 다른 현재 저장 키·계정·리뷰·즐겨찾기·방문 기록은 변경하지 않는다. 개인정보·원본 캡처는
 저장소에 보관하지 않으며 공개 상태·Git 푸시·OTA·스토어 업로드는 실행하지 않았다.
+
+## MAP-042 — 지도 화면 터치 요소의 스크린리더 이름·역할을 채운다
+
+- 날짜: 2026-10-14
+- 상태: 소스·타입 검증 / VoiceOver·TalkBack 실기기 확인은 후속
+- 관련 구현: `components/map/` (`MapHome.tsx`, `PlaceSheetHeaderActions.tsx`,
+  `PlaceBottomSheet.tsx`, `TempPlaceSheet.tsx`, `HazardSheet.tsx`, `WarningDetailModal.tsx` 등)
+
+아이콘만 있는 터치 요소(내 위치, 시트 헤더 즐겨찾기·집/회사 저장·닫기, 확장 헤더 뒤로, 시트
+핸들)는 이름 없이 노출되거나 아예 읽히지 않았다. 각각 `accessibilityLabel`과
+`accessibilityRole="button"`을 둔다. 즐겨찾기는 상태에 따라 추가/해제로 이름을 바꾸고
+`selected`를 함께 준다. 텍스트가 있는 버튼은 보이는 문구가 이름이 되므로 역할만 보충하고,
+`안내`처럼 대상이 모호하거나 로딩 중 스피너만 남는 버튼(유가 카드 안내, 지도 위치 선택,
+위험 정보 투표)은 이름과 `busy`/`disabled` 상태를 명시한다. 카테고리 칩은 `selected`를 준다.
+
+위험 정보 시트의 빈 배경 Pressable은 이름 없는 요소로 포커스되므로 `accessible={false}`로
+뺀다(닫기 버튼이 별도로 있다). 기상특보 상세는 바깥/카드 Pressable이 자식을 묶어 `확인`
+버튼을 숨기던 구조라 MAP-041·`DialogHost`와 같은 경계로 두 컨테이너에 `accessible={false}`를
+둔다. 터치·닫기 동작과 레이아웃은 바꾸지 않는다. 지도 마커는 네이티브 오버레이라 이 범위 밖이다.

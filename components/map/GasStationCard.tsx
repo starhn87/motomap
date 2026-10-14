@@ -184,6 +184,8 @@ export default function GasStationCard({ station, onClose }: Props) {
           </Text>
         )}
         <Pressable
+          accessibilityLabel={`${station.name} 길안내`}
+          accessibilityRole="button"
           onPress={() =>
             openNavigation({
               name: station.name,

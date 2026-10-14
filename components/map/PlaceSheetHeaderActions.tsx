@@ -40,6 +40,9 @@ export default function PlaceSheetHeaderActions({
   return (
     <>
       <TouchableOpacity
+        accessibilityLabel={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+        accessibilityRole="button"
+        accessibilityState={{ selected: isFavorite, disabled: !!favoriteDisabled }}
         onPress={onFavorite}
         disabled={favoriteDisabled}
         style={buttonStyle}>
@@ -51,7 +54,17 @@ export default function PlaceSheetHeaderActions({
           />
         </Animated.View>
       </TouchableOpacity>
-      <TouchableOpacity onPress={onSaveMyPlace} style={buttonStyle}>
+      <TouchableOpacity
+        accessibilityLabel={
+          savedSlot === 'home'
+            ? '집으로 저장된 장소'
+            : savedSlot === 'work'
+              ? '회사로 저장된 장소'
+              : '집 또는 회사로 저장'
+        }
+        accessibilityRole="button"
+        onPress={onSaveMyPlace}
+        style={buttonStyle}>
         <Ionicons
           name={
             savedSlot === 'home'
@@ -64,7 +77,11 @@ export default function PlaceSheetHeaderActions({
           color={expanded ? colors.text : savedSlot ? colors.tint : colors.textSecondary}
         />
       </TouchableOpacity>
-      <TouchableOpacity onPress={onClose} style={buttonStyle}>
+      <TouchableOpacity
+        accessibilityLabel="장소 상세 닫기"
+        accessibilityRole="button"
+        onPress={onClose}
+        style={buttonStyle}>
         <CloseIcon
           size={iconSize}
           color={expanded ? colors.text : colors.textSecondary}

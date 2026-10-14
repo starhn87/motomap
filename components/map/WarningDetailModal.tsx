@@ -19,9 +19,11 @@ export default function WarningDetailModal({
   const colors = Colors[colorScheme ?? 'light'];
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      {/* 두 컨테이너가 자식을 하나로 묶으면 확인 버튼이 접근성 트리에서 숨는다 */}
+      <Pressable style={styles.backdrop} onPress={onClose} accessible={false}>
         {/* 카드 자체 탭은 닫히지 않게 — 내부 Pressable 이 이벤트를 삼킨다 */}
         <Pressable
+          accessible={false}
           style={[styles.card, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
           onPress={() => {}}>
           <View style={styles.titleRow}>
@@ -52,6 +54,7 @@ export default function WarningDetailModal({
           <Text style={[styles.source, { color: colors.textSecondary }]}>기상청 기상특보 기준</Text>
 
           <Pressable
+            accessibilityRole="button"
             onPress={onClose}
             style={({ pressed }) => [
               styles.closeButton,

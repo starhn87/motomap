@@ -345,6 +345,8 @@ function PlaceBottomSheet({
   const renderHandle = useCallback(
     () => (
       <TouchableOpacity
+        accessibilityLabel="장소 상세 펼치기"
+        accessibilityRole="button"
         activeOpacity={1}
         onPress={() => {
           const ci = currentIndexRef.current;
@@ -531,6 +533,7 @@ function PlaceBottomSheet({
           {/* 출발/도착/공유 — 시트 안 액션 행. 접힌 스냅에서도 보이도록 상단에 둔다 */}
           <View style={styles.actionRow}>
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={() =>
                 router.push({
                   pathname: '/directions',
@@ -546,6 +549,9 @@ function PlaceBottomSheet({
               <Text style={[styles.departButtonText, { color: colors.text }]}>출발</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityLabel="도착"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: navLaunching, busy: navLaunching }}
               disabled={navLaunching}
               onPress={() =>
                 openNavigation({
@@ -644,6 +650,8 @@ function PlaceBottomSheet({
               {infoCards.map((card) => (
                 <Pressable
                   key={card.label}
+                  accessibilityRole={card.onPress ? 'button' : undefined}
+                  accessibilityLabel={card.onPress ? `${card.label} ${card.value}` : undefined}
                   disabled={!card.onPress}
                   onPress={card.onPress}
                   style={({ pressed }) => [
@@ -751,6 +759,8 @@ function PlaceBottomSheet({
             },
           ]}>
           <TouchableOpacity
+            accessibilityLabel="뒤로"
+            accessibilityRole="button"
             onPress={() => bottomSheetRef.current?.close()}
             style={[styles.iconButton, styles.pageHeaderIconButton]}>
             <Ionicons name="chevron-back" size={28} color={colors.text} />

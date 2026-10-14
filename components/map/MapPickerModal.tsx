@@ -121,6 +121,9 @@ export default function MapPickerModal({ visible, initial, onClose, onPick }: Pr
             </Text>
           </View>
           <Pressable
+            accessibilityLabel="이 위치로 선택"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !marker || resolving, busy: resolving }}
             onPress={() => marker && onPick({ ...marker, address })}
             disabled={!marker || resolving}
             style={({ pressed }) => [

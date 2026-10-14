@@ -1167,6 +1167,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       )}
 
       <AnimatedPressable
+        accessibilityLabel="내 위치로 이동"
+        accessibilityRole="button"
         onPress={handleMyLocation}
         onPressIn={handleMyLocationPressIn}
         onPressOut={handleMyLocationPressOut}

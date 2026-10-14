@@ -17,6 +17,7 @@ export default function CourseReturnChip({ onPress }: { onPress: () => void }) {
       exiting={FadeOut.duration(150)}
       style={styles.wrap}>
       <Pressable
+        accessibilityRole="button"
         onPress={onPress}
         style={({ pressed }) => [
           styles.chip,

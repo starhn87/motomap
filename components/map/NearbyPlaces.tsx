@@ -49,6 +49,7 @@ export default function NearbyPlaces({ place }: { place: Place }) {
           {nearby.map((near) => (
             <Pressable
               key={near.id}
+              accessibilityRole="button"
               onPress={() => focusPlaceOnMap(near.id, { place: near })}
               style={({ pressed }) => [
                 styles.card,

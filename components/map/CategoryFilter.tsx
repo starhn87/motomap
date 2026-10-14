@@ -48,6 +48,8 @@ function FilterChip({
 
   return (
     <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}

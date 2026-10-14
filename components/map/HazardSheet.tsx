@@ -54,7 +54,8 @@ export default function HazardSheet({ hazard, onClose }: Props) {
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
+      {/* 닫기 버튼이 따로 있어 라벨 없는 빈 배경은 스크린리더 탐색에서 뺀다 */}
+      <Pressable style={styles.backdrop} onPress={onClose} accessible={false} />
       <View
         style={[
           styles.card,
@@ -110,6 +111,9 @@ export default function HazardSheet({ hazard, onClose }: Props) {
 
         <View style={styles.actions}>
           <Pressable
+            accessibilityLabel={`아직 있어요${hazard.confirmCount > 0 ? ` ${hazard.confirmCount}명` : ''}`}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isPending, busy: isPending }}
             onPress={() => void handleVote('confirm')}
             disabled={isPending}
             style={({ pressed }) => [
@@ -128,6 +132,8 @@ export default function HazardSheet({ hazard, onClose }: Props) {
             )}
           </Pressable>
           <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isPending }}
             onPress={() => void handleVote('resolve')}
             disabled={isPending}
             style={({ pressed }) => [

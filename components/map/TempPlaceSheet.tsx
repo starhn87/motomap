@@ -381,6 +381,8 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const renderHandle = useCallback(
     () => (
       <TouchableOpacity
+        accessibilityLabel="장소 상세 펼치기"
+        accessibilityRole="button"
         activeOpacity={1}
         onPress={() => {
           const index = currentIndexRef.current;
@@ -481,6 +483,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
 
           <View style={styles.actionRow}>
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={() =>
                 router.push({
                   pathname: '/directions',
@@ -496,6 +499,9 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
               <Text style={[styles.departButtonText, { color: colors.text }]}>출발</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityLabel="도착"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: navigating, busy: navigating }}
               disabled={navigating}
               onPress={handleNavigate}
               activeOpacity={0.8}
@@ -544,6 +550,8 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             <View style={styles.infoGrid}>
               {!!place.phone && (
                 <Pressable
+                  accessibilityLabel={`전화 ${place.phone}`}
+                  accessibilityRole="button"
                   onPress={() => void Linking.openURL(`tel:${place.phone}`)}
                   style={({ pressed }) => [
                     styles.infoCard,
@@ -789,6 +797,8 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             { paddingTop: insets.top, backgroundColor: colors.background },
           ]}>
           <TouchableOpacity
+            accessibilityLabel="뒤로"
+            accessibilityRole="button"
             onPress={() => bottomSheetRef.current?.close()}
             style={[styles.iconButton, styles.pageHeaderIconButton]}>
             <Ionicons name="chevron-back" size={28} color={colors.text} />
