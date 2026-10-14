@@ -59,6 +59,7 @@ function fixture(initial: ReturnType<typeof response> | null = null, delayInitia
     '@/lib/supabase': {},
     '@/lib/queryClient': { queryClient: { invalidateQueries: () => { invalidated++; } } },
     '@/lib/auth': {},
+    '@/lib/pushTokens': {},
     '@/lib/serviceResumeNotification': resume,
     '@/lib/notificationNavigation': navigation,
     '@/lib/mapFocus': mapFocus,

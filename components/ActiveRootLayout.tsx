@@ -29,7 +29,8 @@ import Colors from '@/constants/Colors';
 import { posthog, useScreenTracking } from '@/lib/analytics';
 import { getAppReleaseContext } from '@/lib/appVersion';
 import { registerGuideEvents } from '@/lib/guideEvents';
-import { registerPushToken, setupNotificationTapHandling } from '@/lib/push';
+import { setupNotificationTapHandling } from '@/lib/push';
+import { startPushTokenSync } from '@/lib/pushTokens';
 import { queryClient } from '@/lib/queryClient';
 import { checkStartupNotices } from '@/lib/updateCheck';
 import { getKakaoNaviCapabilities } from '@/modules/kakao-navi';
@@ -178,6 +179,11 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
   useEffect(() => registerGuideEvents(), []);
 
   useEffect(() => {
+    if (authStatus !== 'signed_in' || !actor) return;
+    return startPushTokenSync(actor);
+  }, [authStatus, actor]);
+
+  useEffect(() => {
     const timer = setTimeout(() => void checkStartupNotices(), 3000);
     return () => clearTimeout(timer);
   }, []);
@@ -187,7 +193,6 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
     loadMode();
     void useHapticsStore.getState().load();
     void useMapStore.getState().loadShowFavorites();
-    void registerPushToken(false);
     const appKey = Constants.expoConfig?.extra?.kakaoNativeAppKey as string | undefined;
     if (appKey) {
       initializeKakaoSDK(appKey).catch((error) => {

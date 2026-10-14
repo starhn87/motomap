@@ -69,7 +69,7 @@ function fixture(options: {
       '@/lib/authRestoreError': restoreErrors,
       '@/lib/queryClient': { queryClient: { clear() { cleared++; } } },
       '@/lib/analytics': { identifyUser() {}, resetUser() {} },
-      '@/lib/push': { unregisterPushToken: async () => {} },
+      '@/lib/pushTokens': { signOutWithPushTokenCleanup: async (work: () => Promise<void>) => work() },
       '@/lib/legalConsent': { hasCurrentLegalConsent: options.fetchConsent ?? (async () => true) },
     },
   );

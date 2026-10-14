@@ -8,7 +8,7 @@ import {
 } from '@/lib/authRestoreError';
 import { queryClient } from '@/lib/queryClient';
 import { identifyUser, resetUser } from '@/lib/analytics';
-import { unregisterPushToken } from '@/lib/push';
+import { signOutWithPushTokenCleanup } from '@/lib/pushTokens';
 import { hasCurrentLegalConsent } from '@/lib/legalConsent';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -274,9 +274,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     setResolvedUser(set, resolvedUser, current.session);
   },
   signOut: async (scope = 'global') => {
-    await unregisterPushToken();
-    const { error } = await supabase.auth.signOut({ scope });
-    if (error) throw error;
+    const expectedActor = get().session?.user.id ?? null;
+    await signOutWithPushTokenCleanup(async () => {
+      const { error } = await supabase.auth.signOut({ scope });
+      if (error) throw error;
+    }, expectedActor);
+    const currentActor = get().session?.user.id ?? null;
+    if (currentActor && currentActor !== expectedActor) return;
     // SDK 이벤트가 오기 전에도 진행 중인 복원 요청을 무효화한다.
     sessionRevision++;
     // 계정 전환 시 이전 사용자의 캐시(즐겨찾기·주행·리뷰 등)가 노출되지 않도록 비움
