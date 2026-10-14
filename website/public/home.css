@@ -75,6 +75,7 @@ a:focus-visible {
 
 .home-brand {
   display: flex;
+  min-height: 44px;
   gap: 10px;
   align-items: center;
   font-size: 18px;
@@ -95,7 +96,11 @@ a:focus-visible {
   font-weight: 600;
 }
 
-.home-nav a {
+.home-nav a,
+.home-footer-links a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
   color: var(--ink-muted);
   transition: color 180ms ease;
 }
@@ -295,11 +300,11 @@ a:focus-visible {
   min-height: 78vh;
   flex-direction: column;
   justify-content: center;
-  transition: opacity 500ms ease;
 }
 
-.js .chapter:not(.is-active) {
-  opacity: 0.3;
+/* 비활성 챕터는 큰 제목만 흐린다(큰 글자 대비 3:1 이상 유지, 본문은 그대로). */
+.js .chapter:not(.is-active) h2 {
+  opacity: 0.5;
 }
 
 .chapter .mono {
@@ -312,6 +317,7 @@ a:focus-visible {
   font-weight: 800;
   line-height: 1.08;
   letter-spacing: -0.05em;
+  transition: opacity 500ms ease;
 }
 
 .chapter p {
@@ -396,14 +402,20 @@ a:focus-visible {
 .home-footer-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px 28px;
+  gap: 0 28px;
   justify-content: space-between;
+}
+
+.home-footer-row > span {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
 }
 
 .home-footer-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px 28px;
+  gap: 0 28px;
 }
 
 .home-footer-links a:hover {
@@ -413,7 +425,7 @@ a:focus-visible {
 .apple-credit {
   display: block;
   margin-top: 24px;
-  color: #8a867e;
+  color: var(--ink-muted);
   font-size: 11px;
   line-height: 1.6;
 }
@@ -491,7 +503,7 @@ a:focus-visible {
     padding: 56px 0;
   }
 
-  .js .chapter:not(.is-active) {
+  .js .chapter:not(.is-active) h2 {
     opacity: 1;
   }
 

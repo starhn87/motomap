@@ -1,8 +1,9 @@
 // 스크롤 등장 연출과 기능 챕터의 폰 화면 교체만 담당한다. 자연 스크롤을 가로채지 않는다.
-document.documentElement.classList.add('js');
-
+// 숨김 상태를 켜는 html.js 클래스는 첫 페인트 전에 /js-flag.js가 붙인다.
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const revealTargets = [...document.querySelectorAll('[data-reveal]')];
+// 첫 화면은 뷰포트 높이와 관계없이 로드 직후 바로 등장시킨다(하단 메타 줄이 감지 영역 밖에 걸리는 문제).
+const heroTargets = revealTargets.filter((target) => target.closest('.hero'));
 
 // 한 영역 안의 줄·요소를 문서 순서대로 80ms씩 늦춰 순차적으로 등장시킨다.
 for (const target of revealTargets) {
@@ -26,7 +27,14 @@ if (reduceMotion || !('IntersectionObserver' in window)) {
     },
     { threshold: 0.2, rootMargin: '0px 0px -8% 0px' },
   );
-  for (const target of revealTargets) revealObserver.observe(target);
+  for (const target of revealTargets) {
+    if (heroTargets.includes(target)) continue;
+    revealObserver.observe(target);
+  }
+  // 숨김 상태가 한 번 그려진 다음 프레임에 켜야 전환이 재생된다.
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+    for (const target of heroTargets) target.classList.add('is-in');
+  }));
 
   // 첫 화면 경로선이 그려지듯 이어진다.
   document.querySelector('.route-line path')?.animate(

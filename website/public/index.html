@@ -28,6 +28,7 @@
     <meta name="twitter:image" content="https://motomap.kr/og.png" />
     <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/icon.png" />
+    <script src="/js-flag.js"></script>
     <link rel="stylesheet" href="/home.css" />
     <script type="module" src="/site.js"></script>
     <title>모토맵: 라이더를 위한 지도</title>
@@ -79,7 +80,7 @@
             <div class="phone fx">
               <img
                 src="/screens/map.webp"
-                alt="카페와 휴게소 등 라이더 장소가 표시된 모토맵 지도 화면"
+                alt="라이더 장소가 표시된 모토맵 첫 지도 화면"
                 width="720"
                 height="1558"
                 decoding="async"
@@ -92,7 +93,7 @@
         <div class="hero-meta mono" data-reveal data-base="0.6">
           <i class="rule"></i>
           <span class="fx">01 발견 — 02 길 — 03 안내 — 04 기록 — 05 AI 추천</span>
-          <span class="fx">iOS</span>
+          <span class="fx">iPhone</span>
         </div>
       </section>
 
@@ -100,56 +101,56 @@
         <ol class="chapter-list">
           <li class="chapter" data-chapter="0" data-reveal>
             <i class="rule"></i>
-            <img class="chapter-shot phone fx" src="/screens/map.webp" alt="" width="720" height="1558" loading="lazy" decoding="async" />
+            <img class="chapter-shot phone fx" src="/screens/map.webp" alt="카페와 휴게소 등 라이더 장소가 표시된 모토맵 지도 화면" width="720" height="1558" loading="lazy" decoding="async" />
             <span class="mono fx">01 / 발견</span>
             <h2><span class="ln"><span>목적지가 없어도</span></span><span class="ln"><span>달릴 이유는 있으니까</span></span></h2>
             <p class="fx">카페부터 뷰포인트까지, 라이더가 찾는 장소를 지도 위에서 만나보세요.</p>
           </li>
           <li class="chapter" data-chapter="1" data-reveal>
             <i class="rule"></i>
-            <img class="chapter-shot phone fx" src="/screens/route.webp" alt="" width="720" height="1558" loading="lazy" decoding="async" />
+            <img class="chapter-shot phone fx" src="/screens/route.webp" alt="시간과 거리를 기준으로 경로를 비교하는 모토맵 화면" width="720" height="1558" loading="lazy" decoding="async" />
             <span class="mono fx">02 / 길</span>
             <h2><span class="ln"><span>오늘의 시간에 맞는</span></span><span class="ln"><span>길을 고르고</span></span></h2>
             <p class="fx">대표 목적지와 함께 들를 곳을 살펴보고, 내 출발지에 맞게 길안내를 시작하세요.</p>
           </li>
           <li class="chapter" data-chapter="2" data-reveal>
             <i class="rule"></i>
-            <img class="chapter-shot phone fx" src="/screens/navigation-1.2.7.png" alt="" width="1179" height="2556" loading="lazy" decoding="async" />
+            <img class="chapter-shot phone fx" src="/screens/navigation-1.2.7.png" alt="회전 방향과 안전 정보를 크게 보여주는 모토맵 라이딩 안내 화면" width="1179" height="2556" loading="lazy" decoding="async" />
             <span class="mono fx">03 / 안내</span>
             <h2><span class="ln"><span>달리는 동안에는</span></span><span class="ln"><span>길에만 집중하세요</span></span></h2>
             <p class="fx">큰 화면과 음성 안내가 출발부터 도착까지 라이딩의 흐름을 이어줍니다.</p>
           </li>
           <li class="chapter" data-chapter="3" data-reveal>
             <i class="rule"></i>
-            <img class="chapter-shot phone fx" src="/screens/rides.webp" alt="" width="720" height="1558" loading="lazy" decoding="async" />
+            <img class="chapter-shot phone fx" src="/screens/rides.webp" alt="내 바이크와 함께 다녀온 장소와 횟수를 모아 보는 주행 기록 화면" width="720" height="1558" loading="lazy" decoding="async" />
             <span class="mono fx">04 / 기록</span>
             <h2><span class="ln"><span>내 바이크와 달린 길은</span></span><span class="ln"><span>나만의 기록이 되고</span></span></h2>
             <p class="fx">바이크마다 다녀온 장소와 횟수를 모아, 함께 달린 시간을 한눈에 돌아보세요.</p>
           </li>
           <li class="chapter" data-chapter="4" data-reveal>
             <i class="rule"></i>
-            <img class="chapter-shot phone fx" src="/screens/chat.webp" alt="" width="720" height="1558" loading="lazy" decoding="async" />
+            <img class="chapter-shot phone fx" src="/screens/chat.webp" alt="원하는 분위기와 시간을 말로 묻고 장소를 추천받는 모토맵 AI 화면" width="720" height="1558" loading="lazy" decoding="async" />
             <span class="mono fx">05 / AI 추천</span>
             <h2><span class="ln"><span>어디로 갈지 막막할 땐</span></span><span class="ln"><span>말로 물어보세요</span></span></h2>
             <p class="fx">원하는 분위기와 지역을 이야기하면 모토맵이 장소와 라이딩 추천을 함께 찾아드립니다.</p>
           </li>
         </ol>
-        <div class="chapter-stage">
+        <div class="chapter-stage" aria-hidden="true">
           <div class="chapter-frame">
             <div class="phone is-active">
-              <img src="/screens/map.webp" alt="카페와 휴게소 등 라이더 장소가 표시된 모토맵 지도 화면" width="720" height="1558" loading="lazy" decoding="async" />
+              <img src="/screens/map.webp" alt="" width="720" height="1558" loading="lazy" decoding="async" />
             </div>
             <div class="phone">
-              <img src="/screens/route.webp" alt="시간과 거리를 기준으로 경로를 비교하는 모토맵 화면" width="720" height="1558" loading="lazy" decoding="async" />
+              <img src="/screens/route.webp" alt="" width="720" height="1558" loading="lazy" decoding="async" />
             </div>
             <div class="phone">
-              <img src="/screens/navigation-1.2.7.png" alt="회전 방향과 안전 정보를 크게 보여주는 모토맵 라이딩 안내 화면" width="1179" height="2556" loading="lazy" decoding="async" />
+              <img src="/screens/navigation-1.2.7.png" alt="" width="1179" height="2556" loading="lazy" decoding="async" />
             </div>
             <div class="phone">
-              <img src="/screens/rides.webp" alt="내 바이크와 함께 다녀온 장소와 횟수를 모아 보는 주행 기록 화면" width="720" height="1558" loading="lazy" decoding="async" />
+              <img src="/screens/rides.webp" alt="" width="720" height="1558" loading="lazy" decoding="async" />
             </div>
             <div class="phone">
-              <img src="/screens/chat.webp" alt="원하는 분위기와 시간을 말로 묻고 장소를 추천받는 모토맵 AI 화면" width="720" height="1558" loading="lazy" decoding="async" />
+              <img src="/screens/chat.webp" alt="" width="720" height="1558" loading="lazy" decoding="async" />
             </div>
           </div>
         </div>
@@ -181,7 +182,7 @@
       </div>
       <small class="apple-credit">
         Apple 및 Apple 로고는 미국 및 기타 국가에 등록된 Apple Inc.의 상표입니다. App Store는
-        Apple Inc.의 서비스 마크입니다.
+        미국 및 기타 국가에 등록된 Apple Inc.의 서비스 마크입니다.
       </small>
     </footer>
   </body>
