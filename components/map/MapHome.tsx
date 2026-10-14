@@ -143,7 +143,7 @@ const RegisteredPlaceMarkers = memo(function RegisteredPlaceMarkers({
 
 // 장소 선택 시 상세 시트가 마커를 가리지 않도록 카메라 중심을 남쪽으로 내려
 // 마커를 화면 중심보다 위에 둔다. 등록·일반 장소가 같은 보정을 사용하며,
-// 웹 머카토르 근사로 화면 높이 비율을 위도 차이로 바꾼다.
+// 웹 메르카토르 근사로 화면 높이 비율을 위도 차이로 바꾼다.
 function sheetLatOffset(zoom: number, screenHeightDp: number, lat: number): number {
   const latSpan =
     (screenHeightDp / (256 * Math.pow(2, zoom))) * 360 * Math.cos((lat * Math.PI) / 180);
