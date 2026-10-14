@@ -73,7 +73,7 @@ OTA 호환성 검사를 다시 통과한 `b86cdd7`을 origin/main에 푸시했�
 ## NOTIFY-002 — 인증 준비 후 토큰을 동기화하고 실패한 로그아웃에서는 연결을 복구한다
 
 - 날짜: 2026-10-14
-- 상태: 소스·로컬 회귀 검증 완료, Git 푸시·OTA는 승인 대기
+- 상태: 활성(소스·로컬 회귀 검증 및 승인 후 main 푸시·1.2.8 iOS OTA 완료, 실기기 등록 확인 대기)
 - 관련: `lib/pushTokens.ts`, `components/ActiveRootLayout.tsx`, `stores/useAuthStore.ts`,
   `tests/pushTokens.test.ts`, [AUTH-006](authentication.md#auth-006--늦은-세션-복원은-로그아웃새-인증-상태를-덮어쓰지-않는다)
 
@@ -125,3 +125,25 @@ Git 푸시·1.2.8 OTA는 운영자의 별도 승인을 받은 뒤 수행한다.
 2026-10-14 로컬 검증: 토큰 수명주기 회귀 31개를 포함한 앱 테스트 262/262, 웹 테스트 5/5,
 타입 검사, OTA 호환성 검사(app 1.2.8/native 2/API 1)를 통과했다. 추가 코드 리뷰의 계정 전환·
 최종 세션 확인 실패 경합 두 건을 수정하고 재검토를 통과했다. 실기기·운영 반영은 아직 하지 않았다.
+
+### 2026-10-14 승인 후 배포
+
+운영자의 main 푸시·1.2.8 OTA 명시 승인 후 `db07418`을 origin/main에 반영했다.
+이전 전체 재개 방송 결과 기록 `7766c4b`도 함께 푸시했으며 방송을 다시 발송하지 않았다.
+배포 직전 타입 검사·앱 테스트 262/262·실제 `--ota` 호환성 검사·diff 검사와 reviewer 검토를
+다시 통과했다. production 환경으로 iOS만 export하고 source map의 토큰·탭 처리·활성 루트·
+인증 store·기존 카카오 콜백 소스가 작업 소스와 정확히 같은지 대조했다. 그 산출물을
+`--skip-bundler`로 발행했다.
+
+- 채널/브랜치: `production`, 플랫폼: iOS, EAS environment: `production`
+- 앱/runtime: `1.2.8`, native bridge: `2`, API 계약: `1` (변경 없음)
+- EAS Update 그룹: `2b1beb47-bb2d-402a-b535-71962e7b6f43`
+- iOS 업데이트: `01a1398e-6482-7a3f-9d9e-73e68da34932`
+- 발행 시각: `2026-10-14T08:36:35.586Z` (2026-10-14 17:36:35 KST)
+- 소스: `db07418d416b84287beb8dccdf8390aa8d6bfd5c`
+- 메시지: `Fix push token registration and sign-out recovery`
+
+DB·RLS·외부 공급자·구버전 연결 번들·네이티브 설정·웹은 바꾸지 않았으며 새 빌드나
+테스트/전체 알림 발송도 하지 않았다. 발행을 실제 기기 적용·운영 토큰 복구 완료로 간주하지
+않는다. 앱에 OTA가 적용된 뒤 로그인·앱 복귀 시 허용된 기기의 재등록을 시도한다.
+과거 타 계정 소유 토큰 예외는 위 RLS 경계 그대로 별도 승인 대상으로 남긴다.
