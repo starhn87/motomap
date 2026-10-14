@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0b0c0e" />
+    <meta name="theme-color" content="#f3f1ec" />
     <meta
       name="description"
       content="라이더가 찾는 장소와 목적지 중심 라이딩 추천을 발견하고, 길 위에서 안내받고, 내 바이크와 함께한 기록을 쌓는 지도 앱 모토맵"
@@ -28,230 +28,157 @@
     <meta name="twitter:image" content="https://motomap.kr/og.png" />
     <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/icon.png" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/home.css" />
     <script type="module" src="/site.js"></script>
     <title>모토맵: 라이더를 위한 지도</title>
   </head>
-  <body>
-    <header class="site-header">
-      <a class="brand" href="#top" aria-label="모토맵 홈">
-        <img src="/icon.png" alt="" width="40" height="40" />
+  <body class="home">
+    <header class="home-header">
+      <a class="home-brand" href="#top" aria-label="모토맵 홈">
+        <img src="/icon.png" alt="" width="30" height="30" />
         <span>모토맵</span>
       </a>
-      <nav class="site-nav" aria-label="주요 메뉴">
-        <a href="#places">모토맵 이야기</a>
-        <a href="#download">앱 다운로드</a>
+      <nav class="home-nav" aria-label="주요 메뉴">
+        <a href="#features">기능</a>
+        <a href="#download">다운로드</a>
+        <a href="mailto:starhn87@gmail.com">문의</a>
       </nav>
-      <a class="header-cta" href="https://apps.apple.com/kr/app/id6773636183" rel="noreferrer">
-        앱 받기
-      </a>
+      <a class="pill-button" href="https://apps.apple.com/kr/app/id6773636183" rel="noreferrer">앱 받기</a>
     </header>
 
     <main id="top">
-      <section class="ride-story" id="places" data-ride-story aria-labelledby="ride-story-title">
-        <div class="ride-story-sticky">
-          <img
-            class="ride-story-media"
-            src="/ride-story.webp"
-            srcset="/ride-story.webp 1672w, /ride-story-hd.webp 3344w"
-            sizes="100vw"
-            alt="이른 아침 굽은 산길을 달리는 라이더"
-            width="1672"
-            height="941"
-            decoding="async"
-            fetchpriority="high"
-          />
-          <div class="ride-story-shade" aria-hidden="true"></div>
-          <div class="ride-story-progress" aria-hidden="true"><span></span></div>
-
-          <div class="ride-story-hero" data-ride-hero>
-            <p class="eyebrow">라이더를 위한 지도</p>
-            <h1 id="ride-story-title">
-              <span class="headline-line">오늘 달릴 이유를</span>
-              <span class="headline-line">지도 위에서 찾다</span>
+      <section class="hero">
+        <svg class="route-line" viewBox="0 0 1440 900" preserveAspectRatio="none" aria-hidden="true">
+          <path pathLength="1" d="M-20 820 C 260 760, 380 600, 560 640 S 860 760, 1000 520 S 1180 220, 1460 160" />
+        </svg>
+        <div class="hero-grid">
+          <div data-reveal>
+            <p class="mono fx">MOTOMAP — 라이더를 위한 지도</p>
+            <h1>
+              <span class="ln"><span>오늘 달릴</span></span>
+              <span class="ln"><span>이유를</span></span>
+              <span class="ln"><span class="thin">지도 위에서.</span></span>
             </h1>
-            <p class="hero-description">
+            <p class="hero-lede fx">
               라이더가 찾는 장소와 라이딩 추천을 발견하고,<br />
               내 바이크와 함께한 모든 순간을 한곳에 남겨보세요.
             </p>
-            <div class="hero-actions">
+            <div class="hero-actions fx">
               <a
                 class="app-store-badge"
                 href="https://apps.apple.com/kr/app/id6773636183"
                 rel="noreferrer"
                 aria-label="App Store에서 모토맵 다운로드"
               >
-                <img
-                  src="/app-store-badge-ko.svg"
-                  alt="App Store에서 다운로드"
-                  width="130"
-                  height="40"
-                />
+                <img src="/app-store-badge-ko.svg" alt="App Store에서 다운로드" width="130" height="40" />
               </a>
-              <span class="text-link">모토맵 둘러보기 <span>↓</span></span>
+              <a class="pill-button pill-button-ghost" href="#features">둘러보기 ↓</a>
             </div>
           </div>
-
-          <div class="ride-story-copy">
-            <article class="ride-story-chapter" data-ride-chapter>
-              <div class="ride-story-screens ride-story-screens-single">
-                <div class="story-device">
-                  <img
-                    src="/screens/map.webp"
-                    alt="카페와 휴게소 등 라이더 장소가 표시된 모토맵 지도 화면"
-                    width="720"
-                    height="1558"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-              </div>
-              <div class="ride-story-text">
-                <p>01 · 발견</p>
-                <h2>목적지가 없어도<br />달릴 이유는 있으니까</h2>
-                <p class="ride-story-description">
-                  카페부터 뷰포인트까지, 라이더가 찾는 장소를 지도 위에서 만나보세요.
-                </p>
-              </div>
-            </article>
-            <article class="ride-story-chapter" data-ride-chapter>
-              <div class="ride-story-screens ride-story-screens-pair">
-                <div class="story-device story-device-primary">
-                  <img
-                    src="/screens/place.webp"
-                    alt="라이딩 목적지의 상세 정보를 보여주는 모토맵 장소 화면"
-                    width="720"
-                    height="1558"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-                <div class="story-device story-device-secondary">
-                  <img
-                    src="/screens/route.webp"
-                    alt="시간과 거리를 기준으로 경로를 비교하는 모토맵 화면"
-                    width="720"
-                    height="1558"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-              </div>
-              <div class="ride-story-text">
-                <p>02 · 길</p>
-                <h2>오늘의 시간에 맞는<br />길을 고르고</h2>
-                <p class="ride-story-description">
-                  대표 목적지와 함께 들를 곳을 살펴보고, 내 출발지에 맞게 길안내를 시작하세요.
-                </p>
-              </div>
-            </article>
-            <article class="ride-story-chapter" data-ride-chapter>
-              <div class="ride-story-screens ride-story-screens-single">
-                <div class="story-device">
-                  <img
-                    src="/screens/navigation-1.2.7.png"
-                    alt="회전 방향과 안전 정보를 크게 보여주는 모토맵 라이딩 안내 화면"
-                    width="1179"
-                    height="2556"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-              </div>
-              <div class="ride-story-text">
-                <p>03 · 안내</p>
-                <h2>달리는 동안에는<br />길에만 집중하세요</h2>
-                <p class="ride-story-description">
-                  큰 화면과 음성 안내가 출발부터 도착까지 라이딩의 흐름을 이어줍니다.
-                </p>
-              </div>
-            </article>
-            <article class="ride-story-chapter" data-ride-chapter>
-              <div class="ride-story-screens ride-story-screens-single">
-                <div class="story-device">
-                  <img
-                    src="/screens/rides.webp"
-                    alt="내 바이크와 함께 다녀온 장소와 횟수를 모아 보는 주행 기록 화면"
-                    width="720"
-                    height="1558"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-              </div>
-              <div class="ride-story-text">
-                <p>04 · 기록</p>
-                <h2>내 바이크와 달린 길은<br />나만의 기록이 되고</h2>
-                <p class="ride-story-description">
-                  바이크마다 다녀온 장소와 횟수를 모아, 함께 달린 시간을 한눈에 돌아보세요.
-                </p>
-              </div>
-            </article>
-            <article class="ride-story-chapter" data-ride-chapter>
-              <div class="ride-story-screens ride-story-screens-single">
-                <div class="story-device">
-                  <img
-                    src="/screens/chat.webp"
-                    alt="원하는 분위기와 시간을 말로 묻고 장소를 추천받는 모토맵 AI 화면"
-                    width="720"
-                    height="1558"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-              </div>
-              <div class="ride-story-text">
-                <p>05 · AI 추천</p>
-                <h2>어디로 갈지 막막할 땐<br />말로 물어보세요</h2>
-                <p class="ride-story-description">
-                  원하는 분위기와 지역을 이야기하면 모토맵이 장소와 라이딩 추천을 함께 찾아드립니다.
-                </p>
-              </div>
-            </article>
+          <div class="hero-phone" data-reveal data-base="0.35">
+            <div class="phone fx">
+              <img
+                src="/screens/map.webp"
+                alt="카페와 휴게소 등 라이더 장소가 표시된 모토맵 지도 화면"
+                width="720"
+                height="1558"
+                decoding="async"
+                fetchpriority="high"
+              />
+            </div>
+            <div class="map-pin fx" aria-hidden="true"><i></i>카페 · 뷰포인트</div>
           </div>
-
-          <p class="ride-story-scroll" aria-hidden="true">SCROLL <span>↓</span></p>
+        </div>
+        <div class="hero-meta mono" data-reveal data-base="0.6">
+          <i class="rule"></i>
+          <span class="fx">01 발견 — 02 길 — 03 안내 — 04 기록 — 05 AI 추천</span>
+          <span class="fx">iOS</span>
         </div>
       </section>
 
-      <section class="download-section" id="download" data-reveal>
-        <div class="download-glow" aria-hidden="true"></div>
-        <img src="/icon.png" alt="모토맵 앱 아이콘" width="96" height="96" />
-        <p class="eyebrow">READY TO RIDE?</p>
-        <h2>다음 라이딩은<br />모토맵과 함께</h2>
-        <p>장소를 찾는 순간부터 내 바이크의 기록까지.</p>
+      <section class="chapters" id="features" aria-label="모토맵 기능">
+        <ol class="chapter-list">
+          <li class="chapter" data-chapter="0" data-reveal>
+            <i class="rule"></i>
+            <img class="chapter-shot phone fx" src="/screens/map.webp" alt="" width="720" height="1558" loading="lazy" decoding="async" />
+            <span class="mono fx">01 / 발견</span>
+            <h2><span class="ln"><span>목적지가 없어도</span></span><span class="ln"><span>달릴 이유는 있으니까</span></span></h2>
+            <p class="fx">카페부터 뷰포인트까지, 라이더가 찾는 장소를 지도 위에서 만나보세요.</p>
+          </li>
+          <li class="chapter" data-chapter="1" data-reveal>
+            <i class="rule"></i>
+            <img class="chapter-shot phone fx" src="/screens/route.webp" alt="" width="720" height="1558" loading="lazy" decoding="async" />
+            <span class="mono fx">02 / 길</span>
+            <h2><span class="ln"><span>오늘의 시간에 맞는</span></span><span class="ln"><span>길을 고르고</span></span></h2>
+            <p class="fx">대표 목적지와 함께 들를 곳을 살펴보고, 내 출발지에 맞게 길안내를 시작하세요.</p>
+          </li>
+          <li class="chapter" data-chapter="2" data-reveal>
+            <i class="rule"></i>
+            <img class="chapter-shot phone fx" src="/screens/navigation-1.2.7.png" alt="" width="1179" height="2556" loading="lazy" decoding="async" />
+            <span class="mono fx">03 / 안내</span>
+            <h2><span class="ln"><span>달리는 동안에는</span></span><span class="ln"><span>길에만 집중하세요</span></span></h2>
+            <p class="fx">큰 화면과 음성 안내가 출발부터 도착까지 라이딩의 흐름을 이어줍니다.</p>
+          </li>
+          <li class="chapter" data-chapter="3" data-reveal>
+            <i class="rule"></i>
+            <img class="chapter-shot phone fx" src="/screens/rides.webp" alt="" width="720" height="1558" loading="lazy" decoding="async" />
+            <span class="mono fx">04 / 기록</span>
+            <h2><span class="ln"><span>내 바이크와 달린 길은</span></span><span class="ln"><span>나만의 기록이 되고</span></span></h2>
+            <p class="fx">바이크마다 다녀온 장소와 횟수를 모아, 함께 달린 시간을 한눈에 돌아보세요.</p>
+          </li>
+          <li class="chapter" data-chapter="4" data-reveal>
+            <i class="rule"></i>
+            <img class="chapter-shot phone fx" src="/screens/chat.webp" alt="" width="720" height="1558" loading="lazy" decoding="async" />
+            <span class="mono fx">05 / AI 추천</span>
+            <h2><span class="ln"><span>어디로 갈지 막막할 땐</span></span><span class="ln"><span>말로 물어보세요</span></span></h2>
+            <p class="fx">원하는 분위기와 지역을 이야기하면 모토맵이 장소와 라이딩 추천을 함께 찾아드립니다.</p>
+          </li>
+        </ol>
+        <div class="chapter-stage">
+          <div class="chapter-frame">
+            <div class="phone is-active">
+              <img src="/screens/map.webp" alt="카페와 휴게소 등 라이더 장소가 표시된 모토맵 지도 화면" width="720" height="1558" loading="lazy" decoding="async" />
+            </div>
+            <div class="phone">
+              <img src="/screens/route.webp" alt="시간과 거리를 기준으로 경로를 비교하는 모토맵 화면" width="720" height="1558" loading="lazy" decoding="async" />
+            </div>
+            <div class="phone">
+              <img src="/screens/navigation-1.2.7.png" alt="회전 방향과 안전 정보를 크게 보여주는 모토맵 라이딩 안내 화면" width="1179" height="2556" loading="lazy" decoding="async" />
+            </div>
+            <div class="phone">
+              <img src="/screens/rides.webp" alt="내 바이크와 함께 다녀온 장소와 횟수를 모아 보는 주행 기록 화면" width="720" height="1558" loading="lazy" decoding="async" />
+            </div>
+            <div class="phone">
+              <img src="/screens/chat.webp" alt="원하는 분위기와 시간을 말로 묻고 장소를 추천받는 모토맵 AI 화면" width="720" height="1558" loading="lazy" decoding="async" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="download" id="download" data-reveal>
+        <h2><span class="ln"><span>다음 라이딩은</span></span><span class="ln"><span>모토맵과 함께.</span></span></h2>
         <a
-          class="app-store-badge"
+          class="app-store-badge app-store-badge-large fx"
           href="https://apps.apple.com/kr/app/id6773636183"
           rel="noreferrer"
           aria-label="App Store에서 모토맵 다운로드"
         >
-          <img
-            src="/app-store-badge-ko.svg"
-            alt="App Store에서 다운로드"
-            width="130"
-            height="40"
-          />
+          <img src="/app-store-badge-ko.svg" alt="App Store에서 다운로드" width="130" height="40" />
         </a>
+        <i class="rule"></i>
       </section>
     </main>
 
-    <footer>
-      <div>
-        <a class="brand footer-brand" href="#top">
-          <img src="/icon.png" alt="" width="34" height="34" />
-          <span>모토맵</span>
-        </a>
-        <p>라이더를 위한 지도</p>
+    <footer class="home-footer">
+      <div class="home-footer-row">
+        <span>© 2026 모토맵</span>
+        <nav class="home-footer-links" aria-label="문서와 문의">
+          <a href="/terms">이용약관</a>
+          <a href="/privacy">개인정보 처리방침</a>
+          <a href="/location-terms">위치기반 서비스 이용약관</a>
+          <a href="mailto:starhn87@gmail.com">문의하기</a>
+        </nav>
       </div>
-      <div class="footer-links">
-        <a href="mailto:starhn87@gmail.com">문의하기</a>
-        <a href="/terms">이용약관</a>
-        <a href="/privacy">개인정보 처리방침</a>
-        <a href="/location-terms">위치기반 서비스 이용약관</a>
-        <a href="https://apps.apple.com/kr/app/id6773636183">App Store</a>
-      </div>
-      <small>© 2026 모토맵. All rights reserved.</small>
       <small class="apple-credit">
         Apple 및 Apple 로고는 미국 및 기타 국가에 등록된 Apple Inc.의 상표입니다. App Store는
         Apple Inc.의 서비스 마크입니다.
