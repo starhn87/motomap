@@ -51,7 +51,12 @@ export default function RiderPlaceFacts({ placeId, onReportPlaceChange }: RiderP
             <Pressable
               key={definition.code}
               accessibilityRole="button"
-              accessibilityState={{ selected }}
+              accessibilityLabel={
+                fact?.confirmations
+                  ? `${definition.label}, ${fact.confirmations}명 확인`
+                  : definition.label
+              }
+              accessibilityState={{ selected, disabled: toggle.isPending, busy: toggle.isPending }}
               disabled={toggle.isPending}
               onPress={() => handlePress(definition.code)}
               style={({ pressed }) => [

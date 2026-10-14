@@ -9,6 +9,7 @@
 - `components/map/PlaceBottomSheet.tsx`
 - `components/map/TempPlaceSheet.tsx`
 - `components/map/WeatherSheet.tsx`
+- `components/place/PlaceChangeReportSheet.tsx`
 - `components/place/RiderPlaceFacts.tsx`
 - `lib/api/weather.ts`
 - `supabase/functions/weather-kr/index.ts`
@@ -1297,3 +1298,20 @@ Android 뒤로가기와 모든 진입점의 실기기 반복 검증까지 완료
 뺀다(닫기 버튼이 별도로 있다). 기상특보 상세는 바깥/카드 Pressable이 자식을 묶어 `확인`
 버튼을 숨기던 구조라 MAP-041·`DialogHost`와 같은 경계로 두 컨테이너에 `accessible={false}`를
 둔다. 터치·닫기 동작과 레이아웃은 바꾸지 않는다. 지도 마커는 네이티브 오버레이라 이 범위 밖이다.
+
+## MAP-043 — 장소 정보 제보 시트와 라이더 정보 칩의 스크린리더 이름·상태를 채운다
+
+- 날짜: 2026-10-14
+- 상태: 소스·타입 검증 / VoiceOver·TalkBack 실기기 확인은 후속
+- 관련 구현: `components/place/` (`PlaceChangeReportSheet.tsx`, `RiderPlaceFacts.tsx`)
+
+MAP-042의 지도 화면 접근성 보완을 장소 정보 제보 시트와 라이더 제공 정보 섹션까지 잇는다.
+제보 상세 입력창은 placeholder만 있어 이름이 불분명했으므로 `제보 상세 내용 (선택)`으로 이름을
+명시한다. `취소`·`제보하기` 버튼은 `button` 역할을 주고 제출 중에는 `disabled`/`busy`를
+알리며, 제출 버튼 이름은 `제보 중`으로 바꾼다.
+
+라이더 정보 칩은 확인 수가 0이면 숨김 `Text`(`opacity: 0`)가 남아 스크린리더가 `0`을 읽었다.
+칩 이름을 `라벨, N명 확인`(0이면 라벨만)으로 명시해 숨겨진 카운트 대신 읽히게 하고, 토글
+처리 중에는 `disabled`/`busy`를 함께 알린다. 제보 사유 선택지는 이미 `radio` 역할과
+`checked` 상태를 갖고 있어 바꾸지 않는다. 시트 바깥 백드롭은 `BottomSheetBackdrop`이며 취소
+버튼이 같은 닫기 동작의 대체 경로다. 시각 표현·터치 동작은 바꾸지 않는다.

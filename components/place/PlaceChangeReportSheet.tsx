@@ -212,6 +212,7 @@ export default function PlaceChangeReportSheet({
           </View>
 
           <TextInput
+            accessibilityLabel="제보 상세 내용 (선택)"
             style={[
               styles.input,
               {
@@ -236,6 +237,8 @@ export default function PlaceChangeReportSheet({
 
           <View style={styles.buttons}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: submitting }}
               onPress={handleClose}
               disabled={submitting}
               style={({ pressed }) => [
@@ -245,6 +248,9 @@ export default function PlaceChangeReportSheet({
               <Text style={[styles.cancelText, { color: colors.text }]}>취소</Text>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={submitting ? '제보 중' : '제보하기'}
+              accessibilityState={{ disabled: submitting, busy: submitting }}
               onPress={handleSubmit}
               disabled={submitting}
               style={({ pressed }) => [
