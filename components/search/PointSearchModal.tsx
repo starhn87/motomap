@@ -312,18 +312,34 @@ export default function PointSearchModal({
                     : '장소, 주소 검색'
               }
               placeholderTextColor={listening ? colors.tint : colors.textSecondary}
+              accessibilityLabel={title ? `${title}: 장소, 주소 검색` : '장소, 주소 검색'}
               autoFocus
               style={[styles.searchInput, { color: colors.text }]}
             />
-            {searching && <ActivityIndicator size="small" color={colors.textSecondary} />}
+            {searching && (
+              <ActivityIndicator
+                size="small"
+                color={colors.textSecondary}
+                accessibilityLabel="검색 중"
+              />
+            )}
             {/* 인식 중에는 숨긴다 — 다음 중간 결과가 어차피 덮어써서 지운 게 무의미하다 */}
             {query.length > 0 && !listening && (
               // 지우면 결과·즐겨찾기 접힘까지 입력과 같은 경로로 되돌린다
-              <Pressable onPress={() => handleChange('')} hitSlop={8}>
+              <Pressable
+                accessibilityLabel="검색어 지우기"
+                accessibilityRole="button"
+                onPress={() => handleChange('')}
+                style={styles.iconButton}>
                 <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
               </Pressable>
             )}
-            <Pressable onPress={toggleVoice} hitSlop={8}>
+            <Pressable
+              accessibilityLabel={listening ? '음성 검색 중지' : '음성 검색'}
+              accessibilityRole="button"
+              accessibilityState={{ selected: listening }}
+              onPress={toggleVoice}
+              style={[styles.iconButton, styles.iconButtonEnd]}>
               <Ionicons
                 name={listening ? 'mic' : 'mic-outline'}
                 size={18}
@@ -331,7 +347,10 @@ export default function PointSearchModal({
               />
             </Pressable>
           </View>
-          <Pressable onPress={onClose} hitSlop={8}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onClose}
+            hitSlop={{ top: 13, bottom: 13, left: 8, right: 8 }}>
             <Text style={[styles.modalCancel, { color: colors.text }]}>취소</Text>
           </Pressable>
         </View>
@@ -354,7 +373,10 @@ export default function PointSearchModal({
                     앞의 셋은 누르면 바로 선택되고, 즐겨찾기만 목록을 편다. */}
                 <View style={[styles.quickRow, { borderBottomColor: colors.border }]}>
                   {allowCurrent && (
-                    <Pressable style={styles.quickItem} onPress={() => selectPoint('current')}>
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.quickItem}
+                      onPress={() => selectPoint('current')}>
                       <View style={[styles.quickIcon, { backgroundColor: colors.surfaceMuted }]}>
                         <Ionicons name="locate" size={20} color={colors.tint} />
                       </View>
@@ -373,6 +395,7 @@ export default function PointSearchModal({
                       return (
                         <Pressable
                           key={slot}
+                          accessibilityRole="button"
                           style={styles.quickItem}
                           onPress={() =>
                             selectPoint(
@@ -394,6 +417,8 @@ export default function PointSearchModal({
                     })}
                   {canShowFav && (
                     <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: showFavList }}
                       style={styles.quickItem}
                       onPress={() => setShowFavList((v) => !v)}>
                       <View
@@ -416,6 +441,7 @@ export default function PointSearchModal({
                   recents.map((r) => (
                     <Pressable
                       key={`${r.name}-${r.longitude}-${r.latitude}`}
+                      accessibilityRole="button"
                       onPress={() =>
                         selectPoint(
                           r,
@@ -453,6 +479,7 @@ export default function PointSearchModal({
           renderItem={({ item, index }) => (
             item.kind === 'place' ? (
               <Pressable
+                accessibilityRole="button"
                 onPress={() => void selectSearchResult(item, index)}
                 style={[styles.resultRow, { borderBottomColor: colors.border }]}>
                 <CategoryIcon category={item.place.category} size={16} />
@@ -474,6 +501,7 @@ export default function PointSearchModal({
               </Pressable>
             ) : (
               <Pressable
+                accessibilityRole="button"
                 onPress={() => void selectSearchResult(item, index)}
                 style={[styles.resultRow, { borderBottomColor: colors.border }]}>
                 <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
@@ -530,6 +558,19 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
+  },
+  // 아이콘 18 + 좌우 9 = 폭 36, 높이는 검색바 전체(44) — 터치 영역을 44pt에 맞춘다.
+  // 좌우 -4 마진은 박스 gap(8)을 상쇄해(8 − 4 − 4 = 0) 이웃 버튼과 터치 영역이 겹치지 않게
+  // 맞닿게 한다. 그 결과 지우기·마이크 아이콘 간격은 기존 8에서 18로 넓어진다.
+  iconButton: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    paddingHorizontal: 9,
+    marginHorizontal: -4,
+  },
+  // 마지막 버튼은 박스 오른쪽 패딩(12) 안으로 확장해 아이콘의 오른쪽 여백을 유지한다
+  iconButtonEnd: {
+    marginRight: -9,
   },
   modalCancel: {
     fontSize: 15,

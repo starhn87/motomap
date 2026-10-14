@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Text, Pressable, StyleSheet } from 'react-native';
+import { Text, Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 
 import Colors from '@/constants/Colors';
@@ -32,25 +32,37 @@ export default function SearchEntry() {
   });
 
   return (
-    <Pressable
-      onPress={() => router.push('/search')}
+    // 검색 진입과 마이크는 형제로 둔다 — 중첩하면 바깥 Pressable이 하나의 접근성 요소로
+    // 묶여 스크린리더에서 마이크에 닿을 수 없다.
+    <View
       style={[
         styles.container,
         { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
       ]}>
-      <Ionicons name="search" size={17} color={colors.textSecondary} style={styles.searchIcon} />
-      <Text
-        style={[styles.placeholder, { color: listening ? colors.tint : colors.textSecondary }]}>
-        {listening ? '듣고 있어요…' : '장소, 라이딩 검색'}
-      </Text>
-      <Pressable onPress={toggle} hitSlop={10} style={styles.mic}>
+      <Pressable
+        accessibilityLabel="장소, 라이딩 검색"
+        accessibilityRole="button"
+        onPress={() => router.push('/search')}
+        style={styles.entry}>
+        <Ionicons name="search" size={17} color={colors.textSecondary} style={styles.searchIcon} />
+        <Text
+          style={[styles.placeholder, { color: listening ? colors.tint : colors.textSecondary }]}>
+          {listening ? '듣고 있어요…' : '장소, 라이딩 검색'}
+        </Text>
+      </Pressable>
+      <Pressable
+        accessibilityLabel={listening ? '음성 검색 중지' : '음성 검색'}
+        accessibilityRole="button"
+        accessibilityState={{ selected: listening }}
+        onPress={toggle}
+        style={styles.mic}>
         <Ionicons
           name={listening ? 'mic' : 'mic-outline'}
           size={20}
           color={listening ? colors.tint : colors.textSecondary}
         />
       </Pressable>
-    </Pressable>
+    </View>
   );
 }
 
@@ -61,13 +73,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 12,
     borderWidth: 1,
-    paddingHorizontal: 12,
     height: 44,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  // 검색바 전체 높이를 터치 영역으로 쓴다(바깥 패딩은 각 Pressable 안으로 옮김)
+  entry: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    paddingLeft: 12,
   },
   searchIcon: {
     fontSize: 16,
@@ -77,7 +96,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
   },
+  // 아이콘 20 + 좌우 12 = 폭 44, 높이는 검색바 전체 — 44pt 터치 영역
   mic: {
-    paddingLeft: 8,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
   },
 });
