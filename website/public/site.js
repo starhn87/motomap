@@ -2,7 +2,7 @@
 // 숨김 상태를 켜는 html.js 클래스는 첫 페인트 전에 /js-flag.js가 붙인다.
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const revealTargets = [...document.querySelectorAll('[data-reveal]')];
-// 첫 화면은 뷰포트 높이와 관계없이 로드 직후 바로 등장시킨다(하단 메타 줄이 감지 영역 밖에 걸리는 문제).
+// 첫 화면은 뷰포트 높이와 관계없이 로드 직후 바로 등장시킨다(하단이 감지 영역 밖에 걸리는 문제).
 const heroTargets = revealTargets.filter((target) => target.closest('.hero'));
 
 // 한 영역 안의 줄·요소를 문서 순서대로 80ms씩 늦춰 순차적으로 등장시킨다.
@@ -35,12 +35,6 @@ if (reduceMotion || !('IntersectionObserver' in window)) {
   window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
     for (const target of heroTargets) target.classList.add('is-in');
   }));
-
-  // 첫 화면 경로선이 그려지듯 이어진다.
-  document.querySelector('.route-line path')?.animate(
-    [{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }],
-    { duration: 2400, easing: 'cubic-bezier(.45, 0, .2, 1)', fill: 'both' },
-  );
 }
 
 // 화면 중앙에 들어온 챕터를 강조하고, 고정된 폰 화면을 해당 캡처로 바꾼다.

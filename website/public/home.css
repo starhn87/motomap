@@ -50,6 +50,41 @@ a:focus-visible {
   border-radius: 6px;
 }
 
+.skip-link {
+  position: fixed;
+  z-index: 20;
+  top: 92px;
+  left: var(--gutter);
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 14px;
+  font-weight: 700;
+  transform: translateY(-400%);
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+main:focus {
+  outline: none;
+}
+
+/* 데스크톱에서는 화면에서 숨기되 스크린리더가 챕터 순서대로 캡처 설명을 읽게 둔다. */
+.visually-hidden-desktop {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .mono {
   margin: 0;
   color: var(--ink-muted);
@@ -113,6 +148,7 @@ a:focus-visible {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
+  gap: 6px;
   padding: 0 20px;
   border: 1px solid var(--ink);
   border-radius: 999px;
@@ -159,23 +195,6 @@ a:focus-visible {
   overflow: hidden;
 }
 
-.route-line {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.route-line path {
-  fill: none;
-  stroke: var(--ink);
-  stroke-width: 1.5;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 0;
-  opacity: 0.28;
-}
-
 .hero-grid {
   position: relative;
   display: grid;
@@ -183,7 +202,7 @@ a:focus-visible {
   gap: 40px;
   align-items: end;
   max-width: var(--content-width);
-  min-height: calc(100svh - 220px);
+  min-height: calc(100svh - 168px);
   margin: 0 auto;
 }
 
@@ -256,16 +275,6 @@ a:focus-visible {
   background: var(--ink);
 }
 
-.hero-meta {
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  max-width: var(--content-width);
-  margin: 36px auto 0;
-  padding-top: 14px;
-}
-
 .rule {
   position: absolute;
   inset: 0 0 auto;
@@ -273,7 +282,6 @@ a:focus-visible {
   background: var(--line);
 }
 
-.hero-meta .rule,
 .download .rule {
   background: var(--ink);
 }
@@ -326,10 +334,6 @@ a:focus-visible {
   color: var(--ink-muted);
   font-size: 17px;
   line-height: 1.65;
-}
-
-.chapter-shot {
-  display: none;
 }
 
 .chapter-stage {
@@ -507,14 +511,24 @@ a:focus-visible {
     opacity: 1;
   }
 
-  .chapter-shot {
-    display: block;
+  .chapter-shot.visually-hidden-desktop {
+    position: static;
     width: 64%;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
     margin: 0 0 32px;
+  }
+
+  .chapters {
+    padding-bottom: 0;
   }
 
   .download {
     grid-template-columns: 1fr;
+    gap: 32px;
+    padding-top: 48px;
+    padding-bottom: 72px;
   }
 }
 
