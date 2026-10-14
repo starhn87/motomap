@@ -75,12 +75,14 @@ main:focus {
   outline: none;
 }
 
-/* 데스크톱에서는 화면에서 숨기되 스크린리더가 챕터 순서대로 캡처 설명을 읽게 둔다. */
-.visually-hidden-desktop {
+/* 데스크톱에서는 화면에서 숨기되 스크린리더가 챕터 순서대로 캡처 설명을 읽게 둔다.
+   .phone 프레임 패딩보다 우선하도록 클래스를 겹쳐 쓴다. */
+.chapter-shot.visually-hidden-desktop {
   position: absolute;
   width: 1px;
   height: 1px;
   overflow: hidden;
+  padding: 0;
   clip-path: inset(50%);
   white-space: nowrap;
 }
@@ -249,30 +251,6 @@ main:focus {
 .phone img {
   width: 100%;
   border-radius: 30px;
-}
-
-.map-pin {
-  position: absolute;
-  top: 26%;
-  left: -54px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 8px 14px 8px 8px;
-  border: 1px solid var(--ink);
-  border-radius: 999px;
-  background: var(--paper);
-  box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.3);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.map-pin i {
-  display: block;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--ink);
 }
 
 .rule {
@@ -488,11 +466,6 @@ main:focus {
     width: 62%;
   }
 
-  .map-pin {
-    right: -40%;
-    left: auto;
-  }
-
   .chapters {
     grid-template-columns: 1fr;
     padding-top: 40px;
@@ -516,6 +489,7 @@ main:focus {
     width: 64%;
     height: auto;
     overflow: visible;
+    padding: 9px;
     clip-path: none;
     margin: 0 0 32px;
   }
