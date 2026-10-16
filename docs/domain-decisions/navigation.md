@@ -342,7 +342,7 @@ KNSDK가 현재 링크의 자동차전용도로 속성이나 공식 진입 이�
 ## NAV-010 — 지도 이동 화면에서는 커스텀 종료·위험 제보 버튼을 함께 숨긴다
 
 - 날짜: 2026-10-16
-- 상태: 소스·네이티브 컴파일·UIKit 상태 전환 검사 완료 / 새 빌드 실기기 검증 대기
+- 상태: 1.2.9(39) production iOS 빌드·산출물 검사 완료 / 새 빌드 실기기 검증 대기
 - 관련 구현: `modules/kakao-navi/ios/KNNaviPresenter.m`
 - 관련 기록: NAV-001, REL-001, REL-003
 
@@ -383,3 +383,19 @@ Objective-C 컴파일을 통과했다. UIKit에서 실제 presenter 콜백과 UI
 지도 이동·전체 경로·구간 정보·일반/안전운행 복귀·버튼 생성 전 콜백·시뮬레이션 등
 17개 검사를 통과했다. SDK 의존 객체는 대역이며 실제 SDK 스와이프나 새 앱 전체 빌드·
 실기기 동작을 검증한 결과는 아니다. 테스트 과정에서 위치·경로 요청은 실행하지 않았다.
+
+### 같은 날 사용자 승인 후 빌드
+
+사용자가 main 푸시와 1.2.9 iOS 빌드를 승인했다. 최종 outgoing 변경은 검토한 11개 파일과
+동일하며 `a54fbed`를 main에 푸시한 뒤 해당 커밋의 분리된 소스로 production iOS 빌드를 만들었다.
+사용자의 무관한 로컬 수정·미추적 파일과 로컬 생성 `ios/`는 빌드 소스에 포함하지 않았다.
+
+- EAS 빌드: [981f7b3b-fcaf-4415-af80-3d57a32e0452](https://expo.dev/accounts/ridemapper/projects/ridemap/builds/981f7b3b-fcaf-4415-af80-3d57a32e0452)
+- 완료: 2026-10-16 23:50:54 KST, 원격 상태 `FINISHED`, IPA 산출물 생성
+- production / iOS / STORE, 앱 **1.2.9 (39)**, runtime **1.2.9**, 소스 `a54fbed`
+- EAS CLI로 산출물을 내려받아 Info.plist의 버전·빌드·`com.ridemap.app`·최소 iOS 16.4,
+  Expo.plist의 runtime·production 채널을 직접 대조했다. 앱 실행 파일에 새 버튼 표시 제어와
+  초기 콜백 폴백 selector가 포함된 것도 확인했다.
+
+빌드 성공·바이너리 정적 검사는 실제 SDK 스와이프·복귀·도착 후 안전운행의 동작 검증을
+대체하지 않는다. TestFlight 업로드·실기기 설치·심사 제출·스토어 출시는 실행하지 않았다.

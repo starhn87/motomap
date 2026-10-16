@@ -26,6 +26,12 @@ JS 메서드·이벤트·features는 같지만 현재 릴리스 검사가 모듈
 보수적으로 따른다. 원격 최소/권장 버전·운영 상태는 바꾸지 않는다.
 `unreleasedCandidateVersion`은 1.2.9이며 이 후보에 OTA를 발행하지 않는다.
 
+같은 날 사용자 승인으로 `a54fbed` main 푸시와 production iOS **1.2.9 (39)** 빌드를 완료했다.
+EAS `981f7b3b-fcaf-4415-af80-3d57a32e0452`의 `FINISHED`·소스 커밋과 산출물의 앱 버전·
+빌드·runtime·production 채널 및 새 네이티브 selector를 확인했다. 초기 준비 기록의
+미빌드 상태는 이 후속으로 대체한다. TestFlight 업로드·실기기 설치·심사/출시는 미실행이며,
+후보 표시는 유지한다. 상세 검증 범위는 [NAV-010](navigation.md#nav-010--지도-이동-화면에서는-커스텀-종료위험-제보-버튼을-함께-숨긴다)을 따른다.
+
 `config/release-policy.json`이 코드가 읽는 기준이고 이 문서는 결정과 운영 절차를
 보존한다. 버전·브리지·API 계약을 바꿀 때는 코드, 이 문서, 릴리즈 노트와 App Store
 제출 문서를 같은 커밋에서 갱신한다. CI가 현재 값의 동기화를 검사한다.
