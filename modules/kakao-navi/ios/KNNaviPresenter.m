@@ -218,6 +218,10 @@ static void InstallMotoMapInfoCharacterGuard(void) {
                                                     KNGuidance_CitsGuideDelegate,
                                                     KNMapPOIEventListener>
 @property(nonatomic, strong, nullable) KNNaviView *naviView;
+@property(nonatomic, strong, nullable) UIButton *endButton;
+@property(nonatomic, strong, nullable) UIButton *hazardButton;
+@property(nonatomic, assign) KNNaviViewState naviScreenState;
+@property(nonatomic, assign) BOOL hasNaviScreenState;
 // 실주행(KNDriveGuidance)과 미리보기(KNSimulGuidance)의 공통 상위 타입
 @property(nonatomic, strong, nullable) KNGuidance *guidance;
 @property(nonatomic, strong, nullable) KNTrip *trip;
@@ -360,6 +364,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     endButton.layer.cornerRadius = 18;
     [endButton addTarget:self action:@selector(finish) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:endButton];
+    self.endButton = endButton;
     [NSLayoutConstraint activateConstraints:@[
       [endButton.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor
                                                constant:-12],
@@ -388,6 +393,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
                      action:@selector(hazardTapped)
            forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:hazardButton];
+    self.hazardButton = hazardButton;
     [NSLayoutConstraint activateConstraints:@[
       [hazardButton.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor
                                                  constant:12],
@@ -397,6 +403,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
       [hazardButton.widthAnchor constraintEqualToConstant:84],
       [hazardButton.heightAnchor constraintEqualToConstant:36],
     ]];
+    // startWithTrip 중 버튼 생성보다 먼저 온 화면 상태도 반영한다.
+    [self updateCustomControlsVisibility];
   }
 
   gActiveNavi = self;
@@ -404,6 +412,16 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)hazardTapped {
   if (self.onMenu != nil) self.onMenu(101);
+}
+
+- (void)updateCustomControlsVisibility {
+  // 지도 이동·전체 경로·구간 정보에서는 SDK 안내 UI와 함께 숨긴다.
+  // hidden은 터치와 접근성 탐색도 막으므로 투명한 버튼이 지도 위에 남지 않는다.
+  // SDK가 초기 상태 콜백을 생략해도 기존 종료 수단은 유지한다.
+  BOOL visible = !self.preview && (!self.hasNaviScreenState ||
+      self.naviScreenState == DriveNormal || self.naviScreenState == SafetyNormal);
+  self.endButton.hidden = !visible;
+  self.hazardButton.hidden = !visible;
 }
 
 // KNNaviMapView 는 내부 KNMapView 를 노출하지 않는다 — 서브뷰 트리에서 찾는다.
@@ -507,7 +525,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)naviViewGuideState:(KNGuideState)aGuideState {
 }
 
-#pragma mark - KNNaviView_StateDelegate (메뉴 탭 외에는 관심 없음)
+#pragma mark - KNNaviView_StateDelegate
 
 - (void)naviViewDidMenuItemWithId:(int)aId toggle:(BOOL)aToggle {
   if (self.onMenu != nil) self.onMenu(aId);
@@ -523,6 +541,9 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)naviViewScreenState:(KNNaviViewState)aKNNaviViewState {
+  self.naviScreenState = aKNNaviViewState;
+  self.hasNaviScreenState = YES;
+  [self updateCustomControlsVisibility];
   // 도착 뒤 안전운행 화면과 그 지도 이동 상태만 보조 복구한다. 모든 화면 상태에서
   // renewTheme 를 호출하면 안내 중 팬·전체경로 전환까지 불필요하게 다시 그린다.
   if (aKNNaviViewState == SafetyNormal || aKNNaviViewState == SafetyTouch) {
