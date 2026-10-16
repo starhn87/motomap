@@ -33,7 +33,6 @@
 | 라이딩 추천 콘텐츠 | [riding-recommendations.md](riding-recommendations.md) | `app/(tabs)/courses.tsx`, `app/riding/`, `riding_guides` |
 | 앱 내 길안내 | [navigation.md](navigation.md) | `app/navi.tsx`, `modules/kakao-navi/` |
 | 라이딩 경로 기록·지도 Visualizer (계획) | [ride-history.md](ride-history.md) | 구현 전 |
-| 라이딩 습관 리포트·점수 (설계 중) | [riding-score.md](riding-score.md) | 개인 회고 목적·단계적 도입 확정, 평가·지도 연결 방식 제안 |
 | 노면 위험 정보 수명주기 | [hazard-lifecycle.md](hazard-lifecycle.md) | `road_hazards`, `hazard_votes`, `components/map/HazardSheet.tsx` |
 | 인증·세션 저장 | [authentication.md](authentication.md) | `lib/authStorage.ts`, `lib/supabase.ts`, `stores/useAuthStore.ts` |
 | 위치정보 동의·중지·철회·자료 관리 | [location-privacy.md](location-privacy.md) | `stores/useLocationPrivacyStore.ts`, `app/location-privacy.tsx`, `location_private` |
