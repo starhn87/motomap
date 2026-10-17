@@ -10,10 +10,12 @@ select
   count(*) filter (where p.approved and p.deleted_at is null
     and (nullif(p.source_provider,'') is null or nullif(p.source_place_id,'') is null)) as missing_source_identity,
   count(*) filter (where p.approved and p.deleted_at is null and p.next_verification_at < now()) as verification_overdue,
-  count(*) filter (where p.approved and p.deleted_at is null and s.place_id is null) as never_monitored,
+  count(*) filter (where p.approved and p.deleted_at is null and s.last_checked_at is null) as never_monitored,
   max(s.last_checked_at) as last_actual_check,
-  count(*) filter (where s.next_check_at < now()) as monitor_due,
-  count(*) filter (where s.last_result='error') as monitor_errors
+  max(s.last_checked_at) filter (where s.last_result in ('clean','change_detected')) as latest_retained_success,
+  count(*) filter (where p.approved and p.deleted_at is null
+    and coalesce(s.next_check_at,p.next_verification_at,'-infinity'::timestamptz) <= now()) as monitor_due,
+  count(*) filter (where p.approved and p.deleted_at is null and s.last_result='error') as monitor_errors
 from public.places p left join public.place_change_monitor_state s on s.place_id=p.id;
 
 select count(*) as pending_reviews, min(detected_at) as oldest_pending,

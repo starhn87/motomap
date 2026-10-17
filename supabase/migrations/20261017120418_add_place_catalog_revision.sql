@@ -104,10 +104,10 @@ language plpgsql security definer set search_path = '' as $$
 begin
   if NEW.promoted_place_id is null or NEW.provider='coordinate'
       or nullif(NEW.provider_place_id,'') is null then return null; end if;
+  -- 폐업 여부를 읽기 전 직렬화해 동시 폐업·공급자 연결의 억제 누락을 피한다.
+  perform 1 from place_catalog_private.revision where singleton for update;
   if exists(select 1 from public.places p where p.id=NEW.promoted_place_id and p.approved
       and p.deleted_at is not null and p.operational_status in ('permanently_closed','moved')) then
-    -- places 트리거와 같은 잠금 순서로 동시 공급자 연결 시 교착을 피한다.
-    perform 1 from place_catalog_private.revision where singleton for update;
     insert into place_catalog_private.suppressed_sources(provider,provider_id)
     values(NEW.provider,NEW.provider_place_id) on conflict do nothing;
     if found then
