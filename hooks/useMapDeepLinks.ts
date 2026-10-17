@@ -121,7 +121,6 @@ export function useMapDeepLinks({
     if (!focusPlaceId || !mapReady || !isMapFocused || !isMapPresented) return;
     const focusKey = `${focusPlaceId}-${focusTs ?? ''}`;
     if (handledFocusIdRef.current === focusKey) return;
-    handledFocusIdRef.current = focusKey;
     let cancelled = false;
     (async () => {
       // usePlace 와 같은 캐시 키 — 미리보기가 push 전에 심어 두면 왕복이 없다
@@ -129,12 +128,16 @@ export function useMapDeepLinks({
         queryKey: queryKeys.places.detail(focusPlaceId),
         queryFn: () => fetchPlaceById(focusPlaceId),
       });
+      if (!cancelled) handledFocusIdRef.current = focusKey;
       if (place && !cancelled) {
         setHighlightReview(focusReviewId ? { id: focusReviewId, key: focusKey } : null);
         setCourseReturn(fromCourseId ? { courseId: fromCourseId, placeId: place.id } : null);
         onSelectPlace(place);
       }
-    })();
+    })().catch(() => {
+      // 조회 실패는 삭제와 구분한다. 다음 포커스 복귀 때 다시 시도할 수 있다.
+      if (!cancelled && handledFocusIdRef.current === focusKey) handledFocusIdRef.current = null;
+    });
     return () => {
       cancelled = true;
     };

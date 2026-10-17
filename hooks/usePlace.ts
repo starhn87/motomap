@@ -9,7 +9,7 @@ export async function fetchPlaceById(id: string): Promise<Place | null> {
     category_filter: undefined,
   });
 
-  if (error) return null;
+  if (error) throw error;
 
   const row = (data ?? []).find((candidate) => candidate.id === id);
   if (!row) return null;

@@ -1,6 +1,7 @@
 import { searchKakaoLocalPage, type KakaoLocalSearchPage } from '@/lib/api/kakaoLocal';
 import { searchNaverLocal } from '@/lib/api/naverLocal';
 import { ProviderError } from '@/lib/providerErrors';
+import { isSuppressedExternalPlace } from '@/lib/placeCatalogSuppression';
 
 /** 기존 페이지 계약을 유지하되 네이버의 최대 5건을 전국의 완결 결과로 오인하지 않는다. */
 export async function searchExternalPlacesPage(
@@ -12,7 +13,7 @@ export async function searchExternalPlacesPage(
   let kakaoFailure: unknown;
   try {
     const page = await searchKakaoLocalPage(query, near, { ...options, throwOnError: true });
-    if (page.results.length) return page;
+    if (page.results.length) return { ...page, results: page.results.filter((row) => !isSuppressedExternalPlace(row)) };
   } catch (error) {
     if (options.signal?.aborted || (error instanceof ProviderError && error.kind === 'cancelled')) throw error;
     kakaoFailure = error;
@@ -20,7 +21,7 @@ export async function searchExternalPlacesPage(
   try {
     const results = await searchNaverLocal(query, options.signal);
     if (!results.length && kakaoFailure) throw kakaoFailure;
-    return { results, totalCount: results.length, pageableCount: results.length, isEnd: false,
+    return { results: results.filter((row) => !isSuppressedExternalPlace(row)), totalCount: results.length, pageableCount: results.length, isEnd: false,
       failedSources: kakaoFailure ? ['kakao'] : [] };
   } catch (error) {
     if (options.signal?.aborted) throw error;

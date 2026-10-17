@@ -39,7 +39,7 @@
 | DB 공개 권한·재개 정비 | [database-security.md](database-security.md) | `supabase/migrations/`, 공개 RPC·RLS·관리용 함수 |
 | 서비스 운영 중단·재개 | [service-suspension.md](service-suspension.md) | `app/_layout.tsx`, `website/src/index.js`, App Store·백엔드·지도 공급자 |
 | 외부 공급자 장애 대응 | [external-provider-resilience.md](external-provider-resilience.md) | 네이버 지도, 카카오 검색·길안내, 날씨·미세먼지·유가, 소셜 로그인 |
-| 장소 선별·운영 상태 검증 | [place-curation.md](place-curation.md) | `public.places`, `scripts/seed-place-curation.mjs`, 장소 검증 마이그레이션 |
+| 장소 선별·운영 상태 검증 | [place-curation.md](place-curation.md) | `public.places`, 카탈로그 갱신·공급자 ID 억제, CURATION-018 승인 만료·이전 후속 |
 | 일반 장소 추천 | [community-place-recommendations.md](community-place-recommendations.md) | `public.general_place_shares`, 일반 장소 상세·지도 |
 | 장소·라이딩 추천 제보 심사 | [submission-moderation.md](submission-moderation.md) | `docs/submission-approval-policy.md`, `supabase/functions/judge-submission/` |
 | 알림 탭·승인 상세 진입·푸시 토큰 수명주기 | [notifications.md](notifications.md) | `lib/push.ts`, `lib/pushTokens.ts`, `components/ActiveRootLayout.tsx`, `lib/serviceResumeNotification.ts`, `app/_layout.tsx` |

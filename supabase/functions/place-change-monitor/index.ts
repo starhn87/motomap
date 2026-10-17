@@ -1,3 +1,4 @@
+import { placeChangeFingerprint } from "../_shared/placeChangeFingerprint.ts";
 // 등록 장소의 외부 정보 변화를 찾되 places는 절대 자동 수정하지 않는다.
 // 새 후보는 내부 검토 대기열과 Discord 보고로만 남고, 실제 반영은 운영자 승인 뒤
 // 별도의 원자적 작업으로 수행한다.
@@ -536,24 +537,6 @@ function detectChanges(
   };
 }
 
-async function fingerprint(
-  placeId: string,
-  detection: Detection,
-): Promise<string> {
-  const payload = JSON.stringify({
-    placeId,
-    changeTypes: detection.changeTypes,
-    observed: detection.observed,
-  });
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(payload),
-  );
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 async function enqueueReview(
   place: PlaceRow,
   detection: Detection,
@@ -567,7 +550,12 @@ async function enqueueReview(
       method: "POST",
       body: JSON.stringify({
         p_place_id: place.id,
-        p_fingerprint: await fingerprint(place.id, detection),
+        p_fingerprint: await placeChangeFingerprint(
+          place.id,
+          detection.current,
+          detection.observed,
+          detection.changeTypes,
+        ),
         p_change_types: detection.changeTypes,
         p_confidence: detection.confidence,
         p_source_provider: "kakao",
@@ -668,16 +656,22 @@ function discordMessage(
     proposal.latitude !== undefined && proposal.longitude !== undefined
   ) {
     lines.push(
-      `- 위치: ${place.latitude.toFixed(6)}, ${place.longitude.toFixed(6)} → ${proposal.latitude.toFixed(6)}, ${proposal.longitude.toFixed(6)}`,
+      `- 위치: ${place.latitude.toFixed(6)}, ${place.longitude.toFixed(6)} → ${
+        proposal.latitude.toFixed(6)
+      }, ${proposal.longitude.toFixed(6)}`,
     );
   }
   if (proposal.source_place_id) {
     lines.push(
-      `- 카카오 장소 연결: ${place.source_place_id || "없음"} → ${proposal.source_place_id} (같은 일반 장소 기록이 있으면 등록 장소로 승계)`,
+      `- 카카오 장소 연결: ${
+        place.source_place_id || "없음"
+      } → ${proposal.source_place_id} (같은 일반 장소 기록이 있으면 등록 장소로 승계)`,
     );
   }
   if (Object.keys(proposal).length === 0) {
-    lines.push("- 안전하게 자동 반영할 항목 없음 — 직접 확인 후 유지하거나 별도 수정");
+    lines.push(
+      "- 안전하게 자동 반영할 항목 없음 — 직접 확인 후 유지하거나 별도 수정",
+    );
   }
   lines.push(
     `**검토 ID:** \`${reviewId}\``,

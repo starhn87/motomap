@@ -119,7 +119,7 @@ function PlaceBottomSheet({
   const reviewTarget = place ? ({ kind: 'place', id: place.id } as const) : null;
   const { data: reviewPages, isLoading: reviewsLoading } = useReviews(reviewTarget);
   const reviews = useMemo(() => reviewPages?.pages.flat(), [reviewPages]);
-  const displayPlace = latestPlace ?? place;
+  const displayPlace = latestPlace === undefined ? place : latestPlace;
   const operationalStatus = usePlaceOperationalStatus(displayPlace?.id);
   const isFavorite = useIsFavorite(place?.id ?? '');
 

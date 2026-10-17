@@ -27,6 +27,7 @@ import { useMapStore } from '@/stores/useMapStore';
 import { track } from '@/lib/analytics';
 import { isInMapRenderWindow, usePlaces, type MapCenter } from '@/hooks/usePlaces';
 import { useGasLayer } from '@/hooks/useGasLayer';
+import { usePlace } from '@/hooks/usePlace';
 import { useWeather } from '@/hooks/useWeather';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
 import { setMapFocusOverride } from '@/lib/mapFocus';
@@ -548,6 +549,16 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     sheetPosition.value = withTiming(containerHeight.value + 100, { duration: 250 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setSelectedPlaceId, setTempPlace]);
+
+  const selectedPlaceQuery = usePlace(selectedPlace?.id ?? null);
+  useEffect(() => {
+    if (!selectedPlace || !selectedPlaceQuery.isSuccess) return;
+    const latest = selectedPlaceQuery.data;
+    if (latest === null) handleBottomSheetClose();
+    else if (latest && latest.id === selectedPlace.id && latest !== selectedPlace) {
+      setSelectedPlace(latest);
+    }
+  }, [selectedPlace, selectedPlaceQuery.data, selectedPlaceQuery.isSuccess, handleBottomSheetClose]);
 
   const placeDetailOpen = selectedPlace !== null || tempPlace !== null;
 

@@ -1791,6 +1791,14 @@ export type Database = {
       }
     }
     Functions: {
+      get_place_catalog_suppressions: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      get_place_catalog_revision: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       location_privacy: {
         Args: { p_action: string; p_secret?: string; p_payload?: Json }
         Returns: Json

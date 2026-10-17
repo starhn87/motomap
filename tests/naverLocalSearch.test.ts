@@ -85,6 +85,7 @@ function externalFixture(options: { kakaoFails?: boolean; kakaoEmpty?: boolean; 
   let naverCalls = 0;
   const api = loadModule<External>('lib/api/externalPlaces.ts', {
     '@/lib/providerErrors': errors,
+    '@/lib/placeCatalogSuppression': loadModule('lib/placeCatalogSuppression.ts', {}),
     '@/lib/api/kakaoLocal': { searchKakaoLocalPage: async () => {
       if (options.kakaoFails) throw new errors.ProviderError('kakao-local', 'search', 'temporary');
       return { results: options.kakaoEmpty ? [] : [{ placeName: '테스트 카페' }], totalCount: 1, pageableCount: 1, isEnd: true };
@@ -136,6 +137,7 @@ test('실패한 공급자를 정확히 구분하고 취소 후 보완 요청을 
   let requests = 0;
   const api = loadModule<External>('lib/api/externalPlaces.ts', {
     '@/lib/providerErrors': errors,
+    '@/lib/placeCatalogSuppression': loadModule('lib/placeCatalogSuppression.ts', {}),
     '@/lib/api/kakaoLocal': { searchKakaoLocalPage: async () => { throw new errors.ProviderError('kakao-local', 'search', 'cancelled'); } },
     '@/lib/api/naverLocal': { searchNaverLocal: async () => { requests++; return []; } },
   });

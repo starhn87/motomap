@@ -22,6 +22,7 @@ import { APP_STORE_URL } from '@/constants/app';
 import { useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import { LOCATION_CONSENT_VERSION } from '@/lib/locationPrivacy';
 import PersonalPlaceRideSync from '@/components/PersonalPlaceRideSync';
+import PlaceCatalogSync from '@/components/PlaceCatalogSync';
 import { useColorScheme } from '@/components/useColorScheme';
 import DialogHost from '@/components/ui/DialogHost';
 import { toastConfig } from '@/components/ui/toastConfig';
@@ -99,6 +100,7 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onReady}>
       <QueryClientProvider client={queryClient}>
         <PersonalPlaceRideSync />
+        <PlaceCatalogSync />
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack
             screenOptions={{
