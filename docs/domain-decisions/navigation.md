@@ -464,3 +464,18 @@ NAV-010을 해결로 처리하지 않는다. 기존 1.2.9(39)에는 이 네이�
 GPS·경로 요청 없는 대체 초기화 fixture다. `naviBottomViewNeedsToGoMenu:` 직접 호출은
 완전한 하위 delegate 그래프가 없어 토글을 재현하지 못했다. 이 결과는 실제 앱 실패나
 성공으로 판정하지 않으며 실제 탭 경로·제스처와 안전운행은 새 바이너리에서 검증해야 한다.
+
+### 2026-10-17 사용자 승인 후 새 빌드
+
+`432f01d` 소스를 분리된 checkout에서 production iOS **1.2.9 (40) / native 4**로 빌드했다.
+EAS [d6ca7f25-290e-470b-a970-69d738a15658](https://expo.dev/accounts/ridemapper/projects/ridemap/builds/d6ca7f25-290e-470b-a970-69d738a15658)는
+2026-10-17 21:35:19 KST `FINISHED`다. 내려받은 산출물의 앱 버전 1.2.9·빌드 40·
+`com.ridemap.app`·runtime 1.2.9·production 채널과 실행 파일의 실제
+`startObservingBottomView`/`stopObservingBottomView` selector를 확인했다.
+이는 정적 산출물 검사이며 실제 제스처 검증은 아니다. TestFlight는 사용자 검증을 위한
+전달 단계이며 NAV-010 해결 처리·App Store 심사/공개 출시는 실제 동작 확인 뒤 별도로 판단한다.
+
+사용자 승인 범위로 build 40을 지정해 EAS 제출
+[31bcbf63-c3fb-490f-8c28-56723a527822](https://expo.dev/accounts/ridemapper/projects/ridemap/submissions/31bcbf63-c3fb-490f-8c28-56723a527822)의
+Apple 업로드 성공을 확인했다. Apple 처리 중이며 새 TestFlight의 실제 탭·스와이프·복귀·
+안전운행 검사가 다음 완료 기준이다. 39번은 이전 코드이므로 이번 검증에는 40번을 사용한다.

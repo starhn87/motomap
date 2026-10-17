@@ -1,5 +1,15 @@
 # App Store Connect 제출용 메타데이터
 
+2026-10-17 업로드 후속: 사용자 승인으로 새 production **1.2.9 (40) / native 4** 빌드를
+완료하고 TestFlight용 Apple 업로드를 성공했다. EAS build
+`d6ca7f25-290e-470b-a970-69d738a15658`, source `432f01d`, runtime 1.2.9, production 채널.
+EAS submission `31bcbf63-c3fb-490f-8c28-56723a527822`. Apple 처리 후 TestFlight에서
+40번을 선택해 정차 상태 탭·팬·핀치·전체 경로·복귀·안전운행과 종료/제보를 확인한다.
+현재 실제 제스처 검증 전이며 App Store 심사/공개 출시를 제출한 것은 아니다.
+`--what-to-test` 첨부는 EAS Enterprise 제약으로 schedule 단계에서 거절돼 첨부 없이
+재요청했다. 실제 생성·업로드된 제출은 위 ID 한 건이다.
+
+
 2026-10-17 후속 로컬 후보: **1.2.9 / native 4 / API 1**. 기존 TestFlight 39에서
 길안내 버튼 잔류가 보고되어 SDK 실제 표시 상태 관찰을 추가했다. 장소 변경 캐시 갱신도 포함한다.
 서버 마이그레이션 선행 및 새 빌드의 실제 탭·팬·복귀·안전운행·종료/제보 검증 후 제출한다.
