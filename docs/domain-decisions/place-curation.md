@@ -831,3 +831,32 @@ Discord 발송·앱 코드는 변경하지 않았다. 단계별 로컬 구현·�
 Cron 재가동·Discord 시험 전송은 별도 운영 승인 범위다. 첫 실행은 소량 dry-run으로 재확인하고
 기존 오래된 8건은 개별 재검증한다. 새 앱의 warm cache와 실제 SDK 터치 검증 후 TestFlight를
 제출하며, 위 로컬 구현만으로 운영 동기화 완료나 길안내 결함 해결을 선언하지 않는다.
+
+### 2026-10-17 배포 후속
+
+사용자가 푸시·서버 통합 검증 후 DB/함수 배포·새 iOS TestFlight를 승인했다.
+`432f01d`까지 main 푸시 후, 기존 production 원본 승인 함수 2개와 알림 함수 2개의 본문이
+로컬 원본과 정확히 같은 것을 대조했다. `tests/placeApprovalIntegration.sql.test.mjs`는
+그 실제 원본 resolver SQL·감사 테이블 제약·인앱 알림 트리거와 신규 migration을 함께
+실행해 폐업·휴업/재개·이전 후속·만료 거부·snapshot 충돌·중복 알림 방지·주소/좌표 변경·
+계정 삭제 cascade를 검증했다. PGlite의 좌표 타입/함수만 stand-in이며 PostGIS 엔진 자체는
+검증하지 않는다. push_tokens는 비워두어 외부 푸시가 나가지 않는다.
+
+운영 반영 기록:
+
+- `add_place_catalog_revision`: 원격 migration `20261017122848`
+  (로컬 파일 `20261017120418_add_place_catalog_revision.sql`).
+- `guard_stale_place_change_approvals`: 원격 migration `20261017122850`
+  (로컬 파일 `20261017120938_guard_stale_place_change_approvals.sql`).
+- `place-change-monitor` v6 ACTIVE. 상대 경로 helper와 Deno config를 포함해 배포하고
+  반환된 배포 소스 3개가 로컬과 같은 것을 확인했다. 기존 비밀 헤더 인증을 유지한다.
+- 익명 role의 revision 조회 `1`, 억제 목록 `[]`. 기존 숨김 데이터에 확인 가능한 공급자 ID가
+  없으면 억제 이력도 생기지 않는다. MC를 이름만으로 외부 검색에서 차단했다고 해석하지 않는다.
+- public review 승인 service_role 실행 허용, anon 실행 불가, service_role의 private 원본
+  실행 우회 불가, anon의 private schema 접근 불가를 운영 권한 함수로 확인했다.
+- 배포 후 dry-run(request 14): HTTP 200, checked 1 / clean 1 / errors 0. 전후 장소 182,
+  검사 상태 44, 검토 15, 조치 241행의 전체 행 체크섬이 배포 전과 동일했다.
+
+Cron은 여전히 active=false이고 Discord 시험 발송도 하지 않았다. 매일 09:20 KST의
+정기 감지 재개는 별도 승인 뒤 활성화한다. 따라서 이번 서버 배포는 수동 감지/승인/앱 반영
+경로 준비 완료이며 자동 수집 운영 재개 완료를 뜻하지 않는다. 오래된 8건 일괄 승인은 하지 않았다.
