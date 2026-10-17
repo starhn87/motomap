@@ -431,3 +431,36 @@ Objective-C 컴파일을 통과했다. UIKit에서 실제 presenter 콜백과 UI
 
 원인 확인과 로컬 수정·검증 뒤 최소 커밋을 준비한다. 새 네이티브 빌드·푸시·배포는 실행
 범위를 별도로 승인받는다. 1.2.9 후보 정책과 현재 공개 바이너리는 이 계획만으로 바꾸지 않는다.
+
+### 2026-10-17 원인 증거와 로컬 수정 후보 — 완료 판정 보류
+
+설치된 실제 KNSDK 1.12.14 바이너리의 패닝 경로는 `mapPanning:YES` →
+`naviMapView:mapState:` → `fullRouteMode:2`에서 공개 `curDirView`·`nextDirView`·`bottomView`를
+직접 숨기고 `layoutSubviews`를 호출한다. 이 경로는 `naviViewScreenState:`를 보내지 않는다.
+따라서 **콜백만 사용하는 기존 NAV-010 구현은 이 후속으로 대체**한다.
+
+처음 시도한 KNNaviView 하위 클래스의 layout 관찰은 실제 SDK의 fullRouteMode 숨김·복원
+부분 fixture에서 동작했다. 그러나 탭의 `naviBottomViewNeedsToGoMenu:` 경로는 공개
+`bottomView`의 `show:`를 호출하면서 부모 layout을 명시적으로 요청하지 않았다.
+레이아웃 관찰만으로 바꾸면 탭 회귀를 다시 놓칠 수 있어 이 후보는 채택하지 않았다.
+
+최종 로컬 후보는 공개 `bottomView.hidden`을 **해당 인스턴스에서 KVO로 관찰**해 두 버튼의
+hidden을 동기화한다. 기존 전체 경로·구간 정보·미리보기·안전운행 상태 제어는 유지한다.
+초기 관찰은 버튼 생성 전에도 안전하며 finish에서 SDK stop/release 전에 관찰을 해제하고
+비정상 해제에 대비해 dealloc에서도 정리한다. 새 전역 swizzle·제스처 가로채기·폴링·
+비공개 selector 호출은 앱 코드에 추가하지 않는다.
+
+UIKit의 모든 속성에 KVO가 보장된다고 일반화하지 않는다. 설치된 실제 KNBottomView의
+`show:`에서 hidden 변경·복원 관찰이 실행되는 것을 별도 fixture로 확인했으며,
+SDK 업데이트 때 이 경계를 다시 검증한다. 이 증거는 SDK 대역의 수동 상태 콜백 검사와 다르지만,
+완전히 초기화된 앱의 실제 탭·팬·안전운행 검사를 대체하지 않는다. 새 native 4 바이너리에서
+정차 상태 탭/드래그/핀치/전체 경로/안내 복귀/안전운행과 종료·위험 제보를 확인하기 전까지
+NAV-010을 해결로 처리하지 않는다. 기존 1.2.9(39)에는 이 네이티브 수정이 들어 있지 않다.
+
+최종 KVO 후보의 presenter 전체는 설치된 공개 simulator 헤더로 컴파일 성공(exit 0,
+기존 SDK 경고 12개). 실제 SDK 바이너리·실제 presenter·UIButton을 링크한 부분 fixture에서
+`fullRouteMode:2/0`과 `KNBottomView show:NO/YES`의 안내 바 숨김·복원이 두 앱 버튼까지
+전달되고 관찰 해제를 두 번 해도 안전하며 해제 후 변경이 전파되지 않는 것을 확인했다.
+GPS·경로 요청 없는 대체 초기화 fixture다. `naviBottomViewNeedsToGoMenu:` 직접 호출은
+완전한 하위 delegate 그래프가 없어 토글을 재현하지 못했다. 이 결과는 실제 앱 실패나
+성공으로 판정하지 않으며 실제 탭 경로·제스처와 안전운행은 새 바이너리에서 검증해야 한다.

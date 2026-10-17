@@ -204,6 +204,8 @@ static void InstallMotoMapInfoCharacterGuard(void) {
   });
 }
 
+static char kMotoMapBottomVisibilityContext;
+
 // 안내 화면을 담는 뷰 컨트롤러. 델리게이트를 받아야 해서 별도 클래스로 둔다.
 // KNNaviView 는 KNGuidance 를 스스로 구독하지 않는다. 가이드 델리게이트를 여기서
 // 전부 받아 naviView 로 넘겨야 화면이 갱신된다. 게다가 델리게이트를 걸지 않으면
@@ -218,6 +220,7 @@ static void InstallMotoMapInfoCharacterGuard(void) {
                                                     KNGuidance_CitsGuideDelegate,
                                                     KNMapPOIEventListener>
 @property(nonatomic, strong, nullable) KNNaviView *naviView;
+@property(nonatomic, strong, nullable) UIView *observedBottomView;
 @property(nonatomic, strong, nullable) UIButton *endButton;
 @property(nonatomic, strong, nullable) UIButton *hazardButton;
 @property(nonatomic, assign) KNNaviViewState naviScreenState;
@@ -284,6 +287,9 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   naviView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 
   self.naviView = naviView;
+  // 탭은 부모 레이아웃도 상태 콜백도 생략할 수 있다. 공개 안내 바의 실제
+  // hidden 변경을 이 인스턴스에서만 관찰한다. 전역 hook·제스처 가로채기는 없다.
+  [self startObservingBottomView];
   self.guidance = guidance;
 
   // startWithTrip 안에서도 이륜차 기본 캐릭터를 선택하므로 안내 시작보다 먼저
@@ -420,8 +426,38 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   // SDK가 초기 상태 콜백을 생략해도 기존 종료 수단은 유지한다.
   BOOL visible = !self.preview && (!self.hasNaviScreenState ||
       self.naviScreenState == DriveNormal || self.naviScreenState == SafetyNormal);
+  // 정상 모드 enum이 그대로인 패닝에서도 하단 안내 바와 함께 숨긴다.
+  // 초기 구성 중 아직 없는 뷰는 숨김 신호로 간주하지 않는다.
+  if (self.naviView.bottomView.hidden) visible = NO;
   self.endButton.hidden = !visible;
   self.hazardButton.hidden = !visible;
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object
+                       change:(NSDictionary<NSKeyValueChangeKey,id> *)change context:(void *)context {
+  if (context == &kMotoMapBottomVisibilityContext) {
+    [self updateCustomControlsVisibility];
+    return;
+  }
+  [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+}
+
+- (void)startObservingBottomView {
+  [self stopObservingBottomView];
+  self.observedBottomView = self.naviView.bottomView;
+  [self.observedBottomView addObserver:self forKeyPath:@"hidden"
+                              options:NSKeyValueObservingOptionInitial
+                              context:&kMotoMapBottomVisibilityContext];
+}
+
+- (void)stopObservingBottomView {
+  [self.observedBottomView removeObserver:self forKeyPath:@"hidden"
+                                 context:&kMotoMapBottomVisibilityContext];
+  self.observedBottomView = nil;
+}
+
+- (void)dealloc {
+  [self stopObservingBottomView];
 }
 
 // KNNaviMapView 는 내부 KNMapView 를 노출하지 않는다 — 서브뷰 트리에서 찾는다.
@@ -667,6 +703,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)finish {
   if (self.finished) return;
   self.finished = YES;
+  [self stopObservingBottomView];
   [self.guidance stop];
   // 안내가 끝나면 백그라운드 위치를 다시 차단한다 — 종료 후에도 GPS 구독이
   // 남아 밤새 배터리를 먹었다(locationd 실측). 도착 자동 종료도 이 경로다.
