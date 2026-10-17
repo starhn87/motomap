@@ -103,6 +103,16 @@ JS wire API는 그대로지만 내부 native 변경에도 계약 증가를 요�
 현재 업로드한 **1.2.9(40)은 native 4이며 이 음성 수정이 없다**. 후보 표시는 유지하며
 OTA로 반영하지 않는다. 새 후보의 푸시·빌드·업로드는 아직 하지 않았다.
 
+### 2026-10-17 음성 우선권 후보 빌드·업로드 후속
+
+사용자 승인으로 `fabc840` main 푸시와 production **1.2.9 (41) / native 5 / API 1**
+빌드를 완료했다(EAS `5211689e-8e35-4e7a-98a9-cc2500e9b9ab`, 22:14:43 KST FINISHED).
+산출물의 버전/runtime/production 채널·iphoneos 및 실제 오디오 제어 클래스/selector를
+확인했고, 제출 `597f22ed-ccf5-4871-abd4-9085d25a2547`의 Apple 업로드 성공을 확인했다.
+앞선 native 5 미빌드/미업로드 준비 상태는 이 후속으로 대체한다. Apple 처리 후 TestFlight
+41번에서 실제 동시 재생·Bluetooth·전화·종료 복원을 검증해야 한다. 후보 표시는 유지하고
+OTA·App Store 심사/공개 출시·원격 최소 버전 변경은 하지 않았다.
+
 ## 먼저 확인할 활성 원칙
 
 1. `runtimeVersion`은 `appVersion` 정책을 유지한다. 네이티브 코드·플러그인·권한·

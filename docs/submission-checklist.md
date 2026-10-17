@@ -1,3 +1,6 @@
+- [x] 2026-10-17 native 5 production 1.2.9 (41) 빌드·산출물 버전/runtime/채널·오디오 클래스/selector 검사
+- [x] 사용자 승인 후 41번 Apple TestFlight 업로드 성공 (submission 597f22ed-ccf5-4871-abd4-9085d25a2547; Apple 처리 중)
+
 - [ ] NAV-011 native 5 새 바이너리에서 음악/영상/Bluetooth와 음성 감쇠·복원, 연속/취소/전화 검증 (40번 미포함)
 
 - [x] 2026-10-17 native 4 production 1.2.9 (40) 빌드·산출물 버전/runtime/채널·신규 selector 검사

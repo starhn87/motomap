@@ -1,5 +1,13 @@
 # App Store Connect 제출용 메타데이터
 
+2026-10-17 NAV-011 업로드 후속: 사용자 승인으로 **1.2.9 (41) / native 5** production
+빌드를 완료하고 Apple TestFlight용 업로드를 성공했다. 소스 `fabc840`, runtime 1.2.9,
+production 채널, EAS build `5211689e-8e35-4e7a-98a9-cc2500e9b9ab`,
+submission `597f22ed-ccf5-4871-abd4-9085d25a2547`. 현재 Apple 처리 중이며 안내 중
+음악/영상 감쇠·안내 후 복원과 실제 Bluetooth/전화/취소 검증은 41번에서 수행한다.
+이는 App Store 심사·공개 출시 완료를 뜻하지 않는다. 아래 40번/미빌드 준비 이력은 보존한다.
+
+
 2026-10-17 NAV-011 로컬 후보: **1.2.9 / native 5 / API 1**. 안내 음성 동안만 다른 앱
 오디오 감쇠/음성 콘텐츠 중단을 요청하고 종료 후 돌려주는 변경이다. 40번(native 4)에는
 미반영이다. 음악·영상·Bluetooth 동시 재생/연속 안내/취소/전화 중단·복귀를 새 바이너리에서

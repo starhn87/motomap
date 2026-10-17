@@ -546,3 +546,22 @@ OTA를 발행하지 않는다. 새 빌드·업로드가 필요하다.
 (`AUDIO_POLICY_RESULT failures=0 initial=1 during=19 after=1`). 최신 presenter·helper의
 설치 SDK 대상 컴파일, TypeScript, release compatibility도 통과했다. helper 자체의 컴파일
 경고는 없고 SDK 기존 헤더 경고만 남았다. 이 결과로 실제 기기 음향 감쇠 검증을 대신하지 않는다.
+
+### 2026-10-17 NAV-011 사용자 승인 후 새 빌드
+
+사용자 승인으로 `fabc840`을 main에 푸시하고 분리된 소스로 production iOS
+**1.2.9 (41) / native 5 / API 1** 빌드를 완료했다. EAS
+[5211689e-8e35-4e7a-98a9-cc2500e9b9ab](https://expo.dev/accounts/ridemapper/projects/ridemap/builds/5211689e-8e35-4e7a-98a9-cc2500e9b9ab)는
+2026-10-17 22:14:43 KST `FINISHED`다. 실제 cloud 로그에서 `KNNaviAudioFocus.m` 컴파일을
+확인했고 내려받은 산출물의 버전 1.2.9·빌드 41·bundle com.ridemap.app·iphoneos·
+runtime 1.2.9·production 채널과 실행 파일의 KNNaviAudioFocus 및 beginVoice:/endVoice:/
+restoreSession/audioInterrupted: selector를 대조했다.
+
+이는 코드 포함·정책·정적 산출물 검사 결과다. 음악·영상·음성 콘텐츠/Bluetooth와 실제
+안내를 함께 재생한 감쇠·복원과 전화·백그라운드·취소의 효과는 새 TestFlight에서 확인해야 한다.
+40번에는 NAV-010 버튼 수정까지, 41번에는 NAV-011 음성 우선권이 추가됐다.
+
+같은 사용자 승인 범위로 build 41을 지정해 EAS 제출
+[597f22ed-ccf5-4871-abd4-9085d25a2547](https://expo.dev/accounts/ridemapper/projects/ridemap/submissions/597f22ed-ccf5-4871-abd4-9085d25a2547)의
+Apple App Store Connect 업로드 성공을 확인했다. 현재 Apple 처리 중이다. 실기기 음향 효과는
+검증 전이며 App Store 심사/공개 출시는 하지 않았다. NAV-011 테스트에는 41번을 사용한다.
