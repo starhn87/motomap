@@ -1,6 +1,7 @@
 #import "KNNaviPresenter.h"
 #import "KNNaviTheme.h"
 #import "KNSDKBridge.h"
+#import "KNNaviAudioFocus.h"
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
@@ -221,6 +222,7 @@ static char kMotoMapBottomVisibilityContext;
                                                     KNMapPOIEventListener>
 @property(nonatomic, strong, nullable) KNNaviView *naviView;
 @property(nonatomic, strong, nullable) UIView *observedBottomView;
+@property(nonatomic, strong, nullable) KNNaviAudioFocus *audioFocus;
 @property(nonatomic, strong, nullable) UIButton *endButton;
 @property(nonatomic, strong, nullable) UIButton *hazardButton;
 @property(nonatomic, assign) KNNaviViewState naviScreenState;
@@ -258,6 +260,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.view.backgroundColor = UIColor.blackColor;
   InstallMotoMapAccessibilityGuard();
   InstallMotoMapInfoCharacterGuard();
+  self.audioFocus = [[KNNaviAudioFocus alloc] initWithSession:AVAudioSession.sharedInstance];
 
   // 미리보기는 시뮬레이션 안내로 — 실주행 안내는 차량 위치를 항상 실제 GPS 에
   // 매칭하므로 정한 출발지에서 시작할 방법이 없다(카메라·위치 주입 API 없음).
@@ -695,9 +698,11 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)guidance:(KNGuidance *)aGuidance willPlayVoiceGuide:(KNGuide_Voice *)aVoiceGuide {
+  if (!self.finished) [self.audioFocus beginVoice:aVoiceGuide];
 }
 
 - (void)guidance:(KNGuidance *)aGuidance didFinishPlayVoiceGuide:(KNGuide_Voice *)aVoiceGuide {
+  [self.audioFocus endVoice:aVoiceGuide];
 }
 
 - (void)finish {
@@ -705,6 +710,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.finished = YES;
   [self stopObservingBottomView];
   [self.guidance stop];
+  [self.audioFocus stop];
   // 안내가 끝나면 백그라운드 위치를 다시 차단한다 — 종료 후에도 GPS 구독이
   // 남아 밤새 배터리를 먹었다(locationd 실측). 도착 자동 종료도 이 경로다.
   [KNSDKBridge setBackgroundLocationAllowed:NO];

@@ -479,3 +479,70 @@ EAS [d6ca7f25-290e-470b-a970-69d738a15658](https://expo.dev/accounts/ridemapper/
 [31bcbf63-c3fb-490f-8c28-56723a527822](https://expo.dev/accounts/ridemapper/projects/ridemap/submissions/31bcbf63-c3fb-490f-8c28-56723a527822)의
 Apple 업로드 성공을 확인했다. Apple 처리 중이며 새 TestFlight의 실제 탭·스와이프·복귀·
 안전운행 검사가 다음 완료 기준이다. 39번은 이전 코드이므로 이번 검증에는 40번을 사용한다.
+
+## NAV-011 — 안내 음성 동안만 다른 앱 오디오를 낮추고 종료 후 우선권을 돌려준다
+
+- 날짜: 2026-10-17
+- 상태: 로컬 구현·정책 검증 / 실제 동시 재생 검증 전
+- 관련 구현: `KNNaviAudioFocus.h/.m`, `KNNaviPresenter.m`, `tests/ios/`,
+  `scripts/test-ios-navigation-audio.sh`
+
+### 배경과 원인 확인
+
+사용자가 음악·영상 소리에 길안내 음성이 묻힌다고 보고했다. 기존 `KNSDKBridge`는
+SDK 초기화 전에 Playback + MixWithOthers를 활성화하고, presenter의 음성 시작·종료
+콜백은 비어 있었다. 실제 presenter 콜백을 호출한 simulator 정책 검사의 초기/안내 중/
+종료 후 categoryOptions는 **1 → 1 → 1**로 안내 중 DuckOthers가 없었다. 이는 정책 결함의
+재현이며 실제 두 앱 소리의 음향 크기를 측정한 검사는 아니다.
+
+설치된 KNSDK 1.12.14 공개 `KNGuidance.h`는 음성 콜백을 메인 스레드에 전달한다.
+실제 SDK 바이너리에서 `willPlayVoiceGuide`가 AVAudioPlayer.play 직전에 실행되고,
+정상 종료 뒤에는 같은 KNGuide_Voice 객체로 didFinish가 전달되는 것을 확인했다.
+stopAllSound는 취소한 현재·대기 음성에도 종료 콜백을 예약하므로, 시작하지 않은 음성의
+종료와 지연 종료가 현재 음성의 우선권을 해제하지 않게 해야 한다.
+
+### 결정
+
+- SDK 초기화의 mix-only 설정은 유지한다. 화면이 열려 있는 동안 계속 감쇠하지 않는다.
+  실제 음성 시작 직전에만 Playback/Default + MixWithOthers + DuckOthers +
+  InterruptSpokenAudioAndMixWithOthers를 적용하고 활성화한다. 시작 시에는 먼저
+  비활성화하지 않아 재생 중인 소리를 잘라낼 위험을 줄인다.
+- 음악·영상은 iOS에 감쇠를 요청하고, spokenAudio로 분류된 다른 앱 음성 콘텐츠는
+  일시 중단을 요청한다. 다른 앱의 분류·복원 동작은 해당 앱과 iOS 정책에 달려 있다.
+  다른 앱을 직접 조작하거나 시스템 음량·스피커 출력·Bluetooth 경로를 강제로 바꾸지 않는다.
+- 시작한 음성을 객체 동일성 집합으로 보관한다. 중복 시작/종료와 미재생 대기 음성의
+  종료는 무시하고 마지막 활성 음성의 종료 때만 세션을 비활성화하며
+  NotifyOthersOnDeactivation으로 다른 앱 재개를 알린다. 이전 category/mode/options를
+  복원하고 다음 음성까지 비활성 상태를 유지한다. 세션 active 여부의 비공개 getter는 쓰지 않는다.
+- 초기 설정/활성화 실패는 숫자 오류 코드만 기록하고 기존 음성 재생을 막지 않는다.
+  복원이 실패하면 원래 snapshot을 버리지 않고 다음 안내/종료에서 먼저 재시도한다.
+  감쇠 설정을 새 기준으로 저장하는 실패 회귀를 방지한다.
+- 길안내 종료는 SDK 재생을 멈춘 뒤 강제 정리하고 늦은 시작을 거부한다. 전화 등 오디오
+  중단 때도 활성 음성을 비우고 우선권을 돌려준다. 중단 종료 시 임의 재생/활성화를 하지 않고
+  다음 안내를 기다린다. 앱 백그라운드 진입 자체로는 재생 중인 안내를 끊지 않는다.
+- 도착 후 안전운행 화면은 유지하며 이후 안전 안내에도 같은 정책을 사용한다.
+  기존 시작 안내 멘트 생략·음량·UI·GPS 정책은 바꾸지 않는다.
+
+근거: [Apple DuckOthers](https://developer.apple.com/documentation/avfaudio/avaudiosession/categoryoptions-swift.struct/duckothers),
+[다른 음성 콘텐츠 중단과 혼합](https://developer.apple.com/documentation/avfaudio/avaudiosession/categoryoptions-swift.struct/interruptspokenaudioandmixwithothers),
+[KNSDK 음성 delegate](https://developers.kakaomobility.com/reference/ios-ref-objectivec/interface-KNGuidance_VoiceGuideDelegate.html).
+
+### 검증과 배포 경계
+
+수정 후 실제 presenter 콜백과 simulator AVAudioSession에서 **1 → 19 → 1**로 안내 중
+감쇠/음성 우선 옵션과 종료 후 복원을 확인했다. helper의 동일 객체·겹치는 시작·대기 음성
+취소·중복/지연 종료·전화 중단·늦은 시작·설정/활성화/복원 실패는 별도 정책 fixture로 검사한다.
+재현 가능한 `bash scripts/test-ios-navigation-audio.sh`는 격리한 임시 simulator를 생성해
+helper 정책과 실제 시스템 옵션을 검사하고 생성한 simulator/app만 정리한다.
+
+이 검사는 실제 KNSDK 음성 dispatch, 다른 앱의 음향 감쇠·자동 재개, Bluetooth/전화 수신을
+실기기에서 검증한 것이 아니다. iOS 27 SDK의 legacy interruption API deprecation 경고는
+있으며 하위 iOS 지원과 함께 실제 중단 경로를 검증해야 한다. 새 **native 5** 바이너리에서
+음악/영상/음성 콘텐츠와 연속·취소 안내/전화/백그라운드/종료를 확인한 뒤 효과를 판정한다.
+현재 TestFlight **1.2.9(40)은 native 4로 이 수정이 없다**. 후보 앱 버전은 1.2.9를 유지하고
+OTA를 발행하지 않는다. 새 빌드·업로드가 필요하다.
+
+최종 독립 검증: 복원 실패 재시도를 포함한 정책 fixture 20개와 위 영구 스크립트가 통과했다
+(`AUDIO_POLICY_RESULT failures=0 initial=1 during=19 after=1`). 최신 presenter·helper의
+설치 SDK 대상 컴파일, TypeScript, release compatibility도 통과했다. helper 자체의 컴파일
+경고는 없고 SDK 기존 헤더 경고만 남았다. 이 결과로 실제 기기 음향 감쇠 검증을 대신하지 않는다.
