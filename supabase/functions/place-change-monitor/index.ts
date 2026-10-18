@@ -1,3 +1,7 @@
+import {
+  lookupMonitorNaver,
+  type MonitorNaverLookup,
+} from "../_shared/placeChangeNaver.ts";
 import { placeChangeFingerprint } from "../_shared/placeChangeFingerprint.ts";
 // 등록 장소의 외부 정보 변화를 찾되 places는 절대 자동 수정하지 않는다.
 // 새 후보는 내부 검토 대기열과 Discord 보고로만 남고, 실제 반영은 운영자 승인 뒤
@@ -6,6 +10,8 @@ import { placeChangeFingerprint } from "../_shared/placeChangeFingerprint.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const KAKAO_REST_API_KEY = Deno.env.get("KAKAO_REST_API_KEY");
+const NAVER_CLIENT_ID = Deno.env.get("NAVER_LOCAL_SEARCH_CLIENT_ID");
+const NAVER_CLIENT_SECRET = Deno.env.get("NAVER_LOCAL_SEARCH_CLIENT_SECRET");
 const MONITOR_SECRET = Deno.env.get("PLACE_CHANGE_MONITOR_SECRET");
 const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
 const DISCORD_CHANNEL_ID = Deno.env.get("DISCORD_CHANNEL_ID");
@@ -87,6 +93,7 @@ interface MonitorResult {
   reviewId?: string;
   changeTypes?: ChangeType[];
   error?: string;
+  crossCheck?: string;
 }
 
 const CHANGE_LABELS: Record<ChangeType, string> = {
@@ -108,6 +115,8 @@ function assertEnvironment(): void {
     ["SUPABASE_SERVICE_ROLE_KEY", SERVICE_ROLE_KEY],
     ["KAKAO_REST_API_KEY", KAKAO_REST_API_KEY],
     ["PLACE_CHANGE_MONITOR_SECRET", MONITOR_SECRET],
+    ["NAVER_LOCAL_SEARCH_CLIENT_ID", NAVER_CLIENT_ID],
+    ["NAVER_LOCAL_SEARCH_CLIENT_SECRET", NAVER_CLIENT_SECRET],
   ].filter(([, value]) => !value).map(([name]) => name);
 
   if (missing.length > 0) {
@@ -299,6 +308,7 @@ async function supabaseJson<T>(
 ): Promise<T> {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...init,
+    signal: AbortSignal.timeout(4000),
     headers: {
       apikey: SERVICE_ROLE_KEY ?? "",
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
@@ -327,11 +337,14 @@ async function searchKakao(
   });
   const response = await fetch(
     `https://dapi.kakao.com/v2/local/search/keyword.json?${params}`,
-    { headers: { Authorization: `KakaoAK ${KAKAO_REST_API_KEY}` } },
+    {
+      headers: { Authorization: `KakaoAK ${KAKAO_REST_API_KEY}` },
+      signal: AbortSignal.timeout(4000),
+    },
   );
   if (!response.ok) {
     throw new Error(
-      `Kakao ${response.status}: ${(await response.text()).slice(0, 300)}`,
+      `Kakao cross-check: HTTP ${response.status}`,
     );
   }
   return await response.json() as KakaoResponse;
@@ -537,6 +550,81 @@ function detectChanges(
   };
 }
 
+// 교차 검증에서는 건물번호의 하이픈·토큰 경계를 보존한다. 1-1과 11을 합치지 않는다.
+function crossCheckAddress(value: string): string {
+  return canonicalAddress(value).normalize("NFKC").replace(/^대한민국\s*/, "")
+    .trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+// 네이버는 검색 범위가 제한돼 0건을 부재의 증명으로 삼지 않는다. 동일 주소의
+// 박물관/식당이나 정상 전망 지점/관리시설을 좌표만으로 같은 장소로 합치지도 않는다.
+function compareNaver(
+  place: PlaceRow,
+  detection: Detection | null,
+  lookup: MonitorNaverLookup,
+  proposal: ProposedChanges,
+) {
+  const currentMatches = lookup.candidates.filter((candidate) =>
+    normalizeText(candidate.placeName) === normalizeText(place.name) &&
+    crossCheckAddress(place.address) ===
+      crossCheckAddress(candidate.roadAddress || candidate.address) &&
+    haversineMeters(place, candidate) <= 500 &&
+    (!normalizePhone(place.phone) || !normalizePhone(candidate.phone) ||
+      normalizePhone(place.phone) === normalizePhone(candidate.phone))
+  );
+  const observed = detection?.observed;
+  const observedMatches = lookup.candidates.filter((candidate) =>
+    observed && typeof observed.latitude === "number" &&
+    typeof observed.longitude === "number" &&
+    normalizeText(candidate.placeName) ===
+      normalizeText(String(observed.name ?? "")) &&
+    crossCheckAddress(candidate.roadAddress || candidate.address) ===
+      crossCheckAddress(String(observed.address ?? "")) &&
+    haversineMeters({
+        latitude: observed.latitude,
+        longitude: observed.longitude,
+      }, candidate) <= 100
+  );
+  const match = observedMatches.length === 1 ? observedMatches[0] : null;
+  const canPropose = !!match &&
+    !currentMatches.some((candidate) => candidate !== match) &&
+    Object.keys(proposal).length > 0 &&
+    (!normalizePhone(match.phone) ||
+      !normalizePhone(String(observed?.phone ?? "")) ||
+      normalizePhone(match.phone) ===
+        normalizePhone(String(observed?.phone ?? ""))) &&
+    (!proposal.phone ||
+      (!!normalizePhone(match.phone) &&
+        normalizePhone(match.phone) === normalizePhone(proposal.phone))) &&
+    (proposal.latitude === undefined || proposal.longitude === undefined ||
+      haversineMeters({
+          latitude: proposal.latitude,
+          longitude: proposal.longitude,
+        }, match) <= 50);
+  const status = canPropose
+    ? "observed_supported"
+    : currentMatches.length === 1
+    ? "current_supported"
+    : lookup.candidates.length === 0
+    ? "no_results"
+    : "unconfirmed";
+  return {
+    canPropose,
+    currentSupported: currentMatches.length === 1,
+    evidence: {
+      provider: "naver",
+      status,
+      // 네이버 API는 최대 5건이며 지도 화면 검색과도 범위가 다르다.
+      exhaustive: false,
+      checked_at: new Date().toISOString(),
+      matches_current: currentMatches.length,
+      matches_observed: observedMatches.length,
+      searches: lookup.searches,
+      candidates: lookup.candidates,
+    },
+  };
+}
+
 async function enqueueReview(
   place: PlaceRow,
   detection: Detection,
@@ -555,6 +643,14 @@ async function enqueueReview(
           detection.current,
           detection.observed,
           detection.changeTypes,
+          Date.now(),
+          {
+            naver:
+              (detection.evidence.naver_cross_check as Record<string, unknown>)
+                ?.candidates,
+            proposal,
+            cross_check_version: 1,
+          },
         ),
         p_change_types: detection.changeTypes,
         p_confidence: detection.confidence,
@@ -639,6 +735,34 @@ function discordMessage(
     `**관찰 주소:** ${String(observed.address ?? "-")}`,
     `**관찰 전화:** ${String(observed.phone ?? "-")}`,
   ];
+  const crossCheck = detection.evidence.naver_cross_check as
+    | Record<string, unknown>
+    | undefined;
+  if (crossCheck) {
+    const labels: Record<string, string> = {
+      observed_supported: "변경 후보와 일치",
+      current_supported: "현재 장소 후보 확인 — 변경값은 별도 검토",
+      no_results: "검색 0건 — 부재·폐업을 뜻하지 않음",
+      unconfirmed: "동일성·변경값 확인 불충분 — 직접 확인 필요",
+    };
+    lines.push(
+      `**네이버 교차검증:** ${labels[String(crossCheck.status)] ?? "미확인"}`,
+    );
+    const candidates = crossCheck
+      .candidates as MonitorNaverLookup["candidates"];
+    for (const candidate of candidates.slice(0, 2)) {
+      lines.push(
+        `- 네이버: ${candidate.placeName} / ${
+          candidate.roadAddress || candidate.address
+        } / ${candidate.phone || "전화 미제공"}`,
+      );
+    }
+    lines.push(
+      `**네이버 검색:** https://map.naver.com/p/search/${
+        encodeURIComponent(place.name)
+      }`,
+    );
+  }
   if (observed.place_url) {
     lines.push(`**카카오:** ${String(observed.place_url)}`);
   }
@@ -716,6 +840,7 @@ async function postDiscord(
       `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages`,
       {
         method: "POST",
+        signal: AbortSignal.timeout(4000),
         headers: {
           Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
           "Content-Type": "application/json",
@@ -729,6 +854,7 @@ async function postDiscord(
   } else if (DISCORD_WEBHOOK_URL) {
     response = await fetch(`${DISCORD_WEBHOOK_URL}?wait=true`, {
       method: "POST",
+      signal: AbortSignal.timeout(4000),
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content }),
     });
@@ -747,12 +873,39 @@ async function inspectPlace(
   dryRun: boolean,
 ): Promise<MonitorResult> {
   try {
-    const { candidates, searches } = await collectCandidates(place);
+    const [{ candidates, searches }, naver] = await Promise.all([
+      collectCandidates(place),
+      lookupMonitorNaver(place, {
+        clientId: NAVER_CLIENT_ID ?? "",
+        clientSecret: NAVER_CLIENT_SECRET ?? "",
+        fetch,
+      }),
+    ]);
     const detection = detectChanges(place, candidates, searches);
+    const initialProposal = detection ? proposedChanges(place, detection) : {};
+    const crossCheck = compareNaver(place, detection, naver, initialProposal);
 
-    if (!detection) {
+    if (
+      (!detection ||
+        detection.changeTypes.every((type) => type === "not_found")) &&
+      crossCheck.currentSupported
+    ) {
       if (!dryRun) await saveState(place, "clean");
-      return { placeId: place.id, placeName: place.name, result: "clean" };
+      return {
+        placeId: place.id,
+        placeName: place.name,
+        result: "clean",
+        crossCheck: crossCheck.evidence.status,
+      };
+    }
+    if (!detection) {
+      throw new Error("Naver cross-check: current_place_unconfirmed");
+    }
+    detection.evidence.naver_cross_check = crossCheck.evidence;
+    if (crossCheck.evidence.status === "no_results") {
+      detection.confidence = "low";
+    } else if (!crossCheck.canPropose && detection.confidence === "high") {
+      detection.confidence = "medium";
     }
 
     if (dryRun) {
@@ -761,10 +914,11 @@ async function inspectPlace(
         placeName: place.name,
         result: "change_detected",
         changeTypes: detection.changeTypes,
+        crossCheck: crossCheck.evidence.status,
       };
     }
 
-    const proposal = proposedChanges(place, detection);
+    const proposal = crossCheck.canPropose ? initialProposal : {};
     const { reviewId, shouldReport } = await enqueueReview(
       place,
       detection,
@@ -785,6 +939,7 @@ async function inspectPlace(
       result: "change_detected",
       reviewId,
       changeTypes: detection.changeTypes,
+      crossCheck: crossCheck.evidence.status,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -834,17 +989,21 @@ Deno.serve(async (request) => {
     const batchRpc = dryRun
       ? "rpc/get_place_change_monitor_batch"
       : "rpc/claim_place_change_monitor_batch";
+    const startedAt = Date.now();
     const places = await supabaseJson<PlaceRow[]>(batchRpc, {
       method: "POST",
       body: JSON.stringify({ p_limit: limit }),
     });
     const results: MonitorResult[] = [];
     for (const place of places) {
+      // Cron의 HTTP 제한(60초) 전에 응답한다. 미처리 선점은 기존 15분 만료 후 재시도된다.
+      if (Date.now() - startedAt >= 30000) break;
       results.push(await inspectPlace(place, dryRun));
     }
     return json({
       dryRun,
       checked: results.length,
+      deferred: places.length - results.length,
       clean: results.filter((result) => result.result === "clean").length,
       changes: results.filter((result) =>
         result.result === "change_detected"

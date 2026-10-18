@@ -5,13 +5,15 @@ export async function placeChangeFingerprint(
   observed: Record<string, unknown>,
   changeTypes: string[],
   now = Date.now(),
+  verification: Record<string, unknown> = {},
 ): Promise<string> {
   const payload = JSON.stringify({
-    version: 2,
+    version: 3,
     placeId,
     current,
     observed,
     changeTypes,
+    verification,
     observationWindow: Math.floor(now / (7 * 24 * 60 * 60 * 1000)),
   });
   const digest = await crypto.subtle.digest(
