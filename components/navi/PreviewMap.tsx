@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   NaverMapView,
@@ -68,7 +67,6 @@ export default function PreviewMap({
   viaMarkers,
   route,
   trafficParts,
-  isCourseMode,
   topCardH,
   bottomCardH,
 }: {
@@ -79,16 +77,15 @@ export default function PreviewMap({
   viaMarkers: { latitude: number; longitude: number }[];
   route: BikeRoute | undefined;
   trafficParts: TrafficPart[] | undefined;
-  isCourseMode: boolean;
   /** 위아래 카드가 지도를 덮는 픽셀 — 카메라 핏이 이 값만큼 경로를 밀어 넣는다 */
-  topCardH: React.RefObject<number>;
-  bottomCardH: React.RefObject<number>;
+  topCardH: number | null;
+  bottomCardH: number | null;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const mapRef = useRef<NaverMapViewRef>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   // 경로 주변의 등록 장소·즐겨찾기 — "가는 길에 들를 곳"을 미리보기에서 보여준다.
   // 첫 프레임도 목적지 주변만 조회하고, 카메라가 멈추면 실제 화면 창으로 갱신한다.
@@ -150,10 +147,11 @@ export default function PreviewMap({
     );
   }, [visibleOnMap, goal]);
 
-  // 경로가 바뀌면 전체가 보이도록 카메라를 맞춘다.
-  // 남쪽은 하단 카드가 덮는 만큼 더 벌린다.
+  // SDK의 콘텐츠 여백으로 카드 밖 가시 영역에 맞춘다. 실측과 지도 초기화가
+  // 끝난 뒤 실행하고, 로딩 후 카드 높이가 달라져도 다시 전체 경로를 보여준다.
   useEffect(() => {
-    if (!route || route.polyline.length < 4) return;
+    if (!mapReady || topCardH === null || bottomCardH === null ||
+        !route || route.polyline.length < 4) return;
     let minLat = Infinity;
     let maxLat = -Infinity;
     let minLng = Infinity;
@@ -166,28 +164,12 @@ export default function PreviewMap({
       if (lat < minLat) minLat = lat;
       if (lat > maxLat) maxLat = lat;
     }
-    const latSpan = Math.max(maxLat - minLat, 0.01);
-    const lngSpan = Math.max(maxLng - minLng, 0.01);
-    // 카드 밖에 남는 세로 밴드에 경로가 통째로 들어가야 한다. 카드 높이는
-    // 화면 픽셀이라, 경로 폭과 무관하게 "가려지는 비율"로 환산해 벌린다.
-    const screenH = Dimensions.get('window').height;
-    const topH = isCourseMode ? insets.top + 60 : topCardH.current;
-    const bottomH = bottomCardH.current;
-    const visibleFrac = Math.max(0.25, (screenH - topH - bottomH) / screenH);
-    const fullSpan = latSpan / visibleFrac;
     mapRef.current?.animateCameraWithTwoCoords({
-      coord1: {
-        latitude: minLat - fullSpan * (bottomH / screenH) - latSpan * 0.04,
-        longitude: minLng - lngSpan * 0.1,
-      },
-      coord2: {
-        latitude: maxLat + fullSpan * (topH / screenH) + latSpan * 0.04,
-        longitude: maxLng + lngSpan * 0.1,
-      },
+      coord1: { latitude: minLat, longitude: minLng },
+      coord2: { latitude: maxLat, longitude: maxLng },
       duration: 700,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- isCourseMode 는 파라미터에서 파생돼 불변
-  }, [route]);
+  }, [route, mapReady, topCardH, bottomCardH]);
 
   // 탭하면 그 장소가 선택된 지도 화면을 통째로 오버레이한다(/place-preview).
   // 뒤로 가면 이 미리보기가 경로·옵션 그대로 남아 있다 — 스택이 지켜 준다.
@@ -253,6 +235,9 @@ export default function PreviewMap({
       ref={mapRef}
       style={StyleSheet.absoluteFill}
       mapType="Basic"
+      // 핀 높이와 경로선 두께까지 카드 경계에서 여유를 둔다.
+      mapPadding={{ top: (topCardH ?? 0) + 48, bottom: (bottomCardH ?? 0) + 32, left: 32, right: 32 }}
+      onInitialized={() => setMapReady(true)}
       isNightModeEnabled={colorScheme === 'dark'}
       isShowLocationButton={false}
       isShowCompass={false}

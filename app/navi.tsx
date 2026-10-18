@@ -407,8 +407,8 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
 
   // 위아래 카드가 지도를 덮는 픽셀 — PreviewMap 의 카메라 핏이 이 값만큼
   // 경로를 밀어 넣는다. onLayout 으로 실측해 채운다.
-  const topCardH = useRef(240);
-  const bottomCardH = useRef(300);
+  const [topCardH, setTopCardH] = useState<number | null>(null);
+  const [bottomCardH, setBottomCardH] = useState<number | null>(null);
 
   // 지도에 표시할 경유지 — 실제로 요청에 쓰인 것만 그린다. 20412(도로와 안 이어짐)
   // 폴백으로 줄어든 경우 빠진 지점은 들르지 않으므로 마커도 없어야 한다.
@@ -442,7 +442,6 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
           viaMarkers={viaMarkers}
           route={locationBlocked ? undefined : route}
           trafficParts={locationBlocked ? undefined : trafficParts}
-          isCourseMode={isCourseMode}
           topCardH={topCardH}
           bottomCardH={bottomCardH}
         />
@@ -451,6 +450,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
       {isCourseMode ? (
         /* 코스 안내 — 편집할 지점이 없으니 닫기 버튼만 */
         <Pressable
+          onLayout={(e) => setTopCardH(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}
           onPress={() => router.back()}
           style={[
             styles.closeButton,
@@ -463,7 +463,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
           /* 경로 편집 카드 — 필드를 탭하면 그 지점을 바꾸고 경로를 다시 그린다 */
           <View
             onLayout={(e) => {
-              topCardH.current = e.nativeEvent.layout.y + e.nativeEvent.layout.height;
+              setTopCardH(e.nativeEvent.layout.y + e.nativeEvent.layout.height);
             }}
             style={[
               styles.routeCard,
@@ -560,7 +560,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
       {/* 하단: 목적지 + 옵션 + 경로 정보 + 시작 */}
       <View
         onLayout={(e) => {
-          bottomCardH.current = e.nativeEvent.layout.height;
+          setBottomCardH(e.nativeEvent.layout.height);
         }}
         style={[
           styles.card,
