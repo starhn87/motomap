@@ -469,3 +469,6 @@ export하고 production/runtime 1.2.9로 발행했다. 서버 manifest에 실제
 앱/runtime 1.2.9, native 5/API 1과 미출시 후보 표시는 유지한다. 새 build number로
 NAV-012 경로 미리보기와 최신 릴리스 노트를 포함하며, OTA나 App Store 자동 출시는
 추가하지 않는다. 실제 build ID·Apple 업로드·심사 상태는 완료 후 기록한다.
+
+
+2026-10-21 제출 후속: 10/20 승인된 production 1.2.9 (42), source `6f8c756`, EAS `a701ba8c-43d8-4661-91e5-5bbf3926c01d`의 산출물 버전/runtime/production 채널을 확인했다. EAS 업로드 대기열은 취소 후 CANCELED를 확인하고 동일 IPA를 Apple에 직접 업로드했다(delivery `44c51758-a2bb-4ebd-a621-48ed3a610614`, 오류 없음). ASC에서 실제 42번 연결·릴리스 노트·기존 심사 접근·수동 출시를 확인하고 00:17 KST 심사 제출, **심사 대기 중**을 확인했다. 공개 출시는 아직 하지 않았으므로 candidate/minimum/runtime/native/API 정책은 유지한다. 상세는 `docs/app-store-submission.md`를 따른다.
