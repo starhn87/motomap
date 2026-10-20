@@ -880,7 +880,7 @@ Cron은 여전히 active=false이고 Discord 시험 발송도 하지 않았다. 
 ## CURATION-019 — 정기 장소 변경 감지는 네이버 지역 검색으로 교차 확인한다
 
 - 날짜: 2026-10-18
-- 상태: 구현·로컬 검증 / 운영 배포 대기
+- 상태: 활성(2026-10-20 v7 배포, 아래 준비 기록은 이력)
 - 관련 구현: `supabase/functions/place-change-monitor/index.ts`,
   `supabase/functions/_shared/placeChangeNaver.ts`, `placeChangeFingerprint.ts`
 - 대체 대상: CURATION-007의 카카오 단독 감지 방식. 자동 장소 변경 금지는 유지한다.
@@ -929,5 +929,15 @@ Cron은 여전히 active=false이고 Discord 시험 발송도 하지 않았다. 
 실제 handler를 실행하는 대역 기반 회귀 검사로 항상 네이버 호출, 검색 누락 보완, 정상 0건,
 인증·한도·시간 초과, 다른 시설·먼 동명 장소, 전화 충돌, 승인안 허용/차단, 지문 갱신과
 무변경 dry-run을 검사한다. 이는 운영 Edge Function의 실호출·실제 Discord 수신 검증을
-대체하지 않는다. 운영의 현 버전은 아직 카카오 단독 v6이며, 승인 후 새 함수 배포와 소량
+대체하지 않는다. 구현 당시 운영 버전은 카카오 단독 v6였으며, 승인 후 새 함수 배포와 소량
 무변경 검사로 확인한다. 기존 대기 8건을 자동 승인·종결하지 않는다.
+
+
+### 2026-10-20 네이버 교차 감지 운영 배포
+
+사용자가 `c2f61de` 푸시와 감지 함수 배포를 승인했다. `place-change-monitor` v7 ACTIVE,
+기존 비밀 헤더 인증/verify_jwt=false와 Cron 7의 매일 09:20 KST 활성 상태를 유지했다.
+배포 반환 소스 5개(엔트리·네이버 어댑터·기존 파서·지문·Deno 설정)가 로컬과 정확히 같았다.
+운영 무변경 검사(request 19, limit 3/dryRun true)는 HTTP 200, checked 3 / changes 3 /
+errors 0 / deferred 0이며 네이버 교차 상태를 반환했다. 준비 단계의 v6 미배포 상태는
+이 후속으로 대체한다. 이 검사에서는 대기열 변경·Discord 발송·장소 승인 없이 수행했다.

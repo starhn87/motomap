@@ -1,3 +1,22 @@
+## 2026-10-20 1.2.9 심사 제출용 릴리스 노트
+
+사용자가 새 production 빌드와 App Store 심사 제출을 승인했다. 앱/runtime 1.2.9, native 5/API 1은 유지하고 새 build number를 사용한다.
+
+### 한국어 새로운 기능
+
+- 길안내 중 지도를 움직일 때 종료·위험 제보 버튼 표시가 화면과 함께 바뀌도록 개선했어요.
+- 길안내 음성이 나오는 동안 다른 앱 소리를 조절해 안내를 더 잘 들을 수 있도록 했어요.
+- 경로 미리보기에서 전체 경로가 상·하단 안내 영역에 가리지 않도록 지도 범위를 조정했어요.
+- 변경된 장소 정보가 지도·검색·상세에 반영되도록 갱신 처리를 개선했어요.
+
+### English What’s New
+
+- Improved End Navigation and Hazard Report button visibility when interacting with the navigation map.
+- Improved navigation voice guidance by adjusting audio from other apps during announcements.
+- Adjusted route previews to keep the full route visible between the top and bottom panels.
+- Improved refresh behavior for updated place information across maps, search, and place details.
+
+
 # App Store 등록 정보
 
 ## 1.2.9 제출 후보 (39 빌드 완료·미제출)

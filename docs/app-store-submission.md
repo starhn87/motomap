@@ -1,3 +1,18 @@
+## 2026-10-20 새 production 빌드·심사 제출 승인
+
+사용자가 네이버 교차 감지의 푸시·서버 배포, 새 iOS production 빌드·릴리스 노트 작성·App Store 심사 제출을 명시적으로 승인했다. 버전/runtime은 1.2.9, native 5/API 1이며 기존 수동 출시 설정을 유지한다. 현재 준비 단계이고 실제 build ID·Apple 처리·심사 상태는 후속 결과로 기록한다.
+
+새 제출본에는 NAV-010 버튼 표시, NAV-011 음성 우선권, NAV-012 미리보기 가시 영역, 장소 정보 캐시 갱신을 포함한다. 서버의 CURATION-019 네이버 교차 감지는 별도 배포이며 새 앱 권한·정보 수집을 추가하지 않는다.
+
+### 이번 업데이트 심사 메모 초안 (KO/EN)
+
+이번 버전은 기존 길안내 및 장소 정보 표시의 개선입니다. 경로 미리보기에서 출발지와 도착지를 설정하면 상·하단 카드 사이에 전체 경로를 표시합니다. 길안내를 시작한 뒤 지도를 움직이면 SDK 안내 화면에 맞춰 종료·위험 제보 버튼을 표시하고 숨깁니다. 안내 음성 재생 중 다른 앱 오디오에 일시적인 우선권을 요청합니다. 기존 계정·리뷰·즐겨찾기 흐름은 유지합니다.
+
+This update improves existing navigation and place information. Set an origin and destination to preview the route between the top and bottom panels. During navigation, map interactions update the visibility of the End Navigation and Hazard Report buttons with the SDK interface. Voice announcements request temporary audio priority over other apps. Existing account, review, and favorites flows remain available.
+
+실제 심사 계정·연락처는 ASC 현재 저장값을 확인해 유지하며 과거 문서의 서로 다른 계정을 복사하지 않는다.
+
+
 # App Store Connect 제출용 메타데이터
 
 2026-10-17 NAV-011 업로드 후속: 사용자 승인으로 **1.2.9 (41) / native 5** production
