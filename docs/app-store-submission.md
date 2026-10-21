@@ -596,3 +596,23 @@ ASC > Build > 1.0.0 (xxx) > Export Compliance Information
 4. **위치 권한 사용 목적 불명확** — Info.plist의 `NSLocationWhenInUseUsageDescription` 한국어 명확히 (이미 설정됨)
 5. **사용자 생성 콘텐츠 모더레이션 부재** — 신고/차단/삭제 흐름 노트에 명시 (위에 작성됨)
 6. **빈 카테고리/리스트** — 출시 시점에 최소 코스/장소 데이터 시드 필수
+
+
+### 2026-10-21 시작 음성·목적지 복귀 43번 TestFlight 업로드
+
+사용자 승인으로 `96ebee364a95833f0d464e422e06fdef1088bb00`을 main에 푸시하고,
+격리된 해당 소스에서 production **1.2.9 (43) / native 6 / API 1** 빌드를 완료했다.
+EAS build ID는 `d846a4cb-2c5e-44ae-8e29-01f7ad66fbdb`이며 `FINISHED`와 소스 일치를
+확인했다. IPA의 앱 버전·빌드 번호·runtime 1.2.9·production 채널, 복귀 처리 클래스와
+selector, 시작 MP3의 원본 SHA-256 일치까지 확인했다.
+
+시작 문구는 **“길안내를 시작합니다. 안전한 라이딩 되세요!”**다. 도착 후 목적지 유지와
+안전운행 UI 중계 차단·목적지를 지나친 뒤 새 복귀 경로 요청을 포함한다(NAV-013/014).
+타입·릴리스 검사, 287개 테스트와 iOS session/audio 검사는 통과했다. 실제 SDK의 도착·
+복귀 경로 성공, 위치/오프라인/종료 경합과 음성 청취는 새 빌드에서 확인해야 한다.
+
+EAS submission `c92bec99-c418-4564-bdf6-84f48447573a`의 **Apple App Store Connect 업로드
+성공**을 확인했다. 확인 시점에는 Apple 처리 단계이며 TestFlight 표시·설치 완료를 의미하지
+않는다. 심사 재제출·공개 출시·OTA·원격 버전 정책 변경은 하지 않았다. candidate 1.2.9는
+유지하며 39~42에 이 네이티브 변경이 전달되지 않는다. 앞선 native 6 로컬 후보의 미푸시·
+미빌드·미업로드 상태는 이 후속으로 대체한다.
