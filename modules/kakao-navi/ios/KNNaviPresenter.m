@@ -2,6 +2,7 @@
 #import "KNNaviTheme.h"
 #import "KNSDKBridge.h"
 #import "KNNaviAudioFocus.h"
+#import "KNNaviArrivalRecovery.h"
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
@@ -207,6 +208,18 @@ static void InstallMotoMapInfoCharacterGuard(void) {
 
 static char kMotoMapBottomVisibilityContext;
 
+static NSData *MotoMapStartVoiceData(void) {
+  static NSData *data;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    NSURL *bundleURL = [NSBundle.mainBundle URLForResource:@"MotoMapNavigationVoice" withExtension:@"bundle"];
+    NSBundle *bundle = bundleURL ? [NSBundle bundleWithURL:bundleURL] : nil;
+    NSURL *voiceURL = [bundle URLForResource:@"navigation-start" withExtension:@"mp3"];
+    if (voiceURL) data = [NSData dataWithContentsOfURL:voiceURL];
+  });
+  return data;
+}
+
 // 안내 화면을 담는 뷰 컨트롤러. 델리게이트를 받아야 해서 별도 클래스로 둔다.
 // KNNaviView 는 KNGuidance 를 스스로 구독하지 않는다. 가이드 델리게이트를 여기서
 // 전부 받아 naviView 로 넘겨야 화면이 갱신된다. 게다가 델리게이트를 걸지 않으면
@@ -241,6 +254,18 @@ static char kMotoMapBottomVisibilityContext;
 @property(nonatomic, assign) BOOL preview;
 @property(nonatomic, assign) BOOL previewNoticed;
 @property(nonatomic, assign) BOOL finished;
+@property(nonatomic, strong) KNNaviArrivalRecovery *arrivalRecovery;
+@property(nonatomic, strong) UIStackView *arrivalBanner;
+@property(nonatomic, strong) UILabel *arrivalLabel;
+@property(nonatomic, strong) UIButton *arrivalRetryButton;
+@property(nonatomic) BOOL arrivalCurWasHidden;
+@property(nonatomic) BOOL arrivalNextWasHidden;
+@property(nonatomic) BOOL arrivalBottomWasHidden;
+@property(nonatomic) NSUInteger routeRequestGeneration;
+@property(nonatomic) BOOL didPlayStartVoice;
+@property(nonatomic) BOOL changingDestination;
+@property(nonatomic, strong) KNTrip *pendingDestinationTrip;
+@property(nonatomic) KNRoutePriority pendingDestinationPriority;
 @end
 
 // 안내 화면 위 상호작용(액션시트·알림·목적지 변경)을 모듈 함수가 쓸 수 있도록
@@ -431,7 +456,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
       self.naviScreenState == DriveNormal || self.naviScreenState == SafetyNormal);
   // 정상 모드 enum이 그대로인 패닝에서도 하단 안내 바와 함께 숨긴다.
   // 초기 구성 중 아직 없는 뷰는 숨김 신호로 간주하지 않는다.
-  if (self.naviView.bottomView.hidden) visible = NO;
+  if (!self.arrivalRecovery.waiting && self.naviView.bottomView.hidden) visible = NO;
   self.endButton.hidden = !visible;
   self.hazardButton.hidden = !visible;
 }
@@ -599,6 +624,15 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 #pragma mark - KNGuidance 델리게이트 → naviView 중계
 
 - (void)guidanceGuideStarted:(KNGuidance *)aGuidance {
+  if (self.finished) return;
+  if (self.changingDestination && self.pendingDestinationTrip) {
+    self.trip = self.pendingDestinationTrip;
+    self.priority = self.pendingDestinationPriority;
+  }
+  self.changingDestination = NO;
+  self.pendingDestinationTrip = nil;
+  [self restoreArrivalUI];
+  [self.arrivalRecovery guideStarted];
   [self.naviView guidanceGuideStarted:aGuidance];
   [self applyCarTheme];
   // JS 가 이 신호를 받아 밑 화면을 지도로 바꿔 둔다 — 안내가 어떤 경로로
@@ -628,6 +662,16 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)guidance:(KNGuidance *)aGuidance routeUnchangedWithError:(KNError *)aError {
+  self.changingDestination = NO;
+  self.pendingDestinationTrip = nil;
+  if (self.arrivalRecovery.requesting) {
+    [self arrivalReturnFailedForGeneration:self.routeRequestGeneration];
+    return;
+  }
+  if (self.arrivalRecovery.waiting) {
+    [self showArrivalUIWithMessage:@"경로를 바꾸지 못했어요.\n기존 목적지를 유지하고 있어요. 다시 시도해 주세요."];
+    return;
+  }
   [self.naviView guidance:aGuidance routeUnchangedWithError:aError];
   [self applyCarTheme]; // 재탐색 실패(예: 오솔길이라 경로 없음)로 끝난 뒤에도 동일
 }
@@ -642,14 +686,137 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self applyCarTheme]; // 재탐색으로 새 경로가 깔릴 때도 자차·경로 테마가 리셋된다
 }
 
-// 목적지에 닿아 안내 엔진이 끝나도 화면은 그대로 둔다 — 주행 중에 앱이 스스로
-// 화면을 걷어버리는 게 위험하다는 판단(사용자). 끝내는 건 라이더가 SDK 메뉴의
-// 안내 종료로 직접 한다(그건 naviViewGuideEnded 로 들어온다).
 - (void)guidanceGuideEnded:(KNGuidance *)aGuidance {
-  [self.naviView guidanceGuideEnded:aGuidance isShowDriveResultDialog:NO];
-  // 종료 뒤 화면은 닫히지 않고 안전운행으로 전환된다. 그 전환이 자차 타입을
-  // 다시 고르는 핵심 회귀 지점이라 guard 와 별개로 한 번 더 복구한다.
+  if (self.finished) return;
+  // 이전 종료 콜백이 새 경로 시작 뒤 늦게 도착한 경우 현재 안내를 덮지 않는다.
+  if (aGuidance.guideState == KNGuideState_OnRouteGuide) return;
+  // 미리보기는 실제 이동·복귀 경로가 없으므로 완료 시 닫고 안전운행 화면은 열지 않는다.
+  if (self.preview) { [self finish]; return; }
+  // SDK는 이 콜백 전에 경로를 지운다. 안전운행 UI로 전달하거나 옛 회전 안내를
+  // 그대로 표시하지 않고, 목적지를 보존한 채 벗어났을 때 새 경로를 요청한다.
+  if (!self.changingDestination) self.routeRequestGeneration++;
+  if (!self.arrivalRecovery) self.arrivalRecovery = [KNNaviArrivalRecovery new];
+  KNGPSData *gps = aGuidance.locationGuide.gpsOrigin;
+  [self.arrivalRecovery guideEndedAtDistance:[self distanceToDestinationWithGPS:gps]];
+  [self showArrivalUIWithMessage:@"목적지 주변입니다.\n지나치면 복귀 경로를 안내합니다."];
   [self applyCarTheme];
+}
+
+- (BOOL)usableRecoveryGPS:(KNGPSData *)gps {
+  return gps && gps.valid && gps.posTrust && isfinite(gps.pos.x) && isfinite(gps.pos.y) &&
+      gps.timestamp && fabs(gps.timestamp.timeIntervalSinceNow) <= 10;
+}
+
+- (double)distanceToDestinationWithGPS:(KNGPSData *)gps {
+  if (!self.trip.goal || ![self usableRecoveryGPS:gps]) return NAN;
+  IntPoint goal = self.trip.goal.pos;
+  return hypot(gps.pos.x - goal.x, gps.pos.y - goal.y);
+}
+
+- (void)showArrivalUIWithMessage:(NSString *)message {
+  if (!self.arrivalBanner) {
+    self.arrivalCurWasHidden = self.naviView.curDirView.hidden;
+    self.arrivalNextWasHidden = self.naviView.nextDirView.hidden;
+    self.arrivalBottomWasHidden = self.naviView.bottomView.hidden;
+    self.arrivalLabel = [UILabel new];
+    self.arrivalLabel.numberOfLines = 0;
+    self.arrivalLabel.textAlignment = NSTextAlignmentCenter;
+    self.arrivalLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
+    self.arrivalLabel.adjustsFontForContentSizeCategory = YES;
+    self.arrivalLabel.textColor = UIColor.labelColor;
+    self.arrivalRetryButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.arrivalRetryButton setTitle:@"목적지까지 다시 안내" forState:UIControlStateNormal];
+    [self.arrivalRetryButton addTarget:self action:@selector(retryArrivalRoute) forControlEvents:UIControlEventTouchUpInside];
+    [self.arrivalRetryButton.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
+    self.arrivalBanner = [[UIStackView alloc] initWithArrangedSubviews:@[self.arrivalLabel, self.arrivalRetryButton]];
+    self.arrivalBanner.axis = UILayoutConstraintAxisVertical;
+    self.arrivalBanner.spacing = 4;
+    self.arrivalBanner.layoutMarginsRelativeArrangement = YES;
+    self.arrivalBanner.layoutMargins = UIEdgeInsetsMake(12, 16, 8, 16);
+    self.arrivalBanner.backgroundColor = UIColor.secondarySystemBackgroundColor;
+    self.arrivalBanner.layer.cornerRadius = 12;
+    self.arrivalBanner.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:self.arrivalBanner];
+    [NSLayoutConstraint activateConstraints:@[
+      [self.arrivalBanner.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:70],
+      [self.arrivalBanner.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16],
+      [self.arrivalBanner.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
+    ]];
+  }
+  self.arrivalLabel.text = message;
+  self.arrivalRetryButton.enabled = !self.arrivalRecovery.requesting && !self.preview;
+  self.naviView.curDirView.hidden = YES;
+  self.naviView.nextDirView.hidden = YES;
+  self.naviView.bottomView.hidden = YES;
+  [self.naviView trafficMode:NO];
+  [self updateCustomControlsVisibility];
+}
+
+- (void)restoreArrivalUI {
+  if (!self.arrivalBanner) return;
+  [self.arrivalBanner removeFromSuperview];
+  self.arrivalBanner = nil;
+  self.naviView.curDirView.hidden = self.arrivalCurWasHidden;
+  self.naviView.nextDirView.hidden = self.arrivalNextWasHidden;
+  self.naviView.bottomView.hidden = self.arrivalBottomWasHidden;
+  [self.naviView trafficMode:YES];
+}
+
+- (void)retryArrivalRoute {
+  if (self.preview || self.finished || self.changingDestination || ![KNSDKBridge isLocationUseAllowed]) return;
+  KNGPSData *gps = self.guidance.locationGuide.gpsOrigin;
+  if (![self usableRecoveryGPS:gps]) {
+    [self showArrivalUIWithMessage:@"현재 위치를 확인할 수 없어요.\nGPS 수신 후 다시 시도해 주세요."];
+    return;
+  }
+  if ([self.arrivalRecovery beginManualRecoveryAtTime:NSDate.timeIntervalSinceReferenceDate]) {
+    [self requestArrivalReturnWithGPS:gps];
+  }
+}
+
+- (void)arrivalReturnFailedForGeneration:(NSUInteger)generation {
+  if (self.finished || generation != self.routeRequestGeneration || !self.arrivalRecovery.requesting) return;
+  self.routeRequestGeneration++; // 시간 초과 뒤의 늦은 응답은 안내를 재시작하지 않는다.
+  [self.arrivalRecovery requestFailed];
+  [self showArrivalUIWithMessage:@"돌아가는 경로를 찾지 못했어요.\n목적지를 유지하고 있어요. 다시 시도해 주세요."];
+}
+
+- (void)requestArrivalReturnWithGPS:(KNGPSData *)gps {
+  if (self.finished || self.changingDestination || !self.arrivalRecovery.requesting || ![KNSDKBridge isLocationUseAllowed] ||
+      ![self usableRecoveryGPS:gps] || !self.trip.goal) {
+    [self.arrivalRecovery requestFailed];
+    return;
+  }
+  NSUInteger generation = ++self.routeRequestGeneration;
+  KNPOI *goal = self.trip.goal;
+  IntPoint start = IntPointMakeWithDoublePoint(gps.pos);
+  KNPOI *origin = [[KNPOI alloc] initWithName:@"현재 위치" pos:start];
+  [self showArrivalUIWithMessage:@"목적지까지 돌아가는 경로를 찾고 있어요."];
+  __weak KNNaviViewController *weakSelf = self;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+    [weakSelf arrivalReturnFailedForGeneration:generation];
+  });
+  [[KNSDK sharedInstance] makeTripWithStart:origin goal:goal vias:nil completion:^(KNError *error, KNTrip *trip) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      KNNaviViewController *controller = weakSelf;
+      if (!controller || controller.finished || generation != controller.routeRequestGeneration ||
+          ![KNSDKBridge isLocationUseAllowed]) return;
+      if (error || !trip) { [controller arrivalReturnFailedForGeneration:generation]; return; }
+      trip.routeConfig = [[KNRouteConfiguration alloc] initWithCarType:KNCarType_Bike];
+      [trip routeWithPriority:controller.priority avoidOptions:KNRouteAvoidOption_None
+                  completion:^(KNError *routeError, NSArray<KNRoute *> *routes) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+          KNNaviViewController *current = weakSelf;
+          if (!current || current.finished || generation != current.routeRequestGeneration ||
+              ![KNSDKBridge isLocationUseAllowed]) return;
+          if (routeError || routes.count == 0) { [current arrivalReturnFailedForGeneration:generation]; return; }
+          current.trip = trip;
+          // 공개 API로 새 목적지 안내를 시작한다. reRoute는 도착 후 지워진 경로를 복구하지 못한다.
+          [current.naviView guideNewDestinations:trip priority:current.priority avoidOptions:KNRouteAvoidOption_None];
+        });
+      }];
+    });
+  }];
 }
 
 - (void)guidance:(KNGuidance *)aGuidance
@@ -663,7 +830,14 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)guidance:(KNGuidance *)aGuidance didUpdateLocation:(KNGuide_Location *)aLocationGuide {
+  if (self.finished || ![KNSDKBridge isLocationUseAllowed]) return;
   [self.naviView guidance:aGuidance didUpdateLocation:aLocationGuide];
+  if (self.arrivalRecovery.waiting && !self.preview && !self.changingDestination && [self usableRecoveryGPS:aLocationGuide.gpsOrigin]) {
+    double distance = [self distanceToDestinationWithGPS:aLocationGuide.gpsOrigin];
+    if ([self.arrivalRecovery shouldRecoverAtDistance:distance time:NSDate.timeIntervalSinceReferenceDate]) {
+      [self requestArrivalReturnWithGPS:aLocationGuide.gpsOrigin];
+    }
+  }
 
   // SDK 가 위치를 처음 잡을 때 자차를 기본 아이콘으로 되돌린다 — 한 번 다시 씌운다.
   // (원래 도착 안내 함수 안에 묻혀 있어서 목적지 300m 안에 들어와야 실행됐다.)
@@ -692,8 +866,16 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (BOOL)guidance:(KNGuidance *)aGuidance
     shouldPlayVoiceGuide:(KNGuide_Voice *)aVoiceGuide
           replaceSndData:(NSData **)aNewData {
-  // 안내 시작 멘트는 생략한다(사용자 결정) — 나머지 음성은 그대로 재생.
-  if (aVoiceGuide.voiceCode == KNVoiceCode_StartGuide) return NO;
+  if (self.finished) return NO;
+  if (aVoiceGuide.voiceCode == KNVoiceCode_StartGuide) {
+    // 도착 뒤 경로 복구 때 같은 시작 멘트를 반복하지 않는다.
+    if (self.didPlayStartVoice) return NO;
+    self.didPlayStartVoice = YES;
+    NSData *data = MotoMapStartVoiceData();
+    if (data.length && aNewData) *aNewData = data;
+  }
+  // 라이더가 종료하지 않았으므로 SDK의 자동 종료 멘트도 재생하지 않는다.
+  if (!self.preview && aVoiceGuide.voiceCode == KNVoiceCode_EndGuide) return NO;
   return YES;
 }
 
@@ -708,6 +890,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)finish {
   if (self.finished) return;
   self.finished = YES;
+  self.routeRequestGeneration++;
   [self stopObservingBottomView];
   [self.guidance stop];
   [self.audioFocus stop];
@@ -911,12 +1094,17 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
       return;
     }
 
+    NSUInteger generation = ++navi.routeRequestGeneration;
+    [navi.arrivalRecovery requestFailed];
+
     // 출발점은 현 위치 — SDK 가 KATEC 으로 들고 있어 변환이 필요 없다
     KNGPSData *gps = [sdk sharedGpsManager].lastValidGpsData ?: [sdk sharedGpsManager].recentGpsData;
     if (gps == nil) {
       completion(nil, @"현재 위치를 아직 못 잡았다");
       return;
     }
+    navi.changingDestination = YES;
+    navi.arrivalRetryButton.enabled = NO;
     IntPoint startPos = IntPointMakeWithDoublePoint(gps.pos);
     KNPOI *startPOI = [[KNPOI alloc] initWithName:@"출발" x:startPos.x y:startPos.y];
 
@@ -928,15 +1116,23 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
                       vias:nil
                 completion:^(KNError *_Nullable error, KNTrip *_Nullable trip) {
                   dispatch_async(dispatch_get_main_queue(), ^{
-                    if (![KNSDKBridge isLocationUseAllowed] || navi != gActiveNavi || navi.finished) {
-                      completion(nil,@"위치 이용이 중지됐다"); return;
+                    if (![KNSDKBridge isLocationUseAllowed] || navi != gActiveNavi || navi.finished ||
+                        generation != navi.routeRequestGeneration) {
+                      if (generation == navi.routeRequestGeneration) navi.changingDestination = NO;
+                      completion(nil,@"길안내 상태가 변경됐어요"); return;
                     }
                     if (error != nil || trip == nil) {
+                      navi.changingDestination = NO;
+                      if (navi.arrivalRecovery.waiting) {
+                        [navi showArrivalUIWithMessage:@"목적지를 바꾸지 못했어요.\n기존 목적지를 유지하고 있어요."];
+                      }
                       completion([KNSDKBridge errorCodeOf:error],
                                  error ? (error.msg ?: @"경로 생성 실패") : @"경로를 만들지 못했다");
                       return;
                     }
                     trip.routeConfig = [[KNRouteConfiguration alloc] initWithCarType:KNCarType_Bike];
+                    navi.pendingDestinationTrip = trip;
+                    navi.pendingDestinationPriority = (KNRoutePriority)priority;
                     [navi.naviView guideNewDestinations:trip
                                                priority:(KNRoutePriority)priority
                                            avoidOptions:KNRouteAvoidOption_None];

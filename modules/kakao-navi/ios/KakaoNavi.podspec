@@ -16,4 +16,5 @@ Pod::Spec.new do |s|
   s.dependency 'KNSDK-UI', '1.12.14'
 
   s.source_files = "**/*.{h,m,mm,swift,hpp,cpp}"
+  s.resource_bundles = { 'MotoMapNavigationVoice' => ['Resources/navigation-start.mp3'] }
 end
