@@ -19,13 +19,14 @@ interface Props {
   onRetry?: () => void;
   open: boolean;
   onPress: () => void;
+  top?: number;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // 지도 좌측(카테고리 필터 아래)의 라이딩 날씨 플로팅 버튼 — 상태·기온 요약,
 // 테두리 색이 라이딩 적합도 등급을 나타낸다. 탭하면 상세 바텀시트.
-export default function WeatherFab({ weather, failed = false, refreshing = false, onRetry, open, onPress }: Props) {
+export default function WeatherFab({ weather, failed = false, refreshing = false, onRetry, open, onPress, top = 158 }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const scale = useSharedValue(1);
@@ -53,6 +54,7 @@ export default function WeatherFab({ weather, failed = false, refreshing = false
         styles.fab,
         animatedStyle,
         {
+          top,
           backgroundColor: colors.background,
           borderColor: weather && !failed ? weather.gradeColor : colors.border,
         },
@@ -74,7 +76,6 @@ export default function WeatherFab({ weather, failed = false, refreshing = false
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    top: 158,
     left: 16,
     width: 52,
     height: 52,
