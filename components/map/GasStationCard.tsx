@@ -7,7 +7,7 @@ import CloseIcon from '@/components/ui/CloseIcon';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useGasStationDetail } from '@/hooks/useGasStations';
 import { openNavigation } from '@/lib/navigation';
-import { FUEL_LABELS, formatTradeAt, type GasStation } from '@/lib/api/gasStations';
+import { FUEL_LABELS, formatTradeAt, type FuelCode, type GasStation } from '@/lib/api/gasStations';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
@@ -16,10 +16,11 @@ import { haptics } from '@/lib/haptics';
 
 interface Props {
   station: GasStation;
+  fuelCode?: FuelCode;
   onClose: () => void;
 }
 
-export default function GasStationCard({ station, onClose }: Props) {
+export default function GasStationCard({ station, fuelCode = 'B027', onClose }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { data: detail, isLoading, isError, isFetching, refetch } = useGasStationDetail(station.id);
@@ -81,7 +82,7 @@ export default function GasStationCard({ station, onClose }: Props) {
                 셀프
               </Text>
             )}
-            {prices.some((p) => p.prod === 'B034') && (
+            {(fuelCode === 'B034' || prices.some((p) => p.prod === 'B034' && p.price > 0)) && (
               <Text style={[styles.badge, styles.premiumBadge]}>고급유</Text>
             )}
           </View>
@@ -126,7 +127,7 @@ export default function GasStationCard({ station, onClose }: Props) {
             ))
           : (prices.length > 0
               ? prices.filter((p) => p.prod in FUEL_LABELS)
-              : [{ prod: 'B027', price: station.price, tradeAt: '' }]
+              : [{ prod: fuelCode, price: station.price, tradeAt: '' }]
             ).map((p) => {
               const mine = p.prod === myProd;
               return (

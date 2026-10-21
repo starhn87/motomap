@@ -16,6 +16,8 @@ interface MapStore {
   mapCenter: Location | null;
   selectedPlaceId: string | null;
   activeFilter: PlaceCategory | null;
+  premiumGasOnly: boolean;
+  togglePremiumGasOnly: () => void;
   /** 즐겨찾기 지도 표시 — 켜면 즐겨찾기 장소가 별 뱃지 마커로 항상 보인다 */
   showFavorites: boolean;
   /** 바이크 특화 등록과 분리된 일반 추천 장소 탐색 모드 */
@@ -38,6 +40,8 @@ export const useMapStore = create<MapStore>((set) => ({
   mapCenter: null,
   selectedPlaceId: null,
   activeFilter: null,
+  premiumGasOnly: false,
+  togglePremiumGasOnly: () => set((state) => ({ premiumGasOnly: !state.premiumGasOnly })),
   showFavorites: false,
   showRiderShares: false,
   mapResetTs: 0,

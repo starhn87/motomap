@@ -168,6 +168,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const userLocation = useMapStore((state) => state.userLocation);
   const selectedPlaceId = useMapStore((state) => state.selectedPlaceId);
   const activeFilter = useMapStore((state) => state.activeFilter);
+  const premiumGasOnly = useMapStore((state) => state.premiumGasOnly);
   const setSelectedPlaceId = useMapStore((state) => state.setSelectedPlaceId);
   const showRiderShares = useMapStore((state) => state.showRiderShares);
   const isMapFocused = useIsFocused();
@@ -308,7 +309,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     selectedStation,
     setSelectedStation,
     refreshHere: refreshGasHere,
-  } = useGasLayer({ active: gasMode, mapCenter, mapReady, screenWidth, screenHeight });
+  } = useGasLayer({ active: gasMode, prod: premiumGasOnly ? 'B034' : 'B027', mapCenter, mapReady, screenWidth, screenHeight });
 
   const { data: supabasePlaces } = usePlaces(
     activeFilter,
@@ -1214,6 +1215,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       {selectedStation && (
         <GasStationCard
           station={selectedStation}
+          fuelCode={premiumGasOnly ? 'B034' : 'B027'}
           onClose={() => setSelectedStation(null)}
         />
       )}

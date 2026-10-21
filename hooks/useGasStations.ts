@@ -94,6 +94,7 @@ export function useGasStations(spec: GasSearchSpec | null, enabled: boolean, pro
         }
       }
       return [...byId.values()]
+        .filter((s) => prod !== 'B034' || s.price > 0)
         .map((s) => ({
           ...s,
           distance: approxMeters(s, spec!),
@@ -102,7 +103,8 @@ export function useGasStations(spec: GasSearchSpec | null, enabled: boolean, pro
     },
     enabled: enabled && !!spec,
     staleTime: 3 * 60 * 1000,
-    placeholderData: (prev) => prev,
+    // 지도 이동의 이전 값은 유지하되 다른 유종의 가격을 새 필터에 섞지 않는다.
+    placeholderData: (prev, previousQuery) => previousQuery?.queryKey[4] === prod ? prev : undefined,
     retry: retryProviderQuery,
   });
 }

@@ -122,6 +122,9 @@ function gasLayer() {
   const state: unknown[] = [];
   let cursor = 0;
   let effects: (() => void)[] = [];
+  let effectCursor = 0;
+  const effectDeps: unknown[][] = [];
+  const products: unknown[] = [];
   let retries = 0;
   const query = { data: [], error: new Error('fixture'), isFetching: false, refetch: () => { retries++; return Promise.resolve(); } };
   const hooks = loadModule<{ useGasLayer: typeof useGasLayer }>('hooks/useGasLayer.ts', {
@@ -131,22 +134,39 @@ function gasLayer() {
         if (!(index in state)) state[index] = initial;
         return [state[index], (next: unknown) => { state[index] = next; }];
       },
-      useEffect(fn: () => void) { effects.push(fn); },
+      useEffect(fn: () => void, deps: unknown[]) {
+        const index = effectCursor++;
+        const previous = effectDeps[index];
+        if (!previous || deps.some((value, i) => !Object.is(value, previous[i]))) effects.push(fn);
+        effectDeps[index] = deps;
+      },
     },
-    '@/hooks/useGasStations': { useGasStations: () => query },
+    '@/hooks/useGasStations': { useGasStations: (_spec: unknown, _enabled: boolean, prod: unknown) => { products.push(prod); return query; } },
     '@/lib/distance': distance,
   });
-  const args = { active: true, mapReady: true, mapCenter: { latitude: 37.5, longitude: 127, zoom: 14 }, screenWidth: 400, screenHeight: 800 };
+  const args = { active: true, prod: 'B027' as 'B027' | 'B034', mapReady: true, mapCenter: { latitude: 37.5, longitude: 127, zoom: 14 }, screenWidth: 400, screenHeight: 800 };
   function render() {
     cursor = 0;
+    effectCursor = 0;
     effects = [];
     const result = hooks.useGasLayer(args);
     effects.forEach(fn => fn());
     return result;
   }
   render();
-  return { args, query, render, retries: () => retries };
+  return { args, query, render, products, retries: () => retries };
 }
+
+test('유종을 바꾸면 즉시 선택 카드를 닫고 되돌려도 이전 카드가 재등장하지 않는다', () => {
+  const fixture = gasLayer();
+  fixture.render().setSelectedStation({ id: 'regular' } as any);
+  assert.equal(fixture.render().selectedStation?.id, 'regular');
+  fixture.args.prod = 'B034';
+  assert.equal(fixture.render().selectedStation, null);
+  assert.equal(fixture.products.at(-1), 'B034');
+  fixture.args.prod = 'B027';
+  assert.equal(fixture.render().selectedStation, null);
+});
 
 test('유가 실패에서 같은 지도 범위 재시도는 실제 refetch를 한 번 호출하고 선택 카드를 닫는다', () => {
   const fixture = gasLayer();

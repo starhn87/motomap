@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { useGasStations, type GasSearchSpec } from '@/hooks/useGasStations';
 import { approxMeters } from '@/lib/distance';
-import type { GasStation } from '@/lib/api/gasStations';
+import type { FuelCode, GasStation } from '@/lib/api/gasStations';
 
 interface MapCamera {
   latitude: number;
@@ -17,18 +17,25 @@ interface MapCamera {
 export function useGasLayer(args: {
   /** 주유소 필터가 켜져 있는가 */
   active: boolean;
+  prod?: FuelCode;
   mapCenter: MapCamera | null;
   mapReady: boolean;
   screenWidth: number;
   screenHeight: number;
 }) {
-  const { active, mapCenter, mapReady, screenWidth, screenHeight } = args;
-  const [selectedStation, setSelectedStation] = useState<GasStation | null>(null);
+  const { active, prod = 'B027', mapCenter, mapReady, screenWidth, screenHeight } = args;
+  const [selection, setSelection] = useState<{ station: GasStation; prod: FuelCode } | null>(null);
+  // 유종을 바꾼 첫 렌더부터 이전 유종의 카드를 닫는다.
+  const selectedStation = active && selection?.prod === prod ? selection.station : null;
+  const setSelectedStation = (station: GasStation | null) => setSelection(station ? { station, prod } : null);
   const [searchSpec, setSearchSpec] = useState<GasSearchSpec | null>(null);
   const { data: gasStations, isFetching: gasFetching, error: gasError, refetch } = useGasStations(
     searchSpec,
     active && mapReady,
+    prod,
   );
+
+  useEffect(() => { setSelection(null); }, [prod]);
 
   // 필터 진입 시 현재 화면 기준으로 최초 1회 검색, 필터를 벗어나면 초기화
   useEffect(() => {

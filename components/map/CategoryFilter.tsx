@@ -1,4 +1,5 @@
 import CategoryIcon from '@/components/ui/CategoryIcon';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -121,10 +122,23 @@ function RiderShareFilterChip({ isActive, onPress }: { isActive: boolean; onPres
 }
 
 export default function CategoryFilter() {
+  const colors = Colors[useColorScheme() ?? 'light'];
   const activeFilter = useMapStore((state) => state.activeFilter);
+  const premiumGasOnly = useMapStore((state) => state.premiumGasOnly);
+  const togglePremiumGasOnly = useMapStore((state) => state.togglePremiumGasOnly);
   const setActiveFilter = useMapStore((state) => state.setActiveFilter);
   const showRiderShares = useMapStore((state) => state.showRiderShares);
   const toggleRiderShares = useMapStore((state) => state.toggleRiderShares);
+  const scrollRef = useRef<ScrollView>(null);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const [premiumRight, setPremiumRight] = useState(0);
+
+  // 작은 화면에서도 주유소를 고르면 새 보조 필터가 가려지지 않게 한다.
+  useEffect(() => {
+    if (activeFilter === 'gas_station' && viewportWidth && premiumRight) {
+      scrollRef.current?.scrollTo({ x: Math.max(0, premiumRight - viewportWidth + 16), animated: true });
+    }
+  }, [activeFilter, viewportWidth, premiumRight]);
 
   const handlePress = (key: PlaceCategory) => {
     haptics.selection(50);
@@ -135,18 +149,45 @@ export default function CategoryFilter() {
 
   return (
     <ScrollView
+      ref={scrollRef}
+      onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}>
       {CATEGORY_LIST.map((cat) => (
-        <FilterChip
-          key={cat.key}
-          label={cat.label}
-          categoryKey={cat.key}
-          color={cat.color}
-          isActive={activeFilter === cat.key}
-          onPress={() => handlePress(cat.key)}
-        />
+        <Fragment key={cat.key}>
+          <FilterChip
+            label={cat.label}
+            categoryKey={cat.key}
+            color={cat.color}
+            isActive={activeFilter === cat.key}
+            onPress={() => handlePress(cat.key)}
+          />
+          {cat.key === 'gas_station' && activeFilter === 'gas_station' && (
+            <Pressable
+              onLayout={(event) => {
+                const { x, width } = event.nativeEvent.layout;
+                setPremiumRight(x + width);
+              }}
+              accessibilityRole="checkbox"
+              accessibilityLabel="고급휘발유 판매 주유소만 보기"
+              accessibilityState={{ checked: premiumGasOnly }}
+              onPress={() => {
+                haptics.selection(50);
+                togglePremiumGasOnly();
+              }}
+              style={({ pressed }) => [styles.chip, {
+                backgroundColor: premiumGasOnly ? cat.color : colors.background,
+                borderColor: premiumGasOnly ? cat.color : colors.border,
+                opacity: pressed ? 0.65 : 1,
+              }]}>
+              <Ionicons name={premiumGasOnly ? 'checkbox' : 'square-outline'} size={16} color={premiumGasOnly ? '#FFFFFF' : colors.text} />
+              <Text style={[styles.chipLabel, { color: premiumGasOnly ? '#FFFFFF' : colors.text }]}>
+                고급휘발유만
+              </Text>
+            </Pressable>
+          )}
+        </Fragment>
       ))}
       <RiderShareFilterChip
         isActive={showRiderShares}
