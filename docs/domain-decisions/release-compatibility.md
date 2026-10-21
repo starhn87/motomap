@@ -671,3 +671,28 @@ NAV-017 표시 개선을 새 바이너리에도 포함한다. 별도 OTA·원격
 심사 제출은 하지 않았다. MAP-048은 Reanimated의 함수형 Pressable 스타일 소실을
 수정하고 내 위치 버튼과 행을 맞추는 JS 수정이다. 앱/runtime/native/API 계약을 그대로
 유지한 다음 빌드 번호로 이번 심사 제출을 이어가며 이미지·README 변경은 계속 제외한다.
+
+### 2026-10-21 47번 빌드·심사 대기 확인
+
+source `4f2d8122e969839ec2374a0fd2ef295b81ec7573`의 격리 worktree에서 production
+**1.2.9 (47) / native 7 / API 1** 빌드를 완료했다. EAS build는
+`9febd33c-b113-459a-b2ff-f2ff05525fde`다. IPA의 앱 버전·47번·iphoneos·runtime1.2.9·
+production 채널과 새 `gasRefreshAnchor`의 embedded JS 포함, 기존 presenter·audio focus
+코드를 확인했다. 타입·릴리스 검사·300개 테스트·리뷰를 통과했고, MAP-048 회귀 2개는
+수정 전 실패/수정 후 통과를 확인했다. 실제 지도·탭바 합성은 실기기 확인 전이다.
+
+EAS submission `c65901ef-2f37-4386-b33b-8083205f9195`는 처리자 대기열에 머물러
+취소하고 CANCELED를 확인했다. Apple에 47번이 없는 것을 확인한 뒤 동일 IPA를 공식
+altool로 직접 업로드했다. delivery/build `a4532335-21b5-48d7-9b0e-b081fc199b4a`의
+업로드 오류 없음과 Apple 처리 VALID를 확인했다. 기존 EAS 등록 ASC 키를 사용했고,
+임시 600 권한 키 파일은 업로드 완료 후 삭제했다. 새 인증키·권한을 생성하지 않았다.
+
+App Store Connect 1.2.9에 실제 47번을 연결하고 최신 한국어 릴리스 노트 537자의
+저장 결과를 대조했다. review submission `dc318915-ce49-4917-8b37-d295664b400f`와
+앱 버전 모두 **WAITING_FOR_REVIEW**를 2026-10-21 23:23 KST 확인했다. releaseType은
+**MANUAL**이며 심사 제출은 공개 출시가 아니다. candidate·원격 정책·기존 스토어 설명·
+스크린샷·새 Creative Assets는 변경하지 않았고 별도 OTA도 발행하지 않았다.
+
+원격 main 푸시는 자동 승인 검토가 이번 지시는 빌드·심사 제출만 승인했다고 판단해
+거절했다. 우회·재시도하지 않고 로컬 커밋으로 빌드·심사 제출을 완료했으며 푸시는 별도
+사용자 승인을 기다린다. 보류한 마케팅·README와 무관한 로컬 변경은 제출 소스에서 제외했다.
