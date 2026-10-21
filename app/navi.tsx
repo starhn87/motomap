@@ -13,7 +13,6 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import CloseIcon from '@/components/ui/CloseIcon';
 
 import KakaoNavi, {
-  ROUTE_PRIORITIES,
   friendlyRouteError,
   pairsFromFlat,
 } from '@/modules/kakao-navi';
@@ -25,12 +24,12 @@ import { loadRecentSearches, recentTargets } from '@/lib/recentSearches';
 import { useMapStore } from '@/stores/useMapStore';
 import { haversine } from '@/lib/distance';
 import PreviewMap from '@/components/navi/PreviewMap';
+import RouteAlternatives from '@/components/navi/RouteAlternatives';
 import RouteFieldRow, { ROW_H, nearestSlot } from '@/components/navi/RouteFieldRow';
 import { useBikeRoutes } from '@/hooks/useBikeRoutes';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { formatMeters, formatSeconds } from '@/lib/api/directions';
 import { toast } from '@/lib/toast';
 import { useGuideSession } from '@/lib/guideSession';
 import { markGuideStarted } from '@/lib/guideEvents';
@@ -99,6 +98,13 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
     initial.userVias,
   );
   const [editing, setEditing] = useState<EditingField | null>(null);
+  // 검색 초안은 행의 위치가 아니라 행 자체를 따른다. 순서 변경·삭제 때 같이 옮긴다.
+  const [fieldDraftKeys, setFieldDraftKeys] = useState<string[]>([
+    'start', ...initial.userVias.map((_, index) => `via-${index}`), 'goal',
+  ]);
+  const nextDraftId = useRef(initial.userVias.length);
+  const viaCountRef = useRef(userVias.length);
+  viaCountRef.current = userVias.length;
   // 지점 검색 모달의 최근 검색 제안 — 검색·길찾기 화면과 같은 저장소를 공유한다
   const [recents, setRecents] = useState<(NavTarget & { address?: string })[]>([]);
   // 드래그 중인 행(논리 인덱스: 출발 0, 경유지 1.., 도착 마지막)과 이동량
@@ -119,6 +125,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
     priority,
     setPriority,
     route,
+    alternatives,
     trafficParts,
     loading,
     routeError,
@@ -129,7 +136,8 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
     effVias,
     flatVias,
     resetRoutes,
-  } = useBikeRoutes({ start, startName, goal, userVias, courseVias, isCourseMode });
+  } = useBikeRoutes({ start, startName, goal, userVias, courseVias, isCourseMode,
+    enabled: isFocused && !starting && !guideStarted });
 
   useEffect(() => {
     if (isCourseMode) return; // 편집 카드가 없으니 모달도 안 뜬다
@@ -169,12 +177,17 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
 
   // + 줄 — 빈 경유지 줄만 만든다. 채우기 전엔 경로에 영향이 없다.
   const addEmptyVia = () => {
-    setUserVias((prev) => (prev.length >= MAX_USER_VIAS ? prev : [...prev, null]));
+    if (viaCountRef.current >= MAX_USER_VIAS) return;
+    viaCountRef.current += 1;
+    const key = `via-${nextDraftId.current++}`;
+    setUserVias((prev) => [...prev, null]);
+    setFieldDraftKeys((prev) => [...prev.slice(0, -1), key, prev[prev.length - 1]]);
   };
 
   const removeVia = (index: number) => {
     const wasEmpty = !userVias[index];
     setUserVias((prev) => prev.filter((_, i) => i !== index));
+    setFieldDraftKeys((prev) => prev.filter((_, i) => i !== index + 1));
     if (!wasEmpty) resetRoutes();
   };
 
@@ -185,6 +198,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
     setStartName(prevGoal.name);
     setStart([prevGoal.longitude, prevGoal.latitude]);
     setUserVias((prev) => [...prev].reverse()); // 왕복 반전이니 들르는 순서도 뒤집는다
+    setFieldDraftKeys((prev) => [...prev].reverse());
     resetRoutes();
   };
 
@@ -215,6 +229,13 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
     // 빈 경유지 줄은 출발·도착이 될 수 없다
     if ((first.kind === 'via' && !first.via) || (last.kind === 'via' && !last.via))
       return resetDrag();
+
+    setFieldDraftKeys((prev) => {
+      const next = [...prev];
+      const [key] = next.splice(from, 1);
+      next.splice(to, 0, key);
+      return next;
+    });
 
     const asTarget = (row: Row): NavTarget =>
       row.kind === 'start'
@@ -384,7 +405,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   }, [router, start, locationBlocked, privacyRevision]);
 
   const startGuide = () => {
-    if (!start || starting || courseOnly) return;
+    if (!start || !route || locationBlocked || starting || courseOnly) return;
     setStarting(true);
     // 계측은 실제 시작 신호(onGuideStarted)에서 찍는다 — 여기서 찍으면 경로
     // 탐색 실패까지 "시작"으로 세어 완주율 분모가 부푼다. 리스너 useEffect 와
@@ -485,7 +506,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
                 pan={makeRowPan(0)}
               />
               {userVias.map((via, i) => (
-                <View key={i}>
+                <View key={fieldDraftKeys[i + 1]}>
                   <View style={[styles.routeDivider, { backgroundColor: colors.border }]} />
                   <RouteFieldRow
                     icon="circle-medium"
@@ -581,31 +602,13 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
           {goal.name}
         </Text>
 
-        <View style={styles.chipRow}>
-          {ROUTE_PRIORITIES.map((p) => {
-            const active = p.value === priority;
-            return (
-              <Pressable
-                key={p.value}
-                onPress={() => setPriority(p.value)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: active ? colors.tint : colors.surfaceMuted,
-                    borderColor: active ? colors.tint : colors.border,
-                  },
-                ]}>
-                <Text
-                  style={[
-                    styles.chipLabel,
-                    { color: active ? colors.background : colors.text },
-                  ]}>
-                  {p.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <RouteAlternatives
+          options={alternatives}
+          priority={priority}
+          requestedViaCount={pairsFromFlat(effVias).length}
+          disabled={starting || locationBlocked}
+          onSelect={setPriority}
+        />
 
         {locationBlocked ? (
           <View style={[styles.routeError, { borderColor: colors.border }]}>
@@ -636,23 +639,11 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
               </Pressable>
             </View>
           </View>
-        ) : (
-          <View style={[styles.infoRow, (loading || !route) && styles.infoRowCentered]}>
-            {loading || !route ? (
-              <ActivityIndicator size="small" color={colors.textSecondary} />
-            ) : (
-              <>
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {formatMeters(route.distance)}
-                </Text>
-                <View style={[styles.dot, { backgroundColor: colors.border }]} />
-                <Text style={[styles.infoValue, { color: colors.text }]}>
-                  {formatSeconds(route.duration)}
-                </Text>
-              </>
-            )}
+        ) : loading || !route ? (
+          <View style={[styles.infoRow, styles.infoRowCentered]}>
+            <ActivityIndicator size="small" color={colors.textSecondary} />
           </View>
-        )}
+        ) : null}
 
         <Pressable
           onPress={startGuide}
@@ -680,6 +671,9 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
 
       <PointSearchModal
         visible={editing !== null}
+        draftKey={editing === null ? undefined : fieldDraftKeys[
+          editing === 'start' ? 0 : editing === 'goal' ? fieldDraftKeys.length - 1 : editing + 1
+        ]}
         allowCurrent={editing === 'start'}
         allowSaved
         recents={recents}
@@ -800,21 +794,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
   },
-  chipRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  chip: {
-    flex: 1,
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  chipLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -823,10 +802,6 @@ const styles = StyleSheet.create({
   },
   infoRowCentered: {
     justifyContent: 'center',
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '700',
   },
   routeError: {
     borderWidth: 1,
@@ -838,11 +813,6 @@ const styles = StyleSheet.create({
   routeErrorMessage: { fontSize: 13, lineHeight: 19 },
   routeErrorActions: { flexDirection: 'row', gap: 22, marginTop: 4 },
   routeErrorAction: { fontSize: 13, fontWeight: '700' },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-  },
   startButton: {
     height: 50,
     borderRadius: 14,

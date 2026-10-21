@@ -4,13 +4,13 @@ import { loadModule } from './helpers/loadModule';
 import { allowedLocationPrivacy } from './helpers/allowedLocationPrivacy';
 import type * as Provider from '../lib/providerErrors';
 import type * as Errors from '../lib/kakaoRouteErrors';
-import type { BikeRoute } from '../modules/kakao-navi';
+import type { BikeRoute, RoutePriority } from '../modules/kakao-navi';
 import type { useBikeRoutes } from '../hooks/useBikeRoutes';
 
 const route: BikeRoute = { distance: 1200, duration: 100, polyline: [127, 37, 128, 38] };
 
 // 실제 훅의 effect·상태를 실행한다. 자동화 SDK·서버·계정 데이터는 사용하지 않는다.
-function setup(request: (vias: number[]) => Promise<BikeRoute>, course = true, allowed = true) {
+function setup(request: (vias: number[], priority: RoutePriority) => Promise<BikeRoute>, course = true, allowed = true) {
   const provider = loadModule<typeof Provider>('lib/providerErrors.ts', {});
   const errors = loadModule<typeof Errors>('lib/kakaoRouteErrors.ts', { '@/lib/providerErrors': provider });
   const values: unknown[] = [];
@@ -42,10 +42,11 @@ function setup(request: (vias: number[]) => Promise<BikeRoute>, course = true, a
       },
     },
     '@/modules/kakao-navi': {
-      __esModule: true, default: { requestBikeRoute: async (_a: number, _b: number, _c: number, _d: number, vias: number[]) => {
+      __esModule: true, default: { requestBikeRoute: async (_a: number, _b: number, _c: number, _d: number, vias: number[], priority: RoutePriority) => {
         calls += 1;
-        return request(vias);
+        return request(vias, priority);
       } },
+      ROUTE_PRIORITIES: [{ value: 0, label: '추천' }, { value: 1, label: '시간 우선' }, { value: 2, label: '거리 우선' }, { value: 4, label: '큰길 우선' }],
       ...errors,
       pairsFromFlat: (flat: number[]) => Array.from({ length: flat.length / 2 }, (_, i) => [flat[i * 2], flat[i * 2 + 1]]),
     },
@@ -78,6 +79,7 @@ function setup(request: (vias: number[]) => Promise<BikeRoute>, course = true, a
   render();
   return {
     render, settle, calls: () => calls,
+    args,
     timeout: () => { for (const timer of [...timers.values()]) timer(); },
     unmount: () => effects.forEach((effect) => effect.cleanup?.()),
   };
@@ -153,5 +155,67 @@ test('20초 제한 뒤 도착한 응답은 오류 상태를 덮거나 경유지 
   assert.match(view.routeError ?? '', /응답이 늦어/);
   assert.equal(view.route, undefined);
   assert.equal(hook.calls(), 1);
+  hook.unmount();
+});
+
+test('비교 옵션을 순차 확보하고 옵션마다 실제 경유지를 안내 선택과 함께 보존한다', async () => {
+  const priorities: RoutePriority[] = [];
+  const hook = setup(async (vias, priority) => {
+    priorities.push(priority);
+    if (priority === 1 && vias.length > 2) throw { code: 'E_KNSDK_ROUTE_20412' };
+    return { ...route, duration: 100 + priority };
+  });
+  let view = hook.render();
+  for (let i = 0; i < 8; i++) view = await hook.settle();
+  assert.deepEqual(priorities, [0, 1, 1, 2, 4]);
+  assert.equal(view.alternatives.filter((option) => option.route).length, 4);
+  assert.equal(view.alternatives.find((option) => option.value === 0)?.vias?.length, 4);
+  assert.equal(view.alternatives.find((option) => option.value === 1)?.vias?.length, 2);
+  view.setPriority(1);
+  view = hook.render();
+  assert.equal(view.route?.duration, 101);
+  assert.equal(view.activeVias?.length, 2);
+  view.setPriority(0);
+  view = hook.render();
+  assert.equal(view.route?.duration, 100);
+  assert.equal(view.activeVias?.length, 4);
+  assert.equal(hook.calls(), 5);
+  hook.unmount();
+});
+
+test('비교 요청 실패는 선택 경로를 유지하고 나머지 자동 요청을 멈춘다', async () => {
+  const hook = setup(async (_vias, priority) => {
+    if (priority !== 0) throw { code: 'E_KNSDK_ROUTE_G503' };
+    return route;
+  }, false);
+  let view = hook.render();
+  for (let i = 0; i < 5; i++) view = await hook.settle();
+  assert.equal(view.route?.distance, route.distance);
+  assert.equal(view.loading, false);
+  assert.equal(view.routeError, null);
+  assert.ok(view.alternatives.find((option) => option.value === 1)?.error);
+  assert.equal(hook.calls(), 2);
+  hook.unmount();
+});
+
+test('지점 변경 즉시 이전 경로를 숨기고 늦게 끝난 비교 응답을 버린다', async () => {
+  let resolveComparison!: (value: BikeRoute) => void;
+  const hook = setup(async (_vias, priority) => priority === 1
+    ? new Promise((resolve) => { resolveComparison = resolve; }) : route, false);
+  await hook.settle();
+  await hook.settle();
+  hook.args.goal = { name: '새 목적지', longitude: 129, latitude: 36 };
+  const changed = hook.render();
+  assert.equal(changed.route, undefined);
+  assert.ok(changed.alternatives.every((option) => !option.route));
+  resolveComparison({ ...route, distance: 9999 });
+  let view = await hook.settle();
+  assert.notEqual(view.alternatives.find((option) => option.value === 1)?.route?.distance, 9999);
+  hook.args.enabled = false;
+  view = hook.render();
+  const calls = hook.calls();
+  await hook.settle();
+  assert.equal(hook.calls(), calls);
+  assert.ok(view.alternatives.every((option) => !option.loading));
   hook.unmount();
 });

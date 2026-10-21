@@ -60,6 +60,7 @@ export default function PointSearchModal({
   onClose,
   onSelect,
   confirmSlot,
+  draftKey,
 }: {
   visible: boolean;
   allowCurrent: boolean;
@@ -71,11 +72,14 @@ export default function PointSearchModal({
   onSelect: (point: Point, address?: string) => void;
   /** 집·회사 설정에만 확인을 요구한다. 일반 출발/도착 선택에는 적용하지 않는다. */
   confirmSlot?: MyPlaceSlot | null;
+  /** 지정한 길찾기 행의 입력만 이 모달 인스턴스 안에 보관한다. 영구 저장하지 않는다. */
+  draftKey?: string;
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const myPlaces = useMyPlacesStore((s) => s.places);
   const [query, setQuery] = useState('');
+  const draftQueries = useRef(new Map<string, string>());
   const [selectionConfirmation, setSelectionConfirmation] = useState<AppDialog | null>(null);
   const selectPoint = (point: Point, address?: string) => {
     if (!confirmSlot || point === 'current') {
@@ -141,22 +145,8 @@ export default function PointSearchModal({
   );
   const canShowFav = allowSaved && favItems.length > 0;
 
-  useEffect(() => {
-    if (!visible) {
-      if (debounce.current) clearTimeout(debounce.current);
-      requestAbort.current?.abort();
-      setQuery('');
-      setSelectionConfirmation(null);
-      setResults([]);
-      setShowFavList(false);
-      setSearching(false);
-      setSearchIssue(null);
-      activeSearch.current = null;
-      requestSequence.current += 1;
-    }
-  }, [visible]);
-
   const handleChange = (text: string) => {
+    if (visible && draftKey && allowSaved && !confirmSlot) draftQueries.current.set(draftKey, text);
     setQuery(text);
     setSearchIssue(null);
     const sequence = ++requestSequence.current;
@@ -222,6 +212,7 @@ export default function PointSearchModal({
   };
 
   const selectSearchResult = async (item: ResultItem, rank: number) => {
+    const selectionSequence = requestSequence.current;
     const session = activeSearch.current;
     if (session) {
       track.searchResultSelected({
@@ -260,6 +251,8 @@ export default function PointSearchModal({
           // 장소 연결 실패가 지점 선택 자체를 막으면 안 된다.
         }
       }
+      // 저장용 장소 연결을 기다리는 동안 다른 필드를 열었다면 이전 선택을 적용하지 않는다.
+      if (selectionSequence !== requestSequence.current) return;
       selectPoint(
         {
           name: item.k.placeName,
@@ -273,7 +266,8 @@ export default function PointSearchModal({
   };
 
   // 음성 검색 — 인식된 말을 그대로 검색어로 태운다(디바운스·결과 처리는 동일)
-  const { listening, toggle: toggleVoice } = useVoiceSearch((text, isFinal) => {
+  const { listening, toggle: toggleVoice, stop: stopVoice } = useVoiceSearch((text, isFinal) => {
+    if (!visible) return;
     handleChange(text);
     // allowSaved 가 false 인 유일한 경우가 집·회사 설정이다(호출부 3곳 확인:
     // search·directions·navi). 민감 장소라 검색어는 계측에 싣지 않는다.
@@ -288,6 +282,31 @@ export default function PointSearchModal({
       });
     }
   });
+
+  useEffect(() => {
+    if (debounce.current) clearTimeout(debounce.current);
+    requestAbort.current?.abort();
+    requestSequence.current += 1;
+    stopVoice();
+    setSelectionConfirmation(null);
+    setResults([]);
+    setShowFavList(false);
+    setSearching(false);
+    setSearchIssue(null);
+    activeSearch.current = null;
+    // 결과는 다시 조회해 현재 검색 기준점과 공급자 상태를 반영한다.
+    const draft = visible && allowSaved && !confirmSlot && draftKey
+      ? draftQueries.current.get(draftKey) ?? ''
+      : '';
+    handleChange(draft);
+    return () => {
+      if (debounce.current) clearTimeout(debounce.current);
+      requestAbort.current?.abort();
+      requestSequence.current += 1;
+    };
+    // 입력마다 effect를 재실행하면 타이핑을 지우므로 열림·대상 변경에만 복원한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, draftKey, allowSaved, confirmSlot]);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={selectionConfirmation ? closeConfirmation : onClose}>

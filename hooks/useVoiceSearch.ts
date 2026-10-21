@@ -16,6 +16,7 @@ import { toast } from '@/lib/toast';
 export function useVoiceSearch(onResult: (text: string, isFinal: boolean) => void) {
   const [listening, setListening] = useState(false);
   const mine = useRef(false);
+  const requestGeneration = useRef(0);
 
   useSpeechRecognitionEvent('start', () => {
     if (mine.current) setListening(true);
@@ -51,6 +52,7 @@ export function useVoiceSearch(onResult: (text: string, isFinal: boolean) => voi
   // 화면을 벗어날 때 마이크를 놓지 않으면 녹음이 남는다 — 남의 세션은 건드리지 않는다
   useEffect(() => {
     return () => {
+      requestGeneration.current += 1;
       if (mine.current) ExpoSpeechRecognitionModule.abort();
     };
   }, []);
@@ -60,7 +62,9 @@ export function useVoiceSearch(onResult: (text: string, isFinal: boolean) => voi
       ExpoSpeechRecognitionModule.stop();
       return;
     }
+    const generation = ++requestGeneration.current;
     const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (generation !== requestGeneration.current) return;
     if (!granted) {
       toast.error('설정에서 마이크·음성 인식 권한을 켜주세요.');
       return;
@@ -76,5 +80,13 @@ export function useVoiceSearch(onResult: (text: string, isFinal: boolean) => voi
     ExpoSpeechRecognitionModule.start({ lang: 'ko-KR', interimResults: true, continuous: false });
   };
 
-  return { listening, toggle };
+  const stop = () => {
+    requestGeneration.current += 1;
+    if (!mine.current) return;
+    mine.current = false;
+    ExpoSpeechRecognitionModule.abort();
+    setListening(false);
+  };
+
+  return { listening, toggle, stop };
 }

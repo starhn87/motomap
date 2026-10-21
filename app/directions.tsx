@@ -78,6 +78,10 @@ export default function DirectionsScreen() {
   const [editing, setEditing] = useState<Editing | null>(null);
   // 경유지 — null 은 + 로 만든 빈 줄. 미리보기로 넘어갈 때 채워진 것만 전달한다.
   const [viaPoints, setViaPoints] = useState<(NavTarget | null)[]>([]);
+  const [fieldDraftKeys, setFieldDraftKeys] = useState(['origin', 'dest']);
+  const nextDraftId = useRef(0);
+  const viaCountRef = useRef(viaPoints.length);
+  viaCountRef.current = viaPoints.length;
   const [resolving, setResolving] = useState(false);
   const [recents, setRecents] = useState<RecentSearch[]>([]);
 
@@ -141,6 +145,7 @@ export default function DirectionsScreen() {
     setOrigin(nextOrigin);
     setDest(nextDest);
     setViaPoints(nextVias);
+    setFieldDraftKeys((prev) => [...prev].reverse());
     void preview(nextOrigin, nextDest, undefined, nextVias);
   };
 
@@ -151,11 +156,16 @@ export default function DirectionsScreen() {
 
   // + 버튼 — 빈 경유지 줄만 만든다. 탭해서 검색으로 채운다.
   const addEmptyVia = () => {
-    setViaPoints((prev) => (prev.length >= MAX_VIAS ? prev : [...prev, null]));
+    if (viaCountRef.current >= MAX_VIAS) return;
+    viaCountRef.current += 1;
+    const key = `via-${nextDraftId.current++}`;
+    setViaPoints((prev) => [...prev, null]);
+    setFieldDraftKeys((prev) => [...prev.slice(0, -1), key, prev[prev.length - 1]]);
   };
 
   const removeVia = (index: number) => {
     setViaPoints((prev) => prev.filter((_, i) => i !== index));
+    setFieldDraftKeys((prev) => prev.filter((_, i) => i !== index + 1));
   };
 
   const handleModalSelect = (point: Point, address?: string) => {
@@ -218,7 +228,7 @@ export default function DirectionsScreen() {
             onPress={() => setEditing('origin')}
           />
           {viaPoints.map((via, i) => (
-            <View key={i}>
+            <View key={fieldDraftKeys[i + 1]}>
               <View style={[styles.fieldDivider, { backgroundColor: colors.border }]} />
               <FieldRow
                 icon="circle-medium"
@@ -337,6 +347,9 @@ export default function DirectionsScreen() {
 
       <PointSearchModal
         visible={editing !== null}
+        draftKey={editing === 'origin' ? fieldDraftKeys[0]
+          : editing === 'dest' ? fieldDraftKeys[fieldDraftKeys.length - 1]
+            : typeof editing === 'number' ? fieldDraftKeys[editing + 1] : undefined}
         confirmSlot={editing === 'home' || editing === 'work' ? editing : null}
         allowCurrent={editing === 'origin' || editing === 'dest'}
         allowSaved={editing !== 'home' && editing !== 'work'}
