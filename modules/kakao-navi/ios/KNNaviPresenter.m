@@ -3,6 +3,7 @@
 #import "KNSDKBridge.h"
 #import "KNNaviAudioFocus.h"
 #import "KNNaviArrivalRecovery.h"
+#import "KNNaviRouteView.h"
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
@@ -264,6 +265,7 @@ static NSData *MotoMapStartVoiceData(void) {
 @property(nonatomic) NSUInteger routeRequestGeneration;
 @property(nonatomic) BOOL didPlayStartVoice;
 @property(nonatomic) BOOL changingDestination;
+@property(nonatomic) BOOL safetyScreenQuarantined;
 @property(nonatomic, strong) KNTrip *pendingDestinationTrip;
 @property(nonatomic) KNRoutePriority pendingDestinationPriority;
 @end
@@ -283,6 +285,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [super viewDidLoad];
   if (![KNSDKBridge isLocationUseAllowed]) { [self finish]; return; }
   self.view.backgroundColor = UIColor.blackColor;
+  // SDK 경계가 바뀌면 원래 SDK 화면으로 폴백하지 않고 안내 화면을 열지 않는다.
+  if (![KNNaviRouteView isSDKModeBoundaryCompatible]) { [self finish]; return; }
   InstallMotoMapAccessibilityGuard();
   InstallMotoMapInfoCharacterGuard();
   self.audioFocus = [[KNNaviAudioFocus alloc] initWithSession:AVAudioSession.sharedInstance];
@@ -298,7 +302,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   guidance.voiceGuideDelegate = self;
   guidance.citsGuideDelegate = self;
 
-  KNNaviView *naviView = [[KNNaviView alloc] initWithGuidance:guidance
+  KNNaviRouteView *naviView = [[KNNaviRouteView alloc] initWithGuidance:guidance
                                                          trip:self.trip
                                                   routeOption:self.priority
                                                   avoidOption:KNRouteAvoidOption_None];
@@ -315,6 +319,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   naviView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 
   self.naviView = naviView;
+  __weak KNNaviViewController *weakController = self;
+  naviView.onSafetyModeBlocked = ^{ [weakController handleBlockedSafetyMode]; };
   // 탭은 부모 레이아웃도 상태 콜백도 생략할 수 있다. 공개 안내 바의 실제
   // hidden 변경을 이 인스턴스에서만 관찰한다. 전역 hook·제스처 가로채기는 없다.
   [self startObservingBottomView];
@@ -442,6 +448,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   }
 
   gActiveNavi = self;
+  // SDK 생성자 안에서 발생해 아직 handler가 없었던 전환도 놓치지 않는다.
+  if (naviView.didBlockSafetyMode) [self handleBlockedSafetyMode];
 }
 
 - (void)hazardTapped {
@@ -457,6 +465,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   // 정상 모드 enum이 그대로인 패닝에서도 하단 안내 바와 함께 숨긴다.
   // 초기 구성 중 아직 없는 뷰는 숨김 신호로 간주하지 않는다.
   if (!self.arrivalRecovery.waiting && self.naviView.bottomView.hidden) visible = NO;
+  if (self.safetyScreenQuarantined && !self.preview && !self.finished) visible = YES;
   self.endButton.hidden = !visible;
   self.hazardButton.hidden = !visible;
 }
@@ -587,6 +596,23 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)naviViewGuideState:(KNGuideState)aGuideState {
+  if (aGuideState == KNGuideState_OnSafetyGuide) [self handleBlockedSafetyMode];
+}
+
+- (void)handleBlockedSafetyMode {
+  if (self.finished) return;
+  // 유효 경로 안내가 진행 중인 늦은 UI 전환은 거부만 하고 안내를 유지한다.
+  if (self.guidance.guideState == KNGuideState_OnRouteGuide && !self.safetyScreenQuarantined) return;
+  [self holdDestinationAfterSafetyTransition];
+}
+
+- (void)holdDestinationAfterSafetyTransition {
+  if (self.finished) return;
+  if (self.preview) { [self finish]; return; }
+  if (!self.arrivalRecovery.waiting) [self guidanceGuideEnded:nil];
+  if (!self.arrivalRecovery.requesting) {
+    [self showArrivalUIWithMessage:@"목적지를 유지하고 있어요.\n목적지까지 다시 안내할 수 있어요."];
+  }
 }
 
 #pragma mark - KNNaviView_StateDelegate
@@ -605,13 +631,15 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)naviViewScreenState:(KNNaviViewState)aKNNaviViewState {
+  if (self.finished) return;
   self.naviScreenState = aKNNaviViewState;
   self.hasNaviScreenState = YES;
   [self updateCustomControlsVisibility];
-  // 도착 뒤 안전운행 화면과 그 지도 이동 상태만 보조 복구한다. 모든 화면 상태에서
-  // renewTheme 를 호출하면 안내 중 팬·전체경로 전환까지 불필요하게 다시 그린다.
   if (aKNNaviViewState == SafetyNormal || aKNNaviViewState == SafetyTouch) {
-    [self applyCarTheme];
+    // 고정 SDK의 모드 입구 외 경로가 생겨도 해당 화면을 그리지 않는다.
+    self.safetyScreenQuarantined = YES;
+    self.naviView.hidden = YES;
+    [self holdDestinationAfterSafetyTransition];
   }
 }
 
@@ -634,6 +662,10 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self restoreArrivalUI];
   [self.arrivalRecovery guideStarted];
   [self.naviView guidanceGuideStarted:aGuidance];
+  [(KNNaviRouteView *)self.naviView resumeRouteModeForPreview:self.preview];
+  self.safetyScreenQuarantined = NO;
+  self.naviView.hidden = NO;
+  [self updateCustomControlsVisibility];
   [self applyCarTheme];
   // JS 가 이 신호를 받아 밑 화면을 지도로 바꿔 둔다 — 안내가 어떤 경로로
   // 걷히든(도착·취소·SDK 자체 닫힘) 드러나는 건 항상 지도다.
@@ -696,7 +728,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   // 그대로 표시하지 않고, 목적지를 보존한 채 벗어났을 때 새 경로를 요청한다.
   if (!self.changingDestination) self.routeRequestGeneration++;
   if (!self.arrivalRecovery) self.arrivalRecovery = [KNNaviArrivalRecovery new];
-  KNGPSData *gps = aGuidance.locationGuide.gpsOrigin;
+  KNGPSData *gps = (aGuidance ?: self.guidance).locationGuide.gpsOrigin;
   [self.arrivalRecovery guideEndedAtDistance:[self distanceToDestinationWithGPS:gps]];
   [self showArrivalUIWithMessage:@"목적지 주변입니다.\n지나치면 복귀 경로를 안내합니다."];
   [self applyCarTheme];
@@ -1013,6 +1045,10 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
                 onError:(void (^)(NSString *_Nullable, NSString *))onError {
   dispatch_async(dispatch_get_main_queue(), ^{
     if (!IsLocationGenerationCurrent(generation)) { onError(nil,@"위치 이용이 중지됐다"); return; }
+    if (![KNNaviRouteView isSDKModeBoundaryCompatible]) {
+      onError(nil, @"길안내 화면을 준비할 수 없어요. 앱 업데이트 후 다시 시도해 주세요.");
+      return;
+    }
     UIViewController *top = [self keyWindow].rootViewController;
     while (top.presentedViewController != nil) top = top.presentedViewController;
     if (top == nil) {

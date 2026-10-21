@@ -44,6 +44,7 @@ xcrun clang -fobjc-arc -fmodules -target "$arch-apple-ios16.4-simulator" -isysro
   "$root/modules/kakao-navi/ios/KNSDKBridge.m" \
   "$root/modules/kakao-navi/ios/KNNaviAudioFocus.m" \
   "$root/modules/kakao-navi/ios/KNNaviArrivalRecovery.m" \
+  "$root/modules/kakao-navi/ios/KNNaviRouteView.m" \
   "$root/tests/ios/KNNaviSessionTests.m" "$root/tests/ios/NavigationSessionTestApp.m" \
   -o "$app/NavigationSessionTests"
 cat > "$app/Info.plist" <<'PLIST'

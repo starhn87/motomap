@@ -2,15 +2,23 @@
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 #import <AVFoundation/AVFoundation.h>
+#import <objc/runtime.h>
 #import "KNNaviArrivalRecovery.h"
+#import "KNNaviRouteView.h"
+#import <KNSDK/KNComponentView.h>
 
 // 실제 presenter 콜백을 실행한다. GPS·SDK 경로 탐색은 요청하지 않는다.
 @interface KNNaviViewController : UIViewController
 @property(nonatomic, strong) KNNaviView *naviView;
 - (void)guidanceGuideEnded:(KNGuidance *)guidance;
+- (void)guidanceGuideStarted:(KNGuidance *)guidance;
 - (void)naviViewScreenState:(KNNaviViewState)state;
 - (BOOL)usableRecoveryGPS:(KNGPSData *)gps;
 - (BOOL)guidance:(KNGuidance *)guidance shouldPlayVoiceGuide:(KNGuide_Voice *)voice replaceSndData:(NSData **)data;
+@end
+@interface RuntimeModeProbe : KNNaviRouteView @end
+@implementation RuntimeModeProbe
+- (void)accessibilityWithType:(NSInteger)type view:(UIView *)view {}
 @end
 @interface SessionViewProbe : UIView
 @property(nonatomic) NSUInteger safetyTransitions;
@@ -22,6 +30,8 @@
 - (void)guidanceGuideEnded:(id)guidance isShowDriveResultDialog:(BOOL)show { self.safetyTransitions++; }
 - (id)mapView { return nil; }
 - (void)trafficMode:(BOOL)enabled {}
+- (void)guidanceGuideStarted:(id)guidance {}
+- (void)resumeRouteModeForPreview:(BOOL)preview {}
 @end
 @interface VoiceProbe : NSObject
 @property(nonatomic) KNVoiceCode voiceCode;
@@ -43,6 +53,29 @@
 
 int RunKNNaviSessionTests(void) {
   int failures = 0;
+  // 실제 SDK 렌더 메서드에 진입한다. SDK 초기화/GPS/경로 탐색만 생략한 뷰다.
+  if (![KNNaviRouteView isSDKModeBoundaryCompatible]) { NSLog(@"FAIL SDK mode ABI changed"); failures++; }
+  RuntimeModeProbe *sdkView = [RuntimeModeProbe alloc];
+  sdkView = ((id (*)(id,SEL,CGRect))class_getMethodImplementation(UIView.class, @selector(initWithFrame:)))(sdkView,@selector(initWithFrame:),CGRectMake(0,0,390,844));
+  __block NSUInteger blocked = 0;
+  sdkView.onSafetyModeBlocked = ^{ blocked++; };
+  SEL modeSelector = NSSelectorFromString(@"naviMode:");
+  void (*setMode)(id,SEL,NSUInteger) = (void (*)(id,SEL,NSUInteger))[sdkView methodForSelector:modeSelector];
+  setMode(sdkView, modeSelector, KNNaviMode_Drive);
+  for (int i=0; i<3; i++) setMode(sdkView, modeSelector, KNNaviMode_Safety);
+  if ([[sdkView valueForKey:@"naviMode"] unsignedIntegerValue] == KNNaviMode_Safety ||
+      [sdkView valueForKey:@"safetyView2"] != nil || blocked != 3 || !sdkView.didBlockSafetyMode) {
+    NSLog(@"FAIL actual SDK safety renderer entered"); failures++;
+  }
+  // 미지의 SDK 모드도 화면에 통과시키지 않는다.
+  setMode(sdkView, modeSelector, NSUIntegerMax);
+  if (blocked != 4) { NSLog(@"FAIL unknown SDK mode allowed"); failures++; }
+  setMode(sdkView, modeSelector, KNNaviMode_RouteSimul);
+  if ([[sdkView valueForKey:@"naviMode"] unsignedIntegerValue] != KNNaviMode_RouteSimul) {
+    NSLog(@"FAIL simulation mode broken"); failures++;
+  }
+  setMode(sdkView, modeSelector, KNNaviMode_Drive);
+  if ([[sdkView valueForKey:@"naviMode"] unsignedIntegerValue] != KNNaviMode_Drive) failures++;
   KNNaviViewController *controller = [SessionControllerProbe new];
   SessionViewProbe *view = [SessionViewProbe new];
   view.curDirView = [UIView new]; view.nextDirView = [UIView new]; view.bottomView = [UIView new];
@@ -74,6 +107,14 @@ int RunKNNaviSessionTests(void) {
   if (!end.hidden || !hazard.hidden) { NSLog(@"FAIL arrival touch controls remain"); failures++; }
   [controller naviViewScreenState:DriveNormal];
   if (end.hidden || hazard.hidden) { NSLog(@"FAIL arrival exit controls unavailable"); failures++; }
+  // 새 SDK 경로가 사후 Safety 통지를 보내도 SDK 화면 자체를 숨겨야 한다.
+  [controller naviViewScreenState:SafetyNormal];
+  if (!view.hidden || end.hidden || hazard.hidden) { NSLog(@"FAIL safety fallback exposed SDK UI or exit hidden"); failures++; }
+  [controller naviViewScreenState:SafetyTouch];
+  if (!view.hidden) failures++;
+  [controller guidanceGuideStarted:nil];
+  [controller naviViewScreenState:DriveNormal];
+  if (view.hidden || end.hidden || hazard.hidden) { NSLog(@"FAIL route UI not restored"); failures++; }
   GPSProbe *gps = [GPSProbe new]; gps.valid = YES; gps.posTrust = YES;
   gps.timestamp = [NSDate dateWithTimeIntervalSinceNow:-60];
   if ([controller usableRecoveryGPS:(id)gps]) failures++;
