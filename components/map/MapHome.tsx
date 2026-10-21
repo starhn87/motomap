@@ -1172,31 +1172,32 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
 
       {showGasRefresh && !selectedStation && !placeDetailOpen && !weatherOpen && (
-        <AnimatedPressable
-          accessibilityLabel={gasFetching ? '주유소 검색 중' : gasError
-            ? stations.length ? '이전 유가가 표시되고 있어요. 이 지역 주유소 다시 검색' : '유가 조회 실패. 이 지역 주유소 다시 검색'
-            : '이 지역 주유소 다시 검색'}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: gasFetching, busy: gasFetching }}
-          entering={FadeIn.duration(200)}
-          disabled={gasFetching}
-          onPress={refreshGasHere}
-          style={({ pressed }: PressableStateCallbackType) => [
-            styles.gasRefreshButton,
-            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-            pressed && styles.controlPressed,
-          ]}>
-          <View style={styles.gasRefreshIcon}>
-            {gasFetching
-              ? <ActivityIndicator size="small" color={colors.tint} />
-              : <Ionicons name="refresh" size={18} color={colors.tint} />}
-          </View>
-          <Text numberOfLines={1} style={[styles.gasRefreshText, { color: colors.text }]}>
-            {gasFetching ? '검색 중' : gasError
-              ? stations.length ? '이전 유가 · 재시도' : '검색 실패 · 재시도'
-              : '이 지역 재검색'}
-          </Text>
-        </AnimatedPressable>
+        <Animated.View entering={FadeIn.duration(200)} style={styles.gasRefreshAnchor}>
+          <Pressable
+            accessibilityLabel={gasFetching ? '주유소 검색 중' : gasError
+              ? stations.length ? '이전 유가가 표시되고 있어요. 이 지역 주유소 다시 검색' : '유가 조회 실패. 이 지역 주유소 다시 검색'
+              : '이 지역 주유소 다시 검색'}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: gasFetching, busy: gasFetching }}
+            disabled={gasFetching}
+            onPress={refreshGasHere}
+            style={({ pressed }: PressableStateCallbackType) => [
+              styles.gasRefreshButton,
+              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+              pressed && styles.controlPressed,
+            ]}>
+            <View style={styles.gasRefreshIcon}>
+              {gasFetching
+                ? <ActivityIndicator size="small" color={colors.tint} />
+                : <Ionicons name="refresh" size={18} color={colors.tint} />}
+            </View>
+            <Text numberOfLines={1} style={[styles.gasRefreshText, { color: colors.text }]}>
+              {gasFetching ? '검색 중' : gasError
+                ? stations.length ? '이전 유가 · 재시도' : '검색 실패 · 재시도'
+                : '이 지역 재검색'}
+            </Text>
+          </Pressable>
+        </Animated.View>
       )}
 
       <AnimatedPressable
@@ -1327,13 +1328,17 @@ const styles = StyleSheet.create({
     elevation: 4,
     zIndex: 5,
   },
-  gasRefreshButton: {
+  // 44pt 버튼의 중심을 내 위치 버튼(bottom 24 + 높이 48)의 중심과 맞춘다.
+  gasRefreshAnchor: {
     position: 'absolute',
     alignSelf: 'center',
-    bottom: 16,
+    bottom: 26,
     width: 192,
     maxWidth: '55%',
     height: 44,
+  },
+  gasRefreshButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
