@@ -180,7 +180,7 @@ export default function CategoryFilter() {
               size={16}
               color={premiumGasOnly ? colors.background : colors.text}
             />
-            <Text style={[styles.chipLabel, { color: premiumGasOnly ? colors.background : colors.text }]}>
+            <Text numberOfLines={1} style={[styles.chipLabel, { flexShrink: 1, color: premiumGasOnly ? colors.background : colors.text }]}>
               고급휘발유만
             </Text>
           </Pressable>
@@ -197,12 +197,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   subfilters: {
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    alignItems: 'flex-start',
+    // 좌우의 날씨·즐겨찾기 버튼 자리를 비우고 가운데에만 터치 영역을 둔다.
+    paddingHorizontal: 80,
+    paddingTop: 12,
+    paddingBottom: 4,
+    alignItems: 'center',
   },
   subfilterChip: {
     minHeight: 44,
+    maxWidth: '100%',
   },
   chip: {
     gap: 5,

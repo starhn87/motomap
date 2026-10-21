@@ -181,7 +181,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   }, [overlay, isMapFocused]);
 
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
-  const [mapControlsTop, setMapControlsTop] = useState(158);
+  const [gasRefreshTop, setGasRefreshTop] = useState(150);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [mapCameraAtMount] = useState<MapCameraSnapshot | null>(() =>
     overlay ? null : getLastMapCamera(),
@@ -1099,8 +1099,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           entering={FadeIn.duration(300)}
           style={styles.searchAndFilter}
           onLayout={({ nativeEvent: { layout } }) => {
-            // 카테고리의 세부 필터 높이가 달라져도 지도 버튼은 항상 그 아래에 둔다.
-            setMapControlsTop(layout.y + layout.height + 12);
+            // 중앙 재검색 버튼만 세부 필터 아래에 두고 좌우 버튼 높이는 유지한다.
+            setGasRefreshTop(layout.y + layout.height + 12);
           }}>
           <View style={styles.searchRow}>
             <SearchEntry />
@@ -1128,7 +1128,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
       {!overlay && (weather || weatherFailed || weatherFetching) && (
         <WeatherFab
-          top={mapControlsTop}
           weather={weather}
           failed={weatherFailed}
           refreshing={weatherFetching}
@@ -1153,7 +1152,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         style={({ pressed }) => [
           styles.favFab,
           {
-            top: mapControlsTop + 4,
             backgroundColor: colors.background,
             borderColor: colors.border,
           },
@@ -1177,7 +1175,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           onPress={refreshGasHere}
           style={({ pressed }: PressableStateCallbackType) => [
             styles.gasRefreshButton,
-            { top: mapControlsTop, backgroundColor: colors.background, borderColor: colors.border },
+            { top: gasRefreshTop, backgroundColor: colors.background, borderColor: colors.border },
             (pressed || gasFetching) && styles.controlPressed,
           ]}>
           <Text style={[styles.gasRefreshText, { color: colors.tint }]}>
@@ -1298,9 +1296,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  // 실제 필터 영역 아래 날씨 FAB와 같은 행 — 세로 중심을 맞춘다.
+  // 중앙 세부 필터의 양옆에서 날씨 FAB와 기존 높이를 유지한다.
   favFab: {
     position: 'absolute',
+    top: 162,
     right: 16,
     width: 44,
     height: 44,
