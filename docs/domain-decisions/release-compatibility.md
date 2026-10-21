@@ -472,3 +472,23 @@ NAV-012 경로 미리보기와 최신 릴리스 노트를 포함하며, OTA나 A
 
 
 2026-10-21 제출 후속: 10/20 승인된 production 1.2.9 (42), source `6f8c756`, EAS `a701ba8c-43d8-4661-91e5-5bbf3926c01d`의 산출물 버전/runtime/production 채널을 확인했다. EAS 업로드 대기열은 취소 후 CANCELED를 확인하고 동일 IPA를 Apple에 직접 업로드했다(delivery `44c51758-a2bb-4ebd-a621-48ed3a610614`, 오류 없음). ASC에서 실제 42번 연결·릴리스 노트·기존 심사 접근·수동 출시를 확인하고 00:17 KST 심사 제출, **심사 대기 중**을 확인했다. 공개 출시는 아직 하지 않았으므로 candidate/minimum/runtime/native/API 정책은 유지한다. 상세는 `docs/app-store-submission.md`를 따른다.
+
+
+### 2026-10-21 고급휘발유 필터의 승인된 TestFlight OTA
+
+사용자가 runtime 1.2.9의 production iOS 빌드 39~42(심사 대기 42 포함)에 고급휘발유
+필터 OTA를 적용하도록 명시 승인했다. `6904c434beb72e57076a673912ee76d8cf270428`의
+깨끗한 격리 소스에서 iOS만 발행했다. 신규 native/API/DB/권한 변경은 없으며 기존 B034
+조회 파라미터를 사용한다. candidate 1.2.9와 최소 버전·브리지 5/API 1은 유지했다.
+일반 릴리스 검사는 통과했고 `--ota` 후보 차단은 예상대로 실패했다. 이 작업만 사용자
+승인 예외로 처리했으며 검사를 바꾸거나 후보 표시를 해제하지 않았다.
+
+- OTA group: `24d6af09-18d8-4b5c-9b6f-9c1976594029`
+- iOS update: `01a15cba-b3f4-7922-963b-02d0f6a0e9a8`
+- production/iOS/runtime 1.2.9 manifest: 위 신규 update ID 반환 확인
+- production/iOS/runtime 1.2.8 manifest: 발행 전후 `01a1398e-6482-7a3f-9d9e-73e68da34932` 동일
+
+빌드 번호 개별 타깃이 아니라 채널·runtime 타깃이다. 1.2.9 정식 출시 이후 같은 채널의
+사용자도 받을 수 있으며 TestFlight 전용 채널을 새로 만든 것은 아니다. 42의 심사 제출
+산출물 자체를 교체하거나 새 바이너리를 제출하지 않았다. 실제 설치·화면 확인은 별도이며
+앱 완전 종료→실행(다운로드)→다시 종료·실행(적용)으로 확인한다.
