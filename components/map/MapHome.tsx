@@ -1027,15 +1027,24 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           />
         )}
 
-        {/* 유가 마커 — 캡처된 비트맵이 재사용되므로 표시 내용(가격·최저)이 바뀌면 key 로 재캡처.
+        {/* 유가 마커 — 캡처된 비트맵이 재사용되므로 표시 내용(가격·최저·선택)이 바뀌면 key 로 재캡처.
             stations 는 가격순이라 index 가 곧 겹침 생존 우선순위다 */}
         {stations.map((station, index) => (
           <GasStationMarker
-            key={`${station.id}-${station.price}-${station.id === cheapestId}`}
+            key={`${station.id}-${station.price}-${station.id === cheapestId}-${station.id === selectedStation?.id}`}
             station={station}
             isCheapest={station.id === cheapestId}
+            isSelected={station.id === selectedStation?.id}
             rank={index}
-            onTap={setSelectedStation}
+            onTap={(selected) => {
+              followingRef.current = false;
+              setSelectedStation(selected);
+              mapRef.current?.animateCameraTo({
+                latitude: selected.latitude,
+                longitude: selected.longitude,
+                duration: 300,
+              });
+            }}
           />
         ))}
 
