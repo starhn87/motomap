@@ -24,6 +24,7 @@ function setup(request: (vias: number[], priority: RoutePriority) => Promise<Bik
   const module = loadModule<{ useBikeRoutes: typeof useBikeRoutes }>('hooks/useBikeRoutes.ts', {
     '@/stores/useLocationPrivacyStore': { ...allowedLocationPrivacy,providerLocationAllowed: () => allowed },
     react: {
+      useMemo: (calculate: () => unknown) => calculate(),
       useState(initial: unknown) {
         const index = stateIndex++;
         if (!(index in values)) values[index] = initial;
@@ -195,7 +196,26 @@ test('비교 요청 실패는 선택 경로를 유지하고 나머지 자동 요
   assert.equal(view.routeError, null);
   assert.ok(view.alternatives.find((option) => option.value === 1)?.error);
   assert.equal(hook.calls(), 2);
+  assert.ok(view.alternatives.every((option) => !option.loading), '자동 비교 중단 후 대기 옵션에 스피너를 남기지 않는다');
   hook.unmount();
+});
+
+test('순차 조회 중 대기 카드도 로딩을 표시하고 완료한 경로만 지도에 제공한다', async () => {
+  let finish!: (value: BikeRoute) => void;
+  const h = setup(() => new Promise((resolve) => { finish = resolve; }), false);
+  let view = h.render();
+  assert.equal(view.alternatives.filter((option) => option.loading).length, 4);
+  assert.equal(view.mapRoutes.length, 0);
+  await h.settle();
+  finish(route);
+  view = await h.settle();
+  assert.equal(view.alternatives.filter((option) => option.loading).length, 3);
+  assert.equal(view.mapRoutes.length, 1);
+  assert.equal(view.mapRoutes[0].value, 0);
+  h.args.enabled = false;
+  view = h.render();
+  assert.ok(view.alternatives.every((option) => !option.loading));
+  h.unmount();
 });
 
 test('지점 변경 즉시 이전 경로를 숨기고 늦게 끝난 비교 응답을 버린다', async () => {

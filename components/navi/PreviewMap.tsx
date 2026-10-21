@@ -11,7 +11,7 @@ import {
 } from '@mj-studio/react-native-naver-map';
 
 import { approxMeters } from '@/lib/distance';
-import { latLngsFromFlat, type BikeRoute } from '@/modules/kakao-navi';
+import { latLngsFromFlat, type BikeRoute, type RoutePriority } from '@/modules/kakao-navi';
 import type { NavTarget } from '@/lib/navigation';
 import type { TrafficPart } from '@/lib/api/directions';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
@@ -45,6 +45,8 @@ const TRAFFIC_COLORS: Record<number, string> = {
 
 const PLACE_MARKER_GLOBAL_Z_INDEX = 200_000;
 const ROUTE_MARKER_GLOBAL_Z_INDEX = 250_000;
+const ROUTE_PATH_GLOBAL_Z_INDEX = -100_000;
+const NO_ALTERNATIVES: { value: RoutePriority; route: BikeRoute }[] = [];
 
 function matchesGoal(
   goal: NavTarget,
@@ -66,6 +68,8 @@ export default function PreviewMap({
   goal,
   viaMarkers,
   route,
+  alternatives = NO_ALTERNATIVES,
+  priority = 0,
   trafficParts,
   topCardH,
   bottomCardH,
@@ -76,6 +80,8 @@ export default function PreviewMap({
   /** 실제 요청에 쓰인 경유지만 — 20412 폴백으로 빠진 지점은 안 그린다 */
   viaMarkers: { latitude: number; longitude: number }[];
   route: BikeRoute | undefined;
+  alternatives?: { value: RoutePriority; route: BikeRoute }[];
+  priority?: RoutePriority;
   trafficParts: TrafficPart[] | undefined;
   /** 위아래 카드가 지도를 덮는 픽셀 — 카메라 핏이 이 값만큼 경로를 밀어 넣는다 */
   topCardH: number | null;
@@ -85,6 +91,8 @@ export default function PreviewMap({
   const queryClient = useQueryClient();
   const colorScheme = useColorScheme();
   const mapRef = useRef<NaverMapViewRef>(null);
+  const userMovedCamera = useRef(false);
+  const lastFit = useRef<{ route: BikeRoute; priority: RoutePriority } | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
   // 경로 주변의 등록 장소·즐겨찾기 — "가는 길에 들를 곳"을 미리보기에서 보여준다.
@@ -116,6 +124,10 @@ export default function PreviewMap({
       })),
     [trafficParts],
   );
+  const inactivePaths = useMemo(() => alternatives
+    .filter((option) => option.value !== priority && option.route.polyline.length >= 4)
+    .map((option) => ({ value: option.value, coords: latLngsFromFlat(option.route.polyline) })),
+  [alternatives, priority]);
 
   // 화면에 보이는 장소·즐겨찾기만 그린다 — 전량을 뿌리면 전국 뷰에서 마커가
   // 수백 개가 되고, 뷰포트 기준이면 카메라가 멈출 때만 다시 거른다.
@@ -152,6 +164,12 @@ export default function PreviewMap({
   useEffect(() => {
     if (!mapReady || topCardH === null || bottomCardH === null ||
         !route || route.polyline.length < 4) return;
+    // 배경 옵션이 완료되며 카드 높이가 바뀌어도 사용자가 옮긴 지도는 유지한다.
+    // 다른 경로를 고르거나 새 입력의 경로가 도착했을 때만 다시 경로에 맞춘다.
+    if (userMovedCamera.current && lastFit.current?.route === route &&
+        lastFit.current.priority === priority) return;
+    userMovedCamera.current = false;
+    lastFit.current = { route, priority };
     let minLat = Infinity;
     let maxLat = -Infinity;
     let minLng = Infinity;
@@ -169,7 +187,7 @@ export default function PreviewMap({
       coord2: { latitude: maxLat, longitude: maxLng },
       duration: 700,
     });
-  }, [route, mapReady, topCardH, bottomCardH]);
+  }, [route, priority, mapReady, topCardH, bottomCardH]);
 
   // 탭하면 그 장소가 선택된 지도 화면을 통째로 오버레이한다(/place-preview).
   // 뒤로 가면 이 미리보기가 경로·옵션 그대로 남아 있다 — 스택이 지켜 준다.
@@ -252,6 +270,9 @@ export default function PreviewMap({
       isScrollGesturesEnabled
       isRotateGesturesEnabled
       isTiltGesturesEnabled
+      onCameraChanged={(event) => {
+        if (event.reason === 'Gesture') userMovedCamera.current = true;
+      }}
       onCameraIdle={(e) =>
         setMapCenter({
           latitude: e.latitude,
@@ -276,9 +297,23 @@ export default function PreviewMap({
           image={require('@/assets/images/origin-dot.png')}
         />
       )}
+      {/* 비교 경로는 선택 경로보다 아래에 그린다. 경유지 마커와 카메라는 선택 경로 기준을 유지한다. */}
+      {inactivePaths.map((path) => (
+        <NaverMapPathOverlay
+          key={`alternative-${path.value}`}
+          coords={path.coords}
+          width={4}
+          color="#9CA3AF"
+          outlineWidth={1}
+          outlineColor={colorScheme === 'dark' ? '#374151' : '#F3F4F6'}
+          globalZIndex={ROUTE_PATH_GLOBAL_Z_INDEX}
+          zIndex={0}
+        />
+      ))}
       {pathParts ? (
         // 혼잡도 색 경로 — 선형도 색과 같은 REST 응답 것을 쓴다(색·선 불일치 방지)
-        <NaverMapMultiPathOverlay pathParts={pathParts} width={6} outlineWidth={2} />
+        <NaverMapMultiPathOverlay pathParts={pathParts} width={6} outlineWidth={2}
+          globalZIndex={ROUTE_PATH_GLOBAL_Z_INDEX} zIndex={10} />
       ) : coords ? (
         <NaverMapPathOverlay
           coords={coords}
@@ -286,6 +321,8 @@ export default function PreviewMap({
           color={semantic.success}
           outlineWidth={2}
           outlineColor="#FFFFFF"
+          globalZIndex={ROUTE_PATH_GLOBAL_Z_INDEX}
+          zIndex={10}
         />
       ) : null}
       {/* 미리보기에서도 등록 장소를 합치지 않는다. 경로 주변 장소는 원형,

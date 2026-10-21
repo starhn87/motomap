@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import Colors from '@/constants/Colors';
@@ -25,15 +25,6 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
   const colors = Colors[useColorScheme() ?? 'light'];
   const compact = useWindowDimensions().height < 740;
   const selected = options.find((option) => option.value === priority);
-  const recommended = options.find((option) => option.value === 0);
-  const comparable = selected?.route && recommended?.route && priority !== 0 &&
-    JSON.stringify(selected.vias) === JSON.stringify(recommended.vias);
-  const differenceMinutes = comparable
-    ? Math.round((selected!.route!.duration - recommended!.route!.duration) / 60)
-    : 0;
-  const differenceMeters = comparable
-    ? Math.round(selected!.route!.distance - recommended!.route!.distance)
-    : 0;
   return (
     <View style={styles.container}>
       <View style={[styles.grid, compact && styles.compactGrid]} accessibilityRole="radiogroup" accessibilityLabel="경로 비교">
@@ -45,7 +36,7 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
             <Pressable
               key={option.value}
               accessibilityRole="radio"
-              accessibilityState={{ checked: active, disabled }}
+              accessibilityState={{ checked: active, disabled, busy: option.loading }}
               disabled={disabled}
               onPress={() => onSelect(option.value)}
               style={[styles.option, compact && styles.compactOption, {
@@ -74,21 +65,19 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
                     </Text>
                   )}
                 </>
+              ) : option.loading ? (
+                <View style={styles.loading}>
+                  <ActivityIndicator size="small" color={color} accessibilityLabel={`${option.label} 경로 불러오는 중`} />
+                </View>
               ) : (
                 <Text style={[styles.detail, { color }]}>
-                  {option.error ? '경로 확인 실패' : option.loading ? '경로 확인 중…' : '선택하면 조회해요'}
+                  {option.error ? '경로 확인 실패' : '선택하면 조회해요'}
                 </Text>
               )}
             </Pressable>
           );
         })}
       </View>
-      {comparable && (
-        <Text style={[styles.detail, { color: colors.textSecondary }]}>
-          추천보다 {differenceMinutes === 0 ? '시간 차이 1분 미만' : `${Math.abs(differenceMinutes)}분 ${differenceMinutes < 0 ? '빠름' : '느림'}`}
-          {' · '}{differenceMeters === 0 ? '거리 같음' : `${formatMeters(Math.abs(differenceMeters))} ${differenceMeters < 0 ? '짧음' : '김'}`}
-        </Text>
-      )}
       {selected?.route && (selected.vias?.length ?? 0) / 2 < requestedViaCount && (
         <Text style={[styles.detail, { color: colors.textSecondary }]}>
           도로가 연결되지 않아 일부 경유지를 제외한 경로예요. 표시된 경유지로 안내해요.
@@ -105,6 +94,7 @@ const styles = StyleSheet.create({
   option: { width: '48%', flexGrow: 1, borderWidth: 1, borderRadius: 12, padding: 10, gap: 5, minHeight: 72 },
   compactOption: { width: undefined, flex: 1, minWidth: 0, paddingHorizontal: 6 },
   compactMetrics: { gap: 2 },
+  loading: { minHeight: 24, alignItems: 'flex-start', justifyContent: 'center' },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 },
   label: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
   metrics: { fontSize: 14, fontWeight: '700' },

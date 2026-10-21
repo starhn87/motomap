@@ -126,6 +126,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
     setPriority,
     route,
     alternatives,
+    mapRoutes,
     trafficParts,
     loading,
     routeError,
@@ -462,6 +463,8 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
           goal={goal}
           viaMarkers={viaMarkers}
           route={locationBlocked ? undefined : route}
+          alternatives={mapRoutes}
+          priority={priority}
           trafficParts={locationBlocked ? undefined : trafficParts}
           topCardH={topCardH}
           bottomCardH={bottomCardH}

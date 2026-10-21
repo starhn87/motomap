@@ -1,5 +1,5 @@
 import { withLocationUse, providerLocationAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import KakaoNavi, {
   friendlyRouteError,
@@ -78,6 +78,11 @@ export function useBikeRoutes(args: {
   const requestPriority = !route && !failure ? priority : route && !hasFailure
     ? ROUTE_PRIORITIES.find((p) => routes[p.value]?.context !== context)?.value
     : undefined;
+  // 수천 좌표를 변환하는 지도용 목록은 로딩/선택 표시만 바뀔 때 새로 만들지 않는다.
+  const mapRoutes = useMemo(() => allowed ? ROUTE_PRIORITIES.flatMap((p) => {
+    const entry = routes[p.value];
+    return entry?.context === context ? [{ value: p.value, route: entry.route }] : [];
+  }) : [], [routes, context, allowed]);
 
   // 지점이 바뀌면 옵션별 캐시가 전부 낡는다 — 경로·혼잡도를 비워 재조회를 태운다
   const resetRoutes = () => {
@@ -225,13 +230,15 @@ export function useBikeRoutes(args: {
     setPriority,
     /** 선택된 옵션의 경로 — 없으면 로딩 중이거나 실패 */
     route,
+    mapRoutes,
     /** 같은 입력에서 계산한 비교용 옵션. 실제 사용한 경유지를 함께 보존한다. */
     alternatives: ROUTE_PRIORITIES.map((p) => ({
       ...p,
       route: allowed && routes[p.value]?.context === context ? routes[p.value]?.route : undefined,
       vias: allowed && routes[p.value]?.context === context ? routes[p.value]?.vias : undefined,
       error: errors[p.value]?.context === context ? errors[p.value]?.message : undefined,
-      loading: allowed && enabled && requestPriority === p.value && !!effStart,
+      loading: allowed && enabled && !!effStart && routes[p.value]?.context !== context &&
+        errors[p.value]?.context !== context && (requestPriority === p.value || !hasFailure),
     })),
     /** 선택된 옵션의 혼잡 구간 — 없으면 단색으로 그린다 */
     trafficParts: allowed && traffic[priority]?.context === context ? traffic[priority]?.parts : undefined,
