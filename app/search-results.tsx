@@ -61,6 +61,12 @@ type ResultItem =
 
 type ExactPlaceTarget = Exclude<ResultItem, { kind: 'riding' }>;
 
+function resultKey(item: ResultItem): string {
+  if (item.kind === 'place') return `place-${item.place.id}`;
+  if (item.kind === 'riding') return `riding-${item.guide.id}`;
+  return `external-${externalPlaceSource(item.k)}-${item.k.generalPlaceId ?? item.k.providerId ?? `${item.k.placeName}-${item.k.latitude}-${item.k.longitude}`}`;
+}
+
 type SearchFilter = 'open' | 'parking' | 'rating' | 'bike';
 
 const FILTERS: { key: SearchFilter; label: string }[] = [
@@ -146,6 +152,7 @@ export default function SearchResultsScreen() {
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [selectedTemp, setSelectedTemp] = useState<TempPlace | null>(null);
   const detailOpen = selectedPlace !== null || selectedTemp !== null;
+  const [selectedResultKey, setSelectedResultKey] = useState<string | null>(null);
   const [filters, setFilters] = useState<SearchFilter[]>([]);
   const { data: operationalStatuses = {} } = usePlaceOperationalStatuses();
 
@@ -277,6 +284,19 @@ export default function SearchResultsScreen() {
       ...ridingGuides.map((guide) => ({ kind: 'riding' as const, guide })),
     ];
   }, [results, nearbyKakaoResults, filters, bikeMatches.data]);
+
+  // 상세를 닫아도 마지막 선택은 유지한다. 필터·재검색으로 사라진 결과만 해제한다.
+  useEffect(() => {
+    if (selectedResultKey && !items.some((item) => resultKey(item) === selectedResultKey)) {
+      setSelectedResultKey(null);
+    }
+  }, [items, selectedResultKey]);
+
+  useEffect(() => {
+    setSelectedResultKey(null);
+    setSelectedPlace(null);
+    setSelectedTemp(null);
+  }, [searchQuery, nearKey, areaSearchRevision, browseMode]);
 
   const rawResultCount =
     (results?.places.length ?? 0) +
@@ -417,7 +437,7 @@ export default function SearchResultsScreen() {
   // 결과 전체가 보이도록 카메라를 맞춘다. 하나뿐이면 가상의 좌표 범위를 만들지
   // 않고, 바텀시트를 제외한 지도 영역의 정확한 중앙을 카메라 pivot으로 쓴다.
   useEffect(() => {
-    if (!mapReady || loading || showEmpty || searchFailed || detailOpen) return;
+    if (!mapReady || loading || showEmpty || searchFailed || detailOpen || selectedResultKey) return;
     const mapped = items.filter(
       (item): item is Exclude<ResultItem, { kind: 'riding' }> => item.kind !== 'riding',
     );
@@ -462,6 +482,7 @@ export default function SearchResultsScreen() {
     showEmpty,
     searchFailed,
     detailOpen,
+    selectedResultKey,
     screenH,
     midSnap,
   ]);
@@ -493,6 +514,7 @@ export default function SearchResultsScreen() {
   const pick = (item: ResultItem, keepZoom = false) => {
     const zoom = keepZoom ? zoomRef.current : 13;
     const rank = items.indexOf(item);
+    setSelectedResultKey(resultKey(item));
     if (item.kind === 'riding') {
       track.searchResultSelected({
         search_id: searchId,
@@ -722,7 +744,7 @@ export default function SearchResultsScreen() {
         {items.map((item) => {
           if (item.kind === 'riding') return null;
           if (item.kind === 'place') {
-            const isSelected = selectedPlace?.id === item.place.id;
+            const isSelected = selectedResultKey === resultKey(item);
             const temporarilyClosed =
               operationalStatuses[item.place.id] === 'temporarily_closed';
             return (
@@ -743,12 +765,10 @@ export default function SearchResultsScreen() {
               />
             );
           }
-          const isSelected =
-            selectedTemp?.latitude === item.k.latitude &&
-            selectedTemp?.longitude === item.k.longitude;
+          const isSelected = selectedResultKey === resultKey(item);
           return (
             <TempPlaceMarker
-              key={`kakao-${item.k.placeName}-${item.k.latitude}`}
+              key={resultKey(item)}
               latitude={item.k.latitude}
               longitude={item.k.longitude}
               circle={!isSelected}
@@ -805,9 +825,13 @@ export default function SearchResultsScreen() {
         </Pressable>
       )}
 
-      {/* 결과 목록 — 상세 시트가 열려 있는 동안은 내려둔다. 닫으면 복귀.
-          최소 스냅(88)은 핸들+결과 개수만 남기고 지도를 넓게 보는 용도. */}
-      {!detailOpen && (
+      {/* 목록 인스턴스를 유지해 스크롤·스냅을 보존한다. 상세 중에는 터치와
+          접근성에서도 제외해 뒤쪽 시트가 제스처를 가로채지 않게 한다. */}
+      <View
+        pointerEvents={detailOpen ? 'none' : 'box-none'}
+        accessibilityElementsHidden={detailOpen}
+        importantForAccessibility={detailOpen ? 'no-hide-descendants' : 'auto'}
+        style={[StyleSheet.absoluteFill, detailOpen && styles.hiddenResults]}>
         <BottomSheet
           index={1}
           snapPoints={[88, midSnap, '85%']}
@@ -816,13 +840,8 @@ export default function SearchResultsScreen() {
           handleIndicatorStyle={{ backgroundColor: colors.border }}>
           <BottomSheetFlatList
           data={items}
-          keyExtractor={(item: ResultItem, i: number) =>
-            item.kind === 'place'
-              ? `place-${item.place.id}`
-              : item.kind === 'riding'
-                ? `riding-${item.guide.id}`
-                : `kakao-${item.k.placeName}-${i}`
-          }
+          keyExtractor={resultKey}
+          extraData={selectedResultKey}
           contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
           ListFooterComponent={items.some((item) => item.kind === 'kakao') ? (
             <Text style={{ color: colors.textSecondary, textAlign: 'center', fontSize: 12, padding: 16 }}>
@@ -897,7 +916,13 @@ export default function SearchResultsScreen() {
                 return (
                   <Pressable
                     onPress={() => pick(item)}
-                    style={[styles.row, { borderBottomColor: colors.border }]}>
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedResultKey === resultKey(item) }}
+                    style={[styles.row, {
+                      borderBottomColor: colors.border,
+                      backgroundColor: selectedResultKey === resultKey(item) ? colors.surfaceMuted : colors.background,
+                      borderLeftColor: selectedResultKey === resultKey(item) ? colors.tint : 'transparent',
+                    }]}>
                     <CategoryIcon category={item.place.category} size={18} />
                     <View style={styles.rowTexts}>
                       <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
@@ -943,7 +968,13 @@ export default function SearchResultsScreen() {
             ) : item.kind === 'riding' ? (
               <Pressable
                 onPress={() => pick(item)}
-                style={[styles.row, { borderBottomColor: colors.border }]}>
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedResultKey === resultKey(item) }}
+                style={[styles.row, {
+                  borderBottomColor: colors.border,
+                  backgroundColor: selectedResultKey === resultKey(item) ? colors.surfaceMuted : colors.background,
+                  borderLeftColor: selectedResultKey === resultKey(item) ? colors.tint : 'transparent',
+                }]}>
                 <MaterialCommunityIcons name="map-marker-path" size={19} color={colors.tint} />
                 <View style={styles.rowTexts}>
                   <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
@@ -961,7 +992,13 @@ export default function SearchResultsScreen() {
             ) : (
               <Pressable
                 onPress={() => pick(item)}
-                style={[styles.row, { borderBottomColor: colors.border }]}>
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedResultKey === resultKey(item) }}
+                style={[styles.row, {
+                  borderBottomColor: colors.border,
+                  backgroundColor: selectedResultKey === resultKey(item) ? colors.surfaceMuted : colors.background,
+                  borderLeftColor: selectedResultKey === resultKey(item) ? colors.tint : 'transparent',
+                }]}>
                 <Ionicons name="location-outline" size={18} color={colors.textSecondary} />
                 <View style={styles.rowTexts}>
                   <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
@@ -979,7 +1016,7 @@ export default function SearchResultsScreen() {
           }
           />
         </BottomSheet>
-      )}
+      </View>
 
       {/* 지도 탭과 같은 상세 시트 — 닫으면 결과 목록으로 돌아온다 */}
       <PlaceBottomSheet place={selectedPlace} onClose={() => setSelectedPlace(null)} />
@@ -990,6 +1027,7 @@ export default function SearchResultsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  hiddenResults: { opacity: 0 },
   statusHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1091,6 +1129,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   row: {
+    borderLeftWidth: 3,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
