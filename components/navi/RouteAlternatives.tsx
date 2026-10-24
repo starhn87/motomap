@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import Colors from '@/constants/Colors';
@@ -23,11 +24,16 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
   onSelect: (priority: RoutePriority) => void;
 }) {
   const colors = Colors[useColorScheme() ?? 'light'];
-  const compact = useWindowDimensions().height < 740;
+  const scroll = useRef<ScrollView>(null);
+  const selectedIndex = options.findIndex(option => option.value === priority);
+  useEffect(() => {
+    if (selectedIndex >= 0) scroll.current?.scrollTo({ x: selectedIndex * 176, animated: true });
+  }, [selectedIndex]);
   const selected = options.find((option) => option.value === priority);
   return (
     <View style={styles.container}>
-      <View style={[styles.grid, compact && styles.compactGrid]} accessibilityRole="radiogroup" accessibilityLabel="경로 비교">
+      <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.row} accessibilityRole="radiogroup" accessibilityLabel="경로 비교">
         {options.map((option) => {
           const active = option.value === priority;
           const color = active ? colors.background : colors.text;
@@ -39,26 +45,19 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
               accessibilityState={{ checked: active, disabled, busy: option.loading }}
               disabled={disabled}
               onPress={() => onSelect(option.value)}
-              style={[styles.option, compact && styles.compactOption, {
+              style={[styles.option, {
                 backgroundColor: active ? colors.tint : colors.surfaceMuted,
                 borderColor: active ? colors.tint : colors.border,
               }]}>
               <View style={styles.heading}>
                 <Text style={[styles.label, { color }]}>{option.label}</Text>
-                {active && !compact && <Ionicons name="checkmark-circle" size={16} color={color} />}
+                {active && <Ionicons name="checkmark-circle" size={16} color={color} />}
               </View>
               {option.route ? (
                 <>
-                  {compact ? (
-                    <View style={styles.compactMetrics}>
-                      <Text style={[styles.metrics, { color }]}>{formatSeconds(option.route.duration)}</Text>
-                      <Text style={[styles.detail, { color }]}>{formatMeters(option.route.distance)}</Text>
-                    </View>
-                  ) : (
-                    <Text style={[styles.metrics, { color }]}>
-                      {formatSeconds(option.route.duration)} · {formatMeters(option.route.distance)}
-                    </Text>
-                  )}
+                  <Text style={[styles.metrics, { color }]}>
+                    {formatSeconds(option.route.duration)} · {formatMeters(option.route.distance)}
+                  </Text>
                   {requestedViaCount > 0 && (
                     <Text style={[styles.detail, { color }]}>
                       경유 {viaCount}개{viaCount < requestedViaCount ? ` · ${requestedViaCount - viaCount}개 제외` : ''}
@@ -77,7 +76,7 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
       {selected?.route && (selected.vias?.length ?? 0) / 2 < requestedViaCount && (
         <Text style={[styles.detail, { color: colors.textSecondary }]}>
           도로가 연결되지 않아 일부 경유지를 제외한 경로예요. 표시된 경유지로 안내해요.
@@ -89,11 +88,8 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
 
 const styles = StyleSheet.create({
   container: { gap: 8 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  compactGrid: { flexWrap: 'nowrap', gap: 6 },
-  option: { width: '48%', flexGrow: 1, borderWidth: 1, borderRadius: 12, padding: 10, gap: 5, minHeight: 72 },
-  compactOption: { width: undefined, flex: 1, minWidth: 0, paddingHorizontal: 6 },
-  compactMetrics: { gap: 2 },
+  row: { flexDirection: 'row', gap: 8 },
+  option: { width: 168, borderWidth: 1, borderRadius: 12, padding: 10, gap: 5, minHeight: 72 },
   loading: { minHeight: 24, alignItems: 'flex-start', justifyContent: 'center' },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 },
   label: { fontSize: 13, fontWeight: '600', flexShrink: 1 },

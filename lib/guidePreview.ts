@@ -16,7 +16,7 @@ export function guidePreviewInitial(snapshot: GuidePreviewSnapshot, goal: GuideG
   }));
   return {
     goal: { ...snapshot.goal, ...(samePoint(snapshot.goal, goal) ? goal : {}) },
-    start: [snapshot.start.longitude, snapshot.start.latitude],
+    start: snapshot.start ? [snapshot.start.longitude, snapshot.start.latitude] : null,
     startName: null,
     userVias: vias.length <= 3 ? vias : [],
     courseVias: vias.length > 3 ? vias.flatMap((via) => [via.longitude, via.latitude]) : [],

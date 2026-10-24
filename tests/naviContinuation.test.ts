@@ -7,7 +7,7 @@ type Element = { type: any; props: any };
 const goal = { name: '기존 목적지', latitude: 37.5, longitude: 127.1, placeId: 'original' };
 const nextGoal = { name: '새 목적지', latitude: 37.6, longitude: 127.2, placeId: 'new' };
 
-function setup() {
+function setup(noGPS = false) {
   let dirty = false, cursor = 0;
   let slots: any[] = [];
   const rootSlots: any[] = [], contentSlots: any[] = [];
@@ -23,7 +23,7 @@ function setup() {
       tasks.push(() => { previous?.cleanup?.(); effects[i] = { deps, cleanup: fn() }; }); },
   };
   react.useLayoutEffect = react.useEffect;
-  const calls = { resumed: [] as any[], started: 0, tracked: 0, marker: 0, replace: [] as string[], errors: [] as string[], blocked: false };
+  const calls = { resumed: [] as any[], started: 0, tracked: 0, marker: 0, replace: [] as string[], errors: [] as string[], blocked: false, backed: 0 };
   const listeners: Record<string, () => void> = {};
   let resolveResume!: (value: any) => void, rejectResume!: (error: Error) => void, finishAudit!: () => void;
   const native = {
@@ -31,12 +31,12 @@ function setup() {
     resumeGuide(...args: any[]) { calls.resumed.push(args); return new Promise((resolve, reject) => { resolveResume = resolve; rejectResume = reject; }); },
     startGuide() { calls.started++; return Promise.resolve(); },
   };
-  const store: any = { goal, priority: 2, viaPlaces: [], preview: { snapshot: { token: 7, start: { latitude: 37.4, longitude: 127 }, goal, vias: [], passedVias: [], priority: 2 }, edit: null, returnPending: false },
+  const store: any = { goal, priority: 2, viaPlaces: [], preview: { snapshot: { token: 7, start: noGPS ? null : { latitude: 37.4, longitude: 127 }, goal, vias: [], passedVias: [], priority: 2 }, edit: null, returnPending: false },
     start(g: any, p: any, vias: any) { store.goal = g; store.priority = p; store.viaPlaces = vias; },
     requestGuideReturn(token: number) { if (store.preview?.snapshot.token === token) store.preview.returnPending = true; },
   };
   const useSession = Object.assign((select: any) => select(store), { getState: () => store });
-  const router = { replace(path: string) { calls.replace.push(path); }, back() {}, dismissAll() {} };
+  const router = { replace(path: string) { calls.replace.push(path); }, back() { calls.backed++; }, dismissAll() {} };
   const navigation = { setOptions() {} };
   const jsx = (type: any, props: any) => ({ type, props });
   const chain: any = new Proxy({}, { get: () => () => chain });
@@ -49,13 +49,13 @@ function setup() {
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
     'react-native-gesture-handler': { Gesture: { Pan: () => chain } },
     'react-native-reanimated': { runOnJS: (fn: any) => fn, useSharedValue: (value: any) => react.useRef({ value }).current },
-    'expo-location': {},
+    'expo-location': { requestForegroundPermissionsAsync: async () => ({ status: 'granted' }), getCurrentPositionAsync: async () => { throw Error('GPS unavailable'); }, Accuracy: { Balanced: 3 } },
     '@/stores/useLocationPrivacyStore': { providerLocationAllowed: () => true, useLocationPrivacyStore: (s: any) => s({ revision: 0 }),
       async withLocationUse(_purpose: any, _provider: any, work: any) { await work(); await new Promise<void>((resolve) => { finishAudit = resolve; }); } },
     '@/lib/guideSession': { useGuideSession: useSession }, '@/lib/guidePreview': previewHelpers,
     '@/lib/naviParams': { parseNaviParams() { throw Error('continuation must use native snapshot'); } },
     '@/lib/navigation': {}, '@/lib/mapFocus': { hasMapOverlayInStack: () => false },
-    '@/stores/useMapStore': { useMapStore: (s: any) => s({ userLocation: { latitude: 37.4, longitude: 127 }, requestMapReset() {} }) },
+    '@/stores/useMapStore': { useMapStore: Object.assign((s: any) => s({ userLocation: null, requestMapReset() {} }), { getState: () => ({ userLocation: null }) }) },
     '@/hooks/useUserLocation': { useUserLocation() {} },
     '@/hooks/useBikeRoutes': { useBikeRoutes: () => ({ priority: 2, setPriority() {}, route: { distance: 1200 }, alternatives: [], mapRoutes: [], trafficParts: [], loading: false, courseOnly: false, flatVias: [], effVias: [], resetRoutes() {} }) },
     '@/lib/recentSearches': { loadRecentSearches: async () => [], recentTargets: () => [] },
@@ -87,7 +87,7 @@ function setup() {
   const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); render(); };
   const selectGoal = () => { const goalField = nodes(tree).filter((n) => n.type === 'RouteFieldRow').at(-1)!; goalField.props.onPress(); render(); nodes(tree).find((n) => n.type === '@/components/search/PointSearchModal')!.props.onSelect(nextGoal); render(); };
   render();
-  return { calls, store, start, render, flush, selectGoal, listeners,
+  return { calls, store, start, render, flush, selectGoal, listeners, nodes: () => nodes(tree),
     applied: () => resolveResume({ vias: [], passedVias: [] }),
     failed: () => rejectResume(new Error('no route')), finishAudit: () => finishAudit?.(),
     unmount: () => effects.forEach((effect) => effect?.cleanup?.()) };
@@ -130,4 +130,17 @@ test('위치 철회/종료 뒤 늦은 ack로 세션을 되살리지 않는다', 
 test('같은 프레임에 연속 시작해도 native 변경 요청은 한 번만 보낸다', () => {
   const f = setup(); f.start(); f.start();
   assert.equal(f.calls.resumed.length, 1);
+});
+
+
+test('GPS 재확인 실패해도 안내 편집을 닫지 않고 목적지 편집과 위치 재시도를 제공한다', async () => {
+  const f = setup(true); await f.flush();
+  assert.equal(f.calls.backed, 0);
+  f.selectGoal();
+  const retry = f.nodes().find(n => n.type === 'Pressable' && n.props.children?.props?.children === '현재 위치 다시 확인');
+  assert.ok(retry);
+  retry.props.onPress(); f.render(); await f.flush();
+  assert.equal(f.calls.backed, 0);
+  assert.equal(f.calls.errors.length, 2);
+  f.unmount();
 });

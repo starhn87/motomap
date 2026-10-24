@@ -59,3 +59,11 @@ test('native 목적지가 먼저 바뀐 동안 이전 JS 코스 ID를 새 목적
   assert.equal(guidePreviewInitial(changed, goal, previous).courseId, undefined);
   assert.equal(continuedGoal(changed, goal, changed.goal, flat(changed.vias)).courseId, undefined);
 });
+
+
+test('GPS가 끊겨도 편집 스냅샷을 열고 출발 좌표는 새 위치 수신까지 비워둔다', () => {
+  const initial = guidePreviewInitial({ ...snapshot, start: null }, goal, previous);
+  assert.equal(initial.start, null);
+  assert.equal(initial.goal.name, goal.name);
+  assert.equal(initial.userVias.length, 2);
+});

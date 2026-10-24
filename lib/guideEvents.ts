@@ -346,7 +346,7 @@ export function registerGuideEvents(): () => void {
             catch (error) { session.setPreview(null); await KakaoNavi.returnToGuide(snapshot.token); throw error; }
           });
         } catch (error) {
-          toast.error('경로 미리보기를 열 수 없습니다', friendlyRouteError(error));
+          void KakaoNavi.showGuideNotice(`경로 미리보기를 열 수 없어요. ${friendlyRouteError(error)}`);
         }
       })();
       return;

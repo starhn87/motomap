@@ -4,6 +4,8 @@
 #import <AVFoundation/AVFoundation.h>
 #import <objc/runtime.h>
 #import "KNNaviArrivalRecovery.h"
+#import "KNNaviPresenter.h"
+#import "KNSDKBridge.h"
 #import "KNNaviRouteView.h"
 #import <KNSDK/KNComponentView.h>
 
@@ -16,6 +18,9 @@
 - (BOOL)usableRecoveryGPS:(KNGPSData *)gps;
 - (BOOL)guidance:(KNGuidance *)guidance shouldPlayVoiceGuide:(KNGuide_Voice *)voice replaceSndData:(NSData **)data;
 @end
+@interface KNNaviPresenter (PreviewTest)
++ (void)openGuidePreviewForController:(KNNaviViewController *)vc gps:(KNGPSData *)gps completion:(void (^)(NSDictionary *, NSString *))completion;
+@end
 @interface RuntimeModeProbe : KNNaviRouteView @end
 @implementation RuntimeModeProbe
 - (void)accessibilityWithType:(NSInteger)type view:(UIView *)view {}
@@ -25,6 +30,7 @@
 @property(nonatomic, strong) UIView *curDirView;
 @property(nonatomic, strong) UIView *nextDirView;
 @property(nonatomic, strong) UIView *bottomView;
+@property(nonatomic, strong) UIView *menuView;
 @end
 @implementation SessionViewProbe
 - (void)guidanceGuideEnded:(id)guidance isShowDriveResultDialog:(BOOL)show { self.safetyTransitions++; }
@@ -46,9 +52,17 @@
 @end
 @implementation GPSProbe @end
 
+@interface PreviewTripProbe : NSObject
+@property(nonatomic, strong) KNPOI *goal;
+@property(nonatomic, strong) NSArray *vias;
+@property(nonatomic, strong) NSArray *passedVias;
+@end
+@implementation PreviewTripProbe @end
+
 @interface SessionControllerProbe : KNNaviViewController @end
 @implementation SessionControllerProbe
 - (void)viewDidLoad {}
+- (void)dismissViewControllerAnimated:(BOOL)animated completion:(void (^)(void))completion { if (completion) completion(); }
 @end
 
 int RunKNNaviSessionTests(void) {
@@ -122,6 +136,24 @@ int RunKNNaviSessionTests(void) {
   if ([controller usableRecoveryGPS:(id)gps]) failures++;
   gps.posTrust = YES;
   if (![controller usableRecoveryGPS:(id)gps]) failures++;
+  // 실제 미리보기 진입 분기: GPS가 없어도 목적지 편집을 열고 새 좌표는 비워둔다.
+  [KNSDKBridge setLocationUseAllowed:YES];
+  KNPOI *goal = [[KNPOI alloc] initWithName:@"목적지" x:300000 y:400000];
+  // SDK Trip 생성은 네트워크를 요구하므로 읽기 전용 속성만 제공하는 대역을 쓴다.
+  PreviewTripProbe *previewTrip = [PreviewTripProbe new]; previewTrip.goal = goal;
+  SessionControllerProbe *editor = [SessionControllerProbe new];
+  [editor setValue:previewTrip forKey:@"trip"];
+  __block BOOL opened = NO;
+  [KNNaviPresenter openGuidePreviewForController:editor gps:nil completion:^(NSDictionary *snapshot, NSString *error) {
+    opened = !error && [snapshot[@"start"] isEqual:NSNull.null] && [snapshot[@"goal"][@"name"] isEqual:@"목적지"];
+  }];
+  if (!opened || ![[editor valueForKey:@"suspended"] boolValue]) { NSLog(@"FAIL editor blocked by unavailable GPS"); failures++; }
+  __block BOOL rejectedApply = NO;
+  [KNNaviPresenter resumeGuide:[[editor valueForKey:@"previewToken"] integerValue] toLng:127 lat:37.5 name:@"새 목적지" vias:@[] priority:0
+                   completion:^(NSDictionary *result, NSString *error) { rejectedApply = !result && [error containsString:@"현재 위치"]; }];
+  if (!rejectedApply || [[editor valueForKey:@"changingDestination"] boolValue]) { NSLog(@"FAIL GPS-free route applied"); failures++; }
+  [editor setValue:@YES forKey:@"finished"];
+  [KNSDKBridge setLocationUseAllowed:NO];
   [controller setValue:@YES forKey:@"finished"];
   if ([controller guidance:nil shouldPlayVoiceGuide:(id)voice replaceSndData:&replacement]) failures++;
   KNNaviArrivalRecovery *policy = [KNNaviArrivalRecovery new];
@@ -195,12 +227,25 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
   panel.onHeight = ^(CGFloat value) { height = value; weakPanel.frame = CGRectMake(0,window.bounds.size.height-value,window.bounds.size.width,value); };
   panel.onFailure = ^{ failure = YES; };
   [window.rootViewController.view addSubview:panel];
-  [panel updateState:@{@"remainingTime":@480, @"remainingDistance":@2100, @"volume":@0.7}];
+  [panel updateState:@{@"remainingTime":@480, @"remainingDistance":@2100, @"volume":@0.7, @"goalName":@"도착 카페", @"currentLocationName":@"테헤란로"}];
   WKWebView *web = [panel valueForKey:@"webView"];
   WaitAsync(^BOOL{ return panel.ready || panel.failed; }, NSDate.timeIntervalSinceReferenceDate + 15, ^(BOOL loaded) {
     if (!loaded || !panel.ready) { NSLog(@"FAIL WK not ready"); [panel invalidate]; completion(failures+1); return; }
-    [web evaluateJavaScript:@"document.querySelector('[data-action=refresh]').click();document.getElementById('menuButton').click();document.getElementById('duration').textContent" completionHandler:^(id result, NSError *error) {
-      if (error || ![result isEqual:@"8분 소요 · 도착 예정"]) { NSLog(@"FAIL WK metrics %@ %@",result,error); failures++; }
+    // 실제 Presenter 배치가 홈 인디케이터 위 여백과 지도 전체 영역을 유지하는지 확인한다.
+    SessionControllerProbe *layoutController = [SessionControllerProbe new];
+    layoutController.view.frame = window.bounds;
+    layoutController.naviView = (id)[SessionViewProbe new];
+    [layoutController setValue:panel forKey:@"bottomPanel"];
+    [layoutController viewDidLayoutSubviews];
+    if (CGRectGetMaxY(panel.frame) > window.bounds.size.height - 20 || panel.frame.origin.x != 12 ||
+        !CGRectEqualToRect(layoutController.naviView.frame, layoutController.view.bounds)) {
+      NSLog(@"FAIL floating panel frame"); failures++;
+    }
+    // 배치 검사 컨트롤러의 dealloc이 아래 WK 검사 패널을 invalidate하지 않게 소유권을 돌려준다.
+    [layoutController setValue:nil forKey:@"bottomPanel"];
+    [web callAsyncJavaScript:@"const first=document.getElementById('destination').textContent;await new Promise(resolve=>setTimeout(resolve,5300));const second=document.getElementById('destination').textContent;document.querySelector('[data-action=refresh]').click();document.getElementById('menuButton').click();return JSON.stringify({first,second,distance:document.getElementById('distance').textContent,noDuration:!document.getElementById('duration'),noClose:!document.querySelector('.close')})"
+                  arguments:@{} inFrame:nil inContentWorld:WKContentWorld.pageWorld completionHandler:^(id result, NSError *error) {
+      if (error || ![result containsString:@"테헤란로"] || ![result containsString:@"도착 카페"] || ![result containsString:@"\"distance\":\"2.1km\""] || ![result containsString:@"\"noDuration\":true"] || ![result containsString:@"\"noClose\":true"]) { NSLog(@"FAIL WK metrics %@ %@",result,error); failures++; }
       WaitAsync(^BOOL{ return height == 280; },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL expanded) {
         if (!expanded) { NSLog(@"FAIL WK expansion"); failures++; }
         if (!panel.accessibilityViewIsModal) { NSLog(@"FAIL WK menu accessibility scope"); failures++; }
@@ -210,14 +255,14 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
         [web takeSnapshotWithConfiguration:nil completionHandler:^(UIImage *image, NSError *error) {
           NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"bottom-expanded.png"];
           if (image) [UIImagePNGRepresentation(image) writeToFile:path atomically:YES];
-        NSString *script = @"const buttons=[...document.querySelectorAll('.actions button')].map(b=>b.getBoundingClientRect());const row=buttons.every(b=>Math.abs(b.top-buttons[0].top)<1);const order=document.querySelector('.volumeRange').getBoundingClientRect().bottom<=buttons[0].top;const footer=getComputedStyle(document.querySelector('.bar')).display==='none';const width=document.documentElement.scrollWidth<=innerWidth;document.getElementById('volume').value=35;document.getElementById('volume').dispatchEvent(new Event('input'));['hazard','routePreview','destination','vias','end'].forEach(action=>document.querySelector('[data-action='+action+']').click());JSON.stringify({distance:document.getElementById('distance').textContent,row,order,footer,width})";
+        NSString *script = @"const buttons=[...document.querySelectorAll('.actions button')].map(b=>b.getBoundingClientRect());const row=buttons.every(b=>Math.abs(b.top-buttons[0].top)<1);const order=document.querySelector('.volumeRange').getBoundingClientRect().bottom<=buttons[0].top;const footer=getComputedStyle(document.querySelector('.bar')).display==='none';const width=document.documentElement.scrollWidth<=innerWidth;document.getElementById('volume').value=35;document.getElementById('volume').dispatchEvent(new Event('input'));document.getElementById('mute').click();['hazard','routePreview','destination','vias','end'].forEach(action=>document.querySelector('[data-action='+action+']').click());JSON.stringify({distance:document.getElementById('distance').textContent,row,order,footer,width})";
         [web evaluateJavaScript:script completionHandler:^(id result, NSError *error) {
           NSDictionary *layout = [result isKindOfClass:NSString.class] ? [NSJSONSerialization JSONObjectWithData:[result dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] : nil;
           if (error || ![layout[@"distance"] isEqual:@"2.1km"] || ![layout[@"row"] boolValue] ||
               ![layout[@"order"] boolValue] || ![layout[@"footer"] boolValue] || ![layout[@"width"] boolValue]) {
             NSLog(@"FAIL WK navigation layout %@ %@",layout,error); failures++;
           }
-          WaitAsync(^BOOL{ return actions.count == 8 && fabs(volume-.35)<.001; },NSDate.timeIntervalSinceReferenceDate+3,^(BOOL sent) {
+          WaitAsync(^BOOL{ return actions.count == 9 && fabs(volume)<.001; },NSDate.timeIntervalSinceReferenceDate+3,^(BOOL sent) {
             if (!sent) { NSLog(@"FAIL WK actions %@ volume=%f",actions,volume); failures++; }
             [panel updateState:@{@"status":@"목적지를 유지하고 있어요", @"detail":@"<script>quoted ' \"", @"volume":@0.35}];
             [web evaluateJavaScript:@"document.getElementById('arrival').textContent" completionHandler:^(id result, NSError *error) {

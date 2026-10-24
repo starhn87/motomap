@@ -276,6 +276,8 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong) KNNaviHiddenViews *auxiliaryHiddenViews;
 @property(nonatomic) CGFloat panelHeight;
 @property(nonatomic) float volume;
+@property(nonatomic, copy) NSString *currentLocationName;
+@property(nonatomic, strong) NSDate *currentLocationAt;
 @property(nonatomic, copy) NSString *arrivalMessage;
 @property(nonatomic) BOOL suspended;
 @property(nonatomic) NSInteger previewToken;
@@ -564,14 +566,13 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)viewDidLayoutSubviews {
   [super viewDidLayoutSubviews];
   BOOL web = self.bottomPanel.ready;
-  CGFloat inset = self.view.safeAreaInsets.bottom;
-  // 확장 메뉴만 지도 위에 겹친다. 접힌 바만큼 지도 자체를 줄여 자차를 가리지 않는다.
-  CGFloat reserved = web ? KNNaviBottomCollapsedHeight + inset : 0;
-  self.naviView.frame = CGRectMake(0, 0, self.view.bounds.size.width, MAX(0, self.view.bounds.size.height - reserved));
+  CGFloat gap = MAX(self.view.safeAreaInsets.bottom, 12) + 8;
+  // 지도는 바닥까지 채우고 앱 카드를 홈 인디케이터 위에 띄운다.
+  self.naviView.frame = self.view.bounds;
   if (self.bottomPanel) {
-    [self.bottomPanel setBottomInset:inset];
-    CGFloat height = MIN(self.panelHeight ?: KNNaviBottomCollapsedHeight + inset, self.view.bounds.size.height - self.view.safeAreaInsets.top);
-    self.bottomPanel.frame = CGRectMake(0, self.view.bounds.size.height - height, self.view.bounds.size.width, height);
+    [self.bottomPanel setBottomInset:0];
+    CGFloat height = MIN(self.panelHeight ?: KNNaviBottomCollapsedHeight, self.view.bounds.size.height - self.view.safeAreaInsets.top - gap);
+    self.bottomPanel.frame = CGRectMake(12, self.view.bounds.size.height - gap - height, MAX(0, self.view.bounds.size.width - 24), height);
     self.bottomPanel.hidden = !web;
   }
   self.menuBackdrop.frame = self.view.bounds;
@@ -590,6 +591,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     state[@"remainingTime"] = @(trip.remainTime);
   }
   state[@"goalName"] = self.trip.goal.name ?: @"";
+  state[@"currentLocationName"] = self.currentLocationAt && -self.currentLocationAt.timeIntervalSinceNow <= 10 ? (self.currentLocationName ?: @"현재 위치") : @"현재 위치";
   state[@"canEditVias"] = @(self.trip.vias.count <= 3);
   [self.bottomPanel updateState:state];
 }
@@ -1033,6 +1035,11 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)guidance:(KNGuidance *)aGuidance didUpdateLocation:(KNGuide_Location *)aLocationGuide {
   if (self.finished || ![KNSDKBridge isLocationUseAllowed]) return;
   [self.naviView guidance:aGuidance didUpdateLocation:aLocationGuide];
+  self.currentLocationAt = aLocationGuide.gpsOrigin.timestamp;
+  KNLocation *location = aLocationGuide.location;
+  self.currentLocationName = [self usableRecoveryGPS:aLocationGuide.gpsOrigin]
+      ? (location.roadName.length ? location.roadName : location.facilityName) : nil;
+  [self updateBottomPanel];
   if (self.arrivalRecovery.waiting && !self.preview && !self.suspended && !self.changingDestination && [self usableRecoveryGPS:aLocationGuide.gpsOrigin]) {
     double distance = [self distanceToDestinationWithGPS:aLocationGuide.gpsOrigin];
     if ([self.arrivalRecovery shouldRecoverAtDistance:distance time:NSDate.timeIntervalSinceReferenceDate]) {
@@ -1258,13 +1265,23 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 + (void)openGuidePreview:(void (^)(NSDictionary *, NSString *))completion {
-  KNNaviViewController *vc = gActiveNavi;
+  [self openGuidePreviewForController:gActiveNavi
+                                 gps:[KNSDK sharedInstance].sharedGpsManager.lastValidGpsData
+                          completion:completion];
+}
+
++ (void)openGuidePreviewForController:(KNNaviViewController *)vc gps:(KNGPSData *)gps
+                          completion:(void (^)(NSDictionary *, NSString *))completion {
   if (!vc || vc.preview || vc.finished || vc.suspended || vc.changingDestination || ![KNSDKBridge isLocationUseAllowed]) {
     completion(nil, @"현재 길안내에서 미리보기를 열 수 없어요."); return;
   }
-  KNGPSData *gps = [[KNSDK sharedInstance] sharedGpsManager].lastValidGpsData;
-  if (![vc usableRecoveryGPS:gps] || !vc.trip.goal) { completion(nil, @"현재 위치를 확인한 뒤 다시 시도해 주세요."); return; }
-  DoublePoint start = [[KNSDK sharedInstance] convertKATECToWGS84WithX:(SInt32)gps.pos.x y:(SInt32)gps.pos.y];
+  if (!vc.trip.goal) { completion(nil, @"안내 목적지를 확인할 수 없어요."); return; }
+  // 편집 진입과 실제 안내 적용을 분리한다. resumeGuide의 최신 GPS 검사는 유지한다.
+  id startPoint = NSNull.null;
+  if ([vc usableRecoveryGPS:gps]) {
+    DoublePoint start = [[KNSDK sharedInstance] convertKATECToWGS84WithX:(SInt32)gps.pos.x y:(SInt32)gps.pos.y];
+    startPoint = @{@"longitude":@(start.x), @"latitude":@(start.y)};
+  }
   NSArray *passed = (vc.guidance.trip ?: vc.trip).passedVias ?: @[];
   NSMutableArray *remainingPoints = [NSMutableArray new];
   NSArray *passedPoints = [self passedPointsFor:vc];
@@ -1281,7 +1298,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   vc.suspended = YES; vc.previewToken = ++gPreviewToken;
   vc.routeRequestGeneration++; [vc.arrivalRecovery requestFailed];
   gSuspendedNavi = vc;
-  NSDictionary *snapshot = @{@"token":@(vc.previewToken), @"start":@{@"longitude":@(start.x), @"latitude":@(start.y)},
+  NSDictionary *snapshot = @{@"token":@(vc.previewToken), @"start":startPoint,
       @"goal":[self pointSnapshot:vc.trip.goal], @"vias":remainingPoints, @"passedVias":passedPoints, @"priority":@(vc.priority)};
   [vc dismissViewControllerAnimated:YES completion:^{ completion(snapshot,nil); }];
 }

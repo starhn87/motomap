@@ -290,20 +290,15 @@ export default function DirectionsScreen() {
           />
         </View>
         <View style={styles.fieldSide}>
-          {busy ? (
-            <ActivityIndicator size="small" color={colors.textSecondary} />
-          ) : (
-            <Pressable
-              onPress={swap}
-              hitSlop={8}
-              style={[styles.swapButton, { borderColor: colors.border }]}>
-              <MaterialCommunityIcons
-                name="swap-vertical"
-                size={18}
-                color={colors.textSecondary}
-              />
-            </Pressable>
-          )}
+          <Pressable
+            accessibilityLabel="출발지와 도착지 바꾸기"
+            disabled={busy}
+            accessibilityState={{ disabled: busy }}
+            onPress={swap}
+            hitSlop={8}
+            style={[styles.swapButton, { borderColor: colors.border, opacity: busy ? 0.4 : 1 }]}>
+            <MaterialCommunityIcons name="swap-vertical" size={18} color={colors.textSecondary} />
+          </Pressable>
         </View>
       </View>
 

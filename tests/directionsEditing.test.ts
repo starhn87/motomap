@@ -78,7 +78,7 @@ function setup() {
     render();
   };
   render();
-  return { render, fields, modal, button, select, add, flush, launches,
+  return { render, fields, modal, button, select, add, flush, launches, nodes: () => nodes(tree),
     setLaunch: (next: typeof launch) => { launch = next; } };
 }
 
@@ -154,4 +154,17 @@ test('미리보기 준비 중 삭제·지점 변경은 잠가 표시 지점과 �
   assert.equal(f.fields()[1].props.disabled, false);
   f.fields()[1].props.onRemove(); await f.flush();
   assert.equal(f.launches.at(-1)![2].length, 0);
+});
+
+
+test('경로 요청 중 로딩은 경로 보기 버튼에만 표시하고 순서 반전 아이콘을 유지한다', async () => {
+  const f = setup(); await f.select(1, goal);
+  let resolve!: (value: boolean) => void;
+  f.setLaunch(() => new Promise(done => { resolve = done; }));
+  f.button()!.props.onPress(); f.render();
+  assert.equal(f.nodes().filter(node => node.type === 'Spinner').length, 1);
+  const swap = f.nodes().find(node => node.props.accessibilityLabel === '출발지와 도착지 바꾸기');
+  assert.ok(swap, '순서 반전 버튼이 로딩 중 사라짐');
+  assert.equal(swap.props.disabled, true);
+  resolve(true); await f.flush();
 });

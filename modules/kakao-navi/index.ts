@@ -72,7 +72,7 @@ const LEGACY_KAKAO_NAVI_FEATURES = [
 
 export interface GuidePreviewSnapshot {
   token: number;
-  start: { latitude: number; longitude: number };
+  start: { latitude: number; longitude: number } | null;
   goal: { latitude: number; longitude: number; name: string };
   vias: { latitude: number; longitude: number; name: string }[];
   passedVias: { latitude: number; longitude: number; name: string }[];

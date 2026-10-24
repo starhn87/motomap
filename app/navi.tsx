@@ -98,6 +98,8 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
   // 바꾸면 placeId(도착 후 리뷰 연결)는 원래 장소 것이라 함께 버린다.
   const [goal, setGoal] = useState<NavTarget>(initial.goal);
   const [start, setStart] = useState<[number, number] | null>(initial.start); // [lng, lat]
+  const [locationError, setLocationError] = useState(false);
+  const [locationAttempt, setLocationAttempt] = useState(0);
   // 지정 출발지의 이름 — null 이면 현재 위치 출발
   const [startName, setStartName] = useState<string | null>(initial.startName);
   // 길찾기 경유지(편집 가능) — 코스 경유지(vias 파라미터)와 별개.
@@ -399,8 +401,9 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
   useEffect(() => {
     if (start) return;
     if (locationBlocked) return;
+    setLocationError(false);
     const cached = useMapStore.getState().userLocation;
-    if (cached) {
+    if (cached && !continuation) {
       setStart([cached.longitude, cached.latitude]);
       return;
     }
@@ -422,13 +425,14 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
     }).catch(() => {
       if (!cancelled) {
         toast.error(permissionDenied ? '위치 권한이 필요합니다' : '현재 위치를 확인할 수 없습니다');
-        router.back();
+        if (continuation) setLocationError(true);
+        else router.back();
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [router, start, locationBlocked, privacyRevision]);
+  }, [router, start, locationBlocked, privacyRevision, locationAttempt, continuation]);
 
   const startGuide = () => {
     if (!start || !route || locationBlocked || startingRef.current || courseOnly) return;
@@ -680,6 +684,14 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
               <Text style={[styles.routeErrorAction, { color: colors.tint }]}>위치정보 설정</Text>
             </Pressable>
           </View>
+        ) : locationError && !start ? (
+          <View style={[styles.routeError, { borderColor: colors.border }]}>
+            <Text style={[styles.routeErrorTitle, { color: colors.text }]}>현재 위치를 기다리고 있어요</Text>
+            <Text style={[styles.routeErrorMessage, { color: colors.textSecondary }]}>목적지와 경유지는 편집할 수 있어요. 위치가 확인되면 경로를 선택해 주세요.</Text>
+            <Pressable accessibilityRole="button" onPress={() => setLocationAttempt(value => value + 1)}>
+              <Text style={[styles.routeErrorAction, { color: colors.tint }]}>현재 위치 다시 확인</Text>
+            </Pressable>
+          </View>
         ) : routeError && !loading ? (
           <View style={[styles.routeError, { borderColor: colors.border }]}>
             <Text style={[styles.routeErrorTitle, { color: colors.text }]}>
@@ -709,12 +721,12 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
 
         <Pressable
           onPress={startGuide}
-          disabled={locationBlocked || !route || starting || courseOnly}
+          disabled={locationBlocked || !start || !route || starting || courseOnly}
           style={({ pressed }) => [
             styles.startButton,
             {
               backgroundColor: colors.tint,
-              opacity: locationBlocked || !route || starting || courseOnly ? 0.5 : pressed ? 0.85 : 1,
+              opacity: locationBlocked || !start || !route || starting || courseOnly ? 0.5 : pressed ? 0.85 : 1,
             },
           ]}>
           {starting ? (

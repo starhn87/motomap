@@ -14,8 +14,8 @@
     button:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
     button:disabled { opacity: .36; }
     svg { display: block; width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-    .panel { height: 100%; background: var(--bg); border-top: 1px solid var(--line); padding-bottom: var(--safe); }
-    .panel.expanded { border-radius: 18px 18px 0 0; }
+    .panel { height: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding-bottom: var(--safe); }
+    .panel.expanded { border-radius: 18px; }
     .bar { height: 68px; display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; align-items: center; gap: 4px; padding: 0 10px; }
     .bar button { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 24px; }
     .bar button svg { width: 23px; height: 23px; }
@@ -25,20 +25,18 @@
     .arrival { font-size: 23px; font-weight: 750; letter-spacing: -.6px; }
     .period { font-size: 11px; font-weight: 600; margin-right: 3px; letter-spacing: 0; }
     .distance { font-size: 15px; font-weight: 650; }
-    .duration { font-size: 11px; line-height: 14px; color: var(--muted); }
     .status { font-size: 14px; font-weight: 650; line-height: 24px; overflow: hidden; text-overflow: ellipsis; }
     #drawer { display: none; height: 100%; padding: 0 20px 14px; }
     .expanded #drawer { display: flex; flex-direction: column; }
     .expanded .bar { display: none; }
     .sheetHeader { height: 30px; flex-shrink: 0; position: relative; touch-action: pan-x; }
     .handle { position: absolute; top: 9px; left: calc(50% - 16px); width: 32px; height: 4px; border-radius: 4px; background: #d4d4d8; }
-    .close { position: absolute; top: 0; right: -12px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; }
-    .close svg { width: 18px; height: 18px; }
     .sheetBody { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
     .volumeLabel { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 650; padding: 2px 0 0; }
     output { color: var(--muted); font-size: 12px; font-weight: 500; }
     .volumeRange { display: flex; align-items: center; gap: 12px; height: 48px; color: #71717a; }
     .volumeRange svg { width: 18px; height: 18px; }
+    .mute { width: 44px; height: 44px; display: grid; place-items: center; flex-shrink: 0; border-radius: 22px; }
     input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; height: 44px; flex: 1; min-width: 0; margin: 0; touch-action: pan-x; }
     input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 5px; background: linear-gradient(to right, var(--volume-blue) var(--volume, 100%), var(--track) var(--volume, 100%)); }
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; margin-top: -9.5px; background: #fff; border: 1px solid #e4e4e7; box-shadow: 0 1px 4px #18181b26; }
@@ -56,12 +54,11 @@
     <section id="drawer" aria-label="길안내 메뉴">
       <div class="sheetHeader dragArea">
         <div class="handle"></div>
-        <button class="close" data-action="menu" aria-label="길안내 메뉴 닫기"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
       </div>
       <div class="sheetBody">
         <div class="volumeLabel"><label for="volume">안내 음량</label><output id="volumeValue">100%</output></div>
         <div class="volumeRange">
-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4zM16 9l5 6M21 9l-5 6"/></svg>
+          <button id="mute" class="mute" aria-label="안내 음소거"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4zM16 9l5 6M21 9l-5 6"/></svg></button>
           <input type="range" id="volume" aria-label="안내 음량" min="0" max="100" value="100">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4zM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></svg>
         </div>
@@ -79,7 +76,6 @@
       <div class="summary dragArea" aria-live="off">
         <div class="destination" id="destination">목적지 안내</div>
         <div class="metrics"><div class="arrival" id="arrival">안내 준비 중</div><div class="distance" id="distance"></div></div>
-        <div class="duration" id="duration"></div>
       </div>
       <button data-action="menu" id="menuButton" aria-label="길안내 메뉴 열기" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
     </footer>
@@ -89,6 +85,16 @@
       const $ = id => document.getElementById(id);
       const send = (action, extra = {}) => window.webkit.messageHandlers.motomapBottom.postMessage({ action, ...extra });
       let expanded = false;
+      let latestState = {};
+      let showGoal = false;
+      const showLocation = () => {
+        const label = showGoal ? latestState.goalName : latestState.currentLocationName;
+        $('destination').textContent = label || (showGoal ? '목적지' : '현재 위치');
+        $('destination').setAttribute('aria-label', (showGoal ? '목적지 ' : '현재 위치 ') + (label || ''));
+      };
+      setInterval(() => {
+        if (!expanded && !document.hidden) { showGoal = !showGoal; showLocation(); }
+      }, 5000);
       document.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => send(button.dataset.action)));
       const volume = $('volume');
       const showVolume = value => {
@@ -96,6 +102,11 @@
         $('volumeValue').textContent = percent + '%';
         volume.style.setProperty('--volume', percent + '%');
       };
+      $('mute').addEventListener('click', () => {
+        volume.value = 0;
+        showVolume(0);
+        send('volume', { value: 0 });
+      });
       volume.addEventListener('input', () => {
         showVolume(volume.value);
         send('volume', { value: Number(volume.value) / 100 });
@@ -136,7 +147,8 @@
             volume.value = Math.round((state.volume ?? 1) * 100);
             showVolume(volume.value);
           }
-          $('destination').textContent = state.goalName ? '목적지 · ' + state.goalName : '목적지 안내';
+          latestState = state;
+          showLocation();
           const seconds = state.remainingTime;
           const meters = state.remainingDistance;
           const valid = Number.isFinite(seconds) && Number.isFinite(meters) && seconds >= 0 && meters >= 0;
@@ -144,7 +156,6 @@
             $('arrival').className = 'status';
             $('arrival').textContent = state.status;
             $('distance').textContent = '';
-            $('duration').textContent = state.detail || '';
           } else if (valid) {
             const eta = new Date(Date.now() + seconds * 1000);
             const hours = eta.getHours();
@@ -155,13 +166,10 @@
             period.textContent = hours < 12 ? '오전' : '오후';
             $('arrival').append(period, document.createTextNode((hours % 12 || 12) + ':' + String(eta.getMinutes()).padStart(2, '0')));
             $('distance').textContent = meters >= 1000 ? (meters / 1000).toFixed(1) + 'km' : Math.round(meters) + 'm';
-            const minutes = Math.ceil(seconds / 60);
-            $('duration').textContent = (minutes >= 60 ? Math.floor(minutes / 60) + '시간 ' + minutes % 60 + '분' : minutes + '분') + ' 소요 · 도착 예정';
           } else {
             $('arrival').className = 'status';
             $('arrival').textContent = '안내 준비 중';
             $('distance').textContent = '';
-            $('duration').textContent = '';
           }
           document.querySelector('[data-action=refresh]').disabled = !!state.busy;
           document.querySelectorAll('.actions button').forEach(button => {
