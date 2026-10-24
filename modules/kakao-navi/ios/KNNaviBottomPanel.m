@@ -2,6 +2,8 @@
 #import <WebKit/WebKit.h>
 #import <math.h>
 
+const CGFloat KNNaviBottomCollapsedHeight = 68;
+
 @class KNNaviBottomPanel;
 @interface KNNaviBottomMessage : NSObject <WKScriptMessageHandler>
 @property(nonatomic, weak) KNNaviBottomPanel *owner;
@@ -62,7 +64,8 @@
   [self publishHeight];
 }
 - (void)publishHeight {
-  if (self.onHeight) self.onHeight((self.expanded ? 348 : 80) + self.bottomInset);
+  self.accessibilityViewIsModal = self.expanded && self.ready;
+  if (self.onHeight) self.onHeight((self.expanded ? 280 : KNNaviBottomCollapsedHeight) + self.bottomInset);
 }
 - (void)updateState:(NSDictionary *)state { self.state = [state copy]; [self publish]; }
 - (void)publish {
@@ -73,6 +76,10 @@
   if (!json) return;
   NSString *text = [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
   [self.webView evaluateJavaScript:[NSString stringWithFormat:@"window.MotoMapBottom.render(%@)",text] completionHandler:nil];
+}
+- (BOOL)accessibilityPerformEscape {
+  if (!self.expanded) return NO;
+  [self collapse]; return YES;
 }
 - (void)collapse { self.expanded = NO; [self publishHeight]; [self publish]; }
 - (void)receiveMessage:(WKScriptMessage *)message {

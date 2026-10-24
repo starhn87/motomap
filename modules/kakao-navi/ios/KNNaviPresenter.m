@@ -271,6 +271,7 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
                                                     KNMapPOIEventListener>
 @property(nonatomic, strong, nullable) KNNaviView *naviView;
 @property(nonatomic, strong) KNNaviBottomPanel *bottomPanel;
+@property(nonatomic, strong) UIControl *menuBackdrop;
 @property(nonatomic, strong) KNNaviHiddenViews *webHiddenViews;
 @property(nonatomic, strong) KNNaviHiddenViews *auxiliaryHiddenViews;
 @property(nonatomic) CGFloat panelHeight;
@@ -408,11 +409,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [naviView.menuView setCustomMenu:@[ motoItem ]];
   [naviView.menuView useGuideCancel:NO];
 
-  // 상단 안내 배너 색 — SDK 가 정식으로 여는 커스터마이즈 지점이다(1차·2차 RG).
-  // 기본 파랑은 흰 글자와의 명도 대비가 5:1 남짓이라 햇빛 아래에서 흐려진다.
-  // 앱의 텍스트 색(#18181B)이면 17:1 가까이 올라가고, 안내 화면만 카카오 파랑으로
-  // 튀지 않아 앱을 거쳐 들어온 화면처럼 이어진다.
-  // 야간은 더 어둡게(#0A0A0A) — 주간 색 그대로면 어두운 지도와 경계가 뭉개진다.
+  // 회전 정보와 SDK 배치는 유지하고 앱의 모노크롬 브랜드 팔레트를 적용한다.
+  // SDK의 흰 안내 글자가 묻히지 않도록 주·야간 모두 어두운 바탕을 쓴다.
   [naviView.curDirView
       setBackgroundColor:[UIColor colorWithRed:0x18 / 255.0
                                          green:0x18 / 255.0
@@ -423,9 +421,6 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
                                           blue:0x0A / 255.0
                                          alpha:1.0]];
 
-  // 2차 안내(다음 회전)도 같은 계열로. 다만 1차와 똑같이 칠하면 두 바가 한
-  // 덩어리로 뭉개져 "지금 할 것"과 "그다음"이 안 갈린다 — 한 단계 밝은 회색으로
-  // 층을 남긴다(앱의 surfaceMuted 다크값 #2A2A2A 계열).
   [naviView.nextDirView
       setBackgroundColor:[UIColor colorWithRed:0x2A / 255.0
                                          green:0x2A / 255.0
@@ -508,6 +503,12 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.volume = 1;
   self.auxiliaryHiddenViews = [KNNaviHiddenViews new];
   self.webHiddenViews = [KNNaviHiddenViews new];
+  self.menuBackdrop = [UIControl new];
+  self.menuBackdrop.backgroundColor = [UIColor colorWithWhite:0 alpha:0.28];
+  self.menuBackdrop.hidden = YES;
+  self.menuBackdrop.isAccessibilityElement = NO;
+  [self.menuBackdrop addTarget:self action:@selector(closeBottomMenu) forControlEvents:UIControlEventTouchUpInside];
+  [self.view addSubview:self.menuBackdrop];
   self.bottomPanel = [[KNNaviBottomPanel alloc] initWithFrame:CGRectZero];
   __weak KNNaviViewController *weakSelf = self;
   self.bottomPanel.onHeight = ^(CGFloat height) {
@@ -518,6 +519,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     KNNaviViewController *vc = weakSelf;
     [vc.webHiddenViews restore];
     vc.bottomPanel.hidden = YES;
+    vc.menuBackdrop.hidden = YES;
     [vc updateCustomControlsVisibility];
     if (vc.arrivalMessage) [vc showArrivalUIWithMessage:vc.arrivalMessage];
     [vc.view setNeedsLayout];
@@ -546,6 +548,10 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self updateBottomPanel];
 }
 
+- (void)closeBottomMenu {
+  [self.bottomPanel collapse];
+}
+
 - (void)refreshHiddenViews {
   if (self.finished) return;
   [self.auxiliaryHiddenViews hideAuxiliaryViewsIn:self.naviView];
@@ -560,14 +566,16 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   BOOL web = self.bottomPanel.ready;
   CGFloat inset = self.view.safeAreaInsets.bottom;
   // 확장 메뉴만 지도 위에 겹친다. 접힌 바만큼 지도 자체를 줄여 자차를 가리지 않는다.
-  CGFloat reserved = web ? 80 + inset : 0;
+  CGFloat reserved = web ? KNNaviBottomCollapsedHeight + inset : 0;
   self.naviView.frame = CGRectMake(0, 0, self.view.bounds.size.width, MAX(0, self.view.bounds.size.height - reserved));
   if (self.bottomPanel) {
     [self.bottomPanel setBottomInset:inset];
-    CGFloat height = MIN(self.panelHeight ?: 80 + inset, self.view.bounds.size.height - self.view.safeAreaInsets.top);
+    CGFloat height = MIN(self.panelHeight ?: KNNaviBottomCollapsedHeight + inset, self.view.bounds.size.height - self.view.safeAreaInsets.top);
     self.bottomPanel.frame = CGRectMake(0, self.view.bounds.size.height - height, self.view.bounds.size.width, height);
     self.bottomPanel.hidden = !web;
   }
+  self.menuBackdrop.frame = self.view.bounds;
+  self.menuBackdrop.hidden = !web || !self.bottomPanel.expanded;
   [self refreshHiddenViews];
 }
 
@@ -581,6 +589,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     state[@"remainingDistance"] = @(trip.remainDist);
     state[@"remainingTime"] = @(trip.remainTime);
   }
+  state[@"goalName"] = self.trip.goal.name ?: @"";
   state[@"canEditVias"] = @(self.trip.vias.count <= 3);
   [self.bottomPanel updateState:state];
 }

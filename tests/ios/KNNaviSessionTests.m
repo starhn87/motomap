@@ -199,21 +199,28 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
   WKWebView *web = [panel valueForKey:@"webView"];
   WaitAsync(^BOOL{ return panel.ready || panel.failed; }, NSDate.timeIntervalSinceReferenceDate + 15, ^(BOOL loaded) {
     if (!loaded || !panel.ready) { NSLog(@"FAIL WK not ready"); [panel invalidate]; completion(failures+1); return; }
-    [web evaluateJavaScript:@"document.querySelector('[data-action=menu]').click();document.getElementById('duration').textContent" completionHandler:^(id result, NSError *error) {
-      if (error || ![result isEqual:@"8분"]) { NSLog(@"FAIL WK metrics %@ %@",result,error); failures++; }
-      WaitAsync(^BOOL{ return height == 348; },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL expanded) {
+    [web evaluateJavaScript:@"document.querySelector('[data-action=refresh]').click();document.getElementById('menuButton').click();document.getElementById('duration').textContent" completionHandler:^(id result, NSError *error) {
+      if (error || ![result isEqual:@"8분 소요 · 도착 예정"]) { NSLog(@"FAIL WK metrics %@ %@",result,error); failures++; }
+      WaitAsync(^BOOL{ return height == 280; },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL expanded) {
         if (!expanded) { NSLog(@"FAIL WK expansion"); failures++; }
+        if (!panel.accessibilityViewIsModal) { NSLog(@"FAIL WK menu accessibility scope"); failures++; }
+
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
         [panel layoutIfNeeded];
         [web takeSnapshotWithConfiguration:nil completionHandler:^(UIImage *image, NSError *error) {
           NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"bottom-expanded.png"];
           if (image) [UIImagePNGRepresentation(image) writeToFile:path atomically:YES];
-        NSString *script = @"document.getElementById('volume').value=35;document.getElementById('volume').dispatchEvent(new Event('input'));['refresh','hazard','routePreview','destination','vias','end'].forEach(action=>document.querySelector('[data-action='+action+']').click());true";
+        NSString *script = @"const buttons=[...document.querySelectorAll('.actions button')].map(b=>b.getBoundingClientRect());const row=buttons.every(b=>Math.abs(b.top-buttons[0].top)<1);const order=document.querySelector('.volumeRange').getBoundingClientRect().bottom<=buttons[0].top;const footer=getComputedStyle(document.querySelector('.bar')).display==='none';const width=document.documentElement.scrollWidth<=innerWidth;document.getElementById('volume').value=35;document.getElementById('volume').dispatchEvent(new Event('input'));['hazard','routePreview','destination','vias','end'].forEach(action=>document.querySelector('[data-action='+action+']').click());JSON.stringify({distance:document.getElementById('distance').textContent,row,order,footer,width})";
         [web evaluateJavaScript:script completionHandler:^(id result, NSError *error) {
+          NSDictionary *layout = [result isKindOfClass:NSString.class] ? [NSJSONSerialization JSONObjectWithData:[result dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] : nil;
+          if (error || ![layout[@"distance"] isEqual:@"2.1km"] || ![layout[@"row"] boolValue] ||
+              ![layout[@"order"] boolValue] || ![layout[@"footer"] boolValue] || ![layout[@"width"] boolValue]) {
+            NSLog(@"FAIL WK navigation layout %@ %@",layout,error); failures++;
+          }
           WaitAsync(^BOOL{ return actions.count == 8 && fabs(volume-.35)<.001; },NSDate.timeIntervalSinceReferenceDate+3,^(BOOL sent) {
             if (!sent) { NSLog(@"FAIL WK actions %@ volume=%f",actions,volume); failures++; }
             [panel updateState:@{@"status":@"목적지를 유지하고 있어요", @"detail":@"<script>quoted ' \"", @"volume":@0.35}];
-            [web evaluateJavaScript:@"document.getElementById('duration').textContent" completionHandler:^(id result, NSError *error) {
+            [web evaluateJavaScript:@"document.getElementById('arrival').textContent" completionHandler:^(id result, NSError *error) {
               if (error || ![result isEqual:@"목적지를 유지하고 있어요"]) { NSLog(@"FAIL WK state JSON"); failures++; }
               [(id<WKNavigationDelegate>)panel webViewWebContentProcessDidTerminate:web];
               if (!failure || !panel.failed || panel.ready) { NSLog(@"FAIL WK fallback"); failures++; }

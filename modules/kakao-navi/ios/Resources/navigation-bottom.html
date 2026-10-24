@@ -1,5 +1,177 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'"><style>
-:root{color-scheme:light dark;--bg:#fff;--ink:#18181b;--muted:#71717a;--line:#e4e4e7;--safe:0px}*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:transparent;color:var(--ink)}button,input{font:inherit}button{border:0;background:none;color:inherit;min-height:48px;touch-action:manipulation}button:active{background:#8882}button:disabled{opacity:.4}.panel{height:100%;display:flex;flex-direction:column;justify-content:flex-end;background:var(--bg);border-radius:20px 20px 0 0;border-top:1px solid var(--line);padding-bottom:var(--safe)}#drawer{display:none;overflow-y:auto;flex:1;min-height:0;padding:8px 16px}.expanded #drawer{display:block}.handle{height:4px;width:32px;border-radius:4px;background:var(--line);margin:0 auto 10px}.volume{display:flex;align-items:center;gap:12px;min-height:48px;border-bottom:1px solid var(--line);padding-bottom:8px}.volume label{font-size:13px;color:var(--muted);white-space:nowrap}input[type=range]{accent-color:#16a34a;flex:1;min-width:60px;height:44px}output{font-size:12px;min-width:32px;text-align:right}.grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding-top:8px}.grid button{text-align:left;padding:12px 10px;font-size:15px;border-radius:10px}.end{color:#dc2626;border-top:1px solid var(--line);width:100%;text-align:center;margin-top:4px;font-size:15px;font-weight:600}.bar{display:flex;align-items:center;gap:6px;flex-shrink:0;height:80px;padding:8px 12px;border-top:1px solid var(--line)}.refresh{width:48px;flex-shrink:0;font-size:27px;border-radius:24px}.summary{flex:1;min-width:0;padding:0 4px}.primary{font-size:22px;font-weight:750;font-variant-numeric:tabular-nums}.meta{font-size:12px;color:var(--muted);margin-top:4px}.status{font-size:13px;font-weight:600;line-height:1.4}.menu{min-width:64px;padding:8px;font-size:14px;font-weight:600;border-radius:12px}.menu span{display:block;font-size:16px;margin-bottom:2px}@media(prefers-color-scheme:dark){:root{--bg:#18181b;--ink:#fafafa;--muted:#a1a1aa;--line:#3f3f46}}
-</style></head><body><main class="panel" id="panel"><section id="drawer" aria-label="길안내 메뉴"><div class="handle"></div><div class="volume"><label for="volume">안내 음량</label><input type="range" id="volume" aria-label="안내 음량" min="0" max="100" value="100"><output id="volumeValue">100%</output></div><div class="grid"><button data-action="hazard">위험 제보</button><button data-action="routePreview">경로 다시 찾기</button><button data-action="destination">목적지 변경</button><button data-action="vias">경유지 편집</button></div><button class="end" data-action="end">길안내 종료</button></section><footer class="bar"><button class="refresh" data-action="refresh" aria-label="현재 경로 새로고침">↻</button><div class="summary" aria-live="polite"><div class="primary" id="duration">안내 준비 중</div><div class="meta" id="detail"></div></div><button class="menu" data-action="menu" aria-expanded="false"><span id="chevron">⌃</span><span id="menuLabel">메뉴</span></button></footer></main><script>
-(()=>{const $=id=>document.getElementById(id);const send=(action,extra={})=>window.webkit.messageHandlers.motomapBottom.postMessage({action,...extra});document.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>send(button.dataset.action)));const volume=$('volume');volume.addEventListener('input',()=>{$('volumeValue').textContent=volume.value+'%';send('volume',{value:Number(volume.value)/100});});window.MotoMapBottom={render(state){$('panel').classList.toggle('expanded',!!state.expanded);document.documentElement.style.setProperty('--safe',Math.max(0,state.bottomInset||0)+'px');const menu=document.querySelector('[data-action=menu]');menu.setAttribute('aria-expanded',String(!!state.expanded));$('chevron').textContent=state.expanded?'⌄':'⌃';$('menuLabel').textContent=state.expanded?'닫기':'메뉴';if(document.activeElement!==volume){volume.value=Math.round((state.volume??1)*100);$('volumeValue').textContent=volume.value+'%';}const seconds=state.remainingTime,meters=state.remainingDistance;const valid=Number.isFinite(seconds)&&Number.isFinite(meters)&&seconds>=0&&meters>=0;if(state.status){$('duration').textContent=state.status;$('duration').className='status';$('detail').textContent=state.detail||'';}else if(valid){const minutes=Math.ceil(seconds/60);$('duration').className='primary';$('duration').textContent=minutes>=60?Math.floor(minutes/60)+'시간 '+minutes%60+'분':minutes+'분';const eta=new Date(Date.now()+seconds*1000);$('detail').textContent=(meters>=1000?(meters/1000).toFixed(1)+'km':Math.round(meters)+'m')+' · '+eta.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})+' 도착';}else{$('duration').textContent='안내 준비 중';$('detail').textContent='';}document.querySelector('[data-action=refresh]').disabled=!!state.busy;document.querySelectorAll('.grid button').forEach(button=>button.disabled=!!state.busy||(button.dataset.action==='vias'&&state.canEditVias===false));const viaButton=document.querySelector('[data-action=vias]');viaButton.textContent=state.canEditVias===false?'코스 경유지 고정':'경유지 편집';}};send('ready');})();
-</script></body></html>
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+  <style>
+    :root { color-scheme: light dark; --bg: #fff; --ink: #18181b; --muted: #71717a; --line: #e4e4e7; --brand: #18181b; --on-brand: #fff; --volume-blue: #1268fa; --track: #e4e4e7; --safe: 0px; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, sans-serif; -webkit-user-select: none; user-select: none; }
+    button, input { font: inherit; }
+    button { border: 0; background: none; color: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    button:active { background: #71717a18; }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+    button:disabled { opacity: .36; }
+    svg { display: block; width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    .panel { height: 100%; background: var(--bg); border-top: 1px solid var(--line); padding-bottom: var(--safe); }
+    .panel.expanded { border-radius: 18px 18px 0 0; }
+    .bar { height: 68px; display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; align-items: center; gap: 4px; padding: 0 10px; }
+    .bar button { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 24px; }
+    .bar button svg { width: 23px; height: 23px; }
+    .summary { text-align: center; min-width: 0; touch-action: pan-x; }
+    .destination { font-size: 11px; line-height: 16px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .metrics { display: flex; justify-content: center; align-items: baseline; gap: 8px; line-height: 28px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .arrival { font-size: 23px; font-weight: 750; letter-spacing: -.6px; }
+    .period { font-size: 11px; font-weight: 600; margin-right: 3px; letter-spacing: 0; }
+    .distance { font-size: 15px; font-weight: 650; }
+    .duration { font-size: 11px; line-height: 14px; color: var(--muted); }
+    .status { font-size: 14px; font-weight: 650; line-height: 24px; overflow: hidden; text-overflow: ellipsis; }
+    #drawer { display: none; height: 100%; padding: 0 20px 14px; }
+    .expanded #drawer { display: flex; flex-direction: column; }
+    .expanded .bar { display: none; }
+    .sheetHeader { height: 30px; flex-shrink: 0; position: relative; touch-action: pan-x; }
+    .handle { position: absolute; top: 9px; left: calc(50% - 16px); width: 32px; height: 4px; border-radius: 4px; background: #d4d4d8; }
+    .close { position: absolute; top: 0; right: -12px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; }
+    .close svg { width: 18px; height: 18px; }
+    .sheetBody { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    .volumeLabel { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 650; padding: 2px 0 0; }
+    output { color: var(--muted); font-size: 12px; font-weight: 500; }
+    .volumeRange { display: flex; align-items: center; gap: 12px; height: 48px; color: #71717a; }
+    .volumeRange svg { width: 18px; height: 18px; }
+    input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; height: 44px; flex: 1; min-width: 0; margin: 0; touch-action: pan-x; }
+    input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 5px; background: linear-gradient(to right, var(--volume-blue) var(--volume, 100%), var(--track) var(--volume, 100%)); }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; margin-top: -9.5px; background: #fff; border: 1px solid #e4e4e7; box-shadow: 0 1px 4px #18181b26; }
+    .actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); padding-top: 12px; margin-top: 4px; }
+    .actions button { display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 7px 0; min-height: 76px; border-radius: 8px; font-size: 12px; line-height: 16px; white-space: nowrap; }
+    .actions svg { width: 25px; height: 25px; color: #52525b; }
+    .end { flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 48px; margin-top: 14px; border-radius: 8px; background: var(--brand); color: var(--on-brand); font-size: 15px; font-weight: 650; }
+    .end svg { width: 18px; height: 18px; }
+    .end:active { opacity: .82; background: var(--brand); }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0a0a0a; --ink: #fafafa; --muted: #a1a1aa; --line: #27272a; --brand: #fafafa; --on-brand: #0a0a0a; --volume-blue: #3984ff; --track: #3f3f46; } .actions svg, .volumeRange { color: #d4d4d8; } }
+  </style>
+</head>
+<body>
+  <main class="panel" id="panel">
+    <section id="drawer" aria-label="길안내 메뉴">
+      <div class="sheetHeader dragArea">
+        <div class="handle"></div>
+        <button class="close" data-action="menu" aria-label="길안내 메뉴 닫기"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="sheetBody">
+        <div class="volumeLabel"><label for="volume">안내 음량</label><output id="volumeValue">100%</output></div>
+        <div class="volumeRange">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4zM16 9l5 6M21 9l-5 6"/></svg>
+          <input type="range" id="volume" aria-label="안내 음량" min="0" max="100" value="100">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4zM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></svg>
+        </div>
+        <div class="actions">
+          <button data-action="routePreview" aria-label="다른 경로 찾기"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 20V8a3 3 0 0 1 3-3h2M7 2l3 3-3 3M19 4v12a3 3 0 0 1-3 3h-2M17 16l-3 3 3 3"/></svg><span>다른 경로</span></button>
+          <button data-action="hazard"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 14h4l10 5V5L8 10H4zM8 14l2 7M21 8v8"/></svg><span>위험 제보</span></button>
+          <button data-action="destination"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span>목적지 변경</span></button>
+          <button data-action="vias" id="viasButton"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="18" cy="19" r="2"/><path d="M6 7v4a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7M15 7h6"/></svg><span id="viasLabel">경유지 편집</span></button>
+        </div>
+      </div>
+      <button class="end" data-action="end"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m20 4-6 16-3-7-7-3z"/></svg><span>길안내 종료</span></button>
+    </section>
+    <footer class="bar">
+      <button data-action="refresh" aria-label="현재 경로 새로고침"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 8a8 8 0 1 0 1 7M19 3v5h-5"/></svg></button>
+      <div class="summary dragArea" aria-live="off">
+        <div class="destination" id="destination">목적지 안내</div>
+        <div class="metrics"><div class="arrival" id="arrival">안내 준비 중</div><div class="distance" id="distance"></div></div>
+        <div class="duration" id="duration"></div>
+      </div>
+      <button data-action="menu" id="menuButton" aria-label="길안내 메뉴 열기" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    </footer>
+  </main>
+  <script>
+    (() => {
+      const $ = id => document.getElementById(id);
+      const send = (action, extra = {}) => window.webkit.messageHandlers.motomapBottom.postMessage({ action, ...extra });
+      let expanded = false;
+      document.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => send(button.dataset.action)));
+      const volume = $('volume');
+      const showVolume = value => {
+        const percent = Math.round(Math.max(0, Math.min(100, Number(value))));
+        $('volumeValue').textContent = percent + '%';
+        volume.style.setProperty('--volume', percent + '%');
+      };
+      volume.addEventListener('input', () => {
+        showVolume(volume.value);
+        send('volume', { value: Number(volume.value) / 100 });
+      });
+      // 범위 입력은 건드리지 않고 핸들과 요약 영역에서만 시트를 여닫는다.
+      document.querySelectorAll('.dragArea').forEach(area => {
+        let start = null;
+        area.addEventListener('pointerdown', event => {
+          if (!event.target.closest('button')) {
+            start = event.clientY;
+            if (event.isTrusted) area.setPointerCapture(event.pointerId);
+          }
+        });
+        area.addEventListener('pointerup', event => {
+          if (start !== null) {
+            const delta = event.clientY - start;
+            if ((expanded && delta > 28) || (!expanded && delta < -28)) send('menu');
+          }
+          start = null;
+        });
+        area.addEventListener('pointercancel', () => { start = null; });
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && expanded) send('menu');
+      });
+      window.MotoMapBottom = {
+        render(state) {
+          const wasExpanded = expanded;
+          expanded = !!state.expanded;
+          $('panel').classList.toggle('expanded', expanded);
+          document.documentElement.style.setProperty('--safe', Math.max(0, state.bottomInset || 0) + 'px');
+          $('menuButton').setAttribute('aria-expanded', String(expanded));
+          $('drawer').setAttribute('aria-hidden', String(!expanded));
+          if (wasExpanded !== expanded) {
+            (expanded ? volume : $('menuButton')).focus({ preventScroll: true });
+          }
+          if (document.activeElement !== volume) {
+            volume.value = Math.round((state.volume ?? 1) * 100);
+            showVolume(volume.value);
+          }
+          $('destination').textContent = state.goalName ? '목적지 · ' + state.goalName : '목적지 안내';
+          const seconds = state.remainingTime;
+          const meters = state.remainingDistance;
+          const valid = Number.isFinite(seconds) && Number.isFinite(meters) && seconds >= 0 && meters >= 0;
+          if (state.status) {
+            $('arrival').className = 'status';
+            $('arrival').textContent = state.status;
+            $('distance').textContent = '';
+            $('duration').textContent = state.detail || '';
+          } else if (valid) {
+            const eta = new Date(Date.now() + seconds * 1000);
+            const hours = eta.getHours();
+            $('arrival').className = 'arrival';
+            $('arrival').replaceChildren();
+            const period = document.createElement('span');
+            period.className = 'period';
+            period.textContent = hours < 12 ? '오전' : '오후';
+            $('arrival').append(period, document.createTextNode((hours % 12 || 12) + ':' + String(eta.getMinutes()).padStart(2, '0')));
+            $('distance').textContent = meters >= 1000 ? (meters / 1000).toFixed(1) + 'km' : Math.round(meters) + 'm';
+            const minutes = Math.ceil(seconds / 60);
+            $('duration').textContent = (minutes >= 60 ? Math.floor(minutes / 60) + '시간 ' + minutes % 60 + '분' : minutes + '분') + ' 소요 · 도착 예정';
+          } else {
+            $('arrival').className = 'status';
+            $('arrival').textContent = '안내 준비 중';
+            $('distance').textContent = '';
+            $('duration').textContent = '';
+          }
+          document.querySelector('[data-action=refresh]').disabled = !!state.busy;
+          document.querySelectorAll('.actions button').forEach(button => {
+            button.disabled = !!state.busy || (button.dataset.action === 'vias' && state.canEditVias === false);
+          });
+          $('viasLabel').textContent = state.canEditVias === false ? '코스 경유 고정' : '경유지 편집';
+        }
+      };
+      send('ready');
+    })();
+  </script>
+</body>
+</html>
