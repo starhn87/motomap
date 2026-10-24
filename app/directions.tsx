@@ -30,7 +30,7 @@ import {
 import { toast } from '@/lib/toast';
 
 // 출발지·도착지를 자유롭게 정하는 길찾기 페이지.
-// 두 지점이 정해지는 순간 바로 미리보기(/navi)로 넘어간다 — 별도 버튼 없음.
+// 지점을 고르면 미리보기(/navi)로 이동하고, 돌아온 뒤에도 경로 보기로 다시 열 수 있다.
 // 집·회사(useMyPlacesStore)와 최근 검색(lib/recentSearches)은 검색 화면과
 // 같은 저장소를 그대로 쓴다 — 어느 쪽에서 만들었든 양쪽에 함께 보인다.
 
@@ -83,6 +83,7 @@ export default function DirectionsScreen() {
   const viaCountRef = useRef(viaPoints.length);
   viaCountRef.current = viaPoints.length;
   const [resolving, setResolving] = useState(false);
+  const previewPending = useRef(false);
   const [recents, setRecents] = useState<RecentSearch[]>([]);
 
   useEffect(() => {
@@ -96,6 +97,11 @@ export default function DirectionsScreen() {
     }, []),
   );
 
+  const previewBlocked = () => previewPending.current || resolving || navLaunching;
+  const editField = (field: Editing) => {
+    if (!previewBlocked()) setEditing(field);
+  };
+
   // 두 지점이 갖춰지면 바로 미리보기로. 'current' 는 여기서 좌표로 푼다.
   const preview = async (
     nextOrigin: Point,
@@ -103,7 +109,8 @@ export default function DirectionsScreen() {
     destAddress?: string,
     nextVias: (NavTarget | null)[] = viaPoints,
   ) => {
-    if (!nextDest || resolving) return;
+    if (!nextDest || previewBlocked()) return;
+    previewPending.current = true;
     setResolving(true);
     try {
       const resolvedDest = nextDest === 'current' ? await currentAsTarget() : nextDest;
@@ -125,6 +132,7 @@ export default function DirectionsScreen() {
     } catch {
       toast.error('현재 위치를 확인할 수 없습니다');
     } finally {
+      previewPending.current = false;
       setResolving(false);
     }
   };
@@ -139,6 +147,7 @@ export default function DirectionsScreen() {
   }, []);
 
   const swap = () => {
+    if (previewBlocked()) return;
     const nextOrigin: Point = dest ?? 'current';
     const nextDest: Point | null = origin === 'current' ? null : origin;
     const nextVias = [...viaPoints].reverse(); // 왕복 반전이니 들르는 순서도 뒤집는다
@@ -150,12 +159,14 @@ export default function DirectionsScreen() {
   };
 
   const pickDest = (point: Point, address?: string) => {
+    if (previewBlocked()) return;
     setDest(point);
     void preview(origin, point, address);
   };
 
   // + 버튼 — 빈 경유지 줄만 만든다. 탭해서 검색으로 채운다.
   const addEmptyVia = () => {
+    if (previewBlocked()) return;
     if (viaCountRef.current >= MAX_VIAS) return;
     viaCountRef.current += 1;
     const key = `via-${nextDraftId.current++}`;
@@ -164,11 +175,17 @@ export default function DirectionsScreen() {
   };
 
   const removeVia = (index: number) => {
-    setViaPoints((prev) => prev.filter((_, i) => i !== index));
+    if (previewBlocked()) return;
+    const removed = viaPoints[index];
+    const nextVias = viaPoints.filter((_, i) => i !== index);
+    setViaPoints(nextVias);
     setFieldDraftKeys((prev) => prev.filter((_, i) => i !== index + 1));
+    // 빈 줄은 경로에 영향이 없다. 채워진 지점 삭제만 현재 목적지로 다시 표시한다.
+    if (removed && dest) void preview(origin, dest, undefined, nextVias);
   };
 
   const handleModalSelect = (point: Point, address?: string) => {
+    if (previewBlocked()) return;
     const kind = editing;
     setEditing(null);
     if (typeof kind === 'number') {
@@ -195,6 +212,7 @@ export default function DirectionsScreen() {
 
   // 집/회사 칩 — 설정돼 있으면 바로 도착지로, 없으면 설정 검색부터
   const shortcut = (slot: MyPlaceSlot) => {
+    if (previewBlocked()) return;
     const saved = myPlaces[slot];
     if (saved) {
       pickDest(
@@ -202,7 +220,7 @@ export default function DirectionsScreen() {
         saved.address,
       );
     } else {
-      setEditing(slot);
+      editField(slot);
     }
   };
 
@@ -225,7 +243,8 @@ export default function DirectionsScreen() {
             placeholder="출발지 선택"
             value={label(origin, '')}
             muted={false}
-            onPress={() => setEditing('origin')}
+            onPress={() => editField('origin')}
+            disabled={busy}
           />
           {viaPoints.map((via, i) => (
             <View key={fieldDraftKeys[i + 1]}>
@@ -235,7 +254,8 @@ export default function DirectionsScreen() {
                 placeholder="경유지 입력"
                 value={via?.name ?? ''}
                 muted={!via}
-                onPress={() => setEditing(i)}
+                onPress={() => editField(i)}
+                disabled={busy}
                 onRemove={() => removeVia(i)}
               />
             </View>
@@ -247,6 +267,7 @@ export default function DirectionsScreen() {
             {viaPoints.length === 0 && (
               <Pressable
                 onPress={addEmptyVia}
+                disabled={busy}
                 hitSlop={8}
                 style={[
                   styles.fieldInsertButton,
@@ -261,7 +282,8 @@ export default function DirectionsScreen() {
             placeholder="도착지 선택"
             value={dest ? label(dest, '') : ''}
             muted={!dest}
-            onPress={() => setEditing('dest')}
+            onPress={() => editField('dest')}
+            disabled={busy}
             onAdd={
               viaPoints.length > 0 && viaPoints.length < MAX_VIAS ? addEmptyVia : undefined
             }
@@ -284,6 +306,22 @@ export default function DirectionsScreen() {
           )}
         </View>
       </View>
+
+      <Pressable
+        accessibilityLabel="현재 지점으로 경로 보기"
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !dest || busy, busy }}
+        disabled={!dest || busy}
+        onPress={() => { void preview(origin, dest); }}
+        style={({ pressed }) => [
+          styles.previewButton,
+          { backgroundColor: dest ? colors.tint : colors.surface, opacity: pressed ? 0.8 : 1 },
+        ]}>
+        {busy && <ActivityIndicator size="small" color={colors.background} />}
+        <Text style={[styles.previewButtonText, { color: dest ? colors.background : colors.textSecondary }]}>
+          경로 보기
+        </Text>
+      </Pressable>
 
       {/* 바로가기 — 집·회사 (검색 화면과 같은 저장소) */}
       <View style={styles.shortcutRow}>
@@ -312,6 +350,7 @@ export default function DirectionsScreen() {
               <Pressable
                 key={recentKey(entry)}
                 onPress={() => pickDest(target, target.address)}
+                disabled={busy}
                 style={[styles.recentRow, { borderBottomColor: colors.border }]}>
                 <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
                 <View style={styles.recentTexts}>
@@ -391,7 +430,9 @@ function FieldRow({
   onPress,
   onRemove,
   onAdd,
+  disabled = false,
 }: {
+  disabled?: boolean;
   icon: 'radiobox-marked' | 'circle-medium' | 'map-marker';
   placeholder: string;
   value: string;
@@ -404,7 +445,7 @@ function FieldRow({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   return (
-    <Pressable onPress={onPress} style={styles.fieldRow}>
+    <Pressable onPress={onPress} disabled={disabled} style={styles.fieldRow}>
       <MaterialCommunityIcons name={icon} size={16} color={colors.textSecondary} />
       <Text
         style={[styles.fieldValue, { color: muted ? colors.textSecondary : colors.text }]}
@@ -414,6 +455,7 @@ function FieldRow({
       {onRemove && (
         <Pressable
           onPress={onRemove}
+          disabled={disabled}
           hitSlop={8}
           style={[styles.fieldCircleButton, { borderColor: colors.border }]}>
           <MaterialCommunityIcons name="minus" size={14} color={colors.textSecondary} />
@@ -422,6 +464,7 @@ function FieldRow({
       {onAdd && (
         <Pressable
           onPress={onAdd}
+          disabled={disabled}
           hitSlop={8}
           style={[styles.fieldCircleButton, { borderColor: colors.border }]}>
           <MaterialCommunityIcons name="plus" size={14} color={colors.textSecondary} />
@@ -473,6 +516,19 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     gap: 14,
+  },
+  previewButton: {
+    minHeight: 48,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
+  },
+  previewButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   fieldCard: {
     flexDirection: 'row',
