@@ -715,10 +715,6 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
               </Pressable>
             </View>
           </View>
-        ) : loading || !route ? (
-          <View style={[styles.infoRow, styles.infoRowCentered]}>
-            <ActivityIndicator size="small" color={colors.textSecondary} />
-          </View>
         ) : null}
 
         <Pressable

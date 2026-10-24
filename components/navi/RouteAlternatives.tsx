@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -25,13 +25,15 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
 }) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const scroll = useRef<ScrollView>(null);
+  const [width, setWidth] = useState(0);
+  const cardWidth = width > 0 ? (width - 44) / 2 : 136;
   const selectedIndex = options.findIndex(option => option.value === priority);
   useEffect(() => {
-    if (selectedIndex >= 0) scroll.current?.scrollTo({ x: selectedIndex * 176, animated: true });
-  }, [selectedIndex]);
+    if (selectedIndex >= 0) scroll.current?.scrollTo({ x: selectedIndex * (cardWidth + 8), animated: true });
+  }, [selectedIndex, cardWidth]);
   const selected = options.find((option) => option.value === priority);
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={({ nativeEvent }) => setWidth(nativeEvent.layout.width)}>
       <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row} accessibilityRole="radiogroup" accessibilityLabel="경로 비교">
         {options.map((option) => {
@@ -45,7 +47,7 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
               accessibilityState={{ checked: active, disabled, busy: option.loading }}
               disabled={disabled}
               onPress={() => onSelect(option.value)}
-              style={[styles.option, {
+              style={[styles.option, { width: cardWidth,
                 backgroundColor: active ? colors.tint : colors.surfaceMuted,
                 borderColor: active ? colors.tint : colors.border,
               }]}>
@@ -89,9 +91,9 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
 const styles = StyleSheet.create({
   container: { gap: 8 },
   row: { flexDirection: 'row', gap: 8 },
-  option: { width: 168, borderWidth: 1, borderRadius: 12, padding: 10, gap: 5, minHeight: 72 },
+  option: { borderWidth: 1, borderRadius: 12, padding: 10, gap: 5, minHeight: 72 },
   loading: { minHeight: 24, alignItems: 'flex-start', justifyContent: 'center' },
-  heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 },
+  heading: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   label: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
   metrics: { fontSize: 14, fontWeight: '700' },
   detail: { fontSize: 12, lineHeight: 17 },

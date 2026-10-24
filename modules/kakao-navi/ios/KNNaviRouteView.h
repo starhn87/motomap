@@ -6,6 +6,9 @@ NS_ASSUME_NONNULL_BEGIN
 @interface KNNaviRouteView : KNNaviView
 @property(nonatomic, copy, nullable) void (^onSafetyModeBlocked)(void);
 @property(nonatomic, readonly) BOOL didBlockSafetyMode;
+@property(nonatomic, copy, nullable) void (^onMapTrackingChanged)(BOOL detached);
+@property(nonatomic, readonly) BOOL mapDetached;
++ (BOOL)isSDKMapStateBoundaryCompatible;
 + (BOOL)isSDKModeBoundaryCompatible;
 - (void)resumeRouteModeForPreview:(BOOL)preview;
 @end

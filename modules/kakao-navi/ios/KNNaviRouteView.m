@@ -11,9 +11,40 @@
 
 @interface KNNaviRouteView ()
 @property(nonatomic, readwrite) BOOL didBlockSafetyMode;
+@property(nonatomic, readwrite) BOOL mapDetached;
 @end
 
+static IMP gOriginalMapState = NULL;
+static void MotoMapMapState(KNNaviRouteView *view, SEL selector, KNNaviMapView *map, MapState state) {
+  ((void (*)(id, SEL, id, MapState))gOriginalMapState)(view, selector, map, state);
+  if (map != view.mapView || state > MapState_CurPos) return;
+  BOOL detached = state != MapState_None && state != MapState_CurPos;
+  if (view.mapDetached == detached) return;
+  view.mapDetached = detached;
+  if (view.onMapTrackingChanged) view.onMapTrackingChanged(detached);
+}
+
 @implementation KNNaviRouteView
+
++ (BOOL)isSDKMapStateBoundaryCompatible {
+  static dispatch_once_t once;
+  static BOOL installed = NO;
+  dispatch_once(&once, ^{
+    SEL selector = NSSelectorFromString(@"naviMapView:mapState:");
+    Method method = class_getInstanceMethod(KNNaviView.class, selector);
+    if (!method || method_getNumberOfArguments(method) != 4) return;
+    char result[16] = {0}, map[16] = {0}, state[16] = {0};
+    method_getReturnType(method, result, sizeof(result));
+    method_getArgumentType(method, 2, map, sizeof(map));
+    method_getArgumentType(method, 3, state, sizeof(state));
+    if (strcmp(result, @encode(void)) || strcmp(map, @encode(id)) || strcmp(state, @encode(MapState))) return;
+    gOriginalMapState = method_getImplementation(method);
+    // 호환될 때만 우리 하위 클래스에 경계를 추가한다. SDK 전체나 다른 인스턴스는 바꾸지 않는다.
+    installed = class_addMethod(KNNaviRouteView.class, selector, (IMP)MotoMapMapState, method_getTypeEncoding(method));
+  });
+  return installed;
+}
+
 
 + (BOOL)isSDKModeBoundaryCompatible {
   Method method = class_getInstanceMethod(KNNaviView.class, @selector(naviMode:));

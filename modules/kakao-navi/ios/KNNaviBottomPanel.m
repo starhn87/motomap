@@ -11,9 +11,12 @@ const CGFloat KNNaviBottomRecenterHeight = 48;
 @end
 @interface KNNaviBottomPanel () <WKNavigationDelegate>
 @property(nonatomic, strong) WKWebView *webView;
+@property(nonatomic, strong) WKWebView *menuWebView;
 @property(nonatomic, strong) NSURL *documentURL;
 @property(nonatomic, strong) NSDictionary *state;
 @property(nonatomic) BOOL ready;
+@property(nonatomic) BOOL footerReady;
+@property(nonatomic) BOOL menuReady;
 @property(nonatomic) BOOL failed;
 @property(nonatomic) BOOL invalidated;
 @property(nonatomic) BOOL expanded;
@@ -30,43 +33,53 @@ const CGFloat KNNaviBottomRecenterHeight = 48;
   self = [super initWithFrame:frame];
   if (!self) return nil;
   _state = @{};
-  WKWebViewConfiguration *config = [WKWebViewConfiguration new];
-  KNNaviBottomMessage *handler = [KNNaviBottomMessage new]; handler.owner = self;
-  [config.userContentController addScriptMessageHandler:handler name:@"motomapBottom"];
-  _webView = [[WKWebView alloc] initWithFrame:self.bounds configuration:config];
-  _webView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-  _webView.navigationDelegate = self;
-  _webView.opaque = NO;
-  _webView.backgroundColor = UIColor.clearColor;
-  _webView.scrollView.backgroundColor = UIColor.clearColor;
-  _webView.scrollView.bounces = NO;
-  _webView.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
-  [self addSubview:_webView];
   NSURL *url = [NSBundle.mainBundle URLForResource:@"MotoMapNavigationUI" withExtension:@"bundle"];
   NSBundle *bundle = url ? [NSBundle bundleWithURL:url] : nil;
   _documentURL = [bundle URLForResource:@"navigation-bottom" withExtension:@"html"];
-  if (_documentURL) [_webView loadFileURL:_documentURL allowingReadAccessToURL:_documentURL.URLByDeletingLastPathComponent];
-  else dispatch_async(dispatch_get_main_queue(), ^{ [self fail]; });
+  _webView = [self makeWebView];
+  _webView.frame = self.bounds;
+  [self addSubview:_webView];
+  // 메뉴는 미리 로드한 별도 뷰다. footer 크기/문서를 바꾸지 않고 native 시트로 올린다.
+  _menuWebView = [self makeWebView];
+  _menuWebView.hidden = YES;
+  if (!_documentURL) dispatch_async(dispatch_get_main_queue(), ^{ [self fail]; });
   __weak KNNaviBottomPanel *weakSelf = self;
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
     if (!weakSelf.ready) [weakSelf fail];
   });
   return self;
 }
+- (WKWebView *)makeWebView {
+  WKWebViewConfiguration *config = [WKWebViewConfiguration new];
+  KNNaviBottomMessage *handler = [KNNaviBottomMessage new]; handler.owner = self;
+  [config.userContentController addScriptMessageHandler:handler name:@"motomapBottom"];
+  WKWebView *web = [[WKWebView alloc] initWithFrame:CGRectZero configuration:config];
+  web.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  web.navigationDelegate = self;
+  web.opaque = NO;
+  web.backgroundColor = UIColor.clearColor;
+  web.scrollView.backgroundColor = UIColor.clearColor;
+  web.scrollView.bounces = NO;
+  web.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+  if (self.documentURL) [web loadFileURL:self.documentURL allowingReadAccessToURL:self.documentURL.URLByDeletingLastPathComponent];
+  return web;
+}
+- (UIView *)menuView { return self.menuWebView; }
 - (void)fail {
   if (self.invalidated || self.failed) return;
+  [self collapse];
   self.failed = YES; self.ready = NO;
   if (self.onFailure) self.onFailure();
 }
 - (void)setBottomInset:(CGFloat)inset {
   if (_bottomInset == MAX(0, inset)) return;
   _bottomInset = MAX(0, inset);
-  [self publish];
-  [self publishHeight];
+  [self publish]; [self publishHeight];
 }
 - (void)publishHeight {
-  self.accessibilityViewIsModal = self.expanded && self.ready;
-  if (self.onHeight) self.onHeight((self.expanded ? 280 : KNNaviBottomCollapsedHeight + ([self.state[@"showRecenter"] boolValue] ? KNNaviBottomRecenterHeight : 0)) + self.bottomInset);
+  self.accessibilityElementsHidden = self.expanded;
+  self.menuWebView.accessibilityViewIsModal = self.expanded && self.ready;
+  if (self.onHeight) self.onHeight(KNNaviBottomCollapsedHeight + ([self.state[@"showRecenter"] boolValue] ? KNNaviBottomRecenterHeight : 0) + self.bottomInset);
 }
 - (void)updateState:(NSDictionary *)state {
   BOOL heightChanged = [self.state[@"showRecenter"] boolValue] != [state[@"showRecenter"] boolValue];
@@ -75,40 +88,52 @@ const CGFloat KNNaviBottomRecenterHeight = 48;
   [self publish];
 }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
-  if (!self.expanded && [self.state[@"showRecenter"] boolValue] && point.y < KNNaviBottomRecenterHeight &&
+  if ([self.state[@"showRecenter"] boolValue] && point.y < KNNaviBottomRecenterHeight &&
       fabs(point.x - self.bounds.size.width / 2) > 80) return NO;
   return [super pointInside:point withEvent:event];
 }
-- (void)publish {
-  if (!self.ready || self.invalidated || self.failed) return;
+- (void)publishTo:(WKWebView *)web menu:(BOOL)menu {
   NSMutableDictionary *payload = [self.state mutableCopy];
-  payload[@"expanded"] = @(self.expanded); payload[@"bottomInset"] = @(self.bottomInset);
+  payload[@"expanded"] = @(menu); payload[@"menuOpen"] = @(self.expanded);
+  payload[@"bottomInset"] = menu ? @0 : @(self.bottomInset);
   NSData *json = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
   if (!json) return;
   NSString *text = [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
-  [self.webView evaluateJavaScript:[NSString stringWithFormat:@"window.MotoMapBottom.render(%@)",text] completionHandler:nil];
+  [web evaluateJavaScript:[NSString stringWithFormat:@"window.MotoMapBottom.render(%@)",text] completionHandler:nil];
+}
+- (void)publish {
+  if (!self.ready || self.invalidated || self.failed) return;
+  [self publishTo:self.webView menu:NO];
+  [self publishTo:self.menuWebView menu:YES];
 }
 - (BOOL)accessibilityPerformEscape {
   if (!self.expanded) return NO;
   [self collapse]; return YES;
 }
-- (void)collapse { self.expanded = NO; [self publishHeight]; [self publish]; }
+- (void)setMenuOpen:(BOOL)open {
+  if (self.expanded == open) return;
+  self.expanded = open;
+  [self publishHeight]; [self publish];
+  if (self.onMenuVisibility) self.onMenuVisibility(open);
+}
+- (void)collapse { [self setMenuOpen:NO]; }
 - (void)receiveMessage:(WKScriptMessage *)message {
   if (self.invalidated || self.failed || !message.frameInfo.mainFrame ||
+      (message.webView != self.webView && message.webView != self.menuWebView) ||
       ![message.frameInfo.request.URL.path isEqualToString:self.documentURL.path] ||
       ![message.body isKindOfClass:NSDictionary.class]) return;
   NSDictionary *body = message.body;
   NSString *action = body[@"action"];
   if (![action isKindOfClass:NSString.class]) return;
   if ([action isEqualToString:@"ready"]) {
+    if (message.webView == self.webView) self.footerReady = YES; else self.menuReady = YES;
+    if (self.ready || !self.footerReady || !self.menuReady) return;
     self.ready = YES; [self publishHeight]; [self publish];
     if (self.onAction) self.onAction(@"ready",@{});
     return;
   }
   if (!self.ready) return;
-  if ([action isEqualToString:@"menu"]) {
-    self.expanded = !self.expanded; [self publishHeight]; [self publish]; return;
-  }
+  if ([action isEqualToString:@"menu"]) { [self setMenuOpen:!self.expanded]; return; }
   if ([action isEqualToString:@"volume"]) {
     NSNumber *value = body[@"value"];
     if (![value isKindOfClass:NSNumber.class] || !isfinite(value.doubleValue)) return;
@@ -130,9 +155,11 @@ const CGFloat KNNaviBottomRecenterHeight = 48;
 - (void)invalidate {
   if (self.invalidated) return;
   self.invalidated = YES;
-  [self.webView stopLoading];
-  [self.webView.configuration.userContentController removeScriptMessageHandlerForName:@"motomapBottom"];
-  self.webView.navigationDelegate = nil;
-  self.onAction = nil; self.onHeight = nil; self.onFailure = nil;
+  for (WKWebView *web in @[self.webView,self.menuWebView]) {
+    [web stopLoading];
+    [web.configuration.userContentController removeScriptMessageHandlerForName:@"motomapBottom"];
+    web.navigationDelegate = nil;
+  }
+  self.onAction = nil; self.onHeight = nil; self.onFailure = nil; self.onMenuVisibility = nil;
 }
 @end

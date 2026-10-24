@@ -25,9 +25,9 @@
     .bar #menuButton { width: 56px; height: 56px; border-radius: 28px; }
     .bar #menuButton svg { width: 32px; height: 32px; stroke-width: 2; }
     .summary { text-align: center; min-width: 0; touch-action: pan-x; }
-    .destination { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 15px; line-height: 22px; color: var(--muted); min-width: 0; }
+    .destination { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 16px; font-weight: 650; line-height: 23px; color: var(--ink); min-width: 0; }
     .placeName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .placeIcon { width: 17px; height: 17px; }
+    .placeIcon { width: 21px; height: 21px; color: var(--ink); stroke-width: 2; }
     .placeIcon[hidden] { display: none; }
     .metrics { display: flex; justify-content: center; align-items: baseline; gap: 6px; line-height: 34px; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .arrival { font-size: 28px; font-weight: 750; letter-spacing: -.6px; }
@@ -85,8 +85,8 @@
       <button data-action="refresh" aria-label="현재 경로 새로고침"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 8a8 8 0 1 0 1 7M19 3v5h-5"/></svg></button>
       <div class="summary dragArea" aria-live="off">
         <div class="destination" id="destination" aria-label="현재 위치">
-          <svg class="placeIcon" id="currentIcon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
-          <svg class="placeIcon" id="goalIcon" hidden aria-hidden="true" viewBox="0 0 24 24"><path d="M6 21V3l13 3-13 5"/></svg>
+          <svg class="placeIcon" id="currentIcon" aria-hidden="true" viewBox="0 0 24 24"><path d="m20 4-6 16-3-7-7-3z" fill="currentColor" stroke-linejoin="round"/></svg>
+          <svg class="placeIcon" id="goalIcon" hidden aria-hidden="true" viewBox="0 0 24 24"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5" fill="currentColor" stroke="none"/></svg>
           <span class="placeName" id="placeName"></span>
         </div>
         <div class="metrics"><div class="arrival" id="arrival">안내 준비 중</div><div class="distance" id="distance"></div></div>
@@ -99,6 +99,7 @@
       const $ = id => document.getElementById(id);
       const send = (action, extra = {}) => window.webkit.messageHandlers.motomapBottom.postMessage({ action, ...extra });
       let expanded = false;
+      let menuOpen = false;
       let latestState = {};
       let showGoal = false;
       const showLocation = () => {
@@ -150,15 +151,17 @@
       });
       window.MotoMapBottom = {
         render(state) {
-          const wasExpanded = expanded;
+          const wasMenuOpen = menuOpen;
+          menuOpen = !!state.menuOpen;
           expanded = !!state.expanded;
           $('panel').classList.toggle('expanded', expanded);
           $('recenter').hidden = expanded || !state.showRecenter;
           document.documentElement.style.setProperty('--safe', Math.max(0, state.bottomInset || 0) + 'px');
-          $('menuButton').setAttribute('aria-expanded', String(expanded));
+          $('menuButton').setAttribute('aria-expanded', String(menuOpen));
           $('drawer').setAttribute('aria-hidden', String(!expanded));
-          if (wasExpanded !== expanded) {
-            (expanded ? volume : $('menuButton')).focus({ preventScroll: true });
+          if (wasMenuOpen !== menuOpen) {
+            if (expanded && menuOpen) volume.focus({ preventScroll: true });
+            else if (!expanded && !menuOpen) $('menuButton').focus({ preventScroll: true });
           }
           if (document.activeElement !== volume) {
             volume.value = Math.round((state.volume ?? 1) * 100);

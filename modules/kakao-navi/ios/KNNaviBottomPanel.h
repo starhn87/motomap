@@ -9,6 +9,8 @@ FOUNDATION_EXPORT const CGFloat KNNaviBottomRecenterHeight;
 @property(nonatomic, readonly) BOOL ready;
 @property(nonatomic, readonly) BOOL failed;
 @property(nonatomic, readonly) BOOL expanded;
+@property(nonatomic, strong, readonly) UIView *menuView;
+@property(nonatomic, copy, nullable) void (^onMenuVisibility)(BOOL visible);
 - (void)updateState:(NSDictionary *)state;
 - (void)setBottomInset:(CGFloat)inset;
 - (void)collapse;

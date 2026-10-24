@@ -275,6 +275,7 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong) KNNaviHiddenViews *webHiddenViews;
 @property(nonatomic, strong) KNNaviHiddenViews *mapHiddenViews;
 @property(nonatomic) BOOL mapControlsHidden;
+@property(nonatomic) BOOL mapDetached;
 @property(nonatomic, strong) KNNaviHiddenViews *auxiliaryHiddenViews;
 @property(nonatomic) CGFloat panelHeight;
 @property(nonatomic) float volume;
@@ -358,6 +359,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   guidance.voiceGuideDelegate = self;
   guidance.citsGuideDelegate = self;
 
+  [KNNaviRouteView isSDKMapStateBoundaryCompatible];
   KNNaviRouteView *naviView = [[KNNaviRouteView alloc] initWithGuidance:guidance
                                                          trip:self.trip
                                                   routeOption:self.priority
@@ -377,6 +379,11 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.naviView = naviView;
   __weak KNNaviViewController *weakController = self;
   naviView.onSafetyModeBlocked = ^{ [weakController handleBlockedSafetyMode]; };
+  self.mapDetached = naviView.mapDetached;
+  naviView.onMapTrackingChanged = ^(BOOL detached) {
+    weakController.mapDetached = detached;
+    [weakController updateBottomPanel];
+  };
   // 탭은 부모 레이아웃도 상태 콜백도 생략할 수 있다. 공개 안내 바의 실제
   // hidden 변경을 이 인스턴스에서만 관찰한다. 전역 hook·제스처 가로채기는 없다.
   [self startObservingBottomView];
@@ -511,6 +518,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.menuBackdrop = [UIControl new];
   self.menuBackdrop.backgroundColor = [UIColor colorWithWhite:0 alpha:0.28];
   self.menuBackdrop.hidden = YES;
+  self.menuBackdrop.alpha = 0;
   self.menuBackdrop.isAccessibilityElement = NO;
   [self.menuBackdrop addTarget:self action:@selector(closeBottomMenu) forControlEvents:UIControlEventTouchUpInside];
   [self.view addSubview:self.menuBackdrop];
@@ -520,11 +528,15 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     weakSelf.panelHeight = height;
     [weakSelf.view setNeedsLayout];
   };
+  self.bottomPanel.onMenuVisibility = ^(BOOL visible) { [weakSelf setBottomMenuVisible:visible]; };
   self.bottomPanel.onFailure = ^{
     KNNaviViewController *vc = weakSelf;
     [vc.webHiddenViews restore];
     [vc.mapHiddenViews restore]; vc.mapControlsHidden = NO;
     vc.bottomPanel.hidden = YES;
+    [vc.bottomPanel.menuView.layer removeAllAnimations];
+    vc.bottomPanel.menuView.hidden = YES;
+    [vc.menuBackdrop.layer removeAllAnimations];
     vc.menuBackdrop.hidden = YES;
     [vc updateCustomControlsVisibility];
     if (vc.arrivalMessage) [vc showArrivalUIWithMessage:vc.arrivalMessage];
@@ -554,6 +566,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     [vc updateBottomPanel];
   };
   [self.view addSubview:self.bottomPanel];
+  [self.view addSubview:self.bottomPanel.menuView];
   [self refreshHiddenViews];
   [self updateBottomPanel];
 }
@@ -562,13 +575,41 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self.bottomPanel collapse];
 }
 
+- (void)setBottomMenuVisible:(BOOL)visible {
+  [self.view layoutIfNeeded];
+  UIView *sheet = self.bottomPanel.menuView;
+  CGFloat offset = self.view.bounds.size.height - sheet.center.y + sheet.bounds.size.height / 2;
+  if (visible) {
+    if (sheet.hidden) sheet.transform = CGAffineTransformMakeTranslation(0, offset);
+    sheet.hidden = NO; self.menuBackdrop.hidden = NO;
+    [self.view bringSubviewToFront:self.menuBackdrop];
+    [self.view bringSubviewToFront:sheet];
+  }
+  [UIView animateWithDuration:0.25 delay:0
+                     options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseOut
+                  animations:^{
+    sheet.transform = visible ? CGAffineTransformIdentity : CGAffineTransformMakeTranslation(0, offset);
+    self.menuBackdrop.alpha = visible ? 1 : 0;
+  } completion:^(BOOL finished) {
+    if (self.bottomPanel.expanded != visible) return;
+    if (!visible || !self.bottomPanel.ready) {
+      sheet.hidden = YES; self.menuBackdrop.hidden = YES;
+    } else if (visible && finished) UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, sheet);
+  }];
+}
+
+- (BOOL)accessibilityPerformEscape {
+  if (!self.bottomPanel.expanded) return [super accessibilityPerformEscape];
+  [self closeBottomMenu]; return YES;
+}
+
 - (void)refreshHiddenViews {
   if (self.finished) return;
   [self.auxiliaryHiddenViews hideAuxiliaryViewsIn:self.naviView];
   if (self.bottomPanel.ready) {
     [self.webHiddenViews hideView:self.naviView.bottomView];
     [self.webHiddenViews hideView:self.naviView.menuView];
-    BOOL hidden = [self.mapHiddenViews hideMapControlsIn:self.naviView.mapView];
+    BOOL hidden = [KNNaviRouteView isSDKMapStateBoundaryCompatible] && [self.mapHiddenViews hideMapControlsIn:self.naviView.mapView];
     if (!hidden) [self.mapHiddenViews restore];
     if (self.mapControlsHidden != hidden) {
       self.mapControlsHidden = hidden;
@@ -590,7 +631,11 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     self.bottomPanel.hidden = !web;
   }
   self.menuBackdrop.frame = self.view.bounds;
-  self.menuBackdrop.hidden = !web || !self.bottomPanel.expanded;
+  UIView *sheet = self.bottomPanel.menuView;
+  CGFloat sheetHeight = MIN(280, self.view.bounds.size.height - gap - self.view.safeAreaInsets.top);
+  sheet.bounds = CGRectMake(0, 0, MAX(0, self.view.bounds.size.width - 24), MAX(0, sheetHeight));
+  sheet.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height - gap - sheetHeight / 2);
+  if (!web) { sheet.hidden = YES; self.menuBackdrop.hidden = YES; }
   [self refreshHiddenViews];
 }
 
@@ -606,7 +651,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   }
   state[@"goalName"] = self.trip.goal.name ?: @"";
   state[@"currentLocationName"] = self.currentLocationAt && -self.currentLocationAt.timeIntervalSinceNow <= 10 ? (self.currentLocationName ?: @"현재 위치") : @"현재 위치";
-  state[@"showRecenter"] = @(self.mapControlsHidden && self.hasNaviScreenState && self.naviScreenState == DriveTouch);
+  state[@"showRecenter"] = @(self.mapControlsHidden && self.mapDetached);
   state[@"canEditVias"] = @(self.trip.vias.count <= 3);
   [self.bottomPanel updateState:state];
 }

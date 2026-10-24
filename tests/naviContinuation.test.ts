@@ -7,7 +7,7 @@ type Element = { type: any; props: any };
 const goal = { name: '기존 목적지', latitude: 37.5, longitude: 127.1, placeId: 'original' };
 const nextGoal = { name: '새 목적지', latitude: 37.6, longitude: 127.2, placeId: 'new' };
 
-function setup(noGPS = false, edit: 'goal' | 'vias' | null = null) {
+function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading = false) {
   let dirty = false, cursor = 0;
   let slots: any[] = [];
   const rootSlots: any[] = [], contentSlots: any[] = [];
@@ -57,7 +57,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null) {
     '@/lib/navigation': {}, '@/lib/mapFocus': { hasMapOverlayInStack: () => false },
     '@/stores/useMapStore': { useMapStore: Object.assign((s: any) => s({ userLocation: null, requestMapReset() {} }), { getState: () => ({ userLocation: null, requestMapReset() {} }) }) },
     '@/hooks/useUserLocation': { useUserLocation() {} },
-    '@/hooks/useBikeRoutes': { useBikeRoutes: () => ({ priority: 2, setPriority() {}, route: { distance: 1200 }, alternatives: [], mapRoutes: [], trafficParts: [], loading: false, courseOnly: false, flatVias: [], effVias: [], resetRoutes() {} }) },
+    '@/hooks/useBikeRoutes': { useBikeRoutes: () => ({ priority: 2, setPriority() {}, route: routesLoading ? undefined : { distance: 1200 }, alternatives: [], mapRoutes: [], trafficParts: [], loading: routesLoading, courseOnly: false, flatVias: [], effVias: [], resetRoutes() {} }) },
     '@/lib/recentSearches': { loadRecentSearches: async () => [], recentTargets: () => [] },
     '@/lib/guideEvents': { markGuideStarted() { calls.marker++; } },
     '@/lib/kakaoNaviInit': { ensureKakaoNaviReady: async () => {} },
@@ -164,5 +164,12 @@ test('목적지를 고른 뒤 미리보기에서 다시 연 검색 취소는 편
   assert.equal(f.store.preview.returnPending, false);
   f.start();
   assert.equal(f.calls.resumed[0][3], nextGoal.name);
+  f.unmount();
+});
+
+
+test('경로 카드가 로딩 중이어도 안내 시작 위에 별도 대기 스피너를 만들지 않는다', () => {
+  const f = setup(false, null, true);
+  assert.equal(f.nodes().filter(node => node.type === 'Spinner').length, 0);
   f.unmount();
 });
