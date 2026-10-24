@@ -17,6 +17,7 @@
 - (void)naviViewScreenState:(KNNaviViewState)state;
 - (void)setBottomMenuVisible:(BOOL)visible;
 - (void)updateBottomPanel;
+- (void)updateCurrentLocationWithGuide:(KNGuide_Location *)guide;
 - (BOOL)usableRecoveryGPS:(KNGPSData *)gps;
 - (BOOL)guidance:(KNGuidance *)guidance shouldPlayVoiceGuide:(KNGuide_Voice *)voice replaceSndData:(NSData **)data;
 @end
@@ -67,6 +68,16 @@
 @property(nonatomic, strong) NSDate *timestamp;
 @end
 @implementation GPSProbe @end
+@interface LocationNameProbe : NSObject
+@property(nonatomic, copy) NSString *roadName;
+@property(nonatomic, copy) NSString *facilityName;
+@end
+@implementation LocationNameProbe @end
+@interface LocationGuideProbe : NSObject
+@property(nonatomic, strong) GPSProbe *gpsOrigin;
+@property(nonatomic, strong) LocationNameProbe *location;
+@end
+@implementation LocationGuideProbe @end
 
 @interface PreviewTripProbe : NSObject
 @property(nonatomic, strong) KNPOI *goal;
@@ -284,6 +295,7 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
   SessionControllerProbe *controller = [SessionControllerProbe new];
   [window.rootViewController addChildViewController:controller];
   controller.view.frame = window.bounds;
+  controller.additionalSafeAreaInsets = UIEdgeInsetsMake(0, 0, 0, 20);
   [window.rootViewController.view addSubview:controller.view];
   [controller didMoveToParentViewController:window.rootViewController];
   SessionViewProbe *navigation = [SessionViewProbe new]; navigation.mapView = map;
@@ -293,6 +305,7 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
   [controller setValue:@0.7 forKey:@"volume"];
   [controller setValue:@"테헤란로" forKey:@"currentLocationName"];
   [controller setValue:NSDate.date forKey:@"currentLocationAt"];
+  [controller setValue:NSDate.date forKey:@"currentLocationGPSAt"];
   PreviewTripProbe *trip = [PreviewTripProbe new]; trip.remainTime = 480; trip.remainDist = 2100;
   trip.goal = [[KNPOI alloc] initWithName:@"도착 카페" x:300000 y:400000];
   PreviewGuidanceProbe *guide = [PreviewGuidanceProbe new]; guide.trip = trip;
@@ -334,11 +347,40 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
     }
     if (CGRectGetMaxY(panel.frame) > window.bounds.size.height - 20 || panel.frame.origin.x != 12 ||
         !CGRectEqualToRect(controller.naviView.frame, controller.view.bounds)) { NSLog(@"FAIL floating panel frame"); failures++; }
-    NSString *metrics = @"const times=[0,1,60,3600,3661,90000].map(seconds=>{window.MotoMapBottom.render({remainingTime:seconds,remainingDistance:2100});return document.getElementById('arrival').textContent;});window.MotoMapBottom.render({remainingTime:480,remainingDistance:2100,goalName:'도착 카페',currentLocationName:'테헤란로',volume:.7,showRecenter:true});const first=document.getElementById('placeName').textContent;const currentIcon=!document.getElementById('currentIcon').hasAttribute('hidden');await new Promise(resolve=>setTimeout(resolve,5300));const second=document.getElementById('placeName').textContent;return JSON.stringify({first,second,times,currentIcon,goalIcon:!document.getElementById('goalIcon').hasAttribute('hidden'),recenterVisible:!document.getElementById('recenter').hidden,remaining:document.getElementById('arrival').textContent,distance:document.getElementById('distance').textContent,noDuration:!document.getElementById('duration'),noClose:!document.querySelector('.close')})";
+    // 실제 위치 수집 경계: 빈 SDK 이름은 최근 값의 수명을 연장하거나 즉시 지우지 않는다.
+    if ([controller respondsToSelector:@selector(updateCurrentLocationWithGuide:)]) {
+      GPSProbe *gps = [GPSProbe new]; gps.valid = YES; gps.posTrust = YES; gps.timestamp = NSDate.date;
+      LocationNameProbe *location = [LocationNameProbe new]; location.roadName = @"테헤란로";
+      LocationGuideProbe *locationGuide = [LocationGuideProbe new]; locationGuide.gpsOrigin = gps; locationGuide.location = location;
+      [controller updateCurrentLocationWithGuide:(id)locationGuide];
+      NSDate *namedAt = [controller valueForKey:@"currentLocationAt"];
+      location.roadName = @"   ";
+      [controller updateCurrentLocationWithGuide:(id)locationGuide]; [controller updateBottomPanel];
+      NSDictionary *state = [panel valueForKey:@"state"];
+      if (![state[@"currentLocationName"] isEqual:@"테헤란로"] || ![[controller valueForKey:@"currentLocationAt"] isEqual:namedAt]) { NSLog(@"FAIL sparse road name lost or freshness extended"); failures++; }
+      [controller setValue:[NSDate dateWithTimeIntervalSinceNow:-11] forKey:@"currentLocationAt"];
+      [controller updateBottomPanel]; state = [panel valueForKey:@"state"];
+      if ([state[@"currentLocationName"] length] || ![state[@"currentLocationStatus"] isEqual:@"도로명 정보 없음"]) { NSLog(@"FAIL stale road name used as current"); failures++; }
+      gps.valid = NO; [controller updateCurrentLocationWithGuide:(id)locationGuide]; [controller updateBottomPanel];
+      if (![[panel valueForKey:@"state"][@"currentLocationStatus"] isEqual:@"GPS 수신 대기"]) { NSLog(@"FAIL missing GPS status"); failures++; }
+      gps.valid = YES; gps.timestamp = [NSDate dateWithTimeIntervalSinceNow:-11];
+      [controller updateCurrentLocationWithGuide:(id)locationGuide]; [controller updateBottomPanel];
+      if (![[panel valueForKey:@"state"][@"currentLocationStatus"] isEqual:@"GPS 수신 대기"]) { NSLog(@"FAIL stale GPS presented as current"); failures++; }
+      gps.timestamp = NSDate.date; location.roadName = nil; location.facilityName = @"지하주차장";
+      [controller updateCurrentLocationWithGuide:(id)locationGuide]; [controller updateBottomPanel];
+      if (![[panel valueForKey:@"state"][@"currentLocationName"] isEqual:@"지하주차장"]) { NSLog(@"FAIL facility fallback"); failures++; }
+    } else { NSLog(@"FAIL current location update boundary missing"); failures++; }
+    // 새 콜백/수동 갱신 없이도 1초 뒤 이름과 GPS가 만료돼야 한다.
+    [controller setValue:[NSDate dateWithTimeIntervalSinceNow:-9] forKey:@"currentLocationAt"];
+    [controller setValue:[NSDate dateWithTimeIntervalSinceNow:-9] forKey:@"currentLocationGPSAt"];
+    [controller updateBottomPanel];
+    NSString *metrics = @"const times=[0,1,60,3600,3661,90000].map(seconds=>{window.MotoMapBottom.render({remainingTime:seconds,remainingDistance:2100});return document.getElementById('arrival').textContent;});window.MotoMapBottom.render({remainingTime:480,remainingDistance:2100,goalName:'도착 카페',currentLocationName:'테헤란로',volume:.7,showRecenter:true});window.MotoMapBottom.render({currentLocationName:'',currentLocationStatus:'GPS 수신 대기'});const missing=document.getElementById('placeName').textContent;window.MotoMapBottom.render({remainingTime:480,remainingDistance:2100,goalName:'도착 카페',currentLocationName:'테헤란로',volume:.7,showRecenter:true});const first=document.getElementById('placeName').textContent;const currentIcon=!document.getElementById('currentIcon').hasAttribute('hidden');await new Promise(resolve=>setTimeout(resolve,5300));const second=document.getElementById('placeName').textContent;return JSON.stringify({first,second,missing,times,currentIcon,goalIcon:!document.getElementById('goalIcon').hasAttribute('hidden'),recenterVisible:!document.getElementById('recenter').hidden,remaining:document.getElementById('arrival').textContent,distance:document.getElementById('distance').textContent,noDuration:!document.getElementById('duration'),noClose:!document.querySelector('.close')})";
     [web callAsyncJavaScript:metrics arguments:@{} inFrame:nil inContentWorld:WKContentWorld.pageWorld completionHandler:^(id result, NSError *error) {
-      if (error || ![result containsString:@"\"recenterVisible\":true"] ||
+      if (error || ![result containsString:@"GPS 수신 대기"] || ![result containsString:@"\"recenterVisible\":true"] ||
           ![result containsString:@"\"times\":[\"0분\",\"1분\",\"1분\",\"1시간\",\"1시간2분\",\"25시간\"]"] ||
           ![result containsString:@"테헤란로"] || ![result containsString:@"도착 카페"]) { NSLog(@"FAIL WK metrics %@ %@",result,error); failures++; }
+      NSDictionary *expiredState = [panel valueForKey:@"state"];
+      if ([expiredState[@"currentLocationName"] length] || ![expiredState[@"currentLocationStatus"] isEqual:@"GPS 수신 대기"]) { NSLog(@"FAIL location did not expire without SDK callbacks"); failures++; }
       [panel layoutIfNeeded];
       [web takeSnapshotWithConfiguration:nil completionHandler:^(UIImage *image, NSError *error) {
         NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"bottom-collapsed.png"];
@@ -351,15 +393,17 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
           [web evaluateJavaScript:@"document.getElementById('menuButton').click()" completionHandler:nil];
           WaitAsync(^BOOL{ return NSDate.timeIntervalSinceReferenceDate - openedAt >= 0.3 && panel.expanded && !panel.menuView.hidden && CGAffineTransformIsIdentity(panel.menuView.transform); },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL expanded) {
             if (!expanded || !panel.menuView.accessibilityViewIsModal || height != 68 ||
-                !CGRectEqualToRect(footerFrame,panel.frame) || menuWeb == web) { NSLog(@"FAIL separate native sheet"); failures++; }
+                !CGRectEqualToRect(footerFrame,panel.frame) || menuWeb == web ||
+                fabs(CGRectGetMaxY(panel.menuView.frame) - controller.view.bounds.size.height) > 0.5 ||
+                CGRectGetMinX(panel.menuView.frame) != 0 || panel.menuView.bounds.size.width != controller.view.bounds.size.width) { NSLog(@"FAIL separate native sheet"); failures++; }
             [web evaluateJavaScript:@"getComputedStyle(document.querySelector('.bar')).display" completionHandler:^(id value, NSError *error) {
               if (error || [value isEqual:@"none"]) { NSLog(@"FAIL footer replaced by drawer"); failures++; }
               [menuWeb takeSnapshotWithConfiguration:nil completionHandler:^(UIImage *image, NSError *error) {
                 NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"bottom-expanded.png"];
                 if (image) [UIImagePNGRepresentation(image) writeToFile:path atomically:YES];
-                NSString *script = @"const buttons=[...document.querySelectorAll('.actions button')].map(b=>b.getBoundingClientRect());const row=buttons.every(b=>Math.abs(b.top-buttons[0].top)<1);const footer=getComputedStyle(document.querySelector('.bar')).display==='none';document.getElementById('volume').value=35;document.getElementById('volume').dispatchEvent(new Event('input'));document.getElementById('mute').click();['hazard','routePreview','destination','vias','end'].forEach(action=>document.querySelector('[data-action='+action+']').click());JSON.stringify({row,footer,noClose:!document.querySelector('.close')})";
+                NSString *script = @"const safe=Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe'));const end=document.querySelector('.end').getBoundingClientRect();const safeEnd=safe>=20&&end.bottom<=innerHeight-safe;const buttons=[...document.querySelectorAll('.actions button')].map(b=>b.getBoundingClientRect());const row=buttons.every(b=>Math.abs(b.top-buttons[0].top)<1);const footer=getComputedStyle(document.querySelector('.bar')).display==='none';document.getElementById('volume').value=35;document.getElementById('volume').dispatchEvent(new Event('input'));document.getElementById('mute').click();['hazard','routePreview','destination','vias','end'].forEach(action=>document.querySelector('[data-action='+action+']').click());JSON.stringify({row,footer,safeEnd,noClose:!document.querySelector('.close')})";
                 [menuWeb evaluateJavaScript:script completionHandler:^(id value, NSError *error) {
-                  if (error || ![value containsString:@"\"row\":true"] || ![value containsString:@"\"footer\":true"]) { NSLog(@"FAIL menu layout %@ %@",value,error); failures++; }
+                  if (error || ![value containsString:@"\"row\":true"] || ![value containsString:@"\"footer\":true"] || ![value containsString:@"\"safeEnd\":true"]) { NSLog(@"FAIL menu layout %@ %@",value,error); failures++; }
                   WaitAsync(^BOOL{ return actions.count == 9 && fabs(volume)<.001 && panel.menuView.hidden; },NSDate.timeIntervalSinceReferenceDate+3,^(BOOL sent) {
                     if (!sent) { NSLog(@"FAIL WK actions %@ volume=%f",actions,volume); failures++; }
                     [mapLocks restore];

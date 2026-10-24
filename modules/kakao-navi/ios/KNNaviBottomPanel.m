@@ -21,6 +21,7 @@ const CGFloat KNNaviBottomRecenterHeight = 48;
 @property(nonatomic) BOOL invalidated;
 @property(nonatomic) BOOL expanded;
 @property(nonatomic) CGFloat bottomInset;
+@property(nonatomic) CGFloat menuBottomInset;
 - (void)receiveMessage:(WKScriptMessage *)message;
 @end
 @implementation KNNaviBottomMessage
@@ -76,6 +77,11 @@ const CGFloat KNNaviBottomRecenterHeight = 48;
   _bottomInset = MAX(0, inset);
   [self publish]; [self publishHeight];
 }
+- (void)setMenuBottomInset:(CGFloat)inset {
+  if (_menuBottomInset == MAX(0, inset)) return;
+  _menuBottomInset = MAX(0, inset);
+  [self publish];
+}
 - (void)publishHeight {
   self.accessibilityElementsHidden = self.expanded;
   self.menuWebView.accessibilityViewIsModal = self.expanded && self.ready;
@@ -95,7 +101,7 @@ const CGFloat KNNaviBottomRecenterHeight = 48;
 - (void)publishTo:(WKWebView *)web menu:(BOOL)menu {
   NSMutableDictionary *payload = [self.state mutableCopy];
   payload[@"expanded"] = @(menu); payload[@"menuOpen"] = @(self.expanded);
-  payload[@"bottomInset"] = menu ? @0 : @(self.bottomInset);
+  payload[@"bottomInset"] = @(menu ? self.menuBottomInset : self.bottomInset);
   NSData *json = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
   if (!json) return;
   NSString *text = [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];

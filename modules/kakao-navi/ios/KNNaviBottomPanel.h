@@ -13,6 +13,7 @@ FOUNDATION_EXPORT const CGFloat KNNaviBottomRecenterHeight;
 @property(nonatomic, copy, nullable) void (^onMenuVisibility)(BOOL visible);
 - (void)updateState:(NSDictionary *)state;
 - (void)setBottomInset:(CGFloat)inset;
+- (void)setMenuBottomInset:(CGFloat)inset;
 - (void)collapse;
 - (void)invalidate;
 @end

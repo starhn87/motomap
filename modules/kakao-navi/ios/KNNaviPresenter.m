@@ -10,6 +10,7 @@
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
 #import <objc/runtime.h>
+#import <float.h>
 #import <stdlib.h>
 #import <string.h>
 
@@ -281,6 +282,8 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic) float volume;
 @property(nonatomic, copy) NSString *currentLocationName;
 @property(nonatomic, strong) NSDate *currentLocationAt;
+@property(nonatomic, strong) NSDate *currentLocationGPSAt;
+@property(nonatomic, strong) NSTimer *currentLocationExpiryTimer;
 @property(nonatomic, copy) NSString *arrivalMessage;
 @property(nonatomic) BOOL suspended;
 @property(nonatomic) NSInteger previewToken;
@@ -632,14 +635,20 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   }
   self.menuBackdrop.frame = self.view.bounds;
   UIView *sheet = self.bottomPanel.menuView;
-  CGFloat sheetHeight = MIN(280, self.view.bounds.size.height - gap - self.view.safeAreaInsets.top);
-  sheet.bounds = CGRectMake(0, 0, MAX(0, self.view.bounds.size.width - 24), MAX(0, sheetHeight));
-  sheet.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height - gap - sheetHeight / 2);
+  // 메뉴 배경은 화면 하단까지, 조작부는 홈 인디케이터 위에 둔다.
+  CGFloat menuInset = self.view.safeAreaInsets.bottom;
+  [self.bottomPanel setMenuBottomInset:menuInset];
+  CGFloat sheetHeight = MIN(280 + menuInset, self.view.bounds.size.height - self.view.safeAreaInsets.top);
+  sheet.bounds = CGRectMake(0, 0, self.view.bounds.size.width, MAX(0, sheetHeight));
+  sheet.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height - sheetHeight / 2);
   if (!web) { sheet.hidden = YES; self.menuBackdrop.hidden = YES; }
   [self refreshHiddenViews];
 }
 
 - (void)updateBottomPanel {
+  [self.currentLocationExpiryTimer invalidate];
+  self.currentLocationExpiryTimer = nil;
+  if (self.finished) return;
   KNTrip *trip = self.guidance.trip;
   NSMutableDictionary *state = [@{@"volume":@(self.volume), @"busy":@(self.changingDestination || self.arrivalRecovery.requesting)} mutableCopy];
   if (self.arrivalRecovery.waiting || self.arrivalMessage) {
@@ -650,10 +659,27 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     state[@"remainingTime"] = @(trip.remainTime);
   }
   state[@"goalName"] = self.trip.goal.name ?: @"";
-  state[@"currentLocationName"] = self.currentLocationAt && -self.currentLocationAt.timeIntervalSinceNow <= 10 ? (self.currentLocationName ?: @"현재 위치") : @"현재 위치";
+  BOOL freshGPS = self.currentLocationGPSAt && fabs(self.currentLocationGPSAt.timeIntervalSinceNow) <= 10;
+  BOOL freshName = self.currentLocationAt && fabs(self.currentLocationAt.timeIntervalSinceNow) <= 10;
+  state[@"currentLocationName"] = freshGPS && freshName ? (self.currentLocationName ?: @"") : @"";
+  state[@"currentLocationStatus"] = freshGPS ? @"도로명 정보 없음" : @"GPS 수신 대기";
   state[@"showRecenter"] = @(self.mapControlsHidden && self.mapDetached);
   state[@"canEditVias"] = @(self.trip.vias.count <= 3);
   [self.bottomPanel updateState:state];
+  // SDK 콜백이 끊겨도 마지막 위치 문자열이 화면에 무기한 남지 않게 한다.
+  NSTimeInterval expiry = DBL_MAX;
+  for (NSDate *timestamp in @[self.currentLocationGPSAt ?: NSDate.distantPast,
+                              self.currentLocationAt ?: NSDate.distantPast]) {
+    NSTimeInterval remaining = 10 + timestamp.timeIntervalSinceNow;
+    if (remaining > 0) expiry = MIN(expiry, remaining);
+  }
+  if (expiry != DBL_MAX) {
+    __weak KNNaviViewController *weakSelf = self;
+    self.currentLocationExpiryTimer = [NSTimer timerWithTimeInterval:MAX(0.02, expiry) repeats:NO block:^(NSTimer *timer) {
+      [weakSelf updateBottomPanel];
+    }];
+    [NSRunLoop.mainRunLoop addTimer:self.currentLocationExpiryTimer forMode:NSRunLoopCommonModes];
+  }
 }
 
 - (void)hazardTapped {
@@ -1093,13 +1119,29 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self.naviView guidance:aGuidance didUpdateIndoorRoute:aRoute];
 }
 
+- (void)updateCurrentLocationWithGuide:(KNGuide_Location *)guide {
+  KNGPSData *gps = guide.gpsOrigin;
+  if (![self usableRecoveryGPS:gps]) {
+    self.currentLocationGPSAt = nil;
+    self.currentLocationName = nil;
+    self.currentLocationAt = nil;
+    return;
+  }
+  self.currentLocationGPSAt = gps.timestamp;
+  NSCharacterSet *space = NSCharacterSet.whitespaceAndNewlineCharacterSet;
+  NSString *name = [guide.location.roadName stringByTrimmingCharactersInSet:space];
+  if (!name.length) name = [guide.location.facilityName stringByTrimmingCharactersInSet:space];
+  // 이름 없는 콜백이 이전 이름을 지우거나 유효 시간을 계속 연장하지 않게 한다.
+  if (name.length) {
+    self.currentLocationName = name;
+    self.currentLocationAt = gps.timestamp;
+  }
+}
+
 - (void)guidance:(KNGuidance *)aGuidance didUpdateLocation:(KNGuide_Location *)aLocationGuide {
   if (self.finished || ![KNSDKBridge isLocationUseAllowed]) return;
   [self.naviView guidance:aGuidance didUpdateLocation:aLocationGuide];
-  self.currentLocationAt = aLocationGuide.gpsOrigin.timestamp;
-  KNLocation *location = aLocationGuide.location;
-  self.currentLocationName = [self usableRecoveryGPS:aLocationGuide.gpsOrigin]
-      ? (location.roadName.length ? location.roadName : location.facilityName) : nil;
+  [self updateCurrentLocationWithGuide:aLocationGuide];
   [self updateBottomPanel];
   if (self.arrivalRecovery.waiting && !self.preview && !self.suspended && !self.changingDestination && [self usableRecoveryGPS:aLocationGuide.gpsOrigin]) {
     double distance = [self distanceToDestinationWithGPS:aLocationGuide.gpsOrigin];
