@@ -18,6 +18,12 @@
 - 네이티브 브리지 계약: **12**
 - 백엔드 API 계약: **1**
 
+2026-10-24 사용자 후속 승인: 최신 main 푸시와 **production 1.2.10 / native 12 / API 1**
+새 바이너리·TestFlight 업로드를 진행한다. 위 UI 변경은 네이티브가 필요해 OTA로 보내지 않는다.
+미커밋 자료를 제외한 확정 커밋의 격리 작업 디렉터리에서 원격 autoIncrement 빌드를 만들고,
+실제 산출물·build ID·Apple 처리 상태를 대조한다. candidate/최소 버전/원격 정책은 유지한다.
+이번 승인은 TestFlight 테스트까지이며 App Store 심사 제출·공개 출시는 포함하지 않는다.
+
 2026-10-24 NAV-024 후속: **1.2.10 / native 12 / API 1** 후보.
 지도 팬은 화면 DriveTouch와 별개 map-state callback이므로 우리 하위 클래스에서 ABI 확인 후
 해당 수신 경계를 관찰한다. 메뉴는 미리 로드한 별도 WK 뷰를 native 시트로 애니메이션하고
