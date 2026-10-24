@@ -18,6 +18,13 @@
 - 네이티브 브리지 계약: **14**
 - 백엔드 API 계약: **1**
 
+2026-10-24 native 14 TestFlight 완료: source `9e87915`의 **1.2.10 (49) / native 14 / API 1**
+빌드·업로드를 완료했다. EAS build `87a5735e-b038-420d-a868-1c350ba754ef`, submission
+`9359df6d-5287-404b-9640-c51dcb1bf3ac`은 FINISHED다. 실제 IPA의 버전·runtime·production
+채널·HTML 원본과 새 native selector를 대조했다. ASC build
+`ca493c0c-bd3e-457c-b2dc-119580898f92`은 VALID / IN_BETA_TESTING이며 한국어 테스트
+안내도 저장했다. 미커밋 자료는 제외했고 심사 제출·공개 출시·OTA·원격 정책 변경은 하지 않았다.
+
 2026-10-24 native 14 배포 승인: 사용자가 `1a10854`·`ae7cf1c` 푸시와 새 production iOS
 빌드·TestFlight 업로드를 승인했다. 앱/runtime 1.2.10/native 14/API 1을 유지하고 remote
 빌드 번호만 증가시킨다. 미커밋 자료를 제외한 소스로 산출물·Apple 내부 테스트 상태를 확인한다.

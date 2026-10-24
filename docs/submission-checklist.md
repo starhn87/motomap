@@ -1,3 +1,22 @@
+## 2026-10-24 1.2.10 (49) / native 14 TestFlight 배포 완료
+
+source `9e8791509150a1b4aa26b3677e28b6dc0ed00fba`를 main에 푸시하고 격리 worktree에서
+production **1.2.10 (49) / native 14 / API 1**을 빌드했다. EAS build
+`87a5735e-b038-420d-a868-1c350ba754ef`은 FINISHED이며 커밋 일치를 확인했다.
+실제 IPA의 iphoneos·1.2.10(49)·runtime1.2.10·production 채널, 하단 HTML 원본 일치와
+동 주소 조회/새로고침/위치 만료/메뉴 safe area selector 포함을 확인했다. IPA SHA-256은
+`cfb414c47fb6bd7abee8f97f4064a3477e763a0b07b8b5fd297f64ae51f985d3`이다.
+
+정확한 build ID로 EAS submission `9359df6d-5287-404b-9640-c51dcb1bf3ac`을 제출해
+FINISHED/error 없음과 ASC build `ca493c0c-bd3e-457c-b2dc-119580898f92`의
+**VALID / IN_BETA_TESTING**을 확인했다. internal 그룹은 모든 빌드에 접근하며 한국어 테스트
+안내 저장 결과를 대조했다. 새 키 생성·중복 업로드 없이 기존 등록 ASC 키를 사용했다.
+
+48번 이후 위치 이름 보존/만료와 바닥 메뉴, 밝은 브랜드 하단, 새로고침 토스트, 동 주소 폴백과
+한 줄 표시를 포함한다. 330개 테스트·타입·릴리스 검사·실제 UIKit/WK 세션 검사와 리뷰를
+통과했다. 실제 주행·현장 주소 정확도는 49번에서 확인한다. 미커밋 자료는 제외했고
+심사 제출·공개 출시·OTA·원격 정책 변경은 하지 않았다. 아래 미배포 기록은 당시 이력이다.
+
 ## 2026-10-24 native 14 TestFlight 빌드 승인
 
 사용자가 `1a10854`·`ae7cf1c`의 푸시와 새 iOS 빌드·TestFlight 업로드를 승인했다.
