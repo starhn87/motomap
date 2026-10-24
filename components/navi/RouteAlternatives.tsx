@@ -34,7 +34,7 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
   const selected = options.find((option) => option.value === priority);
   return (
     <View style={styles.container} onLayout={({ nativeEvent }) => setWidth(nativeEvent.layout.width)}>
-      <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false}
+      <ScrollView ref={scroll} style={styles.scroll} horizontal showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row} accessibilityRole="radiogroup" accessibilityLabel="경로 비교">
         {options.map((option) => {
           const active = option.value === priority;
@@ -90,8 +90,9 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
 
 const styles = StyleSheet.create({
   container: { gap: 8 },
-  row: { flexDirection: 'row', gap: 8 },
-  option: { borderWidth: 1, borderRadius: 12, padding: 10, gap: 5, minHeight: 72 },
+  scroll: { flexGrow: 0 },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  option: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, gap: 4 },
   loading: { minHeight: 24, alignItems: 'flex-start', justifyContent: 'center' },
   heading: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   label: { fontSize: 13, fontWeight: '600', flexShrink: 1 },

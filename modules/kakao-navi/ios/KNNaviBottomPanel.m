@@ -3,7 +3,7 @@
 #import <math.h>
 
 const CGFloat KNNaviBottomCollapsedHeight = 68;
-const CGFloat KNNaviBottomRecenterHeight = 48;
+const CGFloat KNNaviBottomRecenterHeight = 54;
 
 @class KNNaviBottomPanel;
 @interface KNNaviBottomMessage : NSObject <WKScriptMessageHandler>
@@ -95,7 +95,7 @@ const CGFloat KNNaviBottomRecenterHeight = 48;
 }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
   if ([self.state[@"showRecenter"] boolValue] && point.y < KNNaviBottomRecenterHeight &&
-      fabs(point.x - self.bounds.size.width / 2) > 80) return NO;
+      (point.y >= 44 || fabs(point.x - self.bounds.size.width / 2) > 66)) return NO;
   return [super pointInside:point withEvent:event];
 }
 - (void)publishTo:(WKWebView *)web menu:(BOOL)menu {
