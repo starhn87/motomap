@@ -18,6 +18,14 @@
 - 네이티브 브리지 계약: **12**
 - 백엔드 API 계약: **1**
 
+2026-10-24 TestFlight 후속: source `cd90af2`의 production **1.2.10 (48) / native 12 / API 1**
+배포를 완료했다. EAS build `6225b163-99c9-4cca-bd68-bf74b69f9be7`, submission
+`d532d667-3a0c-4e96-9362-d9dd06656a77`은 FINISHED다. 실제 IPA의 버전·runtime·production
+채널·HTML 원본과 네이티브 callback 포함을 확인했다. ASC build
+`26017724-2413-4dc2-af33-8c27dde2e846`은 VALID / IN_BETA_TESTING이고 한국어 테스트 안내도
+저장했다. 공개 출시·심사 제출·OTA·원격 정책 변경은 하지 않았다. 아래 로컬 전용 기록은
+당시 범위이며 이번 사용자 승인과 업로드 결과로 후속한다.
+
 2026-10-24 사용자 후속 승인: 최신 main 푸시와 **production 1.2.10 / native 12 / API 1**
 새 바이너리·TestFlight 업로드를 진행한다. 위 UI 변경은 네이티브가 필요해 OTA로 보내지 않는다.
 미커밋 자료를 제외한 확정 커밋의 격리 작업 디렉터리에서 원격 autoIncrement 빌드를 만들고,

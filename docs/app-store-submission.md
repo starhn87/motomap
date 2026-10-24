@@ -1,3 +1,23 @@
+## 2026-10-24 1.2.10 (48) TestFlight 배포 완료
+
+사용자 승인으로 main을 `cd90af234ff56746ddd79b6afe33521c5608ddd8`까지 푸시하고,
+동일 커밋의 격리 worktree에서 production **1.2.10 (48) / native 12 / API 1**을 빌드했다.
+EAS build `6225b163-99c9-4cca-bd68-bf74b69f9be7`의 FINISHED와 소스 일치를 확인했다.
+IPA의 iphoneos·앱 버전/48번·runtime 1.2.10·production 채널, 하단 HTML 원본 일치와
+네이티브 메뉴/지도 클래스·map-state callback 포함을 확인했다. IPA SHA-256은
+`d65f6fddba82a8746be806b7211c67210e0de438cff6fb06bde8eb038361bdac`이다.
+
+EAS submission `d532d667-3a0c-4e96-9362-d9dd06656a77`은 FINISHED/error 없음이다.
+Apple build `26017724-2413-4dc2-af33-8c27dde2e846`의 **VALID / IN_BETA_TESTING**과
+internal 그룹의 모든 빌드 접근을 확인했다. 한국어 테스트 안내 저장 결과도 대조했다.
+EAS changelog 동시 등록은 요금제 제한으로 거절되어 해당 옵션 없이 제출하고 ASC에서
+안내를 별도로 저장했다. 중복 업로드나 새 인증키 생성은 하지 않았다.
+
+별도 메뉴 시트·지도 이동 후 현재 위치 복귀·하단 위치 가독성·경로 카드 peek와 로딩 개선을
+포함한다. 330개 테스트·타입·릴리스 검사·리뷰 및 시뮬레이터 검증을 통과했다. 실제 주행과
+기기 지도 제스처는 48번에서 확인한다. App Store 심사 제출·공개 출시·OTA·원격 정책 변경은
+하지 않았으며 candidate 1.2.10을 유지한다. 아래 미업로드 기록은 당시 이력으로 보존한다.
+
 ## 2026-10-24 1.2.10 TestFlight 업로드 승인
 
 사용자가 최신 main 푸시와 production iOS 새 빌드·TestFlight 업로드를 승인했다.
