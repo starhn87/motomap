@@ -11,6 +11,7 @@
 #import <KNSDK/KNMapView.h>
 #import <objc/runtime.h>
 #import <float.h>
+#import <limits.h>
 #import <stdlib.h>
 #import <string.h>
 
@@ -284,6 +285,14 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong) NSDate *currentLocationAt;
 @property(nonatomic, strong) NSDate *currentLocationGPSAt;
 @property(nonatomic, strong) NSTimer *currentLocationExpiryTimer;
+@property(nonatomic) DoublePoint currentLocationPosition;
+@property(nonatomic) BOOL currentRoadAvailable;
+@property(nonatomic, copy) NSString *currentRegionName;
+@property(nonatomic) IntPoint currentRegionPosition;
+@property(nonatomic, strong) NSDate *currentRegionAt;
+@property(nonatomic, strong) NSDate *regionRequestAt;
+@property(nonatomic) BOOL regionRequestInFlight;
+@property(nonatomic) NSUInteger regionRequestGeneration;
 @property(nonatomic, copy) NSString *arrivalMessage;
 @property(nonatomic) BOOL suspended;
 @property(nonatomic) NSInteger previewToken;
@@ -559,8 +568,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
         [vc.mapHiddenViews restore]; vc.mapControlsHidden = NO;
       }
     } else if ([action isEqualToString:@"refresh"]) {
-      if (vc.arrivalRecovery.waiting) [vc retryArrivalRoute];
-      else if (!vc.changingDestination) [(KNDriveGuidance *)vc.guidance reRoute];
+      [vc refreshCurrentRoute];
     } else if ([action isEqualToString:@"end"]) [vc finish];
     else if (vc.onMenu) {
       NSDictionary *ids = @{@"hazard":@101, @"routePreview":@103, @"destination":@104, @"vias":@105};
@@ -572,6 +580,13 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self.view addSubview:self.bottomPanel.menuView];
   [self refreshHiddenViews];
   [self updateBottomPanel];
+}
+
+- (void)refreshCurrentRoute {
+  if (self.finished || self.changingDestination) return;
+  [self.bottomPanel showToast:@"경로 새로고침을 요청했어요"];
+  if (self.arrivalRecovery.waiting) [self retryArrivalRoute];
+  else [(KNDriveGuidance *)self.guidance reRoute];
 }
 
 - (void)closeBottomMenu {
@@ -661,8 +676,10 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   state[@"goalName"] = self.trip.goal.name ?: @"";
   BOOL freshGPS = self.currentLocationGPSAt && fabs(self.currentLocationGPSAt.timeIntervalSinceNow) <= 10;
   BOOL freshName = self.currentLocationAt && fabs(self.currentLocationAt.timeIntervalSinceNow) <= 10;
-  state[@"currentLocationName"] = freshGPS && freshName ? (self.currentLocationName ?: @"") : @"";
-  state[@"currentLocationStatus"] = freshGPS ? @"도로명 정보 없음" : @"GPS 수신 대기";
+  NSString *name = freshName ? self.currentLocationName : nil;
+  if (!self.currentRoadAvailable && [self hasCurrentRegion]) name = self.currentRegionName;
+  state[@"currentLocationName"] = freshGPS ? (name ?: @"") : @"";
+  state[@"currentLocationStatus"] = freshGPS ? (self.regionRequestInFlight ? @"주소 확인 중" : @"주소 정보 없음") : @"GPS 수신 대기";
   state[@"showRecenter"] = @(self.mapControlsHidden && self.mapDetached);
   state[@"canEditVias"] = @(self.trip.vias.count <= 3);
   [self.bottomPanel updateState:state];
@@ -672,6 +689,9 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
                               self.currentLocationAt ?: NSDate.distantPast]) {
     NSTimeInterval remaining = 10 + timestamp.timeIntervalSinceNow;
     if (remaining > 0) expiry = MIN(expiry, remaining);
+  }
+  if (!self.currentRoadAvailable && [self hasCurrentRegion]) {
+    expiry = MIN(expiry, 120 + self.currentRegionAt.timeIntervalSinceNow);
   }
   if (expiry != DBL_MAX) {
     __weak KNNaviViewController *weakSelf = self;
@@ -1119,23 +1139,84 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self.naviView guidance:aGuidance didUpdateIndoorRoute:aRoute];
 }
 
+- (BOOL)hasCurrentRegion {
+  return self.currentRegionName.length && self.currentRegionAt &&
+      fabs(self.currentRegionAt.timeIntervalSinceNow) < 120 &&
+      hypot(self.currentLocationPosition.x - self.currentRegionPosition.x,
+            self.currentLocationPosition.y - self.currentRegionPosition.y) <= 150;
+}
+
+- (void)lookupRegionAt:(IntPoint)point completion:(void (^)(NSString *))completion {
+  [[KNSDK sharedInstance] reverseGeocodeWithPos:point completion:^(KNError *error, NSString *code, NSString *province, NSString *city, NSString *dong) {
+    NSCharacterSet *space = NSCharacterSet.whitespaceAndNewlineCharacterSet;
+    NSString *district = [dong stringByTrimmingCharactersInSet:space];
+    NSString *area = [city stringByTrimmingCharactersInSet:space];
+    NSString *name = !error && district.length ? (area.length ? [NSString stringWithFormat:@"%@ %@", area, district] : district) : nil;
+    completion(name);
+  }];
+}
+
+- (void)requestCurrentRegionIfNeeded {
+  if (self.finished || self.preview || self.suspended || ![KNSDKBridge isLocationUseAllowed] ||
+      fabs(self.currentLocationPosition.x) > INT_MAX || fabs(self.currentLocationPosition.y) > INT_MAX ||
+      self.currentRoadAvailable || [self hasCurrentRegion] || self.regionRequestInFlight ||
+      (self.regionRequestAt && -self.regionRequestAt.timeIntervalSinceNow < 30)) return;
+  self.regionRequestAt = NSDate.date;
+  self.regionRequestInFlight = YES;
+  NSUInteger generation = ++self.regionRequestGeneration;
+  IntPoint point = {(SInt32)llround(self.currentLocationPosition.x), (SInt32)llround(self.currentLocationPosition.y)};
+  __weak KNNaviViewController *weakSelf = self;
+  [self lookupRegionAt:point completion:^(NSString *name) {
+    void (^apply)(void) = ^{
+      KNNaviViewController *vc = weakSelf;
+      if (!vc || generation != vc.regionRequestGeneration || vc.finished) return;
+      vc.regionRequestInFlight = NO;
+      if (![KNSDKBridge isLocationUseAllowed]) return;
+      if (!vc.currentLocationGPSAt || fabs(vc.currentLocationGPSAt.timeIntervalSinceNow) > 10 ||
+          hypot(vc.currentLocationPosition.x - point.x, vc.currentLocationPosition.y - point.y) > 150) {
+        [vc updateBottomPanel];
+        return;
+      }
+      if (name.length) {
+        vc.currentRegionName = name;
+        vc.currentRegionAt = NSDate.date;
+        vc.currentRegionPosition = point;
+      }
+      [vc updateBottomPanel];
+    };
+    if (NSThread.isMainThread) apply(); else dispatch_async(dispatch_get_main_queue(), apply);
+  }];
+  // 중단된 요청은 폐기하되 조회 실패를 GPS 콜백마다 다시 호출하지 않는다.
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 8 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+    KNNaviViewController *vc = weakSelf;
+    if (!vc || generation != vc.regionRequestGeneration || !vc.regionRequestInFlight) return;
+    vc.regionRequestGeneration++;
+    vc.regionRequestInFlight = NO;
+    if (!vc.finished) [vc updateBottomPanel];
+  });
+}
+
 - (void)updateCurrentLocationWithGuide:(KNGuide_Location *)guide {
   KNGPSData *gps = guide.gpsOrigin;
   if (![self usableRecoveryGPS:gps]) {
     self.currentLocationGPSAt = nil;
     self.currentLocationName = nil;
     self.currentLocationAt = nil;
+    self.currentRegionName = nil; self.currentRegionAt = nil;
+    self.regionRequestGeneration++; self.regionRequestInFlight = NO;
     return;
   }
   self.currentLocationGPSAt = gps.timestamp;
+  self.currentLocationPosition = gps.pos;
   NSCharacterSet *space = NSCharacterSet.whitespaceAndNewlineCharacterSet;
   NSString *name = [guide.location.roadName stringByTrimmingCharactersInSet:space];
-  if (!name.length) name = [guide.location.facilityName stringByTrimmingCharactersInSet:space];
+  self.currentRoadAvailable = name.length > 0;
   // 이름 없는 콜백이 이전 이름을 지우거나 유효 시간을 계속 연장하지 않게 한다.
   if (name.length) {
     self.currentLocationName = name;
     self.currentLocationAt = gps.timestamp;
   }
+  [self requestCurrentRegionIfNeeded];
 }
 
 - (void)guidance:(KNGuidance *)aGuidance didUpdateLocation:(KNGuide_Location *)aLocationGuide {
@@ -1203,6 +1284,10 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)finish {
   if (self.finished) return;
   self.finished = YES;
+  self.regionRequestGeneration++; self.regionRequestInFlight = NO;
+  [self.currentLocationExpiryTimer invalidate];
+  self.currentLocationExpiryTimer = nil;
+  self.currentRegionName = nil; self.currentRegionAt = nil;
   self.routeRequestGeneration++;
   self.onStarted = nil;
   if (self.onResumeError) self.onResumeError(@"길안내가 종료됐어요.");

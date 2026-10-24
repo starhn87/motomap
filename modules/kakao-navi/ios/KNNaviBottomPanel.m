@@ -122,6 +122,12 @@ const CGFloat KNNaviBottomRecenterHeight = 48;
   [self publishHeight]; [self publish];
   if (self.onMenuVisibility) self.onMenuVisibility(open);
 }
+- (void)showToast:(NSString *)message {
+  if (!self.ready || self.invalidated || self.failed) return;
+  NSData *data = [NSJSONSerialization dataWithJSONObject:@[message] options:0 error:nil];
+  NSString *json = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+  if (json) [self.webView evaluateJavaScript:[NSString stringWithFormat:@"window.MotoMapBottom.toast(%@[0])", json] completionHandler:nil];
+}
 - (void)collapse { [self setMenuOpen:NO]; }
 - (void)receiveMessage:(WKScriptMessage *)message {
   if (self.invalidated || self.failed || !message.frameInfo.mainFrame ||

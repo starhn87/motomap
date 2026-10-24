@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
   <style>
-    :root { color-scheme: light dark; --bg: #fff; --ink: #18181b; --muted: #71717a; --line: #e4e4e7; --brand: #18181b; --on-brand: #fff; --volume-blue: #1268fa; --track: #e4e4e7; --safe: 0px; }
+    :root { color-scheme: light dark; --bg: #fff; --bar-bg: #fafafa; --toast-bg: #18181b; --ink: #18181b; --muted: #71717a; --line: #e4e4e7; --brand: #18181b; --on-brand: #fff; --volume-blue: #1268fa; --track: #e4e4e7; --safe: 0px; }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, sans-serif; -webkit-user-select: none; user-select: none; }
     button, input { font: inherit; }
@@ -14,8 +14,10 @@
     button:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
     button:disabled { opacity: .36; }
     svg { display: block; width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-    .panel { position: absolute; bottom: 0; width: 100%; height: 68px; background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding-bottom: var(--safe); }
-    .panel.expanded { height: 100%; border-radius: 18px 18px 0 0; border-bottom: 0; padding-bottom: 0; }
+    .panel { position: absolute; bottom: 0; width: 100%; height: 68px; background: var(--bar-bg); border: 1px solid var(--line); border-radius: 16px; padding-bottom: var(--safe); }
+    .panel.expanded { background: var(--bg); height: 100%; border-radius: 18px 18px 0 0; border-bottom: 0; padding-bottom: 0; }
+    .toast { position: absolute; z-index: 2; bottom: 0; inset-inline: 0; height: 68px; display: flex; align-items: center; justify-content: center; padding: 0 16px; border-radius: 16px; background: var(--toast-bg); color: #fafafa; font-size: 15px; font-weight: 650; text-align: center; pointer-events: none; }
+    .toast[hidden] { display: none; }
     .recenter { position: absolute; top: 0; left: calc(50% - 80px); width: 160px; height: 44px; display: flex; align-items: center; justify-content: center; gap: 7px; background: var(--bg); border: 1px solid var(--line); border-radius: 22px; font-size: 15px; font-weight: 650; }
     .recenter[hidden] { display: none; }
     .recenter svg { width: 20px; height: 20px; }
@@ -25,8 +27,8 @@
     .bar #menuButton { width: 56px; height: 56px; border-radius: 28px; }
     .bar #menuButton svg { width: 32px; height: 32px; stroke-width: 2; }
     .summary { text-align: center; min-width: 0; touch-action: pan-x; }
-    .destination { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 16px; font-weight: 650; line-height: 23px; color: var(--ink); min-width: 0; }
-    .placeName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .destination { white-space: nowrap; flex-wrap: nowrap; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 16px; font-weight: 650; line-height: 23px; color: var(--ink); min-width: 0; }
+    .placeName { min-width: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .placeIcon { width: 21px; height: 21px; color: var(--ink); stroke-width: 2; }
     .placeIcon[hidden] { display: none; }
     .metrics { display: flex; justify-content: center; align-items: baseline; gap: 6px; line-height: 34px; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -55,7 +57,7 @@
     .end svg { width: 18px; height: 18px; }
     .end:active { opacity: .82; background: var(--brand); }
     @media (max-width: 320px) { .arrival { font-size: 24px; } .timeUnit { font-size: 16px; } .distance { font-size: 18px; } }
-    @media (prefers-color-scheme: dark) { :root { --bg: #0a0a0a; --ink: #fafafa; --muted: #a1a1aa; --line: #27272a; --brand: #fafafa; --on-brand: #0a0a0a; --volume-blue: #3984ff; --track: #3f3f46; } .actions svg, .volumeRange { color: #d4d4d8; } }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0a0a0a; --bar-bg: #18181b; --toast-bg: #0a0a0a; --ink: #fafafa; --muted: #a1a1aa; --line: #27272a; --brand: #fafafa; --on-brand: #0a0a0a; --volume-blue: #3984ff; --track: #3f3f46; } .actions svg, .volumeRange { color: #d4d4d8; } }
   </style>
 </head>
 <body>
@@ -81,6 +83,7 @@
       </div>
       <button class="end" data-action="end"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m20 4-6 16-3-7-7-3z"/></svg><span>길안내 종료</span></button>
     </section>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
     <footer class="bar">
       <button data-action="refresh" aria-label="현재 경로 새로고침"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 8a8 8 0 1 0 1 7M19 3v5h-5"/></svg></button>
       <div class="summary dragArea" aria-live="off">
@@ -104,7 +107,7 @@
       let showGoal = false;
       const showLocation = () => {
         const label = showGoal ? latestState.goalName : latestState.currentLocationName;
-        $('placeName').textContent = showGoal ? (label || '목적지') : (label && label !== '현재 위치' ? label : latestState.currentLocationStatus || '도로명 정보 없음');
+        $('placeName').textContent = showGoal ? (label || '목적지') : (label && label !== '현재 위치' ? label : latestState.currentLocationStatus || '주소 정보 없음');
         $('currentIcon').toggleAttribute('hidden', showGoal);
         $('goalIcon').toggleAttribute('hidden', !showGoal);
         $('destination').setAttribute('aria-label', (showGoal ? '목적지 ' : '현재 위치 ') + $('placeName').textContent);
@@ -149,7 +152,14 @@
       document.addEventListener('keydown', event => {
         if (event.key === 'Escape' && expanded) send('menu');
       });
+      let toastTimer;
       window.MotoMapBottom = {
+        toast(message) {
+          clearTimeout(toastTimer);
+          $('toast').textContent = message;
+          $('toast').hidden = false;
+          toastTimer = setTimeout(() => { $('toast').hidden = true; }, 2200);
+        },
         render(state) {
           const wasMenuOpen = menuOpen;
           menuOpen = !!state.menuOpen;

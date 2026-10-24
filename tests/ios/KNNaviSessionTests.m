@@ -18,6 +18,9 @@
 - (void)setBottomMenuVisible:(BOOL)visible;
 - (void)updateBottomPanel;
 - (void)updateCurrentLocationWithGuide:(KNGuide_Location *)guide;
+- (void)refreshCurrentRoute;
+- (BOOL)hasCurrentRegion;
+- (void)lookupRegionAt:(IntPoint)point completion:(void (^)(NSString *))completion;
 - (BOOL)usableRecoveryGPS:(KNGPSData *)gps;
 - (BOOL)guidance:(KNGuidance *)guidance shouldPlayVoiceGuide:(KNGuide_Voice *)voice replaceSndData:(NSData **)data;
 @end
@@ -89,11 +92,18 @@
 @implementation PreviewTripProbe @end
 @interface PreviewGuidanceProbe : NSObject
 @property(nonatomic, strong) PreviewTripProbe *trip;
+@property(nonatomic) NSUInteger refreshCalls;
 @end
-@implementation PreviewGuidanceProbe @end
+@implementation PreviewGuidanceProbe
+- (void)reRoute { self.refreshCalls++; }
+@end
 
-@interface SessionControllerProbe : KNNaviViewController @end
+@interface SessionControllerProbe : KNNaviViewController
+@property(nonatomic) NSUInteger regionCalls;
+@property(nonatomic, copy) void (^regionCompletion)(NSString *);
+@end
 @implementation SessionControllerProbe
+- (void)lookupRegionAt:(IntPoint)point completion:(void (^)(NSString *))completion { self.regionCalls++; self.regionCompletion = completion; }
 - (void)viewDidLoad {}
 - (void)viewDidAppear:(BOOL)animated {}
 - (void)viewWillDisappear:(BOOL)animated {}
@@ -188,7 +198,37 @@ int RunKNNaviSessionTests(void) {
                    completion:^(NSDictionary *result, NSString *error) { rejectedApply = !result && [error containsString:@"현재 위치"]; }];
   if (!rejectedApply || [[editor valueForKey:@"changingDestination"] boolValue]) { NSLog(@"FAIL GPS-free route applied"); failures++; }
   [editor setValue:@YES forKey:@"finished"];
+  SessionControllerProbe *regionController = [SessionControllerProbe new];
+  LocationNameProbe *road = [LocationNameProbe new]; road.facilityName = @"시설 이름";
+  LocationGuideProbe *sample = [LocationGuideProbe new]; sample.location = road;
+  GPSProbe *regionGPS = [GPSProbe new]; regionGPS.valid = YES; regionGPS.posTrust = YES; regionGPS.timestamp = NSDate.date;
+  regionGPS.pos = (DoublePoint){300000,400000}; sample.gpsOrigin = regionGPS;
+  [regionController updateCurrentLocationWithGuide:(id)sample];
+  if (regionController.regionCalls != 1) { NSLog(@"FAIL missing road did not request dong"); failures++; }
+  if (regionController.regionCompletion) regionController.regionCompletion(@"중구 명동");
+  if (![[regionController valueForKey:@"currentRegionName"] isEqual:@"중구 명동"] || ![regionController hasCurrentRegion]) { NSLog(@"FAIL dong response not applied"); failures++; }
+  for (int i=0;i<10;i++) [regionController updateCurrentLocationWithGuide:(id)sample];
+  if (regionController.regionCalls != 1) { NSLog(@"FAIL dong cache did not coalesce"); failures++; }
+  regionGPS.pos = (DoublePoint){300250,400000};
+  [regionController updateCurrentLocationWithGuide:(id)sample];
+  if ([regionController hasCurrentRegion] || regionController.regionCalls != 1) { NSLog(@"FAIL moved dong cache or throttle"); failures++; }
+  [regionController setValue:[NSDate dateWithTimeIntervalSinceNow:-31] forKey:@"regionRequestAt"];
+  [regionController updateCurrentLocationWithGuide:(id)sample];
+  if (regionController.regionCalls != 2) { NSLog(@"FAIL dong retry after throttle"); failures++; }
+  void (^oldRegion)(NSString *) = regionController.regionCompletion;
+  regionGPS.pos = (DoublePoint){300500,400000};
+  [regionController updateCurrentLocationWithGuide:(id)sample];
+  if (oldRegion) oldRegion(@"이전 동");
+  if ([[regionController valueForKey:@"currentRegionName"] isEqual:@"이전 동"]) { NSLog(@"FAIL stale moved dong response accepted"); failures++; }
+  regionGPS.valid = NO; [regionController updateCurrentLocationWithGuide:(id)sample];
+  if (oldRegion) oldRegion(@"무효 동");
+  if ([regionController valueForKey:@"currentRegionName"]) { NSLog(@"FAIL invalid GPS retained dong"); failures++; }
+  regionGPS.valid = YES; [regionController setValue:nil forKey:@"regionRequestAt"];
+  [regionController updateCurrentLocationWithGuide:(id)sample];
   [KNSDKBridge setLocationUseAllowed:NO];
+  if (regionController.regionCompletion) regionController.regionCompletion(@"동의 철회 후 응답");
+  if ([regionController valueForKey:@"currentRegionName"]) { NSLog(@"FAIL revoked region response accepted"); failures++; }
+  [regionController setValue:@YES forKey:@"finished"]; [regionController updateBottomPanel];
   [controller setValue:@YES forKey:@"finished"];
   if ([controller guidance:nil shouldPlayVoiceGuide:(id)voice replaceSndData:&replacement]) failures++;
   KNNaviArrivalRecovery *policy = [KNNaviArrivalRecovery new];
@@ -360,7 +400,7 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
       if (![state[@"currentLocationName"] isEqual:@"테헤란로"] || ![[controller valueForKey:@"currentLocationAt"] isEqual:namedAt]) { NSLog(@"FAIL sparse road name lost or freshness extended"); failures++; }
       [controller setValue:[NSDate dateWithTimeIntervalSinceNow:-11] forKey:@"currentLocationAt"];
       [controller updateBottomPanel]; state = [panel valueForKey:@"state"];
-      if ([state[@"currentLocationName"] length] || ![state[@"currentLocationStatus"] isEqual:@"도로명 정보 없음"]) { NSLog(@"FAIL stale road name used as current"); failures++; }
+      if ([state[@"currentLocationName"] length] || ![state[@"currentLocationStatus"] isEqual:@"주소 정보 없음"]) { NSLog(@"FAIL stale road name used as current"); failures++; }
       gps.valid = NO; [controller updateCurrentLocationWithGuide:(id)locationGuide]; [controller updateBottomPanel];
       if (![[panel valueForKey:@"state"][@"currentLocationStatus"] isEqual:@"GPS 수신 대기"]) { NSLog(@"FAIL missing GPS status"); failures++; }
       gps.valid = YES; gps.timestamp = [NSDate dateWithTimeIntervalSinceNow:-11];
@@ -368,15 +408,18 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
       if (![[panel valueForKey:@"state"][@"currentLocationStatus"] isEqual:@"GPS 수신 대기"]) { NSLog(@"FAIL stale GPS presented as current"); failures++; }
       gps.timestamp = NSDate.date; location.roadName = nil; location.facilityName = @"지하주차장";
       [controller updateCurrentLocationWithGuide:(id)locationGuide]; [controller updateBottomPanel];
-      if (![[panel valueForKey:@"state"][@"currentLocationName"] isEqual:@"지하주차장"]) { NSLog(@"FAIL facility fallback"); failures++; }
+      if ([[panel valueForKey:@"state"][@"currentLocationName"] length]) { NSLog(@"FAIL facility presented instead of dong"); failures++; }
     } else { NSLog(@"FAIL current location update boundary missing"); failures++; }
     // 새 콜백/수동 갱신 없이도 1초 뒤 이름과 GPS가 만료돼야 한다.
     [controller setValue:[NSDate dateWithTimeIntervalSinceNow:-9] forKey:@"currentLocationAt"];
     [controller setValue:[NSDate dateWithTimeIntervalSinceNow:-9] forKey:@"currentLocationGPSAt"];
     [controller updateBottomPanel];
-    NSString *metrics = @"const times=[0,1,60,3600,3661,90000].map(seconds=>{window.MotoMapBottom.render({remainingTime:seconds,remainingDistance:2100});return document.getElementById('arrival').textContent;});window.MotoMapBottom.render({remainingTime:480,remainingDistance:2100,goalName:'도착 카페',currentLocationName:'테헤란로',volume:.7,showRecenter:true});window.MotoMapBottom.render({currentLocationName:'',currentLocationStatus:'GPS 수신 대기'});const missing=document.getElementById('placeName').textContent;window.MotoMapBottom.render({remainingTime:480,remainingDistance:2100,goalName:'도착 카페',currentLocationName:'테헤란로',volume:.7,showRecenter:true});const first=document.getElementById('placeName').textContent;const currentIcon=!document.getElementById('currentIcon').hasAttribute('hidden');await new Promise(resolve=>setTimeout(resolve,5300));const second=document.getElementById('placeName').textContent;return JSON.stringify({first,second,missing,times,currentIcon,goalIcon:!document.getElementById('goalIcon').hasAttribute('hidden'),recenterVisible:!document.getElementById('recenter').hidden,remaining:document.getElementById('arrival').textContent,distance:document.getElementById('distance').textContent,noDuration:!document.getElementById('duration'),noClose:!document.querySelector('.close')})";
+    controller.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+    [controller refreshCurrentRoute];
+    if (guide.refreshCalls != 1) { NSLog(@"FAIL native refresh not requested"); failures++; }
+    NSString *metrics = @"const toast=document.getElementById('toast');const toastText=toast.textContent;const toastVisible=!toast.hidden;const dark=matchMedia('(prefers-color-scheme: dark)').matches;const barColor=getComputedStyle(document.getElementById('panel')).backgroundColor.replaceAll(' ','');const toastColor=getComputedStyle(toast).backgroundColor.replaceAll(' ','');const brandColor=barColor===(dark?'rgb(24,24,27)':'rgb(250,250,250)');const darkerToast=toastColor===(dark?'rgb(10,10,10)':'rgb(24,24,27)');const times=[0,1,60,3600,3661,90000].map(seconds=>{window.MotoMapBottom.render({remainingTime:seconds,remainingDistance:2100});return document.getElementById('arrival').textContent;});window.MotoMapBottom.render({remainingTime:480,remainingDistance:2100,goalName:'도착 카페',currentLocationName:'테헤란로',volume:.7,showRecenter:true});window.MotoMapBottom.render({currentLocationName:'',currentLocationStatus:'GPS 수신 대기'});const missing=document.getElementById('placeName').textContent;window.MotoMapBottom.render({remainingTime:480,remainingDistance:2100,goalName:'도착 카페',currentLocationName:'테헤란로',volume:.7,showRecenter:true});const first=document.getElementById('placeName').textContent;const currentIcon=!document.getElementById('currentIcon').hasAttribute('hidden');await new Promise(resolve=>setTimeout(resolve,5300));const second=document.getElementById('placeName').textContent;const longName='아주 긴 행정동 주소와 목적지 이름 '.repeat(30);window.MotoMapBottom.render({goalName:longName,currentLocationName:longName});const name=document.getElementById('placeName');const line=name.getBoundingClientRect();const oneLine=getComputedStyle(name).whiteSpace==='nowrap'&&line.height<=23.5&&line.width<=document.getElementById('destination').clientWidth;window.MotoMapBottom.render({remainingTime:480,remainingDistance:2100,goalName:'도착 카페',currentLocationName:'테헤란로',volume:.7,showRecenter:true});return JSON.stringify({first,second,missing,times,oneLine,brandColor,darkerToast,toastText,toastVisible,toastExpired:toast.hidden,currentIcon,goalIcon:!document.getElementById('goalIcon').hasAttribute('hidden'),recenterVisible:!document.getElementById('recenter').hidden,remaining:document.getElementById('arrival').textContent,distance:document.getElementById('distance').textContent,noDuration:!document.getElementById('duration'),noClose:!document.querySelector('.close')})";
     [web callAsyncJavaScript:metrics arguments:@{} inFrame:nil inContentWorld:WKContentWorld.pageWorld completionHandler:^(id result, NSError *error) {
-      if (error || ![result containsString:@"GPS 수신 대기"] || ![result containsString:@"\"recenterVisible\":true"] ||
+      if (error || ![result containsString:@"\"brandColor\":true"] || ![result containsString:@"\"darkerToast\":true"] || ![result containsString:@"\"oneLine\":true"] || ![result containsString:@"경로 새로고침을 요청했어요"] || ![result containsString:@"\"toastVisible\":true"] || ![result containsString:@"\"toastExpired\":true"] || ![result containsString:@"GPS 수신 대기"] || ![result containsString:@"\"recenterVisible\":true"] ||
           ![result containsString:@"\"times\":[\"0분\",\"1분\",\"1분\",\"1시간\",\"1시간2분\",\"25시간\"]"] ||
           ![result containsString:@"테헤란로"] || ![result containsString:@"도착 카페"]) { NSLog(@"FAIL WK metrics %@ %@",result,error); failures++; }
       NSDictionary *expiredState = [panel valueForKey:@"state"];

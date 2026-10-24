@@ -14,6 +14,7 @@ FOUNDATION_EXPORT const CGFloat KNNaviBottomRecenterHeight;
 - (void)updateState:(NSDictionary *)state;
 - (void)setBottomInset:(CGFloat)inset;
 - (void)setMenuBottomInset:(CGFloat)inset;
+- (void)showToast:(NSString *)message;
 - (void)collapse;
 - (void)invalidate;
 @end
