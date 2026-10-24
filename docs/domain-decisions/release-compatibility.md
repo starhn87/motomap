@@ -18,6 +18,15 @@
 - 네이티브 브리지 계약: **15**
 - 백엔드 API 계약: **1**
 
+2026-10-24 native 15 TestFlight 완료: source `32ac8d1`의 **1.2.10 (52) / native 15 / API 1**
+로컬 production 빌드·업로드를 완료했다. EAS 클라우드 월간 한도로 50번이 거절되고 로컬
+도구 의존성 오류로 51번이 중단돼, 관리 서명 자격 증명과 로컬 Xcode27로 52번을 생성했다.
+IPA의 버전·runtime·production·HTML 원본과 App Store 서명/codesign deep/strict를 확인했다.
+EAS submission `15abf93a-d927-4615-a8b3-e0031f045ee5` FINISHED, ASC build
+`c917f291-27b1-4981-8b39-23a46feecc0d` VALID / IN_BETA_TESTING과 한국어 테스트 안내 저장을
+확인했다. Sentry 심볼 업로드는 로컬 인증 부재로 미완료이며 재업로드 자료를 비공개로 보관했다.
+Git 푸시·심사 제출·공개 출시·OTA·원격 정책 변경은 하지 않았다.
+
 2026-10-24 native 15 빌드 승인: 사용자가 `defae42`의 새 production iOS 빌드·TestFlight
 업로드를 승인했다. 앱/runtime 1.2.10/native 15/API 1을 유지하고 remote 빌드 번호만 올린다.
 미커밋 자료를 제외한 격리 소스로 빌드하고 산출물·Apple 내부 테스트 상태를 대조한다.

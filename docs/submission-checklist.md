@@ -1,3 +1,29 @@
+## 2026-10-24 1.2.10 (52) / native 15 TestFlight 배포 완료
+
+source `32ac8d1`의 격리 worktree에서 production **1.2.10 (52) / native 15 / API 1**
+App Store용 IPA를 로컬 EAS로 빌드했다. 클라우드 시도 50번은 월간 Free iOS 빌드 한도로
+거절되어 build ID가 없다. 첫 로컬 시도 51번은 CocoaPods 실행 의존성 오류로 중단했고,
+fastlane/CocoaPods를 준비한 후 52번을 완료했다. 요금제 변경·중복 Apple 업로드는 하지 않았다.
+
+IPA의 iphoneos·1.2.10(52)·runtime1.2.10·production 채널과 내장 HTML 원본 일치,
+새 native selector를 확인했다. App Store 프로파일(기기 목록 없음/get-task-allow=false)과
+codesign deep/strict를 통과했다. IPA SHA-256은
+`692d371044e2123ff25500f9775de1aa8c0e03614ac31e569c6ec8bc4cce509b`다.
+정확히 검증한 IPA를 --path로 EAS submission `15abf93a-d927-4615-a8b3-e0031f045ee5`에
+제출했고 FINISHED/error 없음을 확인했다. ASC build `c917f291-27b1-4981-8b39-23a46feecc0d`의
+**VALID / IN_BETA_TESTING**과 internal 그룹 전체 빌드 접근, 한국어 테스트 안내 저장 결과를
+대조했다. 경로 카드 여백·반투명 복귀 버튼/간격·메뉴 아이콘·음소거 0%↔100%를 포함한다.
+
+330개 테스트·타입·릴리스·실제 UIKit/WK 검사와 리뷰를 통과했다. 로컬 빌드의 Sentry 심볼
+업로드는 인증 부재로 실패했고 SENTRY_ALLOW_FAILURE를 해당 빌드 프로세스에만 사용했다.
+dSYM ZIP·소스맵·번들·전체 Xcode 로그를 로컬 비공개 산출물 디렉터리에 보관했다. 앱의 오류
+수집 코드는 유지하며 Sentry 심볼 업로드는 후속 인증 후 처리해야 한다. 생성 작업 디렉터리와
+서명 작업 데이터가 포함될 수 있는 명령 로그는 제거했고 EAS의 키체인 정리도 확인했다.
+Expo doctor의 최신 patch 권고 외 소스·의존성은 바꾸지 않았다.
+
+미커밋 자료는 빌드에서 제외했고 Git 푸시·심사 제출·공개 출시·OTA·원격 정책 변경은 하지 않았다.
+실제 기기 지도 합성·음성 청취는 52번에서 확인한다. 아래 미빌드 기록은 당시 이력으로 보존한다.
+
 ## 2026-10-24 native 15 TestFlight 빌드 승인
 
 사용자가 `defae42`의 새 iOS 빌드와 TestFlight 업로드를 승인했다. 앱/runtime **1.2.10 /
