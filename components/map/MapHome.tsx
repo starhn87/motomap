@@ -1,5 +1,8 @@
+import KakaoNavi from '@/modules/kakao-navi';
+import { useGuideSession } from '@/lib/guideSession';
 import { withLocationUse, locationUseAllowed } from '@/stores/useLocationPrivacyStore';
 import {
+  AppState,
   StyleSheet,
   View,
   Text,
@@ -205,6 +208,33 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const [mapReady, setMapReady] = useState(false);
   const [mapPresentationReady, setMapPresentationReady] = useState(false);
   const didCenterOnUserRef = useRef(false);
+  const pendingGuideReturn = useGuideSession((s) => s.preview?.returnPending ? s.preview.snapshot.token : null);
+  const [guideReturnAttempt, setGuideReturnAttempt] = useState(0);
+  const [guideReturnFailed, setGuideReturnFailed] = useState(false);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setGuideReturnAttempt((attempt) => attempt + 1);
+    });
+    return () => subscription.remove();
+  }, []);
+  useEffect(() => {
+    if (overlay || !isMapFocused || !mapPresentationReady || pendingGuideReturn == null) return;
+    let cancelled = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const restore = async (attempt: number) => {
+      if (cancelled || useGuideSession.getState().preview?.snapshot.token !== pendingGuideReturn) return;
+      let restored = false;
+      try { restored = await KakaoNavi.returnToGuide(pendingGuideReturn); } catch {}
+      if (cancelled) return;
+      if (restored) {
+        setGuideReturnFailed(false);
+        if (useGuideSession.getState().preview?.snapshot.token === pendingGuideReturn) useGuideSession.getState().setPreview(null);
+      } else if (attempt < 4) retry = setTimeout(() => void restore(attempt + 1), 500);
+      else setGuideReturnFailed(true);
+    };
+    void restore(0);
+    return () => { cancelled = true; if (retry) clearTimeout(retry); };
+  }, [overlay, isMapFocused, mapPresentationReady, pendingGuideReturn, guideReturnAttempt]);
 
   const cancelRevealFrames = useCallback(() => {
     if (firstRevealFrameRef.current !== null) {
@@ -1218,6 +1248,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           </View>
         </View>
       </AnimatedPressable>
+
+      {guideReturnFailed && pendingGuideReturn != null && (
+        <Pressable accessibilityRole="button" accessibilityLabel="진행 중인 길안내 화면으로 복귀"
+          onPress={() => { setGuideReturnFailed(false); setGuideReturnAttempt((attempt) => attempt + 1); }}
+          style={{ position: 'absolute', top: 150, alignSelf: 'center', padding: 16, borderRadius: 12, backgroundColor: colors.background }}>
+          <Text style={{ color: colors.text }}>길안내 화면으로 돌아가기</Text>
+        </Pressable>
+      )}
 
       <PlaceBottomSheet
         place={selectedPlace}

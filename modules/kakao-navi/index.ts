@@ -53,6 +53,7 @@ export const KAKAO_NAVI_FEATURES = [
   'app_lifecycle_forwarding',
   'accessibility_nil_guard',
   'location_privacy_stop',
+  'guide_web_bottom',
 ] as const;
 
 export type KakaoNaviFeature = (typeof KAKAO_NAVI_FEATURES)[number];
@@ -69,15 +70,27 @@ const LEGACY_KAKAO_NAVI_FEATURES = [
   'guide_poi_tap',
 ] as const satisfies readonly KakaoNaviFeature[];
 
+export interface GuidePreviewSnapshot {
+  token: number;
+  start: { latitude: number; longitude: number };
+  goal: { latitude: number; longitude: number; name: string };
+  vias: { latitude: number; longitude: number; name: string }[];
+  passedVias: { latitude: number; longitude: number; name: string }[];
+  priority: RoutePriority;
+}
+
 type GuideEventPayload = {
   onGuideStarted: undefined;
   onGuideEnd: undefined;
-  onGuideFailed: { code?: string | null; message: string };
+  onGuideFailed: { code?: string | null; message: string; preserveActive?: boolean };
   onGuideMenu: { id: number };
   onGuidePoiTap: { name: string; latitude: number; longitude: number };
 };
 
 interface KakaoNaviModule {
+  openGuidePreview(): Promise<GuidePreviewSnapshot>;
+  returnToGuide(token: number): Promise<boolean>;
+  resumeGuide(token: number, lng: number, lat: number, name: string, vias: number[], priority: RoutePriority): Promise<{ vias: number[]; passedVias: GuidePreviewSnapshot['passedVias'] }>;
   /** 동의 철회·일시 중지: 대기 중 경로/화면까지 취소하고 SDK 위치 구독 중단. */
   stopLocationUse(): Promise<void>;
   setLocationUseAllowed(allowed: boolean): Promise<void>;
@@ -139,6 +152,9 @@ const unavailableModule = {
   features: [],
   initialize: unavailable,
   startGuide: unavailable,
+  openGuidePreview: unavailable,
+  returnToGuide: unavailable,
+  resumeGuide: unavailable,
   addListener: () => ({ remove: () => {} }),
   showGuideOptions: unavailable,
   showGuideNotice: unavailable,

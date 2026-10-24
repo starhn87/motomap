@@ -37,7 +37,7 @@ for framework in KNSDK KMLocationSDK KakaoSDKCommon RNCryptor Realm RealmSwift A
 done
 xcrun clang -fobjc-arc -fmodules -target "$arch-apple-ios16.4-simulator" -isysroot "$sdkroot" \
   -I "$root/modules/kakao-navi/ios" -F "$app/Frameworks" -framework KNSDK \
-  -framework UIKit -framework Foundation -framework AVFoundation -framework CoreLocation \
+  -framework WebKit -framework UIKit -framework Foundation -framework AVFoundation -framework CoreLocation \
   -Wl,-rpath,@executable_path/Frameworks \
   "$root/modules/kakao-navi/ios/KNNaviPresenter.m" \
   "$root/modules/kakao-navi/ios/KNNaviTheme.m" \
@@ -45,6 +45,8 @@ xcrun clang -fobjc-arc -fmodules -target "$arch-apple-ios16.4-simulator" -isysro
   "$root/modules/kakao-navi/ios/KNNaviAudioFocus.m" \
   "$root/modules/kakao-navi/ios/KNNaviArrivalRecovery.m" \
   "$root/modules/kakao-navi/ios/KNNaviRouteView.m" \
+  "$root/modules/kakao-navi/ios/KNNaviBottomPanel.m" \
+  "$root/modules/kakao-navi/ios/KNNaviHiddenViews.m" \
   "$root/tests/ios/KNNaviSessionTests.m" "$root/tests/ios/NavigationSessionTestApp.m" \
   -o "$app/NavigationSessionTests"
 cat > "$app/Info.plist" <<'PLIST'
@@ -69,6 +71,8 @@ cat > "$app/Info.plist" <<'PLIST'
 PLIST
 mkdir -p "$app/MotoMapNavigationVoice.bundle"
 cp "$root/modules/kakao-navi/ios/Resources/navigation-start.mp3" "$app/MotoMapNavigationVoice.bundle/"
+mkdir -p "$app/MotoMapNavigationUI.bundle"
+cp "$root/modules/kakao-navi/ios/Resources/navigation-bottom.html" "$app/MotoMapNavigationUI.bundle/"
 codesign --force --sign - "$app" >/dev/null 2>&1
 xcrun simctl list runtimes --json > "$work/runtimes.json"
 xcrun simctl list devicetypes --json > "$work/types.json"
@@ -94,10 +98,15 @@ xcrun simctl launch "$simulator_id" com.ridemap.tests.navigation-session >/dev/n
 container=$(xcrun simctl get_app_container "$simulator_id" com.ridemap.tests.navigation-session data)
 for ((i=0; i<150; i++)); do
   if [[ -f "$container/Documents/session-result.txt" ]]; then
+    if [[ -f "$container/Documents/bottom-expanded.png" ]]; then cp "$container/Documents/bottom-expanded.png" /tmp/motomap-bottom-expanded.png; fi
     result=$(cat "$container/Documents/session-result.txt")
     printf '%s\n' "$result"
-    [[ "$result" == *'failures=0 '* ]]
-    exit $?
+    status=0
+    [[ "$result" == *'failures=0 '* ]] || status=1
+    if [[ "$status" != 0 ]]; then
+      xcrun simctl spawn "$simulator_id" log show --last 2m --predicate 'process == "NavigationSessionTests"' --style compact 2>/dev/null | rg 'FAIL|WK|TEST' || true
+    fi
+    exit "$status"
   fi
   sleep 0.2
 done

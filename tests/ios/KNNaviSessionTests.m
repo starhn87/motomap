@@ -144,3 +144,87 @@ int RunKNNaviSessionTests(void) {
   if (policy.waiting || policy.requesting || [policy shouldRecoverAtDistance:200 time:220]) failures++;
   return failures;
 }
+
+// 로컬 HTML을 실제 WKWebView에 로드해 DOM 조작→native 메시지까지 검사한다.
+#import "KNNaviBottomPanel.h"
+#import "KNNaviHiddenViews.h"
+#import <WebKit/WebKit.h>
+
+static void WaitAsync(BOOL (^condition)(void), NSTimeInterval deadline, void (^done)(BOOL)) {
+  if (condition()) { done(YES); return; }
+  if (NSDate.timeIntervalSinceReferenceDate >= deadline) { done(NO); return; }
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 50 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ WaitAsync(condition,deadline,done); });
+}
+static UIView *BareAuxView(Class type) {
+  return ((id (*)(id, SEL, CGRect))class_getMethodImplementation(UIView.class, @selector(initWithFrame:)))(
+    [type alloc], @selector(initWithFrame:), CGRectMake(0,0,390,844));
+}
+extern NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *, NSArray<NSDictionary *> *, NSArray<NSDictionary *> *);
+extern NSArray<NSDictionary *> *KNNaviNewPassedVias(NSArray<NSDictionary *> *, NSArray<NSDictionary *> *);
+void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
+  __block int failures = 0;
+  NSDictionary *loopPoint = @{@"longitude":@127.1,@"latitude":@37.5};
+  NSDictionary *otherPoint = @{@"longitude":@127.2,@"latitude":@37.6};
+  NSArray *flatLoop = @[@127.1,@37.5,@127.2,@37.6,@127.1,@37.5];
+  NSArray *filteredLoop = KNNaviRemainingVias(flatLoop,@[loopPoint,otherPoint,loopPoint],@[loopPoint]);
+  if (![filteredLoop isEqual:@[@127.2,@37.6,@127.1,@37.5]]) { NSLog(@"FAIL loop visit count"); failures++; }
+  if (KNNaviNewPassedVias(@[loopPoint],@[loopPoint,otherPoint,loopPoint]).count != 2) failures++;
+
+  RuntimeModeProbe *sdkView = (id)BareAuxView(RuntimeModeProbe.class);
+  KNNaviHiddenViews *locks = [KNNaviHiddenViews new];
+  for (NSString *key in @[@"recommandOilView", @"aroundButtonView"]) {
+    NSString *name = [key isEqualToString:@"recommandOilView"] ? @"KNRecommandOilView" : @"KNAroundButtonView";
+    UIView *target = BareAuxView(NSClassFromString(name));
+    [sdkView setValue:target forKey:key];
+    [locks hideAuxiliaryViewsIn:sdkView];
+    SEL selector = NSSelectorFromString(@"show:");
+    for (int i=0;i<5;i++) {
+      ((void (*)(id,SEL,BOOL))[target methodForSelector:selector])(target,selector,YES);
+      if (!target.hidden || sdkView.hidden) { NSLog(@"FAIL SDK aux reappeared %@",key); failures++; }
+    }
+  }
+  [sdkView resumeRouteModeForPreview:NO];
+  [locks restore];
+  for (NSString *key in @[@"recommandOilView", @"aroundButtonView"]) if ([[sdkView valueForKey:key] isHidden]) failures++;
+
+  KNNaviBottomPanel *panel = [[KNNaviBottomPanel alloc] initWithFrame:CGRectMake(0,400,390,80)];
+  NSMutableArray *actions = [NSMutableArray new];
+  __block float volume = -1; __block CGFloat height = 0; __block BOOL failure = NO;
+  panel.onAction = ^(NSString *action, NSDictionary *payload) { [actions addObject:action]; if ([action isEqualToString:@"volume"]) volume = [payload[@"value"] floatValue]; };
+  __weak KNNaviBottomPanel *weakPanel = panel;
+  panel.onHeight = ^(CGFloat value) { height = value; weakPanel.frame = CGRectMake(0,window.bounds.size.height-value,window.bounds.size.width,value); };
+  panel.onFailure = ^{ failure = YES; };
+  [window.rootViewController.view addSubview:panel];
+  [panel updateState:@{@"remainingTime":@480, @"remainingDistance":@2100, @"volume":@0.7}];
+  WKWebView *web = [panel valueForKey:@"webView"];
+  WaitAsync(^BOOL{ return panel.ready || panel.failed; }, NSDate.timeIntervalSinceReferenceDate + 15, ^(BOOL loaded) {
+    if (!loaded || !panel.ready) { NSLog(@"FAIL WK not ready"); [panel invalidate]; completion(failures+1); return; }
+    [web evaluateJavaScript:@"document.querySelector('[data-action=menu]').click();document.getElementById('duration').textContent" completionHandler:^(id result, NSError *error) {
+      if (error || ![result isEqual:@"8분"]) { NSLog(@"FAIL WK metrics %@ %@",result,error); failures++; }
+      WaitAsync(^BOOL{ return height == 348; },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL expanded) {
+        if (!expanded) { NSLog(@"FAIL WK expansion"); failures++; }
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        [panel layoutIfNeeded];
+        [web takeSnapshotWithConfiguration:nil completionHandler:^(UIImage *image, NSError *error) {
+          NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"bottom-expanded.png"];
+          if (image) [UIImagePNGRepresentation(image) writeToFile:path atomically:YES];
+        NSString *script = @"document.getElementById('volume').value=35;document.getElementById('volume').dispatchEvent(new Event('input'));['refresh','hazard','routePreview','destination','vias','end'].forEach(action=>document.querySelector('[data-action='+action+']').click());true";
+        [web evaluateJavaScript:script completionHandler:^(id result, NSError *error) {
+          WaitAsync(^BOOL{ return actions.count == 8 && fabs(volume-.35)<.001; },NSDate.timeIntervalSinceReferenceDate+3,^(BOOL sent) {
+            if (!sent) { NSLog(@"FAIL WK actions %@ volume=%f",actions,volume); failures++; }
+            [panel updateState:@{@"status":@"목적지를 유지하고 있어요", @"detail":@"<script>quoted ' \"", @"volume":@0.35}];
+            [web evaluateJavaScript:@"document.getElementById('duration').textContent" completionHandler:^(id result, NSError *error) {
+              if (error || ![result isEqual:@"목적지를 유지하고 있어요"]) { NSLog(@"FAIL WK state JSON"); failures++; }
+              [(id<WKNavigationDelegate>)panel webViewWebContentProcessDidTerminate:web];
+              if (!failure || !panel.failed || panel.ready) { NSLog(@"FAIL WK fallback"); failures++; }
+              [panel invalidate]; [panel removeFromSuperview];
+              completion(failures);
+            }];
+          });
+        }];
+        }];
+        });
+      });
+    }];
+  });
+}

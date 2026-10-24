@@ -304,9 +304,11 @@ export function registerGuideEvents(): () => void {
   // 앱 시작 시점 = 직전 실행이 어떻게 끝났든 안내는 이미 없다 — 남은 마커를 정산
   void reconcileAbandonedGuide();
   const end = KakaoNavi.addListener('onGuideEnd', () => void handleGuideEnd());
-  const failed = KakaoNavi.addListener('onGuideFailed', ({ code, message }) => {
-    useGuideSession.getState().clear();
-    void takeActiveGuide().then((active) => trackGuideEnd(active, 'cancelled'));
+  const failed = KakaoNavi.addListener('onGuideFailed', ({ code, message, preserveActive }) => {
+    if (!preserveActive) {
+      useGuideSession.getState().clear();
+      void takeActiveGuide().then((active) => trackGuideEnd(active, 'cancelled'));
+    }
     toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(message, code));
   });
   // 안내 지도의 POI 탭 — 네이버 지도처럼 "그 장소가 뭔지"에 답하되, 주행
@@ -332,6 +334,23 @@ export function registerGuideEvents(): () => void {
 
   // 커스텀 슬롯이 하나뿐이라 버튼 하나에서 1차 시트로 가른다
   const menu = KakaoNavi.addListener('onGuideMenu', ({ id }) => {
+    if ([103, 104, 105].includes(id) && supportsKakaoNaviFeature('guide_web_bottom')) {
+      void (async () => {
+        try {
+          await withLocationUse('navigation', 'kakao', async () => {
+            const snapshot = await KakaoNavi.openGuidePreview();
+            const session = useGuideSession.getState();
+            if (!session.goal) { await KakaoNavi.returnToGuide(snapshot.token); return; }
+            session.setPreview({ snapshot, edit: id === 104 ? 'goal' : id === 105 ? 'vias' : null, returnPending: false });
+            try { router.push({ pathname: '/navi', params: { resume: String(snapshot.token) } }); }
+            catch (error) { session.setPreview(null); await KakaoNavi.returnToGuide(snapshot.token); throw error; }
+          });
+        } catch (error) {
+          toast.error('경로 미리보기를 열 수 없습니다', friendlyRouteError(error));
+        }
+      })();
+      return;
+    }
     // 전용 위험 버튼 — 1차 시트를 건너뛰고 타입 선택으로 직행 (구빌드에는
     // 버튼이 없어 이 id 가 올 일도 없다)
     if (id === HAZARD_BUTTON_ID) {

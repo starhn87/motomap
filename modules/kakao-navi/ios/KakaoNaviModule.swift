@@ -17,7 +17,7 @@ public class KakaoNaviModule: Module {
     // JS가 앱 버전 문자열을 추측하지 않고 실제 바이너리 기능을 확인한다.
     // 기능을 추가·삭제하거나 wire 계약이 바뀌면 bridgeVersion을 올린다.
     Constants([
-      "bridgeVersion": 7,
+      "bridgeVersion": 8,
       "features": [
         "bike_route_preview",
         "guide_options",
@@ -27,6 +27,7 @@ public class KakaoNaviModule: Module {
         "app_lifecycle_forwarding",
         "accessibility_nil_guard",
         "location_privacy_stop",
+        "guide_web_bottom",
       ],
     ])
 
@@ -96,9 +97,29 @@ public class KakaoNaviModule: Module {
           self?.sendEvent("onGuideEnd", [:])
         },
         onError: { [weak self] code, message in
-          self?.sendEvent("onGuideFailed", ["code": code as Any, "message": message])
+          self?.sendEvent("onGuideFailed", ["code": code as Any, "message": message, "preserveActive": code == "ACTIVE_GUIDE"])
         }
       )
+    }.runOnQueue(.main)
+
+    AsyncFunction("openGuidePreview") { (promise: Promise) in
+      KNNaviPresenter.openGuidePreview { snapshot, error in
+        if let error { promise.reject("E_KNSDK_PREVIEW", error) }
+        else { promise.resolve(snapshot) }
+      }
+    }.runOnQueue(.main)
+
+    AsyncFunction("returnToGuide") { (token: Int, promise: Promise) in
+      KNNaviPresenter.returnToGuide(token) { restored in promise.resolve(restored) }
+    }.runOnQueue(.main)
+
+    AsyncFunction("resumeGuide") { (token: Int, lng: Double, lat: Double, name: String,
+      vias: [Double], priority: Int, promise: Promise) in
+      KNNaviPresenter.resumeGuide(token, toLng: lng, lat: lat, name: name,
+        vias: vias.map { NSNumber(value: $0) }, priority: priority) { result, error in
+        if let error { promise.reject("E_KNSDK_RESUME", error) }
+        else { promise.resolve(result) }
+      }
     }.runOnQueue(.main)
 
     // 안내 화면 위 액션시트 — JS 가 항목을 채우고, 고른 인덱스를 받는다(취소 -1)

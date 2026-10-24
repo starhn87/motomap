@@ -4,6 +4,8 @@
 #import "KNNaviAudioFocus.h"
 #import "KNNaviArrivalRecovery.h"
 #import "KNNaviRouteView.h"
+#import "KNNaviBottomPanel.h"
+#import "KNNaviHiddenViews.h"
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
@@ -221,6 +223,39 @@ static NSData *MotoMapStartVoiceData(void) {
   return data;
 }
 
+static BOOL MotoMapSamePoint(double lng, double lat, NSDictionary *point) {
+  double dx = (lng - [point[@"longitude"] doubleValue]) * cos(lat * M_PI / 180) * 111320;
+  double dy = (lat - [point[@"latitude"] doubleValue]) * 111320;
+  return hypot(dx,dy) < 5;
+}
+
+NSArray<NSDictionary *> *KNNaviNewPassedVias(NSArray<NSDictionary *> *before, NSArray<NSDictionary *> *after) {
+  NSMutableArray *unconsumed = [before mutableCopy], *result = [NSMutableArray new];
+  for (NSDictionary *point in after) {
+    NSUInteger index = [unconsumed indexOfObjectPassingTest:^BOOL(NSDictionary *old, NSUInteger idx, BOOL *stop) {
+      return MotoMapSamePoint([point[@"longitude"] doubleValue],[point[@"latitude"] doubleValue],old);
+    }];
+    if (index == NSNotFound) [result addObject:point];
+    else [unconsumed removeObjectAtIndex:index];
+  }
+  return result;
+}
+
+NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDictionary *> *originalRemaining, NSArray<NSDictionary *> *newPassed) {
+  NSMutableArray *unconsumed = [newPassed mutableCopy], *result = [NSMutableArray new];
+  for (NSUInteger i=0;i+1<flat.count;i+=2) {
+    double lng = flat[i].doubleValue, lat = flat[i+1].doubleValue;
+    BOOL wasRemaining = NO;
+    for (NSDictionary *point in originalRemaining) if (MotoMapSamePoint(lng,lat,point)) { wasRemaining = YES; break; }
+    NSUInteger index = wasRemaining ? [unconsumed indexOfObjectPassingTest:^BOOL(NSDictionary *point, NSUInteger idx, BOOL *stop) {
+      return MotoMapSamePoint(lng,lat,point);
+    }] : NSNotFound;
+    if (index == NSNotFound) [result addObjectsFromArray:@[flat[i],flat[i+1]]];
+    else [unconsumed removeObjectAtIndex:index];
+  }
+  return result;
+}
+
 // 안내 화면을 담는 뷰 컨트롤러. 델리게이트를 받아야 해서 별도 클래스로 둔다.
 // KNNaviView 는 KNGuidance 를 스스로 구독하지 않는다. 가이드 델리게이트를 여기서
 // 전부 받아 naviView 로 넘겨야 화면이 갱신된다. 게다가 델리게이트를 걸지 않으면
@@ -235,6 +270,20 @@ static NSData *MotoMapStartVoiceData(void) {
                                                     KNGuidance_CitsGuideDelegate,
                                                     KNMapPOIEventListener>
 @property(nonatomic, strong, nullable) KNNaviView *naviView;
+@property(nonatomic, strong) KNNaviBottomPanel *bottomPanel;
+@property(nonatomic, strong) KNNaviHiddenViews *webHiddenViews;
+@property(nonatomic, strong) KNNaviHiddenViews *auxiliaryHiddenViews;
+@property(nonatomic) CGFloat panelHeight;
+@property(nonatomic) float volume;
+@property(nonatomic, copy) NSString *arrivalMessage;
+@property(nonatomic) BOOL suspended;
+@property(nonatomic) NSInteger previewToken;
+@property(nonatomic) BOOL resumeCommitting;
+@property(nonatomic, copy) NSArray<NSDictionary *> *previewRemainingVias;
+@property(nonatomic, copy) NSArray<NSDictionary *> *previewPassedVias;
+@property(nonatomic, copy) NSArray<NSDictionary *> *completedViaPoints;
+@property(nonatomic, copy) void (^onResumeError)(NSString *);
+
 @property(nonatomic, strong, nullable) UIView *observedBottomView;
 @property(nonatomic, strong, nullable) KNNaviAudioFocus *audioFocus;
 @property(nonatomic, strong, nullable) UIButton *endButton;
@@ -273,6 +322,8 @@ static NSData *MotoMapStartVoiceData(void) {
 // 안내 화면 위 상호작용(액션시트·알림·목적지 변경)을 모듈 함수가 쓸 수 있도록
 // 살아 있는 컨트롤러를 하나 기억한다.
 static __weak KNNaviViewController *gActiveNavi = nil;
+static KNNaviViewController *gSuspendedNavi = nil;
+static NSInteger gPreviewToken = 0;
 static NSUInteger gLocationGeneration = 0;
 
 static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
@@ -448,8 +499,90 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   }
 
   gActiveNavi = self;
+  if (!self.preview) [self installBottomPanel];
   // SDK 생성자 안에서 발생해 아직 handler가 없었던 전환도 놓치지 않는다.
   if (naviView.didBlockSafetyMode) [self handleBlockedSafetyMode];
+}
+
+- (void)installBottomPanel {
+  self.volume = 1;
+  self.auxiliaryHiddenViews = [KNNaviHiddenViews new];
+  self.webHiddenViews = [KNNaviHiddenViews new];
+  self.bottomPanel = [[KNNaviBottomPanel alloc] initWithFrame:CGRectZero];
+  __weak KNNaviViewController *weakSelf = self;
+  self.bottomPanel.onHeight = ^(CGFloat height) {
+    weakSelf.panelHeight = height;
+    [weakSelf.view setNeedsLayout];
+  };
+  self.bottomPanel.onFailure = ^{
+    KNNaviViewController *vc = weakSelf;
+    [vc.webHiddenViews restore];
+    vc.bottomPanel.hidden = YES;
+    [vc updateCustomControlsVisibility];
+    if (vc.arrivalMessage) [vc showArrivalUIWithMessage:vc.arrivalMessage];
+    [vc.view setNeedsLayout];
+  };
+  self.bottomPanel.onAction = ^(NSString *action, NSDictionary *payload) {
+    KNNaviViewController *vc = weakSelf;
+    if (!vc || vc.finished) return;
+    if ([action isEqualToString:@"ready"]) {
+      [vc.arrivalBanner removeFromSuperview]; vc.arrivalBanner = nil;
+      [vc refreshHiddenViews]; [vc updateCustomControlsVisibility];
+      [vc.view setNeedsLayout];
+    } else if ([action isEqualToString:@"volume"]) {
+      vc.volume = [payload[@"value"] floatValue]; [vc.naviView sndVolume:vc.volume];
+    } else if ([action isEqualToString:@"refresh"]) {
+      if (vc.arrivalRecovery.waiting) [vc retryArrivalRoute];
+      else if (!vc.changingDestination) [(KNDriveGuidance *)vc.guidance reRoute];
+    } else if ([action isEqualToString:@"end"]) [vc finish];
+    else if (vc.onMenu) {
+      NSDictionary *ids = @{@"hazard":@101, @"routePreview":@103, @"destination":@104, @"vias":@105};
+      NSNumber *menu = ids[action]; if (menu) vc.onMenu(menu.integerValue);
+    }
+    [vc updateBottomPanel];
+  };
+  [self.view addSubview:self.bottomPanel];
+  [self refreshHiddenViews];
+  [self updateBottomPanel];
+}
+
+- (void)refreshHiddenViews {
+  if (self.finished) return;
+  [self.auxiliaryHiddenViews hideAuxiliaryViewsIn:self.naviView];
+  if (self.bottomPanel.ready) {
+    [self.webHiddenViews hideView:self.naviView.bottomView];
+    [self.webHiddenViews hideView:self.naviView.menuView];
+  }
+}
+
+- (void)viewDidLayoutSubviews {
+  [super viewDidLayoutSubviews];
+  BOOL web = self.bottomPanel.ready;
+  CGFloat inset = self.view.safeAreaInsets.bottom;
+  // 확장 메뉴만 지도 위에 겹친다. 접힌 바만큼 지도 자체를 줄여 자차를 가리지 않는다.
+  CGFloat reserved = web ? 80 + inset : 0;
+  self.naviView.frame = CGRectMake(0, 0, self.view.bounds.size.width, MAX(0, self.view.bounds.size.height - reserved));
+  if (self.bottomPanel) {
+    [self.bottomPanel setBottomInset:inset];
+    CGFloat height = MIN(self.panelHeight ?: 80 + inset, self.view.bounds.size.height - self.view.safeAreaInsets.top);
+    self.bottomPanel.frame = CGRectMake(0, self.view.bounds.size.height - height, self.view.bounds.size.width, height);
+    self.bottomPanel.hidden = !web;
+  }
+  [self refreshHiddenViews];
+}
+
+- (void)updateBottomPanel {
+  KNTrip *trip = self.guidance.trip;
+  NSMutableDictionary *state = [@{@"volume":@(self.volume), @"busy":@(self.changingDestination || self.arrivalRecovery.requesting)} mutableCopy];
+  if (self.arrivalRecovery.waiting || self.arrivalMessage) {
+    state[@"status"] = self.arrivalRecovery.requesting ? @"복귀 경로를 찾고 있어요" : @"목적지를 유지하고 있어요";
+    state[@"detail"] = @"왼쪽 새로고침으로 다시 안내";
+  } else if (trip) {
+    state[@"remainingDistance"] = @(trip.remainDist);
+    state[@"remainingTime"] = @(trip.remainTime);
+  }
+  state[@"canEditVias"] = @(self.trip.vias.count <= 3);
+  [self.bottomPanel updateState:state];
 }
 
 - (void)hazardTapped {
@@ -460,12 +593,12 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   // 지도 이동·전체 경로·구간 정보에서는 SDK 안내 UI와 함께 숨긴다.
   // hidden은 터치와 접근성 탐색도 막으므로 투명한 버튼이 지도 위에 남지 않는다.
   // SDK가 초기 상태 콜백을 생략해도 기존 종료 수단은 유지한다.
-  BOOL visible = !self.preview && (!self.hasNaviScreenState ||
+  BOOL visible = !self.bottomPanel.ready && !self.preview && (!self.hasNaviScreenState ||
       self.naviScreenState == DriveNormal || self.naviScreenState == SafetyNormal);
   // 정상 모드 enum이 그대로인 패닝에서도 하단 안내 바와 함께 숨긴다.
   // 초기 구성 중 아직 없는 뷰는 숨김 신호로 간주하지 않는다.
   if (!self.arrivalRecovery.waiting && self.naviView.bottomView.hidden) visible = NO;
-  if (self.safetyScreenQuarantined && !self.preview && !self.finished) visible = YES;
+  if (self.safetyScreenQuarantined && !self.preview && !self.finished && !self.bottomPanel.ready) visible = YES;
   self.endButton.hidden = !visible;
   self.hazardButton.hidden = !visible;
 }
@@ -495,6 +628,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)dealloc {
   [self stopObservingBottomView];
+  [self.bottomPanel invalidate];
 }
 
 // KNNaviMapView 는 내부 KNMapView 를 노출하지 않는다 — 서브뷰 트리에서 찾는다.
@@ -622,6 +756,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)naviViewDidUpdateSndVolume:(float)aVolume {
+  self.volume = aVolume;
+  [self updateBottomPanel];
 }
 
 - (void)naviViewDidUpdateUseDarkMode:(BOOL)aDarkMode {
@@ -635,6 +771,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.naviScreenState = aKNNaviViewState;
   self.hasNaviScreenState = YES;
   [self updateCustomControlsVisibility];
+  [self refreshHiddenViews];
   if (aKNNaviViewState == SafetyNormal || aKNNaviViewState == SafetyTouch) {
     // 고정 SDK의 모드 입구 외 경로가 생겨도 해당 화면을 그리지 않는다.
     self.safetyScreenQuarantined = YES;
@@ -653,12 +790,18 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)guidanceGuideStarted:(KNGuidance *)aGuidance {
   if (self.finished) return;
+  // 경로 계산 중 기존 엔진의 자동 재탐색 완료는 편집 승인으로 취급하지 않는다.
+  if (self.suspended && self.changingDestination && !self.resumeCommitting) {
+    [self.naviView guidanceGuideStarted:aGuidance]; return;
+  }
+  self.resumeCommitting = NO;
   if (self.changingDestination && self.pendingDestinationTrip) {
     self.trip = self.pendingDestinationTrip;
     self.priority = self.pendingDestinationPriority;
   }
   self.changingDestination = NO;
   self.pendingDestinationTrip = nil;
+  self.onResumeError = nil;
   [self restoreArrivalUI];
   [self.arrivalRecovery guideStarted];
   [self.naviView guidanceGuideStarted:aGuidance];
@@ -667,6 +810,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.naviView.hidden = NO;
   [self updateCustomControlsVisibility];
   [self applyCarTheme];
+  [self refreshHiddenViews];
+  [self updateBottomPanel];
   // JS 가 이 신호를 받아 밑 화면을 지도로 바꿔 둔다 — 안내가 어떤 경로로
   // 걷히든(도착·취소·SDK 자체 닫힘) 드러나는 건 항상 지도다.
   if (self.onStarted != nil) {
@@ -695,7 +840,13 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)guidance:(KNGuidance *)aGuidance routeUnchangedWithError:(KNError *)aError {
   self.changingDestination = NO;
+  self.resumeCommitting = NO;
   self.pendingDestinationTrip = nil;
+  if (self.onResumeError) {
+    void (^failure)(NSString *) = self.onResumeError;
+    self.onResumeError = nil; self.onStarted = nil;
+    failure(aError.msg ?: @"안내를 변경하지 못했어요.");
+  }
   if (self.arrivalRecovery.requesting) {
     [self arrivalReturnFailedForGeneration:self.routeRequestGeneration];
     return;
@@ -746,6 +897,13 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)showArrivalUIWithMessage:(NSString *)message {
+  self.arrivalMessage = message;
+  if (self.bottomPanel.ready) {
+    self.naviView.curDirView.hidden = YES;
+    self.naviView.nextDirView.hidden = YES;
+    [self updateBottomPanel];
+    return;
+  }
   if (!self.arrivalBanner) {
     self.arrivalCurWasHidden = self.naviView.curDirView.hidden;
     self.arrivalNextWasHidden = self.naviView.nextDirView.hidden;
@@ -785,6 +943,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)restoreArrivalUI {
+  self.arrivalMessage = nil;
+  [self updateBottomPanel];
   if (!self.arrivalBanner) return;
   [self.arrivalBanner removeFromSuperview];
   self.arrivalBanner = nil;
@@ -864,7 +1024,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)guidance:(KNGuidance *)aGuidance didUpdateLocation:(KNGuide_Location *)aLocationGuide {
   if (self.finished || ![KNSDKBridge isLocationUseAllowed]) return;
   [self.naviView guidance:aGuidance didUpdateLocation:aLocationGuide];
-  if (self.arrivalRecovery.waiting && !self.preview && !self.changingDestination && [self usableRecoveryGPS:aLocationGuide.gpsOrigin]) {
+  if (self.arrivalRecovery.waiting && !self.preview && !self.suspended && !self.changingDestination && [self usableRecoveryGPS:aLocationGuide.gpsOrigin]) {
     double distance = [self distanceToDestinationWithGPS:aLocationGuide.gpsOrigin];
     if ([self.arrivalRecovery shouldRecoverAtDistance:distance time:NSDate.timeIntervalSinceReferenceDate]) {
       [self requestArrivalReturnWithGPS:aLocationGuide.gpsOrigin];
@@ -881,6 +1041,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)guidance:(KNGuidance *)aGuidance didUpdateRouteGuide:(KNGuide_Route *)aRouteGuide {
   [self.naviView guidance:aGuidance didUpdateRouteGuide:aRouteGuide];
+  [self updateBottomPanel];
+  [self refreshHiddenViews];
 }
 
 - (void)guidance:(KNGuidance *)aGuidance didUpdateSafetyGuide:(KNGuide_Safety *)aSafetyGuide {
@@ -923,6 +1085,13 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (self.finished) return;
   self.finished = YES;
   self.routeRequestGeneration++;
+  self.onStarted = nil;
+  if (self.onResumeError) self.onResumeError(@"길안내가 종료됐어요.");
+  self.onResumeError = nil;
+  if (gSuspendedNavi == self) gSuspendedNavi = nil;
+  [self.bottomPanel invalidate];
+  [self.webHiddenViews restore];
+  [self.auxiliaryHiddenViews restore];
   [self stopObservingBottomView];
   [self.guidance stop];
   [self.audioFocus stop];
@@ -980,6 +1149,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
              onDismiss:(void (^)(void))onDismiss
                onError:(void (^)(NSString *_Nullable, NSString *))onError {
   if (![KNSDKBridge isLocationUseAllowed]) { onError(nil,@"위치 이용이 중지됐다"); return; }
+  if (gActiveNavi && !gActiveNavi.finished) { onError(@"ACTIVE_GUIDE",@"진행 중인 길안내로 돌아가 종료한 뒤 새 안내를 시작해 주세요."); return; }
   __block NSUInteger generation;
   @synchronized(self) { generation = ++gLocationGeneration; }
   KNSDK *sdk = [KNSDK sharedInstance];
@@ -1044,6 +1214,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
               onDismiss:(void (^)(void))onDismiss
                 onError:(void (^)(NSString *_Nullable, NSString *))onError {
   dispatch_async(dispatch_get_main_queue(), ^{
+    if (gActiveNavi && !gActiveNavi.finished) { onError(@"ACTIVE_GUIDE",@"진행 중인 길안내가 있어요. 먼저 종료해 주세요."); return; }
     if (!IsLocationGenerationCurrent(generation)) { onError(nil,@"위치 이용이 중지됐다"); return; }
     if (![KNNaviRouteView isSDKModeBoundaryCompatible]) {
       onError(nil, @"길안내 화면을 준비할 수 없어요. 앱 업데이트 후 다시 시도해 주세요.");
@@ -1070,6 +1241,124 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     vc.modalPresentationStyle = UIModalPresentationOverFullScreen;
     [top presentViewController:vc animated:YES completion:nil];
   });
+}
+
++ (NSDictionary *)pointSnapshot:(KNPOI *)poi {
+  DoublePoint point = [[KNSDK sharedInstance] convertKATECToWGS84WithX:poi.pos.x y:poi.pos.y];
+  return @{@"longitude":@(point.x), @"latitude":@(point.y), @"name":poi.name ?: @"경유지"};
+}
+
++ (void)openGuidePreview:(void (^)(NSDictionary *, NSString *))completion {
+  KNNaviViewController *vc = gActiveNavi;
+  if (!vc || vc.preview || vc.finished || vc.suspended || vc.changingDestination || ![KNSDKBridge isLocationUseAllowed]) {
+    completion(nil, @"현재 길안내에서 미리보기를 열 수 없어요."); return;
+  }
+  KNGPSData *gps = [[KNSDK sharedInstance] sharedGpsManager].lastValidGpsData;
+  if (![vc usableRecoveryGPS:gps] || !vc.trip.goal) { completion(nil, @"현재 위치를 확인한 뒤 다시 시도해 주세요."); return; }
+  DoublePoint start = [[KNSDK sharedInstance] convertKATECToWGS84WithX:(SInt32)gps.pos.x y:(SInt32)gps.pos.y];
+  NSArray *passed = (vc.guidance.trip ?: vc.trip).passedVias ?: @[];
+  NSMutableArray *remainingPoints = [NSMutableArray new];
+  NSArray *passedPoints = [self passedPointsFor:vc];
+  NSMutableArray *unconsumed = [passed mutableCopy];
+  for (KNPOI *poi in vc.trip.vias) {
+    NSUInteger found = [unconsumed indexOfObjectPassingTest:^BOOL(KNPOI *done, NSUInteger index, BOOL *stop) {
+      return poi == done || (poi.pos.x == done.pos.x && poi.pos.y == done.pos.y);
+    }];
+    if (found != NSNotFound) [unconsumed removeObjectAtIndex:found];
+    else [remainingPoints addObject:[self pointSnapshot:poi]];
+  }
+  vc.previewRemainingVias = [remainingPoints copy];
+  vc.previewPassedVias = passedPoints;
+  vc.suspended = YES; vc.previewToken = ++gPreviewToken;
+  vc.routeRequestGeneration++; [vc.arrivalRecovery requestFailed];
+  gSuspendedNavi = vc;
+  NSDictionary *snapshot = @{@"token":@(vc.previewToken), @"start":@{@"longitude":@(start.x), @"latitude":@(start.y)},
+      @"goal":[self pointSnapshot:vc.trip.goal], @"vias":remainingPoints, @"passedVias":passedPoints, @"priority":@(vc.priority)};
+  [vc dismissViewControllerAnimated:YES completion:^{ completion(snapshot,nil); }];
+}
+
++ (void)returnToGuide:(NSInteger)token completion:(void (^)(BOOL))completion {
+  KNNaviViewController *vc = gSuspendedNavi;
+  if (!vc || vc.previewToken != token || vc.finished || vc.resumeCommitting || ![KNSDKBridge isLocationUseAllowed]) { completion(NO); return; }
+  if (!vc.suspended) { completion(vc.presentingViewController != nil); return; }
+  UIViewController *top = [self keyWindow].rootViewController;
+  while (top.presentedViewController) top = top.presentedViewController;
+  if (!top.viewIfLoaded.window || top.isBeingDismissed || top.isBeingPresented) { completion(NO); return; }
+  vc.routeRequestGeneration++;
+  if (vc.onResumeError) vc.onResumeError(@"경로 선택을 취소했어요.");
+  vc.onResumeError = nil; vc.onStarted = nil; vc.changingDestination = NO; vc.pendingDestinationTrip = nil;
+  vc.suspended = NO;
+  [top presentViewController:vc animated:YES completion:^{
+    if (gSuspendedNavi == vc) gSuspendedNavi = nil;
+    completion(YES);
+  }];
+}
+
++ (NSArray<NSDictionary *> *)passedPointsFor:(KNNaviViewController *)vc {
+  NSMutableArray *points = [NSMutableArray arrayWithArray:vc.completedViaPoints ?: @[]];
+  for (KNPOI *poi in (vc.guidance.trip ?: vc.trip).passedVias) [points addObject:[self pointSnapshot:poi]];
+  return points;
+}
+
++ (void)prepareResumeTripFor:(KNNaviViewController *)vc generation:(NSUInteger)generation
+                    origin:(KNPOI *)origin goal:(KNPOI *)goal vias:(NSArray<NSNumber *> *)vias
+                completion:(void (^)(KNTrip *, NSArray<NSNumber *> *, NSString *))completion {
+  NSArray *filtered = KNNaviRemainingVias(vias, vc.previewRemainingVias, KNNaviNewPassedVias(vc.previewPassedVias,[self passedPointsFor:vc]));
+  [[KNSDK sharedInstance] makeTripWithStart:origin goal:goal vias:[KNSDKBridge viasFromFlat:filtered] completion:^(KNError *error, KNTrip *trip) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      if (vc.finished || !vc.suspended || generation != vc.routeRequestGeneration || ![KNSDKBridge isLocationUseAllowed]) return;
+      if (error || !trip) { completion(nil,filtered,error.msg ?: @"경로를 만들지 못했어요."); return; }
+      NSArray *latest = KNNaviRemainingVias(vias, vc.previewRemainingVias, KNNaviNewPassedVias(vc.previewPassedVias,[self passedPointsFor:vc]));
+      if (![latest isEqual:filtered]) {
+        // 경로 계산 중 통과한 경유지까지 제외한다. 배열이 줄어드는 경우만 재시도한다.
+        [self prepareResumeTripFor:vc generation:generation origin:origin goal:goal vias:vias completion:completion]; return;
+      }
+      completion(trip,filtered,nil);
+    });
+  }];
+}
+
++ (void)resumeGuide:(NSInteger)token toLng:(double)lng lat:(double)lat name:(NSString *)name
+              vias:(NSArray<NSNumber *> *)vias priority:(NSInteger)priority completion:(void (^)(NSDictionary *, NSString *))completion {
+  KNNaviViewController *vc = gSuspendedNavi;
+  if (!vc || vc.previewToken != token || !vc.suspended || vc.finished || vc.changingDestination || ![KNSDKBridge isLocationUseAllowed]) {
+    completion(nil, @"길안내 상태가 변경됐어요."); return;
+  }
+  KNSDK *sdk = [KNSDK sharedInstance];
+  KNGPSData *gps = sdk.sharedGpsManager.lastValidGpsData;
+  if (![vc usableRecoveryGPS:gps]) { completion(nil, @"현재 위치를 확인한 뒤 다시 시도해 주세요."); return; }
+  NSUInteger generation = ++vc.routeRequestGeneration;
+  vc.changingDestination = YES;
+  __block BOOL completed = NO;
+  void (^done)(NSDictionary *, NSString *) = ^(NSDictionary *result, NSString *error) {
+    if (completed) return; completed = YES; completion(result, error);
+  };
+  vc.onResumeError = ^(NSString *error) { done(nil,error); };
+  // 미리보기 출발지 대신, 선택 완료 시점의 실제 GPS에서 다시 계산한다.
+  KNPOI *origin = [[KNPOI alloc] initWithName:@"현재 위치" pos:IntPointMakeWithDoublePoint(gps.pos)];
+  IntPoint pos = [sdk convertWGS84ToKATECWithLongitude:lng latitude:lat];
+  KNPOI *goal = [[KNPOI alloc] initWithName:name pos:pos];
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 25 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+    if (!completed && !vc.finished && !vc.resumeCommitting && generation == vc.routeRequestGeneration) {
+      vc.routeRequestGeneration++; vc.changingDestination = NO; vc.pendingDestinationTrip = nil;
+      vc.onStarted = nil; vc.onResumeError = nil; done(nil,@"경로 변경 시간이 초과됐어요. 다시 시도해 주세요.");
+    }
+  });
+  [self prepareResumeTripFor:vc generation:generation origin:origin goal:goal vias:vias completion:^(KNTrip *trip, NSArray<NSNumber *> *appliedVias, NSString *error) {
+      if (vc.finished || !vc.suspended || generation != vc.routeRequestGeneration || ![KNSDKBridge isLocationUseAllowed]) return;
+      if (error || !trip) { vc.changingDestination = NO; vc.onResumeError = nil; done(nil,error ?: @"경로를 만들지 못했어요."); return; }
+      trip.routeConfig = [[KNRouteConfiguration alloc] initWithCarType:KNCarType_Bike];
+      NSArray *passedPoints = [self passedPointsFor:vc];
+      vc.resumeCommitting = YES;
+      vc.pendingDestinationTrip = trip; vc.pendingDestinationPriority = (KNRoutePriority)priority;
+      vc.onStarted = ^{
+        if (vc.finished || generation != vc.routeRequestGeneration || !vc.suspended) return;
+        // 경로 적용 성공과 화면 복원은 별개다. 백그라운드 복원 실패도 적용 ack는 보낸다.
+        vc.completedViaPoints = passedPoints;
+        done(@{@"vias":appliedVias, @"passedVias":passedPoints},nil);
+      };
+      [vc.naviView guideNewDestinations:trip priority:(KNRoutePriority)priority avoidOptions:KNRouteAvoidOption_None];
+  }];
 }
 
 + (void)showOptionsWithTitle:(NSString *)title

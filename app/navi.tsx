@@ -3,7 +3,7 @@ import { useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useIsFocused } from 'expo-router/react-navigation';
+import { useIsFocused, usePreventRemove } from 'expo-router/react-navigation';
 import { Gesture } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -31,7 +31,8 @@ import { useUserLocation } from '@/hooks/useUserLocation';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { toast } from '@/lib/toast';
-import { useGuideSession } from '@/lib/guideSession';
+import { useGuideSession, type GuidePreviewContext } from '@/lib/guideSession';
+import { guidePreviewInitial, continuedViaPlaces, continuedGoal } from '@/lib/guidePreview';
 import { markGuideStarted } from '@/lib/guideEvents';
 import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
 import { createAnalyticsId, track } from '@/lib/analytics';
@@ -58,8 +59,13 @@ type EditingField = 'start' | 'goal' | number;
 // (코스 경유지는 지오메트리 좌표 수십 개라 편집 대상이 아니다).
 export default function NaviScreen() {
   const params = useLocalSearchParams<NaviRouteParams>();
-  const initial = parseNaviParams(params);
-  return initial ? <NaviContent initial={initial} /> : <InvalidNaviParams />;
+  const resume = (params as NaviRouteParams & { resume?: string }).resume;
+  const context = useGuideSession((s) => s.preview);
+  const goal = useGuideSession((s) => s.goal);
+  const viaPlaces = useGuideSession((s) => s.viaPlaces);
+  const [continuation] = useState(() => typeof resume === 'string' && context?.snapshot.token === Number(resume) ? context : null);
+  const [initial] = useState(() => resume ? (continuation && goal ? guidePreviewInitial(continuation.snapshot, goal, viaPlaces) : null) : parseNaviParams(params));
+  return initial ? <NaviContent initial={initial} continuation={continuation} /> : <InvalidNaviParams />;
 }
 
 function InvalidNaviParams() {
@@ -71,7 +77,9 @@ function InvalidNaviParams() {
   return null;
 }
 
-function NaviContent({ initial }: { initial: ParsedNaviParams }) {
+function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; continuation: GuidePreviewContext | null }) {
+  const continuationRef = useRef(continuation);
+  const resumedRef = useRef(false);
   const privacyRevision = useLocationPrivacyStore((s) => s.revision);
   const locationBlocked = !providerLocationAllowed('kakao');
   const router = useRouter();
@@ -97,7 +105,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   const [userVias, setUserVias] = useState<(NavTarget | null)[]>(
     initial.userVias,
   );
-  const [editing, setEditing] = useState<EditingField | null>(null);
+  const [editing, setEditing] = useState<EditingField | null>(continuation?.edit === 'goal' ? 'goal' : null);
   // 검색 초안은 행의 위치가 아니라 행 자체를 따른다. 순서 변경·삭제 때 같이 옮긴다.
   const [fieldDraftKeys, setFieldDraftKeys] = useState<string[]>([
     'start', ...initial.userVias.map((_, index) => `via-${index}`), 'goal',
@@ -115,10 +123,16 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   // 보고). 안내 화면이 위를 덮은 뒤라 사용자에게는 보이지 않는 전환이다.
   const [guideStarted, setGuideStarted] = useState(false);
   const [starting, setStarting] = useState(false);
+  const startingRef = useRef(false);
   // 시작 계측 속성 — 탭 시점에 담아 두고 onGuideStarted 리스너가 찍는다
   const startTrackRef = useRef<Parameters<typeof track.navigationStarted>[0] | null>(null);
 
-  const isCourseMode = !!courseId || courseVias.length > 0;
+  const isCourseMode = (!continuation && !!courseId) || courseVias.length > 0;
+
+  useEffect(() => () => {
+    const context = continuationRef.current;
+    if (context && !resumedRef.current) useGuideSession.getState().requestGuideReturn(context.snapshot.token);
+  }, []);
 
   // 지점 → 경로: 옵션별 캐시·경유지 축소 사다리·코스 폴백은 훅이 맡는다
   const {
@@ -141,12 +155,21 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
     enabled: isFocused && !starting && !guideStarted });
 
   useEffect(() => {
+    if (continuationRef.current) setPriority(continuationRef.current.snapshot.priority);
+    // 경유지 편집은 기존 행을 보여주고, 없을 때만 빈 행을 만든다.
+    if (continuationRef.current?.edit === 'vias' && !initial.userVias.length && !isCourseMode) {
+      setUserVias([null]); setFieldDraftKeys(['start', 'via-0', 'goal']); nextDraftId.current = 1;
+    }
+  }, []);
+
+  useEffect(() => {
     if (isCourseMode) return; // 편집 카드가 없으니 모달도 안 뜬다
     void loadRecentSearches().then((entries) =>
       setRecents(recentTargets(entries).map((r) => r.target)),
     );
   }, [isCourseMode]);
   const handleFieldSelect = (point: Point) => {
+    if (startingRef.current) return;
     const field = editing;
     setEditing(null);
     if (field === null) return;
@@ -178,7 +201,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
 
   // + 줄 — 빈 경유지 줄만 만든다. 채우기 전엔 경로에 영향이 없다.
   const addEmptyVia = () => {
-    if (viaCountRef.current >= MAX_USER_VIAS) return;
+    if (startingRef.current || viaCountRef.current >= MAX_USER_VIAS) return;
     viaCountRef.current += 1;
     const key = `via-${nextDraftId.current++}`;
     setUserVias((prev) => [...prev, null]);
@@ -186,6 +209,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   };
 
   const removeVia = (index: number) => {
+    if (startingRef.current) return;
     const wasEmpty = !userVias[index];
     setUserVias((prev) => prev.filter((_, i) => i !== index));
     setFieldDraftKeys((prev) => prev.filter((_, i) => i !== index + 1));
@@ -193,7 +217,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   };
 
   const swapEnds = () => {
-    if (!start) return; // 현재 위치를 아직 확보 중이면 바꿀 게 없다
+    if (continuation || startingRef.current || !start) return; // 현재 위치를 아직 확보 중이면 바꿀 게 없다
     const prevGoal = goal;
     setGoal({ name: startName ?? '현재 위치', latitude: start[1], longitude: start[0] });
     setStartName(prevGoal.name);
@@ -213,7 +237,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
       dragIndex.value = -1;
       dragY.value = 0;
     };
-    if (from === to || !start) return resetDrag();
+    if (startingRef.current || from === to || !start || (continuation && (from === 0 || to === 0))) return resetDrag();
     type Row =
       | { kind: 'start' }
       | { kind: 'goal' }
@@ -284,7 +308,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   // 빈 경유지 줄(enabled=false)은 옮길 내용이 없으니 드래그를 막는다.
   const makeRowPan = (index: number, enabled = true) =>
     Gesture.Pan()
-      .enabled(enabled)
+      .enabled(enabled && !starting && !(continuation && index === 0))
       .onStart(() => {
         dragIndex.value = index;
         dragY.value = 0;
@@ -312,6 +336,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   // 처리는 이 화면이 언마운트된 뒤에도 살아 있도록 전역(lib/guideEvents)이 맡는다.
   useEffect(() => {
     const started = KakaoNavi.addListener('onGuideStarted', () => {
+      if (continuationRef.current) return;
       if (startTrackRef.current) {
         const startTrack = startTrackRef.current;
         startTrackRef.current = null;
@@ -348,7 +373,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
       router.replace('/');
     });
     // 경로 탐색 실패 시 시작 스피너만 되돌린다 (토스트는 전역 리스너가 띄운다)
-    const failed = KakaoNavi.addListener('onGuideFailed', () => setStarting(false));
+    const failed = KakaoNavi.addListener('onGuideFailed', () => { startingRef.current = false; setStarting(false); });
     return () => {
       started.remove();
       failed.remove();
@@ -360,7 +385,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   // 출발지는 무시되고 현재 위치에서 시작돼 버린다. 가까우면 그냥 실주행으로 —
   // 어차피 출발지가 곧 현재 위치라 자연스럽게 맞는다.
   const previewOnly =
-    !!startName && !!start && !!userLocation
+    !continuation && !!startName && !!start && !!userLocation
       ? haversine(userLocation, { latitude: start[1], longitude: start[0] }) > PREVIEW_MIN_METERS
       : false;
 
@@ -406,8 +431,32 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
   }, [router, start, locationBlocked, privacyRevision]);
 
   const startGuide = () => {
-    if (!start || !route || locationBlocked || starting || courseOnly) return;
+    if (!start || !route || locationBlocked || startingRef.current || courseOnly) return;
+    startingRef.current = true;
     setStarting(true);
+    const context = continuationRef.current;
+    if (context) {
+      const usedVias = activeVias ?? flatVias;
+      const previous = useGuideSession.getState();
+      void withLocationUse('navigation', 'kakao', async () => {
+        const applied = await KakaoNavi.resumeGuide(
+          context.snapshot.token, goal.longitude, goal.latitude, goal.name, usedVias, priority,
+        );
+        const current = useGuideSession.getState();
+        if (!current.goal || current.preview?.snapshot.token !== context.snapshot.token) { startingRef.current = false; setStarting(false); return; }
+        // 위치 이용 감사 RPC의 후처리를 기다리지 않고 엔진 적용 ack 즉시 맥락을 맞춘다.
+        const committedSnapshot = { ...context.snapshot, passedVias: applied.passedVias };
+        startGuideSession(continuedGoal(context.snapshot, previous.goal!, goal, applied.vias, applied.passedVias), priority,
+          continuedViaPlaces(committedSnapshot, previous.viaPlaces, userVias, applied.vias));
+        resumedRef.current = true;
+        setGuideStarted(true);
+        current.requestGuideReturn(context.snapshot.token);
+      }).catch((error) => {
+        startingRef.current = false; setStarting(false);
+        toast.error('경로를 변경할 수 없습니다', friendlyRouteError(error));
+      });
+      return;
+    }
     // 계측은 실제 시작 신호(onGuideStarted)에서 찍는다 — 여기서 찍으면 경로
     // 탐색 실패까지 "시작"으로 세어 완주율 분모가 부푼다. 리스너 useEffect 와
     // 렌더 시점이 달라 속성은 ref 로 넘긴다.
@@ -422,10 +471,18 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
       start[0], start[1], goal.longitude, goal.latitude, goal.name,
       activeVias ?? flatVias, priority, previewOnly,
     ))).catch((err) => {
-      setStarting(false);
+      startingRef.current = false; setStarting(false);
       toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(err));
     });
   };
+
+  usePreventRemove(!!continuation && starting && !guideStarted, () => {});
+  useEffect(() => {
+    if (continuation && guideStarted) router.replace('/');
+  }, [continuation, guideStarted, router]);
+  useEffect(() => {
+    if (continuation) navigation.setOptions({ gestureEnabled: !starting });
+  }, [continuation, navigation, starting]);
 
   // 위아래 카드가 지도를 덮는 픽셀 — PreviewMap 의 카메라 핏이 이 값만큼
   // 경로를 밀어 넣는다. onLayout 으로 실측해 채운다.
@@ -447,6 +504,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
 
   // 오류·닫기 모두 오버레이와 장소 시트를 남기지 않고 지도 탭으로 돌아간다.
   const returnToMap = () => {
+    if (continuation && startingRef.current) return;
     useMapStore.getState().requestMapReset();
     if (hasMapOverlayInStack()) {
       router.dismissAll();
@@ -501,12 +559,13 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
               <RouteFieldRow
                 icon="radiobox-marked"
                 value={startName ?? '현재 위치'}
-                onPress={() => !starting && setEditing('start')}
+                onPress={() => !starting && !continuation && setEditing('start')}
                 index={0}
                 rowCountSv={rowCountSv}
                 dragIndex={dragIndex}
                 dragY={dragY}
                 pan={makeRowPan(0)}
+                dragDisabled={!!continuation || starting}
               />
               {userVias.map((via, i) => (
                 <View key={fieldDraftKeys[i + 1]}>
@@ -566,7 +625,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
                 style={styles.routeClose}>
                 <CloseIcon size={20} color={colors.text} />
               </Pressable>
-              <Pressable
+              {!continuation && <Pressable
                 onPress={swapEnds}
                 hitSlop={6}
                 style={[styles.routeActionButton, { borderColor: colors.border }]}>
@@ -575,7 +634,7 @@ function NaviContent({ initial }: { initial: ParsedNaviParams }) {
                   size={17}
                   color={colors.textSecondary}
                 />
-              </Pressable>
+              </Pressable>}
             </View>
           </View>
         )

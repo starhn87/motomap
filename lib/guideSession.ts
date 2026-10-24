@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { RoutePriority } from '@/modules/kakao-navi';
+import type { GuidePreviewSnapshot, RoutePriority } from '@/modules/kakao-navi';
 
 // 진행 중인 길안내의 맥락. 안내 화면이 뜨면 /navi 화면은 지도로 빠져
 // 언마운트되므로, 종료·메뉴 이벤트 처리(lib/guideEvents)가 여기서 맥락을 읽는다.
@@ -22,7 +22,16 @@ export interface GuideViaPlace {
   placeId: string;
 }
 
+export interface GuidePreviewContext {
+  snapshot: GuidePreviewSnapshot;
+  edit: 'goal' | 'vias' | null;
+  returnPending: boolean;
+}
+
 interface GuideSessionStore {
+  preview: GuidePreviewContext | null;
+  setPreview: (preview: GuidePreviewContext | null) => void;
+  requestGuideReturn: (token: number) => void;
   goal: GuideGoal | null;
   priority: RoutePriority;
   /** 이 라이딩의 경유지 중 등록 장소들 — 도착 시 장소별 라이딩 횟수에 함께 센다 */
@@ -34,10 +43,14 @@ interface GuideSessionStore {
 }
 
 export const useGuideSession = create<GuideSessionStore>((set) => ({
+  preview: null,
+  setPreview: (preview) => set({ preview }),
+  requestGuideReturn: (token) => set((state) => state.preview?.snapshot.token === token
+    ? { preview: { ...state.preview, returnPending: true } } : {}),
   goal: null,
   priority: 0,
   viaPlaces: [],
   start: (goal, priority, viaPlaces = []) => set({ goal, priority, viaPlaces }),
   changeGoal: (goal) => set({ goal }),
-  clear: () => set({ goal: null, priority: 0, viaPlaces: [] }),
+  clear: () => set({ goal: null, priority: 0, viaPlaces: [], preview: null }),
 }));

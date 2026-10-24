@@ -25,6 +25,14 @@ NS_ASSUME_NONNULL_BEGIN
             onDismiss:(void (^)(void))onDismiss
               onError:(void (^)(NSString *_Nullable code, NSString *message))onError;
 
+// 미리보기 동안 엔진/음성은 유지하고 화면만 내려놓는다. token으로 오래된 요청을 거부한다.
++ (void)openGuidePreview:(void (^)(NSDictionary *_Nullable snapshot, NSString *_Nullable error))completion NS_SWIFT_NAME(openGuidePreview(completion:));
++ (void)returnToGuide:(NSInteger)token completion:(void (^)(BOOL restored))completion NS_SWIFT_NAME(returnToGuide(_:completion:));
++ (void)resumeGuide:(NSInteger)token
+             toLng:(double)lng lat:(double)lat name:(NSString *)name
+              vias:(NSArray<NSNumber *> *)vias priority:(NSInteger)priority
+        completion:(void (^)(NSDictionary *_Nullable result, NSString *_Nullable error))completion NS_SWIFT_NAME(resumeGuide(_:toLng:lat:name:vias:priority:completion:));
+
 // ── 안내 화면 위 상호작용 (JS 가 내용을 채운다) ──────────────────────────
 
 // 액션시트를 안내 화면 위에 띄운다. completion 에 고른 인덱스, 취소면 -1.

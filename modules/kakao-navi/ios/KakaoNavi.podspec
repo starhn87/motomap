@@ -16,5 +16,9 @@ Pod::Spec.new do |s|
   s.dependency 'KNSDK-UI', '1.12.14'
 
   s.source_files = "**/*.{h,m,mm,swift,hpp,cpp}"
-  s.resource_bundles = { 'MotoMapNavigationVoice' => ['Resources/navigation-start.mp3'] }
+  s.frameworks = 'WebKit'
+  s.resource_bundles = {
+    'MotoMapNavigationVoice' => ['Resources/navigation-start.mp3'],
+    'MotoMapNavigationUI' => ['Resources/navigation-bottom.html'],
+  }
 end
