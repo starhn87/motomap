@@ -3,6 +3,7 @@
 #import <math.h>
 
 const CGFloat KNNaviBottomCollapsedHeight = 68;
+const CGFloat KNNaviBottomRecenterHeight = 48;
 
 @class KNNaviBottomPanel;
 @interface KNNaviBottomMessage : NSObject <WKScriptMessageHandler>
@@ -65,9 +66,19 @@ const CGFloat KNNaviBottomCollapsedHeight = 68;
 }
 - (void)publishHeight {
   self.accessibilityViewIsModal = self.expanded && self.ready;
-  if (self.onHeight) self.onHeight((self.expanded ? 280 : KNNaviBottomCollapsedHeight) + self.bottomInset);
+  if (self.onHeight) self.onHeight((self.expanded ? 280 : KNNaviBottomCollapsedHeight + ([self.state[@"showRecenter"] boolValue] ? KNNaviBottomRecenterHeight : 0)) + self.bottomInset);
 }
-- (void)updateState:(NSDictionary *)state { self.state = [state copy]; [self publish]; }
+- (void)updateState:(NSDictionary *)state {
+  BOOL heightChanged = [self.state[@"showRecenter"] boolValue] != [state[@"showRecenter"] boolValue];
+  self.state = [state copy];
+  if (heightChanged) [self publishHeight];
+  [self publish];
+}
+- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
+  if (!self.expanded && [self.state[@"showRecenter"] boolValue] && point.y < KNNaviBottomRecenterHeight &&
+      fabs(point.x - self.bounds.size.width / 2) > 80) return NO;
+  return [super pointInside:point withEvent:event];
+}
 - (void)publish {
   if (!self.ready || self.invalidated || self.failed) return;
   NSMutableDictionary *payload = [self.state mutableCopy];
@@ -104,7 +115,7 @@ const CGFloat KNNaviBottomCollapsedHeight = 68;
     if (self.onAction) self.onAction(action,@{@"value":@(MAX(0,MIN(1,value.doubleValue)))});
     return;
   }
-  NSSet *allowed = [NSSet setWithArray:@[@"refresh",@"hazard",@"routePreview",@"destination",@"vias",@"end"]];
+  NSSet *allowed = [NSSet setWithArray:@[@"refresh",@"recenter",@"hazard",@"routePreview",@"destination",@"vias",@"end"]];
   if (![allowed containsObject:action]) return;
   [self collapse];
   if (self.onAction) self.onAction(action,@{});

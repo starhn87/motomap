@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 NS_ASSUME_NONNULL_BEGIN
 FOUNDATION_EXPORT const CGFloat KNNaviBottomCollapsedHeight;
+FOUNDATION_EXPORT const CGFloat KNNaviBottomRecenterHeight;
 @interface KNNaviBottomPanel : UIView
 @property(nonatomic, copy, nullable) void (^onAction)(NSString *action, NSDictionary *payload);
 @property(nonatomic, copy, nullable) void (^onHeight)(CGFloat height);

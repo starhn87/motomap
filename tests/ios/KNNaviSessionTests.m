@@ -39,6 +39,14 @@
 - (void)guidanceGuideStarted:(id)guidance {}
 - (void)resumeRouteModeForPreview:(BOOL)preview {}
 @end
+@interface MapActionProbe : NSObject
+@property(nonatomic) NSUInteger calls;
+- (void)recenter:(id)sender;
+@end
+@implementation MapActionProbe
+- (void)recenter:(id)sender { self.calls++; }
+@end
+
 @interface VoiceProbe : NSObject
 @property(nonatomic) KNVoiceCode voiceCode;
 @end
@@ -219,15 +227,36 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
   [locks restore];
   for (NSString *key in @[@"recommandOilView", @"aroundButtonView"]) if ([[sdkView valueForKey:key] isHidden]) failures++;
 
+  // 실제 SDK 클래스/ivar를 사용하고 원래 버튼 이벤트의 target만 위치 요청 없는 대역으로 바꾼다.
+  UIView *map = BareAuxView(NSClassFromString(@"KNNaviMapView"));
+  UIButton *current = [UIButton new];
+  UIView *zoom = BareAuxView(NSClassFromString(@"UIMapButton"));
+  UIView *mapStyle = BareAuxView(NSClassFromString(@"UIMapButton"));
+  MapActionProbe *mapAction = [MapActionProbe new];
+  [current addTarget:mapAction action:@selector(recenter:) forControlEvents:UIControlEventTouchUpInside];
+  [map setValue:current forKey:@"curPosBtn"]; [map setValue:zoom forKey:@"zoomBtn"]; [map setValue:mapStyle forKey:@"mapStyleBtn"];
+  KNNaviHiddenViews *mapLocks = [KNNaviHiddenViews new];
+  if (![mapLocks hideMapControlsIn:map]) { NSLog(@"FAIL map control contract"); failures++; }
+  for (UIView *control in @[current,zoom,mapStyle]) {
+    control.hidden = NO;
+    if (!control.hidden || map.hidden) { NSLog(@"FAIL map controls reappeared"); failures++; }
+  }
+  // SDK가 이후 숨기기를 요청했다면 복원 시 과거의 visible 값으로 되돌리지 않는다.
+  UIView *visibilityProbe = [UIView new];
+  KNNaviHiddenViews *visibilityLocks = [KNNaviHiddenViews new];
+  [visibilityLocks hideView:visibilityProbe]; visibilityProbe.hidden = YES; [visibilityLocks restore];
+  if (!visibilityProbe.hidden) { NSLog(@"FAIL restored outdated SDK visibility"); failures++; }
+  if ([mapLocks hideMapControlsIn:[UIView new]]) { NSLog(@"FAIL unsafe map control access"); failures++; }
+
   KNNaviBottomPanel *panel = [[KNNaviBottomPanel alloc] initWithFrame:CGRectMake(0,400,390,80)];
   NSMutableArray *actions = [NSMutableArray new];
   __block float volume = -1; __block CGFloat height = 0; __block BOOL failure = NO;
-  panel.onAction = ^(NSString *action, NSDictionary *payload) { [actions addObject:action]; if ([action isEqualToString:@"volume"]) volume = [payload[@"value"] floatValue]; };
+  panel.onAction = ^(NSString *action, NSDictionary *payload) { [actions addObject:action]; if ([action isEqualToString:@"volume"]) volume = [payload[@"value"] floatValue]; if ([action isEqualToString:@"recenter"] && ![KNNaviHiddenViews recenterMap:map]) failures++; };
   __weak KNNaviBottomPanel *weakPanel = panel;
   panel.onHeight = ^(CGFloat value) { height = value; weakPanel.frame = CGRectMake(0,window.bounds.size.height-value,window.bounds.size.width,value); };
   panel.onFailure = ^{ failure = YES; };
   [window.rootViewController.view addSubview:panel];
-  [panel updateState:@{@"remainingTime":@480, @"remainingDistance":@2100, @"volume":@0.7, @"goalName":@"도착 카페", @"currentLocationName":@"테헤란로"}];
+  [panel updateState:@{@"remainingTime":@480, @"remainingDistance":@2100, @"volume":@0.7, @"goalName":@"도착 카페", @"currentLocationName":@"테헤란로", @"showRecenter":@YES}];
   WKWebView *web = [panel valueForKey:@"webView"];
   WaitAsync(^BOOL{ return panel.ready || panel.failed; }, NSDate.timeIntervalSinceReferenceDate + 15, ^(BOOL loaded) {
     if (!loaded || !panel.ready) { NSLog(@"FAIL WK not ready"); [panel invalidate]; completion(failures+1); return; }
@@ -236,16 +265,22 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
     layoutController.view.frame = window.bounds;
     layoutController.naviView = (id)[SessionViewProbe new];
     [layoutController setValue:panel forKey:@"bottomPanel"];
+    [layoutController setValue:@(height) forKey:@"panelHeight"];
     [layoutController viewDidLayoutSubviews];
-    if (CGRectGetMaxY(panel.frame) > window.bounds.size.height - 20 || panel.frame.origin.x != 12 ||
-        !CGRectEqualToRect(layoutController.naviView.frame, layoutController.view.bounds)) {
-      NSLog(@"FAIL floating panel frame"); failures++;
+    if (height != KNNaviBottomCollapsedHeight + KNNaviBottomRecenterHeight ||
+        [panel pointInside:CGPointMake(0,10) withEvent:nil] || ![panel pointInside:CGPointMake(panel.bounds.size.width/2,10) withEvent:nil]) {
+      NSLog(@"FAIL recenter height or map touch passthrough"); failures++;
     }
     // 배치 검사 컨트롤러의 dealloc이 아래 WK 검사 패널을 invalidate하지 않게 소유권을 돌려준다.
     [layoutController setValue:nil forKey:@"bottomPanel"];
-    [web callAsyncJavaScript:@"const first=document.getElementById('destination').textContent;await new Promise(resolve=>setTimeout(resolve,5300));const second=document.getElementById('destination').textContent;document.querySelector('[data-action=refresh]').click();document.getElementById('menuButton').click();return JSON.stringify({first,second,distance:document.getElementById('distance').textContent,noDuration:!document.getElementById('duration'),noClose:!document.querySelector('.close')})"
+    [web callAsyncJavaScript:@"const times=[0,1,60,3600,3661,90000].map(seconds=>{window.MotoMapBottom.render({remainingTime:seconds,remainingDistance:2100});return document.getElementById('arrival').textContent;});window.MotoMapBottom.render({remainingTime:480,remainingDistance:2100,goalName:'도착 카페',currentLocationName:'테헤란로',volume:.7,showRecenter:true});const first=document.getElementById('destination').textContent;const currentIcon=!document.getElementById('currentIcon').hasAttribute('hidden');await new Promise(resolve=>setTimeout(resolve,5300));const second=document.getElementById('destination').textContent;const recenterVisible=!document.getElementById('recenter').hidden;document.getElementById('recenter').click();document.querySelector('[data-action=refresh]').click();return JSON.stringify({first,second,times,currentIcon,recenterVisible,goalIcon:!document.getElementById('goalIcon').hasAttribute('hidden'),remaining:document.getElementById('arrival').textContent,distance:document.getElementById('distance').textContent,noDuration:!document.getElementById('duration'),noClose:!document.querySelector('.close')})"
                   arguments:@{} inFrame:nil inContentWorld:WKContentWorld.pageWorld completionHandler:^(id result, NSError *error) {
-      if (error || ![result containsString:@"테헤란로"] || ![result containsString:@"도착 카페"] || ![result containsString:@"\"distance\":\"2.1km\""] || ![result containsString:@"\"noDuration\":true"] || ![result containsString:@"\"noClose\":true"]) { NSLog(@"FAIL WK metrics %@ %@",result,error); failures++; }
+      if (error || ![result containsString:@"\"recenterVisible\":true"] || ![result containsString:@"\"times\":[\"0분\",\"1분\",\"1분\",\"1시간\",\"1시간2분\",\"25시간\"]"] || ![result containsString:@"\"remaining\":\"8분\""] || ![result containsString:@"\"currentIcon\":true"] || ![result containsString:@"\"goalIcon\":true"] || ![result containsString:@"테헤란로"] || ![result containsString:@"도착 카페"] || ![result containsString:@"\"distance\":\"2.1km\""] || ![result containsString:@"\"noDuration\":true"] || ![result containsString:@"\"noClose\":true"]) { NSLog(@"FAIL WK metrics %@ %@",result,error); failures++; }
+      [panel layoutIfNeeded];
+      [web takeSnapshotWithConfiguration:nil completionHandler:^(UIImage *image, NSError *error) {
+        NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"bottom-collapsed.png"];
+        if (image) [UIImagePNGRepresentation(image) writeToFile:path atomically:YES];
+        [web evaluateJavaScript:@"document.getElementById('menuButton').click()" completionHandler:nil];
       WaitAsync(^BOOL{ return height == 280; },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL expanded) {
         if (!expanded) { NSLog(@"FAIL WK expansion"); failures++; }
         if (!panel.accessibilityViewIsModal) { NSLog(@"FAIL WK menu accessibility scope"); failures++; }
@@ -262,8 +297,14 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
               ![layout[@"order"] boolValue] || ![layout[@"footer"] boolValue] || ![layout[@"width"] boolValue]) {
             NSLog(@"FAIL WK navigation layout %@ %@",layout,error); failures++;
           }
-          WaitAsync(^BOOL{ return actions.count == 9 && fabs(volume)<.001; },NSDate.timeIntervalSinceReferenceDate+3,^(BOOL sent) {
+          WaitAsync(^BOOL{ return actions.count == 10 && mapAction.calls == 1 && fabs(volume)<.001; },NSDate.timeIntervalSinceReferenceDate+3,^(BOOL sent) {
             if (!sent) { NSLog(@"FAIL WK actions %@ volume=%f",actions,volume); failures++; }
+            [mapLocks restore];
+            if (current.hidden || zoom.hidden || mapStyle.hidden) { NSLog(@"FAIL map controls fallback restore"); failures++; }
+            [current removeTarget:mapAction action:@selector(recenter:) forControlEvents:UIControlEventTouchUpInside];
+            if ([mapLocks hideMapControlsIn:map] || current.hidden || zoom.hidden || mapStyle.hidden) {
+              NSLog(@"FAIL missing recenter event hid native controls"); failures++;
+            }
             [panel updateState:@{@"status":@"목적지를 유지하고 있어요", @"detail":@"<script>quoted ' \"", @"volume":@0.35}];
             [web evaluateJavaScript:@"document.getElementById('arrival').textContent" completionHandler:^(id result, NSError *error) {
               if (error || ![result isEqual:@"목적지를 유지하고 있어요"]) { NSLog(@"FAIL WK state JSON"); failures++; }
@@ -277,6 +318,7 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
         }];
         });
       });
+      }];
     }];
   });
 }

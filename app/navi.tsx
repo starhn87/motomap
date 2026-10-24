@@ -108,6 +108,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
     initial.userVias,
   );
   const [editing, setEditing] = useState<EditingField | null>(continuation?.edit === 'goal' ? 'goal' : null);
+  const initialGoalEditPending = useRef(continuation?.edit === 'goal');
   // 검색 초안은 행의 위치가 아니라 행 자체를 따른다. 순서 변경·삭제 때 같이 옮긴다.
   const [fieldDraftKeys, setFieldDraftKeys] = useState<string[]>([
     'start', ...initial.userVias.map((_, index) => `via-${index}`), 'goal',
@@ -187,6 +188,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
     } else if (point === 'current') {
       return; // 도착지·경유지에 '현재 위치'는 모달에서 막지만 한 번 더 거른다
     } else if (field === 'goal') {
+      initialGoalEditPending.current = false;
       // 등록 장소면 placeId 가 실려 와 도착 후 리뷰 연결이 이어진다
       setGoal({
         name: point.name,
@@ -760,7 +762,15 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
                 ? '경유지 추가'
                 : '경유지 변경'
         }
-        onClose={() => setEditing(null)}
+        onClose={() => {
+          if (initialGoalEditPending.current && continuation) {
+            initialGoalEditPending.current = false;
+            useGuideSession.getState().requestGuideReturn(continuation.snapshot.token);
+            returnToMap();
+            return;
+          }
+          setEditing(null);
+        }}
         onSelect={handleFieldSelect}
       />
 

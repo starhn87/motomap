@@ -7,7 +7,7 @@ type Element = { type: any; props: any };
 const goal = { name: '기존 목적지', latitude: 37.5, longitude: 127.1, placeId: 'original' };
 const nextGoal = { name: '새 목적지', latitude: 37.6, longitude: 127.2, placeId: 'new' };
 
-function setup(noGPS = false) {
+function setup(noGPS = false, edit: 'goal' | 'vias' | null = null) {
   let dirty = false, cursor = 0;
   let slots: any[] = [];
   const rootSlots: any[] = [], contentSlots: any[] = [];
@@ -31,7 +31,7 @@ function setup(noGPS = false) {
     resumeGuide(...args: any[]) { calls.resumed.push(args); return new Promise((resolve, reject) => { resolveResume = resolve; rejectResume = reject; }); },
     startGuide() { calls.started++; return Promise.resolve(); },
   };
-  const store: any = { goal, priority: 2, viaPlaces: [], preview: { snapshot: { token: 7, start: noGPS ? null : { latitude: 37.4, longitude: 127 }, goal, vias: [], passedVias: [], priority: 2 }, edit: null, returnPending: false },
+  const store: any = { goal, priority: 2, viaPlaces: [], preview: { snapshot: { token: 7, start: noGPS ? null : { latitude: 37.4, longitude: 127 }, goal, vias: [], passedVias: [], priority: 2 }, edit, returnPending: false },
     start(g: any, p: any, vias: any) { store.goal = g; store.priority = p; store.viaPlaces = vias; },
     requestGuideReturn(token: number) { if (store.preview?.snapshot.token === token) store.preview.returnPending = true; },
   };
@@ -55,7 +55,7 @@ function setup(noGPS = false) {
     '@/lib/guideSession': { useGuideSession: useSession }, '@/lib/guidePreview': previewHelpers,
     '@/lib/naviParams': { parseNaviParams() { throw Error('continuation must use native snapshot'); } },
     '@/lib/navigation': {}, '@/lib/mapFocus': { hasMapOverlayInStack: () => false },
-    '@/stores/useMapStore': { useMapStore: Object.assign((s: any) => s({ userLocation: null, requestMapReset() {} }), { getState: () => ({ userLocation: null }) }) },
+    '@/stores/useMapStore': { useMapStore: Object.assign((s: any) => s({ userLocation: null, requestMapReset() {} }), { getState: () => ({ userLocation: null, requestMapReset() {} }) }) },
     '@/hooks/useUserLocation': { useUserLocation() {} },
     '@/hooks/useBikeRoutes': { useBikeRoutes: () => ({ priority: 2, setPriority() {}, route: { distance: 1200 }, alternatives: [], mapRoutes: [], trafficParts: [], loading: false, courseOnly: false, flatVias: [], effVias: [], resetRoutes() {} }) },
     '@/lib/recentSearches': { loadRecentSearches: async () => [], recentTargets: () => [] },
@@ -87,7 +87,7 @@ function setup(noGPS = false) {
   const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); render(); };
   const selectGoal = () => { const goalField = nodes(tree).filter((n) => n.type === 'RouteFieldRow').at(-1)!; goalField.props.onPress(); render(); nodes(tree).find((n) => n.type === '@/components/search/PointSearchModal')!.props.onSelect(nextGoal); render(); };
   render();
-  return { calls, store, start, render, flush, selectGoal, listeners, nodes: () => nodes(tree),
+  return { calls, store, start, render, flush, selectGoal, listeners, nodes: () => nodes(tree), cancel: () => nodes(tree).find(n => n.type === '@/components/search/PointSearchModal')!.props.onClose(),
     applied: () => resolveResume({ vias: [], passedVias: [] }),
     failed: () => rejectResume(new Error('no route')), finishAudit: () => finishAudit?.(),
     unmount: () => effects.forEach((effect) => effect?.cleanup?.()) };
@@ -142,5 +142,27 @@ test('GPS 재확인 실패해도 안내 편집을 닫지 않고 목적지 편집
   retry.props.onPress(); f.render(); await f.flush();
   assert.equal(f.calls.backed, 0);
   assert.equal(f.calls.errors.length, 2);
+  f.unmount();
+});
+
+
+test('길안내 메뉴에서 바로 연 목적지 검색을 취소하면 기존 안내로 바로 복귀한다', () => {
+  const f = setup(false, 'goal');
+  f.cancel(); f.render();
+  assert.equal(f.store.preview.returnPending, true);
+  assert.equal(f.calls.backed, 1);
+  assert.equal(f.calls.resumed.length, 0);
+  assert.equal(f.store.goal.placeId, 'original');
+  f.unmount();
+});
+
+test('목적지를 고른 뒤 미리보기에서 다시 연 검색 취소는 편집 초안을 보존한다', () => {
+  const f = setup(false, 'goal'); f.selectGoal();
+  f.nodes().filter(n => n.type === 'RouteFieldRow').at(-1)!.props.onPress(); f.render();
+  f.cancel(); f.render();
+  assert.equal(f.calls.backed, 0);
+  assert.equal(f.store.preview.returnPending, false);
+  f.start();
+  assert.equal(f.calls.resumed[0][3], nextGoal.name);
   f.unmount();
 });

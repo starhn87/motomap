@@ -14,17 +14,25 @@
     button:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
     button:disabled { opacity: .36; }
     svg { display: block; width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-    .panel { height: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding-bottom: var(--safe); }
-    .panel.expanded { border-radius: 18px; }
-    .bar { height: 68px; display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; align-items: center; gap: 4px; padding: 0 10px; }
+    .panel { position: absolute; bottom: 0; width: 100%; height: 68px; background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding-bottom: var(--safe); }
+    .panel.expanded { height: 100%; border-radius: 18px; }
+    .recenter { position: absolute; top: 0; left: calc(50% - 80px); width: 160px; height: 44px; display: flex; align-items: center; justify-content: center; gap: 7px; background: var(--bg); border: 1px solid var(--line); border-radius: 22px; font-size: 15px; font-weight: 650; }
+    .recenter[hidden] { display: none; }
+    .recenter svg { width: 20px; height: 20px; }
+    .bar { height: 68px; display: grid; grid-template-columns: 48px minmax(0, 1fr) 56px; align-items: center; gap: 2px; padding: 0 8px; }
     .bar button { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 24px; }
     .bar button svg { width: 23px; height: 23px; }
+    .bar #menuButton { width: 56px; height: 56px; border-radius: 28px; }
+    .bar #menuButton svg { width: 32px; height: 32px; stroke-width: 2; }
     .summary { text-align: center; min-width: 0; touch-action: pan-x; }
-    .destination { font-size: 11px; line-height: 16px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .metrics { display: flex; justify-content: center; align-items: baseline; gap: 8px; line-height: 28px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .arrival { font-size: 23px; font-weight: 750; letter-spacing: -.6px; }
-    .period { font-size: 11px; font-weight: 600; margin-right: 3px; letter-spacing: 0; }
-    .distance { font-size: 15px; font-weight: 650; }
+    .destination { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 15px; line-height: 22px; color: var(--muted); min-width: 0; }
+    .placeName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .placeIcon { width: 17px; height: 17px; }
+    .placeIcon[hidden] { display: none; }
+    .metrics { display: flex; justify-content: center; align-items: baseline; gap: 6px; line-height: 34px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .arrival { font-size: 28px; font-weight: 750; letter-spacing: -.6px; }
+    .timeUnit { font-size: 18px; font-weight: 650; margin: 0 2px; letter-spacing: 0; }
+    .distance { font-size: 21px; font-weight: 650; }
     .status { font-size: 14px; font-weight: 650; line-height: 24px; overflow: hidden; text-overflow: ellipsis; }
     #drawer { display: none; height: 100%; padding: 0 20px 14px; }
     .expanded #drawer { display: flex; flex-direction: column; }
@@ -46,10 +54,12 @@
     .end { flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 48px; margin-top: 14px; border-radius: 8px; background: var(--brand); color: var(--on-brand); font-size: 15px; font-weight: 650; }
     .end svg { width: 18px; height: 18px; }
     .end:active { opacity: .82; background: var(--brand); }
+    @media (max-width: 320px) { .arrival { font-size: 24px; } .timeUnit { font-size: 16px; } .distance { font-size: 18px; } }
     @media (prefers-color-scheme: dark) { :root { --bg: #0a0a0a; --ink: #fafafa; --muted: #a1a1aa; --line: #27272a; --brand: #fafafa; --on-brand: #0a0a0a; --volume-blue: #3984ff; --track: #3f3f46; } .actions svg, .volumeRange { color: #d4d4d8; } }
   </style>
 </head>
 <body>
+  <button class="recenter" id="recenter" data-action="recenter" hidden><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg><span>현재 위치로</span></button>
   <main class="panel" id="panel">
     <section id="drawer" aria-label="길안내 메뉴">
       <div class="sheetHeader dragArea">
@@ -74,7 +84,11 @@
     <footer class="bar">
       <button data-action="refresh" aria-label="현재 경로 새로고침"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 8a8 8 0 1 0 1 7M19 3v5h-5"/></svg></button>
       <div class="summary dragArea" aria-live="off">
-        <div class="destination" id="destination">목적지 안내</div>
+        <div class="destination" id="destination" aria-label="현재 위치">
+          <svg class="placeIcon" id="currentIcon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+          <svg class="placeIcon" id="goalIcon" hidden aria-hidden="true" viewBox="0 0 24 24"><path d="M6 21V3l13 3-13 5"/></svg>
+          <span class="placeName" id="placeName"></span>
+        </div>
         <div class="metrics"><div class="arrival" id="arrival">안내 준비 중</div><div class="distance" id="distance"></div></div>
       </div>
       <button data-action="menu" id="menuButton" aria-label="길안내 메뉴 열기" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
@@ -89,8 +103,10 @@
       let showGoal = false;
       const showLocation = () => {
         const label = showGoal ? latestState.goalName : latestState.currentLocationName;
-        $('destination').textContent = label || (showGoal ? '목적지' : '현재 위치');
-        $('destination').setAttribute('aria-label', (showGoal ? '목적지 ' : '현재 위치 ') + (label || ''));
+        $('placeName').textContent = showGoal ? (label || '목적지') : (label === '현재 위치' ? '' : label || '');
+        $('currentIcon').toggleAttribute('hidden', showGoal);
+        $('goalIcon').toggleAttribute('hidden', !showGoal);
+        $('destination').setAttribute('aria-label', (showGoal ? '목적지 ' : '현재 위치 ') + (label === '현재 위치' ? '' : label || ''));
       };
       setInterval(() => {
         if (!expanded && !document.hidden) { showGoal = !showGoal; showLocation(); }
@@ -137,6 +153,7 @@
           const wasExpanded = expanded;
           expanded = !!state.expanded;
           $('panel').classList.toggle('expanded', expanded);
+          $('recenter').hidden = expanded || !state.showRecenter;
           document.documentElement.style.setProperty('--safe', Math.max(0, state.bottomInset || 0) + 'px');
           $('menuButton').setAttribute('aria-expanded', String(expanded));
           $('drawer').setAttribute('aria-hidden', String(!expanded));
@@ -155,20 +172,25 @@
           if (state.status) {
             $('arrival').className = 'status';
             $('arrival').textContent = state.status;
+            $('arrival').removeAttribute('aria-label');
             $('distance').textContent = '';
           } else if (valid) {
-            const eta = new Date(Date.now() + seconds * 1000);
-            const hours = eta.getHours();
+            const minutes = Math.ceil(seconds / 60);
             $('arrival').className = 'arrival';
             $('arrival').replaceChildren();
-            const period = document.createElement('span');
-            period.className = 'period';
-            period.textContent = hours < 12 ? '오전' : '오후';
-            $('arrival').append(period, document.createTextNode((hours % 12 || 12) + ':' + String(eta.getMinutes()).padStart(2, '0')));
+            const appendTime = (value, label) => {
+              const unit = document.createElement('span');
+              unit.className = 'timeUnit'; unit.textContent = label;
+              $('arrival').append(document.createTextNode(String(value)), unit);
+            };
+            if (minutes >= 60) appendTime(Math.floor(minutes / 60), '시간');
+            if (minutes < 60 || minutes % 60) appendTime(minutes % 60, '분');
+            $('arrival').setAttribute('aria-label', '남은 시간 ' + $('arrival').textContent);
             $('distance').textContent = meters >= 1000 ? (meters / 1000).toFixed(1) + 'km' : Math.round(meters) + 'm';
           } else {
             $('arrival').className = 'status';
             $('arrival').textContent = '안내 준비 중';
+            $('arrival').removeAttribute('aria-label');
             $('distance').textContent = '';
           }
           document.querySelector('[data-action=refresh]').disabled = !!state.busy;

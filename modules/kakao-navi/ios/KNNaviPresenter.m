@@ -273,6 +273,8 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong) KNNaviBottomPanel *bottomPanel;
 @property(nonatomic, strong) UIControl *menuBackdrop;
 @property(nonatomic, strong) KNNaviHiddenViews *webHiddenViews;
+@property(nonatomic, strong) KNNaviHiddenViews *mapHiddenViews;
+@property(nonatomic) BOOL mapControlsHidden;
 @property(nonatomic, strong) KNNaviHiddenViews *auxiliaryHiddenViews;
 @property(nonatomic) CGFloat panelHeight;
 @property(nonatomic) float volume;
@@ -505,6 +507,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.volume = 1;
   self.auxiliaryHiddenViews = [KNNaviHiddenViews new];
   self.webHiddenViews = [KNNaviHiddenViews new];
+  self.mapHiddenViews = [KNNaviHiddenViews new];
   self.menuBackdrop = [UIControl new];
   self.menuBackdrop.backgroundColor = [UIColor colorWithWhite:0 alpha:0.28];
   self.menuBackdrop.hidden = YES;
@@ -520,6 +523,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.bottomPanel.onFailure = ^{
     KNNaviViewController *vc = weakSelf;
     [vc.webHiddenViews restore];
+    [vc.mapHiddenViews restore]; vc.mapControlsHidden = NO;
     vc.bottomPanel.hidden = YES;
     vc.menuBackdrop.hidden = YES;
     [vc updateCustomControlsVisibility];
@@ -535,6 +539,10 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
       [vc.view setNeedsLayout];
     } else if ([action isEqualToString:@"volume"]) {
       vc.volume = [payload[@"value"] floatValue]; [vc.naviView sndVolume:vc.volume];
+    } else if ([action isEqualToString:@"recenter"]) {
+      if (![KNNaviHiddenViews recenterMap:vc.naviView.mapView]) {
+        [vc.mapHiddenViews restore]; vc.mapControlsHidden = NO;
+      }
     } else if ([action isEqualToString:@"refresh"]) {
       if (vc.arrivalRecovery.waiting) [vc retryArrivalRoute];
       else if (!vc.changingDestination) [(KNDriveGuidance *)vc.guidance reRoute];
@@ -560,6 +568,12 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (self.bottomPanel.ready) {
     [self.webHiddenViews hideView:self.naviView.bottomView];
     [self.webHiddenViews hideView:self.naviView.menuView];
+    BOOL hidden = [self.mapHiddenViews hideMapControlsIn:self.naviView.mapView];
+    if (!hidden) [self.mapHiddenViews restore];
+    if (self.mapControlsHidden != hidden) {
+      self.mapControlsHidden = hidden;
+      [self updateBottomPanel];
+    }
   }
 }
 
@@ -592,6 +606,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   }
   state[@"goalName"] = self.trip.goal.name ?: @"";
   state[@"currentLocationName"] = self.currentLocationAt && -self.currentLocationAt.timeIntervalSinceNow <= 10 ? (self.currentLocationName ?: @"현재 위치") : @"현재 위치";
+  state[@"showRecenter"] = @(self.mapControlsHidden && self.hasNaviScreenState && self.naviScreenState == DriveTouch);
   state[@"canEditVias"] = @(self.trip.vias.count <= 3);
   [self.bottomPanel updateState:state];
 }
@@ -783,6 +798,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.hasNaviScreenState = YES;
   [self updateCustomControlsVisibility];
   [self refreshHiddenViews];
+  [self updateBottomPanel];
   if (aKNNaviViewState == SafetyNormal || aKNNaviViewState == SafetyTouch) {
     // 고정 SDK의 모드 입구 외 경로가 생겨도 해당 화면을 그리지 않는다.
     self.safetyScreenQuarantined = YES;

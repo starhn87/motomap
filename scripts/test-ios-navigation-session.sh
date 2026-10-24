@@ -99,6 +99,7 @@ container=$(xcrun simctl get_app_container "$simulator_id" com.ridemap.tests.nav
 for ((i=0; i<150; i++)); do
   if [[ -f "$container/Documents/session-result.txt" ]]; then
     if [[ -f "$container/Documents/bottom-expanded.png" ]]; then cp "$container/Documents/bottom-expanded.png" /tmp/motomap-bottom-expanded.png; fi
+    if [[ -f "$container/Documents/bottom-collapsed.png" ]]; then cp "$container/Documents/bottom-collapsed.png" /tmp/motomap-bottom-collapsed.png; fi
     result=$(cat "$container/Documents/session-result.txt")
     printf '%s\n' "$result"
     status=0
