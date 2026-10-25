@@ -259,7 +259,8 @@
     UIImage *image = [self imageForStation:station selected:selected]; [self.images addObject:image]; marker.icon = image;
     marker.tag = i; marker.priority = selected ? 1000 : 100;
     marker.useSingleTapped = YES; marker.useDoubleTapped = NO; marker.useLongPressed = NO;
-    [marker setVisibleRangeWithMinZoom:10 maxZoom:25];
+    // KNSDK는 단계형 줌이 아닌 배율을 쓴다. 안내 기본 배율 1에서도 표시한다.
+    [marker setVisibleRangeWithMinZoom:0.1 maxZoom:9999];
     [self.markers addObject:marker]; [self.map addMarker:marker];
   }
 }

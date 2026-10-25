@@ -108,11 +108,13 @@
       let latestState = {};
       let showGoal = false;
       const showLocation = () => {
-        const label = showGoal ? latestState.goalName : latestState.currentLocationName;
-        $('placeName').textContent = showGoal ? (label || '목적지') : (label && label !== '현재 위치' ? label : latestState.currentLocationStatus || '주소 정보 없음');
-        $('currentIcon').toggleAttribute('hidden', showGoal);
-        $('goalIcon').toggleAttribute('hidden', !showGoal);
-        $('destination').setAttribute('aria-label', (showGoal ? '목적지 ' : '현재 위치 ') + $('placeName').textContent);
+        const current = (latestState.currentLocationName || '').trim();
+        const destinationOnly = !current || current === '현재 위치';
+        const displayGoal = showGoal || destinationOnly;
+        $('placeName').textContent = displayGoal ? (latestState.goalName || '목적지') : current;
+        $('currentIcon').toggleAttribute('hidden', displayGoal);
+        $('goalIcon').toggleAttribute('hidden', !displayGoal);
+        $('destination').setAttribute('aria-label', (displayGoal ? '목적지 ' : '현재 위치 ') + $('placeName').textContent);
       };
       setInterval(() => {
         if (!expanded && !document.hidden) { showGoal = !showGoal; showLocation(); }
