@@ -710,8 +710,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 48,
-    marginBottom: 4,
+    minHeight: 40,
+    marginBottom: 0,
   },
   name: {
     fontSize: 22,
