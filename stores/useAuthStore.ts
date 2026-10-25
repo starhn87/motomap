@@ -231,6 +231,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       authSubscription?.unsubscribe();
       const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        // 시작 복원은 아래 getSession이 맡는다. 초기 알림이 같은 조회를 다시 시작하면
+        // 먼저 끝난 프로필 응답까지 무효화해 두 번째 응답을 기다리게 된다.
+        if (event === 'INITIAL_SESSION') return;
         const current = get();
         if (
           (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') &&

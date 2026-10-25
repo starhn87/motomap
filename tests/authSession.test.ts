@@ -196,3 +196,79 @@ test('현재 세션의 프로필 실패는 세션을 지우지 않고 재시도 
   assert.equal(store.getState().restoreError, '계정 정보를 불러오지 못했습니다.');
   assert.equal(errors.length, 1);
 });
+
+test('초기 세션 알림은 진행 중인 시작 복원을 중복 조회하거나 무효화하지 않는다', async () => {
+  const first = deferred<ProfileResult>();
+  const duplicate = deferred<ProfileResult>();
+  let queries = 0;
+  const { store, emit } = fixture({
+    fetchProfile: () => ++queries === 1 ? first.promise : duplicate.promise,
+  });
+  const restoring = store.getState().initialize();
+  await new Promise<void>((done) => setImmediate(done));
+  emit('INITIAL_SESSION', session);
+  first.resolve({ data: profile, error: null });
+  await restoring;
+  // 실제 첫 응답이 도착했는데 중복 요청을 기다리며 스플래시에 남으면 안 된다.
+  const result = { queries, status: store.getState().status };
+  duplicate.resolve({ data: profile, error: null });
+  await new Promise<void>((done) => setImmediate(done));
+  assert.deepEqual(result, { queries: 1, status: 'signed_in' });
+});
+
+test('초기 세션 알림이 먼저 와도 getSession의 복원 결과만 한 번 확인한다', async () => {
+  const pending = deferred<{ data: { session: Session | null }; error: unknown }>();
+  let queries = 0;
+  const { store, emit } = fixture({
+    getSession: () => pending.promise,
+    fetchProfile: async () => { queries++; return { data: profile, error: null }; },
+  });
+  const restoring = store.getState().initialize();
+  emit('INITIAL_SESSION', session);
+  await new Promise<void>((done) => setImmediate(done));
+  pending.resolve({ data: { session }, error: null });
+  await restoring;
+  assert.equal(queries, 1);
+  assert.equal(store.getState().status, 'signed_in');
+});
+
+test('시작 복원 후 늦은 초기 알림이 새 조회나 restoring 전환을 만들지 않는다', async () => {
+  let queries = 0;
+  const { store, emit } = fixture({
+    fetchProfile: async () => { queries++; return { data: profile, error: null }; },
+  });
+  await store.getState().initialize();
+  emit('INITIAL_SESSION', session);
+  await new Promise<void>((done) => setImmediate(done));
+  assert.equal(queries, 1);
+  assert.equal(store.getState().status, 'signed_in');
+});
+
+test('초기 알림이 세션을 줘도 getSession 실패를 로그인 성공으로 우회하지 않는다', async () => {
+  const pending = deferred<{ data: { session: Session | null }; error: unknown }>();
+  let queries = 0;
+  const { store, emit, errors } = fixture({
+    getSession: () => pending.promise,
+    fetchProfile: async () => { queries++; return { data: profile, error: null }; },
+  });
+  const restoring = store.getState().initialize();
+  emit('INITIAL_SESSION', session);
+  pending.resolve({ data: { session: null }, error: new Error('keychain unavailable') });
+  await restoring;
+  assert.equal(queries, 0);
+  assert.equal(store.getState().status, 'restoring');
+  assert.ok(store.getState().restoreError);
+  assert.equal(errors.length, 1);
+});
+
+test('getSession 대기 중 새 로그인은 초기 알림과 달리 정상적으로 반영한다', async () => {
+  const pending = deferred<{ data: { session: Session | null }; error: unknown }>();
+  const { store, emit } = fixture({ getSession: () => pending.promise });
+  const restoring = store.getState().initialize();
+  emit('SIGNED_IN', session);
+  await new Promise<void>((done) => setImmediate(done));
+  pending.resolve({ data: { session: null }, error: null });
+  await restoring;
+  assert.equal(store.getState().status, 'signed_in');
+  assert.equal(store.getState().user?.id, session.user.id);
+});
