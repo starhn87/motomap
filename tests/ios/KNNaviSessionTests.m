@@ -564,9 +564,14 @@ void RunKNNaviGasTests(UIWindow *window, void (^completion)(int)) {
   if ([layer valueForKey:@"stations"] && [[layer valueForKey:@"stations"] count]!=0) { NSLog(@"FAIL stale gas response"); failures++; }
   [layer applyResponse:@{@"requestId":second,@"stations":@[station],@"canAddVia":@YES}];
   if (map.markers.count!=1 || fetches!=2 || map.markerEventListener!=layer) { NSLog(@"FAIL owned gas marker/response"); failures++; }
-  if (map.markers.count) [layer mapView:(id)map onSingleTappedWithMarker:map.markers.firstObject];
+  [layer showSearch];
+  [layer applyResponse:@{@"requestId":layer.context[@"requestId"],@"stations":@[station],@"canAddVia":@YES}];
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW,0.5*NSEC_PER_SEC),dispatch_get_main_queue(),^{
     UIViewController *sheet=[layer valueForKey:@"sheet"];
+    UITableView *table=[sheet valueForKey:@"table"];
+    [table.delegate tableView:table didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]];
+    if (![sheet valueForKey:@"station"]) { NSLog(@"FAIL gas search row selection"); failures++; }
+    if (map.markers.count) [layer mapView:(id)map onSingleTappedWithMarker:map.markers.firstObject];
     if (!sheet.view.window || ![[layer valueForKey:@"selectedID"] isEqual:@"gas-one"]) { NSLog(@"FAIL gas marker selection sheet"); failures++; }
     UIGraphicsImageRenderer *renderer=[[UIGraphicsImageRenderer alloc] initWithBounds:window.bounds];
     UIImage *image=[renderer imageWithActions:^(UIGraphicsImageRendererContext *context){ [window drawViewHierarchyInRect:window.bounds afterScreenUpdates:YES]; }];
@@ -576,7 +581,7 @@ void RunKNNaviGasTests(UIWindow *window, void (^completion)(int)) {
     [(NSTimer *)[layer valueForKey:@"timer"] fire];
     if (map.markers.count || [sheet valueForKey:@"station"]) { NSLog(@"FAIL expired gas prices retained"); failures++; }
     gps.timestamp=NSDate.date; [layer updateGPS:(id)gps];
-    if (!layer.context || fetches!=3) { NSLog(@"FAIL gas GPS recovery refresh"); failures++; }
+    if (!layer.context || fetches!=4) { NSLog(@"FAIL gas GPS recovery refresh"); failures++; }
     if ([layer imageForStation:station selected:NO].size.width!=96 || [layer imageForStation:station selected:YES].size.width!=108) { NSLog(@"FAIL gas selection emphasis image"); failures++; }
     [window.rootViewController dismissViewControllerAnimated:NO completion:^{
       [layer invalidate];
