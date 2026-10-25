@@ -1559,7 +1559,7 @@ MAP-054 OTA: source `67e4225`, production/iOS/runtime1.2.10 그룹
 ## MAP-055 — 영업 상태를 운영시간 행에 통합하고 주소 복사 모듈 포함
 
 - 날짜: 2026-10-25
-- 상태: 구현 / 새 TestFlight 준비
+- 상태: 활성 / TestFlight59 배포 완료
 - 대체: MAP-054의 공유 옆 상태 유지와 우측 끝 펼침 화살표
 
 공유 행에는 출발·도착·공유 액션만 둔다. 기존 `영업중 · 시각 마감` 등 상태 문구를
@@ -1572,3 +1572,9 @@ MAP-054 OTA: source `67e4225`, production/iOS/runtime1.2.10 그룹
 추가해 실제 복사 기능을 제공한다. 기존58번에는 모듈이 없어 아이콘을 숨기는 폴백을 유지한다.
 기존 클립보드를 읽지 않고 사용자가 누른 주소만 plainText로 쓴다. 앱/runtime1.2.10과
 커스텀 KakaoNavi native22/API1은 유지하며 Clipboard 모듈 존재로 기능을 탐지한다.
+
+MAP-055 배포 완료: source `0915481`, production1.2.10(59)/native22/API1+ExpoClipboard.
+404개 테스트·타입·릴리스·리뷰·CI와 IPA 모듈/코드/서명 검증을 통과했다. ASC59는
+VALID/IN_BETA_TESTING이며 한국어 안내와 내부 접근을 확인했다. 동일 소스 OTA 그룹
+`f9c1a9c8-301f-4ce8-a414-afd5f1f18c87`과 실제1.2.10 신규 manifest를 확인했고1.2.9는 유지했다.
+58번은 UI만 갱신되고 주소 복사는59번 모듈에서 활성화된다. 실기기 표시/복사는 확인 전이다.

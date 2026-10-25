@@ -1,3 +1,24 @@
+## 2026-10-25 장소 상세·주소 복사 TestFlight59 배포 완료
+
+source `0915481a02f90d201e82656579c2830c19626498`의 격리 소스로 production
+**1.2.10(59) / KakaoNavi native22 / API1 + ExpoClipboard57.0.2**를 빌드·업로드했다.
+공유 옆 영업 상태를 독립 운영시간 행으로 옮기고 화살표를 문구 옆에 배치했으며 주소15pt와
+아이콘 탭 주소 복사를 포함했다. 내 정보 집/회사 직접 편집과 상세 연락처·주유소 표시 후속도 포함한다.
+404개 테스트·타입·릴리스 검사·리뷰·CI가 통과했고 iOS Pod/모듈 등록과 IPA의 ClipboardModule·
+UIPasteboard 쓰기·JS 복사 코드·앱 버전/runtime/production 채널·App Store 서명을 확인했다.
+EAS submission `5d7670c9-4f55-4f7a-b1e2-4a7f243c4369` FINISHED/error null,
+ASC build `b69326a0-3f5a-49f8-9b4e-12a0cc15bdbc` VALID/IN_BETA_TESTING,
+한국어 테스트 안내 저장·내부 전체 빌드 접근·자동 알림 활성 상태를 확인했다.
+IPA SHA256 `c8a9ecf302ba663156e20cf4555de6e0595eb347647ce7869759da809a52c191`.
+
+같은 소스의 production/iOS/runtime1.2.10 OTA 그룹 `f9c1a9c8-301f-4ce8-a414-afd5f1f18c87`,
+update `01a17360-c12c-78d1-8675-77a8dcb8218c`를 발행해 이전 JS로 되돌아가지 않게 맞췄다.
+실제 manifest의 신규 ID와1.2.9 기존 ID 유지를 확인했다.58번은 표시만 갱신되고 복사 모듈이
+없어 복사 아이콘을 숨기는 폴백을 유지한다. 복사는59번 설치 후 확인한다.
+기존 Sentry 업로드 인증 누락으로59번 심볼/소스맵은 비공개 보관했고 별도 후속으로 추적한다.
+무관한 로컬 자료는 제외했으며 서버·DB·원격 정책 변경, App Store 심사 제출·공개 출시는 하지 않았다.
+실기기 화면·주소 붙여넣기는 사용자 확인 전이다.
+
 ## 2026-10-25 장소 상세·주소 복사 새 TestFlight 준비
 
 사용자가 주소 복사를 위한 새 바이너리 빌드를 승인했다. 내 정보 집/회사 직접 편집,
