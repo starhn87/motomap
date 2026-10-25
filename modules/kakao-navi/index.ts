@@ -54,6 +54,7 @@ export const KAKAO_NAVI_FEATURES = [
   'accessibility_nil_guard',
   'location_privacy_stop',
   'guide_web_bottom',
+  'guide_hazard_sheet',
 ] as const;
 
 export type KakaoNaviFeature = (typeof KAKAO_NAVI_FEATURES)[number];
@@ -123,6 +124,8 @@ interface KakaoNaviModule {
   ): { remove: () => void };
   /** 안내 화면 위 액션시트. 고른 인덱스, 취소면 -1 */
   showGuideOptions(title: string, labels: string[]): Promise<number>;
+  showGuideHazardOptions(options: { key: string; label: string }[]): Promise<number>;
+  showGuideToast(message: string): Promise<void>;
   /** 안내 화면 위에 잠깐 떴다 사라지는 알림 */
   showGuideNotice(message: string): Promise<void>;
   /** 안내 중 목적지 변경 — 현 위치에서 새 목적지로 재탐색 */
@@ -157,6 +160,8 @@ const unavailableModule = {
   resumeGuide: unavailable,
   addListener: () => ({ remove: () => {} }),
   showGuideOptions: unavailable,
+  showGuideHazardOptions: unavailable,
+  showGuideToast: unavailable,
   showGuideNotice: unavailable,
   changeGuideDestination: unavailable,
   requestBikeRoute: unavailable,

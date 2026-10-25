@@ -71,8 +71,11 @@ export async function submitHazard(params: {
   address?: string;
   note?: string;
   photo?: string;
+  canSubmit?: () => boolean;
 }): Promise<void> {
   const user = await requireUser();
+  // 인증을 기다리는 동안 안내 종료·위치 이용 중지가 일어나면 좌표를 전송하지 않는다.
+  if (params.canSubmit && !params.canSubmit()) return;
   const { error } = await supabase.from('road_hazards').insert({
     type: params.type,
     location: `POINT(${params.longitude} ${params.latitude})`,

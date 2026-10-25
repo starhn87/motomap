@@ -6,6 +6,7 @@
 #import "KNNaviRouteView.h"
 #import "KNNaviBottomPanel.h"
 #import "KNNaviHiddenViews.h"
+#import "KNNaviHazardSheet.h"
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
@@ -273,6 +274,7 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
                                                     KNMapPOIEventListener>
 @property(nonatomic, strong, nullable) KNNaviView *naviView;
 @property(nonatomic, strong) KNNaviBottomPanel *bottomPanel;
+@property(nonatomic, strong) KNNaviHazardSheet *hazardSheet;
 @property(nonatomic, strong) UIControl *menuBackdrop;
 @property(nonatomic, strong) KNNaviHiddenViews *webHiddenViews;
 @property(nonatomic, strong) KNNaviHiddenViews *mapHiddenViews;
@@ -1310,7 +1312,9 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   void (^done)(void) = self.onDismiss;
   self.onDismiss = nil;
   if (done != nil) done();
-  [self dismissViewControllerAnimated:YES completion:nil];
+  KNNaviHazardSheet *sheet = self.hazardSheet; self.hazardSheet = nil;
+  if (sheet) [sheet cancelForNavigationEnd:^{ [self dismissViewControllerAnimated:YES completion:nil]; }];
+  else [self dismissViewControllerAnimated:YES completion:nil];
 }
 
 @end
@@ -1602,6 +1606,32 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
                                             }]];
     [navi presentViewController:sheet animated:YES completion:nil];
   });
+}
+
++ (void)showHazardOptions:(NSArray<NSDictionary<NSString *,NSString *> *> *)options completion:(void (^)(NSInteger))completion {
+  KNNaviViewController *navi = gActiveNavi;
+  if (!navi || navi.finished || navi.suspended || ![KNSDKBridge isLocationUseAllowed] ||
+      navi.presentedViewController || navi.hazardSheet || !navi.view.window || options.count == 0 || options.count > 12) {
+    completion(-1); return;
+  }
+  for (NSDictionary *option in options) {
+    if (![option isKindOfClass:NSDictionary.class] || ![option[@"key"] isKindOfClass:NSString.class] ||
+        ![option[@"label"] isKindOfClass:NSString.class] || ![option[@"label"] length]) { completion(-1); return; }
+  }
+  __weak KNNaviViewController *weakNavi = navi;
+  KNNaviHazardSheet *sheet = [[KNNaviHazardSheet alloc] initWithOptions:options completion:^(NSInteger picked) {
+    weakNavi.hazardSheet = nil;
+    completion(picked);
+  }];
+  navi.hazardSheet = sheet;
+  [navi presentViewController:sheet animated:NO completion:nil];
+}
+
++ (void)showToast:(NSString *)message {
+  KNNaviViewController *navi = gActiveNavi;
+  if (!navi || navi.finished) return;
+  if (navi.bottomPanel.ready) [navi.bottomPanel showToast:message];
+  else [self showNotice:message];
 }
 
 + (void)showNotice:(NSString *)message {

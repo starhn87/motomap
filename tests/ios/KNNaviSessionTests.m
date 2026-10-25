@@ -7,6 +7,7 @@
 #import "KNNaviPresenter.h"
 #import "KNSDKBridge.h"
 #import "KNNaviRouteView.h"
+#import "KNNaviHazardSheet.h"
 #import <KNSDK/KNComponentView.h>
 
 // 실제 presenter 콜백을 실행한다. GPS·SDK 경로 탐색은 요청하지 않는다.
@@ -470,5 +471,56 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
         });
       }];
     }];
+  });
+}
+
+
+// SDK/서버 요청 없이 실제 앱 소유 유형 시트의 표시와 완료 경계를 확인한다.
+void RunKNNaviHazardSheetTests(UIWindow *window, void (^completion)(int)) {
+  __block int failures = 0;
+  NSArray *options = @[@{@"key":@"sand",@"label":@"모래·자갈"},@{@"key":@"oil",@"label":@"기름·미끄럼"},
+    @{@"key":@"pothole",@"label":@"포트홀·파임"},@{@"key":@"rockfall",@"label":@"낙석·흙"},
+    @{@"key":@"ice",@"label":@"결빙"},@{@"key":@"construction",@"label":@"공사 구간"},@{@"key":@"etc",@"label":@"기타 위험"}];
+  __block NSUInteger calls = 0; __block NSInteger picked = -2;
+  KNNaviHazardSheet *sheet = [[KNNaviHazardSheet alloc] initWithOptions:options completion:^(NSInteger index) { calls++; picked = index; }];
+  [window.rootViewController presentViewController:sheet animated:NO completion:nil];
+  NSTimeInterval opened = NSDate.timeIntervalSinceReferenceDate;
+  WaitAsync(^BOOL{ return NSDate.timeIntervalSinceReferenceDate-opened>0.3 && sheet.view.window != nil; },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL visible) {
+    UIView *body = [sheet valueForKey:@"sheet"];
+    UIStackView *grid = [sheet valueForKey:@"grid"];
+    NSMutableArray<UIButton *> *buttons = [NSMutableArray new];
+    for (UIStackView *row in grid.arrangedSubviews) for (UIView *view in row.arrangedSubviews) if ([view isKindOfClass:UIButton.class]) [buttons addObject:(id)view];
+    UIButton *cancel = [sheet valueForKey:@"cancelButton"];
+    if (!visible || buttons.count != 7 || !body.accessibilityViewIsModal ||
+        fabs(CGRectGetMaxY(body.frame)-sheet.view.bounds.size.height)>0.5 ||
+        CGRectGetMaxY(cancel.frame)>body.bounds.size.height-body.safeAreaInsets.bottom) { NSLog(@"FAIL custom hazard sheet layout"); failures++; }
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithBounds:window.bounds];
+    UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) { [window drawViewHierarchyInRect:window.bounds afterScreenUpdates:YES]; }];
+    NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"hazard-sheet.png"];
+    [UIImagePNGRepresentation(image) writeToFile:path atomically:YES];
+    [buttons[4] sendActionsForControlEvents:UIControlEventTouchUpInside];
+    // 선택 닫힘 도중 안내가 끝나면 취소가 우선하고 promise는 한 번만 끝난다.
+    __block BOOL navigationEnded = NO;
+    [sheet cancelForNavigationEnd:^{ navigationEnded = YES; }];
+    WaitAsync(^BOOL{ return navigationEnded && window.rootViewController.presentedViewController == nil; },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL closed) {
+      if (!closed || calls != 1 || picked != -1) { NSLog(@"FAIL hazard navigation-end cancellation"); failures++; }
+      __block NSUInteger secondCalls = 0; __block NSInteger secondPick = -2;
+      KNNaviHazardSheet *next = [[KNNaviHazardSheet alloc] initWithOptions:options completion:^(NSInteger index) { secondCalls++; secondPick = index; }];
+      [window.rootViewController presentViewController:next animated:NO completion:nil];
+      UIStackView *nextGrid = [next valueForKey:@"grid"];
+      UIButton *ice = (id)((UIStackView *)nextGrid.arrangedSubviews[2]).arrangedSubviews.firstObject;
+      [ice sendActionsForControlEvents:UIControlEventTouchUpInside]; [ice sendActionsForControlEvents:UIControlEventTouchUpInside];
+      WaitAsync(^BOOL{ return window.rootViewController.presentedViewController == nil; },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL selected) {
+        if (!selected || secondCalls != 1 || secondPick != 4) { NSLog(@"FAIL hazard choice duplicate/index"); failures++; }
+        __block NSInteger escaped = -2;
+        KNNaviHazardSheet *last = [[KNNaviHazardSheet alloc] initWithOptions:options completion:^(NSInteger index) { escaped = index; }];
+        [window.rootViewController presentViewController:last animated:NO completion:nil];
+        [last accessibilityPerformEscape];
+        WaitAsync(^BOOL{ return window.rootViewController.presentedViewController == nil; },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL cancelled) {
+          if (!cancelled || escaped != -1) { NSLog(@"FAIL hazard accessibility cancellation"); failures++; }
+          completion(failures);
+        });
+      });
+    });
   });
 }

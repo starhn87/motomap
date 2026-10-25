@@ -106,30 +106,45 @@ async function reconcileAbandonedGuide() {
   trackGuideEnd(active, 'abandoned');
 }
 
-// 주행 중 위험 제보 — 유형 고르면 현 위치로 바로 제보
+// 주행 중 연타로 여러 시트를 열거나 같은 위치를 중복 제보하지 않는다.
+let reportingHazard: { goal: unknown; revision: number } | null = null;
 async function reportHazard() {
-  // 위치는 버튼을 누른 "순간"에 찍는다. 타입을 고른 뒤에 찍으면 시트를 보며
-  // 달린 5~10초(시속 60km 면 100m+)까지 오차에 들어간다 — 위험 지점과의
-  // 간격은 어차피 지나친 뒤 누르는 물리적 지연만큼만 남긴다.
-  const posPromise = withLocationUse('map','motomap',() => Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.Balanced,
-  })).catch(() => null);
-  const picked = await KakaoNavi.showGuideOptions(
-    '노면 위험 제보',
-    HAZARD_LIST.map((h) => h.label),
-  );
-  if (picked < 0) return;
+  const goal = useGuideSession.getState().goal;
+  const revision = useLocationPrivacyStore.getState().revision;
+  if (!goal || !locationUseAllowed() ||
+      (reportingHazard?.goal === goal && reportingHazard.revision === revision)) return;
+  const request = { goal, revision };
+  reportingHazard = request;
+  const current = () => locationUseAllowed() && revision === useLocationPrivacyStore.getState().revision &&
+    goal === useGuideSession.getState().goal;
+  let locationTimer: ReturnType<typeof setTimeout> | undefined;
+  const custom = supportsKakaoNaviFeature('guide_hazard_sheet');
+  const notice = (message: string) => custom ? KakaoNavi.showGuideToast(message) : KakaoNavi.showGuideNotice(message);
   try {
+    // 선택하는 동안 이동해도 버튼을 누른 순간의 위치로 제보한다.
+    const location = withLocationUse('map', 'motomap', () => Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    })).catch(() => null);
+    // GPS 응답이 없어도 다음 제보를 영구히 잠그지 않는다. 늦은 좌표는 사용하지 않는다.
+    const posPromise = Promise.race([location, new Promise<null>(resolve => {
+      locationTimer = setTimeout(() => resolve(null), 10_000);
+    })]);
+    const picked = custom
+      ? await KakaoNavi.showGuideHazardOptions(HAZARD_LIST.map(({ key, label }) => ({ key, label })))
+      : await KakaoNavi.showGuideOptions('노면 위험 제보', HAZARD_LIST.map(h => h.label));
+    if (!Number.isInteger(picked) || picked < 0 || picked >= HAZARD_LIST.length) return;
     const pos = await posPromise;
-    if (!pos || !locationUseAllowed()) return;
-    await submitHazard({
-      type: HAZARD_LIST[picked].key,
-      latitude: pos.coords.latitude,
-      longitude: pos.coords.longitude,
-    });
-    void KakaoNavi.showGuideNotice('제보했어요. 안전 운행하세요!');
+    if (!current()) return;
+    if (!pos) { await notice('현재 위치를 확인하지 못했어요. 다시 시도해 주세요.'); return; }
+    await submitHazard({ type: HAZARD_LIST[picked].key, latitude: pos.coords.latitude, longitude: pos.coords.longitude, canSubmit: current });
+    if (current()) await notice('제보했어요. 안전 운행하세요!').catch(() => {});
   } catch {
-    void KakaoNavi.showGuideNotice('제보하지 못했어요. 로그인 상태를 확인해주세요.');
+    if (current()) {
+      await notice('제보하지 못했어요. 로그인 상태를 확인해주세요.').catch(() => {});
+    }
+  } finally {
+    clearTimeout(locationTimer);
+    if (reportingHazard === request) reportingHazard = null;
   }
 }
 

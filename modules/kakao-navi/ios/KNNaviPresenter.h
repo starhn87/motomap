@@ -40,6 +40,11 @@ NS_ASSUME_NONNULL_BEGIN
                       labels:(NSArray<NSString *> *)labels
                   completion:(void (^)(NSInteger pickedIndex))completion;
 
+// 앱 소유 위험 유형 시트. 선택 index, 취소/안내 종료는 -1.
++ (void)showHazardOptions:(NSArray<NSDictionary<NSString *, NSString *> *> *)options
+              completion:(void (^)(NSInteger pickedIndex))completion NS_SWIFT_NAME(showHazardOptions(_:completion:));
++ (void)showToast:(NSString *)message;
+
 // 잠깐 떴다 사라지는 알림(버튼 없음, 1.8초).
 + (void)showNotice:(NSString *)message;
 

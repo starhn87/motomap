@@ -2,6 +2,7 @@
 #import "KNNaviAudioFocus.h"
 
 extern int RunKNNaviSessionTests(void);
+extern void RunKNNaviHazardSheetTests(UIWindow *window, void (^completion)(int));
 extern void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int));
 
 @interface NavigationSessionTestScene : UIResponder <UIWindowSceneDelegate>
@@ -15,12 +16,14 @@ extern void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int));
   dispatch_async(dispatch_get_main_queue(), ^{
     int failures = RunKNNaviSessionTests();
     RunKNNaviBottomTests(self.window, ^(int bottomFailures) {
-    int total = failures + bottomFailures;
+    RunKNNaviHazardSheetTests(self.window, ^(int hazardFailures) {
+    int total = failures + bottomFailures + hazardFailures;
     NSString *result = [NSString stringWithFormat:@"NAV_SESSION_RESULT failures=%d done=1\n", total];
     NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject
         stringByAppendingPathComponent:@"session-result.txt"];
     [result writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
     NSLog(@"%@", result);
+    });
     });
   });
 }
