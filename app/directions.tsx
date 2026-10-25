@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 
+import { RoutePointIcon } from '@/components/search/SearchPlaceIcon';
 import Colors from '@/constants/Colors';
 import CloseIcon from '@/components/ui/CloseIcon';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -240,6 +241,7 @@ export default function DirectionsScreen() {
         <View style={styles.fieldRows}>
           <FieldRow
             icon="radiobox-marked"
+            point={origin === 'current' ? null : origin}
             placeholder="출발지 선택"
             value={label(origin, '')}
             muted={false}
@@ -251,6 +253,7 @@ export default function DirectionsScreen() {
               <View style={[styles.fieldDivider, { backgroundColor: colors.border }]} />
               <FieldRow
                 icon="circle-medium"
+                point={via}
                 placeholder="경유지 입력"
                 value={via?.name ?? ''}
                 muted={!via}
@@ -279,6 +282,7 @@ export default function DirectionsScreen() {
           </View>
           <FieldRow
             icon="map-marker"
+            point={dest === 'current' ? null : dest}
             placeholder="도착지 선택"
             value={dest ? label(dest, '') : ''}
             muted={!dest}
@@ -419,6 +423,7 @@ async function currentAsTarget(): Promise<NavTarget> {
 
 function FieldRow({
   icon,
+  point,
   placeholder,
   value,
   muted,
@@ -428,6 +433,7 @@ function FieldRow({
   disabled = false,
 }: {
   disabled?: boolean;
+  point?: Exclude<Point, 'current'> | null;
   icon: 'radiobox-marked' | 'circle-medium' | 'map-marker';
   placeholder: string;
   value: string;
@@ -441,7 +447,7 @@ function FieldRow({
   const colors = Colors[colorScheme ?? 'light'];
   return (
     <Pressable onPress={onPress} disabled={disabled} style={styles.fieldRow}>
-      <MaterialCommunityIcons name={icon} size={16} color={colors.textSecondary} />
+      <RoutePointIcon point={point} icon={icon} size={16} />
       <Text
         style={[styles.fieldValue, { color: muted ? colors.textSecondary : colors.text }]}
         numberOfLines={1}>

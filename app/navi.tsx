@@ -1,3 +1,4 @@
+import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
 import { withLocationUse, providerLocationAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import { useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -78,6 +79,8 @@ function InvalidNaviParams() {
 }
 
 function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; continuation: GuidePreviewContext | null }) {
+  const loadMyPlaces = useMyPlacesStore(state => state.load);
+  useEffect(() => { void loadMyPlaces(); }, [loadMyPlaces]);
   const continuationRef = useRef(continuation);
   const resumedRef = useRef(false);
   const privacyRevision = useLocationPrivacyStore((s) => s.revision);
@@ -564,6 +567,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
             <View style={styles.routeFields}>
               <RouteFieldRow
                 icon="radiobox-marked"
+                point={start ? { name: startName ?? '현재 위치', longitude: start[0], latitude: start[1] } : null}
                 value={startName ?? '현재 위치'}
                 onPress={() => !starting && !continuation && setEditing('start')}
                 index={0}
@@ -578,6 +582,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
                   <View style={[styles.routeDivider, { backgroundColor: colors.border }]} />
                   <RouteFieldRow
                     icon="circle-medium"
+                    point={via}
                     value={via?.name ?? ''}
                     placeholder="경유지 입력"
                     onPress={() => !starting && setEditing(i)}
@@ -609,6 +614,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
               </View>
               <RouteFieldRow
                 icon="map-marker"
+                point={goal}
                 value={goal.name}
                 onPress={() => !starting && setEditing('goal')}
                 onAdd={

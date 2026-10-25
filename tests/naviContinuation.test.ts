@@ -42,6 +42,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
   const chain: any = new Proxy({}, { get: () => () => chain });
   const defaultExport = (value: any) => ({ __esModule: true, default: value });
   const deps: Record<string, any> = {
+    '@/stores/useMyPlacesStore': { useMyPlacesStore: (select: any) => select({ places: {}, load() {} }) },
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'Spinner', StyleSheet: { create: (x: any) => x } },
     'expo-router': { useLocalSearchParams: () => ({ resume: '7' }), useRouter: () => router, useNavigation: () => navigation },

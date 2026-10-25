@@ -34,6 +34,7 @@ function setup() {
   };
   const module = loadModule<{ __esModule: true, default: (props: any) => Node }>('components/search/PointSearchModal.tsx', {
     react,
+    '@/components/search/SearchPlaceIcon': { __esModule: true, default: 'SearchPlaceIcon', RoutePointIcon: 'RoutePointIcon' },
     'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': {
       ActivityIndicator: 'ActivityIndicator', FlatList: 'FlatList', Modal: 'Modal',

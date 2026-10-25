@@ -1,6 +1,5 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import CategoryIcon from '@/components/ui/CategoryIcon';
 import CloseIcon from '@/components/ui/CloseIcon';
 import {
   View,
@@ -27,8 +26,9 @@ import {
 } from '@/lib/api/search';
 import { useSearchAnchor } from '@/hooks/useSearchAnchor';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
+import SearchPlaceIcon from '@/components/search/SearchPlaceIcon';
 import { useFavoritePlaces } from '@/hooks/useFavorites';
-import { favoriteMatcher, favoritesFirst } from '@/lib/favoriteMatching';
+import { favoriteMatcher, favoritesFirst, mergeFavoriteCandidates } from '@/lib/favoriteMatching';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { KakaoLocalResult } from '@/lib/api/kakaoLocal';
@@ -229,11 +229,11 @@ export default function SearchScreen() {
   );
 
   // 지금 보는 지도 주변을 우선 — 같은 "강릉 카페"라도 보고 있는 지역 것이 먼저
-  const results = unifiedSearch.data;
+  const { data: favorites, isLoading: favoritesLoading } = useFavoritePlaces();
+  const rawResults = unifiedSearch.data;
+  const results = useMemo(() => rawResults ? { ...rawResults, ...mergeFavoriteCandidates(rawResults, favorites, query) } : undefined, [rawResults, favorites, query]);
   const kakaoOnly = results?.kakaoOnly ?? [];
   const isLoading = unifiedSearch.isSearching;
-
-  const { data: favorites, isLoading: favoritesLoading } = useFavoritePlaces();
   const isFavorite = favoriteMatcher(favorites);
 
   const { data: recommended, isLoading: recommendedLoading } = useRecommendedPlaces();
@@ -415,7 +415,7 @@ export default function SearchScreen() {
           styles.row,
           { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
         ]}>
-        <View style={styles.rowIconWrap}><CategoryIcon category={place.category} size={20} /></View>
+        <View style={styles.rowIconWrap}><SearchPlaceIcon point={place} category={place.category} favorite={isFavorite({ kind: 'place', place })} /></View>
         <View style={styles.rowInfo}>
           <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
             {isFavorite({ kind: 'place', place }) ? '★ ' : ''}{place.name}
@@ -488,8 +488,10 @@ export default function SearchScreen() {
         ))}
         <Pressable accessibilityRole="button" accessibilityState={{ selected: showFavorites }}
           onPress={() => { Keyboard.dismiss(); setShowFavorites(value => !value); }}
-          style={[styles.myPlaceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Ionicons name="star" size={20} color={colors.tint} /><Text style={{ color: colors.text }}>즐겨찾기</Text>
+          style={({ pressed }) => [styles.myPlaceCard, { backgroundColor: showFavorites ? colors.tint : colors.surface, borderColor: showFavorites ? colors.tint : colors.border, opacity: pressed ? 0.7 : 1 }]}>
+          <Ionicons name={showFavorites ? "star" : "star-outline"} size={20} color={showFavorites ? colors.background : colors.tint} />
+          <Text style={{ color: showFavorites ? colors.background : colors.text, fontWeight: showFavorites ? '700' : '400' }}>즐겨찾기</Text>
+          {showFavorites && <Ionicons name="checkmark" size={14} color={colors.background} />}
         </Pressable>
       </View>
       {showFavorites ? (
@@ -498,7 +500,7 @@ export default function SearchScreen() {
           {favorites?.general.map(place => (
             <Pressable key={place.id} style={[styles.row, { borderBottomColor: colors.border }]}
               onPress={() => goToKakaoPlace(place.name, place.address, place.latitude, place.longitude, place.phone, place.providerId, place.placeUrl, undefined, place.generalPlaceId)}>
-              <Ionicons name="star" size={20} color={colors.tint} />
+              <SearchPlaceIcon point={place} favorite />
               <View style={styles.rowInfo}><Text style={[styles.rowName, { color: colors.text }]}>{place.name}</Text>
                 <Text style={[styles.rowSub, { color: colors.textSecondary }]}>{place.address}</Text></View>
               <Text style={{ color: colors.textSecondary }}>즐겨찾기</Text>
@@ -553,7 +555,7 @@ export default function SearchScreen() {
                 data: guide,
               })) ?? []),
             ], item => item.type === 'place' ? isFavorite({ kind: 'place', place: item.data }) :
-              item.type === 'kakao' ? isFavorite({ kind: 'kakao', k: item.data }) : false)}
+              item.type === 'kakao' ? isFavorite({ kind: 'kakao', k: item.data }) : false, item => item.type === 'place')}
             keyExtractor={(item, index) =>
               item.type === 'kakao'
                 ? `kakao-${(item.data as KakaoLocalResult).placeName}-${index}`
@@ -599,7 +601,7 @@ export default function SearchScreen() {
                         styles.row,
                         { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
                       ]}>
-                      <View style={styles.rowIconWrap}><Ionicons name="location-outline" size={20} color="#475569" /></View>
+                      <View style={styles.rowIconWrap}><SearchPlaceIcon point={k} favorite={isFavorite({ kind: 'kakao', k })} /></View>
                       <View style={styles.rowInfo}>
                         <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
                           {isFavorite({ kind: 'kakao', k }) ? '★ ' : ''}{k.placeName}
@@ -716,11 +718,11 @@ export default function SearchScreen() {
                     ]}>
                     <View style={styles.rowIconWrap}>
                       {entry.type === 'place' ? (
-                        <CategoryIcon category={entry.place.category} size={20} />
+                        <SearchPlaceIcon point={entry.place} category={entry.place.category} favorite={isFavorite({ kind: 'place', place: entry.place })} />
                       ) : entry.type === 'course' || entry.type === 'riding' ? (
                         <MaterialCommunityIcons name="road-variant" size={20} color={colors.tint} />
                       ) : (
-                        <Ionicons name="location-outline" size={20} color="#475569" />
+                        <SearchPlaceIcon point={entry} />
                       )}
                     </View>
                     <View style={styles.rowInfo}>
@@ -777,7 +779,7 @@ export default function SearchScreen() {
                       { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
                     ]}>
                     <View style={styles.rowIconWrap}>
-                      <Ionicons name="location-outline" size={20} color="#475569" />
+                      <SearchPlaceIcon point={f} favorite />
                     </View>
                     <View style={styles.rowInfo}>
                       <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>

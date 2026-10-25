@@ -33,6 +33,7 @@ function setup() {
   };
   const jsx = (type: unknown, props: Record<string, any>) => ({ type, props });
   const module = loadModule<{ default: () => Element }>('app/directions.tsx', {
+    '@/components/search/SearchPlaceIcon': { __esModule: true, default: 'SearchPlaceIcon', RoutePointIcon: 'RoutePointIcon' },
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView', ActivityIndicator: 'Spinner', StyleSheet: { create: (x: unknown) => x } },
     'expo-router': { useLocalSearchParams: () => ({}), useFocusEffect() {} },

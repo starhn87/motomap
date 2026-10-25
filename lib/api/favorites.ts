@@ -29,7 +29,7 @@ export interface Favorites {
 
 export { findGeneralFavorite } from '@/lib/favoriteMatching';
 import { findGeneralFavorite } from '@/lib/favoriteMatching';
-export type GeneralFavoritePoint = Pick<GeneralPlaceInput, 'latitude' | 'longitude' | 'generalPlaceId' | 'providerId'>;
+export type GeneralFavoritePoint = Pick<GeneralPlaceInput, 'latitude' | 'longitude' | 'generalPlaceId' | 'providerId'> & Partial<Pick<GeneralPlaceInput, 'name' | 'address'>>;
 
 export async function fetchFavorites(): Promise<Favorites> {
   const user = await getCurrentUser();

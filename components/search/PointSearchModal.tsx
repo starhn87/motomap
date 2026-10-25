@@ -14,9 +14,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import CategoryIcon from '@/components/ui/CategoryIcon';
+import SearchPlaceIcon from '@/components/search/SearchPlaceIcon';
 import MapPickerModal from '@/components/map/MapPickerModal';
-import { favoriteMatcher, favoritesFirst } from '@/lib/favoriteMatching';
+import { favoriteMatcher, favoritesFirst, mergeFavoriteCandidates } from '@/lib/favoriteMatching';
 import { CATEGORIES } from '@/constants/categories';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { DialogCard } from '@/components/ui/DialogHost';
@@ -148,7 +148,10 @@ export default function PointSearchModal({
   );
   const canShowFav = allowSaved && favItems.length > 0;
   const isFavorite = favoriteMatcher(favorites);
-  const rankedResults = favoritesFirst(results, isFavorite);
+  const candidates = mergeFavoriteCandidates({ places: results.flatMap(item => item.kind === 'place' ? [item.place] : []),
+    kakaoOnly: results.flatMap(item => item.kind === 'kakao' ? [item.k] : []) }, favorites, query);
+  const rankedResults = favoritesFirst<ResultItem>([...candidates.places.map(place => ({ kind: 'place' as const, place })),
+    ...candidates.kakaoOnly.map(k => ({ kind: 'kakao' as const, k }))], isFavorite, item => item.kind === 'place');
 
   const handleChange = (text: string) => {
     if (visible && draftKey && allowSaved && !confirmSlot) draftQueries.current.set(draftKey, text);
@@ -520,7 +523,7 @@ export default function PointSearchModal({
                 accessibilityRole="button"
                 onPress={() => void selectSearchResult(item, index)}
                 style={[styles.resultRow, { borderBottomColor: colors.border }]}>
-                <CategoryIcon category={item.place.category} size={16} />
+                <SearchPlaceIcon point={item.place} category={item.place.category} favorite={isFavorite(item)} size={16} />
                 <View style={styles.resultTexts}>
                   <Text style={[styles.resultName, { color: colors.text }]} numberOfLines={1}>
                     {isFavorite(item) ? '★ ' : ''}{item.place.name}
@@ -542,7 +545,7 @@ export default function PointSearchModal({
                 accessibilityRole="button"
                 onPress={() => void selectSearchResult(item, index)}
                 style={[styles.resultRow, { borderBottomColor: colors.border }]}>
-                <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+                <SearchPlaceIcon point={item.k} favorite={isFavorite(item)} size={16} />
                 <View style={styles.resultTexts}>
                   <Text style={[styles.resultName, { color: colors.text }]} numberOfLines={1}>
                     {isFavorite(item) ? '★ 즐겨찾기 · ' : ''}{item.k.placeName}

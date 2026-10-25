@@ -7,6 +7,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
+import { RoutePointIcon } from '@/components/search/SearchPlaceIcon';
+import type { NavTarget } from '@/lib/navigation';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 
@@ -23,6 +25,7 @@ export function nearestSlot(curY: number, rowCount: number) {
 
 export default function RouteFieldRow({
   icon,
+  point,
   value,
   placeholder,
   onPress,
@@ -35,6 +38,7 @@ export default function RouteFieldRow({
   pan,
   dragDisabled,
 }: {
+  point?: NavTarget | null;
   icon: 'radiobox-marked' | 'circle-medium' | 'map-marker';
   value: string;
   placeholder?: string;
@@ -97,7 +101,7 @@ export default function RouteFieldRow({
           </View>
         </GestureDetector>
         <Pressable onPress={onPress} style={styles.routeFieldMain}>
-          <MaterialCommunityIcons name={icon} size={15} color={colors.textSecondary} />
+          <RoutePointIcon point={point} icon={icon} size={15} />
           <Text
             style={[
               styles.routeFieldValue,

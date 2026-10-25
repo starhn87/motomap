@@ -20,17 +20,18 @@ import {
   type NaverMapViewRef,
 } from '@mj-studio/react-native-naver-map';
 
+import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useFavoritePlaces } from '@/hooks/useFavorites';
-import { favoriteMatcher, favoritesFirst } from '@/lib/favoriteMatching';
-import CategoryIcon from '@/components/ui/CategoryIcon';
+import { favoriteMatcher, favoritesFirst, mergeFavoriteCandidates } from '@/lib/favoriteMatching';
+import SearchPlaceIcon from '@/components/search/SearchPlaceIcon';
 import EmptyState from '@/components/ui/EmptyState';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import { CATEGORIES } from '@/constants/categories';
-import { MARKER_IMAGES, MARKER_IMAGES_CIRCLE } from '@/constants/markerImages';
+import { MARKER_IMAGES, MARKER_IMAGES_CIRCLE, MARKER_IMAGES_FAV, MARKER_IMAGES_CIRCLE_FAV } from '@/constants/markerImages';
 import {
   isSameExternalPlace,
   searchAll,
@@ -116,6 +117,8 @@ function sheetLatOffset(zoom: number, screenHeightDp: number, lat: number): numb
 // 검색 결과 지도 화면 — 검색에서 엔터로 진입한다. 유일한 정확 일치는 지도 상세로
 // 바로 보내고, 그 외 등록 장소·일반 장소는 지도 마커 + 바텀시트 목록으로 비교한다.
 export default function SearchResultsScreen() {
+  const loadMyPlaces = useMyPlacesStore(state => state.load);
+  useEffect(() => { void loadMyPlaces(); }, [loadMyPlaces]);
   const params = useLocalSearchParams<{
     query?: string;
     searchId?: string;
@@ -264,15 +267,16 @@ export default function SearchResultsScreen() {
     }
     return targets;
   }, [compactQuery, exactKakaoMatches, results?.places]);
-  const bikeMatches = useBikePlaceMatches(
-    (results?.places ?? []).map((place) => place.id),
-  );
-
   const { data: favorites } = useFavoritePlaces();
   const isFavorite = favoriteMatcher(favorites);
+  const candidates = useMemo(() => mergeFavoriteCandidates({ places: results?.places ?? [], kakaoOnly: nearbyKakaoResults }, favorites, query,
+    activeNear ? { center: activeNear, radius: SEARCH_RADIUS_M } : undefined), [results?.places, nearbyKakaoResults, favorites, query, activeNear]);
+  const bikeMatches = useBikePlaceMatches(candidates.places.map(place => place.id));
+  const hasSavedCandidate = candidates.places.some(place => isFavorite({ kind: 'place', place })) ||
+    candidates.kakaoOnly.some(k => isFavorite({ kind: 'kakao', k }));
 
   const items = useMemo<ResultItem[]>(() => {
-    const places = (results?.places ?? []).filter((place) => {
+    const places = favoritesFirst(candidates.places, place => isFavorite({ kind: 'place', place })).filter((place) => {
       if (filters.includes('open') && getOpenState(place.hours).status !== 'open') return false;
       if (filters.includes('parking') && !hasParkingInfo(place)) return false;
       if (filters.includes('rating') && (place.rating < 4 || place.reviewCount === 0)) return false;
@@ -282,13 +286,13 @@ export default function SearchResultsScreen() {
     // 라이딩 추천·카카오 결과에는 영업시간/주차/평점의 같은 필드가 없다. 필터를 켰을 때
     // 섞어 보여주면 필터가 고장 난 것처럼 보이므로 등록 장소만 남긴다.
     const ridingGuides = filters.length === 0 ? (results?.ridingGuides ?? []) : [];
-    const kakaoOnly = filters.length === 0 ? nearbyKakaoResults : [];
+    const kakaoOnly = filters.length === 0 ? candidates.kakaoOnly : [];
     return favoritesFirst<ResultItem>([
       ...places.map((place) => ({ kind: 'place' as const, place })),
       ...kakaoOnly.map((k) => ({ kind: 'kakao' as const, k })),
       ...ridingGuides.map((guide) => ({ kind: 'riding' as const, guide })),
-    ], favoriteMatcher(favorites));
-  }, [results, nearbyKakaoResults, filters, bikeMatches.data, favorites]);
+    ], favoriteMatcher(favorites), item => item.kind === 'place');
+  }, [results?.ridingGuides, candidates, filters, bikeMatches.data, favorites]);
 
   // 상세를 닫아도 마지막 선택은 유지한다. 필터·재검색으로 사라진 결과만 해제한다.
   useEffect(() => {
@@ -304,9 +308,9 @@ export default function SearchResultsScreen() {
   }, [searchQuery, nearKey, areaSearchRevision, browseMode]);
 
   const rawResultCount =
-    (results?.places.length ?? 0) +
+    candidates.places.length +
     (results?.ridingGuides.length ?? 0) +
-    nearbyKakaoResults.length;
+    candidates.kakaoOnly.length;
   const searchIncomplete = !!results?.failedSources?.length || !!kakaoPage?.failedSources?.length ||
     resultsQuery.isError || (!browseMode && kakaoQuery.isError);
   const sourcesReady = requestEnabled && !searchIncomplete &&
@@ -322,6 +326,7 @@ export default function SearchResultsScreen() {
       activeNear,
     ) > SEARCH_RADIUS_M;
   const resolvingExactRemote =
+    !hasSavedCandidate &&
     !browseMode &&
     sourcesReady &&
     !searchFailed &&
@@ -330,6 +335,7 @@ export default function SearchResultsScreen() {
     exactFallbackQuery !== compactQuery;
   const exactFocusTarget = exactPlaceTargets.length === 1 ? exactPlaceTargets[0] : undefined;
   const redirectingToExact =
+    !hasSavedCandidate &&
     !browseMode &&
     sourcesReady &&
     !searchFailed &&
@@ -341,7 +347,7 @@ export default function SearchResultsScreen() {
 
   // 필터를 켜지 않았어도 각 행에 바이크 근거가 표시된다. 이 데이터만 늦게
   // 들어오면 메타 행이 한 줄 더 생기므로 최초 결과는 함께 준비한다.
-  const hasRegisteredResults = (results?.places.length ?? 0) > 0;
+  const hasRegisteredResults = candidates.places.length > 0;
   const loading =
     !requestEnabled ||
     resultsQuery.isLoading ||
@@ -371,10 +377,13 @@ export default function SearchResultsScreen() {
   // 재조회 결과가 유일한 정확 일치가 아니면 직접 포커스를 취소하고 기존 목록·빈 상태로
   // 돌아간다. 유일한 대상이면 포커스 화면이 사라질 때까지 로딩 전환을 유지한다.
   useEffect(() => {
-    if (!exactTransitionPending || !sourcesReady || searchFailed || resolvingExactRemote) return;
+    if (!exactTransitionPending) return;
+    if (hasSavedCandidate) { setExactTransitionQuery(null); return; }
+    if (!sourcesReady || searchFailed || resolvingExactRemote) return;
     if (!kakaoResultSetComplete || !exactFocusTarget) setExactTransitionQuery(null);
   }, [
     exactTransitionPending,
+    hasSavedCandidate,
     exactFocusTarget,
     kakaoResultSetComplete,
     resolvingExactRemote,
@@ -764,8 +773,8 @@ export default function SearchResultsScreen() {
                 alpha={temporarilyClosed ? TEMPORARILY_CLOSED_MARKER_ALPHA : 1}
                 image={
                   isSelected
-                    ? MARKER_IMAGES[item.place.category]
-                    : MARKER_IMAGES_CIRCLE[item.place.category]
+                    ? (isFavorite(item) ? MARKER_IMAGES_FAV : MARKER_IMAGES)[item.place.category]
+                    : (isFavorite(item) ? MARKER_IMAGES_CIRCLE_FAV : MARKER_IMAGES_CIRCLE)[item.place.category]
                 }
               />
             );
@@ -773,6 +782,7 @@ export default function SearchResultsScreen() {
           const isSelected = selectedResultKey === resultKey(item);
           return (
             <TempPlaceMarker
+              favorite={isFavorite(item)}
               key={resultKey(item)}
               latitude={item.k.latitude}
               longitude={item.k.longitude}
@@ -928,7 +938,7 @@ export default function SearchResultsScreen() {
                       backgroundColor: selectedResultKey === resultKey(item) ? colors.surfaceMuted : colors.background,
                       borderLeftColor: selectedResultKey === resultKey(item) ? colors.tint : 'transparent',
                     }]}>
-                    <CategoryIcon category={item.place.category} size={18} />
+                    <SearchPlaceIcon point={item.place} category={item.place.category} favorite={isFavorite(item)} size={18} />
                     <View style={styles.rowTexts}>
                       <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
                         {isFavorite(item) ? '★ 즐겨찾기 · ' : ''}{item.place.name}
@@ -1004,7 +1014,7 @@ export default function SearchResultsScreen() {
                   backgroundColor: selectedResultKey === resultKey(item) ? colors.surfaceMuted : colors.background,
                   borderLeftColor: selectedResultKey === resultKey(item) ? colors.tint : 'transparent',
                 }]}>
-                <Ionicons name="location-outline" size={18} color={colors.textSecondary} />
+                <SearchPlaceIcon point={item.k} favorite={isFavorite(item)} size={18} />
                 <View style={styles.rowTexts}>
                   <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
                     {isFavorite(item) ? '★ 즐겨찾기 · ' : ''}{item.k.placeName}
