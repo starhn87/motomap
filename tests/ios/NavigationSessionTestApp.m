@@ -2,6 +2,7 @@
 #import "KNNaviAudioFocus.h"
 
 extern int RunKNNaviSessionTests(void);
+extern void RunKNNaviGasTests(UIWindow *window, void (^completion)(int));
 extern void RunKNNaviHazardSheetTests(UIWindow *window, void (^completion)(int));
 extern void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int));
 
@@ -17,12 +18,14 @@ extern void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int));
     int failures = RunKNNaviSessionTests();
     RunKNNaviBottomTests(self.window, ^(int bottomFailures) {
     RunKNNaviHazardSheetTests(self.window, ^(int hazardFailures) {
-    int total = failures + bottomFailures + hazardFailures;
+    RunKNNaviGasTests(self.window, ^(int gasFailures) {
+    int total = failures + bottomFailures + hazardFailures + gasFailures;
     NSString *result = [NSString stringWithFormat:@"NAV_SESSION_RESULT failures=%d done=1\n", total];
     NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject
         stringByAppendingPathComponent:@"session-result.txt"];
     [result writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
     NSLog(@"%@", result);
+    });
     });
     });
   });

@@ -67,3 +67,22 @@ test('GPS가 끊겨도 편집 스냅샷을 열고 출발 좌표는 새 위치 �
   assert.equal(initial.goal.name, goal.name);
   assert.equal(initial.userVias.length, 2);
 });
+
+test('주유소 목적지는 5m 이내라도 기존 장소·코스 ID를 상속하지 않는다', () => {
+  const changed = { ...snapshot, goalReplaced: true, goal: { name: '주유소', latitude: goal.latitude, longitude: goal.longitude } };
+  const initial = guidePreviewInitial(changed, goal, previous);
+  assert.equal(initial.goal.placeId, undefined); assert.equal(initial.courseId, undefined);
+  assert.equal(continuedGoal(changed, goal, initial.goal, flat(changed.vias)).courseId, undefined);
+});
+test('추가한 주유소 경유에는 근접한 기존 장소 ID를 상속하지 않는다', () => {
+  const initial = guidePreviewInitial({ ...snapshot, gasViaAdded: true, vias: [remaining] }, goal, previous);
+  assert.equal(initial.userVias[0].placeId, undefined);
+});
+
+
+test('기존 장소 경유 삭제 후 같은 좌표의 주유소 경유에 라이딩 기록을 다시 붙이지 않는다', () => {
+  const gas = { name: '주유소', latitude: remaining.latitude, longitude: remaining.longitude };
+  const changed = { ...snapshot, gasViaAdded: true, vias: [gas, remaining] };
+  assert.deepEqual(continuedViaPlaces(changed,[remaining],[gas],flat([gas])),[]);
+  assert.equal(continuedViaPlaces(changed,[remaining],[gas,remaining],flat([gas,remaining]))[0].placeId,'remaining');
+});

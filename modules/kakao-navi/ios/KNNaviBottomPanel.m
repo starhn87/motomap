@@ -152,7 +152,7 @@ const CGFloat KNNaviBottomRecenterHeight = 54;
     if (self.onAction) self.onAction(action,@{@"value":@(MAX(0,MIN(1,value.doubleValue)))});
     return;
   }
-  NSSet *allowed = [NSSet setWithArray:@[@"refresh",@"recenter",@"hazard",@"routePreview",@"destination",@"vias",@"end"]];
+  NSSet *allowed = [NSSet setWithArray:@[@"refresh",@"recenter",@"hazard",@"gas",@"routePreview",@"destination",@"vias",@"end"]];
   if (![allowed containsObject:action]) return;
   [self collapse];
   if (self.onAction) self.onAction(action,@{});

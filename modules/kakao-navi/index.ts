@@ -55,6 +55,7 @@ export const KAKAO_NAVI_FEATURES = [
   'location_privacy_stop',
   'guide_web_bottom',
   'guide_hazard_sheet',
+  'guide_gas_stations',
 ] as const;
 
 export type KakaoNaviFeature = (typeof KAKAO_NAVI_FEATURES)[number];
@@ -73,6 +74,9 @@ const LEGACY_KAKAO_NAVI_FEATURES = [
 
 export interface GuidePreviewSnapshot {
   token: number;
+  /** 앱 소유 주유소 선택: 근접한 기존 장소 ID를 재사용하지 않는다. */
+  goalReplaced?: boolean;
+  gasViaAdded?: boolean;
   start: { latitude: number; longitude: number } | null;
   goal: { latitude: number; longitude: number; name: string };
   vias: { latitude: number; longitude: number; name: string }[];
@@ -126,6 +130,9 @@ interface KakaoNaviModule {
   showGuideOptions(title: string, labels: string[]): Promise<number>;
   showGuideHazardOptions(options: { key: string; label: string }[]): Promise<number>;
   showGuideToast(message: string): Promise<void>;
+  getGuideGasContext(): Promise<{ requestId: string; latitude: number; longitude: number; prod: 'B027' | 'B034'; viaCount: number } | null>;
+  takeGuideGasSelection(): Promise<{ station: { name: string; latitude: number; longitude: number }; via: boolean } | null>;
+  updateGuideGasStations(json: string): Promise<void>;
   /** 안내 화면 위에 잠깐 떴다 사라지는 알림 */
   showGuideNotice(message: string): Promise<void>;
   /** 안내 중 목적지 변경 — 현 위치에서 새 목적지로 재탐색 */
@@ -162,6 +169,9 @@ const unavailableModule = {
   showGuideOptions: unavailable,
   showGuideHazardOptions: unavailable,
   showGuideToast: unavailable,
+  getGuideGasContext: unavailable,
+  takeGuideGasSelection: unavailable,
+  updateGuideGasStations: unavailable,
   showGuideNotice: unavailable,
   changeGuideDestination: unavailable,
   requestBikeRoute: unavailable,

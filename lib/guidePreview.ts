@@ -10,23 +10,23 @@ function samePoint(a: { latitude: number; longitude: number }, b: { latitude: nu
 }
 
 export function guidePreviewInitial(snapshot: GuidePreviewSnapshot, goal: GuideGoal, viaPlaces: GuideViaPlace[]): ParsedNaviParams {
-  const vias = snapshot.vias.map((via): NavTarget => ({
+  const vias = snapshot.vias.map((via, index): NavTarget => ({
     ...via,
-    placeId: viaPlaces.find((place) => samePoint(place, via))?.placeId,
+    placeId: snapshot.gasViaAdded && index === 0 ? undefined : viaPlaces.find((place) => samePoint(place, via))?.placeId,
   }));
   return {
-    goal: { ...snapshot.goal, ...(samePoint(snapshot.goal, goal) ? goal : {}) },
+    goal: { ...snapshot.goal, ...(!snapshot.goalReplaced && samePoint(snapshot.goal, goal) ? goal : {}) },
     start: snapshot.start ? [snapshot.start.longitude, snapshot.start.latitude] : null,
     startName: null,
     userVias: vias.length <= 3 ? vias : [],
     courseVias: vias.length > 3 ? vias.flatMap((via) => [via.longitude, via.latitude]) : [],
-    courseId: samePoint(snapshot.goal, goal) ? goal.courseId : undefined,
+    courseId: !snapshot.goalReplaced && samePoint(snapshot.goal, goal) ? goal.courseId : undefined,
   };
 }
 
 export function continuedViaPlaces(snapshot: GuidePreviewSnapshot, previous: GuideViaPlace[], remaining: (NavTarget | null)[], usedVias: number[]): GuideViaPlace[] {
   const passed = previous.filter((place) => snapshot.passedVias.some((via) => samePoint(place, via)));
-  const candidates = [...remaining, ...previous.filter((place) => snapshot.vias.some((via) => samePoint(place, via)))];
+  const candidates = [...remaining, ...previous.filter((place) => !(snapshot.gasViaAdded && snapshot.vias[0] && samePoint(place,snapshot.vias[0])) && snapshot.vias.some((via) => samePoint(place, via)))];
   const selected = candidates.flatMap((via) => {
     if (!via?.placeId) return [];
     for (let i = 0; i + 1 < usedVias.length; i += 2) {
@@ -53,5 +53,5 @@ export function continuedGoal(snapshot: GuidePreviewSnapshot, original: GuideGoa
   });
   const sameVias = expected.length * 2 === usedVias.length && expected.every((via, index) =>
     samePoint(via, { longitude: usedVias[index * 2], latitude: usedVias[index * 2 + 1] }));
-  return { ...goal, courseId: samePoint(original, snapshot.goal) && samePoint(snapshot.goal, goal) && sameVias ? original.courseId : undefined };
+  return { ...goal, courseId: !snapshot.goalReplaced && !snapshot.gasViaAdded && samePoint(original, snapshot.goal) && samePoint(snapshot.goal, goal) && sameVias ? original.courseId : undefined };
 }

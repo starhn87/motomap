@@ -48,6 +48,7 @@ xcrun clang -fobjc-arc -fmodules -target "$arch-apple-ios16.4-simulator" -isysro
   "$root/modules/kakao-navi/ios/KNNaviBottomPanel.m" \
   "$root/modules/kakao-navi/ios/KNNaviHiddenViews.m" \
   "$root/modules/kakao-navi/ios/KNNaviHazardSheet.m" \
+  "$root/modules/kakao-navi/ios/KNNaviGasLayer.m" \
   "$root/tests/ios/KNNaviSessionTests.m" "$root/tests/ios/NavigationSessionTestApp.m" \
   -o "$app/NavigationSessionTests"
 cat > "$app/Info.plist" <<'PLIST'
@@ -102,6 +103,7 @@ for ((i=0; i<150; i++)); do
     if [[ -f "$container/Documents/bottom-expanded.png" ]]; then cp "$container/Documents/bottom-expanded.png" /tmp/motomap-bottom-expanded.png; fi
     if [[ -f "$container/Documents/bottom-collapsed.png" ]]; then cp "$container/Documents/bottom-collapsed.png" /tmp/motomap-bottom-collapsed.png; fi
     if [[ -f "$container/Documents/hazard-sheet.png" ]]; then cp "$container/Documents/hazard-sheet.png" /tmp/motomap-hazard-sheet.png; fi
+    if [[ -f "$container/Documents/gas-sheet.png" ]]; then cp "$container/Documents/gas-sheet.png" /tmp/motomap-gas-sheet.png; fi
     result=$(cat "$container/Documents/session-result.txt")
     printf '%s\n' "$result"
     status=0

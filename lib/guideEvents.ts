@@ -349,6 +349,10 @@ export function registerGuideEvents(): () => void {
 
   // 커스텀 슬롯이 하나뿐이라 버튼 하나에서 1차 시트로 가른다
   const menu = KakaoNavi.addListener('onGuideMenu', ({ id }) => {
+    if ([106,108].includes(id) && supportsKakaoNaviFeature('guide_gas_stations')) {
+      void import('@/lib/guideGasEvents').then(module => module.handleGuideGasMenu(id)).catch(() => {});
+      return;
+    }
     if ([103, 104, 105].includes(id) && supportsKakaoNaviFeature('guide_web_bottom')) {
       void (async () => {
         try {

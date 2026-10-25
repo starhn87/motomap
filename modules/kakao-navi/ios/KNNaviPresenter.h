@@ -44,6 +44,9 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)showHazardOptions:(NSArray<NSDictionary<NSString *, NSString *> *> *)options
               completion:(void (^)(NSInteger pickedIndex))completion NS_SWIFT_NAME(showHazardOptions(_:completion:));
 + (void)showToast:(NSString *)message;
++ (NSDictionary *_Nullable)guideGasContext;
++ (NSDictionary *_Nullable)takeGuideGasSelection;
++ (void)updateGuideGasStations:(NSString *)json;
 
 // 잠깐 떴다 사라지는 알림(버튼 없음, 1.8초).
 + (void)showNotice:(NSString *)message;

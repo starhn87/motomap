@@ -7,6 +7,7 @@
 #import "KNNaviBottomPanel.h"
 #import "KNNaviHiddenViews.h"
 #import "KNNaviHazardSheet.h"
+#import "KNNaviGasLayer.h"
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
@@ -275,6 +276,7 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong, nullable) KNNaviView *naviView;
 @property(nonatomic, strong) KNNaviBottomPanel *bottomPanel;
 @property(nonatomic, strong) KNNaviHazardSheet *hazardSheet;
+@property(nonatomic, strong) KNNaviGasLayer *gasLayer;
 @property(nonatomic, strong) UIControl *menuBackdrop;
 @property(nonatomic, strong) KNNaviHiddenViews *webHiddenViews;
 @property(nonatomic, strong) KNNaviHiddenViews *mapHiddenViews;
@@ -525,6 +527,14 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)installBottomPanel {
+  self.gasLayer = [[KNNaviGasLayer alloc] initWithHost:self];
+  __weak KNNaviViewController *gasOwner = self;
+  self.gasLayer.isActive = ^BOOL {
+    KNNaviViewController *vc = gasOwner;
+    return vc && !vc.finished && !vc.suspended && !vc.changingDestination && [KNSDKBridge isLocationUseAllowed];
+  };
+  self.gasLayer.onFetch = ^{ if (gasOwner.onMenu) gasOwner.onMenu(106); };
+  self.gasLayer.onRoute = ^{ if (gasOwner.onMenu) gasOwner.onMenu(108); };
   self.volume = 1;
   self.auxiliaryHiddenViews = [KNNaviHiddenViews new];
   self.webHiddenViews = [KNNaviHiddenViews new];
@@ -571,7 +581,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
       }
     } else if ([action isEqualToString:@"refresh"]) {
       [vc refreshCurrentRoute];
-    } else if ([action isEqualToString:@"end"]) [vc finish];
+    } else if ([action isEqualToString:@"gas"]) [vc.gasLayer showSearch];
+    else if ([action isEqualToString:@"end"]) [vc finish];
     else if (vc.onMenu) {
       NSDictionary *ids = @{@"hazard":@101, @"routePreview":@103, @"destination":@104, @"vias":@105};
       NSNumber *menu = ids[action]; if (menu) vc.onMenu(menu.integerValue);
@@ -767,6 +778,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   KNMapView *inner = [self findInnerMapViewIn:self.naviView.mapView depth:0];
   // eventListener 는 weak — self(화면과 수명 동일)를 그대로 걸어도 안전하다
   inner.poiProperties.eventListener = self;
+  if (inner && !self.preview) [self.gasLayer attachMap:inner];
 }
 
 // 지도 POI(상호·건물) 탭 — 이름·KATEC 좌표가 온다. WGS84 로 바꿔 JS 로 넘긴다.
@@ -1225,6 +1237,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (self.finished || ![KNSDKBridge isLocationUseAllowed]) return;
   [self.naviView guidance:aGuidance didUpdateLocation:aLocationGuide];
   [self updateCurrentLocationWithGuide:aLocationGuide];
+  if (!self.preview && [self usableRecoveryGPS:aLocationGuide.gpsOrigin]) [self.gasLayer updateGPS:aLocationGuide.gpsOrigin];
   [self updateBottomPanel];
   if (self.arrivalRecovery.waiting && !self.preview && !self.suspended && !self.changingDestination && [self usableRecoveryGPS:aLocationGuide.gpsOrigin]) {
     double distance = [self distanceToDestinationWithGPS:aLocationGuide.gpsOrigin];
@@ -1286,6 +1299,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)finish {
   if (self.finished) return;
   self.finished = YES;
+  [self.gasLayer invalidate];
   self.regionRequestGeneration++; self.regionRequestInFlight = NO;
   [self.currentLocationExpiryTimer invalidate];
   self.currentLocationExpiryTimer = nil;
@@ -1314,6 +1328,9 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (done != nil) done();
   KNNaviHazardSheet *sheet = self.hazardSheet; self.hazardSheet = nil;
   if (sheet) [sheet cancelForNavigationEnd:^{ [self dismissViewControllerAnimated:YES completion:nil]; }];
+  else if (self.presentedViewController) [self dismissViewControllerAnimated:NO completion:^{
+    [self dismissViewControllerAnimated:YES completion:nil];
+  }];
   else [self dismissViewControllerAnimated:YES completion:nil];
 }
 
@@ -1625,6 +1642,24 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   }];
   navi.hazardSheet = sheet;
   [navi presentViewController:sheet animated:NO completion:nil];
+}
+
++ (NSDictionary *)guideGasContext {
+  KNNaviViewController *vc = gActiveNavi;
+  if (!vc.gasLayer.context || vc.finished || vc.suspended || ![KNSDKBridge isLocationUseAllowed]) return nil;
+  NSMutableDictionary *context = [vc.gasLayer.context mutableCopy];
+  KNTrip *trip = vc.guidance.trip ?: vc.trip;
+  context[@"viaCount"] = @(MAX(0,(NSInteger)trip.vias.count - (NSInteger)trip.passedVias.count));
+  return context;
+}
++ (NSDictionary *)takeGuideGasSelection {
+  return [gActiveNavi.gasLayer takeSelection];
+}
++ (void)updateGuideGasStations:(NSString *)json {
+  NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+  if (!data || data.length > 100000) return;
+  NSDictionary *response = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+  if ([response isKindOfClass:NSDictionary.class]) [gActiveNavi.gasLayer applyResponse:response];
 }
 
 + (void)showToast:(NSString *)message {
