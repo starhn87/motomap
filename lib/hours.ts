@@ -147,3 +147,14 @@ export function formatWeek(hours: Hours): string[] {
 
   return lines;
 }
+
+
+// 펼친 운영시간은 요일을 생략하지 않는다. 모르는 요일을 휴무로 추정하지 않는다.
+export function formatDailyHours(hours: Hours) {
+  if (!WEEK.some(day => spansOf(hours, day) !== null)) return [];
+  return WEEK.map(day => {
+    const spans = spansOf(hours, day);
+    return { day, label: DAY_LABELS[day], value: spans === null ? '정보 없음' :
+      spans.length === 0 ? '휴무' : spans.map(span => `${span.open}-${span.close}`).join(', ') };
+  });
+}

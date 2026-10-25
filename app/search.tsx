@@ -1,3 +1,4 @@
+import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import CloseIcon from '@/components/ui/CloseIcon';
@@ -169,20 +170,24 @@ export default function SearchScreen() {
     };
   }, []);
 
-  // 내 장소(집·회사) — 기기 로컬 저장. 탭하면 바로 길안내, 미저장이면 설정으로 이동
+  // 내 장소(집·회사) — 기기 로컬 저장. 탭하면 바로 길안내, 미저장이면 설정
   const myPlaces = useMyPlacesStore((s) => s.places);
   const myPlacesLoaded = useMyPlacesStore((s) => s.loaded);
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
+  const saveMyPlace = useMyPlacesStore((s) => s.save);
   useEffect(() => {
     void loadMyPlaces();
   }, [loadMyPlaces]);
+
+  // 저장 안 된 슬롯을 탭하면 주소 검색으로 바로 설정한다. 변경·삭제는
+  // 내 정보의 집·회사 메뉴에서 — 롱프레스 같은 숨은 동작은 두지 않는다.
+  const [editingSlot, setEditingSlot] = useState<MyPlaceSlot | null>(null);
 
   const handleMyPlace = (slot: MyPlaceSlot) => {
     const saved = myPlaces[slot];
     if (!saved) {
       Keyboard.dismiss();
-      toast.info('설정의 내 장소에서 설정해 주세요.');
-      router.push('/settings');
+      setEditingSlot(slot);
       return;
     }
     Keyboard.dismiss();
@@ -191,6 +196,19 @@ export default function SearchScreen() {
       latitude: saved.latitude,
       longitude: saved.longitude,
     });
+  };
+
+  const handleSlotSelect = (point: Point, address?: string) => {
+    const slot = editingSlot;
+    setEditingSlot(null);
+    if (!slot || point === 'current') return;
+    void saveMyPlace(slot, {
+      name: point.name,
+      address: address ?? '',
+      latitude: point.latitude,
+      longitude: point.longitude,
+    });
+    toast.success(slot === 'home' ? '집을 저장했어요.' : '회사를 저장했어요.');
   };
 
   const trimmed = query.trim();
@@ -796,6 +814,14 @@ export default function SearchScreen() {
       )}
 
 
+      <PointSearchModal
+        visible={editingSlot !== null}
+        confirmSlot={editingSlot}
+        allowCurrent={false}
+        title={editingSlot === 'home' ? '집 설정' : '회사 설정'}
+        onClose={() => setEditingSlot(null)}
+        onSelect={handleSlotSelect}
+      />
     </View>
   );
 }

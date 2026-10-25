@@ -15,6 +15,7 @@ interface Props {
   note?: string;
   /** 다른 콘텐츠와 같은 행에 놓을 때 바깥 여백을 제거하고 한 줄로 줄인다 */
   inline?: boolean;
+  fallbackText?: string;
 }
 
 // 구글이 주는 값. OPERATIONAL 은 평범한 영업 상태라 따로 표시할 게 없다.
@@ -39,6 +40,7 @@ export default function OpenBadge({
   operationalStatus,
   note,
   inline = false,
+  fallbackText,
 }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -47,7 +49,9 @@ export default function OpenBadge({
     (operationalStatus ? OPERATIONAL_STATUS_LABELS[operationalStatus] : undefined) ??
     (businessStatus ? STATUS_LABELS[businessStatus] : undefined);
   const state = describeOpenState(getOpenState(hours));
-  if (!statusLabel && !state) return null;
+  if (!statusLabel && !state) return fallbackText ? (
+    <Text style={[styles.text, inline && styles.inlineText, { color: colors.textSecondary }]} numberOfLines={1}>{fallbackText}</Text>
+  ) : null;
 
   const open = !statusLabel && !!state?.open;
   const text = statusLabel ?? state!.text;

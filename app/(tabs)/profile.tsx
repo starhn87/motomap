@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { router } from 'expo-router';
 import Animated, {
   useAnimatedStyle,
@@ -21,7 +21,7 @@ import Animated, {
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
+import MyPlacesSettings from '@/components/profile/MyPlacesSettings';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { PostHogMaskView } from 'posthog-react-native';
 
@@ -97,11 +97,6 @@ function LoggedInContent() {
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
   // 뷰어에서 골랐지만 아직 적용하지 않은 사진 — 뷰어 안 미리보기로만 보인다
   const [pendingUri, setPendingUri] = useState<string | null>(null);
-
-  // 내 장소의 저장·변경은 비로그인도 접근 가능한 설정에서만 처리한다.
-  const myPlaces = useMyPlacesStore(s => s.places);
-  const loadMyPlaces = useMyPlacesStore(s => s.load);
-  useEffect(() => { void loadMyPlaces(); }, [loadMyPlaces]);
 
   const displayName = user.user_metadata?.name
     ?? user.user_metadata?.full_name
@@ -202,19 +197,7 @@ function LoggedInContent() {
 
       <Animated.View entering={FadeInDown.delay(100).duration(300)} style={styles.menu}>
         <MenuItem icon={<Ionicons name="create-outline" size={20} color={colors.text} />} label="닉네임 변경" onPress={() => router.push('/edit-nickname')} />
-        {/* 장소명은 민감 정보라 설정 여부만 보여준다 */}
-        <MenuItem
-          icon={<Ionicons name="home-outline" size={20} color={colors.text} />}
-          label="집"
-          trailing={myPlaces.home ? '설정됨' : '설정 안 됨'}
-          onPress={() => router.push('/settings')}
-        />
-        <MenuItem
-          icon={<Ionicons name="business-outline" size={20} color={colors.text} />}
-          label="회사"
-          trailing={myPlaces.work ? '설정됨' : '설정 안 됨'}
-          onPress={() => router.push('/settings')}
-        />
+        <MyPlacesSettings />
         <MenuItem icon={<Ionicons name="star-outline" size={20} color={colors.text} />} label="즐겨찾기" onPress={() => router.push('/favorites')} />
         <MenuItem icon={<Ionicons name="document-text-outline" size={20} color={colors.text} />} label="내 제보 목록" onPress={() => router.push('/my-submissions')} />
         <MenuItem icon={<Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />} label="내 리뷰" onPress={() => router.push('/my-reviews')} />
@@ -297,6 +280,9 @@ export default function ProfileScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         {settingsButton}
+        <View style={[styles.menu, { marginTop: 16, marginBottom: 12 }]}>
+          <MyPlacesSettings />
+        </View>
         <LoginPrompt message="로그인하고 마이페이지를 확인하세요." />
       </View>
     );

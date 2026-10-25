@@ -48,7 +48,6 @@ export default function MyPlacesSettings() {
 
   return (
     <>
-      <Text style={[styles.heading, { color: colors.textSecondary }]}>내 장소</Text>
       {(['home', 'work'] as const).map(slot => (
         <Pressable key={slot} accessibilityRole="button" onPress={() => handleMyPlace(slot)}
           style={({ pressed }) => [styles.row, { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}>
@@ -66,7 +65,6 @@ export default function MyPlacesSettings() {
 }
 
 const styles = StyleSheet.create({
-  heading: { fontSize: 13, fontWeight: '600', marginTop: 28, marginBottom: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 54, padding: 16, borderRadius: 12, borderWidth: 1, marginTop: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 54, padding: 16, borderRadius: 12, borderWidth: 1, marginTop: 0 },
   label: { flex: 1, fontSize: 14, fontWeight: '500' },
 });

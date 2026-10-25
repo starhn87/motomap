@@ -1,3 +1,4 @@
+import { edgeProviderError } from '@/lib/providerErrors';
 import { supabase } from '@/lib/supabase';
 import type { Hours } from '@/lib/hours';
 
@@ -25,15 +26,20 @@ export async function fetchPlaceHours(params: {
   latitude: number;
   longitude: number;
 }): Promise<PlaceHours | null> {
-  const { data, error } = await supabase.functions.invoke('place-hours', {
-    body: {
-      sourceKey: params.sourceKey,
-      name: params.name,
-      lat: params.latitude,
-      lng: params.longitude,
-    },
-  });
-  // 영업시간은 없으면 안 보여주면 그만이다 — 실패를 사용자에게 알리지 않는다
-  if (error) return null;
-  return data as PlaceHours;
+  try {
+    const { data, error } = await supabase.functions.invoke('place-hours', {
+      timeout: 15_000,
+      body: {
+        sourceKey: params.sourceKey,
+        name: params.name,
+        lat: params.latitude,
+        lng: params.longitude,
+      },
+    });
+    // 정상 미등록과 공급자 실패를 구분하고 원문 오류는 화면에 노출하지 않는다.
+    if (error) throw error;
+    return data as PlaceHours | null;
+  } catch (error) {
+    throw edgeProviderError('google', 'place-hours', error);
+  }
 }

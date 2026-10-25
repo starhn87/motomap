@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { View, Text, StyleSheet, Share, ActivityIndicator, Linking, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Share, ActivityIndicator, Pressable } from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -25,19 +25,16 @@ import BottomSheet, {
 import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react';
 
 import { placeWebUrl } from '@/constants/app';
-import { formatWeek } from '@/lib/hours';
-import OpenBadge from '@/components/place/OpenBadge';
+import { PlaceHoursToggle, PlaceHoursDetails } from '@/components/place/PlaceHoursDisclosure';
+import { PlaceAddressRow, PlacePhoneRow } from '@/components/place/PlaceContactRows';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
 import Colors, { semantic } from '@/constants/Colors';
 import { HIGHLIGHT_TAGS } from '@/constants/riderTags';
 import { useColorScheme } from '@/components/useColorScheme';
 import { router } from 'expo-router';
 import { openNavigation, useNavLaunching } from '@/lib/navigation';
-import { haversine } from '@/lib/distance';
-import { formatMeters } from '@/lib/api/directions';
 import { useIsFavorite, useToggleFavorite } from '@/hooks/useFavorites';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useMapStore } from '@/stores/useMapStore';
 import { usePlace } from '@/hooks/usePlace';
 import ReviewList from '@/components/review/ReviewList';
 import ReviewForm from '@/components/review/ReviewForm';
@@ -79,6 +76,8 @@ function PlaceBottomSheet({
   animatedPosition,
   highlightReview,
 }: Props) {
+  const [hoursExpanded, setHoursExpanded] = useState(false);
+  useEffect(() => { setHoursExpanded(false); }, [place?.name, place?.latitude, place?.longitude]);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const navLaunching = useNavLaunching((st) => st.launching);
@@ -107,7 +106,6 @@ function PlaceBottomSheet({
     }
   );
   const user = useAuthStore((s) => s.user);
-  const userLocation = useMapStore((s) => s.userLocation);
   const { data: latestPlace } = usePlace(place?.id ?? null);
   const reviewTarget = place ? ({ kind: 'place', id: place.id } as const) : null;
   const { data: reviewPages, isLoading: reviewsLoading } = useReviews(reviewTarget);
@@ -302,7 +300,7 @@ function PlaceBottomSheet({
   //
   // 아래 early return 보다 위에 있어야 한다. 시트가 닫힌 렌더에서만 훅이 빠지면
   // 순서가 어긋나 React 가 터진다.
-  const { data: googleHours, isLoading: googleHoursLoading } = usePlaceHours(
+  const { data: googleHours, isLoading: googleHoursLoading, isError: googleHoursFailed } = usePlaceHours(
     !displayPlace || displayPlace.hours
       ? null
       : {
@@ -314,13 +312,6 @@ function PlaceBottomSheet({
   );
   if (!place || !displayPlace) return null;
 
-  const distanceMeters = userLocation
-    ? haversine(userLocation, {
-        latitude: displayPlace.latitude,
-        longitude: displayPlace.longitude,
-      })
-    : null;
-
   const sortedTags = [...(displayPlace.tags ?? [])].sort((a, b) => {
     const ha = HIGHLIGHT_TAGS.has(a) ? 0 : 1;
     const hb = HIGHLIGHT_TAGS.has(b) ? 0 : 1;
@@ -329,40 +320,11 @@ function PlaceBottomSheet({
 
   const hours = displayPlace.hours ?? googleHours?.hours ?? undefined;
 
-  // 구조화된 hours 가 있으면 요일별로, 없으면 사람이 쓴 원문을 그대로 보여준다
-  const weekLines = hours ? formatWeek(hours) : [];
-  const scheduleText = weekLines.join('\n') || displayPlace.openingHours;
-  // 상단의 간결한 영업 상태에서는 긴 특이사항을 빼고, 상세 카드에서 온전히 보여준다.
-  const hoursText = [scheduleText, hours?.note].filter(Boolean).join('\n');
-
   const infoCards = [
     displayPlace.parkingInfo && {
       icon: <MaterialIcons name="local-parking" size={16} color={colors.textSecondary} />,
       label: '주차',
       value: displayPlace.parkingInfo,
-    },
-    displayPlace.phone && {
-      icon: <Ionicons name="call-outline" size={16} color={colors.textSecondary} />,
-      label: '전화',
-      value: displayPlace.phone,
-      onPress: () => Linking.openURL(`tel:${displayPlace.phone}`).catch(() => {}),
-    },
-    hoursText && {
-      icon: <Ionicons name="time-outline" size={16} color={colors.textSecondary} />,
-      label: '영업시간',
-      value: hoursText,
-      lines: 7,
-      // 비동기로 들어와도 이미 보이던 주차·전화 카드의 위치는 바꾸지 않는다.
-      // 요일마다 다른 곳은 2열 그리드의 좁은 칸에 우겨넣으면 답답하다.
-      wide: weekLines.length > 1,
-      loading: googleHoursLoading,
-    },
-    googleHoursLoading && !hoursText && {
-      icon: <Ionicons name="time-outline" size={16} color={colors.textSecondary} />,
-      label: '영업시간',
-      value: '',
-      wide: true,
-      loading: true,
     },
   ].filter(Boolean) as Array<{
     icon: React.ReactNode;
@@ -450,18 +412,7 @@ function PlaceBottomSheet({
             )}
           </View>
 
-          <View style={styles.addressRow}>
-            <Text
-              style={[styles.address, { color: colors.textSecondary }]}
-              numberOfLines={1}>
-              {displayPlace.address}
-            </Text>
-            {distanceMeters !== null && (
-              <Text style={[styles.distance, { color: colors.tint }]}>
-                {formatMeters(distanceMeters)}
-              </Text>
-            )}
-          </View>
+          <PlaceAddressRow address={displayPlace.address} />
 
           {/* 출발/도착/공유 — 시트 안 액션 행. 접힌 스냅에서도 보이도록 상단에 둔다 */}
           <View style={styles.actionRow}>
@@ -529,14 +480,11 @@ function PlaceBottomSheet({
             {/* 비동기 영업시간이 도착하기 전부터 같은 폭을 잡는다. 한 줄에 다
                 들어오지 않는 상태는 줄바꿈하지 않고 말줄임한다. */}
             <View style={styles.openStatusSlot}>
-              <OpenBadge
-                hours={hours}
-                businessStatus={googleHours?.businessStatus}
-                operationalStatus={operationalStatus}
-                inline
-              />
+              <PlaceHoursToggle hours={hours} businessStatus={googleHours?.businessStatus} operationalStatus={operationalStatus}
+                expanded={hoursExpanded} onToggle={() => setHoursExpanded(value => !value)} />
             </View>
           </View>
+          <PlaceHoursDetails expanded={hoursExpanded} hours={hours} loading={googleHoursLoading} failed={googleHoursFailed} fallbackText={displayPlace.openingHours} />
 
           {displayPlace.description ? (
             <Text style={[styles.description, { color: colors.textSecondary }]}>
@@ -575,6 +523,8 @@ function PlaceBottomSheet({
               })}
             </View>
           )}
+
+          <PlacePhoneRow phone={displayPlace.phone} />
 
           {infoCards.length > 0 && (
             <View style={styles.infoGrid}>

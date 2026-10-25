@@ -21,7 +21,6 @@ import Animated, {
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   Share,
   StyleSheet,
@@ -35,13 +34,12 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { openNavigation, useNavLaunching } from '@/lib/navigation';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useMapStore } from '@/stores/useMapStore';
 import { useGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
 import { useGasPricesAt } from '@/hooks/useGasStations';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
 import { poiSourceKey } from '@/lib/api/placeHours';
-import OpenBadge from '@/components/place/OpenBadge';
-import { formatWeek } from '@/lib/hours';
+import { PlaceHoursToggle, PlaceHoursDetails } from '@/components/place/PlaceHoursDisclosure';
+import { PlaceAddressRow, PlacePhoneRow } from '@/components/place/PlaceContactRows';
 import { FUEL_LABELS, formatTradeAt, looksLikeGasStation } from '@/lib/api/gasStations';
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
 import { haptics } from '@/lib/haptics';
@@ -57,8 +55,6 @@ import ReviewForm from '@/components/review/ReviewForm';
 import ReviewList, { ReviewListSkeleton } from '@/components/review/ReviewList';
 import PhotoStrip from '@/components/map/PhotoStrip';
 import { useReviews } from '@/hooks/useReviews';
-import { haversine } from '@/lib/distance';
-import { formatMeters } from '@/lib/api/directions';
 import {
   useGeneralPlaceShare,
   useToggleGeneralPlaceShare,
@@ -86,6 +82,8 @@ const DETAIL_CARD_GAP = 10;
 // 일반 장소도 등록 장소와 같은 확장형 상세 경험을 쓴다. 차이는 카테고리·라이더
 // 집계처럼 모토맵이 검증한 정보 대신 카카오 정보와 라이더 리뷰가 중심이라는 점이다.
 export default function TempPlaceSheet({ place, onClose, animatedPosition }: Props) {
+  const [hoursExpanded, setHoursExpanded] = useState(false);
+  useEffect(() => { setHoursExpanded(false); }, [place?.name, place?.latitude, place?.longitude]);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
@@ -110,7 +108,6 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const isExpanded = currentIndex === SNAP_POINTS.length - 1;
   const navLaunching = useNavLaunching((s) => s.launching);
   const user = useAuthStore((st) => st.user);
-  const userLocation = useMapStore((s) => s.userLocation);
 
   const { data: generalPlace, isLoading: generalPlaceLoading } = useGeneralPlace(place);
   const resolvedPlace = place ? { ...place, generalPlaceId: generalPlace?.id ?? place.generalPlaceId,
@@ -136,7 +133,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const { data: gas, isLoading: gasLoading, isError: gasFailed, isFetching: gasFetching, refetch: refetchGas } = useGasPricesAt(place);
   const isGasStation = !!place && looksLikeGasStation(place.name);
   const canLoadHours = !!place && !isGasStation;
-  const { data: placeHours, isLoading: hoursLoading } = usePlaceHours(
+  const { data: placeHours, isLoading: hoursLoading, isError: hoursFailed } = usePlaceHours(
     place && canLoadHours
       ? {
           sourceKey: poiSourceKey(place.latitude, place.longitude),
@@ -146,10 +143,6 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
         }
       : null,
   );
-  const weekLines = formatWeek(placeHours?.hours ?? {});
-  const hoursText = [weekLines.join('\n'), placeHours?.hours?.note]
-    .filter(Boolean)
-    .join('\n');
   const fuelPrices = (gas?.prices ?? []).filter((p) => p.prod in FUEL_LABELS);
   const { spec: myBike } = useMyBike();
   const myProd = myFuelProd(myBike);
@@ -166,13 +159,6 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
       bottomSheetRef.current?.close();
     }
   }, [place?.name, place?.latitude, place?.longitude]);
-
-  const distanceMeters = userLocation && place
-    ? haversine(userLocation, {
-        latitude: place.latitude,
-        longitude: place.longitude,
-      })
-    : null;
 
 
   const handleFavorite = async () => {
@@ -412,16 +398,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             )}
           </View>
 
-          <View style={styles.addressRow}>
-            <Text style={[styles.address, { color: colors.textSecondary }]} numberOfLines={1}>
-              {place.address}
-            </Text>
-            {distanceMeters !== null && (
-              <Text style={[styles.distance, { color: colors.tint }]}>
-                {formatMeters(distanceMeters)}
-              </Text>
-            )}
-          </View>
+          <PlaceAddressRow address={place.address} />
 
           <View style={styles.actionRow}>
             <TouchableOpacity
@@ -478,72 +455,13 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
               <Text style={[styles.shareButtonText, { color: colors.tint }]}>공유</Text>
             </TouchableOpacity>
             <View style={styles.openStatusSlot}>
-              {canLoadHours && (
-                <OpenBadge
-                  hours={placeHours?.hours}
-                  businessStatus={placeHours?.businessStatus}
-                  inline
-                />
-              )}
+              <PlaceHoursToggle hours={placeHours?.hours} businessStatus={placeHours?.businessStatus}
+                expanded={hoursExpanded} onToggle={() => setHoursExpanded(value => !value)} />
             </View>
           </View>
+          <PlaceHoursDetails expanded={hoursExpanded} hours={placeHours?.hours} loading={hoursLoading} failed={hoursFailed} />
 
-          {(place.phone || hoursText || hoursLoading) && (
-            <View style={styles.infoGrid}>
-              {!!place.phone && (
-                <Pressable
-                  accessibilityLabel={`전화 ${place.phone}`}
-                  accessibilityRole="button"
-                  onPress={() => void Linking.openURL(`tel:${place.phone}`)}
-                  style={({ pressed }) => [
-                    styles.infoCard,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                    pressed && { opacity: 0.6 },
-                  ]}>
-                  <Ionicons name="call-outline" size={16} color={colors.textSecondary} />
-                  <Text
-                    style={[styles.infoCardValue, { color: colors.text }]}
-                    numberOfLines={2}>
-                    {place.phone}
-                  </Text>
-                </Pressable>
-              )}
-              {!!hoursText && (
-                <View
-                  style={[
-                    styles.infoCard,
-                    weekLines.length > 1 && styles.infoCardWide,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                  ]}>
-                  <View style={weekLines.length > 1 && styles.infoIconTop}>
-                    <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                  </View>
-                  <Text
-                    style={[styles.infoCardValue, { color: colors.text }]}
-                    numberOfLines={7}>
-                    {hoursText}
-                  </Text>
-                </View>
-              )}
-              {hoursLoading && !hoursText && (
-                <View
-                  style={[
-                    styles.infoCard,
-                    styles.infoCardWide,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                  ]}>
-                  <View style={styles.infoIconTop}>
-                    <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                  </View>
-                  <View style={styles.infoCardLoading}>
-                    <Skeleton width="86%" height={13} />
-                    <Skeleton width="72%" height={13} />
-                    <Skeleton width="54%" height={13} />
-                  </View>
-                </View>
-              )}
-            </View>
-          )}
+          <PlacePhoneRow phone={place.phone} />
 
           {(gasLoading || gasFailed || fuelPrices.length > 0) && (
             <View style={[styles.priceRows, { borderColor: colors.border }]}>

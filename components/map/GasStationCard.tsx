@@ -181,7 +181,7 @@ export default function GasStationCard({ station, fuelCode = 'B027', onClose }: 
           </Pressable>
         ) : (
           <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
-            {[detail?.address, tradeAt].filter(Boolean).join(' · ')}
+            {tradeAt}
           </Text>
         )}
         <Pressable
