@@ -25,7 +25,6 @@ import BottomSheet, {
 import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react';
 
 import { placeWebUrl } from '@/constants/app';
-import OpenBadge from '@/components/place/OpenBadge';
 import { PlaceHoursRow } from '@/components/place/PlaceHoursDisclosure';
 import { PlaceAddressRow, PlacePhoneRow } from '@/components/place/PlaceContactRows';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
@@ -478,11 +477,6 @@ function PlaceBottomSheet({
               <Ionicons name="share-outline" size={20} color={colors.tint} />
               <Text style={[styles.shareButtonText, { color: colors.tint }]}>공유</Text>
             </TouchableOpacity>
-            {/* 비동기 영업시간이 도착하기 전부터 같은 폭을 잡는다. 한 줄에 다
-                들어오지 않는 상태는 줄바꿈하지 않고 말줄임한다. */}
-            <View style={styles.openStatusSlot}>
-              <OpenBadge hours={hours} businessStatus={googleHours?.businessStatus} operationalStatus={operationalStatus} inline />
-            </View>
           </View>
 
           {displayPlace.description ? (
@@ -525,6 +519,7 @@ function PlaceBottomSheet({
 
           <PlacePhoneRow phone={displayPlace.phone} />
           <PlaceHoursRow hours={hours} fallbackText={displayPlace.openingHours}
+            businessStatus={googleHours?.businessStatus} operationalStatus={operationalStatus}
             expanded={hoursExpanded} onToggle={() => setHoursExpanded(value => !value)} />
 
           {infoCards.length > 0 && (
@@ -858,13 +853,6 @@ const styles = StyleSheet.create({
   shareButtonText: {
     fontSize: 15,
     fontWeight: '600',
-  },
-  openStatusSlot: {
-    flex: 1,
-    minWidth: 0,
-    height: 40,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
   },
   photoSection: {
     marginTop: 12,

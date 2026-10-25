@@ -6,13 +6,20 @@ import * as hours from '../lib/hours';
 
 function ui() {
   const jsx = (type: any, props: any) => ({ type, props });
+  const badge = loadModule<any>('components/place/OpenBadge.tsx', {
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react-native': { Text: 'Text', View: 'View', StyleSheet: { create: (s: any) => s } },
+    '@/constants/Colors': { __esModule: true, default: { light: {} } },
+    '@/components/useColorScheme': { useColorScheme: () => 'light' },
+    '@/lib/hours': hours,
+  });
   return loadModule<any>('components/place/PlaceHoursDisclosure.tsx', {
     'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { ActivityIndicator: 'Spinner', Pressable: 'Pressable', Text: 'Text', View: 'View', StyleSheet: { create: (s: any) => s } },
     '@expo/vector-icons/Ionicons': { __esModule: true, default: 'Icon' },
     '@/constants/Colors': { __esModule: true, default: { light: {} } },
     '@/components/useColorScheme': { useColorScheme: () => 'light' },
-    '@/components/place/OpenBadge': { __esModule: true, default: 'OpenBadge' },
+    '@/components/place/OpenBadge': badge,
     '@/lib/hours': hours,
   });
 }
@@ -49,4 +56,17 @@ test('시간 정보가 없으면 행 전체를 숨기고 원문 시간표·주�
   const tree = mod.PlaceHoursDetails({ expanded: true, fallbackText: fallback, hours: { note: '우천 휴무' } });
   assert.ok(text(tree).includes(fallback)); assert.ok(text(tree).includes('우천 휴무'));
   assert.ok(nodes(tree).filter(n => n.type === 'Text').every(n => n.props.numberOfLines === undefined));
+});
+
+test('독립 운영시간 행은 실제 영업 상태와 마감 시각을 보여주고 시간표 없는 폐업은 펼침 없이 표시한다', () => {
+  const mod = ui();
+  const allDay = Object.fromEntries(hours.WEEK.map(day => [day, [{ open: '00:00', close: '24:00' }]]));
+  const tree = mod.PlaceHoursToggle({ hours: allDay, expanded: false, onToggle() {} });
+  const badge = nodes(tree).find(n => typeof n.type === 'function' && n.props.inlineStart);
+  assert.ok(text(badge.type(badge.props)).includes('영업중 · 24:00 마감'));
+  const closed = mod.PlaceHoursRow({ businessStatus: 'CLOSED_PERMANENTLY', expanded: false, onToggle() {} });
+  assert.ok(closed);
+  assert.ok(!nodes(closed).some(n => n.type === 'Pressable'));
+  const closedBadge = nodes(closed).find(n => typeof n.type === 'function' && n.props.inlineStart);
+  assert.ok(text(closedBadge.type(closedBadge.props)).includes('폐업'));
 });

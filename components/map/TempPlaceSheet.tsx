@@ -38,7 +38,6 @@ import { useGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorit
 import { useGasPricesAt } from '@/hooks/useGasStations';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
 import { poiSourceKey } from '@/lib/api/placeHours';
-import OpenBadge from '@/components/place/OpenBadge';
 import { PlaceHoursRow } from '@/components/place/PlaceHoursDisclosure';
 import { PlaceAddressRow, PlacePhoneRow } from '@/components/place/PlaceContactRows';
 import { FUEL_LABELS, formatTradeAt, looksLikeGasStation } from '@/lib/api/gasStations';
@@ -455,13 +454,10 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
               <Ionicons name="share-outline" size={20} color={colors.tint} />
               <Text style={[styles.shareButtonText, { color: colors.tint }]}>공유</Text>
             </TouchableOpacity>
-            <View style={styles.openStatusSlot}>
-              <OpenBadge hours={placeHours?.hours} businessStatus={placeHours?.businessStatus} inline />
-            </View>
           </View>
 
           <PlacePhoneRow phone={place.phone} />
-          <PlaceHoursRow hours={placeHours?.hours}
+          <PlaceHoursRow hours={placeHours?.hours} businessStatus={placeHours?.businessStatus}
             expanded={hoursExpanded} onToggle={() => setHoursExpanded(value => !value)} />
 
           {(gasLoading || gasFailed || fuelPrices.length > 0) && (
@@ -756,13 +752,6 @@ const styles = StyleSheet.create({
   departButtonText: { fontSize: 15, fontWeight: '600' },
   navButtonText: { fontSize: 15, fontWeight: '700' },
   shareButtonText: { fontSize: 15, fontWeight: '600' },
-  openStatusSlot: {
-    flex: 1,
-    minWidth: 0,
-    height: 40,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
   infoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

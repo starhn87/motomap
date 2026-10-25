@@ -16,6 +16,7 @@ interface Props {
   /** 다른 콘텐츠와 같은 행에 놓을 때 바깥 여백을 제거하고 한 줄로 줄인다 */
   inline?: boolean;
   fallbackText?: string;
+  inlineStart?: boolean;
 }
 
 // 구글이 주는 값. OPERATIONAL 은 평범한 영업 상태라 따로 표시할 게 없다.
@@ -30,6 +31,11 @@ const OPERATIONAL_STATUS_LABELS: Partial<Record<PlaceOperationalStatus, string>>
   moved: '이전',
 };
 
+export function placeStatusLabel(businessStatus?: string | null, operationalStatus?: PlaceOperationalStatus) {
+  return (operationalStatus ? OPERATIONAL_STATUS_LABELS[operationalStatus] : undefined) ??
+    (businessStatus ? STATUS_LABELS[businessStatus] : undefined);
+}
+
 /**
  * "지금 갈 수 있나"를 한 줄로. 근거가 없으면 아무것도 그리지 않는다 —
  * 틀린 영업중은 라이더를 헛걸음시킨다.
@@ -41,28 +47,27 @@ export default function OpenBadge({
   note,
   inline = false,
   fallbackText,
+  inlineStart = false,
 }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  const statusLabel =
-    (operationalStatus ? OPERATIONAL_STATUS_LABELS[operationalStatus] : undefined) ??
-    (businessStatus ? STATUS_LABELS[businessStatus] : undefined);
+  const statusLabel = placeStatusLabel(businessStatus, operationalStatus);
   const state = describeOpenState(getOpenState(hours));
   if (!statusLabel && !state) return fallbackText ? (
-    <Text style={[styles.text, inline && styles.inlineText, { color: colors.textSecondary }]} numberOfLines={1}>{fallbackText}</Text>
+    <Text style={[styles.text, inline && styles.inlineText, inlineStart && styles.startText, { color: colors.textSecondary }]} numberOfLines={1}>{fallbackText}</Text>
   ) : null;
 
   const open = !statusLabel && !!state?.open;
   const text = statusLabel ?? state!.text;
 
   return (
-    <View style={[styles.row, inline && styles.inlineRow]}>
+    <View style={[styles.row, inline && styles.inlineRow, inlineStart && styles.startRow]}>
       <View style={[styles.dot, { backgroundColor: open ? '#22C55E' : '#EF4444' }]} />
       <Text
         style={[
           styles.text,
-          inline && styles.inlineText,
+          inline && styles.inlineText, inlineStart && styles.startText,
           { color: open ? '#22C55E' : colors.textSecondary },
         ]}
         numberOfLines={inline ? 1 : undefined}>
@@ -90,6 +95,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     marginBottom: 0,
   },
+  startRow: { width: 'auto', justifyContent: 'flex-start', flexShrink: 1 },
+  startText: { textAlign: 'left' },
   inlineText: {
     flexShrink: 1,
     textAlign: 'right',

@@ -41,7 +41,7 @@ export function PlacePhoneRow({ phone }: { phone?: string | null }) {
 
 const styles = StyleSheet.create({
   addressRow: { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 36 },
-  address: { flexShrink: 1, fontSize: 13, lineHeight: 19 },
+  address: { flexShrink: 1, fontSize: 15, lineHeight: 22 },
   copy: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, marginBottom: 8 },
 });
