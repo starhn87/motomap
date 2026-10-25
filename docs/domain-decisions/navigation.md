@@ -1240,3 +1240,13 @@ NAV-030 검증: 타입·353개 테스트·릴리스 검사와 리뷰를 통과�
 native 세션 검사 failures=0이다. 전체 Release 시뮬레이터 빌드도 성공했다.
 시뮬레이터 검사에서 SDK 인증/서버 경로/실주행 지도 타일과 마커의 최종 합성을 대체하지는 않는다.
 실주행 지도 표시·가격 칩 탭 우선순위·GPS 이동 중 실제 가격 제공 범위는 새 TestFlight 확인 대상이다.
+
+
+NAV-030 TestFlight 후속: 사용자 승인으로 source `44e4128`의 1.2.10(53)/native17 production
+IPA를 로컬 EAS로 빌드하고 서명·runtime·채널·HTML 및 새 native/JS 기능을 검증했다.
+EAS submission `d500c438-6cc8-4625-9ded-d584f3520b93` FINISHED,
+ASC build `3bddbc92-7262-4e0e-b4e4-9b92df0f35ea` VALID/IN_BETA_TESTING,
+내부 그룹 자동 접근과 한국어 테스트 안내 저장을 확인했다. 실제 주행 확인은 이 빌드에서 수행한다.
+추가 검색 결과 행 선택 native 검사는 제품 코드가 같은 후속 테스트 커밋 `3ecbcf3`으로 보존했다.
+Sentry 심볼은 기존 인증 누락으로 재업로드 대기이며 자료는 비공개로 보관했다.
+Git 푸시·심사/공개 출시·OTA·원격 정책 변경은 하지 않았다.

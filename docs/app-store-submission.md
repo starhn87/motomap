@@ -1,3 +1,25 @@
+## 2026-10-25 1.2.10 (53) / native 17 TestFlight 배포 완료
+
+source `44e4128`의 격리 소스로 production **1.2.10 (53) / native 17 / API 1**을 로컬 EAS로
+빌드했다. 주유소 검색·일반/고급휘발유 가격 마커·선택 시트와 목적지/경유 미리보기 연결,
+전용 위험 제보 시트·목록+연필 경유지 아이콘을 포함한다. 버전/runtime/production 채널,
+실제 HTML 원본 일치·JS/native 기능 포함과 App Store 서명/codesign deep/strict를 확인했다.
+IPA SHA-256은 `118e46c53ef3346405b2401c1e1674a426e1703cc0e3e6e88a134734b11cb2e2`다.
+
+동일 IPA의 EAS submission `d500c438-6cc8-4625-9ded-d584f3520b93`은 FINISHED/error null이다.
+ASC build `3bddbc92-7262-4e0e-b4e4-9b92df0f35ea`의 **VALID / IN_BETA_TESTING**과 내부 그룹
+전체 빌드 접근·한국어 테스트 안내 저장을 확인했다. 기존 등록 API 키를 메모리에서 재사용했고
+새 키/권한·브라우저 로그인 없이 검증했다. 초기 격리 디렉터리의 node_modules 누락은 빌드 번호
+증가 전에 수정했으며 실제 빌드는 53번 한 번이다.
+
+353개 테스트·타입·릴리스 검사·리뷰와 실제 UIKit/SDK 마커 객체의 native 세션 검사를 통과했다.
+전체 Release 시뮬레이터 빌드도 성공했다. 검색 행 선택→상세 전환·GPS 만료/복구·시트가 열린
+안내 종료의 root까지 dismiss를 확인했으며 실주행 지도 합성/탭·가격 제공 범위는 53번에서 확인한다.
+Sentry 심볼 업로드는 기존 인증 누락으로 미완료이며 dSYM ZIP·맵·번들·Xcode 로그를 비공개로
+보관했다. 해당 빌드 프로세스에만 SENTRY_ALLOW_FAILURE를 사용했고 오류 수집 코드는 유지한다.
+임시 서명 작업 디렉터리·환경 사본·인코딩된 작업 로그는 정리하고 키체인 cleanup도 확인했다.
+무관한 미커밋 자료는 제외했으며 Git 푸시·App Store 심사/공개 출시·OTA·원격 정책 변경은 하지 않았다.
+
 ## 2026-10-25 1.2.10 / native 17 주유소 가격 마커·검색 TestFlight 승인
 
 사용자가 전용 위험 제보 시트·경유지 아이콘 개선에 이어 길안내 주유소 검색과 가격 마커,
