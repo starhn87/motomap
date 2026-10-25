@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as favoriteMatching from '../lib/favoriteMatching';
 import { loadModule } from './helpers/loadModule';
 
 type Node = { type: unknown; props: Record<string, any> };
@@ -42,6 +43,8 @@ function setup() {
     '@expo/vector-icons/Ionicons': { __esModule: true, default: 'Ionicons' },
     '@/constants/Colors': { __esModule: true, default: { light: {} } },
     '@/components/useColorScheme': { useColorScheme: () => 'light' },
+    '@/components/map/MapPickerModal': { __esModule: true, default: 'MapPickerModal' },
+    '@/lib/favoriteMatching': favoriteMatching,
     '@/components/ui/CategoryIcon': { __esModule: true, default: 'CategoryIcon' },
     '@/constants/categories': { CATEGORIES: {} },
     '@/stores/useMyPlacesStore': { useMyPlacesStore: (select: any) => select({ places: {} }) },
@@ -62,7 +65,8 @@ function setup() {
     setTimeout: (callback: () => void) => { const id = ++timerId; timers.set(id, callback); return id; },
     clearTimeout: (id: number) => timers.delete(id),
   });
-  const props: Record<string, any> = { visible: true, allowCurrent: true, allowSaved: true, draftKey: 'start', onClose() {}, onSelect() {} };
+  const selections: any[] = [];
+  const props: Record<string, any> = { visible: true, allowCurrent: true, allowSaved: true, draftKey: 'start', onClose() {}, onSelect(point: any) { selections.push(point); } };
   let tree: Node;
   const render = () => {
     for (let attempts = 0; attempts < 20; attempts++) {
@@ -86,7 +90,7 @@ function setup() {
     render();
   };
   render();
-  return { props, render, find, type, flush, requests };
+  return { props, render, find, type, flush, requests, selections };
 }
 
 test('출발·도착 초안을 섞지 않고 재진입 시 해당 입력으로 결과를 새로 조회한다', async () => {
@@ -119,5 +123,17 @@ test('초안 기능을 쓰지 않는 모달과 집·회사 설정은 닫으면 �
     f.props.visible = false; f.render();
     f.props.visible = true; f.render();
     assert.equal(f.find('TextInput')!.props.value, '');
+  }
+});
+
+
+test('출발·도착·경유 편집에서 지도 선택은 장소 ID를 보존하고 다시 검색하지 않는다', async () => {
+  for (const draftKey of ['start', 'goal', 'via-1']) {
+    const f = setup(); f.props.draftKey = draftKey; f.render();
+    const point = { name: '즐겨찾기 카페', latitude: 37.5, longitude: 127, placeId: 'favorite-place', address: '주소' };
+    f.find('MapPickerModal')!.props.onPick(point); await f.flush();
+    assert.equal(f.selections[0].placeId, 'favorite-place');
+    assert.equal(f.selections[0].name, '즐겨찾기 카페');
+    assert.equal(f.requests.length, 0);
   }
 });

@@ -22,6 +22,8 @@ import {
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import { useFavoritePlaces } from '@/hooks/useFavorites';
+import { favoriteMatcher, favoritesFirst } from '@/lib/favoriteMatching';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import EmptyState from '@/components/ui/EmptyState';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
@@ -266,6 +268,9 @@ export default function SearchResultsScreen() {
     (results?.places ?? []).map((place) => place.id),
   );
 
+  const { data: favorites } = useFavoritePlaces();
+  const isFavorite = favoriteMatcher(favorites);
+
   const items = useMemo<ResultItem[]>(() => {
     const places = (results?.places ?? []).filter((place) => {
       if (filters.includes('open') && getOpenState(place.hours).status !== 'open') return false;
@@ -278,12 +283,12 @@ export default function SearchResultsScreen() {
     // 섞어 보여주면 필터가 고장 난 것처럼 보이므로 등록 장소만 남긴다.
     const ridingGuides = filters.length === 0 ? (results?.ridingGuides ?? []) : [];
     const kakaoOnly = filters.length === 0 ? nearbyKakaoResults : [];
-    return [
+    return favoritesFirst<ResultItem>([
       ...places.map((place) => ({ kind: 'place' as const, place })),
       ...kakaoOnly.map((k) => ({ kind: 'kakao' as const, k })),
       ...ridingGuides.map((guide) => ({ kind: 'riding' as const, guide })),
-    ];
-  }, [results, nearbyKakaoResults, filters, bikeMatches.data]);
+    ], favoriteMatcher(favorites));
+  }, [results, nearbyKakaoResults, filters, bikeMatches.data, favorites]);
 
   // 상세를 닫아도 마지막 선택은 유지한다. 필터·재검색으로 사라진 결과만 해제한다.
   useEffect(() => {
@@ -926,7 +931,7 @@ export default function SearchResultsScreen() {
                     <CategoryIcon category={item.place.category} size={18} />
                     <View style={styles.rowTexts}>
                       <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-                        {item.place.name}
+                        {isFavorite(item) ? '★ 즐겨찾기 · ' : ''}{item.place.name}
                       </Text>
                       {!!item.place.address && (
                         <Text
@@ -1002,7 +1007,7 @@ export default function SearchResultsScreen() {
                 <Ionicons name="location-outline" size={18} color={colors.textSecondary} />
                 <View style={styles.rowTexts}>
                   <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-                    {item.k.placeName}
+                    {isFavorite(item) ? '★ 즐겨찾기 · ' : ''}{item.k.placeName}
                   </Text>
                   <Text
                     style={[styles.rowAddress, { color: colors.textSecondary }]}

@@ -27,31 +27,9 @@ export interface Favorites {
   general: GeneralFavorite[];
 }
 
-// 좌표는 부동소수라 그대로 비교하면 같은 곳도 안 걸린다. DB 유니크 인덱스와
-// 같은 기준(5자리 ≈ 1m)으로 맞춘다.
-const sameSpot = (a: number, b: number) => Math.abs(a - b) < 1e-5;
-
+export { findGeneralFavorite } from '@/lib/favoriteMatching';
+import { findGeneralFavorite } from '@/lib/favoriteMatching';
 export type GeneralFavoritePoint = Pick<GeneralPlaceInput, 'latitude' | 'longitude' | 'generalPlaceId' | 'providerId'>;
-
-export function findGeneralFavorite(
-  list: GeneralFavorite[],
-  point: GeneralFavoritePoint,
-): GeneralFavorite | undefined {
-  if (point.generalPlaceId) {
-    const exact = list.find((favorite) => favorite.generalPlaceId === point.generalPlaceId);
-    if (exact) return exact;
-  }
-  const compatibleIds = (favorite: GeneralFavorite) => !(point.generalPlaceId && favorite.generalPlaceId &&
-    point.generalPlaceId !== favorite.generalPlaceId);
-  if (point.providerId) {
-    const exact = list.find((favorite) => compatibleIds(favorite) && favorite.providerId === point.providerId);
-    if (exact) return exact;
-  }
-  return list.find(
-    (f) => compatibleIds(f) && !(point.providerId && f.providerId && point.providerId !== f.providerId) &&
-      sameSpot(f.latitude, point.latitude) && sameSpot(f.longitude, point.longitude),
-  );
-}
 
 export async function fetchFavorites(): Promise<Favorites> {
   const user = await getCurrentUser();

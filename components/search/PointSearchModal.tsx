@@ -15,6 +15,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import CategoryIcon from '@/components/ui/CategoryIcon';
+import MapPickerModal from '@/components/map/MapPickerModal';
+import { favoriteMatcher, favoritesFirst } from '@/lib/favoriteMatching';
 import { CATEGORIES } from '@/constants/categories';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { DialogCard } from '@/components/ui/DialogHost';
@@ -120,6 +122,7 @@ export default function PointSearchModal({
   // 지도 탭과 같은 쿼리 키라 이미 받아둔 목록이 있으면 즉시 보인다.
   const user = useAuthStore((s) => s.user);
   const [showFavList, setShowFavList] = useState(false);
+  const [mapPicking, setMapPicking] = useState(false);
   const { data: favorites } = useFavoritePlaces(visible && allowSaved);
   // 등록 장소와 일반 장소를 함께 보여준다. 일반 즐겨찾기는 모양이 카카오 결과와
   // 같아서(이름·주소·좌표·전화) 그 행을 그대로 재사용한다.
@@ -144,6 +147,8 @@ export default function PointSearchModal({
     [favorites],
   );
   const canShowFav = allowSaved && favItems.length > 0;
+  const isFavorite = favoriteMatcher(favorites);
+  const rankedResults = favoritesFirst(results, isFavorite);
 
   const handleChange = (text: string) => {
     if (visible && draftKey && allowSaved && !confirmSlot) draftQueries.current.set(draftKey, text);
@@ -289,6 +294,7 @@ export default function PointSearchModal({
     requestSequence.current += 1;
     stopVoice();
     setSelectionConfirmation(null);
+    setMapPicking(false);
     setResults([]);
     setShowFavList(false);
     setSearching(false);
@@ -376,11 +382,24 @@ export default function PointSearchModal({
 
         {/* 집·회사를 정하는 중이면 결과 목록에 사는 곳 주소가 그대로 뜬다.
             리플레이는 화면을 통째로 찍으므로 목록째 가린다. */}
+        {allowSaved && (
+          <Pressable accessibilityRole="button" onPress={() => { Keyboard.dismiss(); stopVoice(); if (debounce.current) clearTimeout(debounce.current); requestAbort.current?.abort(); requestSequence.current += 1; setSearching(false); setMapPicking(true); }}
+            style={[styles.resultRow, { borderBottomColor: colors.border }]}>
+            <Ionicons name="map-outline" size={20} color={colors.tint} />
+            <Text style={[styles.resultName, { color: colors.text }]}>지도에서 선택</Text>
+            <Text style={{ color: colors.textSecondary }}>즐겨찾기 장소도 선택할 수 있어요</Text>
+          </Pressable>
+        )}
+        <MapPickerModal visible={visible && mapPicking} allowFavorites
+          initial={getSearchAnchor().near}
+          onClose={() => setMapPicking(false)}
+          onPick={point => { setMapPicking(false); selectPoint({ name: point.name ?? point.address ?? '지도에서 선택한 위치',
+            latitude: point.latitude, longitude: point.longitude, placeId: point.placeId, generalPlaceId: point.generalPlaceId }, point.address ?? undefined); }} />
         <Mask masked={!allowSaved}>
         <FlatList
-          data={showFavList ? favItems : results}
+          data={showFavList ? favItems : rankedResults}
           keyExtractor={(item, i) =>
-            item.kind === 'place' ? `place-${item.place.id}` : `kakao-${item.k.placeName}-${i}`
+            item.kind === 'place' ? `place-${item.place.id}` : `kakao-${item.k.generalPlaceId ?? item.k.providerId ?? `${item.k.latitude}:${item.k.longitude}:${item.k.placeName}`}`
           }
           keyboardShouldPersistTaps={confirmSlot ? 'always' : 'handled'}
           ListHeaderComponent={
@@ -504,7 +523,7 @@ export default function PointSearchModal({
                 <CategoryIcon category={item.place.category} size={16} />
                 <View style={styles.resultTexts}>
                   <Text style={[styles.resultName, { color: colors.text }]} numberOfLines={1}>
-                    {item.place.name}
+                    {isFavorite(item) ? '★ ' : ''}{item.place.name}
                   </Text>
                   {!!item.place.address && (
                     <Text
@@ -515,7 +534,7 @@ export default function PointSearchModal({
                   )}
                 </View>
                 <Text style={[styles.resultBadge, { color: CATEGORIES[item.place.category].color }]}>
-                  {CATEGORIES[item.place.category].label}
+                  {isFavorite(item) ? '즐겨찾기 · ' : ''}{CATEGORIES[item.place.category].label}
                 </Text>
               </Pressable>
             ) : (
@@ -526,7 +545,7 @@ export default function PointSearchModal({
                 <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
                 <View style={styles.resultTexts}>
                   <Text style={[styles.resultName, { color: colors.text }]} numberOfLines={1}>
-                    {item.k.placeName}
+                    {isFavorite(item) ? '★ 즐겨찾기 · ' : ''}{item.k.placeName}
                   </Text>
                   <Text
                     style={[styles.resultAddress, { color: colors.textSecondary }]}

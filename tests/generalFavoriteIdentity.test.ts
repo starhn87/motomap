@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
+import * as favoriteMatching from '../lib/favoriteMatching';
 import { queryKeys } from '../lib/queryKeys';
 import type * as FavoritesAPI from '../lib/api/favorites';
 
@@ -13,6 +14,7 @@ function fixture() {
   let rows: any[] = [{ id: old.id, name: old.name, address: old.address, latitude: old.latitude,
     longitude: old.longitude, general_place_id: canonicalId, place_id: null, user_id: 'test-user' }];
   const api = loadModule<typeof FavoritesAPI>('lib/api/favorites.ts', {
+    '@/lib/favoriteMatching': favoriteMatching,
     '@/lib/auth': { requireUser: async () => ({ id: 'test-user' }), getCurrentUser: async () => ({ id: 'test-user' }) },
     '@/lib/api/places': { rowToPlace: (row: unknown) => row },
     '@/lib/api/generalPlaces': { ensureGeneralPlace: async () => ({ id: canonicalId }) },

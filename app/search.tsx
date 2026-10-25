@@ -28,6 +28,7 @@ import {
 import { useSearchAnchor } from '@/hooks/useSearchAnchor';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import { useFavoritePlaces } from '@/hooks/useFavorites';
+import { favoriteMatcher, favoritesFirst } from '@/lib/favoriteMatching';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { KakaoLocalResult } from '@/lib/api/kakaoLocal';
@@ -118,6 +119,7 @@ export default function SearchScreen() {
   const user = useAuthStore((s) => s.user);
 
   const [query, setQuery] = useState('');
+  const [showFavorites, setShowFavorites] = useState(false);
   const userLocation = useMapStore((s) => s.userLocation);
   const inputRef = useRef<TextInput>(null);
 
@@ -232,6 +234,7 @@ export default function SearchScreen() {
   const isLoading = unifiedSearch.isSearching;
 
   const { data: favorites, isLoading: favoritesLoading } = useFavoritePlaces();
+  const isFavorite = favoriteMatcher(favorites);
 
   const { data: recommended, isLoading: recommendedLoading } = useRecommendedPlaces();
   const landingLoading =
@@ -415,7 +418,7 @@ export default function SearchScreen() {
         <View style={styles.rowIconWrap}><CategoryIcon category={place.category} size={20} /></View>
         <View style={styles.rowInfo}>
           <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-            {place.name}
+            {isFavorite({ kind: 'place', place }) ? '★ ' : ''}{place.name}
           </Text>
           <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
             {near
@@ -425,7 +428,7 @@ export default function SearchScreen() {
               : place.address}
           </Text>
         </View>
-        <Text style={[styles.rowBadge, { color: cat.color }]}>{cat.label}</Text>
+        <Text style={[styles.rowBadge, { color: cat.color }]}>{isFavorite({ kind: 'place', place }) ? '즐겨찾기 · ' : ''}{cat.label}</Text>
       </Pressable>
     );
   };
@@ -455,7 +458,7 @@ export default function SearchScreen() {
             placeholder={listening ? '듣고 있어요…' : '장소, 라이딩 검색'}
             placeholderTextColor={listening ? colors.tint : colors.textSecondary}
             value={query}
-            onChangeText={setQuery}
+            onChangeText={text => { setQuery(text); setShowFavorites(false); }}
             returnKeyType="search"
             onSubmitEditing={() => openResults(query)}
           />
@@ -475,7 +478,35 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      {searching ? (
+      <View style={[styles.myPlacesRow, { paddingHorizontal: 20, paddingBottom: 12 }]}>
+        {(['home', 'work'] as const).map(slot => (
+          <Pressable key={slot} accessibilityRole="button" onPress={() => handleMyPlace(slot)}
+            style={[styles.myPlaceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name={slot === 'home' ? 'home' : 'business'} size={20} color={colors.tint} />
+            <Text style={{ color: colors.text }}>{slot === 'home' ? '집' : '회사'}</Text>
+          </Pressable>
+        ))}
+        <Pressable accessibilityRole="button" accessibilityState={{ selected: showFavorites }}
+          onPress={() => { Keyboard.dismiss(); setShowFavorites(value => !value); }}
+          style={[styles.myPlaceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Ionicons name="star" size={20} color={colors.tint} /><Text style={{ color: colors.text }}>즐겨찾기</Text>
+        </Pressable>
+      </View>
+      {showFavorites ? (
+        <ScrollView keyboardShouldPersistTaps="handled">
+          {favorites?.places.map(place => placeRow(place, 'favorite'))}
+          {favorites?.general.map(place => (
+            <Pressable key={place.id} style={[styles.row, { borderBottomColor: colors.border }]}
+              onPress={() => goToKakaoPlace(place.name, place.address, place.latitude, place.longitude, place.phone, place.providerId, place.placeUrl, undefined, place.generalPlaceId)}>
+              <Ionicons name="star" size={20} color={colors.tint} />
+              <View style={styles.rowInfo}><Text style={[styles.rowName, { color: colors.text }]}>{place.name}</Text>
+                <Text style={[styles.rowSub, { color: colors.textSecondary }]}>{place.address}</Text></View>
+              <Text style={{ color: colors.textSecondary }}>즐겨찾기</Text>
+            </Pressable>
+          ))}
+          {!favorites?.places.length && !favorites?.general.length && <Text style={{ padding: 20, color: colors.textSecondary }}>저장한 즐겨찾기가 없어요.</Text>}
+        </ScrollView>
+      ) : searching ? (
         // 검색 결과
         isLoading ? (
           <ActivityIndicator size="small" color={colors.tint} style={{ marginTop: 32 }} />
@@ -506,7 +537,7 @@ export default function SearchScreen() {
                 )}
               </>
             }
-            data={[
+            data={favoritesFirst([
               // 정렬은 searchAll 이 지도 중심(없으면 내 위치) 기준으로 이미 했다 —
               // 여기서 내 위치로 다시 정렬하면 "보고 있는 지역" 우선이 무효가 된다
               ...((results?.places ?? []).map((p) => ({ type: 'place' as const, data: p }))),
@@ -521,7 +552,8 @@ export default function SearchScreen() {
                 type: 'riding' as const,
                 data: guide,
               })) ?? []),
-            ]}
+            ], item => item.type === 'place' ? isFavorite({ kind: 'place', place: item.data }) :
+              item.type === 'kakao' ? isFavorite({ kind: 'kakao', k: item.data }) : false)}
             keyExtractor={(item, index) =>
               item.type === 'kakao'
                 ? `kakao-${(item.data as KakaoLocalResult).placeName}-${index}`
@@ -570,13 +602,13 @@ export default function SearchScreen() {
                       <View style={styles.rowIconWrap}><Ionicons name="location-outline" size={20} color="#475569" /></View>
                       <View style={styles.rowInfo}>
                         <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-                          {k.placeName}
+                          {isFavorite({ kind: 'kakao', k }) ? '★ ' : ''}{k.placeName}
                         </Text>
                         <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
                           {k.roadAddress || k.address}
                         </Text>
                       </View>
-                      <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>일반</Text>
+                      <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>{isFavorite({ kind: 'kakao', k }) ? '★ 즐겨찾기' : '일반'}</Text>
                     </Pressable>
                   );
                 })()
@@ -620,40 +652,6 @@ export default function SearchScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           contentContainerStyle={styles.listContent}>
-          {/* 내 장소 — 집·회사 원터치 길안내 */}
-          <View style={styles.myPlacesRow}>
-            {(['home', 'work'] as const).map((slot) => {
-              const saved = myPlaces[slot];
-              return (
-                <Pressable
-                  key={slot}
-                  onPress={() => handleMyPlace(slot)}
-                  style={({ pressed }) => [
-                    styles.myPlaceCard,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}>
-                  <Ionicons name={slot === 'home' ? 'home' : 'business'} size={20} color={colors.tint} />
-                  <View style={styles.rowInfo}>
-                    <Text style={[styles.myPlaceLabel, { color: colors.text }]}>
-                      {slot === 'home' ? '집' : '회사'}
-                    </Text>
-                    {/* 장소명은 민감 정보라 표시하지 않는다 — 미저장 안내만 */}
-                    {!saved && (
-                      <Text
-                        style={[styles.myPlaceSub, { color: colors.textSecondary }]}
-                        numberOfLines={1}>
-                        저장 안 됨
-                      </Text>
-                    )}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
 
           <Pressable
             onPress={() => {
@@ -791,7 +789,7 @@ export default function SearchScreen() {
                         {f.address}
                       </Text>
                     </View>
-                    <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>일반</Text>
+                    <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>★ 즐겨찾기</Text>
                   </Pressable>
                 ))}
             </>
