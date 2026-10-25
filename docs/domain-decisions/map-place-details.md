@@ -1480,3 +1480,5 @@ TestFlight에서 확인한다. 기존 구현의 46번 빌드는 취소했고 수
 빈 결과는 5분이며 가장 이른 원본 만료를 넘기지 않는다. React Query staleTime은
 expiresAt-dataUpdatedAt 기간으로 계산해 렌더마다 남은 시간이 이중 차감되지 않게 한다.
 유종별 키·수동 재검색·휴게소 제외·두 휘발유 표시 정책은 유지한다.
+
+2026-10-25 배포 후속: 사용자 승인 후 source `ad387ff` 푸시·gas-stations version13 배포·production **1.2.10(58)/native22/API1** TestFlight 업로드를 완료했다. ASC VALID/IN_BETA_TESTING과 한국어 안내·내부 접근을 확인했다. 원본 만료 유지와 IPA 기능/서명을 검증했으며 실기기 전체 흐름은58번에서 확인한다.

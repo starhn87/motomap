@@ -1469,3 +1469,5 @@ expiresAt, 응답마다 갱신하는 serverTime을 덧붙인다. 기기는 서�
 공유한다고 보장하지 않는다. DB/공유 캐시·지도 가격 마커·자동 조회를 추가하지 않는다.
 새 native22의 guide_gas_cache_expiry 기능이 절대 만료를 처리하며 구 native21은 기존
 수신 후 3분 정책을 유지한다. API1 하위 호환 메타데이터이며 서버 먼저 배포 후 새 빌드로 전달한다.
+
+2026-10-25 배포 후속: 사용자 승인 후 source `ad387ff` 푸시·gas-stations version13 배포·production **1.2.10(58)/native22/API1** TestFlight 업로드를 완료했다. ASC VALID/IN_BETA_TESTING과 한국어 안내·내부 접근을 확인했다. 원본 만료 유지와 IPA 기능/서명을 검증했으며 실기기 전체 흐름은58번에서 확인한다.

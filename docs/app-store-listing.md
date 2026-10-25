@@ -1,10 +1,17 @@
-## 2026-10-25 1.2.10 / native22 후속 후보 (미배포)
+## 2026-10-25 1.2.10 / native22 TestFlight58 배포 완료
 
-유가 캐시를 원본 조회부터 60분으로 조정하고 기기는 남은 유효 시간만 재사용한다.
-빈 결과는 5분, 부분 실패는 최대 1분으로 제한한다. 즐겨찾기·등록 장소 검색 순서와
-집/회사/즐겨찾기 아이콘·즐겨찾기 바로가기 활성 표시를 개선한다.
-앱/runtime1.2.10/native22/API1. 새 빌드가 필요하며 현재 TestFlight57에는 미반영이다.
-서버 배포·푸시·OTA·Apple 업로드·심사/공개 출시는 사용자 승인 전이다.
+검색어와 일치하는 저장 장소 보완·즐겨찾기/등록 장소 우선순위·집/회사/별 아이콘·즐겨찾기
+바로가기 활성 표시와 원본 조회부터 60분 유가 캐시(빈 결과5분·부분 실패 최대1분)를 반영했다.
+앱/runtime1.2.10/native22/API1, source `ad387ff`. 현재 TestFlight **1.2.10(58)**에서 확인한다.
+푸시·gas-stations version13 ACTIVE/JWT 유지·정밀/일반/상세 HTTP200 및 원본 만료 유지 확인을 완료했다.
+390개 테스트·타입·Functions lint/타입·릴리스 검사·native 세션 failures=0·Release 시뮬레이터·CI를 통과했다.
+production IPA의58번/runtime/채널·HTML 일치·native/JS 기능·App Store 서명을 확인했다.
+EAS submission `d698eb3e-509e-4107-98ec-df252caac3a5` FINISHED/error null,
+ASC build `7e8c1fc5-6361-4eb7-835a-39a0df5af423` VALID/IN_BETA_TESTING·한국어 안내 저장·내부 전체 빌드 접근을 확인했다.
+IPA SHA256 `0d4b7a5fdd88bd6240f75d2c5b5bd074bfbad4f3fd01c6af6084a8628a77ad8f`.
+실기기 전체 흐름은58번에서 검증하며 Sentry 심볼은 기존 업로드 인증 누락으로 비공개 보관했다.
+격리 worktree·환경 사본·EAS 작업·추출 IPA·임시 archive/민감 작업 로그는 정리했다.
+무관한 로컬 자료는 제외했고 OTA·App Store 심사 제출·공개 출시는 하지 않았다.
 
 ## 2026-10-25 1.2.10 / native 21 TestFlight57 배포
 
