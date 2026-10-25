@@ -34,14 +34,14 @@ export function PlacePhoneRow({ phone }: { phone?: string | null }) {
       onPress={() => void Linking.openURL(`tel:${phone}`).catch(() => toast.info('전화를 걸 수 없어요.'))}
       style={({ pressed }) => [styles.phoneRow, { opacity: pressed ? 0.6 : 1 }]}>
       <Ionicons name="call-outline" size={17} color={colors.textSecondary} />
-      <Text style={{ color: colors.text, fontSize: 14 }}>{phone}</Text>
+      <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20 }}>{phone}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  addressRow: { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 36 },
+  addressRow: { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 32 },
   address: { flexShrink: 1, fontSize: 15, lineHeight: 22 },
-  copy: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40 },
+  copy: { minWidth: 40, minHeight: 32, alignItems: 'center', justifyContent: 'center' },
+  phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 32 },
 });

@@ -69,7 +69,7 @@ export function PlaceHoursDetails({ expanded, hours, fallbackText }: {
 }
 
 const styles = StyleSheet.create({
-  toggle: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  toggle: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 32 },
   details: { marginBottom: 12, gap: 6 },
   dayRow: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
   day: { width: 42, fontSize: 14, lineHeight: 21 },

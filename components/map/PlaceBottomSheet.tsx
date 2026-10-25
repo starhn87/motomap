@@ -479,6 +479,11 @@ function PlaceBottomSheet({
             </TouchableOpacity>
           </View>
 
+          <PlacePhoneRow phone={displayPlace.phone} />
+          <PlaceHoursRow hours={hours} fallbackText={displayPlace.openingHours}
+            businessStatus={googleHours?.businessStatus} operationalStatus={operationalStatus}
+            expanded={hoursExpanded} onToggle={() => setHoursExpanded(value => !value)} />
+
           {displayPlace.description ? (
             <Text style={[styles.description, { color: colors.textSecondary }]}>
               {displayPlace.description}
@@ -516,11 +521,6 @@ function PlaceBottomSheet({
               })}
             </View>
           )}
-
-          <PlacePhoneRow phone={displayPlace.phone} />
-          <PlaceHoursRow hours={hours} fallbackText={displayPlace.openingHours}
-            businessStatus={googleHours?.businessStatus} operationalStatus={operationalStatus}
-            expanded={hoursExpanded} onToggle={() => setHoursExpanded(value => !value)} />
 
           {infoCards.length > 0 && (
             <View style={styles.infoGrid}>
@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 40,
+    minHeight: 36,
     marginBottom: 0,
   },
   name: {
@@ -826,13 +826,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 12,
-    marginBottom: 10,
+    marginTop: 6,
+    marginBottom: 4,
   },
   actionButton: {
     flex: 1,
-    height: 40,
+    minHeight: 36,
     paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
