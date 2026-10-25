@@ -1255,7 +1255,7 @@ Git 푸시·심사/공개 출시·OTA·원격 정책 변경은 하지 않았다.
 ## NAV-031 — 주변 주유소 조회 GPS와 경로 변경 GPS의 조건을 구분한다
 
 - 날짜: 2026-10-25
-- 상태: 구현·검증 완료, 새 바이너리 배포 대기 (53번 GPS 대기 회귀)
+- 상태: 구현·검증 완료, TestFlight 1.2.10(54) 배포 (53번 GPS 대기 회귀)
 - 계약: 1.2.10 / native 18 / API 1, JS wire/capability는 native 17과 동일
 - 후속: NAV-030의 주유소 조회에 적용하던 경로용 posTrust 조건을 대체한다.
 
@@ -1280,3 +1280,17 @@ invalid/stale/nonfinite 거부·종료 해제 검사도 통과했다. 타입 검
 iOS Release 시뮬레이터 빌드도 통과했다. 실제 SDK 지도 렌더 비교는 테스트용 경로/화면
 표시 제약으로 완료하지 못해 zoom 가설은 미확정이며 변경하지 않았다. 기기의 실제 flags를 관측한 것은
 아니므로 이 재현을 모든 실기기 원인으로 확대하지 않는다.
+
+
+### NAV-031 배포 기록 — 54번
+
+source `0f766ed`의 격리 소스로 production **1.2.10 (54) / native 18 / API 1** 로컬 EAS
+빌드를 완료했다. IPA SHA-256은
+`15a900c861192b2618016894390238ad8e5180909ee21b1c2db6ca5b3cfbfdf9`이며
+서명·App Store 배포 프로파일·runtime/channel·수정 심벌·하단 HTML 일치를 검증했다.
+submission `32c7730e-e1e8-45fd-8704-5f273f77ff36` FINISHED/error null,
+ASC build `26c5b4e4-47f5-4ba4-b39c-ec7dd1e0bef4` VALID/IN_BETA_TESTING,
+ko 테스트 안내 저장 및 내부 그룹 all-builds/자동 알림을 확인했다.
+실제 기기 GPS flags/가격 마커 렌더 확인은 사용자 재시험이 남았다.
+Sentry 심볼은 기존 인증 누락으로 보류하고 비공개 자료를 보관했다.
+Git 푸시·OTA·심사/공개 출시·원격 정책 변경은 하지 않았다.

@@ -25,7 +25,9 @@
 주유소 조회는 valid·유한 좌표·10초 신선도로 검사하고 경로 변경/복귀의 posTrust 조건은 유지한다.
 수동 조회와 5초 점검 때 기존 SDK origin/recent/lastValid 중 최신 유효 위치를 확인한다.
 새 위치 수신자·권한·JS wire API·서버/원격 정책은 추가하지 않는다. 앱/runtime 1.2.10,
-native 18/API 1 회귀 수정 후보로 기존 53번에는 미반영이며 새 바이너리가 필요하다.
+native 18/API 1 회귀 수정은 새 바이너리 **1.2.10 (54)**에 반영했다. 기존 53번에는 미반영이다.
+source `0f766ed` 로컬 production IPA 검증·제출 후 ASC VALID/IN_BETA_TESTING과 ko 안내를 확인했다.
+실기기 가격 마커 표시는 재시험이 남았으며 Git 푸시·OTA·심사/공개 출시는 하지 않았다.
 
 ## 2026-10-25 1.2.10 (53) / native 17 TestFlight 배포 완료
 
