@@ -1299,7 +1299,7 @@ Git 푸시·OTA·심사/공개 출시·원격 정책 변경은 하지 않았다.
 ## NAV-032 — 위치 이름이 없으면 목적지만, 가격 마커는 SDK 배율로 표시한다
 
 - 날짜: 2026-10-25
-- 상태: 구현·검증 완료, 새 TestFlight 바이너리 배포 대기
+- 상태: 구현·검증 완료, TestFlight 1.2.10(55) 배포
 - 계약: 1.2.10 / native 19 / API 1 (JS wire/capability 유지)
 - 후속: NAV-025/026의 주소 부재 상태 문구 표시와 NAV-030의 줌 10 이상 규칙을 대체한다.
 
@@ -1331,3 +1331,16 @@ CONTROL 26,108개로 rendered=true/exit 0을 확인했다. 0.1<=zoom<10을 명�
 PRODUCT 캡처 완료 신호 뒤에만 CONTROL로 전환해 느린 screenshot 호출의 경합을 제거했다.
 최종 UIKit/WK 세션 검사 failures=0, 타입·353개 테스트·릴리스·스크립트 구문·리뷰와
 전체 iOS Release 시뮬레이터 빌드가 통과했다. 제품 GPS·조회·리스너 정책을 추가 완화하지 않았다.
+
+
+### NAV-032 배포 기록 — 55번
+
+source `0ffc42f`를 격리 작업 폴더에서 production **1.2.10(55)/native19/API1**로 로컬 EAS
+빌드했다. IPA SHA-256은 `5c19315add306727337524d5b943d0d16e7bf2d235ac210d538f5537833af729`다.
+서명·App Store 프로파일·runtime/production 채널·하단 HTML 원본과 수정 코드 포함을 확인했다.
+submission `19cb65b3-d992-4afd-897f-5266c8bdc266` FINISHED/error null,
+ASC build `1b602e49-e388-4617-9f68-6a308727d641` VALID/IN_BETA_TESTING,
+한국어 테스트 안내 저장과 내부 all-builds/자동 알림을 확인했다.
+실제 기기 GPS/유가 응답/마커 터치 전체 흐름은 55번에서 재시험한다.
+Sentry 업로드는 기존 인증 누락으로 보류하고 dSYM·맵·번들·로그를 비공개 보관했다.
+임시 환경/서명 작업 폴더를 정리했으며 Git 푸시·OTA·심사/공개 출시는 하지 않았다.
