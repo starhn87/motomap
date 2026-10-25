@@ -1,33 +1,35 @@
 #import "KNNaviGasLayer.h"
 #import <KNSDK/KNSDK.h>
-#import <KNSDK/KNMapMarker.h>
-#import <KNSDK/KNMapMarkerEventListener.h>
 #import <math.h>
 #import <float.h>
 
 @class KNNaviGasLayer;
 @interface KNNaviGasSheet : UIViewController <UITableViewDataSource, UITableViewDelegate>
 @property(nonatomic, weak) KNNaviGasLayer *owner;
+@property(nonatomic, strong) UIView *sheet;
+@property(nonatomic, strong) UIControl *backdrop;
 @property(nonatomic, strong) UITableView *table;
 @property(nonatomic, strong) UILabel *status;
-@property(nonatomic, strong) UISegmentedControl *fuel;
+@property(nonatomic, strong) UIStackView *fuel;
 @property(nonatomic, strong) UIStackView *actions;
+@property(nonatomic, strong) UIButton *backButton;
+@property(nonatomic, strong) UIButton *refreshButton;
+@property(nonatomic, strong) UIActivityIndicatorView *spinner;
 @property(nonatomic, strong) NSDictionary *station;
+@property(nonatomic) BOOL appeared;
+@property(nonatomic) BOOL closing;
 - (void)reload;
+- (void)closeWithCompletion:(void (^)(void))completion;
 @end
-@interface KNNaviGasLayer () <KNMapMarkerEventListener>
+@interface KNNaviGasLayer ()
 @property(nonatomic, weak) UIViewController *host;
-@property(nonatomic, weak) KNMapView *map;
-@property(nonatomic, weak) id<KNMapMarkerEventListener> previousListener;
-@property(nonatomic, strong) NSMutableArray<KNMapMarker *> *markers;
-@property(nonatomic, strong) NSMutableArray<UIImage *> *images;
 @property(nonatomic, strong) NSArray<NSDictionary *> *stations;
+@property(nonatomic, strong) NSMutableDictionary<NSString *, NSDictionary *> *cache;
 @property(nonatomic, strong) KNNaviGasSheet *sheet;
 @property(nonatomic, strong) NSDictionary *context;
 @property(nonatomic, strong) NSDictionary *selection;
 @property(nonatomic, copy) NSString *prod;
 @property(nonatomic, copy) NSString *errorMessage;
-@property(nonatomic, copy) NSString *selectedID;
 @property(nonatomic, strong) NSDate *gpsAt;
 @property(nonatomic, strong) NSDate *requestedAt;
 @property(nonatomic, strong) NSDate *receivedAt;
@@ -44,273 +46,292 @@
 @end
 
 @implementation KNNaviGasSheet
+- (instancetype)init {
+  if ((self=[super init])) self.modalPresentationStyle=UIModalPresentationOverFullScreen;
+  return self;
+}
+- (UIColor *)surface:(CGFloat)light dark:(CGFloat)dark {
+  return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *trait) {
+    return [UIColor colorWithWhite:trait.userInterfaceStyle==UIUserInterfaceStyleDark ? dark : light alpha:1];
+  }];
+}
+- (UIButton *)button:(NSString *)title action:(SEL)action {
+  UIButton *button=[UIButton buttonWithType:UIButtonTypeCustom];
+  [button setTitle:title forState:UIControlStateNormal]; [button setTitleColor:UIColor.labelColor forState:UIControlStateNormal];
+  button.titleLabel.font=[UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
+  button.titleLabel.adjustsFontForContentSizeCategory=YES;
+  button.backgroundColor=[self surface:0.94 dark:0.10]; button.layer.cornerRadius=12;
+  [button.heightAnchor constraintGreaterThanOrEqualToConstant:48].active=YES;
+  [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+  return button;
+}
 - (void)viewDidLoad {
   [super viewDidLoad];
-  self.view.backgroundColor = UIColor.systemBackgroundColor;
-  self.title = @"주유소";
-  self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"닫기" style:UIBarButtonItemStylePlain target:self action:@selector(close)];
-  self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(refresh)];
-  UIStackView *content = [UIStackView new]; content.axis = UILayoutConstraintAxisVertical; content.spacing = 12;
-  content.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:content];
-  self.fuel = [[UISegmentedControl alloc] initWithItems:@[@"휘발유",@"고급휘발유"]];
-  self.fuel.selectedSegmentIndex = [self.owner.prod isEqual:@"B034"] ? 1 : 0;
-  [self.fuel addTarget:self action:@selector(changeFuel) forControlEvents:UIControlEventValueChanged];
-  [content addArrangedSubview:self.fuel];
-  self.status = [UILabel new]; self.status.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-  self.status.adjustsFontForContentSizeCategory = YES; self.status.textColor = UIColor.secondaryLabelColor;
-  self.status.numberOfLines = 0; [content addArrangedSubview:self.status];
-  self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
-  self.table.dataSource = self; self.table.delegate = self; self.table.rowHeight = UITableViewAutomaticDimension;
-  self.table.estimatedRowHeight = 76; self.table.backgroundColor = UIColor.clearColor;
-  [content addArrangedSubview:self.table];
-  self.actions = [UIStackView new]; self.actions.axis = UILayoutConstraintAxisVertical; self.actions.spacing = 8;
+  self.backdrop=[UIControl new]; self.backdrop.backgroundColor=[UIColor colorWithWhite:0 alpha:0.3];
+  self.backdrop.accessibilityElementsHidden=YES;
+  [self.backdrop addTarget:self action:@selector(close) forControlEvents:UIControlEventTouchUpInside];
+  self.backdrop.translatesAutoresizingMaskIntoConstraints=NO; [self.view addSubview:self.backdrop];
+  self.sheet=[UIView new]; self.sheet.backgroundColor=[self surface:1 dark:0.04];
+  self.sheet.layer.cornerRadius=20; self.sheet.layer.maskedCorners=kCALayerMinXMinYCorner|kCALayerMaxXMinYCorner;
+  self.sheet.accessibilityViewIsModal=YES;
+  self.sheet.translatesAutoresizingMaskIntoConstraints=NO; [self.view addSubview:self.sheet];
+  UIView *header=[UIView new]; header.translatesAutoresizingMaskIntoConstraints=NO; [self.sheet addSubview:header];
+  [header addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dragged:)]];
+  UIView *handle=[UIView new]; handle.backgroundColor=UIColor.systemGray3Color; handle.layer.cornerRadius=2;
+  handle.translatesAutoresizingMaskIntoConstraints=NO; [header addSubview:handle];
+  UILabel *title=[UILabel new]; title.text=@"주유소"; title.font=[UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
+  title.adjustsFontForContentSizeCategory=YES; title.accessibilityTraits=UIAccessibilityTraitHeader;
+  self.backButton=[self button:@"닫기" action:@selector(back)];
+  self.refreshButton=[self button:@"새로고침" action:@selector(refresh)];
+  self.refreshButton.accessibilityIdentifier=@"gas-refresh"; self.refreshButton.accessibilityLabel=@"주유소 새로고침";
+  [self.refreshButton setTitle:@"" forState:UIControlStateNormal];
+  [self.refreshButton setImage:[UIImage systemImageNamed:@"arrow.clockwise"] forState:UIControlStateNormal];
+  self.refreshButton.tintColor=UIColor.labelColor; title.textAlignment=NSTextAlignmentCenter;
+  self.spinner=[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+  self.spinner.translatesAutoresizingMaskIntoConstraints=NO; [self.refreshButton addSubview:self.spinner];
+  UIStackView *heading=[[UIStackView alloc] initWithArrangedSubviews:@[self.backButton,title,self.refreshButton]];
+  heading.alignment=UIStackViewAlignmentCenter; heading.spacing=12;
+  heading.translatesAutoresizingMaskIntoConstraints=NO; [header addSubview:heading];
+  [self.backButton.widthAnchor constraintEqualToConstant:64].active=YES;
+  [self.refreshButton.widthAnchor constraintEqualToConstant:64].active=YES;
+  self.fuel=[UIStackView new]; self.fuel.spacing=8; self.fuel.distribution=UIStackViewDistributionFillEqually;
   for (NSUInteger i=0;i<2;i++) {
-    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; button.tag = i;
-    UIButtonConfiguration *config = [UIButtonConfiguration filledButtonConfiguration];
-    config.baseBackgroundColor = UIColor.labelColor;
-    config.baseForegroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *trait) {
-      return trait.userInterfaceStyle == UIUserInterfaceStyleDark ? UIColor.blackColor : UIColor.whiteColor;
-    }];
-    config.title = i ? @"경유지로 추가" : @"목적지 변경"; config.contentInsets = NSDirectionalEdgeInsetsMake(14,12,14,12);
-    button.configuration = config;
-    [button addTarget:self action:@selector(route:) forControlEvents:UIControlEventTouchUpInside];
+    UIButton *button=[self button:i ? @"고급휘발유" : @"휘발유" action:@selector(changeFuel:)]; button.tag=i;
+    button.accessibilityIdentifier=i ? @"gas-premium" : @"gas-regular"; [self.fuel addArrangedSubview:button];
+  }
+  self.status=[UILabel new]; self.status.font=[UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+  self.status.adjustsFontForContentSizeCategory=YES; self.status.textColor=UIColor.secondaryLabelColor; self.status.numberOfLines=0;
+  self.table=[[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
+  self.table.backgroundColor=UIColor.clearColor; self.table.separatorStyle=UITableViewCellSeparatorStyleNone;
+  self.table.dataSource=self; self.table.delegate=self; self.table.rowHeight=UITableViewAutomaticDimension; self.table.estimatedRowHeight=86;
+  self.actions=[UIStackView new]; self.actions.axis=UILayoutConstraintAxisVertical; self.actions.spacing=8;
+  for (NSUInteger i=0;i<2;i++) {
+    UIButton *button=[self button:i ? @"경유지로 추가" : @"목적지 변경" action:@selector(route:)]; button.tag=i;
+    button.backgroundColor=UIColor.labelColor;
+    [button setTitleColor:[self surface:1 dark:0] forState:UIControlStateNormal];
     [self.actions addArrangedSubview:button];
   }
-  [content addArrangedSubview:self.actions];
+  UIStackView *content=[[UIStackView alloc] initWithArrangedSubviews:@[self.fuel,self.status,self.table,self.actions]];
+  content.axis=UILayoutConstraintAxisVertical; content.spacing=12;
+  content.translatesAutoresizingMaskIntoConstraints=NO; [self.sheet addSubview:content];
   [NSLayoutConstraint activateConstraints:@[
-    [content.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:12],
-    [content.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:20],
-    [content.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-20],
-    [content.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-12],
-    [self.fuel.heightAnchor constraintGreaterThanOrEqualToConstant:44],
+    [self.backdrop.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor], [self.backdrop.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+    [self.backdrop.topAnchor constraintEqualToAnchor:self.view.topAnchor], [self.backdrop.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+    [self.sheet.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor], [self.sheet.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+    [self.sheet.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+    [self.sheet.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:80],
+    [header.leadingAnchor constraintEqualToAnchor:self.sheet.leadingAnchor constant:20], [header.trailingAnchor constraintEqualToAnchor:self.sheet.trailingAnchor constant:-20],
+    [header.topAnchor constraintEqualToAnchor:self.sheet.topAnchor],
+    [handle.topAnchor constraintEqualToAnchor:header.topAnchor constant:9], [handle.centerXAnchor constraintEqualToAnchor:header.centerXAnchor],
+    [handle.widthAnchor constraintEqualToConstant:32], [handle.heightAnchor constraintEqualToConstant:4],
+    [heading.topAnchor constraintEqualToAnchor:header.topAnchor constant:26], [heading.leadingAnchor constraintEqualToAnchor:header.leadingAnchor],
+    [heading.trailingAnchor constraintEqualToAnchor:header.trailingAnchor], [heading.bottomAnchor constraintEqualToAnchor:header.bottomAnchor constant:-12],
+    [self.spinner.centerXAnchor constraintEqualToAnchor:self.refreshButton.centerXAnchor], [self.spinner.centerYAnchor constraintEqualToAnchor:self.refreshButton.centerYAnchor],
+    [content.topAnchor constraintEqualToAnchor:header.bottomAnchor], [content.leadingAnchor constraintEqualToAnchor:header.leadingAnchor],
+    [content.trailingAnchor constraintEqualToAnchor:header.trailingAnchor], [content.bottomAnchor constraintEqualToAnchor:self.sheet.safeAreaLayoutGuide.bottomAnchor constant:-12],
   ]];
   [self reload];
 }
+- (void)viewDidAppear:(BOOL)animated {
+  [super viewDidAppear:animated]; if (self.appeared) return; self.appeared=YES;
+  [self.view layoutIfNeeded]; self.sheet.transform=CGAffineTransformMakeTranslation(0,self.sheet.bounds.size.height); self.backdrop.alpha=0;
+  [UIView animateWithDuration:UIAccessibilityIsReduceMotionEnabled() ? 0 : 0.25 animations:^{ self.sheet.transform=CGAffineTransformIdentity; self.backdrop.alpha=1; }
+    completion:^(BOOL finished){ if (!self.closing) UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification,self.sheet); }];
+}
 - (void)reload {
   if (!self.isViewLoaded) return;
-  self.fuel.hidden = self.station != nil;
-  self.actions.hidden = self.station == nil;
-  self.navigationItem.rightBarButtonItem.enabled = !self.owner.loading && !self.station;
-  self.actions.arrangedSubviews.lastObject.hidden = !self.owner.canAddVia;
-  UIButton *destination = (UIButton *)self.actions.arrangedSubviews.firstObject;
-  UIButtonConfiguration *configuration = destination.configuration;
-  configuration.title = self.owner.courseMode ? @"코스를 종료하고 목적지 변경" : @"목적지 변경";
-  configuration.attributedTitle = [[NSAttributedString alloc] initWithString:configuration.title attributes:@{
-    NSForegroundColorAttributeName:configuration.baseForegroundColor, NSFontAttributeName:[UIFont preferredFontForTextStyle:UIFontTextStyleHeadline]}];
-  destination.configuration = configuration;
-  UIButton *viaButton = (UIButton *)self.actions.arrangedSubviews.lastObject;
-  UIButtonConfiguration *viaConfiguration = viaButton.configuration;
-  viaConfiguration.attributedTitle = [[NSAttributedString alloc] initWithString:@"경유지로 추가" attributes:@{
-    NSForegroundColorAttributeName:viaConfiguration.baseForegroundColor, NSFontAttributeName:[UIFont preferredFontForTextStyle:UIFontTextStyleHeadline]}];
-  viaButton.configuration = viaConfiguration;
-  NSString *fuel = [self.owner.prod isEqual:@"B034"] ? @"고급휘발유" : @"휘발유";
-  self.status.text = self.station ? [NSString stringWithFormat:@"%@ · 오피넷 제공 가격\n확인 후 경로 미리보기로 이동합니다.",fuel] :
-    self.owner.loading ? @"주변 주유소를 찾고 있어요…" : self.owner.errorMessage ?:
-    [NSString stringWithFormat:@"현재 위치 주변 5km · %@ · 직선거리\n오피넷 제공 가격으로 현장 가격과 다를 수 있어요.",fuel];
+  self.fuel.hidden=self.station!=nil; self.actions.hidden=self.station==nil;
+  self.refreshButton.hidden=self.station!=nil; self.refreshButton.enabled=!self.owner.loading;
+  self.refreshButton.tintColor=self.owner.loading ? UIColor.clearColor : UIColor.labelColor;
+  if (self.owner.loading) [self.spinner startAnimating]; else [self.spinner stopAnimating];
+  [self.backButton setTitle:self.station ? @"이전" : @"닫기" forState:UIControlStateNormal];
+  for (UIButton *button in self.fuel.arrangedSubviews) {
+    BOOL selected=button.tag==([self.owner.prod isEqual:@"B034"] ? 1 : 0);
+    button.backgroundColor=selected ? UIColor.labelColor : [self surface:0.94 dark:0.10];
+    [button setTitleColor:selected ? [self surface:1 dark:0] : UIColor.labelColor forState:UIControlStateNormal];
+    button.accessibilityTraits=UIAccessibilityTraitButton|(selected ? UIAccessibilityTraitSelected : 0);
+  }
+  self.actions.arrangedSubviews.lastObject.hidden=!self.owner.canAddVia;
+  [(UIButton *)self.actions.arrangedSubviews.firstObject setTitle:self.owner.courseMode ? @"코스를 종료하고 목적지 변경" : @"목적지 변경" forState:UIControlStateNormal];
+  NSString *fuel=[self.owner.prod isEqual:@"B034"] ? @"고급휘발유" : @"휘발유";
+  self.status.text=self.station ? [NSString stringWithFormat:@"%@ · 오피넷 제공 가격\n선택하면 경로 미리보기로 이동합니다.",fuel] :
+    self.owner.errorMessage ?: (self.owner.loading && !self.owner.receivedAt ? @"주변 주유소를 찾고 있어요…" :
+    [NSString stringWithFormat:@"주변 5km · %@ · 직선거리\n오피넷 제공 가격으로 현장 가격과 다를 수 있어요.",fuel]);
   if (!self.station && !self.owner.loading && !self.owner.errorMessage && !self.owner.stations.count)
-    self.status.text = @"주변 5km에 가격을 제공하는 주유소가 없어요.";
+    self.status.text=@"주변 5km에 가격을 제공하는 주유소가 없어요.";
   [self.table reloadData];
 }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.station ? 1 : self.owner.stations.count; }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-  UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-  NSDictionary *station = self.station ?: self.owner.stations[indexPath.row];
-  UIListContentConfiguration *config = [UIListContentConfiguration subtitleCellConfiguration];
-  config.text = station[@"name"]; config.textProperties.numberOfLines = 2;
-  config.secondaryText = [NSString stringWithFormat:@"%@  ·  %@원/L  ·  %.1fkm",station[@"brand"],
-    [NSNumberFormatter localizedStringFromNumber:station[@"price"] numberStyle:NSNumberFormatterDecimalStyle], [station[@"distance"] doubleValue]/1000];
-  config.secondaryTextProperties.numberOfLines = 0; cell.contentConfiguration = config;
-  cell.accessoryType = self.station ? UITableViewCellAccessoryNone : UITableViewCellAccessoryDisclosureIndicator;
+  UITableViewCell *cell=[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+  NSDictionary *station=self.station ?: self.owner.stations[indexPath.row];
+  cell.backgroundColor=UIColor.clearColor; cell.selectionStyle=UITableViewCellSelectionStyleNone;
+  UIListContentConfiguration *config=[UIListContentConfiguration subtitleCellConfiguration];
+  config.text=station[@"name"]; config.textProperties.font=[UIFont preferredFontForTextStyle:UIFontTextStyleHeadline]; config.textProperties.numberOfLines=2;
+  config.secondaryText=[NSString stringWithFormat:@"%@  ·  %@원/L  ·  %.1fkm",station[@"brand"],
+    [NSNumberFormatter localizedStringFromNumber:station[@"price"] numberStyle:NSNumberFormatterDecimalStyle],[station[@"distance"] doubleValue]/1000];
+  config.secondaryTextProperties.numberOfLines=0; config.directionalLayoutMargins=NSDirectionalEdgeInsetsMake(16,12,16,12); cell.contentConfiguration=config;
+  UIView *background=[UIView new]; background.backgroundColor=[self surface:0.96 dark:0.095]; background.layer.cornerRadius=12; cell.backgroundView=background;
+  cell.accessoryType=self.station ? UITableViewCellAccessoryNone : UITableViewCellAccessoryDisclosureIndicator;
   return cell;
 }
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-  if (!self.station) [self.owner choose:self.owner.stations[indexPath.row]];
-}
-- (void)close { [self dismissViewControllerAnimated:YES completion:nil]; }
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath { if (!self.station) [self.owner choose:self.owner.stations[indexPath.row]]; }
+- (void)close { [self closeWithCompletion:nil]; }
+- (void)back { if (self.station) { self.station=nil; [self reload]; } else [self close]; }
 - (void)refresh { [self.owner requestForced:YES]; }
-- (void)changeFuel {
-  self.owner.prod = self.fuel.selectedSegmentIndex ? @"B034" : @"B027";
-  self.owner.stations = @[]; self.owner.selectedID = nil;
-  [self.owner requestForced:YES];
+- (void)changeFuel:(UIButton *)button {
+  NSString *prod=button.tag ? @"B034" : @"B027"; if ([self.owner.prod isEqual:prod]) return;
+  self.owner.prod=prod; self.owner.context=nil; self.owner.loading=NO; self.owner.requestedAt=nil; self.owner.errorMessage=nil;
+  self.owner.stations=@[]; self.owner.receivedAt=nil; self.station=nil;
+  [self.owner requestForced:NO];
 }
-- (void)route:(UIButton *)button { [self.owner route:button.tag == 1]; }
+- (void)route:(UIButton *)button { [self.owner route:button.tag==1]; }
+- (void)dragged:(UIPanGestureRecognizer *)gesture { if (gesture.state==UIGestureRecognizerStateEnded && [gesture translationInView:self.sheet].y>28) [self close]; }
 - (BOOL)accessibilityPerformEscape { [self close]; return YES; }
+- (void)closeWithCompletion:(void (^)(void))completion {
+  if (self.closing) return; self.closing=YES; self.sheet.userInteractionEnabled=NO;
+  [UIView animateWithDuration:UIAccessibilityIsReduceMotionEnabled() ? 0 : 0.2 animations:^{ self.sheet.transform=CGAffineTransformMakeTranslation(0,self.sheet.bounds.size.height); self.backdrop.alpha=0; }
+    completion:^(BOOL finished){ [self dismissViewControllerAnimated:NO completion:completion]; }];
+}
 @end
 
 @implementation KNNaviGasLayer
 + (BOOL)isUsableSearchGPS:(KNGPSData *)gps {
   // 주변 조회는 GPS 유효성·신선도를 검사한다. 경로 매칭 posTrust는 재안내 전용이다.
-  return gps && gps.valid && isfinite(gps.pos.x) && isfinite(gps.pos.y) && gps.timestamp &&
-    fabs(gps.timestamp.timeIntervalSinceNow) <= 10;
+  return gps && gps.valid && isfinite(gps.pos.x) && isfinite(gps.pos.y) && gps.timestamp && fabs(gps.timestamp.timeIntervalSinceNow)<=10;
 }
 - (void)readGPS:(KNGPSData *)gps {
   if (![KNNaviGasLayer isUsableSearchGPS:gps]) return;
-  self.gpsAt = gps.timestamp;
-  self.position = [[KNSDK sharedInstance] convertKATECToWGS84WithX:lround(gps.pos.x) y:lround(gps.pos.y)];
+  self.gpsAt=gps.timestamp;
+  self.position=[[KNSDK sharedInstance] convertKATECToWGS84WithX:lround(gps.pos.x) y:lround(gps.pos.y)];
+}
+- (double)distanceTo:(DoublePoint)point from:(DoublePoint)origin {
+  double lat=(point.y-origin.y)*M_PI/180, lng=(point.x-origin.x)*M_PI/180;
+  double value=pow(sin(lat/2),2)+cos(point.y*M_PI/180)*cos(origin.y*M_PI/180)*pow(sin(lng/2),2);
+  return 6371000*2*asin(sqrt(MIN(1,MAX(0,value))));
+}
+- (NSDictionary *)currentCache {
+  NSDictionary *entry=self.cache[self.prod];
+  NSDate *at=entry[@"at"];
+  DoublePoint point=DoublePointMake([entry[@"longitude"] doubleValue],[entry[@"latitude"] doubleValue]);
+  if (!at || -at.timeIntervalSinceNow>=180 || [self distanceTo:point from:self.position]>=1000) {
+    [self.cache removeObjectForKey:self.prod]; return nil;
+  }
+  return entry;
+}
+- (void)useCache:(NSDictionary *)entry {
+  NSMutableArray *nearby=[NSMutableArray new];
+  for (NSDictionary *station in entry[@"stations"]) {
+    double distance=[self distanceTo:DoublePointMake([station[@"longitude"] doubleValue],[station[@"latitude"] doubleValue]) from:self.position];
+    if (distance>5000) continue;
+    NSMutableDictionary *item=[station mutableCopy]; item[@"distance"]=@(distance); [nearby addObject:item];
+  }
+  [nearby sortUsingComparator:^NSComparisonResult(NSDictionary *a,NSDictionary *b){ return [a[@"distance"] compare:b[@"distance"]]; }];
+  self.stations=nearby; self.receivedAt=entry[@"at"];
+  self.canAddVia=[entry[@"canAddVia"] boolValue]; self.courseMode=[entry[@"courseMode"] boolValue];
+}
+- (void)resetSearch {
+  [self.cache removeAllObjects]; self.stations=@[]; self.receivedAt=nil; self.requestedAt=nil;
+  self.context=nil; self.loading=NO; self.sheet.station=nil; self.errorMessage=nil; [self.sheet reload];
 }
 - (instancetype)initWithHost:(UIViewController *)host {
-  if ((self = [super init])) {
-    _host = host; _prod = @"B027"; _stations = @[]; _markers = [NSMutableArray new]; _images = [NSMutableArray new];
-    __weak KNNaviGasLayer *weakSelf = self;
-    _timer = [NSTimer scheduledTimerWithTimeInterval:5 repeats:YES block:^(NSTimer *timer) {
-      KNNaviGasLayer *self = weakSelf; if (!self || self.invalidated) return;
-      if (self.getGPS && self.isActive && self.isActive()) [self updateGPS:self.getGPS()];
-      if (!self.gpsAt || -self.gpsAt.timeIntervalSinceNow > 10 || !self.isActive || !self.isActive()) {
-        [self clearMarkers]; self.stations = @[]; self.sheet.station = nil; self.context = nil; self.loading = NO; self.requestedAt = nil;
-        self.errorMessage = @"GPS 수신 후 새로고침해 주세요."; [self.sheet reload]; return;
+  if ((self=[super init])) {
+    _host=host; _prod=@"B027"; _stations=@[]; _cache=[NSMutableDictionary new];
+    __weak KNNaviGasLayer *weakSelf=self;
+    _timer=[NSTimer scheduledTimerWithTimeInterval:5 repeats:YES block:^(NSTimer *timer){
+      KNNaviGasLayer *self=weakSelf; if (!self || self.invalidated) return;
+      if (self.getGPS && self.isActive && self.isActive()) [self readGPS:self.getGPS()];
+      if (!self.gpsAt || -self.gpsAt.timeIntervalSinceNow>10 || !self.isActive || !self.isActive()) {
+        [self resetSearch]; self.errorMessage=@"GPS 수신 후 새로고침해 주세요."; [self.sheet reload]; return;
       }
-      if (self.receivedAt && -self.receivedAt.timeIntervalSinceNow > 180) { self.stations = @[]; self.sheet.station = nil; [self clearMarkers]; [self.sheet reload]; }
-      if (self.loading && -self.requestedAt.timeIntervalSinceNow > 25) {
-        self.context = nil; self.loading = NO; self.errorMessage = @"가격을 불러오지 못했어요. 새로고침해 주세요."; [self.sheet reload];
+      if (self.receivedAt && ![self currentCache]) { self.stations=@[]; self.receivedAt=nil; self.sheet.station=nil; [self.sheet reload]; }
+      if (self.loading && -self.requestedAt.timeIntervalSinceNow>25) {
+        self.context=nil; self.loading=NO; self.errorMessage=@"가격을 불러오지 못했어요. 새로고침해 주세요."; [self.sheet reload];
       }
+      // 지도 표시를 위한 자동 조회는 없다. 검색 시트를 보고 있을 때만 갱신한다.
+      if (self.sheet.presentingViewController && !self.sheet.closing) [self requestForced:NO];
     }];
   }
   return self;
 }
-- (void)attachMap:(KNMapView *)map {
-  if (self.invalidated || (self.map == map && map.markerEventListener == self)) return;
-  [self clearMarkers];
-  if (self.map.markerEventListener == self) self.map.markerEventListener = self.previousListener;
-  self.map = map; self.previousListener = map.markerEventListener; map.markerEventListener = self;
-  [self renderMarkers];
-}
-- (void)clearMarkers {
-  for (KNMapMarker *marker in self.markers) [self.map removeMarker:marker];
-  [self.markers removeAllObjects]; [self.images removeAllObjects];
-}
 - (void)updateGPS:(KNGPSData *)gps {
   if (self.invalidated) return;
   [self readGPS:gps];
-  [self requestForced:NO];
+  if (self.sheet.presentingViewController && !self.sheet.closing) [self requestForced:NO];
 }
 - (void)requestForced:(BOOL)force {
   if (self.invalidated || !self.isActive || !self.isActive()) return;
   if (self.getGPS) [self readGPS:self.getGPS()];
-  if (!self.gpsAt || -self.gpsAt.timeIntervalSinceNow > 10) {
-    self.stations = @[]; self.sheet.station = nil; [self clearMarkers];
-    self.errorMessage = @"GPS 수신 후 새로고침해 주세요."; [self.sheet reload]; return;
+  if (!self.gpsAt || -self.gpsAt.timeIntervalSinceNow>10) {
+    [self resetSearch]; self.errorMessage=@"GPS 수신 후 새로고침해 주세요."; [self.sheet reload]; return;
   }
-  double meters = hypot((self.position.x-self.requestedPosition.x)*88000,(self.position.y-self.requestedPosition.y)*111000);
-  NSTimeInterval age = self.requestedAt ? -self.requestedAt.timeIntervalSinceNow : DBL_MAX;
-  if (!force && (self.loading || age < 30 || (age < 180 && meters < 1000))) return;
-  self.requestedAt = [NSDate date]; self.requestedPosition = self.position;
-  self.loading = YES; self.errorMessage = nil;
-  self.context = @{@"requestId":NSUUID.UUID.UUIDString,@"latitude":@(self.position.y),@"longitude":@(self.position.x),@"prod":self.prod};
-  self.stations = @[]; self.sheet.station = nil; [self clearMarkers]; [self.sheet reload];
-  if (self.onFetch) self.onFetch();
+  if (self.loading && !force) return;
+  NSDictionary *entry=[self currentCache];
+  if (!force && entry) { [self useCache:entry]; [self.sheet reload]; return; }
+  if (entry) [self useCache:entry];
+  else { self.stations=@[]; self.receivedAt=nil; self.sheet.station=nil; }
+  // 실패한 자동 재시도가 GPS 프레임마다 발생하지 않게 한다. 새 검색 영역과 직접 새로고침은 허용한다.
+  if (!force && self.requestedAt && -self.requestedAt.timeIntervalSinceNow<30 &&
+      [self distanceTo:self.requestedPosition from:self.position]<1000) { [self.sheet reload]; return; }
+  self.requestedAt=NSDate.date; self.requestedPosition=self.position;
+  self.loading=YES; self.errorMessage=nil;
+  self.context=@{@"requestId":NSUUID.UUID.UUIDString,@"latitude":@(self.position.y),@"longitude":@(self.position.x),@"prod":self.prod};
+  [self.sheet reload]; if (self.onFetch) self.onFetch();
 }
 - (void)applyResponse:(NSDictionary *)response {
-  if (self.invalidated || !self.isActive || !self.isActive() || !self.context ||
-      ![response[@"requestId"] isEqual:self.context[@"requestId"]]) return;
-  if (!self.gpsAt || -self.gpsAt.timeIntervalSinceNow > 10 ||
-      hypot((self.position.x-self.requestedPosition.x)*88000,(self.position.y-self.requestedPosition.y)*111000)>1000) {
-    self.context = nil; self.loading = NO; self.requestedAt = nil; self.stations = @[];
-    [self clearMarkers]; [self.sheet reload]; return;
+  if (self.invalidated || !self.isActive || !self.isActive() || !self.context || ![response[@"requestId"] isEqual:self.context[@"requestId"]]) return;
+  if (!self.gpsAt || -self.gpsAt.timeIntervalSinceNow>10 || [self distanceTo:self.requestedPosition from:self.position]>1000) {
+    [self resetSearch]; return;
   }
-  self.loading = NO; self.context = nil;
-  self.canAddVia = [response[@"canAddVia"] boolValue]; self.courseMode = [response[@"courseMode"] boolValue];
-  NSArray *stations = response[@"stations"];
-  NSMutableArray *valid = [NSMutableArray new];
-  if ([stations isKindOfClass:NSArray.class]) for (NSDictionary *station in stations) {
+  self.loading=NO; self.context=nil;
+  if ([response[@"error"] isKindOfClass:NSString.class]) {
+    NSDictionary *entry=[self currentCache];
+    if (entry) [self useCache:entry];
+    else { self.stations=@[]; self.receivedAt=nil; self.sheet.station=nil; }
+    self.errorMessage=entry ? @"새 가격을 불러오지 못했어요. 이전 조회 결과예요." : @"가격을 불러오지 못했어요. 새로고침해 주세요.";
+    [self.sheet reload]; return;
+  }
+  NSMutableArray *valid=[NSMutableArray new];
+  if ([response[@"stations"] isKindOfClass:NSArray.class]) for (NSDictionary *station in response[@"stations"]) {
     if (![station isKindOfClass:NSDictionary.class] || ![station[@"id"] isKindOfClass:NSString.class] ||
         ![station[@"name"] isKindOfClass:NSString.class] || ![station[@"brand"] isKindOfClass:NSString.class]) continue;
-    BOOL numbers = YES;
+    BOOL numbers=YES;
     for (NSString *key in @[@"price",@"distance",@"latitude",@"longitude"])
-      if (![station[key] isKindOfClass:NSNumber.class] || !isfinite([station[key] doubleValue])) numbers = NO;
-    if (!numbers || [station[@"price"] doubleValue] <= 0 || fabs([station[@"latitude"] doubleValue])>90 ||
+      if (![station[key] isKindOfClass:NSNumber.class] || !isfinite([station[key] doubleValue])) numbers=NO;
+    if (!numbers || [station[@"price"] doubleValue]<=0 || fabs([station[@"latitude"] doubleValue])>90 ||
         fabs([station[@"longitude"] doubleValue])>180 || [station[@"distance"] doubleValue]<0) continue;
-    [valid addObject:station]; if (valid.count == 40) break;
+    [valid addObject:station]; if (valid.count==40) break;
   }
-  self.stations = valid; self.receivedAt = [NSDate date];
-  self.errorMessage = [response[@"error"] isKindOfClass:NSString.class] ? @"가격을 불러오지 못했어요. 새로고침해 주세요." : nil;
+  self.cache[self.prod]=@{@"stations":valid,@"at":NSDate.date,@"latitude":@(self.requestedPosition.y),@"longitude":@(self.requestedPosition.x),
+    @"canAddVia":@([response[@"canAddVia"] boolValue]),@"courseMode":@([response[@"courseMode"] boolValue])};
+  [self useCache:self.cache[self.prod]]; self.errorMessage=nil;
   if (self.sheet.station) {
-    NSString *selected = self.sheet.station[@"id"];
-    self.sheet.station = nil;
-    for (NSDictionary *station in self.stations) if ([station[@"id"] isEqual:selected]) { self.sheet.station = station; break; }
+    NSString *selected=self.sheet.station[@"id"]; self.sheet.station=nil;
+    for (NSDictionary *station in self.stations) if ([station[@"id"] isEqual:selected]) { self.sheet.station=station; break; }
   }
-  [self renderMarkers]; [self.sheet reload];
-}
-- (UIImage *)imageForStation:(NSDictionary *)station selected:(BOOL)selected {
-  CGSize size = CGSizeMake(selected ? 108 : 96, selected ? 48 : 40);
-  UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
-  return [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
-    UIColor *ink = selected ? UIColor.whiteColor : UIColor.blackColor;
-    [(selected ? UIColor.blackColor : UIColor.whiteColor) setFill];
-    UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:CGRectInset((CGRect){CGPointZero,size},1,1) cornerRadius:9];
-    [path fill]; [(selected ? UIColor.whiteColor : UIColor.darkGrayColor) setStroke]; path.lineWidth=1.5; [path stroke];
-    NSString *brand = station[@"brand"];
-    NSDictionary *shortNames = @{@"SK에너지":@"SK",@"GS칼텍스":@"GS",@"HD현대오일뱅크":@"HD",@"S-OIL":@"S-OIL",@"자영알뜰":@"알뜰",@"NH알뜰":@"알뜰"};
-    brand = [NSString stringWithFormat:@"%@ · %@",shortNames[brand] ?: @"주유소",[self.prod isEqual:@"B034"] ? @"고급" : @"휘발유"];
-    NSDictionary *brandAttrs = @{NSFontAttributeName:[UIFont systemFontOfSize:10 weight:UIFontWeightMedium],NSForegroundColorAttributeName:ink};
-    CGSize brandSize = [brand sizeWithAttributes:brandAttrs];
-    [brand drawAtPoint:CGPointMake((size.width-brandSize.width)/2,4) withAttributes:brandAttrs];
-    NSString *price = [NSString stringWithFormat:@"%@원",[NSNumberFormatter localizedStringFromNumber:station[@"price"] numberStyle:NSNumberFormatterDecimalStyle]];
-    NSDictionary *attrs = @{NSFontAttributeName:[UIFont boldSystemFontOfSize:selected ? 17 : 15],NSForegroundColorAttributeName:ink};
-    CGSize text = [price sizeWithAttributes:attrs]; [price drawAtPoint:CGPointMake((size.width-text.width)/2,size.height-text.height-4) withAttributes:attrs];
-  }];
-}
-- (void)renderMarkers {
-  [self clearMarkers];
-  if (!self.map || self.invalidated || !self.isActive || !self.isActive()) return;
-  for (NSUInteger i=0;i<self.stations.count;i++) {
-    NSDictionary *station = self.stations[i]; BOOL selected = [station[@"id"] isEqual:self.selectedID];
-    IntPoint pos = [[KNSDK sharedInstance] convertWGS84ToKATECWithLongitude:[station[@"longitude"] doubleValue] latitude:[station[@"latitude"] doubleValue]];
-    KNMapMarker *marker = [KNMapMarker markerWithCoordinate:FloatPointMake(pos.x,pos.y)];
-    UIImage *image = [self imageForStation:station selected:selected]; [self.images addObject:image]; marker.icon = image;
-    marker.tag = i; marker.priority = selected ? 1000 : 100;
-    marker.useSingleTapped = YES; marker.useDoubleTapped = NO; marker.useLongPressed = NO;
-    // KNSDK는 단계형 줌이 아닌 배율을 쓴다. 안내 기본 배율 1에서도 표시한다.
-    [marker setVisibleRangeWithMinZoom:0.1 maxZoom:9999];
-    [self.markers addObject:marker]; [self.map addMarker:marker];
-  }
+  [self.sheet reload];
 }
 - (void)presentSheetForStation:(NSDictionary *)station {
   if (self.invalidated || !self.isActive || !self.isActive()) return;
-  if (self.sheet.presentingViewController) { self.sheet.station = station; [self.sheet reload]; return; }
+  if (self.sheet.presentingViewController) { if (!self.sheet.closing) { self.sheet.station=station; [self.sheet reload]; } return; }
   if (self.host.presentedViewController) return;
-  KNNaviGasSheet *sheet = [KNNaviGasSheet new]; sheet.owner = self; sheet.station = station; self.sheet = sheet;
-  UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:sheet];
-  nav.view.tintColor = UIColor.labelColor; nav.modalPresentationStyle = UIModalPresentationPageSheet;
-  nav.sheetPresentationController.detents = @[UISheetPresentationControllerDetent.mediumDetent, UISheetPresentationControllerDetent.largeDetent];
-  nav.sheetPresentationController.prefersGrabberVisible = YES;
-  [self.host presentViewController:nav animated:YES completion:nil];
+  KNNaviGasSheet *sheet=[KNNaviGasSheet new]; sheet.owner=self; sheet.station=station; self.sheet=sheet;
+  [self.host presentViewController:sheet animated:NO completion:nil];
 }
-- (void)showSearch { [self presentSheetForStation:nil]; [self requestForced:YES]; }
-- (void)choose:(NSDictionary *)station {
-  self.selectedID = station[@"id"]; [self renderMarkers]; [self presentSheetForStation:station];
-}
+- (void)showSearch { [self requestForced:NO]; [self presentSheetForStation:nil]; }
+- (void)choose:(NSDictionary *)station { [self presentSheetForStation:station]; }
 - (void)route:(BOOL)via {
-  if (!self.sheet.station || (via && !self.canAddVia) || !self.isActive || !self.isActive()) return;
-  self.selection = @{ @"station":self.sheet.station, @"via":@(via) };
-  self.sheet.view.userInteractionEnabled = NO;
-  [self.host dismissViewControllerAnimated:YES completion:^{ if (!self.invalidated && self.onRoute) self.onRoute(); }];
-}
-- (void)mapView:(KNMapView *)map onSingleTappedWithMarker:(KNMapMarker *)marker {
-  NSUInteger index = [self.markers indexOfObjectIdenticalTo:marker];
-  if (index != NSNotFound && index < self.stations.count) { [self choose:self.stations[index]]; return; }
-  if ([self.previousListener respondsToSelector:_cmd]) [self.previousListener mapView:map onSingleTappedWithMarker:marker];
-}
-- (void)mapView:(KNMapView *)map onDoubleTappedWithMarker:(KNMapMarker *)marker {
-  if ([self.previousListener respondsToSelector:_cmd]) [self.previousListener mapView:map onDoubleTappedWithMarker:marker];
-}
-- (void)mapView:(KNMapView *)map onLongPressedWithMarker:(KNMapMarker *)marker {
-  if ([self.previousListener respondsToSelector:_cmd]) [self.previousListener mapView:map onLongPressedWithMarker:marker];
-}
-- (void)mapView:(KNMapView *)map onMarkerAnimationEnded:(KNMapMarker *)marker {
-  if ([self.previousListener respondsToSelector:_cmd]) [self.previousListener mapView:map onMarkerAnimationEnded:marker];
-}
-- (void)mapView:(KNMapView *)map onCalloutBubbleSelected:(KNMapMarker *)marker {
-  if ([self.previousListener respondsToSelector:_cmd]) [self.previousListener mapView:map onCalloutBubbleSelected:marker];
+  if (!self.sheet.station || (via && !self.canAddVia) || !self.isActive || !self.isActive() || self.sheet.closing) return;
+  self.selection=@{@"station":self.sheet.station,@"via":@(via)};
+  [self.sheet closeWithCompletion:^{ if (!self.invalidated && self.onRoute) self.onRoute(); }];
 }
 - (NSDictionary *)takeSelection {
-  NSDictionary *selection = self.selection; self.selection = nil;
+  NSDictionary *selection=self.selection; self.selection=nil;
   return !self.invalidated && self.isActive && self.isActive() ? selection : nil;
 }
 - (void)invalidate {
-  self.invalidated = YES; [self.timer invalidate]; self.timer = nil; self.context = nil; self.selection = nil;
-  [self clearMarkers];
-  if (self.map.markerEventListener == self) self.map.markerEventListener = self.previousListener;
-  self.onFetch = nil; self.onRoute = nil; self.isActive = nil; self.getGPS = nil; self.stations = @[];
+  self.invalidated=YES; [self.timer invalidate]; self.timer=nil; [self resetSearch]; self.selection=nil;
+  self.onFetch=nil; self.onRoute=nil; self.isActive=nil; self.getGPS=nil;
 }
 - (void)dealloc { [self.timer invalidate]; }
 @end

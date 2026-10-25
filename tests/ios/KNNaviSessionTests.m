@@ -529,100 +529,102 @@ void RunKNNaviHazardSheetTests(UIWindow *window, void (^completion)(int)) {
 }
 
 #import "KNNaviGasLayer.h"
-#import <KNSDK/KNMapMarker.h>
 @interface GasFinishControllerProbe : KNNaviViewController @end
 @implementation GasFinishControllerProbe
 - (void)viewDidLoad { self.view.backgroundColor = UIColor.blackColor; }
 - (void)viewDidAppear:(BOOL)animated {}
 @end
-@interface GasMapProbe : NSObject
-@property(nonatomic, weak) id markerEventListener;
-@property(nonatomic, strong) NSMutableArray *markers;
-@end
-@implementation GasMapProbe
-- (instancetype)init { if ((self=[super init])) _markers=[NSMutableArray new]; return self; }
-- (void)addMarker:(id)marker { [self.markers addObject:marker]; }
-- (void)removeMarker:(id)marker { [self.markers removeObjectIdenticalTo:marker]; }
-@end
 @interface KNNaviGasLayer (GasTest)
-- (void)choose:(NSDictionary *)station;
 - (void)requestForced:(BOOL)force;
-- (void)mapView:(KNMapView *)map onSingleTappedWithMarker:(KNMapMarker *)marker;
-- (UIImage *)imageForStation:(NSDictionary *)station selected:(BOOL)selected;
 @end
 void RunKNNaviGasTests(UIWindow *window, void (^completion)(int)) {
   __block int failures=0; __block NSUInteger fetches=0;
-  // 주변 유가 조회는 유효하고 신선한 GPS로 가능해야 한다. 경로 변경용 posTrust는 별도다.
   KNNaviGasLayer *locationLayer=[[KNNaviGasLayer alloc] initWithHost:window.rootViewController];
   locationLayer.isActive=^BOOL{ return YES; };
   SessionControllerProbe *locationController=[SessionControllerProbe new]; locationController.gasLayer=locationLayer;
   [locationController setValue:@YES forKey:@"carThemeApplied"];
-  GPSProbe *raw=[GPSProbe new]; raw.valid=YES; raw.posTrust=NO; raw.timestamp=NSDate.date; raw.pos=DoublePointMake(300000,550000);
+  GPSProbe *raw=[GPSProbe new]; raw.valid=YES; raw.posTrust=NO; raw.timestamp=NSDate.date;
+  IntPoint coordinate=[[KNSDK sharedInstance] convertWGS84ToKATECWithLongitude:127 latitude:37.5];
+  raw.pos=DoublePointMake(coordinate.x,coordinate.y);
   LocationGuideProbe *locationGuide=[LocationGuideProbe new]; locationGuide.gpsOrigin=raw;
   [KNSDKBridge setLocationUseAllowed:YES];
   [locationController guidance:nil didUpdateLocation:(id)locationGuide];
-  if (!locationLayer.context) { NSLog(@"FAIL fresh valid GPS incorrectly leaves gas search waiting for route position trust"); failures++; }
-  if ([locationController usableRecoveryGPS:(id)raw]) { NSLog(@"FAIL route GPS trust guard weakened"); failures++; }
+  if (locationLayer.context) { NSLog(@"FAIL gas search fetched before menu opened"); failures++; }
+  [locationLayer requestForced:NO];
+  if (!locationLayer.context || [locationController usableRecoveryGPS:(id)raw]) { NSLog(@"FAIL search GPS guard or route trust"); failures++; }
   [locationLayer invalidate]; [KNSDKBridge setLocationUseAllowed:NO];
-  KNNaviGasLayer *manualLayer=[[KNNaviGasLayer alloc] initWithHost:window.rootViewController];
-  manualLayer.isActive=^BOOL{ return YES; }; manualLayer.getGPS=^KNGPSData *{ return (id)raw; };
-  [manualLayer requestForced:YES];
-  if (!manualLayer.context) { NSLog(@"FAIL manual gas refresh ignores already available SDK GPS"); failures++; }
-  raw.timestamp=[NSDate dateWithTimeIntervalSinceNow:-30];
-  if ([KNNaviGasLayer isUsableSearchGPS:(id)raw]) { NSLog(@"FAIL stale gas GPS accepted"); failures++; }
-  raw.timestamp=NSDate.date; raw.valid=NO;
-  if ([KNNaviGasLayer isUsableSearchGPS:(id)raw]) { NSLog(@"FAIL invalid gas GPS accepted"); failures++; }
-  raw.valid=YES; raw.pos=DoublePointMake(NAN,0);
-  if ([KNNaviGasLayer isUsableSearchGPS:(id)raw]) { NSLog(@"FAIL nonfinite gas GPS accepted"); failures++; }
-  [manualLayer invalidate];
-  if (manualLayer.getGPS) { NSLog(@"FAIL gas GPS provider retained after cleanup"); failures++; }
   KNNaviGasLayer *layer=[[KNNaviGasLayer alloc] initWithHost:window.rootViewController];
-  layer.isActive=^BOOL{ return YES; }; layer.onFetch=^{ fetches++; };
-  GasMapProbe *map=[GasMapProbe new]; NSObject *originalListener=[NSObject new]; map.markerEventListener=originalListener;
-  [layer attachMap:(id)map];
-  GPSProbe *gps=[GPSProbe new]; gps.valid=YES; gps.timestamp=NSDate.date; gps.pos=DoublePointMake(0,0);
-  [layer updateGPS:(id)gps];
-  NSString *first=layer.context[@"requestId"];
+  layer.isActive=^BOOL{ return YES; }; layer.getGPS=^KNGPSData *{ return (id)raw; }; layer.onFetch=^{ fetches++; };
+  [layer updateGPS:(id)raw];
+  if (fetches) { NSLog(@"FAIL hidden gas search fetched automatically"); failures++; }
+  [layer requestForced:NO]; NSString *first=layer.context[@"requestId"];
   [layer requestForced:YES]; NSString *second=layer.context[@"requestId"];
   NSDictionary *station=@{@"id":@"gas-one",@"name":@"모토맵 테스트 주유소",@"brand":@"GS칼텍스",@"latitude":@37.5,@"longitude":@127.0,@"price":@1785,@"distance":@1200};
   [layer applyResponse:@{@"requestId":first,@"stations":@[station]}];
-  if ([layer valueForKey:@"stations"] && [[layer valueForKey:@"stations"] count]!=0) { NSLog(@"FAIL stale gas response"); failures++; }
+  if ([[layer valueForKey:@"stations"] count]) { NSLog(@"FAIL stale gas response"); failures++; }
   [layer applyResponse:@{@"requestId":second,@"stations":@[station],@"canAddVia":@YES}];
-  if (map.markers.count!=1 || fetches!=2 || map.markerEventListener!=layer) { NSLog(@"FAIL owned gas marker/response"); failures++; }
   [layer showSearch];
-  [layer applyResponse:@{@"requestId":layer.context[@"requestId"],@"stations":@[station],@"canAddVia":@YES}];
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW,0.5*NSEC_PER_SEC),dispatch_get_main_queue(),^{
+  if (fetches!=2 || [[layer valueForKey:@"loading"] boolValue] || [[layer valueForKey:@"stations"] count]!=1) { NSLog(@"FAIL gas cached reopen reloads"); failures++; }
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW,0.4*NSEC_PER_SEC),dispatch_get_main_queue(),^{
     UIViewController *sheet=[layer valueForKey:@"sheet"];
     UITableView *table=[sheet valueForKey:@"table"];
+    UIView *body=[sheet valueForKey:@"sheet"];
+    if (sheet.modalPresentationStyle!=UIModalPresentationOverFullScreen || sheet.navigationController || !body.accessibilityViewIsModal ||
+        fabs(CGRectGetMaxY(body.frame)-sheet.view.bounds.size.height)>0.5) { NSLog(@"FAIL custom gas sheet layout"); failures++; }
     [table.delegate tableView:table didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]];
     if (![sheet valueForKey:@"station"]) { NSLog(@"FAIL gas search row selection"); failures++; }
-    if (map.markers.count) [layer mapView:(id)map onSingleTappedWithMarker:map.markers.firstObject];
-    if (!sheet.view.window || ![[layer valueForKey:@"selectedID"] isEqual:@"gas-one"]) { NSLog(@"FAIL gas marker selection sheet"); failures++; }
+    [(UIButton *)[sheet valueForKey:@"backButton"] sendActionsForControlEvents:UIControlEventTouchUpInside];
+    UIStackView *fuel=[sheet valueForKey:@"fuel"];
+    [(UIButton *)fuel.arrangedSubviews.lastObject sendActionsForControlEvents:UIControlEventTouchUpInside];
+    if (fetches!=3 || ![layer.context[@"prod"] isEqual:@"B034"]) { NSLog(@"FAIL new fuel query"); failures++; }
+    [layer applyResponse:@{@"requestId":layer.context[@"requestId"],@"stations":@[station],@"canAddVia":@YES}];
+    [(UIButton *)fuel.arrangedSubviews.firstObject sendActionsForControlEvents:UIControlEventTouchUpInside];
+    [(UIButton *)fuel.arrangedSubviews.lastObject sendActionsForControlEvents:UIControlEventTouchUpInside];
+    if (fetches!=3 || [[layer valueForKey:@"loading"] boolValue]) { NSLog(@"FAIL fuel cache not reused"); failures++; }
+    [(UIButton *)[sheet valueForKey:@"refreshButton"] sendActionsForControlEvents:UIControlEventTouchUpInside];
+    if (fetches!=4 || [[layer valueForKey:@"stations"] count]!=1) { NSLog(@"FAIL refresh cleared valid gas rows"); failures++; }
+    [layer applyResponse:@{@"requestId":layer.context[@"requestId"],@"error":@"unavailable"}];
+    if ([[layer valueForKey:@"stations"] count]!=1 || ![[layer valueForKey:@"errorMessage"] containsString:@"이전 조회"]) { NSLog(@"FAIL refresh failure lost usable cache"); failures++; }
     UIGraphicsImageRenderer *renderer=[[UIGraphicsImageRenderer alloc] initWithBounds:window.bounds];
     UIImage *image=[renderer imageWithActions:^(UIGraphicsImageRendererContext *context){ [window drawViewHierarchyInRect:window.bounds afterScreenUpdates:YES]; }];
     NSString *path=[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"gas-sheet.png"];
     [UIImagePNGRepresentation(image) writeToFile:path atomically:YES];
-    [layer setValue:[NSDate dateWithTimeIntervalSinceNow:-20] forKey:@"gpsAt"];
-    [(NSTimer *)[layer valueForKey:@"timer"] fire];
-    if (map.markers.count || [sheet valueForKey:@"station"]) { NSLog(@"FAIL expired gas prices retained"); failures++; }
-    gps.timestamp=NSDate.date; [layer updateGPS:(id)gps];
-    if (!layer.context || fetches!=4) { NSLog(@"FAIL gas GPS recovery refresh"); failures++; }
-    if ([layer imageForStation:station selected:NO].size.width!=96 || [layer imageForStation:station selected:YES].size.width!=108) { NSLog(@"FAIL gas selection emphasis image"); failures++; }
-    [window.rootViewController dismissViewControllerAnimated:NO completion:^{
-      [layer invalidate];
-      if (map.markers.count || map.markerEventListener!=originalListener || layer.context) { NSLog(@"FAIL gas cleanup/listener restore"); failures++; }
-      GasFinishControllerProbe *host=[GasFinishControllerProbe new]; host.modalPresentationStyle=UIModalPresentationOverFullScreen;
-      [window.rootViewController presentViewController:host animated:NO completion:^{
-        KNNaviGasLayer *finishing=[[KNNaviGasLayer alloc] initWithHost:host]; host.gasLayer=finishing;
-        finishing.isActive=^BOOL{ return YES; }; [finishing showSearch];
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,0.4*NSEC_PER_SEC),dispatch_get_main_queue(),^{
-          [host finish];
-          WaitAsync(^BOOL{ return window.rootViewController.presentedViewController==nil; },NSDate.timeIntervalSinceReferenceDate+3,^(BOOL closed){
-            if (!closed) { NSLog(@"FAIL gas modal navigation finish chain"); failures++; }
-            completion(failures);
+    [(UIButton *)[sheet valueForKey:@"backButton"] sendActionsForControlEvents:UIControlEventTouchUpInside];
+    WaitAsync(^BOOL{ return !window.rootViewController.presentedViewController; },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL closed){
+      [layer showSearch];
+      if (!closed || fetches!=4 || [[layer valueForKey:@"loading"] boolValue]) { NSLog(@"FAIL close/reopen cache"); failures++; }
+      // 만료·이동·무효 GPS는 캐시를 계속 성공 처리하지 않는다.
+      NSMutableDictionary *cache=[layer valueForKey:@"cache"];
+      NSMutableDictionary *expired=[cache[@"B034"] mutableCopy]; expired[@"at"]=[NSDate dateWithTimeIntervalSinceNow:-181]; cache[@"B034"]=expired;
+      [layer setValue:[NSDate dateWithTimeIntervalSinceNow:-181] forKey:@"requestedAt"];
+      [layer requestForced:NO];
+      if (fetches!=5 || [[layer valueForKey:@"stations"] count]) { NSLog(@"FAIL expired gas cache reused"); failures++; }
+      [layer applyResponse:@{@"requestId":layer.context[@"requestId"],@"stations":@[station]}];
+      raw.pos=DoublePointMake(coordinate.x+2000,coordinate.y); [layer updateGPS:(id)raw];
+      if (fetches!=6 || [[layer valueForKey:@"stations"] count]) { NSLog(@"FAIL moved gas cache reused"); failures++; }
+      raw.timestamp=[NSDate dateWithTimeIntervalSinceNow:-20]; [layer setValue:raw.timestamp forKey:@"gpsAt"];
+      [(NSTimer *)[layer valueForKey:@"timer"] fire];
+      if (cache.count || layer.context || [[layer valueForKey:@"stations"] count]) { NSLog(@"FAIL stale GPS retained gas cache"); failures++; }
+      raw.timestamp=NSDate.date; raw.valid=NO;
+      if ([KNNaviGasLayer isUsableSearchGPS:(id)raw]) { NSLog(@"FAIL invalid gas GPS accepted"); failures++; }
+      raw.valid=YES; raw.pos=DoublePointMake(NAN,0);
+      if ([KNNaviGasLayer isUsableSearchGPS:(id)raw]) { NSLog(@"FAIL nonfinite gas GPS accepted"); failures++; }
+      [window.rootViewController dismissViewControllerAnimated:NO completion:^{
+        [layer invalidate];
+        if (layer.getGPS || cache.count || layer.context) { NSLog(@"FAIL gas cleanup"); failures++; }
+        GasFinishControllerProbe *host=[GasFinishControllerProbe new]; host.modalPresentationStyle=UIModalPresentationOverFullScreen;
+        [window.rootViewController presentViewController:host animated:NO completion:^{
+          KNNaviGasLayer *finishing=[[KNNaviGasLayer alloc] initWithHost:host]; host.gasLayer=finishing;
+          finishing.isActive=^BOOL{ return YES; }; [finishing showSearch];
+          dispatch_after(dispatch_time(DISPATCH_TIME_NOW,0.4*NSEC_PER_SEC),dispatch_get_main_queue(),^{
+            [host finish];
+            WaitAsync(^BOOL{ return !window.rootViewController.presentedViewController; },NSDate.timeIntervalSinceReferenceDate+3,^(BOOL done){
+              if (!done) { NSLog(@"FAIL gas modal navigation finish chain"); failures++; }
+              completion(failures);
+            });
           });
-        });
+        }];
       }];
-    }];
+    });
   });
 }

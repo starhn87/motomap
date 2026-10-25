@@ -791,7 +791,6 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   KNMapView *inner = [self findInnerMapViewIn:self.naviView.mapView depth:0];
   // eventListener 는 weak — self(화면과 수명 동일)를 그대로 걸어도 안전하다
   inner.poiProperties.eventListener = self;
-  if (inner && !self.preview) [self.gasLayer attachMap:inner];
 }
 
 // 지도 POI(상호·건물) 탭 — 이름·KATEC 좌표가 온다. WGS84 로 바꿔 JS 로 넘긴다.
@@ -941,6 +940,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   }
   self.resumeCommitting = NO;
   if (self.changingDestination && self.pendingDestinationTrip) {
+    [self.gasLayer resetSearch];
     self.trip = self.pendingDestinationTrip;
     self.priority = self.pendingDestinationPriority;
   }
