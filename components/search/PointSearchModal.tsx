@@ -16,7 +16,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import SearchPlaceIcon from '@/components/search/SearchPlaceIcon';
 import MapPickerModal from '@/components/map/MapPickerModal';
-import { favoriteMatcher, favoritesFirst, mergeFavoriteCandidates } from '@/lib/favoriteMatching';
+import { favoriteMatcher, favoritesFirst, mergeFavoriteCandidates, isFavoritePoint } from '@/lib/favoriteMatching';
 import { CATEGORIES } from '@/constants/categories';
 import { useMyPlacesStore, type MyPlaceSlot } from '@/stores/useMyPlacesStore';
 import { DialogCard } from '@/components/ui/DialogHost';
@@ -490,7 +490,8 @@ export default function PointSearchModal({
                         )
                       }
                       style={[styles.resultRow, { borderBottomColor: colors.border }]}>
-                      <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                      <SearchPlaceIcon point={r} favorite={isFavoritePoint(r, favorites)} size={16}
+                        fallback={<Ionicons name="time-outline" size={16} color={colors.textSecondary} />} />
                       <View style={styles.resultTexts}>
                         <Text
                           style={[styles.resultName, { color: colors.text }]}
@@ -526,7 +527,7 @@ export default function PointSearchModal({
                 <SearchPlaceIcon point={item.place} category={item.place.category} favorite={isFavorite(item)} size={16} />
                 <View style={styles.resultTexts}>
                   <Text style={[styles.resultName, { color: colors.text }]} numberOfLines={1}>
-                    {isFavorite(item) ? '★ ' : ''}{item.place.name}
+                    {item.place.name}
                   </Text>
                   {!!item.place.address && (
                     <Text
@@ -548,7 +549,7 @@ export default function PointSearchModal({
                 <SearchPlaceIcon point={item.k} favorite={isFavorite(item)} size={16} />
                 <View style={styles.resultTexts}>
                   <Text style={[styles.resultName, { color: colors.text }]} numberOfLines={1}>
-                    {isFavorite(item) ? '★ 즐겨찾기 · ' : ''}{item.k.placeName}
+                    {item.k.placeName}
                   </Text>
                   <Text
                     style={[styles.resultAddress, { color: colors.textSecondary }]}
@@ -556,7 +557,7 @@ export default function PointSearchModal({
                     {item.k.roadAddress || item.k.address}
                   </Text>
                 </View>
-                <Text style={[styles.resultBadge, { color: colors.textSecondary }]}>일반</Text>
+                <Text style={[styles.resultBadge, { color: colors.textSecondary }]}>{isFavorite(item) ? '즐겨찾기' : '일반'}</Text>
               </Pressable>
             )
           )}

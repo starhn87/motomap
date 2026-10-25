@@ -25,10 +25,9 @@ import {
   searchAll,
 } from '@/lib/api/search';
 import { useSearchAnchor } from '@/hooks/useSearchAnchor';
-import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import SearchPlaceIcon from '@/components/search/SearchPlaceIcon';
 import { useFavoritePlaces } from '@/hooks/useFavorites';
-import { favoriteMatcher, favoritesFirst, mergeFavoriteCandidates } from '@/lib/favoriteMatching';
+import { favoriteMatcher, favoritesFirst, mergeFavoriteCandidates, isFavoritePoint } from '@/lib/favoriteMatching';
 import { useRecommendedPlaces } from '@/hooks/usePlaces';
 import { useAuthStore } from '@/stores/useAuthStore';
 import type { KakaoLocalResult } from '@/lib/api/kakaoLocal';
@@ -170,24 +169,20 @@ export default function SearchScreen() {
     };
   }, []);
 
-  // 내 장소(집·회사) — 기기 로컬 저장. 탭하면 바로 길안내, 미저장이면 설정
+  // 내 장소(집·회사) — 기기 로컬 저장. 탭하면 바로 길안내, 미저장이면 설정으로 이동
   const myPlaces = useMyPlacesStore((s) => s.places);
   const myPlacesLoaded = useMyPlacesStore((s) => s.loaded);
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
-  const saveMyPlace = useMyPlacesStore((s) => s.save);
   useEffect(() => {
     void loadMyPlaces();
   }, [loadMyPlaces]);
-
-  // 저장 안 된 슬롯을 탭하면 주소 검색으로 바로 설정한다. 변경·삭제는
-  // 설정 화면의 '내 장소'에서 — 롱프레스 같은 숨은 동작은 두지 않는다.
-  const [editingSlot, setEditingSlot] = useState<MyPlaceSlot | null>(null);
 
   const handleMyPlace = (slot: MyPlaceSlot) => {
     const saved = myPlaces[slot];
     if (!saved) {
       Keyboard.dismiss();
-      setEditingSlot(slot);
+      toast.info('설정의 내 장소에서 설정해 주세요.');
+      router.push('/settings');
       return;
     }
     Keyboard.dismiss();
@@ -196,19 +191,6 @@ export default function SearchScreen() {
       latitude: saved.latitude,
       longitude: saved.longitude,
     });
-  };
-
-  const handleSlotSelect = (point: Point, address?: string) => {
-    const slot = editingSlot;
-    setEditingSlot(null);
-    if (!slot || point === 'current') return;
-    void saveMyPlace(slot, {
-      name: point.name,
-      address: address ?? '',
-      latitude: point.latitude,
-      longitude: point.longitude,
-    });
-    toast.success(slot === 'home' ? '집을 저장했어요.' : '회사를 저장했어요.');
   };
 
   const trimmed = query.trim();
@@ -418,7 +400,7 @@ export default function SearchScreen() {
         <View style={styles.rowIconWrap}><SearchPlaceIcon point={place} category={place.category} favorite={isFavorite({ kind: 'place', place })} /></View>
         <View style={styles.rowInfo}>
           <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-            {isFavorite({ kind: 'place', place }) ? '★ ' : ''}{place.name}
+            {place.name}
           </Text>
           <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
             {near
@@ -604,13 +586,13 @@ export default function SearchScreen() {
                       <View style={styles.rowIconWrap}><SearchPlaceIcon point={k} favorite={isFavorite({ kind: 'kakao', k })} /></View>
                       <View style={styles.rowInfo}>
                         <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-                          {isFavorite({ kind: 'kakao', k }) ? '★ ' : ''}{k.placeName}
+                          {k.placeName}
                         </Text>
                         <Text style={[styles.rowSub, { color: colors.textSecondary }]} numberOfLines={1}>
                           {k.roadAddress || k.address}
                         </Text>
                       </View>
-                      <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>{isFavorite({ kind: 'kakao', k }) ? '★ 즐겨찾기' : '일반'}</Text>
+                      <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>{isFavorite({ kind: 'kakao', k }) ? '즐겨찾기' : '일반'}</Text>
                     </Pressable>
                   );
                 })()
@@ -722,7 +704,7 @@ export default function SearchScreen() {
                       ) : entry.type === 'course' || entry.type === 'riding' ? (
                         <MaterialCommunityIcons name="road-variant" size={20} color={colors.tint} />
                       ) : (
-                        <SearchPlaceIcon point={entry} />
+                        <SearchPlaceIcon point={entry} favorite={isFavoritePoint(entry, favorites)} />
                       )}
                     </View>
                     <View style={styles.rowInfo}>
@@ -791,7 +773,7 @@ export default function SearchScreen() {
                         {f.address}
                       </Text>
                     </View>
-                    <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>★ 즐겨찾기</Text>
+                    <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>즐겨찾기</Text>
                   </Pressable>
                 ))}
             </>
@@ -813,14 +795,7 @@ export default function SearchScreen() {
         </ScrollView>
       )}
 
-      <PointSearchModal
-        visible={editingSlot !== null}
-        confirmSlot={editingSlot}
-        allowCurrent={false}
-        title={editingSlot === 'home' ? '집 설정' : '회사 설정'}
-        onClose={() => setEditingSlot(null)}
-        onSelect={handleSlotSelect}
-      />
+
     </View>
   );
 }

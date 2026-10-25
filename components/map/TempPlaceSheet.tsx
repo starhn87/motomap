@@ -33,10 +33,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { openNavigation, useNavLaunching } from '@/lib/navigation';
-import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
-import { findSavedPlaceSlot } from '@/lib/myPlaces';
 import { toast } from '@/lib/toast';
-import { appAlert } from '@/lib/dialog';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useMapStore } from '@/stores/useMapStore';
 import { useGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
@@ -115,10 +112,6 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const user = useAuthStore((st) => st.user);
   const userLocation = useMapStore((s) => s.userLocation);
 
-  const myPlaces = useMyPlacesStore((s) => s.places);
-  const loadMyPlaces = useMyPlacesStore((s) => s.load);
-  const saveMyPlace = useMyPlacesStore((s) => s.save);
-  const removeMyPlace = useMyPlacesStore((s) => s.remove);
   const { data: generalPlace, isLoading: generalPlaceLoading } = useGeneralPlace(place);
   const resolvedPlace = place ? { ...place, generalPlaceId: generalPlace?.id ?? place.generalPlaceId,
     providerId: generalPlace?.provider === 'kakao' ? generalPlace.providerId : place.providerId } : null;
@@ -163,10 +156,6 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const tankCost = fullTankCost(myBike, fuelPrices);
 
   useEffect(() => {
-    void loadMyPlaces();
-  }, [loadMyPlaces]);
-
-  useEffect(() => {
     if (place) {
       // 시트 인스턴스는 닫힌 상태로 계속 유지하고, POI 선택 때만 연다.
       // 데이터와 시트를 함께 마운트하면 초기 index 적용과 snap 명령이 경합해
@@ -185,7 +174,6 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
       })
     : null;
 
-  const savedSlot = findSavedPlaceSlot(myPlaces, place);
 
   const handleFavorite = async () => {
     if (!place) return;
@@ -205,50 +193,6 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }
-  };
-
-  const handleSaveMyPlace = () => {
-    if (!place) return;
-    if (savedSlot) {
-      const isHome = savedSlot === 'home';
-      appAlert(isHome ? '집으로 저장된 장소' : '회사로 저장된 장소', place.name, [
-        { text: '취소', style: 'cancel' },
-        {
-          text: isHome ? '회사로 변경' : '집으로 변경',
-          onPress: async () => {
-            await removeMyPlace(savedSlot);
-            await saveMyPlace(isHome ? 'work' : 'home', place);
-            toast.success(isHome ? '회사로 변경했어요.' : '집으로 변경했어요.');
-          },
-        },
-        {
-          text: '저장 해제',
-          style: 'destructive',
-          onPress: async () => {
-            await removeMyPlace(savedSlot);
-            toast.info('내 장소에서 해제했어요.');
-          },
-        },
-      ]);
-      return;
-    }
-    appAlert('내 장소로 저장', `${place.name}\n검색 화면에서 바로 길안내할 수 있어요.`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '집으로',
-        onPress: async () => {
-          await saveMyPlace('home', place);
-          toast.success('집으로 저장했어요.');
-        },
-      },
-      {
-        text: '회사로',
-        onPress: async () => {
-          await saveMyPlace('work', place);
-          toast.success('회사로 저장했어요.');
-        },
-      },
-    ]);
   };
 
   const handleNavigate = async () => {
@@ -333,9 +277,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
       isFavorite={isFavorite}
       favoriteDisabled={favPending}
       favoriteScale={favoriteScale}
-      savedSlot={savedSlot}
       onFavorite={handleFavorite}
-      onSaveMyPlace={handleSaveMyPlace}
       onClose={onClose}
     />
   );

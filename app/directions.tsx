@@ -1,7 +1,7 @@
 import { withLocationUse } from '@/stores/useLocationPrivacyStore';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,7 +13,9 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 
-import { RoutePointIcon } from '@/components/search/SearchPlaceIcon';
+import SearchPlaceIcon, { RoutePointIcon } from '@/components/search/SearchPlaceIcon';
+import { isFavoritePoint } from '@/lib/favoriteMatching';
+import { useFavoritePlaces } from '@/hooks/useFavorites';
 import Colors from '@/constants/Colors';
 import CloseIcon from '@/components/ui/CloseIcon';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -36,7 +38,7 @@ import { toast } from '@/lib/toast';
 // 같은 저장소를 그대로 쓴다 — 어느 쪽에서 만들었든 양쪽에 함께 보인다.
 
 // 검색 모달이 어느 값을 채우는 중인지 — 숫자는 경유지 인덱스
-type Editing = 'origin' | 'dest' | MyPlaceSlot | number;
+type Editing = 'origin' | 'dest' | number;
 
 // 경유지 상한 — 미리보기(/navi)의 편집 카드와 같은 값
 const MAX_VIAS = 3;
@@ -44,10 +46,10 @@ const MAX_VIAS = 3;
 export default function DirectionsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { data: favorites } = useFavoritePlaces();
   const navLaunching = useNavLaunching((s) => s.launching);
   const myPlaces = useMyPlacesStore((s) => s.places);
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
-  const saveMyPlace = useMyPlacesStore((s) => s.save);
   // 장소 상세의 출발/도착 버튼에서 넘어올 때의 프리필
   const params = useLocalSearchParams<{
     olng?: string;
@@ -200,18 +202,10 @@ export default function DirectionsScreen() {
       void preview(point, dest);
     } else if (kind === 'dest') {
       pickDest(point, address);
-    } else if ((kind === 'home' || kind === 'work') && point !== 'current') {
-      void saveMyPlace(kind, {
-        name: point.name,
-        address: address ?? '',
-        latitude: point.latitude,
-        longitude: point.longitude,
-      });
-      pickDest(point, address);
     }
   };
 
-  // 집/회사 칩 — 설정돼 있으면 바로 도착지로, 없으면 설정 검색부터
+  // 집/회사 칩 — 설정돼 있으면 바로 도착지로, 없으면 설정 화면에서 설정
   const shortcut = (slot: MyPlaceSlot) => {
     if (previewBlocked()) return;
     const saved = myPlaces[slot];
@@ -221,7 +215,8 @@ export default function DirectionsScreen() {
         saved.address,
       );
     } else {
-      editField(slot);
+      toast.info('설정의 내 장소에서 설정해 주세요.');
+      router.push('/settings');
     }
   };
 
@@ -351,7 +346,8 @@ export default function DirectionsScreen() {
                 onPress={() => pickDest(target, target.address)}
                 disabled={busy}
                 style={[styles.recentRow, { borderBottomColor: colors.border }]}>
-                <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                <SearchPlaceIcon point={target} favorite={isFavoritePoint(target, favorites)} size={16}
+                  fallback={<Ionicons name="time-outline" size={16} color={colors.textSecondary} />} />
                 <View style={styles.recentTexts}>
                   <Text
                     style={[styles.recentName, { color: colors.text }]}
@@ -388,21 +384,10 @@ export default function DirectionsScreen() {
         draftKey={editing === 'origin' ? fieldDraftKeys[0]
           : editing === 'dest' ? fieldDraftKeys[fieldDraftKeys.length - 1]
             : typeof editing === 'number' ? fieldDraftKeys[editing + 1] : undefined}
-        confirmSlot={editing === 'home' || editing === 'work' ? editing : null}
         allowCurrent={editing === 'origin' || editing === 'dest'}
-        allowSaved={editing !== 'home' && editing !== 'work'}
+        allowSaved
         recents={recentRows.map((r) => r.target)}
-        title={
-          editing === 'home'
-            ? '집 설정'
-            : editing === 'work'
-              ? '회사 설정'
-              : typeof editing === 'number'
-                ? viaPoints[editing]
-                  ? '경유지 변경'
-                  : '경유지 추가'
-                : undefined
-        }
+        title={typeof editing === 'number' ? viaPoints[editing] ? '경유지 변경' : '경유지 추가' : undefined}
         onClose={() => setEditing(null)}
         onSelect={handleModalSelect}
       />

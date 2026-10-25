@@ -941,7 +941,7 @@ export default function SearchResultsScreen() {
                     <SearchPlaceIcon point={item.place} category={item.place.category} favorite={isFavorite(item)} size={18} />
                     <View style={styles.rowTexts}>
                       <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-                        {isFavorite(item) ? '★ 즐겨찾기 · ' : ''}{item.place.name}
+                        {item.place.name}
                       </Text>
                       {!!item.place.address && (
                         <Text
@@ -975,7 +975,7 @@ export default function SearchResultsScreen() {
                     </View>
                     <Text
                       style={[styles.rowBadge, { color: CATEGORIES[item.place.category].color }]}>
-                      {CATEGORIES[item.place.category].label}
+                      {isFavorite(item) ? '즐겨찾기 · ' : ''}{CATEGORIES[item.place.category].label}
                     </Text>
                   </Pressable>
                 );
@@ -1017,7 +1017,7 @@ export default function SearchResultsScreen() {
                 <SearchPlaceIcon point={item.k} favorite={isFavorite(item)} size={18} />
                 <View style={styles.rowTexts}>
                   <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-                    {isFavorite(item) ? '★ 즐겨찾기 · ' : ''}{item.k.placeName}
+                    {item.k.placeName}
                   </Text>
                   <Text
                     style={[styles.rowAddress, { color: colors.textSecondary }]}
@@ -1025,7 +1025,7 @@ export default function SearchResultsScreen() {
                     {item.k.roadAddress || item.k.address}
                   </Text>
                 </View>
-                <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>일반</Text>
+                <Text style={[styles.rowBadge, { color: colors.textSecondary }]}>{isFavorite(item) ? '즐겨찾기' : '일반'}</Text>
               </Pressable>
             )
           }

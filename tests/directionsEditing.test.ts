@@ -36,7 +36,7 @@ function setup() {
     '@/components/search/SearchPlaceIcon': { __esModule: true, default: 'SearchPlaceIcon', RoutePointIcon: 'RoutePointIcon' },
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView', ActivityIndicator: 'Spinner', StyleSheet: { create: (x: unknown) => x } },
-    'expo-router': { useLocalSearchParams: () => ({}), useFocusEffect() {} },
+    'expo-router': { router: { push() {} }, useLocalSearchParams: () => ({}), useFocusEffect() {} },
     'expo-location': {},
     '@expo/vector-icons/Ionicons': { __esModule: true, default: 'Icon' },
     '@expo/vector-icons/MaterialCommunityIcons': { __esModule: true, default: 'Icon' },
@@ -45,13 +45,15 @@ function setup() {
     '@/components/useColorScheme': { useColorScheme: () => 'light' },
     '@/components/search/PointSearchModal': { __esModule: true, default: 'PointSearchModal' },
     '@/stores/useLocationPrivacyStore': { withLocationUse() { throw Error('GPS must not run'); } },
+    '@/lib/favoriteMatching': { isFavoritePoint: () => false },
+    '@/hooks/useFavorites': { useFavoritePlaces: () => ({}) },
     '@/stores/useMyPlacesStore': { useMyPlacesStore: (select: any) => select({ places: {}, load() {}, save() {} }) },
     '@/lib/navigation': {
       useNavLaunching: (select: any) => select({ launching: false }),
       openNavigation: (...args: any[]) => { launches.push(args); return launch(); },
     },
     '@/lib/recentSearches': { recentTargets: () => [], loadRecentSearches: async () => [], addRecentSearch: async () => [], saveRecentSearches() {}, recentKey() {} },
-    '@/lib/toast': { toast: { error() {} } },
+    '@/lib/toast': { toast: { info() {}, error() {} } },
   });
   let tree: Element;
   const render = () => {

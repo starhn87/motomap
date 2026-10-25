@@ -49,9 +49,6 @@ import { useReviews } from '@/hooks/useReviews';
 import { toast } from '@/lib/toast';
 import type { Place } from '@/types';
 import { haptics } from '@/lib/haptics';
-import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
-import { findSavedPlaceSlot } from '@/lib/myPlaces';
-import { appAlert } from '@/lib/dialog';
 import { usePlaceOperationalStatus } from '@/hooks/usePlaceOperationalStatus';
 import Skeleton from '@/components/ui/Skeleton';
 
@@ -111,10 +108,6 @@ function PlaceBottomSheet({
   );
   const user = useAuthStore((s) => s.user);
   const userLocation = useMapStore((s) => s.userLocation);
-  const myPlaces = useMyPlacesStore((s) => s.places);
-  const loadMyPlaces = useMyPlacesStore((s) => s.load);
-  const saveMyPlace = useMyPlacesStore((s) => s.save);
-  const removeMyPlace = useMyPlacesStore((s) => s.remove);
   const { data: latestPlace } = usePlace(place?.id ?? null);
   const reviewTarget = place ? ({ kind: 'place', id: place.id } as const) : null;
   const { data: reviewPages, isLoading: reviewsLoading } = useReviews(reviewTarget);
@@ -123,11 +116,6 @@ function PlaceBottomSheet({
   const operationalStatus = usePlaceOperationalStatus(displayPlace?.id);
   const isFavorite = useIsFavorite(place?.id ?? '');
 
-  useEffect(() => {
-    void loadMyPlaces();
-  }, [loadMyPlaces]);
-
-  const savedSlot = findSavedPlaceSlot(myPlaces, displayPlace);
 
   // 장소 자체 사진과 리뷰 사진을 한곳에서 훑되 확대 화면에는 사진만 보여준다.
   const photoItems = useMemo(
@@ -273,68 +261,13 @@ function PlaceBottomSheet({
     }
   };
 
-  const handleSaveMyPlace = () => {
-    if (!displayPlace) return;
-    if (savedSlot) {
-      const isHome = savedSlot === 'home';
-      appAlert(
-        isHome ? '집으로 저장된 장소' : '회사로 저장된 장소',
-        displayPlace.name,
-        [
-          { text: '취소', style: 'cancel' },
-          {
-            text: isHome ? '회사로 변경' : '집으로 변경',
-            onPress: async () => {
-              await removeMyPlace(savedSlot);
-              await saveMyPlace(isHome ? 'work' : 'home', displayPlace);
-              toast.success(isHome ? '회사로 변경했어요.' : '집으로 변경했어요.');
-            },
-          },
-          {
-            text: '저장 해제',
-            style: 'destructive',
-            onPress: async () => {
-              await removeMyPlace(savedSlot);
-              toast.info('내 장소에서 해제했어요.');
-            },
-          },
-        ],
-      );
-      return;
-    }
-
-    appAlert(
-      '내 장소로 저장',
-      `${displayPlace.name}\n검색 화면에서 바로 길안내할 수 있어요.`,
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '집으로',
-          onPress: async () => {
-            await saveMyPlace('home', displayPlace);
-            toast.success('집으로 저장했어요.');
-          },
-        },
-        {
-          text: '회사로',
-          onPress: async () => {
-            await saveMyPlace('work', displayPlace);
-            toast.success('회사로 저장했어요.');
-          },
-        },
-      ],
-    );
-  };
-
   const renderActions = (expanded: boolean) => (
     <PlaceSheetHeaderActions
       expanded={expanded}
       isFavorite={isFavorite}
       favoriteDisabled={favoritePending}
       favoriteScale={heartScale}
-      savedSlot={savedSlot}
       onFavorite={handleFavorite}
-      onSaveMyPlace={handleSaveMyPlace}
       onClose={onClose}
     />
   );

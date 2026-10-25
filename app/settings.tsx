@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+import MyPlacesSettings from '@/components/settings/MyPlacesSettings';
 import { useAppUpdate } from '@/hooks/useAppUpdate';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -218,6 +219,7 @@ export default function SettingsScreen() {
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}>
+      <MyPlacesSettings />
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>사용 환경</Text>
       <Text style={[styles.environmentLabel, { color: colors.text }]}>테마</Text>
       <View style={styles.themeRow}>

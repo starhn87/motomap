@@ -6,16 +6,13 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 import CloseIcon from '@/components/ui/CloseIcon';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { semantic } from '@/constants/Colors';
-import type { MyPlaceSlot } from '@/stores/useMyPlacesStore';
 
 interface Props {
   expanded: boolean;
   isFavorite: boolean;
   favoriteDisabled?: boolean;
   favoriteScale: SharedValue<number>;
-  savedSlot: MyPlaceSlot | null;
   onFavorite: () => void;
-  onSaveMyPlace: () => void;
   onClose: () => void;
 }
 
@@ -24,9 +21,7 @@ export default function PlaceSheetHeaderActions({
   isFavorite,
   favoriteDisabled,
   favoriteScale,
-  savedSlot,
   onFavorite,
-  onSaveMyPlace,
   onClose,
 }: Props) {
   const colorScheme = useColorScheme();
@@ -53,29 +48,6 @@ export default function PlaceSheetHeaderActions({
             color={isFavorite ? semantic.star : expanded ? colors.text : colors.textSecondary}
           />
         </Animated.View>
-      </TouchableOpacity>
-      <TouchableOpacity
-        accessibilityLabel={
-          savedSlot === 'home'
-            ? '집으로 저장된 장소'
-            : savedSlot === 'work'
-              ? '회사로 저장된 장소'
-              : '집 또는 회사로 저장'
-        }
-        accessibilityRole="button"
-        onPress={onSaveMyPlace}
-        style={buttonStyle}>
-        <Ionicons
-          name={
-            savedSlot === 'home'
-              ? 'home'
-              : savedSlot === 'work'
-                ? 'business'
-                : 'bookmark-outline'
-          }
-          size={iconSize}
-          color={expanded ? colors.text : savedSlot ? colors.tint : colors.textSecondary}
-        />
       </TouchableOpacity>
       <TouchableOpacity
         accessibilityLabel="장소 상세 닫기"
