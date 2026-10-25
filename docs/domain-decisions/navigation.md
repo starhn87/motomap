@@ -1400,7 +1400,7 @@ Git 푸시·OTA·심사/공개 출시는 하지 않았다.
 ## NAV-034 — 안내 주유소 검색의 출발지 폴백·30km 확장·정렬
 
 - 날짜: 2026-10-25
-- 상태: 로컬 구현 후보 / 실기기·운영 오피넷 검증 전
+- 상태: TestFlight57 배포·운영 기본 조회 확인 / 실기기 확인 전
 - 대체: NAV-033의 GPS 10초 유실 즉시 폐기와 고정 5km 제한. 지도 마커 제거·커스텀 시트·세션 캐시는 유지한다.
 
 출발 직후 GPS를 기다리며 검색을 막지 않는다. 신선한 유효 GPS를 우선하고, 일시 유실은
@@ -1433,3 +1433,20 @@ Git 푸시·OTA·심사/공개 출시는 하지 않았다.
 공식 제약: [오피넷 주변 주유소 가격 API](https://www.opinet.co.kr/user/custapi/openApiInfoDtl.do?apiId=3).
 
 NAV-034 최종 로컬 검증: JS 전체 378개·타입·Functions lint/타입·릴리스 검사·iOS Release 시뮬레이터 빌드 통과. UIKit 경계 failures=0이며 확장 로딩/30km 빈 결과 문구·전체 정렬 후 40개·이동 캐시 재조회도 확인했다. 리뷰 지적을 해소했고 실제 공급자/기기 검증과 배포는 남는다.
+
+### TestFlight 57번 배포 완료
+
+사용자 승인으로 source `b6c82c6`을 main에 푸시하고 `gas-stations` version12를 먼저 배포했다.
+JWT 검증을 유지했으며 고정 검증 좌표에서 안내 정밀/기존 지도 조회가 모두 HTTP200·54개
+결과를 반환하고 정밀 ACK를 확인했다. 기존 지도 캐시 계약과 DB 스키마는 유지한다.
+
+격리 소스로 production **1.2.10(57)/native21/API1** 로컬 EAS 빌드를 완료했다.
+IPA SHA-256은 `659371d449261b9681bb1c4c1f1ae0d6405b1237bb53e89c0feee3192c971d18`이다.
+앱 버전/57번·iPhoneOS·runtime1.2.10/production 채널·App Store 프로파일/서명·하단 HTML·
+새 JS/네이티브 기능 포함을 검증했다. GitHub checks도 통과했다.
+submission `3e9a01a1-5277-47a6-9aeb-8a287c594e83` FINISHED/error null,
+ASC build `50dd251c-9301-421c-9082-44443b1e5c2c` VALID/IN_BETA_TESTING,
+한국어 테스트 안내 저장·내부 all-builds 접근·자동 알림을 확인했다.
+실기기 검색/지도 선택/도착 저장은 57번에서 검증한다. 실제 이동 경로 기록기는 추가하지 않았다.
+Sentry 심볼 업로드는 기존 인증 누락으로 보류하고 dSYM·소스맵·번들·검증 로그를 비공개 보관했다.
+임시 빌드/아카이브·격리 worktree는 정리했다. OTA·심사 제출·공개 출시는 하지 않았다.
