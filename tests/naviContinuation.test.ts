@@ -7,7 +7,7 @@ type Element = { type: any; props: any };
 const goal = { name: '기존 목적지', latitude: 37.5, longitude: 127.1, placeId: 'original' };
 const nextGoal = { name: '새 목적지', latitude: 37.6, longitude: 127.2, placeId: 'new' };
 
-function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading = false) {
+function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading = false, previousPriority = 2) {
   let dirty = false, cursor = 0;
   let slots: any[] = [];
   const rootSlots: any[] = [], contentSlots: any[] = [];
@@ -24,6 +24,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
   };
   react.useLayoutEffect = react.useEffect;
   const calls = { resumed: [] as any[], started: 0, tracked: 0, marker: 0, replace: [] as string[], errors: [] as string[], blocked: false, backed: 0 };
+  let selectedPriority = 0;
   const listeners: Record<string, () => void> = {};
   let resolveResume!: (value: any) => void, rejectResume!: (error: Error) => void, finishAudit!: () => void;
   const native = {
@@ -31,7 +32,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
     resumeGuide(...args: any[]) { calls.resumed.push(args); return new Promise((resolve, reject) => { resolveResume = resolve; rejectResume = reject; }); },
     startGuide() { calls.started++; return Promise.resolve(); },
   };
-  const store: any = { goal, priority: 2, viaPlaces: [], preview: { snapshot: { token: 7, start: noGPS ? null : { latitude: 37.4, longitude: 127 }, goal, vias: [], passedVias: [], priority: 2 }, edit, returnPending: false },
+  const store: any = { goal, priority: previousPriority, viaPlaces: [], preview: { snapshot: { token: 7, start: noGPS ? null : { latitude: 37.4, longitude: 127 }, goal, vias: [], passedVias: [], priority: previousPriority }, edit, returnPending: false },
     start(g: any, p: any, vias: any) { store.goal = g; store.priority = p; store.viaPlaces = vias; },
     requestGuideReturn(token: number) { if (store.preview?.snapshot.token === token) store.preview.returnPending = true; },
   };
@@ -58,7 +59,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
     '@/lib/navigation': {}, '@/lib/mapFocus': { hasMapOverlayInStack: () => false },
     '@/stores/useMapStore': { useMapStore: Object.assign((s: any) => s({ userLocation: null, requestMapReset() {} }), { getState: () => ({ userLocation: null, requestMapReset() {} }) }) },
     '@/hooks/useUserLocation': { useUserLocation() {} },
-    '@/hooks/useBikeRoutes': { useBikeRoutes: () => ({ priority: 2, setPriority() {}, route: routesLoading ? undefined : { distance: 1200 }, alternatives: [], mapRoutes: [], trafficParts: [], loading: routesLoading, courseOnly: false, flatVias: [], effVias: [], resetRoutes() {} }) },
+    '@/hooks/useBikeRoutes': { useBikeRoutes: () => ({ priority: selectedPriority, setPriority(value: number) { selectedPriority = value; dirty = true; }, route: routesLoading ? undefined : { distance: 1200 }, alternatives: [], mapRoutes: [], trafficParts: [], loading: routesLoading, courseOnly: false, flatVias: [], effVias: [], resetRoutes() {} }) },
     '@/lib/recentSearches': { loadRecentSearches: async () => [], recentTargets: () => [] },
     '@/lib/guideEvents': { markGuideStarted() { calls.marker++; } },
     '@/lib/kakaoNaviInit': { ensureKakaoNaviReady: async () => {} },
@@ -174,3 +175,16 @@ test('경로 카드가 로딩 중이어도 안내 시작 위에 별도 대기 �
   assert.equal(f.nodes().filter(node => node.type === 'Spinner').length, 0);
   f.unmount();
 });
+
+for (const edit of [null, 'goal', 'vias'] as const) {
+  test(`기존 큰길 안내에서 ${edit ?? '다른 경로'} 미리보기는 추천을 먼저 선택하고 사용자 선택은 유지한다`, () => {
+    const f = setup(false, edit, false, 4);
+    const options = () => f.nodes().find(n => n.type === '@/components/navi/RouteAlternatives')!;
+    assert.equal(options().props.priority, 0);
+    options().props.onSelect(1); f.render();
+    assert.equal(options().props.priority, 1);
+    f.start();
+    assert.equal(f.calls.resumed[0][5], 1);
+    f.unmount();
+  });
+}

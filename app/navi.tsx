@@ -161,7 +161,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
     enabled: isFocused && !starting && !guideStarted });
 
   useEffect(() => {
-    if (continuationRef.current) setPriority(continuationRef.current.snapshot.priority);
+    // 편집 미리보기는 일반 진입과 같이 추천부터 비교한다. 기존 안내의 옵션은 취소 복귀 때 유지된다.
     // 경유지 편집은 기존 행을 보여주고, 없을 때만 빈 행을 만든다.
     if (continuationRef.current?.edit === 'vias' && !initial.userVias.length && !isCourseMode) {
       setUserVias([null]); setFieldDraftKeys(['start', 'via-0', 'goal']); nextDraftId.current = 1;
