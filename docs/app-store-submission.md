@@ -1,3 +1,12 @@
+## 2026-10-25 1.2.10 / native 18 주유소 GPS 대기 회귀 수정
+
+53번 피드백의 `GPS 수신 후 새로고침해 주세요`를 조사했다. 실제 presenter 위치 콜백에서
+유효하고 10초 이내인 GPS도 posTrust가 없으면 주유소 조회에 전달되지 않는 조건을 재현했다.
+주유소 조회는 valid·유한 좌표·10초 신선도로 검사하고 경로 변경/복귀의 posTrust 조건은 유지한다.
+수동 조회와 5초 점검 때 기존 SDK origin/recent/lastValid 중 최신 유효 위치를 확인한다.
+새 위치 수신자·권한·JS wire API·서버/원격 정책은 추가하지 않는다. 앱/runtime 1.2.10,
+native 18/API 1 회귀 수정 후보로 기존 53번에는 미반영이며 새 바이너리가 필요하다.
+
 ## 2026-10-25 1.2.10 (53) / native 17 TestFlight 배포 완료
 
 source `44e4128`의 격리 소스로 production **1.2.10 (53) / native 17 / API 1**을 로컬 EAS로

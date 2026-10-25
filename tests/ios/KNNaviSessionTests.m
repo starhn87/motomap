@@ -19,6 +19,7 @@
 - (void)setBottomMenuVisible:(BOOL)visible;
 - (void)updateBottomPanel;
 - (void)updateCurrentLocationWithGuide:(KNGuide_Location *)guide;
+- (void)guidance:(KNGuidance *)guidance didUpdateLocation:(KNGuide_Location *)guide;
 - (void)refreshCurrentRoute;
 - (void)finish;
 @property(nonatomic, strong) id gasLayer;
@@ -551,11 +552,35 @@ void RunKNNaviHazardSheetTests(UIWindow *window, void (^completion)(int)) {
 @end
 void RunKNNaviGasTests(UIWindow *window, void (^completion)(int)) {
   __block int failures=0; __block NSUInteger fetches=0;
+  // 주변 유가 조회는 유효하고 신선한 GPS로 가능해야 한다. 경로 변경용 posTrust는 별도다.
+  KNNaviGasLayer *locationLayer=[[KNNaviGasLayer alloc] initWithHost:window.rootViewController];
+  locationLayer.isActive=^BOOL{ return YES; };
+  SessionControllerProbe *locationController=[SessionControllerProbe new]; locationController.gasLayer=locationLayer;
+  [locationController setValue:@YES forKey:@"carThemeApplied"];
+  GPSProbe *raw=[GPSProbe new]; raw.valid=YES; raw.posTrust=NO; raw.timestamp=NSDate.date; raw.pos=DoublePointMake(300000,550000);
+  LocationGuideProbe *locationGuide=[LocationGuideProbe new]; locationGuide.gpsOrigin=raw;
+  [KNSDKBridge setLocationUseAllowed:YES];
+  [locationController guidance:nil didUpdateLocation:(id)locationGuide];
+  if (!locationLayer.context) { NSLog(@"FAIL fresh valid GPS incorrectly leaves gas search waiting for route position trust"); failures++; }
+  if ([locationController usableRecoveryGPS:(id)raw]) { NSLog(@"FAIL route GPS trust guard weakened"); failures++; }
+  [locationLayer invalidate]; [KNSDKBridge setLocationUseAllowed:NO];
+  KNNaviGasLayer *manualLayer=[[KNNaviGasLayer alloc] initWithHost:window.rootViewController];
+  manualLayer.isActive=^BOOL{ return YES; }; manualLayer.getGPS=^KNGPSData *{ return (id)raw; };
+  [manualLayer requestForced:YES];
+  if (!manualLayer.context) { NSLog(@"FAIL manual gas refresh ignores already available SDK GPS"); failures++; }
+  raw.timestamp=[NSDate dateWithTimeIntervalSinceNow:-30];
+  if ([KNNaviGasLayer isUsableSearchGPS:(id)raw]) { NSLog(@"FAIL stale gas GPS accepted"); failures++; }
+  raw.timestamp=NSDate.date; raw.valid=NO;
+  if ([KNNaviGasLayer isUsableSearchGPS:(id)raw]) { NSLog(@"FAIL invalid gas GPS accepted"); failures++; }
+  raw.valid=YES; raw.pos=DoublePointMake(NAN,0);
+  if ([KNNaviGasLayer isUsableSearchGPS:(id)raw]) { NSLog(@"FAIL nonfinite gas GPS accepted"); failures++; }
+  [manualLayer invalidate];
+  if (manualLayer.getGPS) { NSLog(@"FAIL gas GPS provider retained after cleanup"); failures++; }
   KNNaviGasLayer *layer=[[KNNaviGasLayer alloc] initWithHost:window.rootViewController];
   layer.isActive=^BOOL{ return YES; }; layer.onFetch=^{ fetches++; };
   GasMapProbe *map=[GasMapProbe new]; NSObject *originalListener=[NSObject new]; map.markerEventListener=originalListener;
   [layer attachMap:(id)map];
-  GPSProbe *gps=[GPSProbe new]; gps.timestamp=NSDate.date; gps.pos=DoublePointMake(0,0);
+  GPSProbe *gps=[GPSProbe new]; gps.valid=YES; gps.timestamp=NSDate.date; gps.pos=DoublePointMake(0,0);
   [layer updateGPS:(id)gps];
   NSString *first=layer.context[@"requestId"];
   [layer requestForced:YES]; NSString *second=layer.context[@"requestId"];

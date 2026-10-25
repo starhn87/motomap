@@ -1250,3 +1250,33 @@ ASC build `3bddbc92-7262-4e0e-b4e4-9b92df0f35ea` VALID/IN_BETA_TESTING,
 추가 검색 결과 행 선택 native 검사는 제품 코드가 같은 후속 테스트 커밋 `3ecbcf3`으로 보존했다.
 Sentry 심볼은 기존 인증 누락으로 재업로드 대기이며 자료는 비공개로 보관했다.
 Git 푸시·심사/공개 출시·OTA·원격 정책 변경은 하지 않았다.
+
+
+## NAV-031 — 주변 주유소 조회 GPS와 경로 변경 GPS의 조건을 구분한다
+
+- 날짜: 2026-10-25
+- 상태: 구현·검증 완료, 새 바이너리 배포 대기 (53번 GPS 대기 회귀)
+- 계약: 1.2.10 / native 18 / API 1, JS wire/capability는 native 17과 동일
+- 후속: NAV-030의 주유소 조회에 적용하던 경로용 posTrust 조건을 대체한다.
+
+사용자는 53번 길안내에서 가격 마커가 없고 주유소 목록에도 정확히 `GPS 수신 후 새로고침해
+주세요`가 나온다고 확인했다. 테스트 시간대 본인 유가 API 요청은 2건 HTTP200이었으나
+메인 지도/안내 조회의 구분이나 기기의 실제 raw GPS flags는 확보하지 못했다.
+실제 presenter didUpdateLocation 경계를 호출한 재현에서는 GPS valid/현재 timestamp/
+유한 좌표여도 posTrust=NO면 gas layer에 전달되지 않아 같은 대기 상태가 됐다. 이전
+대역 마커 개수 검사만으로 실제 조회·표시까지 성공했다고 볼 수 없었던 검증 공백이다.
+
+주변 5km 검색은 GPS valid·유한 KATEC 좌표·timestamp 10초 이내를 검사한다.
+경로 변경·복귀·도착 판단에는 기존 posTrust까지 포함한 엄격한 검사를 유지한다. 현재 위치
+콜백만 기다리지 않고 기존 SDK gpsOrigin/recentGpsData/lastValidGpsData 중 가장 최근의
+유효 위치를 수동 재검색 및 기존 5초 점검 때 읽는다. 새 센서/수신자를 만들지 않으며
+native 위치 허용·안내 활성·동의 revision·요청 UUID·빈도 제한·만료 정책을 유지한다.
+중지/종료 때 getter와 타이머를 해제한다. 잘못된/오래된 좌표로 조회를 성공 처리하지 않는다.
+
+native 회귀 재현 명령은 `bash scripts/test-ios-navigation-session.sh`이며 수정 전
+`FAIL fresh valid GPS incorrectly leaves gas search waiting for route position trust`와
+failures=1을 확인했고 수정 후 같은 경계는 failures=0이다. 수동 조회의 기존 SDK GPS 확인과
+invalid/stale/nonfinite 거부·종료 해제 검사도 통과했다. 타입 검사·353개 테스트·릴리스 검사와
+iOS Release 시뮬레이터 빌드도 통과했다. 실제 SDK 지도 렌더 비교는 테스트용 경로/화면
+표시 제약으로 완료하지 못해 zoom 가설은 미확정이며 변경하지 않았다. 기기의 실제 flags를 관측한 것은
+아니므로 이 재현을 모든 실기기 원인으로 확대하지 않는다.

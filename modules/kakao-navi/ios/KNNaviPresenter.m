@@ -533,6 +533,19 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     KNNaviViewController *vc = gasOwner;
     return vc && !vc.finished && !vc.suspended && !vc.changingDestination && [KNSDKBridge isLocationUseAllowed];
   };
+  self.gasLayer.getGPS = ^KNGPSData *{
+    KNNaviViewController *vc = gasOwner;
+    if (!vc || vc.finished || vc.suspended || ![KNSDKBridge isLocationUseAllowed]) return nil;
+    KNGPSManager *manager = [KNSDK sharedInstance].sharedGpsManager;
+    KNGPSData *newest = nil;
+    for (id candidate in @[vc.guidance.locationGuide.gpsOrigin ?: NSNull.null,
+                            manager.recentGpsData ?: NSNull.null, manager.lastValidGpsData ?: NSNull.null]) {
+      if (candidate == NSNull.null || ![KNNaviGasLayer isUsableSearchGPS:candidate]) continue;
+      KNGPSData *gps = candidate;
+      if (!newest || [gps.timestamp compare:newest.timestamp] == NSOrderedDescending) newest = gps;
+    }
+    return newest;
+  };
   self.gasLayer.onFetch = ^{ if (gasOwner.onMenu) gasOwner.onMenu(106); };
   self.gasLayer.onRoute = ^{ if (gasOwner.onMenu) gasOwner.onMenu(108); };
   self.volume = 1;
@@ -1237,7 +1250,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (self.finished || ![KNSDKBridge isLocationUseAllowed]) return;
   [self.naviView guidance:aGuidance didUpdateLocation:aLocationGuide];
   [self updateCurrentLocationWithGuide:aLocationGuide];
-  if (!self.preview && [self usableRecoveryGPS:aLocationGuide.gpsOrigin]) [self.gasLayer updateGPS:aLocationGuide.gpsOrigin];
+  if (!self.preview) [self.gasLayer updateGPS:aLocationGuide.gpsOrigin];
   [self updateBottomPanel];
   if (self.arrivalRecovery.waiting && !self.preview && !self.suspended && !self.changingDestination && [self usableRecoveryGPS:aLocationGuide.gpsOrigin]) {
     double distance = [self distanceToDestinationWithGPS:aLocationGuide.gpsOrigin];

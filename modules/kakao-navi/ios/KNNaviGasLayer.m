@@ -138,12 +138,23 @@
 @end
 
 @implementation KNNaviGasLayer
++ (BOOL)isUsableSearchGPS:(KNGPSData *)gps {
+  // 주변 조회는 GPS 유효성·신선도를 검사한다. 경로 매칭 posTrust는 재안내 전용이다.
+  return gps && gps.valid && isfinite(gps.pos.x) && isfinite(gps.pos.y) && gps.timestamp &&
+    fabs(gps.timestamp.timeIntervalSinceNow) <= 10;
+}
+- (void)readGPS:(KNGPSData *)gps {
+  if (![KNNaviGasLayer isUsableSearchGPS:gps]) return;
+  self.gpsAt = gps.timestamp;
+  self.position = [[KNSDK sharedInstance] convertKATECToWGS84WithX:lround(gps.pos.x) y:lround(gps.pos.y)];
+}
 - (instancetype)initWithHost:(UIViewController *)host {
   if ((self = [super init])) {
     _host = host; _prod = @"B027"; _stations = @[]; _markers = [NSMutableArray new]; _images = [NSMutableArray new];
     __weak KNNaviGasLayer *weakSelf = self;
     _timer = [NSTimer scheduledTimerWithTimeInterval:5 repeats:YES block:^(NSTimer *timer) {
       KNNaviGasLayer *self = weakSelf; if (!self || self.invalidated) return;
+      if (self.getGPS && self.isActive && self.isActive()) [self updateGPS:self.getGPS()];
       if (!self.gpsAt || -self.gpsAt.timeIntervalSinceNow > 10 || !self.isActive || !self.isActive()) {
         [self clearMarkers]; self.stations = @[]; self.sheet.station = nil; self.context = nil; self.loading = NO; self.requestedAt = nil;
         self.errorMessage = @"GPS 수신 후 새로고침해 주세요."; [self.sheet reload]; return;
@@ -168,13 +179,13 @@
   [self.markers removeAllObjects]; [self.images removeAllObjects];
 }
 - (void)updateGPS:(KNGPSData *)gps {
-  if (!gps || self.invalidated) return;
-  self.gpsAt = gps.timestamp;
-  self.position = [[KNSDK sharedInstance] convertKATECToWGS84WithX:lround(gps.pos.x) y:lround(gps.pos.y)];
+  if (self.invalidated) return;
+  [self readGPS:gps];
   [self requestForced:NO];
 }
 - (void)requestForced:(BOOL)force {
   if (self.invalidated || !self.isActive || !self.isActive()) return;
+  if (self.getGPS) [self readGPS:self.getGPS()];
   if (!self.gpsAt || -self.gpsAt.timeIntervalSinceNow > 10) {
     self.stations = @[]; self.sheet.station = nil; [self clearMarkers];
     self.errorMessage = @"GPS 수신 후 새로고침해 주세요."; [self.sheet reload]; return;
@@ -298,7 +309,7 @@
   self.invalidated = YES; [self.timer invalidate]; self.timer = nil; self.context = nil; self.selection = nil;
   [self clearMarkers];
   if (self.map.markerEventListener == self) self.map.markerEventListener = self.previousListener;
-  self.onFetch = nil; self.onRoute = nil; self.isActive = nil; self.stations = @[];
+  self.onFetch = nil; self.onRoute = nil; self.isActive = nil; self.getGPS = nil; self.stations = @[];
 }
 - (void)dealloc { [self.timer invalidate]; }
 @end
