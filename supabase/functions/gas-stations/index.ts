@@ -2,7 +2,7 @@
 //
 // 앱이 오피넷 키를 갖지 않도록 서버에서 호출하고, 인메모리 캐시(3분)로 호출량을 줄인다.
 // 요청은 POST JSON:
-//   주변: { lat, lng, radius?, prod? }   (WGS84, radius 최대 5000m, prod 기본 B027 보통휘발유)
+//   주변: { lat, lng, radius?, prod?, preciseCenter? }   (WGS84, radius 최대 5000m, prod 기본 B027 보통휘발유)
 //   상세: { id }                          (aroundAll이 준 UNI_ID)
 //
 // 오피넷 실측 주의점 (2026-07 실키 검증):
@@ -73,8 +73,11 @@ async function opinet(path: string, params: Record<string, string>) {
   return (await res.json())?.RESULT?.OIL;
 }
 
-async function handleAround(lat: number, lng: number, radius: number, prod: string) {
-  const key = `a:${lat.toFixed(2)}:${lng.toFixed(2)}:${radius}:${prod}`;
+async function handleAround(lat: number, lng: number, radius: number, prod: string, preciseCenter = false) {
+  // 안내의 다중 원 검색은 중심이 합쳐지면 조회 원 사이에 빈틈이 생긴다.
+  // 일반 지도는 기존 약 1km 캐시를 유지하고 안내만 약 10m 키를 사용한다.
+  const digits = preciseCenter ? 4 : 2;
+  const key = `a:${lat.toFixed(digits)}:${lng.toFixed(digits)}:${radius}:${prod}`;
   const hit = cached(key);
   if (hit) return new Response(hit, { headers: { 'Content-Type': 'application/json' } });
 
@@ -103,7 +106,7 @@ async function handleAround(lat: number, lng: number, radius: number, prod: stri
     };
   });
 
-  const body = JSON.stringify({ stations });
+  const body = JSON.stringify({ stations, ...(preciseCenter ? { preciseCenter: true } : {}) });
   put(key, body);
   return new Response(body, { headers: { 'Content-Type': 'application/json' } });
 }
@@ -161,7 +164,7 @@ Deno.serve(async (req) => {
     }
     const radius = Math.min(Math.max(Number(body.radius) || 5000, 500), 5000);
     const prod = FUEL_CODES.has(String(body.prod)) ? String(body.prod) : 'B027';
-    return await handleAround(lat, lng, radius, prod);
+    return await handleAround(lat, lng, radius, prod, body.preciseCenter === true);
   } catch (e) {
     return json({ error: String(e).slice(0, 200) }, 502);
   }

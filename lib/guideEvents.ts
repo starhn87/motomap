@@ -18,14 +18,10 @@ import { fetchNearbyPlaces } from '@/lib/api/places';
 import { formatMeters } from '@/lib/api/directions';
 import { haversine } from '@/lib/distance';
 import { focusPlaceOnMap, focusPointOnMap, followMyLocationOnMap } from '@/lib/mapFocus';
-import { recordPlaceRides } from '@/lib/api/rides';
+import { hasGuideArrived, matchesGuideArrival, recordGuideArrival } from '@/lib/guideArrival';
 import { toast } from '@/lib/toast';
 import { createAnalyticsId, track } from '@/lib/analytics';
-import { recordCourseCompletion } from '@/lib/api/courseLibrary';
 import { coordToAddress } from '@/lib/api/kakaoLocal';
-import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
-import { buildPlaceRidesForArrival } from '@/lib/ridePlaceStats';
-import type { GuideViaPlace } from '@/lib/guideSession';
 
 // 길안내 전역 이벤트 — 안내가 시작되면 /navi 화면은 지도로 빠져 언마운트되므로
 // 종료·메뉴 처리는 화면이 아니라 여기(루트에서 1회 등록)가 맡는다.
@@ -207,29 +203,6 @@ async function distanceToGoal(goal: GuideGoal): Promise<number | null> {
   }
 }
 
-// 도착지 300m 안에서 끝난 라이딩만 장소 통계에 센다 — 도착지와, 지나온
-// 등록 장소 경유지에 각각 1회 (완주했으면 경유지도 지난 것으로 본다)
-function recordArrival(goal: GuideGoal, viaPlaces: GuideViaPlace[]) {
-  if (!locationUseAllowed() || !useLocationPrivacyStore.getState().historyAllowed) return;
-  // 로컬 집·회사 로딩과 통계 기록은 안내 종료·리뷰 제안을 막지 않도록 분리한다.
-  void (async () => {
-    const myPlacesStore = useMyPlacesStore.getState();
-    await myPlacesStore.load();
-    await recordPlaceRides(
-      buildPlaceRidesForArrival(goal, viaPlaces, useMyPlacesStore.getState().places),
-    );
-  })();
-  if (goal.courseId) {
-    void recordCourseCompletion(goal.courseId)
-      .then((inserted) => {
-        if (inserted) track.courseCompleted({ course_id: goal.courseId! });
-      })
-      .catch(() => {
-        // 완주 기록 실패가 안내 종료와 리뷰 제안을 방해하면 안 된다.
-      });
-  }
-}
-
 // 도착 리뷰 제안 — 안내 화면 닫힘 애니메이션이 끝난 뒤 지도 위에서 띄운다
 function suggestReview(goal: GuideGoal) {
   setTimeout(() => {
@@ -304,9 +277,10 @@ async function handleGuideEnd() {
   }
 
   const dist = await distanceToGoal(goal);
-  const near = dist !== null && dist < 400;
+  const confirmed = hasGuideArrived(goal);
+  const near = confirmed || (dist !== null && dist < 400);
   trackGuideEnd(active, near ? 'arrived' : 'cancelled');
-  if (dist !== null && dist <= 300) recordArrival(goal, viaPlaces);
+  if (confirmed || (dist !== null && dist <= 300)) void recordGuideArrival(goal, viaPlaces);
   // 등록 장소·코스는 리뷰로, 일반 목적지는 이름·위치가 채워진 간편 제보로 잇는다.
   if (near && (goal.placeId || goal.generalPlaceId || goal.courseId)) suggestReview(goal);
   else if (dist !== null && dist <= 300 && !goal.placeId && !goal.generalPlaceId && !goal.courseId) {
@@ -318,6 +292,11 @@ async function handleGuideEnd() {
 export function registerGuideEvents(): () => void {
   // 앱 시작 시점 = 직전 실행이 어떻게 끝났든 안내는 이미 없다 — 남은 마커를 정산
   void reconcileAbandonedGuide();
+  const arrival = supportsKakaoNaviFeature('guide_arrival_record')
+    ? KakaoNavi.addListener('onGuideArrival', event => {
+        const { goal, viaPlaces } = useGuideSession.getState();
+        if (goal && matchesGuideArrival(goal, event)) void recordGuideArrival(goal, viaPlaces);
+      }) : { remove: () => {} };
   const end = KakaoNavi.addListener('onGuideEnd', () => void handleGuideEnd());
   const failed = KakaoNavi.addListener('onGuideFailed', ({ code, message, preserveActive }) => {
     if (!preserveActive) {
@@ -387,6 +366,7 @@ export function registerGuideEvents(): () => void {
     })();
   });
   return () => {
+    arrival.remove();
     poiTap.remove();
     end.remove();
     failed.remove();

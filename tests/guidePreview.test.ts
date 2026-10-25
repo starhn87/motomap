@@ -86,3 +86,11 @@ test('기존 장소 경유 삭제 후 같은 좌표의 주유소 경유에 라�
   assert.deepEqual(continuedViaPlaces(changed,[remaining],[gas],flat([gas])),[]);
   assert.equal(continuedViaPlaces(changed,[remaining],[gas,remaining],flat([gas,remaining]))[0].placeId,'remaining');
 });
+
+test('같은 목적지의 경로 재선택은 방문 정체성을 유지하고 새 목적지는 이어받지 않는다', () => {
+  const original = { ...goal, visitIdentity: {} };
+  const next = continuedGoal(snapshot, original, { ...goal }, flat(snapshot.vias));
+  assert.equal(next.visitIdentity, original.visitIdentity);
+  const changed = continuedGoal({ ...snapshot, goalReplaced: true }, original, { ...goal }, flat(snapshot.vias));
+  assert.equal(changed.visitIdentity, undefined);
+});

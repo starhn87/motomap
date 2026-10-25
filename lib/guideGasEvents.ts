@@ -1,11 +1,13 @@
 import { router } from 'expo-router';
-import KakaoNavi from '@/modules/kakao-navi';
+import KakaoNavi, { supportsKakaoNaviFeature } from '@/modules/kakao-navi';
+import { searchGuideGasStations } from '@/lib/guideGasSearch';
 import { fetchNearbyGasStations } from '@/lib/api/gasStations';
 import { haversine } from '@/lib/distance';
 import { useGuideSession } from '@/lib/guideSession';
 import { providerLocationAllowed, useLocationPrivacyStore, withLocationUse } from '@/stores/useLocationPrivacyStore';
 
 const fetching = new Set<string>();
+let gasRequest: AbortController | null = null;
 let opening: { goal: unknown; revision: number } | null = null;
 
 export async function handleGuideGasMenu(id: number) {
@@ -13,22 +15,31 @@ export async function handleGuideGasMenu(id: number) {
     const context = await KakaoNavi.getGuideGasContext();
     if (!context || fetching.has(context.requestId)) return;
     fetching.add(context.requestId);
+    gasRequest?.abort();
+    const controller = new AbortController(); gasRequest = controller;
+    const timeout = setTimeout(() => controller.abort(), 90_000);
+    const goal = useGuideSession.getState().goal;
     const revision = useLocationPrivacyStore.getState().revision;
-    const valid = () => providerLocationAllowed('opinet') && revision === useLocationPrivacyStore.getState().revision;
+    const valid = () => gasRequest === controller && goal === useGuideSession.getState().goal && providerLocationAllowed('opinet') && revision === useLocationPrivacyStore.getState().revision;
     try {
       if (!valid()) throw new Error('location_disabled');
-      const stations = (await fetchNearbyGasStations({ ...context, radius: 5000 }))
+      const expanded = supportsKakaoNaviFeature('guide_gas_search_expansion');
+      const result = expanded ? await searchGuideGasStations(context, { signal: controller.signal, valid,
+        progress: async (progressRadius, foundCount) => {
+          if (valid()) await KakaoNavi.updateGuideGasStations(JSON.stringify({ requestId: context.requestId, progressRadius, foundCount }));
+        } }) : null;
+      const stations = result?.stations ?? (await fetchNearbyGasStations({ ...context, radius: 5000 }))
         .filter(station => station.price > 0)
         .map(station => ({ ...station, distance: haversine(context, station) }))
         .filter(station => station.distance <= 5000)
         .sort((a,b) => a.distance-b.distance).slice(0,40);
       if (!valid()) throw new Error('location_disabled');
-      await KakaoNavi.updateGuideGasStations(JSON.stringify({ requestId: context.requestId, stations,
+      await KakaoNavi.updateGuideGasStations(JSON.stringify({ requestId: context.requestId, stations, ...(result ? { radius: result.radius, partial: result.partial, completedRadius: result.completedRadius } : {}),
         canAddVia: !useGuideSession.getState().goal?.courseId && context.viaCount < 3,
         courseMode: !!useGuideSession.getState().goal?.courseId }));
     } catch {
       await KakaoNavi.updateGuideGasStations(JSON.stringify({ requestId: context.requestId, stations: [], error: 'unavailable' })).catch(() => {});
-    } finally { fetching.delete(context.requestId); }
+    } finally { clearTimeout(timeout); if (gasRequest === controller) gasRequest = null; fetching.delete(context.requestId); }
     return;
   }
   if (id !== 108) return;

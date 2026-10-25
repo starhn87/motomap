@@ -8,10 +8,9 @@ import { ProviderError, edgeProviderError } from '@/lib/providerErrors';
 
 export type FuelCode = 'B027' | 'B034' | 'D047';
 
-export const FUEL_LABELS: Record<FuelCode, string> = {
+export const FUEL_LABELS: Record<Exclude<FuelCode, 'D047'>, string> = {
   B027: '휘발유',
   B034: '고급휘발유',
-  D047: '경유',
 };
 
 // 마커 브랜드 칩 — 멤버십·할인 때문에 어느 브랜드인지가 중요하다 (EF가 주는 한글 브랜드명 기준)
@@ -77,9 +76,9 @@ function isStationDetail(value: unknown): value is GasStationDetail {
       && typeof price.tradeAt === 'string');
 }
 
-async function requestGasInfo(body: Record<string, unknown>, operation: string): Promise<unknown> {
+async function requestGasInfo(body: Record<string, unknown>, operation: string, signal?: AbortSignal): Promise<unknown> {
   try {
-    const { data, error } = await supabase.functions.invoke('gas-stations', { body, timeout: 15_000 });
+    const { data, error } = await supabase.functions.invoke('gas-stations', { body, timeout: 15_000, signal });
     if (error) throw error;
     return data;
   } catch (error) {
@@ -98,14 +97,17 @@ export async function fetchNearbyGasStations(params: {
   longitude: number;
   radius?: number;
   prod?: FuelCode;
+  signal?: AbortSignal;
+  preciseCenter?: boolean;
 }): Promise<GasStation[]> {
   const data = await withCoordinateUse(params,'gas','opinet',() => requestGasInfo({
     lat: params.latitude,
     lng: params.longitude,
     radius: params.radius ?? 5000,
     prod: params.prod ?? 'B027',
-  }, 'nearby'));
-  if (!isRecord(data) || !Array.isArray(data.stations) || !data.stations.every(isStation)) {
+    ...(params.preciseCenter ? { preciseCenter: true } : {}),
+  }, 'nearby', params.signal));
+  if (!isRecord(data) || (params.preciseCenter && data.preciseCenter !== true) || !Array.isArray(data.stations) || !data.stations.every(isStation)) {
     throw new ProviderError('opinet', 'nearby', 'invalid_response');
   }
   const stations = data.stations;

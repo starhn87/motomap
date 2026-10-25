@@ -27,6 +27,7 @@ function setup(custom = true, pendingGPS = false) {
     '@/constants/hazards': { HAZARD_LIST: [{ key: 'sand', label: '모래·자갈' }, { key: 'ice', label: '결빙' }] },
     '@/lib/api/hazards': { submitHazard: async (report: any) => { reports.push(report); } },
     '@/lib/guideSession': { useGuideSession: { getState: () => session } },
+    '@/lib/guideArrival': {},
     '@/lib/dialog': {}, '@/lib/api/places': {}, '@/lib/api/directions': {}, '@/lib/distance': {}, '@/lib/mapFocus': {}, '@/lib/api/rides': {},
     '@/lib/toast': { toast: {} }, '@/lib/analytics': { track: {} }, '@/lib/api/courseLibrary': {}, '@/lib/api/kakaoLocal': {}, '@/stores/useMyPlacesStore': {}, '@/lib/ridePlaceStats': {},
   }, { setTimeout: (fn: () => void) => { expireGPS = fn; return 1; }, clearTimeout: () => {} });

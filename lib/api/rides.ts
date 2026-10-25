@@ -17,6 +17,7 @@ import type { MyPlace, MyPlaceSlot } from '@/stores/useMyPlacesStore';
  * 사람 간 집계가 과소계상된다. 미등록 장소 발굴(주간 다이제스트) 전용이다.
  */
 type PlaceRideBase = {
+  id?: string;
   role: 'goal' | 'via';
   excluded_from_place_stats: boolean;
 };
@@ -24,6 +25,7 @@ type PlaceRideBase = {
 export type PlaceRide =
   | (PlaceRideBase & { place_id: string })
   | {
+      id?: string;
       role: PlaceRideBase['role'];
       excluded_from_place_stats: boolean;
       name: string;
@@ -68,27 +70,31 @@ function parseRideBikes(value: Json | undefined): RideBike[] {
  * 도착 라이딩 기록. 비로그인이거나 실패해도 조용히 넘어간다 —
  * 통계가 안내 종료 흐름(리뷰 제안 등)을 방해하면 안 된다.
  */
-export async function recordPlaceRides(rides: PlaceRide[]) {
-  if (rides.length === 0) return;
-  if (!locationUseAllowed() || !useLocationPrivacyStore.getState().historyAllowed) return;
+export async function recordPlaceRides(rides: PlaceRide[], canSave: () => boolean = () => true): Promise<boolean> {
+  const revision = useLocationPrivacyStore.getState().revision;
+  const valid = () => canSave() && locationUseAllowed() && useLocationPrivacyStore.getState().historyAllowed
+    && useLocationPrivacyStore.getState().revision === revision;
+  if (!valid()) return false;
+  if (rides.length === 0) return true;
   try {
     const user = await getCurrentUser();
-    if (!user) return;
-    // 그때 탄 바이크를 함께 남긴다 — 나중에 기종을 바꿔도 과거 기록은 그대로여야 한다
+    if (!user || !valid()) return false;
     const bike_model = (await getProfile())?.bike_model ?? null;
-    const bikeKey = bike_model
-      ? canonicalBikeModel(bike_model) ?? bike_model.trim()
-      : null;
+    const bikeKey = bike_model ? canonicalBikeModel(bike_model) ?? bike_model.trim() : null;
     const bike_category = bikeKey ? BIKE_SPECS[bikeKey]?.category ?? null : null;
+    if (!valid() || (await getCurrentUser())?.id !== user.id) return false;
+    let saved = false;
     await withLocationUse('arrival','motomap',async () => {
-      const { error } = await supabase
-      .from('place_rides')
-      .insert(rides.map((r) => ({ ...r, user_id: user.id, bike_model, bike_category })));
+      if (!valid()) return;
+      const rows = rides.map(r => ({ ...r, user_id: user.id, bike_model, bike_category }));
+      const table = supabase.from('place_rides');
+      const { error } = await (rides.every(r => !!r.id)
+        ? table.upsert(rows, { onConflict: 'id', ignoreDuplicates: true }) : table.insert(rows));
       if (error) throw error;
+      saved = true;
     });
-  } catch {
-    // 테이블 미생성·네트워크 실패 등 — 카운트 하나 빠질 뿐이다
-  }
+    return saved;
+  } catch { return false; }
 }
 
 /**

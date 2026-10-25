@@ -53,5 +53,6 @@ export function continuedGoal(snapshot: GuidePreviewSnapshot, original: GuideGoa
   });
   const sameVias = expected.length * 2 === usedVias.length && expected.every((via, index) =>
     samePoint(via, { longitude: usedVias[index * 2], latitude: usedVias[index * 2 + 1] }));
-  return { ...goal, courseId: !snapshot.goalReplaced && !snapshot.gasViaAdded && samePoint(original, snapshot.goal) && samePoint(snapshot.goal, goal) && sameVias ? original.courseId : undefined };
+  const sameDestination = !snapshot.goalReplaced && samePoint(original, snapshot.goal) && samePoint(snapshot.goal, goal);
+  return { ...goal, ...(sameDestination && original.visitIdentity ? { visitIdentity: original.visitIdentity } : {}), courseId: !snapshot.goalReplaced && !snapshot.gasViaAdded && samePoint(original, snapshot.goal) && samePoint(snapshot.goal, goal) && sameVias ? original.courseId : undefined };
 }

@@ -8,6 +8,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, copy) void (^onRoute)(void);
 @property(nonatomic, copy) BOOL (^isActive)(void);
 @property(nonatomic, copy, nullable) KNGPSData *_Nullable (^getGPS)(void);
+@property(nonatomic, copy, nullable) NSDictionary *_Nullable (^getFallbackCenter)(void);
 + (BOOL)isUsableSearchGPS:(nullable KNGPSData *)gps;
 @property(nonatomic, readonly, nullable) NSDictionary *context;
 @property(nonatomic, readonly, nullable) NSDictionary *selection;

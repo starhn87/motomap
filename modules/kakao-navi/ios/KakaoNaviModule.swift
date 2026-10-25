@@ -17,7 +17,7 @@ public class KakaoNaviModule: Module {
     // JS가 앱 버전 문자열을 추측하지 않고 실제 바이너리 기능을 확인한다.
     // 기능을 추가·삭제하거나 wire 계약이 바뀌면 bridgeVersion을 올린다.
     Constants([
-      "bridgeVersion": 20,
+      "bridgeVersion": 21,
       "features": [
         "bike_route_preview",
         "guide_options",
@@ -30,6 +30,8 @@ public class KakaoNaviModule: Module {
         "guide_web_bottom",
         "guide_hazard_sheet",
         "guide_gas_stations",
+        "guide_arrival_record",
+        "guide_gas_search_expansion",
       ],
     ])
 
@@ -76,7 +78,7 @@ public class KakaoNaviModule: Module {
 
     // 길안내는 네이티브 전체화면으로 띄운다(이유는 KNNaviPresenter.h 참고).
     // 경로 탐색이 비동기라 결과는 이벤트로 알린다.
-    Events("onGuideStarted", "onGuideEnd", "onGuideFailed", "onGuideMenu", "onGuidePoiTap")
+    Events("onGuideStarted", "onGuideArrival", "onGuideEnd", "onGuideFailed", "onGuideMenu", "onGuidePoiTap")
 
     AsyncFunction("startGuide") {
       (startLng: Double, startLat: Double, goalLng: Double, goalLat: Double, goalName: String,
@@ -94,6 +96,12 @@ public class KakaoNaviModule: Module {
         },
         onPoiTap: { [weak self] name, lng, lat in
           self?.sendEvent("onGuidePoiTap", ["name": name, "longitude": lng, "latitude": lat])
+        },
+        onArrival: { [weak self] event in
+          self?.sendEvent("onGuideArrival", [
+            "latitude": event["latitude"], "longitude": event["longitude"],
+            "name": event["name"], "distance": event["distance"],
+          ])
         },
         onDismiss: { [weak self] in
           self?.sendEvent("onGuideEnd", [:])

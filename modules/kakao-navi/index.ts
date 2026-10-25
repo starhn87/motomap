@@ -56,6 +56,8 @@ export const KAKAO_NAVI_FEATURES = [
   'guide_web_bottom',
   'guide_hazard_sheet',
   'guide_gas_stations',
+  'guide_arrival_record',
+  'guide_gas_search_expansion',
 ] as const;
 
 export type KakaoNaviFeature = (typeof KAKAO_NAVI_FEATURES)[number];
@@ -86,6 +88,7 @@ export interface GuidePreviewSnapshot {
 
 type GuideEventPayload = {
   onGuideStarted: undefined;
+  onGuideArrival: { latitude: number; longitude: number; name: string; distance: number };
   onGuideEnd: undefined;
   onGuideFailed: { code?: string | null; message: string; preserveActive?: boolean };
   onGuideMenu: { id: number };

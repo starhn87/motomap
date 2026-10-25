@@ -204,3 +204,15 @@ test('날씨 재조회는 기존 캐시를 유지하고 비정상 응답·429는
   assert.equal(query.retry(0, new providerErrors.ProviderError('kma', 'forecast', 'timeout')), true);
   assert.equal(query.retry(1, new providerErrors.ProviderError('kma', 'forecast', 'timeout')), false);
 });
+
+test('라이더 주유소 가격 라벨에서 경유를 제외하고 두 휘발유만 보여준다', () => {
+  const { gas } = fixture({ stations: [] });
+  assert.deepEqual(Object.keys(gas.FUEL_LABELS), ['B027', 'B034']);
+});
+
+test('안내 반경 검색은 정밀 캐시 서버 응답 확인 없이 조회 완료로 판단하지 않는다', async () => {
+  const oldServer = fixture({ stations: [] });
+  await assert.rejects(oldServer.gas.fetchNearbyGasStations({ latitude: 37, longitude: 127, preciseCenter: true }));
+  const preciseServer = fixture({ stations: [], preciseCenter: true });
+  assert.equal((await preciseServer.gas.fetchNearbyGasStations({ latitude: 37, longitude: 127, preciseCenter: true })).length, 0);
+});

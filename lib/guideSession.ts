@@ -5,6 +5,8 @@ import type { GuidePreviewSnapshot, RoutePriority } from '@/modules/kakao-navi';
 // 진행 중인 길안내의 맥락. 안내 화면이 뜨면 /navi 화면은 지도로 빠져
 // 언마운트되므로, 종료·메뉴 이벤트 처리(lib/guideEvents)가 여기서 맥락을 읽는다.
 export interface GuideGoal {
+  /** 같은 목적지의 경로 편집·재개가 공유하는 세션 메모리 방문 정체성 */
+  visitIdentity?: object;
   latitude: number;
   longitude: number;
   name: string;
@@ -50,7 +52,7 @@ export const useGuideSession = create<GuideSessionStore>((set) => ({
   goal: null,
   priority: 0,
   viaPlaces: [],
-  start: (goal, priority, viaPlaces = []) => set({ goal, priority, viaPlaces }),
-  changeGoal: (goal) => set({ goal }),
+  start: (goal, priority, viaPlaces = []) => set({ goal: { ...goal, visitIdentity: goal.visitIdentity ?? {} }, priority, viaPlaces }),
+  changeGoal: (goal) => set({ goal: { ...goal, visitIdentity: {} } }),
   clear: () => set({ goal: null, priority: 0, viaPlaces: [], preview: null }),
 }));

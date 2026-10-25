@@ -14,18 +14,19 @@ function setup() {
   const context = { requestId: 'one', latitude: 37, longitude: 127, prod: 'B034', viaCount: 0 };
   const mod = loadModule<{ handleGuideGasMenu(id: number): Promise<void> }>('lib/guideGasEvents.ts', {
     'expo-router': { router: { push: (value: any) => { if (failPush) throw new Error('push'); pushed.push(value); } } },
-    '@/modules/kakao-navi': { __esModule: true, default: {
+    '@/modules/kakao-navi': { __esModule: true, supportsKakaoNaviFeature: () => false, default: {
       getGuideGasContext: async () => context, takeGuideGasSelection: async () => { const value = chosen; chosen = null; return value; },
       updateGuideGasStations: async (json: string) => { updates.push(JSON.parse(json)); },
       openGuidePreview: async () => { opened++; return snapshot; }, returnToGuide: async (token: number) => { returns.push(token); return true; },
       showGuideToast: async (message: string) => { toasts.push(message); },
     } },
+    '@/lib/guideGasSearch': {},
     '@/lib/api/gasStations': { fetchNearbyGasStations: async (params: any) => { requests.push(params); if (failure) throw new Error('offline'); return new Promise(resolve => { resolveFetch = resolve; }); } },
     '@/lib/distance': { haversine: (_a: any, b: any) => b.distance ?? 0 },
     '@/lib/guideSession': { useGuideSession: { getState: () => session } },
     '@/stores/useLocationPrivacyStore': { providerLocationAllowed: () => allowed,
       useLocationPrivacyStore: { getState: () => ({ revision }) }, withLocationUse: async (_p: any, _v: any, work: any) => { if (beforeWork) await beforeWork; const result=await work(); if(holdAudit) await new Promise<void>(resolve=>audits.push(resolve)); return result; } },
-  });
+  }, { AbortController });
   const flush = async () => { for (let i=0;i<12;i++) await Promise.resolve(); };
   return { get opened() { return opened; }, waitBeforeWork: () => { beforeWork = new Promise<void>(resolve => { releaseWork=resolve; }); }, releaseWork: () => releaseWork?.(), holdAudit: () => { holdAudit=true; }, finishAudit: () => audits.forEach(resolve=>resolve()), mod, context, session, updates, returns, pushed, toasts, requests, flush,
     choose(via = false) { chosen = { station: { name: '주유소', latitude: 37.01, longitude: 127.01 }, via }; },

@@ -22,6 +22,7 @@ NS_ASSUME_NONNULL_BEGIN
              onStarted:(void (^_Nullable)(void))onStarted
                 onMenu:(void (^_Nullable)(NSInteger menuId))onMenu
               onPoiTap:(void (^_Nullable)(NSString *poiName, double lng, double lat))onPoiTap
+             onArrival:(void (^_Nullable)(NSDictionary *event))onArrival
             onDismiss:(void (^)(void))onDismiss
               onError:(void (^)(NSString *_Nullable code, NSString *message))onError;
 

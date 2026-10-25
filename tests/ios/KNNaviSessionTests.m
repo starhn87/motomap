@@ -97,6 +97,7 @@
 @interface PreviewGuidanceProbe : NSObject
 @property(nonatomic, strong) PreviewTripProbe *trip;
 @property(nonatomic) NSUInteger refreshCalls;
+@property(nonatomic, strong) LocationGuideProbe *locationGuide;
 @end
 @implementation PreviewGuidanceProbe
 - (void)reRoute { self.refreshCalls++; }
@@ -185,6 +186,25 @@ int RunKNNaviSessionTests(void) {
   if ([controller usableRecoveryGPS:(id)gps]) failures++;
   gps.posTrust = YES;
   if (![controller usableRecoveryGPS:(id)gps]) failures++;
+  // SDK 도착으로 안내 화면을 유지해도 방문 기록 이벤트는 한 번 발생해야 한다.
+  [KNSDKBridge setLocationUseAllowed:YES];
+  SessionControllerProbe *arrivalController=[SessionControllerProbe new];
+  SessionViewProbe *arrivalView=[SessionViewProbe new]; arrivalController.naviView=(id)arrivalView;
+  PreviewTripProbe *arrivalTrip=[PreviewTripProbe new];
+  arrivalTrip.goal=[[KNPOI alloc] initWithName:@"도착 검사" pos:IntPointMake(300000,400000)];
+  PreviewGuidanceProbe *arrivalGuide=[PreviewGuidanceProbe new]; arrivalGuide.trip=arrivalTrip;
+  GPSProbe *arrivalGPS=[GPSProbe new]; arrivalGPS.valid=YES; arrivalGPS.posTrust=NO;
+  arrivalGPS.timestamp=NSDate.date; arrivalGPS.pos=DoublePointMake(300000,400000);
+  LocationGuideProbe *arrivalLocation=[LocationGuideProbe new]; arrivalLocation.gpsOrigin=arrivalGPS;
+  arrivalGuide.locationGuide=arrivalLocation;
+  [arrivalController setValue:arrivalTrip forKey:@"trip"]; [arrivalController setValue:arrivalGuide forKey:@"guidance"];
+  __block NSUInteger arrivalEvents=0;
+  if ([arrivalController respondsToSelector:NSSelectorFromString(@"setOnArrival:")]) {
+    [arrivalController setValue:[^(NSDictionary *event){ arrivalEvents++; } copy] forKey:@"onArrival"];
+    [arrivalController guidanceGuideEnded:nil]; [arrivalController guidanceGuideEnded:nil];
+    if (arrivalEvents!=1) { NSLog(@"FAIL held guidance arrival was not recorded exactly once"); failures++; }
+  } else { NSLog(@"FAIL held guidance has no arrival event before dismissal"); failures++; }
+  [arrivalController setValue:@YES forKey:@"finished"]; [arrivalController updateBottomPanel];
   // 실제 미리보기 진입 분기: GPS가 없어도 목적지 편집을 열고 새 좌표는 비워둔다.
   [KNSDKBridge setLocationUseAllowed:YES];
   KNPOI *goal = [[KNPOI alloc] initWithName:@"목적지" x:300000 y:400000];
@@ -541,6 +561,43 @@ void RunKNNaviGasTests(UIWindow *window, void (^completion)(int)) {
   __block int failures=0; __block NSUInteger fetches=0;
   KNNaviGasLayer *locationLayer=[[KNNaviGasLayer alloc] initWithHost:window.rootViewController];
   locationLayer.isActive=^BOOL{ return YES; };
+  // GPS가 아직 없을 때는 출발지를 사용하고 진행 응답은 요청을 완료시키지 않는다.
+  KNNaviGasLayer *fallbackLayer=[[KNNaviGasLayer alloc] initWithHost:[UIViewController new]];
+  fallbackLayer.isActive=^BOOL{ return YES; };
+  fallbackLayer.getFallbackCenter=^NSDictionary *{ return @{@"latitude":@37.5,@"longitude":@127.0}; };
+  [fallbackLayer requestForced:NO];
+  NSString *fallbackID=fallbackLayer.context[@"requestId"];
+  if (!fallbackID || ![fallbackLayer.context[@"latitude"] isEqual:@37.5]) { NSLog(@"FAIL start location fallback"); failures++; }
+  [fallbackLayer applyResponse:@{@"requestId":fallbackID,@"progressRadius":@15000,@"foundCount":@2}];
+  if (!fallbackLayer.context || ![[fallbackLayer valueForKey:@"loading"] boolValue] || [[fallbackLayer valueForKey:@"progressRadius"] integerValue]!=15000) { NSLog(@"FAIL gas progress completed request"); failures++; }
+  NSDictionary *farGas=@{@"id":@"far",@"name":@"먼 저렴한 주유소",@"brand":@"GS",@"latitude":@37.6,@"longitude":@127.0,@"price":@1700,@"distance":@11000};
+  NSDictionary *nearGas=@{@"id":@"near",@"name":@"가까운 주유소",@"brand":@"SK",@"latitude":@37.51,@"longitude":@127.0,@"price":@1800,@"distance":@1100};
+  UIViewController *progressSheet=[NSClassFromString(@"KNNaviGasSheet") new];
+  [progressSheet setValue:fallbackLayer forKey:@"owner"]; [fallbackLayer setValue:progressSheet forKey:@"sheet"]; [progressSheet loadViewIfNeeded];
+  if (![[progressSheet valueForKey:@"status"] text] || ![[[progressSheet valueForKey:@"status"] text] containsString:@"15km"]) { NSLog(@"FAIL gas loading radius text"); failures++; }
+  NSMutableArray *manyGas=[NSMutableArray arrayWithObjects:farGas,nearGas,nil];
+  for (NSInteger i=0;i<48;i++) [manyGas addObject:@{@"id":[NSString stringWithFormat:@"middle-%ld",(long)i],@"name":@"주유소",@"brand":@"SK",@"latitude":@(37.52+i*0.001),@"longitude":@127.0,@"price":@1900,@"distance":@5000}];
+  [fallbackLayer applyResponse:@{@"requestId":fallbackID,@"stations":manyGas,@"radius":@30000}];
+  NSArray *fallbackStations=[fallbackLayer valueForKey:@"stations"];
+  if (fallbackStations.count!=40 || ![fallbackStations.firstObject[@"id"] isEqual:@"near"]) { NSLog(@"FAIL expanded gas radius/distance sort"); failures++; }
+  [fallbackLayer setValue:@YES forKey:@"priceSort"]; [fallbackLayer requestForced:NO];
+  if (![[fallbackLayer valueForKey:@"stations"][0][@"id"] isEqual:@"far"]) { NSLog(@"FAIL gas price sort"); failures++; }
+  [fallbackLayer requestForced:YES];
+  [fallbackLayer applyResponse:@{@"requestId":fallbackLayer.context[@"requestId"],@"stations":@[],@"radius":@30000}];
+  if (![[[progressSheet valueForKey:@"status"] text] containsString:@"30km까지 검색했지만"]) { NSLog(@"FAIL 30km detailed empty text"); failures++; }
+  [fallbackLayer invalidate];
+  __block double cacheLatitude=37.5;
+  __block NSInteger cacheFetches=0;
+  KNNaviGasLayer *movingCache=[[KNNaviGasLayer alloc] initWithHost:[UIViewController new]];
+  movingCache.isActive=^BOOL{ return YES; };
+  movingCache.getFallbackCenter=^NSDictionary *{ return @{@"latitude":@(cacheLatitude),@"longitude":@127.0}; };
+  movingCache.onFetch=^{ cacheFetches++; }; [movingCache requestForced:NO];
+  NSMutableArray *edgeStations=[NSMutableArray new];
+  for (NSInteger i=0;i<5;i++) [edgeStations addObject:@{@"id":[NSString stringWithFormat:@"edge-%ld",(long)i],@"name":@"경계 주유소",@"brand":@"SK",@"latitude":@37.544,@"longitude":@127.0,@"price":@1800,@"distance":@4890}];
+  [movingCache applyResponse:@{@"requestId":movingCache.context[@"requestId"],@"stations":edgeStations,@"radius":@5000}];
+  cacheLatitude=37.495; [movingCache requestForced:NO];
+  if (cacheFetches!=2 || !movingCache.context) { NSLog(@"FAIL cache fewer than five did not re-search"); failures++; }
+  [movingCache invalidate];
   SessionControllerProbe *locationController=[SessionControllerProbe new]; locationController.gasLayer=locationLayer;
   [locationController setValue:@YES forKey:@"carThemeApplied"];
   GPSProbe *raw=[GPSProbe new]; raw.valid=YES; raw.posTrust=NO; raw.timestamp=NSDate.date;
@@ -602,7 +659,7 @@ void RunKNNaviGasTests(UIWindow *window, void (^completion)(int)) {
       [layer applyResponse:@{@"requestId":layer.context[@"requestId"],@"stations":@[station]}];
       raw.pos=DoublePointMake(coordinate.x+2000,coordinate.y); [layer updateGPS:(id)raw];
       if (fetches!=6 || [[layer valueForKey:@"stations"] count]) { NSLog(@"FAIL moved gas cache reused"); failures++; }
-      raw.timestamp=[NSDate dateWithTimeIntervalSinceNow:-20]; [layer setValue:raw.timestamp forKey:@"gpsAt"];
+      raw.timestamp=[NSDate dateWithTimeIntervalSinceNow:-301]; [layer setValue:raw.timestamp forKey:@"gpsAt"];
       [(NSTimer *)[layer valueForKey:@"timer"] fire];
       if (cache.count || layer.context || [[layer valueForKey:@"stations"] count]) { NSLog(@"FAIL stale GPS retained gas cache"); failures++; }
       raw.timestamp=NSDate.date; raw.valid=NO;

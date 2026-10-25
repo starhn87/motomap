@@ -277,6 +277,8 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong) KNNaviBottomPanel *bottomPanel;
 @property(nonatomic, strong) KNNaviHazardSheet *hazardSheet;
 @property(nonatomic, strong) KNNaviGasLayer *gasLayer;
+@property(nonatomic, copy) void (^onArrival)(NSDictionary *);
+@property(nonatomic) BOOL arrivalEmitted;
 @property(nonatomic, strong) UIControl *menuBackdrop;
 @property(nonatomic, strong) KNNaviHiddenViews *webHiddenViews;
 @property(nonatomic, strong) KNNaviHiddenViews *mapHiddenViews;
@@ -545,6 +547,12 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
       if (!newest || [gps.timestamp compare:newest.timestamp] == NSOrderedDescending) newest = gps;
     }
     return newest;
+  };
+  self.gasLayer.getFallbackCenter = ^NSDictionary *{
+    KNNaviViewController *vc=gasOwner;
+    if (!vc || vc.finished || vc.suspended || ![KNSDKBridge isLocationUseAllowed] || !vc.trip.start) return nil;
+    DoublePoint start=[[KNSDK sharedInstance] convertKATECToWGS84WithX:lround(vc.trip.start.pos.x) y:lround(vc.trip.start.pos.y)];
+    return @{@"latitude":@(start.y),@"longitude":@(start.x)};
   };
   self.gasLayer.onFetch = ^{ if (gasOwner.onMenu) gasOwner.onMenu(106); };
   self.gasLayer.onRoute = ^{ if (gasOwner.onMenu) gasOwner.onMenu(108); };
@@ -941,6 +949,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.resumeCommitting = NO;
   if (self.changingDestination && self.pendingDestinationTrip) {
     [self.gasLayer resetSearch];
+    self.arrivalEmitted = NO;
     self.trip = self.pendingDestinationTrip;
     self.priority = self.pendingDestinationPriority;
   }
@@ -1014,6 +1023,18 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self applyCarTheme]; // 재탐색으로 새 경로가 깔릴 때도 자차·경로 테마가 리셋된다
 }
 
+- (void)emitArrivalIfNear:(KNGPSData *)gps {
+  if (self.finished || self.preview || self.suspended || self.changingDestination || self.arrivalEmitted ||
+      !self.onArrival || !self.trip.goal || ![KNSDKBridge isLocationUseAllowed] || ![KNNaviGasLayer isUsableSearchGPS:gps]) return;
+  IntPoint target=self.trip.goal.pos;
+  double distance=hypot(gps.pos.x-target.x,gps.pos.y-target.y);
+  if (!isfinite(distance) || distance>300) return;
+  self.arrivalEmitted=YES;
+  DoublePoint goal=[[KNSDK sharedInstance] convertKATECToWGS84WithX:target.x y:target.y];
+  // 좌표는 앱 내부 저장 맥락 확인용이다. 분석·오류 이벤트로 보내지 않는다.
+  self.onArrival(@{@"latitude":@(goal.y),@"longitude":@(goal.x),@"name":self.trip.goal.name ?: @"",@"distance":@(distance)});
+}
+
 - (void)guidanceGuideEnded:(KNGuidance *)aGuidance {
   if (self.finished) return;
   // 이전 종료 콜백이 새 경로 시작 뒤 늦게 도착한 경우 현재 안내를 덮지 않는다.
@@ -1026,6 +1047,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (!self.arrivalRecovery) self.arrivalRecovery = [KNNaviArrivalRecovery new];
   KNGPSData *gps = (aGuidance ?: self.guidance).locationGuide.gpsOrigin;
   [self.arrivalRecovery guideEndedAtDistance:[self distanceToDestinationWithGPS:gps]];
+  [self emitArrivalIfNear:gps];
   [self showArrivalUIWithMessage:@"목적지 주변입니다.\n지나치면 복귀 경로를 안내합니다."];
   [self applyCarTheme];
 }
@@ -1252,6 +1274,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self updateCurrentLocationWithGuide:aLocationGuide];
   if (!self.preview) [self.gasLayer updateGPS:aLocationGuide.gpsOrigin];
   [self updateBottomPanel];
+  if (self.arrivalRecovery.waiting) [self emitArrivalIfNear:aLocationGuide.gpsOrigin];
   if (self.arrivalRecovery.waiting && !self.preview && !self.suspended && !self.changingDestination && [self usableRecoveryGPS:aLocationGuide.gpsOrigin]) {
     double distance = [self distanceToDestinationWithGPS:aLocationGuide.gpsOrigin];
     if ([self.arrivalRecovery shouldRecoverAtDistance:distance time:NSDate.timeIntervalSinceReferenceDate]) {
@@ -1384,6 +1407,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
              onStarted:(void (^_Nullable)(void))onStarted
                 onMenu:(void (^_Nullable)(NSInteger))onMenu
               onPoiTap:(void (^_Nullable)(NSString *, double, double))onPoiTap
+             onArrival:(void (^_Nullable)(NSDictionary *))onArrival
              onDismiss:(void (^)(void))onDismiss
                onError:(void (^)(NSString *_Nullable, NSString *))onError {
   if (![KNSDKBridge isLocationUseAllowed]) { onError(nil,@"위치 이용이 중지됐다"); return; }
@@ -1434,6 +1458,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
                                            onStarted:onStarted
                                               onMenu:onMenu
                                             onPoiTap:onPoiTap
+                                           onArrival:onArrival
                                            onDismiss:onDismiss
                                              onError:onError];
                                });
@@ -1449,7 +1474,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
               onStarted:(void (^_Nullable)(void))onStarted
                  onMenu:(void (^_Nullable)(NSInteger))onMenu
                onPoiTap:(void (^_Nullable)(NSString *, double, double))onPoiTap
-              onDismiss:(void (^)(void))onDismiss
+              onArrival:(void (^_Nullable)(NSDictionary *))onArrival
+             onDismiss:(void (^)(void))onDismiss
                 onError:(void (^)(NSString *_Nullable, NSString *))onError {
   dispatch_async(dispatch_get_main_queue(), ^{
     if (gActiveNavi && !gActiveNavi.finished) { onError(@"ACTIVE_GUIDE",@"진행 중인 길안내가 있어요. 먼저 종료해 주세요."); return; }
@@ -1472,6 +1498,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     vc.onStarted = onStarted;
     vc.onMenu = onMenu;
     vc.onPoiTap = onPoiTap;
+    vc.onArrival = onArrival;
     vc.onDismiss = onDismiss;
     // FullScreen 은 밑 화면을 뷰 계층에서 떼어내 네비게이션 전환(지도로 미리
     // 이동)이 걷힐 때까지 보류된다 — 그래서 닫힐 때 이전 화면이 비쳤다(실측).
