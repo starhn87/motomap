@@ -38,7 +38,8 @@ import { useGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorit
 import { useGasPricesAt } from '@/hooks/useGasStations';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
 import { poiSourceKey } from '@/lib/api/placeHours';
-import { PlaceHoursToggle, PlaceHoursDetails } from '@/components/place/PlaceHoursDisclosure';
+import OpenBadge from '@/components/place/OpenBadge';
+import { PlaceHoursRow } from '@/components/place/PlaceHoursDisclosure';
 import { PlaceAddressRow, PlacePhoneRow } from '@/components/place/PlaceContactRows';
 import { FUEL_LABELS, formatTradeAt, looksLikeGasStation } from '@/lib/api/gasStations';
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
@@ -133,7 +134,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
   const { data: gas, isLoading: gasLoading, isError: gasFailed, isFetching: gasFetching, refetch: refetchGas } = useGasPricesAt(place);
   const isGasStation = !!place && looksLikeGasStation(place.name);
   const canLoadHours = !!place && !isGasStation;
-  const { data: placeHours, isLoading: hoursLoading, isError: hoursFailed } = usePlaceHours(
+  const { data: placeHours } = usePlaceHours(
     place && canLoadHours
       ? {
           sourceKey: poiSourceKey(place.latitude, place.longitude),
@@ -455,13 +456,13 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
               <Text style={[styles.shareButtonText, { color: colors.tint }]}>공유</Text>
             </TouchableOpacity>
             <View style={styles.openStatusSlot}>
-              <PlaceHoursToggle hours={placeHours?.hours} businessStatus={placeHours?.businessStatus}
-                expanded={hoursExpanded} onToggle={() => setHoursExpanded(value => !value)} />
+              <OpenBadge hours={placeHours?.hours} businessStatus={placeHours?.businessStatus} inline />
             </View>
           </View>
-          <PlaceHoursDetails expanded={hoursExpanded} hours={placeHours?.hours} loading={hoursLoading} failed={hoursFailed} />
 
           <PlacePhoneRow phone={place.phone} />
+          <PlaceHoursRow hours={placeHours?.hours}
+            expanded={hoursExpanded} onToggle={() => setHoursExpanded(value => !value)} />
 
           {(gasLoading || gasFailed || fuelPrices.length > 0) && (
             <View style={[styles.priceRows, { borderColor: colors.border }]}>

@@ -25,7 +25,8 @@ import BottomSheet, {
 import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react';
 
 import { placeWebUrl } from '@/constants/app';
-import { PlaceHoursToggle, PlaceHoursDetails } from '@/components/place/PlaceHoursDisclosure';
+import OpenBadge from '@/components/place/OpenBadge';
+import { PlaceHoursRow } from '@/components/place/PlaceHoursDisclosure';
 import { PlaceAddressRow, PlacePhoneRow } from '@/components/place/PlaceContactRows';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
 import Colors, { semantic } from '@/constants/Colors';
@@ -300,7 +301,7 @@ function PlaceBottomSheet({
   //
   // 아래 early return 보다 위에 있어야 한다. 시트가 닫힌 렌더에서만 훅이 빠지면
   // 순서가 어긋나 React 가 터진다.
-  const { data: googleHours, isLoading: googleHoursLoading, isError: googleHoursFailed } = usePlaceHours(
+  const { data: googleHours } = usePlaceHours(
     !displayPlace || displayPlace.hours
       ? null
       : {
@@ -480,11 +481,9 @@ function PlaceBottomSheet({
             {/* 비동기 영업시간이 도착하기 전부터 같은 폭을 잡는다. 한 줄에 다
                 들어오지 않는 상태는 줄바꿈하지 않고 말줄임한다. */}
             <View style={styles.openStatusSlot}>
-              <PlaceHoursToggle hours={hours} businessStatus={googleHours?.businessStatus} operationalStatus={operationalStatus}
-                expanded={hoursExpanded} onToggle={() => setHoursExpanded(value => !value)} />
+              <OpenBadge hours={hours} businessStatus={googleHours?.businessStatus} operationalStatus={operationalStatus} inline />
             </View>
           </View>
-          <PlaceHoursDetails expanded={hoursExpanded} hours={hours} loading={googleHoursLoading} failed={googleHoursFailed} fallbackText={displayPlace.openingHours} />
 
           {displayPlace.description ? (
             <Text style={[styles.description, { color: colors.textSecondary }]}>
@@ -525,6 +524,8 @@ function PlaceBottomSheet({
           )}
 
           <PlacePhoneRow phone={displayPlace.phone} />
+          <PlaceHoursRow hours={hours} fallbackText={displayPlace.openingHours}
+            expanded={hoursExpanded} onToggle={() => setHoursExpanded(value => !value)} />
 
           {infoCards.length > 0 && (
             <View style={styles.infoGrid}>

@@ -1,13 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import OpenBadge from '@/components/place/OpenBadge';
 import { formatDailyHours, type Hours } from '@/lib/hours';
-import type { PlaceOperationalStatus } from '@/types';
 
-export function PlaceHoursToggle({ hours, businessStatus, operationalStatus, expanded, onToggle }: {
-  hours?: Hours | null; businessStatus?: string | null; operationalStatus?: PlaceOperationalStatus;
+export function hasPlaceHours(hours?: Hours | null, fallbackText?: string | null) {
+  return !!(hours && formatDailyHours(hours).length) || !!hours?.note?.trim() || !!fallbackText?.trim();
+}
+
+export function PlaceHoursToggle({ expanded, onToggle }: {
   expanded: boolean; onToggle: () => void;
 }) {
   const colors = Colors[useColorScheme() ?? 'light'];
@@ -15,25 +16,33 @@ export function PlaceHoursToggle({ hours, businessStatus, operationalStatus, exp
     <Pressable accessibilityRole="button" accessibilityLabel={expanded ? '운영시간 접기' : '운영시간 펼치기'}
       accessibilityState={{ expanded }} onPress={onToggle}
       style={({ pressed }) => [styles.toggle, { opacity: pressed ? 0.6 : 1 }]}>
-      <View style={styles.badge}>
-        <OpenBadge hours={hours} businessStatus={businessStatus} operationalStatus={operationalStatus} inline fallbackText="운영시간" />
-      </View>
-      <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={15} color={colors.textSecondary} />
+      <Ionicons name="time-outline" size={18} color={colors.textSecondary} />
+      <Text style={[styles.label, { color: colors.text }]}>운영시간</Text>
+      <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
     </Pressable>
   );
 }
 
-export function PlaceHoursDetails({ expanded, hours, fallbackText, loading, failed }: {
-  expanded: boolean; hours?: Hours | null; fallbackText?: string | null; loading?: boolean; failed?: boolean;
+export function PlaceHoursRow({ hours, fallbackText, expanded, onToggle }: {
+  hours?: Hours | null; fallbackText?: string | null; expanded: boolean; onToggle: () => void;
+}) {
+  if (!hasPlaceHours(hours, fallbackText)) return null;
+  return <View>
+    <PlaceHoursToggle expanded={expanded} onToggle={onToggle} />
+    <PlaceHoursDetails expanded={expanded} hours={hours} fallbackText={fallbackText} />
+  </View>;
+}
+
+export function PlaceHoursDetails({ expanded, hours, fallbackText }: {
+  expanded: boolean; hours?: Hours | null; fallbackText?: string | null;
 }) {
   const colors = Colors[useColorScheme() ?? 'light'];
-  if (!expanded) return null;
+  if (!expanded || !hasPlaceHours(hours, fallbackText)) return null;
   const days = hours ? formatDailyHours(hours) : [];
-  const description = fallbackText || (hours?.note ? null : failed ? '운영시간을 확인하지 못했어요.' : '등록된 운영시간이 없어요.');
+  const description = fallbackText?.trim();
   return (
     <View style={styles.details}>
-      {loading && !days.length && !fallbackText ? <ActivityIndicator size="small" color={colors.tint} /> :
-        days.length ? days.map(day => (
+      {days.length ? days.map(day => (
           <View key={day.day} style={styles.dayRow}>
             <Text style={[styles.day, { color: colors.textSecondary }]}>{day.label}요일</Text>
             <Text style={[styles.hours, { color: colors.text }]}>{day.value}</Text>
@@ -45,8 +54,8 @@ export function PlaceHoursDetails({ expanded, hours, fallbackText, loading, fail
 }
 
 const styles = StyleSheet.create({
-  toggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 3, minHeight: 40 },
-  badge: { flex: 1, minWidth: 0 },
+  toggle: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  label: { flex: 1, fontSize: 14 },
   details: { marginBottom: 12, gap: 6 },
   dayRow: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
   day: { width: 42, fontSize: 14, lineHeight: 21 },

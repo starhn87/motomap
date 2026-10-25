@@ -29,17 +29,22 @@ test('접힌 시간표는 숨기고 펼침/접기 버튼은 반대 화살표와 
   const mod = ui(); let expanded = false;
   const button = () => mod.PlaceHoursToggle({ expanded, onToggle: () => { expanded = !expanded; } });
   assert.equal(mod.PlaceHoursDetails({ expanded }), null);
-  assert.equal(nodes(button()).find(n => n.type === 'Icon').props.name, 'chevron-down');
+  assert.equal(nodes(button()).filter(n => n.type === 'Icon').at(-1).props.name, 'chevron-down');
   button().props.onPress();
   assert.equal(button().props.accessibilityState.expanded, true);
-  assert.equal(nodes(button()).find(n => n.type === 'Icon').props.name, 'chevron-up');
+  assert.equal(nodes(button()).filter(n => n.type === 'Icon').at(-1).props.name, 'chevron-up');
   assert.ok(text(mod.PlaceHoursDetails({ expanded, hours: { mon: [] } })).includes('월요일'));
   assert.ok(text(mod.PlaceHoursDetails({ expanded, hours: { mon: [] } })).includes('휴무'));
 });
-test('영업시간 로딩·조회 실패·원문 시간표·주의사항을 구분하고 긴 원문을 자르지 않는다', () => {
+test('시간 정보가 없으면 행 전체를 숨기고 원문 시간표·주의사항은 자르지 않는다', () => {
   const mod = ui();
-  assert.ok(nodes(mod.PlaceHoursDetails({ expanded: true, loading: true })).some(n => n.type === 'Spinner'));
-  assert.ok(text(mod.PlaceHoursDetails({ expanded: true, failed: true })).includes('확인하지 못했어요'));
+  for (const value of [undefined, null, {}, { mon: null }, { note: '  ' }]) {
+    assert.equal(mod.PlaceHoursRow({ hours: value, expanded: true, onToggle() {} }), null);
+    assert.equal(mod.PlaceHoursDetails({ hours: value, expanded: true }), null);
+  }
+  assert.equal(mod.PlaceHoursRow({ fallbackText: '  ', expanded: false, onToggle() {} }), null);
+  assert.ok(mod.PlaceHoursRow({ hours: { mon: [] }, expanded: false, onToggle() {} }));
+  assert.ok(mod.PlaceHoursRow({ hours: { note: '우천 휴무' }, expanded: false, onToggle() {} }));
   const fallback = '매일 10:00~20:00\n브레이크 타임 14:00~16:00';
   const tree = mod.PlaceHoursDetails({ expanded: true, fallbackText: fallback, hours: { note: '우천 휴무' } });
   assert.ok(text(tree).includes(fallback)); assert.ok(text(tree).includes('우천 휴무'));
