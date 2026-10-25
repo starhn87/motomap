@@ -1530,3 +1530,29 @@ production/iOS/runtime1.2.10 그룹 `48f663dc-c46d-4a57-9553-061a6ee95644`,
 update `01a173a1-7599-7629-a758-df92fa21977a`. 타입·408개 테스트·릴리스 검사·리뷰가
 통과했고 실제 신규 manifest와1.2.9 기존 ID 유지를 확인했다. 네이티브 변경 없이 기본 선택만
 전달했다. 제보된 재안내 오류는 실제 시점/문구 확인 대기이며 해결을 주장하지 않는다.
+
+
+## NAV-038 — 재안내는 신뢰 조건을 통과한 최신 SDK 위치를 선택
+
+- 날짜: 2026-10-26
+- 상태: 구현 / 네이티브 검증 중
+- 관련: KNNaviPresenter의 latestRecoveryGPS·openGuidePreview·resumeGuide, iOS 세션 테스트
+- 유지: NAV-031의 경로용 posTrust 및10초 신선도
+
+운영자는 목적지·경유지 편집 뒤 안내 시작에서 `경로를 변경할 수 없습니다`와 공통 재시도
+안내를 확인했다. 이 문구는 네이티브 재안내 거절 경계이며 기기의 세부 실패 원인은 직접
+관측하지 못했다. 조사 중 재안내가 lastValidGpsData만 읽어, 다른 SDK 원본에 신선하고
+신뢰할 수 있는 값이 있어도 위치 확인 실패를 반환하는 경계를 실제 resumeGuide로 재현했다.
+
+안내 locationGuide.gpsOrigin·recentGpsData·lastValidGpsData 중 valid·posTrust·유한 좌표·
+현재로부터10초 이내 조건을 모두 통과한 최신 timestamp를 사용한다. 미리보기 진입과
+재안내에 같은 선택기를 쓰며 부적합 위치를 신선한 위치로 위장하지 않는다. 기존 세션 토큰·
+동의·중복 요청·세대 검사·SDK 성공 ack 뒤 세션 갱신 계약은 유지한다.
+
+실제 presenter에 테스트 SDK 위치/경로 생성 경계만 주입한
+`bash scripts/test-ios-navigation-session.sh`에서 오래된 lastValid+신선한 recent,
+오래된 lastValid+신선한 guidance, 유효하지만 더 오래된 lastValid보다 최신 recent를
+선택하는3건이 수정 전 실패했다(failures=3). 신뢰하지 못하는 recent 거부는 그대로 통과했다.
+SDK 네트워크 경로 적용·실제 기기 GPS/원 제보의 동일 원인 여부는 별도 재시험이 필요하다.
+JS 호출/응답·앱/runtime1.2.10·native22/API1 계약·네이티브 설정·권한·의존성은 유지한다.
+수정은 Objective-C 바이너리에 포함돼야 하므로 OTA만으로59번에 추가되지 않는다.

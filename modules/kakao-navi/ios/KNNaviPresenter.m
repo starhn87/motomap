@@ -1057,6 +1057,19 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
       gps.timestamp && fabs(gps.timestamp.timeIntervalSinceNow) <= 10;
 }
 
+// SDK 위치 원본별 갱신 시점이 다를 수 있어 안내용 신뢰 조건을 통과한 최신 값을 고른다.
+- (KNGPSData *)latestRecoveryGPS {
+  KNGPSManager *manager = [KNSDK sharedInstance].sharedGpsManager;
+  KNGPSData *newest = nil;
+  for (id candidate in @[self.guidance.locationGuide.gpsOrigin ?: NSNull.null,
+                          manager.recentGpsData ?: NSNull.null, manager.lastValidGpsData ?: NSNull.null]) {
+    if (candidate == NSNull.null || ![self usableRecoveryGPS:candidate]) continue;
+    KNGPSData *gps = candidate;
+    if (!newest || [gps.timestamp compare:newest.timestamp] == NSOrderedDescending) newest = gps;
+  }
+  return newest;
+}
+
 - (double)distanceToDestinationWithGPS:(KNGPSData *)gps {
   if (!self.trip.goal || ![self usableRecoveryGPS:gps]) return NAN;
   IntPoint goal = self.trip.goal.pos;
@@ -1515,7 +1528,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 + (void)openGuidePreview:(void (^)(NSDictionary *, NSString *))completion {
   [self openGuidePreviewForController:gActiveNavi
-                                 gps:[KNSDK sharedInstance].sharedGpsManager.lastValidGpsData
+                                 gps:[gActiveNavi latestRecoveryGPS]
                           completion:completion];
 }
 
@@ -1600,7 +1613,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     completion(nil, @"길안내 상태가 변경됐어요."); return;
   }
   KNSDK *sdk = [KNSDK sharedInstance];
-  KNGPSData *gps = sdk.sharedGpsManager.lastValidGpsData;
+  KNGPSData *gps = [vc latestRecoveryGPS];
   if (![vc usableRecoveryGPS:gps]) { completion(nil, @"현재 위치를 확인한 뒤 다시 시도해 주세요."); return; }
   NSUInteger generation = ++vc.routeRequestGeneration;
   vc.changingDestination = YES;

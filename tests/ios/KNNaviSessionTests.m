@@ -115,6 +115,26 @@
 - (void)dismissViewControllerAnimated:(BOOL)animated completion:(void (^)(void))completion { if (completion) completion(); }
 @end
 
+// 재안내의 실제 GPS 선택 경계만 대역으로 바꾸고 SDK 네트워크 요청은 하지 않는다.
+@interface ResumeGPSManagerProbe : NSObject
+@property(nonatomic, strong) GPSProbe *recentGpsData;
+@property(nonatomic, strong) GPSProbe *lastValidGpsData;
+@end
+@implementation ResumeGPSManagerProbe @end
+@interface ResumeSDKProbe : NSObject
+@property(nonatomic, strong) ResumeGPSManagerProbe *sharedGpsManager;
+@property(nonatomic) NSUInteger tripCalls;
+@property(nonatomic) IntPoint origin;
+@end
+@implementation ResumeSDKProbe
+- (IntPoint)convertWGS84ToKATECWithLongitude:(double)lng latitude:(double)lat { return (IntPoint){300000,400000}; }
+- (DoublePoint)convertKATECToWGS84WithX:(SInt32)x y:(SInt32)y { return (DoublePoint){127,37.5}; }
+- (void)makeTripWithStart:(KNPOI *)start goal:(KNPOI *)goal vias:(NSArray *)vias completion:(void (^)(KNError *, KNTrip *))completion {
+  self.tripCalls++; self.origin = start.pos;
+  completion(nil,nil);
+}
+@end
+
 int RunKNNaviSessionTests(void) {
   int failures = 0;
   // 실제 SDK 렌더 메서드에 진입한다. SDK 초기화/GPS/경로 탐색만 생략한 뷰다.
@@ -222,6 +242,39 @@ int RunKNNaviSessionTests(void) {
                    completion:^(NSDictionary *result, NSString *error) { rejectedApply = !result && [error containsString:@"현재 위치"]; }];
   if (!rejectedApply || [[editor valueForKey:@"changingDestination"] boolValue]) { NSLog(@"FAIL GPS-free route applied"); failures++; }
   [editor setValue:@YES forKey:@"finished"];
+  ResumeSDKProbe *resumeSDK = [ResumeSDKProbe new]; resumeSDK.sharedGpsManager = [ResumeGPSManagerProbe new];
+  Method sharedSDKMethod = class_getClassMethod(KNSDK.class, @selector(sharedInstance));
+  IMP originalSDK = method_getImplementation(sharedSDKMethod);
+  IMP fakeSDK = imp_implementationWithBlock(^id(id owner) { return resumeSDK; });
+  method_setImplementation(sharedSDKMethod, fakeSDK);
+  for (int scenario = 0; scenario < 4; scenario++) {
+    GPSProbe *old = [GPSProbe new]; old.valid = YES; old.posTrust = YES;
+    old.timestamp = [NSDate dateWithTimeIntervalSinceNow:scenario == 3 ? -5 : -30]; old.pos = (DoublePoint){300001,400001};
+    GPSProbe *fresh = [GPSProbe new]; fresh.valid = YES; fresh.posTrust = scenario != 2;
+    fresh.timestamp = NSDate.date; fresh.pos = (DoublePoint){300100,400100};
+    resumeSDK.sharedGpsManager.lastValidGpsData = old;
+    resumeSDK.sharedGpsManager.recentGpsData = scenario == 1 ? nil : fresh;
+    SessionControllerProbe *resumer = [SessionControllerProbe new];
+    [resumer setValue:previewTrip forKey:@"trip"];
+    if (scenario == 1) {
+      PreviewGuidanceProbe *guide = [PreviewGuidanceProbe new];
+      guide.locationGuide = [LocationGuideProbe new]; guide.locationGuide.gpsOrigin = fresh;
+      [resumer setValue:guide forKey:@"guidance"];
+    }
+    [KNNaviPresenter openGuidePreviewForController:resumer gps:nil completion:^(NSDictionary *snapshot, NSString *error) {}];
+    NSUInteger before = resumeSDK.tripCalls;
+    __block BOOL gpsRejected = NO;
+    [KNNaviPresenter resumeGuide:[[resumer valueForKey:@"previewToken"] integerValue] toLng:127 lat:37.5 name:@"새 목적지" vias:@[] priority:0
+                     completion:^(NSDictionary *result, NSString *error) { gpsRejected = [error containsString:@"현재 위치"]; }];
+    if (scenario == 2) {
+      if (!gpsRejected || resumeSDK.tripCalls != before) { NSLog(@"FAIL untrusted recent GPS applied during resume"); failures++; }
+    } else if (gpsRejected || resumeSDK.tripCalls != before + 1 || resumeSDK.origin.x != 300100) {
+      NSLog(@"FAIL resume ignores fresh trusted GPS candidate scenario=%d",scenario); failures++;
+    }
+    [resumer setValue:@YES forKey:@"finished"];
+  }
+  method_setImplementation(sharedSDKMethod, originalSDK); imp_removeBlock(fakeSDK);
+
   SessionControllerProbe *regionController = [SessionControllerProbe new];
   LocationNameProbe *road = [LocationNameProbe new]; road.facilityName = @"시설 이름";
   LocationGuideProbe *sample = [LocationGuideProbe new]; sample.location = road;
