@@ -1,3 +1,23 @@
+## 2026-10-26 1.2.10(60) App Store 심사 제출 완료
+
+사용자가 TestFlight60 확인 후 릴리스 노트 작성과 심사 제출을 명시적으로 요청했다.
+source `b6d6b19`의 production **1.2.10(60) / native22 / API1**을 선택했고,
+ASC build `de4a587d-56a7-4ce6-b724-a20e41c7f470`의 VALID·비만료 상태를 확인했다.
+한국어 릴리스 노트는 `config/release-notes.json` 및 `docs/app-store-listing.md`와 같은
+509자·7개 항목이다. 기존 앱 설명·키워드·마케팅/지원 URL·홍보 문구는 운영1.2.9와
+일치하게 보존했고, 스크린샷8개와 심사 연락처·데모 계정 필수 항목도 확인했다.
+ASC version `14bc99d9-83d0-47ac-aa21-b0cf87786d6d`, review submission
+`d4a73d37-5888-48e0-aa62-4f0eb5f1c3d4`의 **WAITING_FOR_REVIEW**를 확인했다.
+출시는 **MANUAL**을 유지한다. 심사 제출은 공개 출시를 뜻하지 않으며 원격 최소 버전이나
+candidate 정책도 바꾸지 않는다. 실제 기기에서 재안내 오류가 완전히 해소됐는지는 확인 전이다.
+
+60번은 EAS submission `01df787b-3036-4ca8-a6fb-81b1df2cd170` FINISHED,
+TestFlight IN_BETA_TESTING과 사용자 설치 가능 확인을 마쳤다. 408개 JS 테스트·타입·릴리스
+검사 및 네이티브 위치 선택 회귀 검사가 통과했다. IPA의 서명·runtime·production 채널과
+Clipboard 모듈을 확인했고 SHA256은
+`a56a6aef63b291db52581b7051d8ff813cf72ab258f4067ce6fb78745208f357`이다.
+기존 Sentry 업로드 인증 누락으로60번 심볼/소스맵은 비공개 보관해 별도 후속으로 추적한다.
+
 ## 2026-10-26 안내 편집 후 재안내 위치 확인 수정 후보
 
 NAV-038은 안내 편집·재안내가 SDK 위치 원본 하나만 보던 좁은 회귀를 수정한다.
@@ -1063,3 +1083,13 @@ ASC VALID/IN_BETA_TESTING, ko 테스트 안내 저장, 내부 그룹 접근/자�
 기존 53번 대신 54번에서 GPS 대기 해제와 목록·지도 가격 마커 표시를 재시험한다.
 실기기 가격 마커 렌더는 미확인이다. Sentry 심볼은 기존 업로드 인증 누락으로 보류했다.
 심사 제출과 공개 출시는 하지 않았다.
+
+### ASC 메타데이터 자동화 주의(2026-10-26)
+
+설치된 `@expo/apple-utils`의 localization.updateAsync는 생략한 설명·키워드·URL·홍보 문구를
+null로 전송한다. 릴리스 노트만 바꿀 때도 기존 필드를 함께 전달하고 저장 후 재조회한다.
+이번에는 제출 전 점검에서 초안의 누락을 발견해 운영1.2.9의 같은 locale 값을 복원하고
+5개 필드 일치와 새 릴리스 노트를 확인한 뒤 제출했다. 운영1.2.9는 수정하지 않았다.
+ReviewSubmission.getReviewSubmissionItemsAsync에도 리소스 경로 오타가 있어 공식
+`GET /v1/reviewSubmissions/{id}/items`로 조회했다. 제출 재시도 시 기존 심사 항목을 먼저
+확인해 중복 생성을 막는다. 인증 키와 심사 계정 정보는 로그/저장소에 남기지 않는다.

@@ -1535,7 +1535,7 @@ update `01a173a1-7599-7629-a758-df92fa21977a`. 타입·408개 테스트·릴리�
 ## NAV-038 — 재안내는 신뢰 조건을 통과한 최신 SDK 위치를 선택
 
 - 날짜: 2026-10-26
-- 상태: 구현 / 네이티브 검증 중
+- 상태: 네이티브 회귀 검증 완료 / TestFlight60 전달·App Store 심사 대기 / 실기기 재안내 확인 전
 - 관련: KNNaviPresenter의 latestRecoveryGPS·openGuidePreview·resumeGuide, iOS 세션 테스트
 - 유지: NAV-031의 경로용 posTrust 및10초 신선도
 
@@ -1556,3 +1556,8 @@ update `01a173a1-7599-7629-a758-df92fa21977a`. 타입·408개 테스트·릴리�
 SDK 네트워크 경로 적용·실제 기기 GPS/원 제보의 동일 원인 여부는 별도 재시험이 필요하다.
 JS 호출/응답·앱/runtime1.2.10·native22/API1 계약·네이티브 설정·권한·의존성은 유지한다.
 수정은 Objective-C 바이너리에 포함돼야 하므로 OTA만으로59번에 추가되지 않는다.
+
+NAV-038 전달 후속(2026-10-26): 수정 전3건 실패하던 네이티브 검사는 수정 후 모두 통과했다.
+source `b6d6b19`로1.2.10(60)을 빌드해 TestFlight VALID/IN_BETA_TESTING을 확인했고,
+사용자가60번 확인 후 요청한 App Store1.2.10 심사를 제출해 WAITING_FOR_REVIEW를 확인했다.
+MANUAL 출시를 유지한다. 네이티브 경계 테스트와 실제 기기의 SDK 경로 적용 성공은 구분한다.
