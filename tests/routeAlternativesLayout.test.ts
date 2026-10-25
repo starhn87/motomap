@@ -41,3 +41,36 @@ test('경로 카드는 두 장 뒤 세번째가 28pt 보이고 선택 스크롤�
   }
   assert.deepEqual(selected, [2, 2, 2]);
 });
+
+test('경유지 결과·실패 안내는 유지하고 크기 예약용 값은 접근성에서 숨긴다', () => {
+  const jsx = (type: any, props: any) => ({ type, props });
+  const { default: Component } = loadModule<{ default: (props: any) => any }>('components/navi/RouteAlternatives.tsx', {
+    react: { useState: () => [350, () => {}], useRef: () => ({ current: null }), useEffect: () => {} },
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react-native': { View: 'View', ScrollView: 'ScrollView', Pressable: 'Pressable', Text: 'Text', ActivityIndicator: 'Spinner', StyleSheet: { create: (value: any) => value } },
+    '@expo/vector-icons/Ionicons': { __esModule: true, default: 'Icon' },
+    '@/constants/Colors': { __esModule: true, default: { light: {} } },
+    '@/components/useColorScheme': { useColorScheme: () => 'light' },
+    '@/lib/api/directions': { formatMeters: (v: number) => `${v}m`, formatSeconds: (v: number) => `${v}초` },
+  });
+  const nodes = (node: any): any[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
+  const content = (node: any): string => Array.isArray(node) ? node.map(content).join('') : node?.props ? content(node.props.children) : typeof node === 'string' || typeof node === 'number' ? String(node) : '';
+  const render = (option: any) => Component({ options: [{ value: 0, label: '추천', ...option }], priority: 0, requestedViaCount: 2, disabled: false, onSelect() {} });
+  for (const option of [{ loading: true }, { loading: false, error: 'fixture' }, { loading: false }, { loading: false, route: { duration: 60, distance: 300 }, vias: [127, 37] }]) {
+    const tree = render(option);
+    const reserved = nodes(tree).filter(n => n.type === 'Text' && ['0분', '0km', '경유 0개'].includes(content(n)));
+    assert.equal(reserved.length, 3);
+    assert.ok(reserved.every(n => n.props.accessible === false && n.props.accessibilityElementsHidden && n.props.importantForAccessibility === 'no-hide-descendants'));
+    if ('error' in option) {
+      assert.ok(content(tree).includes('경로 확인 실패'));
+      assert.ok(!content(tree).includes('확인 중이에요'));
+    }
+    if ('route' in option) {
+      assert.ok(content(tree).includes('60초'));
+      assert.ok(content(tree).includes('300m'));
+      assert.ok(nodes(tree).some(n => n.props.accessibilityLabel?.includes('60초, 300m')));
+      assert.ok(content(tree).includes('경유 1개 · 1개 제외'));
+      assert.ok(nodes(tree).some(n => n.props.accessibilityLabel?.includes('도로가 연결되지 않아 경유지 1개를 제외')));
+    }
+  }
+});
