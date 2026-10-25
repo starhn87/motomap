@@ -34,7 +34,7 @@ export async function handleGuideGasMenu(id: number) {
         .filter(station => station.distance <= 5000)
         .sort((a,b) => a.distance-b.distance).slice(0,40);
       if (!valid()) throw new Error('location_disabled');
-      await KakaoNavi.updateGuideGasStations(JSON.stringify({ requestId: context.requestId, stations, ...(result ? { radius: result.radius, partial: result.partial, completedRadius: result.completedRadius } : {}),
+      await KakaoNavi.updateGuideGasStations(JSON.stringify({ requestId: context.requestId, stations, ...(result ? { radius: result.radius, partial: result.partial, completedRadius: result.completedRadius, fetchedAt: result.fetchedAt, expiresAt: result.expiresAt } : {}),
         canAddVia: !useGuideSession.getState().goal?.courseId && context.viaCount < 3,
         courseMode: !!useGuideSession.getState().goal?.courseId }));
     } catch {

@@ -58,6 +58,7 @@ export const KAKAO_NAVI_FEATURES = [
   'guide_gas_stations',
   'guide_arrival_record',
   'guide_gas_search_expansion',
+  'guide_gas_cache_expiry',
 ] as const;
 
 export type KakaoNaviFeature = (typeof KAKAO_NAVI_FEATURES)[number];

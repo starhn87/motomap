@@ -1,3 +1,4 @@
+import * as gasCache from '../lib/gasCache';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { FunctionsClient } from '@supabase/functions-js';
@@ -39,6 +40,7 @@ function fixture(body: unknown, options: { status?: number; hangs?: boolean; tex
     return client.invoke(name, { ...args, timeout: options.hangs ? 20 : args.timeout });
   } } };
   const gas = loadModule<typeof Gas>('lib/api/gasStations.ts', {
+    '@/lib/gasCache': gasCache,
     '@/lib/supabase': { supabase }, '@/lib/distance': distance, '@/lib/providerErrors': providerErrors,
     '@/stores/useLocationPrivacyStore': allowedLocationPrivacy,
   });
@@ -145,8 +147,9 @@ test('미래 예보의 정상 기온 결측은 현재 날씨를 유지하고 결
 function gasQuery(fetchNearbyGasStations: (params: { prod?: Gas.FuelCode }) => Promise<Gas.GasStation[]>, prod: Gas.FuelCode = 'B027') {
   const hooks = loadModule<{ useGasStations: (spec: GasSearchSpec, enabled: boolean, prod: Gas.FuelCode) => QueryOptions }>('hooks/useGasStations.ts', {
     '@tanstack/react-query': { useQuery: (options: QueryOptions) => options },
+    '@/lib/gasCache': gasCache,
     '@/lib/distance': distance, '@/lib/providerErrors': providerErrors,
-    '@/lib/api/gasStations': { fetchNearbyGasStations },
+    '@/lib/api/gasStations': { fetchNearbyGasStationsSnapshot: async (params: any) => ({ stations: await fetchNearbyGasStations(params), fetchedAt: Date.now(), expiresAt: Date.now() + 3600000 }) },
   });
   return hooks.useGasStations({ latitude: 37.5, longitude: 127, zoom: 8, widthDp: 400, heightDp: 800 }, true, prod);
 }
@@ -164,7 +167,7 @@ test('유가 일부 타일 실패는 성공한 결과와 이전 캐시를 유지
     if (++calls === 1) return [station];
     throw new providerErrors.ProviderError('opinet', 'nearby', 'temporary');
   });
-  const results = await query.queryFn() as Gas.GasStation[];
+  const results = (await query.queryFn() as { stations: Gas.GasStation[] }).stations;
   assert.ok(calls > 1);
   assert.equal(results.length, 1);
   assert.equal(results[0].id, station.id);
@@ -178,7 +181,7 @@ test('고급유 필터는 B034로 조회하고 가격 없는 판매처를 제외
     products.push(params.prod);
     return [station, { ...station, id: 'no-premium-price', price: 0 }];
   }, 'B034');
-  const results = await query.queryFn() as Gas.GasStation[];
+  const results = (await query.queryFn() as { stations: Gas.GasStation[] }).stations;
   assert.ok(products.length > 0);
   assert.ok(products.every(prod => prod === 'B034'));
   assert.deepEqual(Array.from(results, s => s.id), [station.id]);

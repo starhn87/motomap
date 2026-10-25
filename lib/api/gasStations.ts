@@ -1,3 +1,4 @@
+import { gasCacheMetadata, GAS_EMPTY_TTL_MS, type GasCacheMetadata } from '@/lib/gasCache';
 import { supabase } from '@/lib/supabase';
 import { withCoordinateUse } from '@/stores/useLocationPrivacyStore';
 import { approxMeters } from '@/lib/distance';
@@ -36,7 +37,7 @@ export interface GasStation {
   isSelf: boolean;
 }
 
-export interface GasStationDetail {
+export interface GasStationDetail extends Partial<GasCacheMetadata> {
   id: string;
   name: string;
   brand: string;
@@ -92,14 +93,23 @@ export function formatTradeAt(tradeAt: string): string {
   return m ? `${m[1]}.${m[2]} ${m[3]}:${m[4]} 기준` : '';
 }
 
-export async function fetchNearbyGasStations(params: {
+export interface GasStationSearchParams {
   latitude: number;
   longitude: number;
   radius?: number;
   prod?: FuelCode;
   signal?: AbortSignal;
   preciseCenter?: boolean;
-}): Promise<GasStation[]> {
+}
+
+export interface GasStationSnapshot extends GasCacheMetadata { stations: GasStation[] }
+
+export async function fetchNearbyGasStations(params: GasStationSearchParams): Promise<GasStation[]> {
+  return (await fetchNearbyGasStationsSnapshot(params)).stations;
+}
+
+export async function fetchNearbyGasStationsSnapshot(params: GasStationSearchParams): Promise<GasStationSnapshot> {
+  const startedAt = Date.now();
   const data = await withCoordinateUse(params,'gas','opinet',() => requestGasInfo({
     lat: params.latitude,
     lng: params.longitude,
@@ -113,13 +123,15 @@ export async function fetchNearbyGasStations(params: {
   const stations = data.stations;
   // 이륜차는 고속도로 진입 금지 — 휴게소 주유소는 애초에 갈 수 없는 곳이라 뺀다.
   // ex알뜰(RTX)은 도로공사 고속도로 휴게소 전용 브랜드, 그 외 브랜드 휴게소는 상호로 거른다.
-  return stations.filter((s) => s.brand !== 'ex알뜰' && !s.name.includes('휴게소'));
+  const visible = stations.filter((s) => s.brand !== 'ex알뜰' && !s.name.includes('휴게소'));
+  return { stations: visible, ...gasCacheMetadata(data, startedAt, visible.some(station => station.price > 0)) };
 }
 
 export async function fetchGasStationDetail(id: string): Promise<GasStationDetail> {
+  const startedAt = Date.now();
   const data = await requestGasInfo({ id }, 'detail');
   if (!isStationDetail(data)) throw new ProviderError('opinet', 'detail', 'invalid_response');
-  return data;
+  return { ...data, ...gasCacheMetadata(data, startedAt, data.prices.some(price => price.price > 0)) };
 }
 
 // 지도 POI·즐겨찾기의 이름이 주유소로 보이는지. 오피넷은 좌표 반경으로만 찾을 수
@@ -150,18 +162,20 @@ function normalizeName(name: string): string {
  *
  * 주유소가 아니거나 못 찾으면 null — 호출부는 그냥 아무것도 안 그리면 된다.
  */
-export async function fetchGasPricesAt(place: {
+export async function fetchGasPricesAtSnapshot(place: {
   name: string;
   latitude: number;
   longitude: number;
-}): Promise<GasStationDetail | null> {
+}): Promise<GasCacheMetadata & { detail: GasStationDetail | null }> {
   // 반경은 오피넷 프록시의 하한이 500m 다
-  const nearby = await fetchNearbyGasStations({
+  const snapshot = await fetchNearbyGasStationsSnapshot({
     latitude: place.latitude,
     longitude: place.longitude,
     radius: 500,
   });
-  if (nearby.length === 0) return null;
+  const nearby = snapshot.stations;
+  const empty = () => ({ detail: null, fetchedAt: snapshot.fetchedAt, expiresAt: Math.min(snapshot.expiresAt, snapshot.fetchedAt + GAS_EMPTY_TTL_MS) });
+  if (nearby.length === 0) return empty();
 
   const target = normalizeName(place.name);
   const candidates = nearby
@@ -178,5 +192,12 @@ export async function fetchGasPricesAt(place: {
   // 오피넷 좌표는 KATEC 변환을 거쳐 실제와 수십 m 어긋난다. 상호까지 맞으면
   // 좀 더 멀어도 같은 곳으로 본다.
   const hit = candidates.find((c) => c.meters < 150 || (c.sameName && c.meters < 300));
-  return hit ? fetchGasStationDetail(hit.station.id) : null;
+  if (!hit) return empty();
+  const detail = await fetchGasStationDetail(hit.station.id);
+  return { detail, fetchedAt: Math.min(snapshot.fetchedAt, detail.fetchedAt ?? snapshot.fetchedAt),
+    expiresAt: Math.min(snapshot.expiresAt, detail.expiresAt ?? snapshot.expiresAt) };
+}
+
+export async function fetchGasPricesAt(place: { name: string; latitude: number; longitude: number }): Promise<GasStationDetail | null> {
+  return (await fetchGasPricesAtSnapshot(place)).detail;
 }

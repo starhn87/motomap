@@ -41,7 +41,8 @@ const FUEL_CODES = new Set(['B027', 'B034', 'D047', 'C004', 'K015']);
 
 // 인스턴스 수명 동안의 단순 캐시 — 좌표를 ~1km 격자로 뭉쳐 키를 만든다
 const cache = new Map<string, { exp: number; body: string }>();
-const TTL_MS = 3 * 60 * 1000;
+const PRICE_TTL_MS = 60 * 60 * 1000;
+const EMPTY_TTL_MS = 5 * 60 * 1000;
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -57,9 +58,9 @@ function cached(key: string): string | null {
   return null;
 }
 
-function put(key: string, body: string) {
+function put(key: string, body: string, expiresAt: number) {
   if (cache.size > 500) cache.clear();
-  cache.set(key, { exp: Date.now() + TTL_MS, body });
+  cache.set(key, { exp: expiresAt, body });
 }
 
 function isSelf(name: string): boolean {
@@ -73,15 +74,20 @@ async function opinet(path: string, params: Record<string, string>) {
   return (await res.json())?.RESULT?.OIL;
 }
 
+function snapshotResponse(body: string): Response {
+  return json({ ...JSON.parse(body), serverTime: Date.now() });
+}
+
 async function handleAround(lat: number, lng: number, radius: number, prod: string, preciseCenter = false) {
   // 안내의 다중 원 검색은 중심이 합쳐지면 조회 원 사이에 빈틈이 생긴다.
   // 일반 지도는 기존 약 1km 캐시를 유지하고 안내만 약 10m 키를 사용한다.
   const digits = preciseCenter ? 4 : 2;
   const key = `a:${lat.toFixed(digits)}:${lng.toFixed(digits)}:${radius}:${prod}`;
   const hit = cached(key);
-  if (hit) return new Response(hit, { headers: { 'Content-Type': 'application/json' } });
+  if (hit) return snapshotResponse(hit);
 
   const [x, y] = proj4('EPSG:4326', KATEC, [lng, lat]);
+  const fetchedAt = Date.now();
   const oil = await opinet('aroundAll.do', {
     x: x.toFixed(1),
     y: y.toFixed(1),
@@ -95,7 +101,7 @@ async function handleAround(lat: number, lng: number, radius: number, prod: stri
     const [slng, slat] = proj4(KATEC, 'EPSG:4326', [Number(o.GIS_X_COOR), Number(o.GIS_Y_COOR)]);
     const name = String(o.OS_NM ?? '');
     return {
-      id: String(o.UNI_ID),
+      id: String(o.UNI_ID ?? ''),
       name,
       brand: BRANDS[String(o.POLL_DIV_CD ?? o.POLL_DIV_CO ?? '')] ?? '',
       price: Number(o.PRICE),
@@ -106,23 +112,38 @@ async function handleAround(lat: number, lng: number, radius: number, prod: stri
     };
   });
 
-  const body = JSON.stringify({ stations, ...(preciseCenter ? { preciseCenter: true } : {}) });
-  put(key, body);
-  return new Response(body, { headers: { 'Content-Type': 'application/json' } });
+  if (stations.some(station => !station.id.trim() || !station.name.trim() ||
+      ![station.price,station.distance,station.latitude,station.longitude].every(Number.isFinite) ||
+      station.price<0 || station.distance<0 || Math.abs(station.latitude)>90 || Math.abs(station.longitude)>180)) {
+    return json({ error: '오피넷 응답 형식 오류' }, 502);
+  }
+  const hasPrice = stations.some(station => station.price > 0 && station.brand !== 'ex알뜰' && !station.name.includes('휴게소'));
+  const expiresAt = fetchedAt + (hasPrice ? PRICE_TTL_MS : EMPTY_TTL_MS);
+  const body = JSON.stringify({ stations, fetchedAt, expiresAt, ...(preciseCenter ? { preciseCenter: true } : {}) });
+  put(key, body, expiresAt);
+  return snapshotResponse(body);
 }
 
 async function handleDetail(id: string) {
   const key = `d:${id}`;
   const hit = cached(key);
-  if (hit) return new Response(hit, { headers: { 'Content-Type': 'application/json' } });
+  if (hit) return snapshotResponse(hit);
 
+  const fetchedAt = Date.now();
   const oil = await opinet('detailById.do', { id });
   const d: Record<string, unknown> | undefined = Array.isArray(oil) ? oil[0] : oil;
   if (!d) return json({ error: '주유소를 찾을 수 없습니다.' }, 404);
 
   const rawPrices = Array.isArray(d.OIL_PRICE) ? d.OIL_PRICE : d.OIL_PRICE ? [d.OIL_PRICE] : [];
   const name = String(d.OS_NM ?? '');
+  if (!String(d.UNI_ID ?? '').trim() || !name.trim() || rawPrices.some((price: Record<string, unknown>) =>
+      !price || typeof price !== 'object' || !Number.isFinite(Number(price.PRICE)) || Number(price.PRICE)<0)) {
+    return json({ error: '오피넷 응답 형식 오류' }, 502);
+  }
+  const hasPrice = (rawPrices as Record<string, unknown>[]).some(price => FUEL_CODES.has(String(price.PRODCD)) && Number(price.PRICE) > 0);
+  const expiresAt = fetchedAt + (hasPrice ? PRICE_TTL_MS : EMPTY_TTL_MS);
   const body = JSON.stringify({
+    fetchedAt, expiresAt,
     id: String(d.UNI_ID),
     name,
     brand: BRANDS[String(d.POLL_DIV_CO ?? d.POLL_DIV_CD ?? '')] ?? '',
@@ -140,8 +161,8 @@ async function handleDetail(id: string) {
         tradeAt: `${p.TRADE_DT ?? ''} ${p.TRADE_TM ?? ''}`.trim(),
       })),
   });
-  put(key, body);
-  return new Response(body, { headers: { 'Content-Type': 'application/json' } });
+  put(key, body, expiresAt);
+  return snapshotResponse(body);
 }
 
 Deno.serve(async (req) => {

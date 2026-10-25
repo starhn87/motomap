@@ -236,7 +236,8 @@
   NSDictionary *entry=self.cache[self.prod];
   NSDate *at=entry[@"at"];
   DoublePoint point=DoublePointMake([entry[@"longitude"] doubleValue],[entry[@"latitude"] doubleValue]);
-  if (!at || -at.timeIntervalSinceNow>=180 || [self distanceTo:point from:self.position]>=1000) {
+  NSDate *expires=entry[@"expiresAt"] ?: [at dateByAddingTimeInterval:180];
+  if (!at || expires.timeIntervalSinceNow<=0 || [self distanceTo:point from:self.position]>=1000) {
     [self.cache removeObjectForKey:self.prod]; return nil;
   }
   // 이동 후 5곳 미만이 되면 캐시 만료를 기다리지 않고 다시 확장한다.
@@ -348,7 +349,18 @@
         fabs([station[@"longitude"] doubleValue])>180 || [station[@"distance"] doubleValue]<0) continue;
     [valid addObject:station];
   }
-  self.cache[self.prod]=@{@"stations":valid,@"at":NSDate.date,@"latitude":@(self.requestedPosition.y),@"longitude":@(self.requestedPosition.x),
+  NSDate *now=NSDate.date;
+  NSTimeInterval cap=[response[@"partial"] boolValue] ? 60 : (valid.count ? 3600 : 300);
+  NSDate *fetchedAt=now, *expiresAt=[now dateByAddingTimeInterval:180];
+  if ([response[@"fetchedAt"] isKindOfClass:NSNumber.class] && [response[@"expiresAt"] isKindOfClass:NSNumber.class]) {
+    double fetched=[response[@"fetchedAt"] doubleValue]/1000, expires=[response[@"expiresAt"] doubleValue]/1000;
+    if (isfinite(fetched) && isfinite(expires) && fetched<=now.timeIntervalSince1970 && expires>=fetched) {
+      fetchedAt=[NSDate dateWithTimeIntervalSince1970:fetched];
+      expiresAt=[NSDate dateWithTimeIntervalSince1970:MIN(expires,fetched+(valid.count ? 3600 : 300))];
+    }
+  }
+  if (expiresAt.timeIntervalSinceNow>cap) expiresAt=[now dateByAddingTimeInterval:cap];
+  self.cache[self.prod]=@{@"stations":valid,@"at":fetchedAt,@"expiresAt":expiresAt,@"latitude":@(self.requestedPosition.y),@"longitude":@(self.requestedPosition.x),
     @"radius":@(MIN(30000,MAX(5000,[response[@"radius"] integerValue]))),@"partial":@([response[@"partial"] boolValue]),
     @"canAddVia":@([response[@"canAddVia"] boolValue]),@"courseMode":@([response[@"courseMode"] boolValue])};
   [self useCache:self.cache[self.prod]]; self.errorMessage=nil;

@@ -597,6 +597,21 @@ void RunKNNaviGasTests(UIWindow *window, void (^completion)(int)) {
   [movingCache applyResponse:@{@"requestId":movingCache.context[@"requestId"],@"stations":edgeStations,@"radius":@5000}];
   cacheLatitude=37.495; [movingCache requestForced:NO];
   if (cacheFetches!=2 || !movingCache.context) { NSLog(@"FAIL cache fewer than five did not re-search"); failures++; }
+  [movingCache applyResponse:@{@"requestId":movingCache.context[@"requestId"],@"stations":edgeStations,@"radius":@5000,
+    @"fetchedAt":@((NSDate.date.timeIntervalSince1970-3000)*1000),@"expiresAt":@((NSDate.date.timeIntervalSince1970+600)*1000)}];
+  NSDictionary *agedEntry=[movingCache valueForKey:@"cache"][@"B027"];
+  NSTimeInterval remaining=[agedEntry[@"expiresAt"] timeIntervalSinceNow];
+  if (remaining<595 || remaining>601) { NSLog(@"FAIL aged price TTL reset on receipt"); failures++; }
+  [movingCache requestForced:YES];
+  [movingCache applyResponse:@{@"requestId":movingCache.context[@"requestId"],@"stations":edgeStations,@"radius":@5000,@"partial":@YES,
+    @"fetchedAt":@(NSDate.date.timeIntervalSince1970*1000),@"expiresAt":@((NSDate.date.timeIntervalSince1970+3600)*1000)}];
+  NSDictionary *partialEntry=[movingCache valueForKey:@"cache"][@"B027"];
+  if ([partialEntry[@"expiresAt"] timeIntervalSinceNow]>61) { NSLog(@"FAIL partial cache got normal TTL"); failures++; }
+  [movingCache requestForced:YES];
+  [movingCache applyResponse:@{@"requestId":movingCache.context[@"requestId"],@"stations":@[],@"radius":@30000,
+    @"fetchedAt":@(NSDate.date.timeIntervalSince1970*1000),@"expiresAt":@((NSDate.date.timeIntervalSince1970+3600)*1000)}];
+  NSDictionary *emptyEntry=[movingCache valueForKey:@"cache"][@"B027"];
+  if ([emptyEntry[@"expiresAt"] timeIntervalSinceNow]>301) { NSLog(@"FAIL empty cache got normal TTL"); failures++; }
   [movingCache invalidate];
   SessionControllerProbe *locationController=[SessionControllerProbe new]; locationController.gasLayer=locationLayer;
   [locationController setValue:@YES forKey:@"carThemeApplied"];
@@ -652,7 +667,7 @@ void RunKNNaviGasTests(UIWindow *window, void (^completion)(int)) {
       if (!closed || fetches!=4 || [[layer valueForKey:@"loading"] boolValue]) { NSLog(@"FAIL close/reopen cache"); failures++; }
       // 만료·이동·무효 GPS는 캐시를 계속 성공 처리하지 않는다.
       NSMutableDictionary *cache=[layer valueForKey:@"cache"];
-      NSMutableDictionary *expired=[cache[@"B034"] mutableCopy]; expired[@"at"]=[NSDate dateWithTimeIntervalSinceNow:-181]; cache[@"B034"]=expired;
+      NSMutableDictionary *expired=[cache[@"B034"] mutableCopy]; expired[@"at"]=[NSDate dateWithTimeIntervalSinceNow:-181]; expired[@"expiresAt"]=[NSDate dateWithTimeIntervalSinceNow:-1]; cache[@"B034"]=expired;
       [layer setValue:[NSDate dateWithTimeIntervalSinceNow:-181] forKey:@"requestedAt"];
       [layer requestForced:NO];
       if (fetches!=5 || [[layer valueForKey:@"stations"] count]) { NSLog(@"FAIL expired gas cache reused"); failures++; }

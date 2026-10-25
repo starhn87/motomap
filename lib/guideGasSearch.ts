@@ -1,4 +1,5 @@
-import { fetchNearbyGasStations, type FuelCode, type GasStation } from '@/lib/api/gasStations';
+import { mergedGasExpiry, type GasCacheMetadata } from '@/lib/gasCache';
+import { fetchNearbyGasStationsSnapshot, type FuelCode, type GasStation } from '@/lib/api/gasStations';
 import { haversine } from '@/lib/distance';
 
 type Center = { latitude: number; longitude: number };
@@ -25,6 +26,7 @@ export async function searchGuideGasStations(center: Center & { prod: FuelCode }
   valid: () => boolean;
   progress: (radius: number, found: number) => Promise<void>;
 }) {
+  const snapshots: GasCacheMetadata[] = [];
   const queried = new Set<string>(), stations = new Map<string, GasStation>();
   let completedRadius = 0, attemptedRadius = 5000, failed = false;
   const results = (radius: number) => [...stations.values()].filter(s => s.distance <= radius)
@@ -40,13 +42,14 @@ export async function searchGuideGasStations(center: Center & { prod: FuelCode }
       if (!options.valid()) throw new Error('location_disabled');
       if (options.signal.aborted) { failed = true; break; }
       const batch = await Promise.allSettled(pending.slice(i, i + 3).map(async tile => {
-        const found = await fetchNearbyGasStations({ ...tile, prod: center.prod, radius: 5000, signal: options.signal, preciseCenter: true });
+        const found = await fetchNearbyGasStationsSnapshot({ ...tile, prod: center.prod, radius: 5000, signal: options.signal, preciseCenter: true });
         queried.add(tile.key);
         return found;
       }));
       for (const result of batch) {
         if (result.status === 'rejected') { failed = true; continue; }
-        for (const station of result.value) {
+        snapshots.push(result.value);
+        for (const station of result.value.stations) {
           const distance = haversine(center, station);
           if (station.price > 0 && distance <= 30000) stations.set(station.id, { ...station, distance });
         }
@@ -60,5 +63,6 @@ export async function searchGuideGasStations(center: Center & { prod: FuelCode }
     if (results(radius).length >= 5) break;
   }
   return { stations: results(attemptedRadius), radius: attemptedRadius,
-    completedRadius, partial: failed };
+    completedRadius, partial: failed, fetchedAt: Math.min(Date.now(), ...snapshots.map(snapshot => snapshot.fetchedAt)),
+    expiresAt: mergedGasExpiry(snapshots, results(attemptedRadius).length > 0, failed) };
 }

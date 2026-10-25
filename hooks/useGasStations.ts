@@ -1,12 +1,13 @@
+import { mergedGasExpiry, gasQueryStaleTime } from '@/lib/gasCache';
 import { useQuery } from '@tanstack/react-query';
 
 import { approxMeters } from '@/lib/distance';
 import { ProviderError, retryProviderQuery } from '@/lib/providerErrors';
 
 import {
-  fetchNearbyGasStations,
+  fetchNearbyGasStationsSnapshot,
   fetchGasStationDetail,
-  fetchGasPricesAt,
+  fetchGasPricesAtSnapshot,
   looksLikeGasStation,
   type FuelCode,
   type GasStation,
@@ -79,7 +80,7 @@ export function useGasStations(spec: GasSearchSpec | null, enabled: boolean, pro
       let firstError: unknown;
       const results = await Promise.all(
         points.map((p) =>
-          fetchNearbyGasStations({ latitude: p.latitude, longitude: p.longitude, radius, prod })
+          fetchNearbyGasStationsSnapshot({ latitude: p.latitude, longitude: p.longitude, radius, prod })
             // 타일 일부가 실패해도 나머지로 그린다 (단일 지점이면 아래 throw 로 에러 전파)
             .catch((error) => { firstError ??= error; return null; }),
         ),
@@ -89,20 +90,24 @@ export function useGasStations(spec: GasSearchSpec | null, enabled: boolean, pro
       // 기준으로 다시 계산해 "최저가 동가 중 최근접" 판정이 일관되게 한다.
       const byId = new Map<string, GasStation>();
       for (const list of results) {
-        for (const s of list ?? []) {
+        for (const s of list?.stations ?? []) {
           if (!byId.has(s.id)) byId.set(s.id, s);
         }
       }
-      return [...byId.values()]
+      const stations = [...byId.values()]
         .filter((s) => prod !== 'B034' || s.price > 0)
         .map((s) => ({
           ...s,
           distance: approxMeters(s, spec!),
         }))
         .sort((a, b) => a.price - b.price || a.distance - b.distance);
+      const snapshots = results.filter((r) => r !== null);
+      return { stations, fetchedAt: Math.min(...snapshots.map(s => s.fetchedAt)),
+        expiresAt: mergedGasExpiry(snapshots, stations.some(s => s.price > 0), results.some(r => r === null)) };
     },
     enabled: enabled && !!spec,
-    staleTime: 3 * 60 * 1000,
+    select: snapshot => snapshot.stations,
+    staleTime: gasQueryStaleTime,
     // 지도 이동의 이전 값은 유지하되 다른 유종의 가격을 새 필터에 섞지 않는다.
     placeholderData: (prev, previousQuery) => previousQuery?.queryKey[4] === prod ? prev : undefined,
     retry: retryProviderQuery,
@@ -114,7 +119,7 @@ export function useGasStationDetail(id: string | null) {
     queryKey: ['gas-station', id],
     queryFn: () => fetchGasStationDetail(id!),
     enabled: !!id,
-    staleTime: 3 * 60 * 1000,
+    staleTime: gasQueryStaleTime,
     retry: retryProviderQuery,
   });
 }
@@ -125,9 +130,10 @@ export function useGasPricesAt(
 ) {
   return useQuery({
     queryKey: ['gas-at', place?.latitude, place?.longitude, place?.name],
-    queryFn: () => fetchGasPricesAt(place!),
+    queryFn: () => fetchGasPricesAtSnapshot(place!),
     enabled: !!place && looksLikeGasStation(place.name),
-    staleTime: 3 * 60 * 1000,
+    select: snapshot => snapshot.detail,
+    staleTime: gasQueryStaleTime,
     retry: retryProviderQuery,
   });
 }

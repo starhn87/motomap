@@ -1,3 +1,4 @@
+import * as gasCache from '../lib/gasCache';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
@@ -5,7 +6,8 @@ import { haversine } from '../lib/distance';
 const center = { latitude: 37.5, longitude: 127, prod: 'B034' };
 function setup(fetch: (params: any) => Promise<any[]>) {
   return loadModule<any>('lib/guideGasSearch.ts', {
-    '@/lib/api/gasStations': { fetchNearbyGasStations: fetch }, '@/lib/distance': { haversine },
+    '@/lib/gasCache': gasCache,
+    '@/lib/api/gasStations': { fetchNearbyGasStationsSnapshot: async (params: any) => ({ stations: await fetch(params), fetchedAt: Date.now(), expiresAt: Date.now()+3600000 }) }, '@/lib/distance': { haversine },
   });
 }
 function station(id: string, km: number, price = 2000) {
