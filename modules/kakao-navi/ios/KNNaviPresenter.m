@@ -17,6 +17,9 @@
 #import <stdlib.h>
 #import <string.h>
 
+// NAV-039: 1.2.10은 안내 음량·종료만 제공한다. SDK 재안내 성공 검증 후 재검토한다.
+static const BOOL KNNaviGuideMenuActionsEnabled = NO;
+
 // KNSDK 1.12.14 는 이륜차 경로를 시작하거나 안전운행 화면으로 바꿀 때마다
 // 비공개 carImageType: 에 2를 넘겨 bike_on/off 기본 캐릭터를 다시 선택한다.
 // 알려진 상태 콜백 뒤에서 되돌리는 것만으로는 새 내부 전환이 생길 때마다 같은
@@ -425,17 +428,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   // 주행 중 화면이 꺼지면 안내가 무용지물이다 — 안내가 떠 있는 동안 잠금 방지
   [UIApplication sharedApplication].idleTimerDisabled = YES;
 
-  // 모토맵 메뉴 버튼 — 커스텀 슬롯이 하나뿐이라(실측) 버튼 하나로 합치고,
-  // 위험 제보/근처 장소 분기는 JS 가 1차 액션시트로 가른다.
-  UIImage *menuIcon = [UIImage systemImageNamed:@"mappin.and.ellipse"];
-  KNCustomBottomMenuItem *motoItem =
-      [[KNCustomBottomMenuItem alloc] initWithId:100
-                                            name:@"모토맵"
-                                            icon:menuIcon
-                                       nightIcon:menuIcon
-                                           style:MENU_BUTTON_TOUCH
-                                        toggleOn:NO];
-  [naviView.menuView setCustomMenu:@[ motoItem ]];
+  // 제거한 메뉴가 SDK의 기본 메뉴로 다시 드러나지 않게 한다.
+  [naviView.menuView setCustomMenu:@[]];
   [naviView.menuView useGuideCancel:NO];
 
   // 회전 정보와 SDK 배치는 유지하고 앱의 모노크롬 브랜드 팔레트를 적용한다.
@@ -602,12 +596,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
       }
     } else if ([action isEqualToString:@"refresh"]) {
       [vc refreshCurrentRoute];
-    } else if ([action isEqualToString:@"gas"]) [vc.gasLayer showSearch];
-    else if ([action isEqualToString:@"end"]) [vc finish];
-    else if (vc.onMenu) {
-      NSDictionary *ids = @{@"hazard":@101, @"routePreview":@103, @"destination":@104, @"vias":@105};
-      NSNumber *menu = ids[action]; if (menu) vc.onMenu(menu.integerValue);
-    }
+    } else if ([action isEqualToString:@"end"]) [vc finish];
     [vc updateBottomPanel];
   };
   [self.view addSubview:self.bottomPanel];
@@ -687,7 +676,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   // 메뉴 배경은 화면 하단까지, 조작부는 홈 인디케이터 위에 둔다.
   CGFloat menuInset = self.view.safeAreaInsets.bottom;
   [self.bottomPanel setMenuBottomInset:menuInset];
-  CGFloat sheetHeight = MIN(280 + menuInset, self.view.bounds.size.height - self.view.safeAreaInsets.top);
+  CGFloat sheetHeight = MIN(190 + menuInset, self.view.bounds.size.height - self.view.safeAreaInsets.top);
   sheet.bounds = CGRectMake(0, 0, self.view.bounds.size.width, MAX(0, sheetHeight));
   sheet.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height - sheetHeight / 2);
   if (!web) { sheet.hidden = YES; self.menuBackdrop.hidden = YES; }
@@ -737,7 +726,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)hazardTapped {
-  if (self.onMenu != nil) self.onMenu(101);
+  if (KNNaviGuideMenuActionsEnabled && self.onMenu != nil) self.onMenu(101);
 }
 
 - (void)updateCustomControlsVisibility {
@@ -751,7 +740,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (!self.arrivalRecovery.waiting && self.naviView.bottomView.hidden) visible = NO;
   if (self.safetyScreenQuarantined && !self.preview && !self.finished && !self.bottomPanel.ready) visible = YES;
   self.endButton.hidden = !visible;
-  self.hazardButton.hidden = !visible;
+  self.hazardButton.hidden = YES;
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object
@@ -903,7 +892,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 #pragma mark - KNNaviView_StateDelegate
 
 - (void)naviViewDidMenuItemWithId:(int)aId toggle:(BOOL)aToggle {
-  if (self.onMenu != nil) self.onMenu(aId);
+  if (KNNaviGuideMenuActionsEnabled && self.onMenu != nil) self.onMenu(aId);
 }
 
 - (void)naviViewDidUpdateSndVolume:(float)aVolume {
@@ -1527,6 +1516,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 + (void)openGuidePreview:(void (^)(NSDictionary *, NSString *))completion {
+  if (!KNNaviGuideMenuActionsEnabled) { completion(nil, @"이번 버전에서는 안내 중 경로 변경을 지원하지 않아요."); return; }
   [self openGuidePreviewForController:gActiveNavi
                                  gps:[gActiveNavi latestRecoveryGPS]
                           completion:completion];
@@ -1608,6 +1598,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 + (void)resumeGuide:(NSInteger)token toLng:(double)lng lat:(double)lat name:(NSString *)name
               vias:(NSArray<NSNumber *> *)vias priority:(NSInteger)priority completion:(void (^)(NSDictionary *, NSString *))completion {
+  if (!KNNaviGuideMenuActionsEnabled) { completion(nil, @"이번 버전에서는 안내 중 경로 변경을 지원하지 않아요."); return; }
   KNNaviViewController *vc = gSuspendedNavi;
   if (!vc || vc.previewToken != token || !vc.suspended || vc.finished || vc.changingDestination || ![KNSDKBridge isLocationUseAllowed]) {
     completion(nil, @"길안내 상태가 변경됐어요."); return;
@@ -1679,6 +1670,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 + (void)showHazardOptions:(NSArray<NSDictionary<NSString *,NSString *> *> *)options completion:(void (^)(NSInteger))completion {
+  if (!KNNaviGuideMenuActionsEnabled) { completion(-1); return; }
   KNNaviViewController *navi = gActiveNavi;
   if (!navi || navi.finished || navi.suspended || ![KNSDKBridge isLocationUseAllowed] ||
       navi.presentedViewController || navi.hazardSheet || !navi.view.window || options.count == 0 || options.count > 12) {
@@ -1698,6 +1690,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 + (NSDictionary *)guideGasContext {
+  if (!KNNaviGuideMenuActionsEnabled) return nil;
   KNNaviViewController *vc = gActiveNavi;
   if (!vc.gasLayer.context || vc.finished || vc.suspended || ![KNSDKBridge isLocationUseAllowed]) return nil;
   NSMutableDictionary *context = [vc.gasLayer.context mutableCopy];
@@ -1706,6 +1699,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   return context;
 }
 + (NSDictionary *)takeGuideGasSelection {
+  if (!KNNaviGuideMenuActionsEnabled) return nil;
   return [gActiveNavi.gasLayer takeSelection];
 }
 + (void)updateGuideGasStations:(NSString *)json {
@@ -1742,6 +1736,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
                           name:(NSString *)name
                       priority:(NSInteger)priority
                     completion:(void (^)(NSString *_Nullable, NSString *_Nullable))completion {
+  if (!KNNaviGuideMenuActionsEnabled) { completion(@"UNAVAILABLE", @"이번 버전에서는 안내 중 경로 변경을 지원하지 않아요."); return; }
   dispatch_async(dispatch_get_main_queue(), ^{
     if (![KNSDKBridge isLocationUseAllowed]) { completion(nil,@"위치 이용이 중지됐다"); return; }
     KNNaviViewController *navi = gActiveNavi;

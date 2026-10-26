@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
 
-function setup() {
+function setup(enabled = true) {
   let allowed = true, revision = 1, chosen: any = null, failure = false, failPush = false;
   let beforeWork: Promise<void> | null = null, releaseWork: (()=>void) | undefined; let opened = 0;
   let holdAudit = false; const audits: (()=>void)[] = [];
@@ -13,6 +13,7 @@ function setup() {
   let snapshot = { token: 7, start: null, goal, vias: [] as any[], passedVias: [], priority: 0 };
   const context = { requestId: 'one', latitude: 37, longitude: 127, prod: 'B034', viaCount: 0 };
   const mod = loadModule<{ handleGuideGasMenu(id: number): Promise<void> }>('lib/guideGasEvents.ts', {
+    '@/lib/guideMenuPolicy': { GUIDE_MENU_ACTIONS_ENABLED: enabled },
     'expo-router': { router: { push: (value: any) => { if (failPush) throw new Error('push'); pushed.push(value); } } },
     '@/modules/kakao-navi': { __esModule: true, supportsKakaoNaviFeature: () => false, default: {
       getGuideGasContext: async () => context, takeGuideGasSelection: async () => { const value = chosen; chosen = null; return value; },
@@ -80,4 +81,10 @@ test('확인자료 사전 기록 중 안내가 바뀌면 새 안내 미리보기
   const f=setup(); f.waitBeforeWork(); f.choose(); const pending=f.mod.handleGuideGasMenu(108); await f.flush();
   f.session.goal={name:'새 안내'}; f.releaseWork(); await pending;
   assert.equal(f.opened,0); assert.equal(f.pushed.length,0); assert.equal(f.toasts.length,0);
+});
+
+test('배포 정책에서는 주유소 조회·목적지 적용 모두 API나 미리보기를 열지 않는다',async()=>{
+  const f=setup(false); f.choose();
+  await f.mod.handleGuideGasMenu(106); await f.mod.handleGuideGasMenu(108);
+  assert.equal(f.requests.length,0); assert.equal(f.opened,0); assert.equal(f.pushed.length,0);
 });

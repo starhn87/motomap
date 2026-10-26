@@ -51,14 +51,11 @@
     input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; height: 44px; flex: 1; min-width: 0; margin: 0; touch-action: pan-x; }
     input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 5px; background: linear-gradient(to right, var(--volume-blue) var(--volume, 100%), var(--track) var(--volume, 100%)); }
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; margin-top: -9.5px; background: #fff; border: 1px solid #e4e4e7; box-shadow: 0 1px 4px #18181b26; }
-    .actions { display: grid; grid-template-columns: repeat(5, minmax(64px, 1fr)); overflow-x: auto; border-top: 1px solid var(--line); padding-top: 12px; margin-top: 4px; }
-    .actions button { display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 7px 0; min-height: 76px; border-radius: 8px; font-size: 12px; line-height: 16px; white-space: nowrap; }
-    .actions svg { width: 25px; height: 25px; color: #52525b; }
     .end { flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 48px; margin-top: 14px; border-radius: 8px; background: var(--brand); color: var(--on-brand); font-size: 15px; font-weight: 650; }
     .end svg { width: 18px; height: 18px; }
     .end:active { opacity: .82; background: var(--brand); }
     @media (max-width: 320px) { .arrival { font-size: 24px; } .timeUnit { font-size: 16px; } .distance { font-size: 18px; } }
-    @media (prefers-color-scheme: dark) { :root { --bg: #0a0a0a; --floating-bg: rgba(10,10,10,.8); --bar-bg: #18181b; --toast-bg: #0a0a0a; --ink: #fafafa; --muted: #a1a1aa; --line: #27272a; --brand: #fafafa; --on-brand: #0a0a0a; --volume-blue: #3984ff; --track: #3f3f46; } .actions svg, .volumeRange { color: #d4d4d8; } }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0a0a0a; --floating-bg: rgba(10,10,10,.8); --bar-bg: #18181b; --toast-bg: #0a0a0a; --ink: #fafafa; --muted: #a1a1aa; --line: #27272a; --brand: #fafafa; --on-brand: #0a0a0a; --volume-blue: #3984ff; --track: #3f3f46; } .volumeRange { color: #d4d4d8; } }
   </style>
 </head>
 <body>
@@ -75,13 +72,7 @@
           <input type="range" id="volume" aria-label="안내 음량" min="0" max="100" value="100">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4zM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></svg>
         </div>
-        <div class="actions">
-          <button data-action="routePreview" aria-label="다른 경로 찾기"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 21V13a6 6 0 0 0-6-6H3m0 0 3-3M3 7l3 3M12 13a6 6 0 0 0 6-6V3m0 0-3 3M18 3l3 3"/></svg><span>다른 경로</span></button>
-          <button data-action="hazard"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 14h4l10 5V5L8 10H4zM8 14l2 7M21 8v8"/></svg><span>위험 제보</span></button>
-          <button data-action="gas"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 21V4h10v17M3 21h12M6 7h6v5H6zM14 10h2l2 3v5a2 2 0 0 0 4 0V9l-4-4"/></svg><span>주유소</span></button>
-          <button data-action="destination"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span>목적지 변경</span></button>
-          <button data-action="vias" id="viasButton"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 5h12M3 11h7M3 17h4"/><path d="m12 20 4-1 6-6a2.1 2.1 0 0 0-3-3l-6 6-1 4Z"/><path d="m18 11 3 3"/></svg><span id="viasLabel">경유지 편집</span></button>
-        </div>
+
       </div>
       <button class="end" data-action="end"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m20 4-6 16-3-7-7-3z"/></svg><span>길안내 종료</span></button>
     </section>
@@ -215,10 +206,6 @@
             $('distance').textContent = '';
           }
           document.querySelector('[data-action=refresh]').disabled = !!state.busy;
-          document.querySelectorAll('.actions button').forEach(button => {
-            button.disabled = !!state.busy || (button.dataset.action === 'vias' && state.canEditVias === false);
-          });
-          $('viasLabel').textContent = state.canEditVias === false ? '코스 경유 고정' : '경유지 편집';
         }
       };
       send('ready');

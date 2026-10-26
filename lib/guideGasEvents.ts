@@ -1,3 +1,4 @@
+import { GUIDE_MENU_ACTIONS_ENABLED } from '@/lib/guideMenuPolicy';
 import { router } from 'expo-router';
 import KakaoNavi, { supportsKakaoNaviFeature } from '@/modules/kakao-navi';
 import { searchGuideGasStations } from '@/lib/guideGasSearch';
@@ -11,6 +12,7 @@ let gasRequest: AbortController | null = null;
 let opening: { goal: unknown; revision: number } | null = null;
 
 export async function handleGuideGasMenu(id: number) {
+  if (!GUIDE_MENU_ACTIONS_ENABLED) return;
   if (id === 106) {
     const context = await KakaoNavi.getGuideGasContext();
     if (!context || fetching.has(context.requestId)) return;

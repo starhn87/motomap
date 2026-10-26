@@ -17,22 +17,16 @@ public class KakaoNaviModule: Module {
     // JS가 앱 버전 문자열을 추측하지 않고 실제 바이너리 기능을 확인한다.
     // 기능을 추가·삭제하거나 wire 계약이 바뀌면 bridgeVersion을 올린다.
     Constants([
-      "bridgeVersion": 22,
+      "bridgeVersion": 23,
       "features": [
         "bike_route_preview",
         "guide_options",
-        "guide_hazard_report",
-        "guide_poi_tap",
         "custom_car_image_guard",
         "app_lifecycle_forwarding",
         "accessibility_nil_guard",
         "location_privacy_stop",
         "guide_web_bottom",
-        "guide_hazard_sheet",
-        "guide_gas_stations",
         "guide_arrival_record",
-        "guide_gas_search_expansion",
-        "guide_gas_cache_expiry",
       ],
     ])
 

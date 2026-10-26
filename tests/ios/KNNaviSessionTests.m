@@ -25,6 +25,7 @@
 @property(nonatomic, strong) id gasLayer;
 - (BOOL)hasCurrentRegion;
 - (void)lookupRegionAt:(IntPoint)point completion:(void (^)(NSString *))completion;
+- (KNGPSData *)latestRecoveryGPS;
 - (BOOL)usableRecoveryGPS:(KNGPSData *)gps;
 - (BOOL)guidance:(KNGuidance *)guidance shouldPlayVoiceGuide:(KNGuide_Voice *)voice replaceSndData:(NSData **)data;
 @end
@@ -190,15 +191,15 @@ int RunKNNaviSessionTests(void) {
   [controller naviViewScreenState:DriveTouch];
   if (!end.hidden || !hazard.hidden) { NSLog(@"FAIL arrival touch controls remain"); failures++; }
   [controller naviViewScreenState:DriveNormal];
-  if (end.hidden || hazard.hidden) { NSLog(@"FAIL arrival exit controls unavailable"); failures++; }
+  if (end.hidden || !hazard.hidden) { NSLog(@"FAIL arrival exit controls unavailable"); failures++; }
   // 새 SDK 경로가 사후 Safety 통지를 보내도 SDK 화면 자체를 숨겨야 한다.
   [controller naviViewScreenState:SafetyNormal];
-  if (!view.hidden || end.hidden || hazard.hidden) { NSLog(@"FAIL safety fallback exposed SDK UI or exit hidden"); failures++; }
+  if (!view.hidden || end.hidden || !hazard.hidden) { NSLog(@"FAIL safety fallback exposed SDK UI or exit hidden"); failures++; }
   [controller naviViewScreenState:SafetyTouch];
   if (!view.hidden) failures++;
   [controller guidanceGuideStarted:nil];
   [controller naviViewScreenState:DriveNormal];
-  if (view.hidden || end.hidden || hazard.hidden) { NSLog(@"FAIL route UI not restored"); failures++; }
+  if (view.hidden || end.hidden || !hazard.hidden) { NSLog(@"FAIL route UI not restored"); failures++; }
   GPSProbe *gps = [GPSProbe new]; gps.valid = YES; gps.posTrust = YES;
   gps.timestamp = [NSDate dateWithTimeIntervalSinceNow:-60];
   if ([controller usableRecoveryGPS:(id)gps]) failures++;
@@ -239,8 +240,14 @@ int RunKNNaviSessionTests(void) {
   if (!opened || ![[editor valueForKey:@"suspended"] boolValue]) { NSLog(@"FAIL editor blocked by unavailable GPS"); failures++; }
   __block BOOL rejectedApply = NO;
   [KNNaviPresenter resumeGuide:[[editor valueForKey:@"previewToken"] integerValue] toLng:127 lat:37.5 name:@"새 목적지" vias:@[] priority:0
-                   completion:^(NSDictionary *result, NSString *error) { rejectedApply = !result && [error containsString:@"현재 위치"]; }];
+                   completion:^(NSDictionary *result, NSString *error) { rejectedApply = !result && [error containsString:@"이번 버전"]; }];
   if (!rejectedApply || [[editor valueForKey:@"changingDestination"] boolValue]) { NSLog(@"FAIL GPS-free route applied"); failures++; }
+  __block BOOL publicPreviewRejected = NO;
+  [KNNaviPresenter openGuidePreview:^(NSDictionary *snapshot, NSString *error) { publicPreviewRejected = !snapshot && [error containsString:@"이번 버전"]; }];
+  if (!publicPreviewRejected) { NSLog(@"FAIL disabled public preview"); failures++; }
+  __block BOOL destinationRejected = NO;
+  [KNNaviPresenter changeDestinationToLng:127 lat:37.5 name:@"변경" priority:0 completion:^(NSString *code, NSString *message) { destinationRejected = [code isEqual:@"UNAVAILABLE"]; }];
+  if (!destinationRejected || [KNNaviPresenter guideGasContext] || [KNNaviPresenter takeGuideGasSelection]) { NSLog(@"FAIL disabled native menu API"); failures++; }
   [editor setValue:@YES forKey:@"finished"];
   ResumeSDKProbe *resumeSDK = [ResumeSDKProbe new]; resumeSDK.sharedGpsManager = [ResumeGPSManagerProbe new];
   Method sharedSDKMethod = class_getClassMethod(KNSDK.class, @selector(sharedInstance));
@@ -263,13 +270,15 @@ int RunKNNaviSessionTests(void) {
     }
     [KNNaviPresenter openGuidePreviewForController:resumer gps:nil completion:^(NSDictionary *snapshot, NSString *error) {}];
     NSUInteger before = resumeSDK.tripCalls;
-    __block BOOL gpsRejected = NO;
+    KNGPSData *candidate = [resumer latestRecoveryGPS];
+    if (scenario == 2 ? candidate != nil : candidate != (id)fresh) {
+      NSLog(@"FAIL recovery GPS selection scenario=%d",scenario); failures++;
+    }
+    __block BOOL policyRejected = NO;
     [KNNaviPresenter resumeGuide:[[resumer valueForKey:@"previewToken"] integerValue] toLng:127 lat:37.5 name:@"새 목적지" vias:@[] priority:0
-                     completion:^(NSDictionary *result, NSString *error) { gpsRejected = [error containsString:@"현재 위치"]; }];
-    if (scenario == 2) {
-      if (!gpsRejected || resumeSDK.tripCalls != before) { NSLog(@"FAIL untrusted recent GPS applied during resume"); failures++; }
-    } else if (gpsRejected || resumeSDK.tripCalls != before + 1 || resumeSDK.origin.x != 300100) {
-      NSLog(@"FAIL resume ignores fresh trusted GPS candidate scenario=%d",scenario); failures++;
+                     completion:^(NSDictionary *result, NSString *error) { policyRejected = !result && [error containsString:@"이번 버전"]; }];
+    if (!policyRejected || resumeSDK.tripCalls != before || [[resumer valueForKey:@"changingDestination"] boolValue]) {
+      NSLog(@"FAIL disabled resume reached SDK scenario=%d",scenario); failures++;
     }
     [resumer setValue:@YES forKey:@"finished"];
   }
@@ -524,10 +533,10 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
               [menuWeb takeSnapshotWithConfiguration:nil completionHandler:^(UIImage *image, NSError *error) {
                 NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"bottom-expanded.png"];
                 if (image) [UIImagePNGRepresentation(image) writeToFile:path atomically:YES];
-                NSString *script = @"const safe=Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe'));const end=document.querySelector('.end').getBoundingClientRect();const safeEnd=safe>=20&&end.bottom<=innerHeight-safe;const buttons=[...document.querySelectorAll('.actions button')].map(b=>b.getBoundingClientRect());const row=buttons.every(b=>Math.abs(b.top-buttons[0].top)<1);const footer=getComputedStyle(document.querySelector('.bar')).display==='none';document.getElementById('volume').value=35;document.getElementById('volume').dispatchEvent(new Event('input'));document.getElementById('mute').click();const muted=document.getElementById('volume').value==='0'&&document.getElementById('mute').getAttribute('aria-pressed')==='true';document.getElementById('mute').click();const restored=document.getElementById('volume').value==='100'&&document.getElementById('mute').getAttribute('aria-label').includes('음소거');['hazard','routePreview','destination','vias','end'].forEach(action=>document.querySelector('[data-action='+action+']').click());JSON.stringify({row,footer,safeEnd,muted,restored,noClose:!document.querySelector('.close')})";
+                NSString *script = @"const safe=Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe'));const end=document.querySelector('.end').getBoundingClientRect();const safeEnd=safe>=20&&end.bottom<=innerHeight-safe;const row=!document.querySelector('.actions')&&['hazard','gas','routePreview','destination','vias'].every(action=>!document.querySelector('[data-action='+action+']'));const footer=getComputedStyle(document.querySelector('.bar')).display==='none';document.getElementById('volume').value=35;document.getElementById('volume').dispatchEvent(new Event('input'));document.getElementById('mute').click();const muted=document.getElementById('volume').value==='0'&&document.getElementById('mute').getAttribute('aria-pressed')==='true';document.getElementById('mute').click();const restored=document.getElementById('volume').value==='100'&&document.getElementById('mute').getAttribute('aria-label').includes('음소거');document.querySelector('[data-action=end]').click();JSON.stringify({row,footer,safeEnd,muted,restored,noClose:!document.querySelector('.close')})";
                 [menuWeb evaluateJavaScript:script completionHandler:^(id value, NSError *error) {
                   if (error || ![value containsString:@"\"muted\":true"] || ![value containsString:@"\"restored\":true"] || ![value containsString:@"\"row\":true"] || ![value containsString:@"\"footer\":true"] || ![value containsString:@"\"safeEnd\":true"]) { NSLog(@"FAIL menu layout %@ %@",value,error); failures++; }
-                  WaitAsync(^BOOL{ return actions.count == 10 && fabs(volume-1)<.001 && panel.menuView.hidden; },NSDate.timeIntervalSinceReferenceDate+3,^(BOOL sent) {
+                  WaitAsync(^BOOL{ return actions.count == 6 && fabs(volume-1)<.001 && panel.menuView.hidden; },NSDate.timeIntervalSinceReferenceDate+3,^(BOOL sent) {
                     if (!sent) { NSLog(@"FAIL WK actions %@ volume=%f",actions,volume); failures++; }
                     [mapLocks restore];
                     if (current.hidden || zoom.hidden || mapStyle.hidden) { NSLog(@"FAIL map controls fallback restore"); failures++; }

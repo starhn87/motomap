@@ -7,7 +7,7 @@ type Element = { type: any; props: any };
 const goal = { name: '기존 목적지', latitude: 37.5, longitude: 127.1, placeId: 'original' };
 const nextGoal = { name: '새 목적지', latitude: 37.6, longitude: 127.2, placeId: 'new' };
 
-function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading = false, previousPriority = 2) {
+function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading = false, previousPriority = 2, enabled = true) {
   let dirty = false, cursor = 0;
   let slots: any[] = [];
   const rootSlots: any[] = [], contentSlots: any[] = [];
@@ -43,6 +43,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
   const chain: any = new Proxy({}, { get: () => () => chain });
   const defaultExport = (value: any) => ({ __esModule: true, default: value });
   const deps: Record<string, any> = {
+    '@/lib/guideMenuPolicy': { GUIDE_MENU_ACTIONS_ENABLED: enabled, GUIDE_MENU_UNAVAILABLE_MESSAGE: '안내 종료 후 다시 설정해 주세요.' },
     '@/stores/useMyPlacesStore': { useMyPlacesStore: (select: any) => select({ places: {}, load() {} }) },
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'Spinner', StyleSheet: { create: (x: any) => x } },
@@ -188,3 +189,9 @@ for (const edit of [null, 'goal', 'vias'] as const) {
     f.unmount();
   });
 }
+
+test('제거된 기능의 기존 미리보기에서도 native 재안내를 호출하지 않는다',()=>{
+  const f=setup(false,null,false,2,false); f.start(); f.render();
+  assert.equal(f.calls.resumed.length,0); assert.equal(f.calls.started,0);
+  assert.equal(f.store.goal.placeId,'original'); assert.equal(f.calls.errors.length,1);
+});

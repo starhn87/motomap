@@ -1,3 +1,4 @@
+import { GUIDE_MENU_ACTIONS_ENABLED, GUIDE_MENU_UNAVAILABLE_MESSAGE } from '@/lib/guideMenuPolicy';
 import { withLocationUse, locationUseAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -308,7 +309,7 @@ export function registerGuideEvents(): () => void {
   // 안내 지도의 POI 탭 — 네이버 지도처럼 "그 장소가 뭔지"에 답하되, 주행
   // 맥락에서 의미 있는 행동(목적지 변경)으로 바로 잇는다. 안내 화면은 네이티브
   // 풀스크린이라 RN 장소 시트를 얹을 수 없다 — 액션시트가 이 화면의 관용구다.
-  const poiTap = supportsKakaoNaviFeature('guide_poi_tap')
+  const poiTap = GUIDE_MENU_ACTIONS_ENABLED && supportsKakaoNaviFeature('guide_poi_tap')
     ? KakaoNavi.addListener('onGuidePoiTap', ({ name, latitude, longitude }) => {
         void (async () => {
           const label = name.trim() || '선택한 지점';
@@ -328,6 +329,11 @@ export function registerGuideEvents(): () => void {
 
   // 커스텀 슬롯이 하나뿐이라 버튼 하나에서 1차 시트로 가른다
   const menu = KakaoNavi.addListener('onGuideMenu', ({ id }) => {
+    // 구 바이너리의 버튼·늦은 이벤트도 제거한 기능으로 진입시키지 않는다.
+    if (!GUIDE_MENU_ACTIONS_ENABLED) {
+      void KakaoNavi.showGuideToast(GUIDE_MENU_UNAVAILABLE_MESSAGE).catch(() => {});
+      return;
+    }
     if ([106,108].includes(id) && supportsKakaoNaviFeature('guide_gas_stations')) {
       void import('@/lib/guideGasEvents').then(module => module.handleGuideGasMenu(id)).catch(() => {});
       return;

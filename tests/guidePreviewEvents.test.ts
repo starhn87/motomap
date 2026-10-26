@@ -2,17 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
 
-function setup(failOpen = false) {
+function setup(failOpen = false, enabled = true) {
   const callbacks: Record<string, (payload: any) => void> = {};
   const snapshot = { token: 9, goal: { name: '목적지' }, vias: [], passedVias: [] };
   let finishAudit!: () => void, clearCount = 0;
   const pushed: any[] = [], notices: string[] = [];
   const store: any = { goal: snapshot.goal, preview: null, setPreview(value: any) { store.preview = value; }, clear() { clearCount++; store.goal = null; } };
   const module = loadModule<{ registerGuideEvents(): () => void }>('lib/guideEvents.ts', {
+    '@/lib/guideMenuPolicy': { GUIDE_MENU_ACTIONS_ENABLED: enabled, GUIDE_MENU_UNAVAILABLE_MESSAGE: '이번 버전에서는 안내 음량과 종료만 지원해요.' },
     '@/stores/useLocationPrivacyStore': { withLocationUse: async (_purpose: any, _provider: any, work: any) => { await work(); await new Promise<void>((resolve) => { finishAudit = resolve; }); } },
     '@react-native-async-storage/async-storage': { __esModule: true, default: { getItem: async () => null, removeItem: async () => {} } },
     'expo-router': { router: { push: (value: any) => pushed.push(value) } },
-    '@/modules/kakao-navi': { __esModule: true, default: { addListener: (event: string, fn: any) => { callbacks[event] = fn; return { remove() {} }; }, openGuidePreview: async () => { if (failOpen) throw Error('GPS unavailable'); return snapshot; }, showGuideNotice: async (message: string) => { notices.push(message); } },
+    '@/modules/kakao-navi': { __esModule: true, default: { addListener: (event: string, fn: any) => { callbacks[event] = fn; return { remove() {} }; }, openGuidePreview: async () => { if (failOpen) throw Error('GPS unavailable'); return snapshot; }, showGuideToast: async (message: string) => { notices.push(message); }, showGuideNotice: async (message: string) => { notices.push(message); } },
       HAZARD_BUTTON_ID: 101, MOTOMAP_MENU_ID: 100, supportsKakaoNaviFeature: () => true, friendlyRouteError: String },
     '@/lib/guideSession': { useGuideSession: { getState: () => store } },
     '@/lib/guideArrival': {},
@@ -52,3 +53,12 @@ test('편집 진입 오류는 native 안내 위 알림으로 보여 무반응으
   assert.equal(f.notices.length, 1);
   assert.match(f.notices[0], /GPS unavailable/);
 });
+
+for (const id of [100,101,103,104,105,106,108]) {
+  test(`배포 정책은 구 메뉴 이벤트 ${id}의 기능 진입을 막는다`, async () => {
+    const f=setup(false,false); f.callbacks.onGuideMenu({id}); await f.flush();
+    assert.equal(f.pushed.length,0); assert.equal(f.store.preview,null); assert.equal(f.clears,0);
+    assert.match(f.notices[0],/안내 음량과 종료/);
+    assert.equal(f.callbacks.onGuidePoiTap,undefined);
+  });
+}

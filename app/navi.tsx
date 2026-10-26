@@ -1,3 +1,4 @@
+import { GUIDE_MENU_ACTIONS_ENABLED, GUIDE_MENU_UNAVAILABLE_MESSAGE } from '@/lib/guideMenuPolicy';
 import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
 import { withLocationUse, providerLocationAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import { useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-router';
@@ -440,6 +441,10 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
   }, [router, start, locationBlocked, privacyRevision, locationAttempt, continuation]);
 
   const startGuide = () => {
+    if (continuationRef.current && !GUIDE_MENU_ACTIONS_ENABLED) {
+      toast.error('안내 중 경로 변경은 이번 버전에서 지원하지 않습니다', GUIDE_MENU_UNAVAILABLE_MESSAGE);
+      return;
+    }
     if (!start || !route || locationBlocked || startingRef.current || courseOnly) return;
     startingRef.current = true;
     setStarting(true);
