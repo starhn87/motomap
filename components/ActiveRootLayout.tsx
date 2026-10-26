@@ -167,7 +167,9 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
   const privacyScope = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
-    if (authStatus==='restoring') return;
+    // 세션의 계정이 확인되면 프로필·약관과 위치 설정을 병렬로 조회한다.
+    // 계정 확인 전에는 비회원 조회를 시작하지 않으며, 위치 이용은 auth 상태 검사로 계속 막는다.
+    if (authStatus==='restoring' && !actor) return;
     // 같은 계정의 약관 완료·토큰 갱신은 GPS와 진행 중 길안내를 다시 초기화하지 않는다.
     if (privacyScope.current === actor) return;
     privacyScope.current = actor;

@@ -18,6 +18,7 @@ function deferred<T>() {
 }
 function fixture(options: { stop?: () => Promise<void>; rpc?: (action: string) => Promise<unknown>; record?: () => Promise<unknown>; storageFailure?: 'read' | 'write'; guiding?: boolean; notice?: () => Promise<void> } = {}) {
   let actor: string | null = 'A';
+  let authStatus: string | undefined;
   const calls: { action: string; expectedActor: string | null; payload: unknown }[]=[];
   const positions: unknown[]=[];
   const toasts: {title: string; message: string}[]=[];
@@ -58,11 +59,12 @@ function fixture(options: { stop?: () => Promise<void>; rpc?: (action: string) =
         showGuideNotice: async (message: string) => { guideNotices.push(message); await options.notice?.(); } } },
     '@/lib/toast': { toast: { info(title: string,message: string) { toasts.push({title,message}); } } },
     '@/lib/queryClient': {queryClient:{clear() {}}},
-    '@/stores/useAuthStore': { useAuthStore: { getState: () => ({ status: actor ? 'signed_in' : 'signed_out',session: actor ? {user:{id:actor}} : null }) } },
+    '@/stores/useAuthStore': { useAuthStore: { getState: () => ({ status: authStatus ?? (actor ? 'signed_in' : 'signed_out'),session: actor ? {user:{id:actor}} : null }) } },
   });
   const store=module.useLocationPrivacyStore;
   store.setState({ ...active,actor:'A',secret:'a'.repeat(64),ready:true,browsing:true } as never);
-  return { ...module,store,calls,positions,toasts,guideNotices,stopped: () => stopped,actor: (next: string | null) => { actor=next; } };
+  return { ...module,store,calls,positions,toasts,guideNotices,stopped: () => stopped,actor: (next: string | null) => { actor=next; },
+    authStatus: (next: string) => { authStatus=next; } };
 }
 
 test('기존 서비스 요청은 반복 통지 없이 동의 검사와 확인자료 기록을 유지한다',async()=>{
@@ -347,4 +349,34 @@ test('native 시작·경로·중지는 main 큐에서 직렬화하고 늦은 콜
   const native=readFileSync(new URL('../modules/kakao-navi/ios/KNNaviPresenter.m',import.meta.url),'utf8');
   assert.match(native,/generation == gLocationGeneration && \[KNSDKBridge isLocationUseAllowed\]/);
   assert.match(native,/navi != gActiveNavi \|\| navi.finished/);
+});
+
+
+test('계정이 확인되면 프로필 복원 중에도 위치 상태를 조회하되 위치 이용은 열지 않는다', async () => {
+  const root=readFileSync(new URL('../components/ActiveRootLayout.tsx',import.meta.url),'utf8');
+  const body=root.match(/useEffect\(\(\) => \{([\s\S]*?)\},\[actor,authStatus\]\)/)?.[1];
+  assert.ok(body);
+  const execute=new Function('authStatus','actor','privacyScope','useLocationPrivacyStore',body);
+  const f=fixture();
+  f.authStatus('restoring');
+  const scope={current:undefined as string | null | undefined};
+  execute('restoring',null,scope,f.store);
+  assert.equal(f.calls.length,0);
+  execute('restoring','A',scope,f.store);
+  await new Promise<void>(done=>setImmediate(done));
+  assert.deepEqual(f.calls.map(c=>c.action),['status']);
+  assert.equal(f.store.getState().ready,true);
+  assert.equal(f.locationUseAllowed(),false);
+  let worked=0;
+  await assert.rejects(f.withLocationUse('search','kakao',async()=>{ worked++; }));
+  assert.equal(worked,0);
+  for (const status of ['needs_consent','needs_onboarding']) {
+    f.authStatus(status);
+    assert.equal(f.locationUseAllowed(),false);
+  }
+  f.authStatus('signed_in');
+  execute('signed_in','A',scope,f.store);
+  assert.equal(f.stopped(),1);
+  assert.equal(f.calls.length,1);
+  assert.equal(f.locationUseAllowed(),true);
 });
