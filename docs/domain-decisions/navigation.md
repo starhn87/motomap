@@ -1599,3 +1599,63 @@ NAV-039 전달 후속: 사용자 “올려” 승인 후 source `08d9d6d`를 푸
 테스트 안내·내부 접근을 확인했다. IPA의 실제 HTML·JS 정책·기능 제공 범위와 서명도
 독립 검증했다. 기존60번은 새61번 설치가 필요하다. 심사 재제출·공개 출시는 하지 않았다.
 원래 SDK 오류 해결을 주장하지 않으며 실기기 메뉴/음량/종료 동작은61번에서 확인한다.
+
+## NAV-040 — 안내 중 경로 변경 실패의 위치 신뢰 검사 진단
+
+- 날짜: 2026-10-26
+- 상태: 실제 SDK를 쓰는 격리 시뮬레이터에서 원인·대조 검증 / 사용자 실기기 동일 원인 미확인
+- 관련: NAV-031·038·039, `KNNaviPresenter.usableRecoveryGPS/latestRecoveryGPS/resumeGuide`,
+  `KakaoNaviModule.swift`, `lib/kakaoRouteErrors.ts`
+- 범위: 원인 진단만 수행. NAV-039의 메뉴 제외와 심사 제출한61번을 유지한다.
+
+운영자가61번 제출 후 기존 목적지·경유지·다른 경로·주유소 경로 변경의 오류 원인 파악을
+요청했다.60번 source `b6d6b19`의 실제 presenter를 변경 없이 격리 앱에 연결하고 실제
+KNSDK1.12.14 인증·공개 고정 좌표 경로·실주행 guidance·openGuidePreview·resumeGuide를
+실행했다. 위치는 simctl의 공개 고정 좌표이며 운영 DB나 사용자 좌표는 사용하지 않았다.
+
+### 확인한 실패와 단일 조건 대조
+
+최초 안내는 SDK `guide_started`, guideState=1로 시작한다. SDK 위치는 valid=true지만
+posTrust=false일 수 있다. 앱은 미리보기 진입에 신뢰 위치가 없으면 start=null로 진입을
+허용하나, 재안내에서는 valid·posTrust·유한 좌표·10초 이내를 모두 강제한다.
+실제 strict 선택기는 nil을 반환하고 resumeGuide는 makeTrip/guideNewDestinations 이전에
+`현재 위치를 확인한 뒤 다시 시도해 주세요.`로 실패했다. 소스 탐색만으로 추정한 SDK 적용
+오류가 아니라, SDK에 요청하기 전의 앱 위치 검사 거절을 재현한 것이다.
+
+같은 세션·토큰·목적지로 앱의 usableRecoveryGPS에서 posTrust만 요구하지 않는 임시
+검사용 하위 클래스로 대조했다. SDK 위치 객체·엔진은 수정하지 않고 valid·유한 좌표·
+10초 신선도 조건은 유지했다. 최종 실제 선택값은 valid=true / posTrust=false /
+age=6.358초였으며 실제 SDK 재안내 성공 응답과 두 번째 guide_started(state=1)를 확인했다.
+기준 실패는 별도 실행 포함3회, 같은 세션 대조 성공은2회 확인했다. 첫 대조에서 기록한
+recentGpsData는 실제 선택한 후보와 달랐으므로 최종 대조에서는 latestRecoveryGPS의
+반환값을 직접 기록했다. 후보 하나의 valid=false 로그를 선택값으로 오인하지 않는다.
+
+NAV-038은 신뢰 조건을 통과한 위치 원본을 넓혔지만 posTrust 조건 자체는 유지했다.
+따라서 어느 원본도 그 조건을 통과하지 못하는 이 경우에는 해결되지 않는다. 기존 테스트는
+GPS 선택 대역 또는 JS promise 대역이어서 실제 SDK 최초 안내와 재안내의 조건 차이를
+검증하지 못했다. 임시 하네스의 초기2회는 제품과 달리 UIBackgroundModes location이
+누락돼 CoreLocation assertion으로 종료됐으며, 제품과 동일하게 보완한 뒤 위 검사를 했다.
+이 검사 앱 설정 오류를 사용자 기기의 원인으로 취급하지 않는다.
+
+### 사용자에게 원인이 드러나지 않은 이유
+
+네이티브 재안내는 E_KNSDK_RESUME로 실패하며 단계·SDK 코드를 보존하지 않는다.
+friendlyRouteError는 이 경우 원문 대신 일반 재시도 문구를 반환한다. 위 위치 거절을
+실제 함수에 넣어 운영자가 본 `잠시 후 다시 시도해 주세요. 계속 안 된다면 지도로 돌아가
+다른 경로를 선택해 주세요.`가 나오는 것도 확인했다. 따라서 기존 화면 문구만으로
+GPS 검사 거절과 다른 세션·SDK 실패를 구분할 수 없다.
+
+### 한계와 수정 시 지킬 조건
+
+사용자 기기의 원본 실패 단계·GPS flags 기록은 없으므로 모든 현장 오류가 이 원인이라고
+단정하지 않는다. React Native UI·위치 동의 RPC 전체나 실제 주행 GPS까지 재현한 것도 아니다.
+이번에는 제품 코드·위치 정책·브리지·릴리스 정책을 바꾸거나 기능을 재활성화하지 않았다.
+후속 수정은 최초 안내와 재안내의 위치 허용 정책을 함께 검토하고, 실패 단계·비식별 원인
+코드 보존을 추가한 뒤 실제 기기의 정차/이동·GPS 유실·편집 취소·SDK 거절을 검증해야 한다.
+posTrust를 무조건 true로 위장하거나 오래된 위치를 갱신해 성공 처리하는 접근은 사용하지 않는다.
+
+진단 자료는 `/tmp/motomap-reroute-diagnosis`에 비공개 보관했다(키는 임시 앱과 함께 삭제).
+재현 드라이버는 `bash /tmp/motomap-reroute-diagnosis/run.sh`이며 프로젝트 env를 출력 없이
+주입한다. 실제 기록에 대한 판정은 `check-result.py <result.jsonl> --baseline`에서 위
+현재 위치 오류로 exit1, 기본 대조 판정에서 선택 위치 조건·SDK 두 번째 시작을 확인해 exit0다.
+시뮬레이터 앱/기기는 각 실행 종료 때 삭제하며 출시 바이너리·원격 상태는 변경하지 않는다.
