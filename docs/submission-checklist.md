@@ -1,3 +1,22 @@
+## 2026-10-26 안내 메뉴 축소 TestFlight61 전달 완료
+
+사용자 “올려” 승인 후 source `08d9d6dd6f944cef895960923c949d42bcbfe708`을 main에 푸시하고
+production **1.2.10(61) / native23 / API1**을 빌드·업로드했다. 안내 상세 메뉴는 음량과
+맨 아래 종료만 제공하며, 기존60번의 네이티브 메뉴 제거는61번 설치가 필요하다.
+ASC build `cb5c03f3-696f-4032-9b5b-a72e94aae763`의 **VALID / IN_BETA_TESTING**,
+한국어 TestFlight 테스트 안내 저장·내부 전체 빌드 접근·자동 알림 활성 상태를 확인했다.
+EAS submission은 `52c810cd-ce9c-49cf-a8ae-86f58fe59d33`이다.
+
+425개 JS 테스트·타입·릴리스 검사·네이티브 세션/WKWebView 검사와 리뷰·CI가 통과했다.
+IPA 서명·runtime1.2.10·production 채널, 소스와 같은 메뉴 HTML·JS 차단 정책 및 제거된
+capability 부재를 확인했다. SHA256은
+`7d05014d1c3fc85f934a95dc397134fe3762e18708d4bf5c18aedcd131ab3dfd`이다.
+내장 JS의 commitTime은 기존 production OTA보다 최신이며 이번 전달에서 추가 OTA는 발행하지 않았다.
+기존 Sentry 인증 누락으로 심볼·일치하는 Hermes 소스맵은 비공개 보관해 별도 후속으로 추적한다.
+App Store1.2.10은 DEVELOPER_REJECTED/MANUAL 상태를 유지하며 새 심사 제출·공개 출시는
+하지 않았다. 아래 준비·과거 심사 제출 기록은 당시 사실로 보존한다. 이번 기능 제외가 원래
+SDK 재안내 오류 해결을 뜻하지 않으며, 실기기 확인은61번에서 진행한다.
+
 ## 2026-10-26 안내 메뉴 축소 후보 준비(미배포)
 
 사용자 지시로1.2.10 안내 상세 메뉴는 음량·종료만 남긴다. 다른 경로·목적지·경유지 편집,

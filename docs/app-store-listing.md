@@ -1,3 +1,10 @@
+## 2026-10-26 TestFlight61 전달 후속
+
+안내 메뉴 축소 source `08d9d6d`의1.2.10(61)/native23/API1이 VALID/IN_BETA_TESTING이다.
+한국어 TestFlight 테스트 안내를 저장하고 내부 접근을 확인했다. 아래 App Store 릴리스 노트는
+계속 로컬 후보이며 App Store 메타데이터 저장·심사 재제출·공개 출시는 하지 않았다.
+상세 증거는 `docs/app-store-submission.md`의61번 전달 기록을 따른다.
+
 ## 2026-10-26 메뉴 축소 후보의 한국어 릴리스 노트(미제출)
 
 사용자 지시로 안내 상세 메뉴는 음량·종료만 남긴다. 새 native23 바이너리가 필요하며,
