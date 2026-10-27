@@ -36,6 +36,21 @@
     return [UIColor colorWithWhite:trait.userInterfaceStyle == UIUserInterfaceStyleDark ? dark : light alpha:1];
   }];
 }
+// navigation-bottom.html의 goalIcon과 같은24단위 경로·선2·중심점2.5를 사용한다.
+- (UIImage *)footerDestinationIcon {
+  UIGraphicsImageRenderer *renderer=[[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(21,21)];
+  UIImage *image=[renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+    CGContextScaleCTM(context.CGContext,21.0/24,21.0/24);
+    [UIColor.blackColor setStroke];[UIColor.blackColor setFill];
+    UIBezierPath *pin=[UIBezierPath bezierPath];[pin moveToPoint:CGPointMake(19,10)];
+    [pin addCurveToPoint:CGPointMake(12,21) controlPoint1:CGPointMake(19,15) controlPoint2:CGPointMake(12,21)];
+    [pin addCurveToPoint:CGPointMake(5,10) controlPoint1:CGPointMake(12,21) controlPoint2:CGPointMake(5,15)];
+    [pin addArcWithCenter:CGPointMake(12,10) radius:7 startAngle:M_PI endAngle:0 clockwise:YES];
+    [pin closePath];pin.lineWidth=2;pin.lineJoinStyle=kCGLineJoinRound;pin.lineCapStyle=kCGLineCapRound;[pin stroke];
+    [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(9.5,7.5,5,5)] fill];
+  }];
+  return [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+}
 - (void)viewDidLoad {
   [super viewDidLoad];
   UIColor *ink = [self colorWithLight:0.095 dark:0.98];
@@ -87,7 +102,7 @@
       config.background.cornerRadius = 12;
       config.background.strokeColor = [self colorWithLight:0.89 dark:0.16]; config.background.strokeWidth = 1;
       config.attributedTitle = [[NSAttributedString alloc] initWithString:option[@"label"] attributes:@{NSFontAttributeName:[UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]}];
-      config.image = [UIImage systemImageNamed:option[@"symbol"] ?: symbols[option[@"key"]] ?: @"exclamationmark.triangle"] ?: [UIImage systemImageNamed:@"exclamationmark.triangle"];
+      config.image = [option[@"symbol"] isEqual:@"motomap.destination"] ? [self footerDestinationIcon] : [UIImage systemImageNamed:option[@"symbol"] ?: symbols[option[@"key"]] ?: @"exclamationmark.triangle"] ?: [UIImage systemImageNamed:@"exclamationmark.triangle"];
       config.preferredSymbolConfigurationForImage = [UIImageSymbolConfiguration configurationWithPointSize:21 weight:UIImageSymbolWeightRegular];
       config.imagePlacement = NSDirectionalRectEdgeTop; config.imagePadding = 7;
       config.contentInsets = NSDirectionalEdgeInsetsMake(12,8,12,8); button.configuration = config;

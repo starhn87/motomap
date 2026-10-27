@@ -1,13 +1,29 @@
 #import "KNNaviGasPriceLayer.h"
 #import "KNSDKBridge.h"
-#import <KNSDK/KNMapMarker.h>
-#import <KNSDK/KNMapMarkerEventListener.h>
 #import <limits.h>
 #import <math.h>
 
-@interface KNNaviGasPriceLayer () <KNMapMarkerEventListener>
+@class KNNaviGasPriceLayer;
+// 가격 버튼 밖의 터치는 지도 제스처로 전달한다.
+@interface KNNaviPriceOverlay : UIView @end
+@implementation KNNaviPriceOverlay
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+  UIView *hit=[super hitTest:point withEvent:event];
+  return hit==self ? nil : hit;
+}
+@end
+@interface KNNaviPriceButton : UIButton @end
+@implementation KNNaviPriceButton
+- (void)setHighlighted:(BOOL)highlighted { [super setHighlighted:highlighted]; self.alpha=highlighted?0.55:1; }
+@end
+@interface KNNaviPriceFrameTarget : NSObject
+@property(nonatomic, weak) KNNaviGasPriceLayer *owner;
+- (void)tick:(CADisplayLink *)link;
+@end
+@interface KNNaviGasPriceLayer ()
 @property(nonatomic, weak) KNMapView *map;
-@property(nonatomic, weak) id<KNMapMarkerEventListener> previousListener;
+@property(nonatomic, strong) KNNaviPriceOverlay *overlay;
+@property(nonatomic, strong) CADisplayLink *displayLink;
 @property(nonatomic, copy) NSDictionary *context;
 @property(nonatomic, strong) NSMutableArray<NSDictionary *> *owned;
 @property(nonatomic, copy) NSArray<NSDictionary *> *stations;
@@ -20,6 +36,14 @@
 @property(nonatomic, strong) NSTimer *expiryTimer;
 @property(nonatomic) BOOL active;
 @property(nonatomic) BOOL invalidated;
+@property(nonatomic) BOOL cameraKnown;
+@property(nonatomic) FloatPoint lastCoordinate;
+@property(nonatomic) FloatPoint lastAnchor;
+@property(nonatomic) float lastZoom;
+@property(nonatomic) float lastBearing;
+@property(nonatomic) float lastTilt;
+@property(nonatomic) CGRect lastMapFrame;
+- (void)updateScreenPositions;
 @end
 
 @implementation KNNaviGasPriceLayer
@@ -32,30 +56,28 @@
 }
 - (void)attachToMap:(KNMapView *)map {
   if (self.invalidated || self.map == map) return;
-  [self clearMarkers];
-  if (self.map.markerEventListener == self) self.map.markerEventListener=self.previousListener;
-  self.map=map; self.previousListener=map.markerEventListener; map.markerEventListener=self;
-  if (self.stations.count && self.expiresAt.timeIntervalSinceNow>0) [self renderMarkers];
+  [self clearPrices];
+  self.map=map;
+  if (self.stations.count && self.expiresAt.timeIntervalSinceNow>0) [self renderPrices];
 }
 - (void)dealloc {
-  [self.expiryTimer invalidate]; [self clearMarkers];
-  if (self.map.markerEventListener == self) self.map.markerEventListener = self.previousListener;
+  [self.expiryTimer invalidate]; [self clearPrices];
 }
 - (BOOL)hasFreshPosition {
   return !self.invalidated && self.active && [KNSDKBridge isLocationUseAllowed] && self.positionAt &&
     fabs(self.positionAt.timeIntervalSinceNow) <= 10;
 }
-- (void)clearMarkers {
-  for (NSDictionary *item in self.owned) [self.map removeMarker:item[@"marker"]];
-  [self.owned removeAllObjects];
+- (void)clearPrices {
+  [self.displayLink invalidate]; self.displayLink=nil;
+  [self.overlay removeFromSuperview]; self.overlay=nil;
+  [self.owned removeAllObjects]; self.cameraKnown=NO;
 }
 - (void)pause {
   self.active = NO; self.context = nil;
-  [self clearMarkers];
+  [self clearPrices];
 }
 - (void)invalidate {
   [self pause]; self.invalidated = YES;
-  if (self.map.markerEventListener == self) self.map.markerEventListener = self.previousListener;
   [self.expiryTimer invalidate]; self.expiryTimer=nil;
   self.stations = nil; self.expiresAt = nil; self.positionAt = nil;
   self.onFetch = nil; self.onSelect = nil; self.map = nil;
@@ -67,13 +89,10 @@
     [self pause]; return;
   }
   self.active = YES; self.position = position; self.positionAt = timestamp;
-  if (self.map.markerEventListener != self) {
-    self.previousListener = self.map.markerEventListener; self.map.markerEventListener = self;
-  }
   BOOL cached = self.expiresAt.timeIntervalSinceNow > 0 &&
       hypot(position.x-self.cachePosition.x,position.y-self.cachePosition.y)<1000;
-  if (cached) { if (!self.owned.count && self.stations.count) [self renderMarkers]; return; }
-  [self clearMarkers];
+  if (cached) { if (!self.owned.count && self.stations.count) [self renderPrices]; return; }
+  [self clearPrices];
   // 요청 중 이동한 결과는 응답에서 버리고, 위치 콜백마다 외부 조회를 만들지 않는다.
   if (self.context || (self.requestedAt && -self.requestedAt.timeIntervalSinceNow<30)) return;
   DoublePoint wgs = [[KNSDK sharedInstance] convertKATECToWGS84WithX:(SInt32)llround(position.x) y:(SInt32)llround(position.y)];
@@ -95,16 +114,16 @@
   NSString *path = [bundle pathForResource:file.stringByDeletingPathExtension ofType:file.pathExtension];
   return path ? [UIImage imageWithContentsOfFile:path] : nil;
 }
-- (UIImage *)imageForStation:(NSDictionary *)station compact:(BOOL)compact {
-  CGSize size = compact ? CGSizeMake(90,28) : CGSizeMake(116,34);
-  // 두 크기를 한 번씩만 만들고 줌 노출 범위로 전환한다. 제스처마다 비트맵을 만들지 않는다.
-  UIGraphicsImageRendererFormat *format=[UIGraphicsImageRendererFormat defaultFormat];format.scale=1;
+- (UIImage *)imageForStation:(NSDictionary *)station {
+  CGSize size = CGSizeMake(116,34);
+  // 비트맵은 최초 한 번만 만들고 UIView 변환으로 축척을 연속 반영한다.
+  UIGraphicsImageRendererFormat *format=[UIGraphicsImageRendererFormat defaultFormat];
   UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
   return [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
     UIColor *ink=[UIColor colorWithWhite:0.095 alpha:1];
-    UIBezierPath *shape=[UIBezierPath bezierPathWithRoundedRect:CGRectInset((CGRect){CGPointZero,size},1,1) cornerRadius:compact?9:11];
+    UIBezierPath *shape=[UIBezierPath bezierPathWithRoundedRect:CGRectInset((CGRect){CGPointZero,size},1,1) cornerRadius:11];
     [UIColor.whiteColor setFill];[shape fill]; [[UIColor colorWithWhite:0.55 alpha:1] setStroke];shape.lineWidth=1;[shape stroke];
-    CGRect logoRect=compact?CGRectMake(5,6,26,16):CGRectMake(7,7,36,20);
+    CGRect logoRect=CGRectMake(7,7,36,20);
     UIImage *logo=[self brandImage:station[@"brand"]];
     if (logo && logo.size.width>0 && logo.size.height>0) {
       CGFloat scale=MIN(logoRect.size.width/logo.size.width,logoRect.size.height/logo.size.height);
@@ -112,38 +131,89 @@
       [logo drawInRect:CGRectMake(CGRectGetMidX(logoRect)-fitted.width/2,CGRectGetMidY(logoRect)-fitted.height/2,fitted.width,fitted.height)];
     } else {
       NSString *brand=[station[@"brand"] containsString:@"알뜰"]?@"알뜰":@"주유";
-      [brand drawInRect:logoRect withAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:compact?10:12 weight:UIFontWeightSemibold],NSForegroundColorAttributeName:ink}];
+      [brand drawInRect:logoRect withAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:12 weight:UIFontWeightSemibold],NSForegroundColorAttributeName:ink}];
     }
     NSNumberFormatter *formatter=[NSNumberFormatter new];formatter.numberStyle=NSNumberFormatterDecimalStyle;
     NSString *price=[formatter stringFromNumber:station[@"price"]];
-    CGRect priceRect=compact?CGRectMake(35,6,51,20):CGRectMake(47,7,64,23);
-    UIFont *font=[UIFont monospacedDigitSystemFontOfSize:compact?14:17 weight:UIFontWeightBold];
+    CGRect priceRect=CGRectMake(47,7,64,23);
+    UIFont *font=[UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightBold];
     CGFloat width=[price sizeWithAttributes:@{NSFontAttributeName:font}].width;
     if (width>priceRect.size.width) font=[font fontWithSize:font.pointSize*priceRect.size.width/width];
     [price drawInRect:priceRect withAttributes:@{NSFontAttributeName:font,NSForegroundColorAttributeName:ink}];
   }];
 }
-- (void)renderMarkers {
-  if (![self hasFreshPosition] || self.expiresAt.timeIntervalSinceNow<=0 || self.owned.count) return;
+- (void)renderPrices {
+  if (![self hasFreshPosition] || self.expiresAt.timeIntervalSinceNow<=0 || self.owned.count || !self.stations.count || !self.map) return;
+  self.overlay=[[KNNaviPriceOverlay alloc] initWithFrame:self.map.bounds];
+  self.overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
+  self.overlay.clipsToBounds=YES;
+  // 지도 제스처 인식기의 자손으로 두어 가격 위에서 시작한 이동·핀치도 지도에 전달한다.
+  [self.map addSubview:self.overlay];
   KNSDK *sdk=[KNSDK sharedInstance];
-  NSUInteger index=0;
   for (NSDictionary *station in self.stations) {
     IntPoint point=[sdk convertWGS84ToKATECWithLongitude:[station[@"longitude"] doubleValue] latitude:[station[@"latitude"] doubleValue]];
-    // 실제 SDK 투영에서 zoom 값이 클수록 넓은 지역이 보인다(100m: zoom1=200pt, zoom8=25pt).
-    // 서로 겹치지 않는 구간에 정적 마커를 두어 확대·축소 중 이미지 갱신을 없앤다.
-    for (NSNumber *tier in @[@NO,@YES]) {
-      BOOL compact=tier.boolValue;
-      if (compact && index>=8) continue;
-      KNMapMarker *marker=[KNMapMarker marker];marker.coordinate=(FloatPoint){point.x,point.y};
-      UIImage *image=[self imageForStation:station compact:compact];marker.icon=image;
-      marker.priority=500+(NSInteger)self.stations.count-(NSInteger)index;
-      // SDK는 양 끝값을 제외하므로 정상 max를 한 float만 늘려 zoom4의 공백/이중 표시를 막는다.
-      [marker setVisibleRangeWithMinZoom:compact?4:0.1 maxZoom:compact?32:nextafterf(4,INFINITY)];
-      // icon은 SDK의 assign 속성이므로 removeMarker까지 이미지를 강하게 보관한다.
-      [self.owned addObject:@{@"marker":marker,@"image":image,@"station":station,@"compact":@(compact)}];
-      [self.map addMarker:marker];
-    }
-    index++;
+    UIButton *button=[KNNaviPriceButton buttonWithType:UIButtonTypeCustom];button.bounds=CGRectMake(0,0,116,44);
+    UIImage *image=[self imageForStation:station];
+    UIImageView *content=[[UIImageView alloc] initWithImage:image];content.bounds=CGRectMake(0,0,116,34);
+    content.contentMode=UIViewContentModeCenter;[button addSubview:content];
+    button.accessibilityLabel=[NSString stringWithFormat:@"%@, 일반휘발유 %@원",station[@"name"],station[@"price"]];
+    button.accessibilityIdentifier=[@"guide-gas-price-" stringByAppendingString:station[@"id"]];
+    [button addTarget:self action:@selector(priceTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [self.overlay addSubview:button];
+    [self.owned addObject:@{@"button":button,@"content":content,@"image":image,@"station":station,@"x":@(point.x),@"y":@(point.y)}];
+  }
+  [self updateScreenPositions];
+  if (!self.owned.count || !self.overlay) return;
+  KNNaviPriceFrameTarget *target=[KNNaviPriceFrameTarget new];target.owner=self;
+  self.displayLink=[CADisplayLink displayLinkWithTarget:target selector:@selector(tick:)];
+  self.displayLink.preferredFramesPerSecond=30;
+  [self.displayLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
+}
+- (void)updateScreenPositions {
+  if (![self hasFreshPosition] || self.expiresAt.timeIntervalSinceNow<=0) { [self clearPrices]; return; }
+  if (!self.map.superview) { [self pause]; return; }
+  if (self.overlay.superview!=self.map) {
+    [self.map addSubview:self.overlay]; self.cameraKnown=NO;
+  }
+  CGRect frame=self.map.bounds;
+  FloatPoint coordinate=self.map.coordinate, anchor=self.map.anchor;
+  float zoomValue=self.map.zoom, bearing=self.map.bearing, tilt=self.map.tilt;
+  if (self.cameraKnown && CGRectEqualToRect(frame,self.lastMapFrame) &&
+      coordinate.x==self.lastCoordinate.x && coordinate.y==self.lastCoordinate.y &&
+      anchor.x==self.lastAnchor.x && anchor.y==self.lastAnchor.y && zoomValue==self.lastZoom &&
+      bearing==self.lastBearing && tilt==self.lastTilt) return;
+  self.cameraKnown=YES;self.lastMapFrame=frame;self.lastCoordinate=coordinate;self.lastAnchor=anchor;
+  self.lastZoom=zoomValue;self.lastBearing=bearing;self.lastTilt=tilt;
+  self.overlay.frame=frame;
+  // 실제 SDK는 큰 zoom 값이 넓은 영역이다. 지도 이미지 재생성 없이 연속 축소한다.
+  CGFloat zoom=zoomValue;
+  if (!isfinite(zoom) || zoom<=0) { self.overlay.hidden=YES; return; }
+  self.overlay.hidden=zoom>=32;
+  if (self.overlay.hidden) return;
+  CGFloat scale=MIN(1,MAX(0.5,pow(1.3/zoom,0.25)));
+  NSMutableArray<NSValue *> *visible=[NSMutableArray new];
+  for (NSDictionary *item in self.owned) {
+    UIButton *button=item[@"button"];
+    CGPoint point=[self.map katecToScreen:(FloatPoint){[item[@"x"] floatValue],[item[@"y"] floatValue]}];
+    point=[self.map convertPoint:point toView:self.overlay];
+    CGRect visual=CGRectMake(point.x-58*scale,point.y-34*scale,116*scale,34*scale);
+    CGRect touch=CGRectMake(point.x-58*scale,point.y-17*scale-22,116*scale,44);
+    BOOL hidden=!isfinite(point.x) || !isfinite(point.y) ||
+      !CGRectIntersectsRect(self.overlay.bounds,visual) || (zoom>4 && visible.count>=8);
+    for (NSValue *other in visible) if (CGRectIntersectsRect(CGRectInset(touch,-3,-3),other.CGRectValue)) { hidden=YES; break; }
+    button.hidden=hidden;
+    if (hidden) continue;
+    // 터치 영역은 높이44pt를 유지하고 이미지에만 변환을 적용한다.
+    button.center=CGPointMake(point.x,point.y-17*scale);button.bounds=CGRectMake(0,0,116*scale,44);
+    UIImageView *content=item[@"content"];content.center=CGPointMake(button.bounds.size.width/2,22);
+    content.transform=CGAffineTransformMakeScale(scale,scale);
+    [visible addObject:[NSValue valueWithCGRect:touch]];
+  }
+}
+- (void)priceTapped:(UIButton *)sender {
+  if (![self hasFreshPosition] || self.expiresAt.timeIntervalSinceNow<=0 || self.overlay.hidden || sender.hidden || !sender.window) return;
+  for (NSDictionary *item in self.owned) if (item[@"button"]==sender) {
+    if (self.onSelect) self.onSelect(item[@"station"]); return;
   }
 }
 - (void)applyResponse:(NSDictionary *)response {
@@ -173,22 +243,18 @@
   [self.expiryTimer invalidate];
   __weak KNNaviGasPriceLayer *weakSelf=self;
   self.expiryTimer=[NSTimer timerWithTimeInterval:MAX(0.02,self.expiresAt.timeIntervalSinceNow) repeats:NO block:^(NSTimer *timer){
-    [weakSelf clearMarkers]; weakSelf.stations=nil; weakSelf.expiresAt=nil;
+    [weakSelf clearPrices]; weakSelf.stations=nil; weakSelf.expiresAt=nil;
   }];
   [NSRunLoop.mainRunLoop addTimer:self.expiryTimer forMode:NSRunLoopCommonModes];
-  [self clearMarkers];[self renderMarkers];
+  [self clearPrices];[self renderPrices];
 }
-- (NSDictionary *)ownedStation:(KNMapMarker *)marker {
-  for (NSDictionary *item in self.owned) if (item[@"marker"]==marker) return item[@"station"];
-  return nil;
+@end
+
+@implementation KNNaviPriceFrameTarget
+- (void)tick:(CADisplayLink *)link {
+  KNNaviGasPriceLayer *owner=self.owner;
+  if (!owner) { [link invalidate]; return; }
+  if (!owner.map.window) { [owner pause]; return; }
+  [owner updateScreenPositions];
 }
-- (void)mapView:(KNMapView *)map onSingleTappedWithMarker:(KNMapMarker *)marker {
-  NSDictionary *station=[self ownedStation:marker];
-  if (station) { if ([self hasFreshPosition] && self.expiresAt.timeIntervalSinceNow>0 && self.onSelect) self.onSelect(station); return; }
-  if ([self.previousListener respondsToSelector:_cmd]) [self.previousListener mapView:map onSingleTappedWithMarker:marker];
-}
-- (void)mapView:(KNMapView *)map onDoubleTappedWithMarker:(KNMapMarker *)marker { if (![self ownedStation:marker] && [self.previousListener respondsToSelector:_cmd]) [self.previousListener mapView:map onDoubleTappedWithMarker:marker]; }
-- (void)mapView:(KNMapView *)map onLongPressedWithMarker:(KNMapMarker *)marker { if (![self ownedStation:marker] && [self.previousListener respondsToSelector:_cmd]) [self.previousListener mapView:map onLongPressedWithMarker:marker]; }
-- (void)mapView:(KNMapView *)map onMarkerAnimationEnded:(KNMapMarker *)marker { if (![self ownedStation:marker] && [self.previousListener respondsToSelector:_cmd]) [self.previousListener mapView:map onMarkerAnimationEnded:marker]; }
-- (void)mapView:(KNMapView *)map onCalloutBubbleSelected:(KNMapMarker *)marker { if (![self ownedStation:marker] && [self.previousListener respondsToSelector:_cmd]) [self.previousListener mapView:map onCalloutBubbleSelected:marker]; }
 @end

@@ -3,7 +3,7 @@
 #import <KNSDK/KNMapView.h>
 
 NS_ASSUME_NONNULL_BEGIN
-// 기본 POI를 유지한 채 앱이 소유하는 일반휘발유 가격 마커만 관리한다.
+// 기본 POI를 유지한 채 앱이 소유하는 일반휘발유 가격 UI만 관리한다.
 @interface KNNaviGasPriceLayer : NSObject
 @property(nonatomic, copy, nullable) void (^onFetch)(void);
 @property(nonatomic, copy, nullable) void (^onSelect)(NSDictionary *station);
