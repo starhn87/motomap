@@ -1,6 +1,8 @@
 #import "KNNaviHazardSheet.h"
 #import <math.h>
 
+static const CGFloat KNNaviOptionIconSize=21;
+
 @interface KNNaviHazardSheet ()
 @property(nonatomic, copy) NSString *headingTitle;
 @property(nonatomic, copy) NSString *headingDetail;
@@ -38,9 +40,15 @@
 }
 // navigation-bottom.html의 goalIcon과 같은24단위 경로·선2·중심점2.5를 사용한다.
 - (UIImage *)footerDestinationIcon {
-  UIGraphicsImageRenderer *renderer=[[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(21,21)];
+  UIImageSymbolConfiguration *config=[UIImageSymbolConfiguration configurationWithPointSize:KNNaviOptionIconSize weight:UIImageSymbolWeightRegular];
+  UIImage *via=[UIImage systemImageNamed:@"plus.circle" withConfiguration:config];
+  CGSize canvas=via ? via.size : CGSizeMake(24,24);
+  UIGraphicsImageRenderer *renderer=[[UIGraphicsImageRenderer alloc] initWithSize:canvas];
   UIImage *image=[renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
-    CGContextScaleCTM(context.CGContext,21.0/24,21.0/24);
+    // 핀 외곽선의 실제 높이는20단위다. 경유지 glyph의21pt 높이에 맞추고 같은 슬롯에 둔다.
+    CGContextTranslateCTM(context.CGContext,canvas.width/2,canvas.height/2);
+    CGContextScaleCTM(context.CGContext,KNNaviOptionIconSize/20,KNNaviOptionIconSize/20);
+    CGContextTranslateCTM(context.CGContext,-12,-12);
     [UIColor.blackColor setStroke];[UIColor.blackColor setFill];
     UIBezierPath *pin=[UIBezierPath bezierPath];[pin moveToPoint:CGPointMake(19,10)];
     [pin addCurveToPoint:CGPointMake(12,21) controlPoint1:CGPointMake(19,15) controlPoint2:CGPointMake(12,21)];
@@ -103,7 +111,7 @@
       config.background.strokeColor = [self colorWithLight:0.89 dark:0.16]; config.background.strokeWidth = 1;
       config.attributedTitle = [[NSAttributedString alloc] initWithString:option[@"label"] attributes:@{NSFontAttributeName:[UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]}];
       config.image = [option[@"symbol"] isEqual:@"motomap.destination"] ? [self footerDestinationIcon] : [UIImage systemImageNamed:option[@"symbol"] ?: symbols[option[@"key"]] ?: @"exclamationmark.triangle"] ?: [UIImage systemImageNamed:@"exclamationmark.triangle"];
-      config.preferredSymbolConfigurationForImage = [UIImageSymbolConfiguration configurationWithPointSize:21 weight:UIImageSymbolWeightRegular];
+      config.preferredSymbolConfigurationForImage = [UIImageSymbolConfiguration configurationWithPointSize:KNNaviOptionIconSize weight:UIImageSymbolWeightRegular];
       config.imagePlacement = NSDirectionalRectEdgeTop; config.imagePadding = 7;
       config.contentInsets = NSDirectionalEdgeInsetsMake(12,8,12,8); button.configuration = config;
       button.titleLabel.adjustsFontForContentSizeCategory = YES; button.titleLabel.numberOfLines = 0;
