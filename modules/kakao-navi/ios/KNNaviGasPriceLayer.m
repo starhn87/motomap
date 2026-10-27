@@ -95,40 +95,55 @@
   NSString *path = [bundle pathForResource:file.stringByDeletingPathExtension ofType:file.pathExtension];
   return path ? [UIImage imageWithContentsOfFile:path] : nil;
 }
-- (UIImage *)imageForStation:(NSDictionary *)station {
-  CGSize size = CGSizeMake(116,34);
-  // SDK는 UIImage.scale을 적용하지 않고 원본 픽셀을 지도 크기로 쓴다.
+- (UIImage *)imageForStation:(NSDictionary *)station compact:(BOOL)compact {
+  CGSize size = compact ? CGSizeMake(90,28) : CGSizeMake(116,34);
+  // 두 크기를 한 번씩만 만들고 줌 노출 범위로 전환한다. 제스처마다 비트맵을 만들지 않는다.
   UIGraphicsImageRendererFormat *format=[UIGraphicsImageRendererFormat defaultFormat];format.scale=1;
   UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
   return [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
     UIColor *ink=[UIColor colorWithWhite:0.095 alpha:1];
-    UIBezierPath *shape=[UIBezierPath bezierPathWithRoundedRect:CGRectMake(1,1,114,32) cornerRadius:11];
+    UIBezierPath *shape=[UIBezierPath bezierPathWithRoundedRect:CGRectInset((CGRect){CGPointZero,size},1,1) cornerRadius:compact?9:11];
     [UIColor.whiteColor setFill];[shape fill]; [[UIColor colorWithWhite:0.55 alpha:1] setStroke];shape.lineWidth=1;[shape stroke];
+    CGRect logoRect=compact?CGRectMake(5,6,26,16):CGRectMake(7,7,36,20);
     UIImage *logo=[self brandImage:station[@"brand"]];
     if (logo && logo.size.width>0 && logo.size.height>0) {
-      CGFloat scale=MIN(36/logo.size.width,20/logo.size.height);
+      CGFloat scale=MIN(logoRect.size.width/logo.size.width,logoRect.size.height/logo.size.height);
       CGSize fitted=CGSizeMake(logo.size.width*scale,logo.size.height*scale);
-      [logo drawInRect:CGRectMake(7+(36-fitted.width)/2,7+(20-fitted.height)/2,fitted.width,fitted.height)];
+      [logo drawInRect:CGRectMake(CGRectGetMidX(logoRect)-fitted.width/2,CGRectGetMidY(logoRect)-fitted.height/2,fitted.width,fitted.height)];
     } else {
       NSString *brand=[station[@"brand"] containsString:@"알뜰"]?@"알뜰":@"주유";
-      [brand drawInRect:CGRectMake(7,10,36,18) withAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:12 weight:UIFontWeightSemibold],NSForegroundColorAttributeName:ink}];
+      [brand drawInRect:logoRect withAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:compact?10:12 weight:UIFontWeightSemibold],NSForegroundColorAttributeName:ink}];
     }
     NSNumberFormatter *formatter=[NSNumberFormatter new];formatter.numberStyle=NSNumberFormatterDecimalStyle;
     NSString *price=[formatter stringFromNumber:station[@"price"]];
-    [price drawInRect:CGRectMake(47,7,64,23) withAttributes:@{NSFontAttributeName:[UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightBold],NSForegroundColorAttributeName:ink}];
+    CGRect priceRect=compact?CGRectMake(35,6,51,20):CGRectMake(47,7,64,23);
+    UIFont *font=[UIFont monospacedDigitSystemFontOfSize:compact?14:17 weight:UIFontWeightBold];
+    CGFloat width=[price sizeWithAttributes:@{NSFontAttributeName:font}].width;
+    if (width>priceRect.size.width) font=[font fontWithSize:font.pointSize*priceRect.size.width/width];
+    [price drawInRect:priceRect withAttributes:@{NSFontAttributeName:font,NSForegroundColorAttributeName:ink}];
   }];
 }
 - (void)renderMarkers {
   if (![self hasFreshPosition] || self.expiresAt.timeIntervalSinceNow<=0 || self.owned.count) return;
   KNSDK *sdk=[KNSDK sharedInstance];
+  NSUInteger index=0;
   for (NSDictionary *station in self.stations) {
     IntPoint point=[sdk convertWGS84ToKATECWithLongitude:[station[@"longitude"] doubleValue] latitude:[station[@"latitude"] doubleValue]];
-    KNMapMarker *marker=[KNMapMarker marker];marker.coordinate=(FloatPoint){point.x,point.y};
-    UIImage *image=[self imageForStation:station];marker.icon=image;
-    marker.priority=500;[marker setVisibleRangeWithMinZoom:0.1 maxZoom:9999];
-    // icon은 SDK의 assign 속성이므로 removeMarker까지 이미지를 강하게 보관한다.
-    [self.owned addObject:@{@"marker":marker,@"image":image,@"station":station}];
-    [self.map addMarker:marker];
+    // 실제 SDK 투영에서 zoom 값이 클수록 넓은 지역이 보인다(100m: zoom1=200pt, zoom8=25pt).
+    // 서로 겹치지 않는 구간에 정적 마커를 두어 확대·축소 중 이미지 갱신을 없앤다.
+    for (NSNumber *tier in @[@NO,@YES]) {
+      BOOL compact=tier.boolValue;
+      if (compact && index>=8) continue;
+      KNMapMarker *marker=[KNMapMarker marker];marker.coordinate=(FloatPoint){point.x,point.y};
+      UIImage *image=[self imageForStation:station compact:compact];marker.icon=image;
+      marker.priority=500+(NSInteger)self.stations.count-(NSInteger)index;
+      // SDK는 양 끝값을 제외하므로 정상 max를 한 float만 늘려 zoom4의 공백/이중 표시를 막는다.
+      [marker setVisibleRangeWithMinZoom:compact?4:0.1 maxZoom:compact?32:nextafterf(4,INFINITY)];
+      // icon은 SDK의 assign 속성이므로 removeMarker까지 이미지를 강하게 보관한다.
+      [self.owned addObject:@{@"marker":marker,@"image":image,@"station":station,@"compact":@(compact)}];
+      [self.map addMarker:marker];
+    }
+    index++;
   }
 }
 - (void)applyResponse:(NSDictionary *)response {

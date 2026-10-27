@@ -57,18 +57,20 @@ int RunKNNaviGasPriceTests(void) {
   NSDictionary *station=@{@"id":@"fixture",@"name":@"공개 검사 주유소",@"brand":@"S-OIL",@"price":@1699,@"latitude":@37.501,@"longitude":@127.001};
   NSMutableDictionary *zero=[station mutableCopy];zero[@"id"]=@"zero";zero[@"price"]=@0;
   [layer applyResponse:@{@"requestId":first,@"stations":@[station,zero],@"fetchedAt":@(now-1800000),@"expiresAt":@(now+1800000)}];
-  KNMapMarker *own=map.markers.lastObject;
-  if (map.markers.count!=2 || own==foreign || own.icon.size.width!=116 || own.icon.size.height!=34 || CGImageGetWidth(own.icon.CGImage)!=116 || map.markerEventListener!=(id)layer) { NSLog(@"FAIL owned price marker/image"); failures++; }
+  KNMapMarker *own=map.markers[1];
+  KNMapMarker *compact=map.markers.lastObject;
+  if (map.markers.count!=3 || compact.icon.size.width!=90 || compact.icon.size.height!=28 || own==foreign || own.icon.size.width!=116 || own.icon.size.height!=34 || CGImageGetWidth(own.icon.CGImage)!=116 || map.markerEventListener!=(id)layer) { NSLog(@"FAIL owned price marker/image"); failures++; }
   for (int i=0;i<50;i++) [layer updatePosition:position timestamp:NSDate.date active:YES];
-  if (requests!=1 || map.markers.lastObject!=own || [[layer valueForKey:@"expiresAt"] timeIntervalSince1970]>now/1000+1801) { NSLog(@"FAIL price cache restarted TTL or rebuilt per GPS"); failures++; }
+  if (requests!=1 || map.markers[1]!=own || [[layer valueForKey:@"expiresAt"] timeIntervalSince1970]>now/1000+1801) { NSLog(@"FAIL price cache restarted TTL or rebuilt per GPS"); failures++; }
   id<KNMapMarkerEventListener> listener=(id)layer;
   [listener mapView:(id)map onSingleTappedWithMarker:own];
+  [listener mapView:(id)map onSingleTappedWithMarker:compact];
   [listener mapView:(id)map onSingleTappedWithMarker:foreign];[listener mapView:(id)map onDoubleTappedWithMarker:foreign];[listener mapView:(id)map onLongPressedWithMarker:foreign];[listener mapView:(id)map onMarkerAnimationEnded:foreign];[listener mapView:(id)map onCalloutBubbleSelected:foreign];
-  if (selections!=1 || previous.forwarded!=5) { NSLog(@"FAIL price selection/foreign listener forwarding"); failures++; }
+  if (selections!=2 || previous.forwarded!=5) { NSLog(@"FAIL price selection/foreign listener forwarding"); failures++; }
   [layer pause];
   if (map.markers.count!=1 || layer.context) { NSLog(@"FAIL hidden price marker/pending cleanup"); failures++; }
   [layer updatePosition:position timestamp:NSDate.date active:YES];
-  if (requests!=1 || map.markers.count!=2) { NSLog(@"FAIL foreground price cache reuse"); failures++; }
+  if (requests!=1 || map.markers.count!=3) { NSLog(@"FAIL foreground price cache reuse"); failures++; }
   [layer setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"expiresAt"];
   [layer updatePosition:position timestamp:NSDate.date active:YES];
   if (map.markers.count!=1) { NSLog(@"FAIL expired price remained visible"); failures++; }
@@ -84,6 +86,16 @@ int RunKNNaviGasPriceTests(void) {
   if (map.markers.count!=1) { NSLog(@"FAIL revoked location showed prices"); failures++; }
   [layer invalidate];
   if (map.markerEventListener!=previous || map.markers.count!=1) { NSLog(@"FAIL price teardown touched SDK marker/listener"); failures++; }
+  [KNSDKBridge setLocationUseAllowed:YES];
+  KNNaviGasPriceLayer *dense=[[KNNaviGasPriceLayer alloc] initWithMap:(id)map];
+  [dense updatePosition:position timestamp:NSDate.date active:YES];
+  NSMutableArray *many=[NSMutableArray new];
+  for (int i=0;i<30;i++) { NSMutableDictionary *row=[station mutableCopy];row[@"id"]=[NSString stringWithFormat:@"station-%d",i];row[@"latitude"]=@(37.501+i*0.001);[many addObject:row]; }
+  [dense applyResponse:@{@"requestId":dense.context[@"requestId"],@"stations":many,@"fetchedAt":@(now),@"expiresAt":@(now+3600000)}];
+  NSArray *items=[dense valueForKey:@"owned"];NSUInteger compactCount=0;
+  for (NSDictionary *item in items) if ([item[@"compact"] boolValue]) compactCount++;
+  if (items.count!=32 || compactCount!=8) { NSLog(@"FAIL zoomed-out prices exceeded eight/normal twenty-four"); failures++; }
+  [dense invalidate];
   method_setImplementation(method,original);imp_removeBlock(replacement);
   [KNSDKBridge setLocationUseAllowed:YES];
   return failures;

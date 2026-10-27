@@ -1914,7 +1914,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   KNNaviViewController *navi = gActiveNavi;
   if (!KNNaviRouteEditingEnabled || ![navi canRefreshFooterPosition] || navi.changingDestination ||
       navi.presentedViewController || navi.hazardSheet) { completion(-1); return; }
-  NSMutableArray *options = [NSMutableArray arrayWithObject:@{@"key":@"goal", @"label":@"목적지로 설정", @"symbol":@"mappin.and.ellipse"}];
+  NSMutableArray *options = [NSMutableArray arrayWithObject:@{@"key":@"goal", @"label":@"목적지로 설정", @"symbol":@"mappin"}];
   KNTrip *trip = navi.guidance.trip ?: navi.trip;
   BOOL viaAvailable = canAddVia && trip.vias.count <= 3 && MAX(0,(NSInteger)trip.vias.count-(NSInteger)trip.passedVias.count) < 3;
   if (viaAvailable) [options addObject:@{@"key":@"via", @"label":@"경유지로 추가", @"symbol":@"plus.circle"}];
