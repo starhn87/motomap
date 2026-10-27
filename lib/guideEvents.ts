@@ -12,6 +12,8 @@ import KakaoNavi, {
   friendlyRouteError,
   supportsKakaoNaviFeature,
 } from '@/modules/kakao-navi';
+import { handleGuideGasPrices, cancelGuideGasPrices } from '@/lib/guideGasPriceEvents';
+import { proposeGuidePoiPreview } from '@/lib/guidePreview';
 import { useGuideSession } from '@/lib/guideSession';
 import { HAZARD_LIST } from '@/constants/hazards';
 import { submitHazard } from '@/lib/api/hazards';
@@ -289,6 +291,43 @@ async function handleGuideEnd() {
   }
 }
 
+let openingPoi: object | null = null;
+async function openGuidePoi(point: { name: string; latitude: number; longitude: number }) {
+  const original = useGuideSession.getState().goal;
+  const revision = useLocationPrivacyStore.getState().revision;
+  if (!original || openingPoi || !locationUseAllowed() ||
+      !Number.isFinite(point.latitude) || !Number.isFinite(point.longitude) ||
+      Math.abs(point.latitude) > 90 || Math.abs(point.longitude) > 180) return;
+  const request = {}; openingPoi = request;
+  const current = () => original === useGuideSession.getState().goal &&
+    revision === useLocationPrivacyStore.getState().revision && locationUseAllowed();
+  let token: number | undefined;
+  try {
+    const name = point.name.trim().slice(0,200) || '선택한 장소';
+    // 시트를 띄운 뒤에도 엔진은 진행하므로 실제 경유지 상한은 snapshot으로 다시 확인한다.
+    const picked = await KakaoNavi.showGuidePoiOptions(name, !original.courseId);
+    if ((picked !== 0 && picked !== 1) || !current()) return;
+    await withLocationUse('navigation','kakao',async () => {
+      if (!current()) return;
+      const snapshot = await KakaoNavi.openGuidePreview(); token = snapshot.token;
+      if (!current()) { await KakaoNavi.returnToGuide(token); token = undefined; return; }
+      const proposed = proposeGuidePoiPreview(snapshot,{ ...point,name },picked === 1,!!original.courseId || snapshot.vias.length > 3);
+      useGuideSession.getState().setPreview({ snapshot: proposed, edit: null, returnPending: false });
+      router.push({ pathname:'/navi', params:{ resume:String(token) } }); token=undefined;
+      // 확인자료 후처리와 다음 편집 진입을 분리한다.
+      if (openingPoi === request) openingPoi=null;
+    });
+  } catch (error) {
+    if (token !== undefined) {
+      useGuideSession.getState().setPreview(null);
+      await KakaoNavi.returnToGuide(token).catch(() => false);
+    }
+    if (current()) await KakaoNavi.showGuideToast(error instanceof Error && error.message === 'via_limit'
+      ? '경유지는 최대 3개까지 추가할 수 있어요. 코스 안내의 경유지는 고정돼 있어요.'
+      : '경로 미리보기를 열지 못했어요. 다시 시도해 주세요.').catch(() => {});
+  } finally { if (openingPoi === request) openingPoi=null; }
+}
+
 /** 루트 레이아웃에서 1회 등록. 반환값은 해제 함수. */
 export function registerGuideEvents(): () => void {
   // 앱 시작 시점 = 직전 실행이 어떻게 끝났든 안내는 이미 없다 — 남은 마커를 정산
@@ -298,9 +337,10 @@ export function registerGuideEvents(): () => void {
         const { goal, viaPlaces } = useGuideSession.getState();
         if (goal && matchesGuideArrival(goal, event)) void recordGuideArrival(goal, viaPlaces);
       }) : { remove: () => {} };
-  const end = KakaoNavi.addListener('onGuideEnd', () => void handleGuideEnd());
+  const end = KakaoNavi.addListener('onGuideEnd', () => { cancelGuideGasPrices(); void handleGuideEnd(); });
   const failed = KakaoNavi.addListener('onGuideFailed', ({ code, message, preserveActive }) => {
     if (!preserveActive) {
+      cancelGuideGasPrices();
       useGuideSession.getState().clear();
       void takeActiveGuide().then((active) => trackGuideEnd(active, 'cancelled'));
     }
@@ -309,26 +349,13 @@ export function registerGuideEvents(): () => void {
   // 안내 지도의 POI 탭 — 네이버 지도처럼 "그 장소가 뭔지"에 답하되, 주행
   // 맥락에서 의미 있는 행동(목적지 변경)으로 바로 잇는다. 안내 화면은 네이티브
   // 풀스크린이라 RN 장소 시트를 얹을 수 없다 — 액션시트가 이 화면의 관용구다.
-  const poiTap = GUIDE_MENU_ACTIONS_ENABLED && supportsKakaoNaviFeature('guide_poi_tap')
-    ? KakaoNavi.addListener('onGuidePoiTap', ({ name, latitude, longitude }) => {
-        void (async () => {
-          const label = name.trim() || '선택한 지점';
-          const picked = await KakaoNavi.showGuideOptions(label, ['여기로 목적지 변경']);
-          if (picked !== 0) return;
-          const { priority, changeGoal } = useGuideSession.getState();
-          try {
-            await withLocationUse('navigation','kakao',() => KakaoNavi.changeGuideDestination(longitude, latitude, label, priority));
-            changeGoal({ latitude, longitude, name: label });
-            void KakaoNavi.showGuideNotice(`${label}(으)로 안내를 변경했어요.`);
-          } catch {
-            void KakaoNavi.showGuideNotice('안내를 변경하지 못했어요.');
-          }
-        })();
-      })
+  const poiTap = GUIDE_ROUTE_EDITING_ENABLED && supportsKakaoNaviFeature('guide_route_editing') && supportsKakaoNaviFeature('guide_poi_tap')
+    ? KakaoNavi.addListener('onGuidePoiTap', point => { void openGuidePoi(point); })
     : { remove: () => {} };
 
   // 커스텀 슬롯이 하나뿐이라 버튼 하나에서 1차 시트로 가른다
   const menu = KakaoNavi.addListener('onGuideMenu', ({ id }) => {
+    if (id === 109 && supportsKakaoNaviFeature('guide_gas_price_markers')) { void handleGuideGasPrices().catch(() => {}); return; }
     if (GUIDE_ROUTE_EDITING_ENABLED && [103, 104, 105, 107].includes(id) && supportsKakaoNaviFeature('guide_route_editing')) {
       void (async () => {
         try {
@@ -372,6 +399,7 @@ export function registerGuideEvents(): () => void {
     })();
   });
   return () => {
+    cancelGuideGasPrices();
     arrival.remove();
     poiTap.remove();
     end.remove();

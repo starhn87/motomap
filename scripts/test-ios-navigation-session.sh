@@ -48,7 +48,9 @@ xcrun clang -fobjc-arc -fmodules -target "$arch-apple-ios16.4-simulator" -isysro
   "$root/modules/kakao-navi/ios/KNNaviBottomPanel.m" \
   "$root/modules/kakao-navi/ios/KNNaviHiddenViews.m" \
   "$root/modules/kakao-navi/ios/KNNaviHazardSheet.m" \
+  "$root/modules/kakao-navi/ios/KNNaviGasPriceLayer.m" \
   "$root/modules/kakao-navi/ios/KNNaviGasLayer.m" \
+  "$root/tests/ios/KNNaviGasPriceTests.m" \
   "$root/tests/ios/KNNaviSessionTests.m" "$root/tests/ios/NavigationSessionTestApp.m" \
   -o "$app/NavigationSessionTests"
 cat > "$app/Info.plist" <<'PLIST'
@@ -75,6 +77,7 @@ mkdir -p "$app/MotoMapNavigationVoice.bundle"
 cp "$root/modules/kakao-navi/ios/Resources/navigation-start.mp3" "$app/MotoMapNavigationVoice.bundle/"
 mkdir -p "$app/MotoMapNavigationUI.bundle"
 cp "$root/modules/kakao-navi/ios/Resources/navigation-bottom.html" "$app/MotoMapNavigationUI.bundle/"
+cp "$root"/modules/kakao-navi/ios/Resources/GasBrands/*.png "$app/MotoMapNavigationUI.bundle/"
 codesign --force --sign - "$app" >/dev/null 2>&1
 xcrun simctl list runtimes --json > "$work/runtimes.json"
 xcrun simctl list devicetypes --json > "$work/types.json"

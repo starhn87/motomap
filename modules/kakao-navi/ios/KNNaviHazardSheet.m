@@ -2,6 +2,8 @@
 #import <math.h>
 
 @interface KNNaviHazardSheet ()
+@property(nonatomic, copy) NSString *headingTitle;
+@property(nonatomic, copy) NSString *headingDetail;
 @property(nonatomic, copy) NSArray<NSDictionary<NSString *, NSString *> *> *options;
 @property(nonatomic, copy) void (^onChoice)(NSInteger);
 @property(nonatomic, strong) UIView *sheet;
@@ -19,7 +21,11 @@
 
 @implementation KNNaviHazardSheet
 - (instancetype)initWithOptions:(NSArray<NSDictionary<NSString *,NSString *> *> *)options completion:(void (^)(NSInteger))completion {
+  return [self initWithTitle:@"위험 제보" detail:@"유형을 선택하면 바로 제보돼요" options:options completion:completion];
+}
+- (instancetype)initWithTitle:(NSString *)title detail:(NSString *)detail options:(NSArray<NSDictionary<NSString *,NSString *> *> *)options completion:(void (^)(NSInteger))completion {
   if ((self = [super initWithNibName:nil bundle:nil])) {
+    _headingTitle = [title copy]; _headingDetail = [detail copy];
     _options = [options copy]; _onChoice = [completion copy];
     self.modalPresentationStyle = UIModalPresentationOverFullScreen;
   }
@@ -55,10 +61,10 @@
   UIView *header = [UIView new]; self.header = header; header.translatesAutoresizingMaskIntoConstraints = NO; [self.sheet addSubview:header];
   UIView *handle = [UIView new]; handle.backgroundColor = UIColor.systemGray3Color;
   handle.layer.cornerRadius = 2; handle.translatesAutoresizingMaskIntoConstraints = NO; [header addSubview:handle];
-  UILabel *title = [UILabel new]; title.text = @"위험 제보"; title.textColor = ink;
+  UILabel *title = [UILabel new]; title.text = self.headingTitle; title.textColor = ink;
   title.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline]; title.adjustsFontForContentSizeCategory = YES;
-  title.accessibilityTraits = UIAccessibilityTraitHeader;
-  UILabel *detail = [UILabel new]; detail.text = @"유형을 선택하면 바로 제보돼요"; detail.textColor = UIColor.secondaryLabelColor;
+  title.accessibilityTraits = UIAccessibilityTraitHeader; title.numberOfLines = 2;
+  UILabel *detail = [UILabel new]; detail.text = self.headingDetail; detail.textColor = UIColor.secondaryLabelColor;
   detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]; detail.adjustsFontForContentSizeCategory = YES;
   detail.numberOfLines = 0;
   UIStackView *heading = [[UIStackView alloc] initWithArrangedSubviews:@[title,detail]];
@@ -81,7 +87,7 @@
       config.background.cornerRadius = 12;
       config.background.strokeColor = [self colorWithLight:0.89 dark:0.16]; config.background.strokeWidth = 1;
       config.attributedTitle = [[NSAttributedString alloc] initWithString:option[@"label"] attributes:@{NSFontAttributeName:[UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]}];
-      config.image = [UIImage systemImageNamed:symbols[option[@"key"]] ?: @"exclamationmark.triangle"] ?: [UIImage systemImageNamed:@"exclamationmark.triangle"];
+      config.image = [UIImage systemImageNamed:option[@"symbol"] ?: symbols[option[@"key"]] ?: @"exclamationmark.triangle"] ?: [UIImage systemImageNamed:@"exclamationmark.triangle"];
       config.preferredSymbolConfigurationForImage = [UIImageSymbolConfiguration configurationWithPointSize:21 weight:UIImageSymbolWeightRegular];
       config.imagePlacement = NSDirectionalRectEdgeTop; config.imagePadding = 7;
       config.contentInsets = NSDirectionalEdgeInsetsMake(12,8,12,8); button.configuration = config;
@@ -91,7 +97,7 @@
       [button addTarget:self action:@selector(typeTapped:) forControlEvents:UIControlEventTouchUpInside];
       [row addArrangedSubview:button];
     }
-    if (row.arrangedSubviews.count == 1) [row addArrangedSubview:[UIView new]];
+    if (row.arrangedSubviews.count == 1 && self.options.count > 1) [row addArrangedSubview:[UIView new]];
     [self.grid addArrangedSubview:row];
   }
   UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem]; self.cancelButton = cancel;

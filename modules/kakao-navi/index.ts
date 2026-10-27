@@ -55,6 +55,7 @@ export const KAKAO_NAVI_FEATURES = [
   'location_privacy_stop',
   'guide_web_bottom',
   'guide_route_editing',
+  'guide_gas_price_markers',
   'guide_hazard_sheet',
   'guide_gas_stations',
   'guide_arrival_record',
@@ -81,6 +82,7 @@ export interface GuidePreviewSnapshot {
   /** 앱 소유 주유소 선택: 근접한 기존 장소 ID를 재사용하지 않는다. */
   goalReplaced?: boolean;
   gasViaAdded?: boolean;
+  unregisteredViaAdded?: boolean;
   start: { latitude: number; longitude: number } | null;
   goal: { latitude: number; longitude: number; name: string };
   vias: { latitude: number; longitude: number; name: string }[];
@@ -132,6 +134,9 @@ interface KakaoNaviModule {
     listener: (payload: GuideEventPayload[E]) => void,
   ): { remove: () => void };
   /** 안내 화면 위 액션시트. 고른 인덱스, 취소면 -1 */
+  getGuideGasPriceContext(): Promise<{requestId: string; latitude: number; longitude: number} | null>;
+  updateGuideGasPriceMarkers(json: string): Promise<void>;
+  showGuidePoiOptions(title: string, canAddVia: boolean): Promise<number>;
   showGuideOptions(title: string, labels: string[]): Promise<number>;
   showGuideHazardOptions(options: { key: string; label: string }[]): Promise<number>;
   showGuideToast(message: string): Promise<void>;
@@ -171,6 +176,9 @@ const unavailableModule = {
   returnToGuide: unavailable,
   resumeGuide: unavailable,
   addListener: () => ({ remove: () => {} }),
+  getGuideGasPriceContext: unavailable,
+  updateGuideGasPriceMarkers: unavailable,
+  showGuidePoiOptions: unavailable,
   showGuideOptions: unavailable,
   showGuideHazardOptions: unavailable,
   showGuideToast: unavailable,

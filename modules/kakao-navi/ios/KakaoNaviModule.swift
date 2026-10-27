@@ -17,7 +17,7 @@ public class KakaoNaviModule: Module {
     // JS가 앱 버전 문자열을 추측하지 않고 실제 바이너리 기능을 확인한다.
     // 기능을 추가·삭제하거나 wire 계약이 바뀌면 bridgeVersion을 올린다.
     Constants([
-      "bridgeVersion": 25,
+      "bridgeVersion": 26,
       "features": [
         "bike_route_preview",
         "guide_options",
@@ -27,6 +27,8 @@ public class KakaoNaviModule: Module {
         "location_privacy_stop",
         "guide_web_bottom",
         "guide_route_editing",
+        "guide_poi_tap",
+        "guide_gas_price_markers",
         "guide_arrival_record",
       ],
     ])
@@ -138,8 +140,19 @@ public class KakaoNaviModule: Module {
       }
     }
 
+    AsyncFunction("showGuidePoiOptions") { (title: String, canAddVia: Bool, promise: Promise) in
+      KNNaviPresenter.showPoiOptions(title: title, canAddVia: canAddVia) { picked in promise.resolve(picked) }
+    }.runOnQueue(.main)
+
     AsyncFunction("showGuideHazardOptions") { (options: [[String: String]], promise: Promise) in
       KNNaviPresenter.showHazardOptions(options) { picked in promise.resolve(picked) }
+    }.runOnQueue(.main)
+
+    AsyncFunction("getGuideGasPriceContext") { () -> [AnyHashable: Any]? in
+      return KNNaviPresenter.guideGasPriceContext()
+    }.runOnQueue(.main)
+    AsyncFunction("updateGuideGasPriceMarkers") { (json: String) in
+      KNNaviPresenter.updateGuideGasPriceMarkers(json)
     }.runOnQueue(.main)
 
     AsyncFunction("getGuideGasContext") { () -> [AnyHashable: Any]? in

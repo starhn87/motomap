@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { guidePreviewInitial, continuedViaPlaces, continuedGoal } from '@/lib/guidePreview';
+import { guidePreviewInitial, continuedViaPlaces, continuedGoal, proposeGuidePoiPreview } from '@/lib/guidePreview';
 import type { GuidePreviewSnapshot } from '@/modules/kakao-navi';
 
 const goal = { name: '목적지', latitude: 37.5, longitude: 127.1, placeId: 'goal', courseId: 'course' };
@@ -93,4 +93,23 @@ test('같은 목적지의 경로 재선택은 방문 정체성을 유지하고 �
   assert.equal(next.visitIdentity, original.visitIdentity);
   const changed = continuedGoal({ ...snapshot, goalReplaced: true }, original, { ...goal }, flat(snapshot.vias));
   assert.equal(changed.visitIdentity, undefined);
+});
+
+test('POI 경유 추가는 첫 경유로 넣고 인접한 등록 장소 ID를 상속하지 않는다',()=>{
+  const point={...remaining,name:'지도 POI'};
+  const proposed=proposeGuidePoiPreview({...snapshot,vias:[remaining]},point,true,false);
+  const initial=guidePreviewInitial(proposed,goal,previous);
+  assert.equal(initial.userVias[0]?.placeId,undefined);
+  assert.equal(initial.userVias[1]?.placeId,'remaining');
+  assert.equal(proposed.vias.length,2);assert.equal(snapshot.vias.length,2);
+});
+test('POI 목적지 변경은 동일 좌표여도 이전 목적지·코스 정체성을 버린다',()=>{
+  const proposed=proposeGuidePoiPreview(snapshot,{...goal,name:'지도 POI'},false,true);
+  const initial=guidePreviewInitial(proposed,goal,previous);
+  assert.equal(initial.goal.placeId,undefined);assert.equal(initial.courseId,undefined);assert.equal(proposed.vias.length,0);
+});
+test('POI는 경유지 3개·고정 코스 상한과 좌표 유효성을 넘지 않는다',()=>{
+  assert.throws(()=>proposeGuidePoiPreview({...snapshot,vias:[remaining,remaining,remaining]},goal,true,false),/via_limit/);
+  assert.throws(()=>proposeGuidePoiPreview(snapshot,goal,true,true),/via_limit/);
+  assert.throws(()=>proposeGuidePoiPreview(snapshot,{...goal,latitude:NaN},false,false),/invalid_point/);
 });

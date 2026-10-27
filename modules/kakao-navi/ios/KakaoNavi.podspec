@@ -19,6 +19,6 @@ Pod::Spec.new do |s|
   s.frameworks = 'WebKit'
   s.resource_bundles = {
     'MotoMapNavigationVoice' => ['Resources/navigation-start.mp3'],
-    'MotoMapNavigationUI' => ['Resources/navigation-bottom.html'],
+    'MotoMapNavigationUI' => ['Resources/navigation-bottom.html', 'Resources/GasBrands/*.{png,jpg}'],
   }
 end

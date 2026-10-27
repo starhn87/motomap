@@ -44,7 +44,12 @@ NS_ASSUME_NONNULL_BEGIN
 // 앱 소유 위험 유형 시트. 선택 index, 취소/안내 종료는 -1.
 + (void)showHazardOptions:(NSArray<NSDictionary<NSString *, NSString *> *> *)options
               completion:(void (^)(NSInteger pickedIndex))completion NS_SWIFT_NAME(showHazardOptions(_:completion:));
+// 앱 소유 POI 경로 선택 시트. 목적지0/경유지1/취소-1.
++ (void)showPoiOptionsWithTitle:(NSString *)title canAddVia:(BOOL)canAddVia
+                   completion:(void (^)(NSInteger pickedIndex))completion NS_SWIFT_NAME(showPoiOptions(title:canAddVia:completion:));
 + (void)showToast:(NSString *)message;
++ (NSDictionary *_Nullable)guideGasPriceContext;
++ (void)updateGuideGasPriceMarkers:(NSString *)json;
 + (NSDictionary *_Nullable)guideGasContext;
 + (NSDictionary *_Nullable)takeGuideGasSelection;
 + (void)updateGuideGasStations:(NSString *)json;

@@ -5,6 +5,9 @@ NS_ASSUME_NONNULL_BEGIN
 @interface KNNaviHazardSheet : UIViewController
 - (instancetype)initWithOptions:(NSArray<NSDictionary<NSString *, NSString *> *> *)options
                      completion:(void (^)(NSInteger index))completion;
+- (instancetype)initWithTitle:(NSString *)title detail:(NSString *)detail
+                      options:(NSArray<NSDictionary<NSString *, NSString *> *> *)options
+                   completion:(void (^)(NSInteger index))completion;
 - (void)cancelForNavigationEnd:(void (^)(void))completion;
 @end
 NS_ASSUME_NONNULL_END

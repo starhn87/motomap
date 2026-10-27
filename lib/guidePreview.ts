@@ -12,7 +12,7 @@ function samePoint(a: { latitude: number; longitude: number }, b: { latitude: nu
 export function guidePreviewInitial(snapshot: GuidePreviewSnapshot, goal: GuideGoal, viaPlaces: GuideViaPlace[]): ParsedNaviParams {
   const vias = snapshot.vias.map((via, index): NavTarget => ({
     ...via,
-    placeId: snapshot.gasViaAdded && index === 0 ? undefined : viaPlaces.find((place) => samePoint(place, via))?.placeId,
+    placeId: (snapshot.gasViaAdded || snapshot.unregisteredViaAdded) && index === 0 ? undefined : viaPlaces.find((place) => samePoint(place, via))?.placeId,
   }));
   return {
     goal: { ...snapshot.goal, ...(!snapshot.goalReplaced && samePoint(snapshot.goal, goal) ? goal : {}) },
@@ -26,7 +26,7 @@ export function guidePreviewInitial(snapshot: GuidePreviewSnapshot, goal: GuideG
 
 export function continuedViaPlaces(snapshot: GuidePreviewSnapshot, previous: GuideViaPlace[], remaining: (NavTarget | null)[], usedVias: number[]): GuideViaPlace[] {
   const passed = previous.filter((place) => snapshot.passedVias.some((via) => samePoint(place, via)));
-  const candidates = [...remaining, ...previous.filter((place) => !(snapshot.gasViaAdded && snapshot.vias[0] && samePoint(place,snapshot.vias[0])) && snapshot.vias.some((via) => samePoint(place, via)))];
+  const candidates = [...remaining, ...previous.filter((place) => !((snapshot.gasViaAdded || snapshot.unregisteredViaAdded) && snapshot.vias[0] && samePoint(place,snapshot.vias[0])) && snapshot.vias.some((via) => samePoint(place, via)))];
   const selected = candidates.flatMap((via) => {
     if (!via?.placeId) return [];
     for (let i = 0; i + 1 < usedVias.length; i += 2) {
@@ -54,5 +54,17 @@ export function continuedGoal(snapshot: GuidePreviewSnapshot, original: GuideGoa
   const sameVias = expected.length * 2 === usedVias.length && expected.every((via, index) =>
     samePoint(via, { longitude: usedVias[index * 2], latitude: usedVias[index * 2 + 1] }));
   const sameDestination = !snapshot.goalReplaced && samePoint(original, snapshot.goal) && samePoint(snapshot.goal, goal);
-  return { ...goal, ...(sameDestination && original.visitIdentity ? { visitIdentity: original.visitIdentity } : {}), courseId: !snapshot.goalReplaced && !snapshot.gasViaAdded && samePoint(original, snapshot.goal) && samePoint(snapshot.goal, goal) && sameVias ? original.courseId : undefined };
+  return { ...goal, ...(sameDestination && original.visitIdentity ? { visitIdentity: original.visitIdentity } : {}), courseId: !snapshot.goalReplaced && !(snapshot.gasViaAdded || snapshot.unregisteredViaAdded) && samePoint(original, snapshot.goal) && samePoint(snapshot.goal, goal) && sameVias ? original.courseId : undefined };
+}
+
+// 지도 POI는 장소 ID를 주지 않는다. 인접한 예전 장소의 정체성을 상속하지 않는다.
+export function proposeGuidePoiPreview(snapshot: GuidePreviewSnapshot, point: GuidePreviewSnapshot['goal'], via: boolean, courseMode: boolean): GuidePreviewSnapshot {
+  if (!Number.isFinite(point.latitude) || !Number.isFinite(point.longitude) ||
+      Math.abs(point.latitude) > 90 || Math.abs(point.longitude) > 180) throw new Error('invalid_point');
+  const selected = { name: point.name.trim().slice(0, 200) || '선택한 장소', latitude: point.latitude, longitude: point.longitude };
+  if (via) {
+    if (courseMode || snapshot.vias.length >= 3) throw new Error('via_limit');
+    return { ...snapshot, vias: [selected, ...snapshot.vias], unregisteredViaAdded: true };
+  }
+  return { ...snapshot, goal: selected, goalReplaced: true, vias: courseMode ? [] : snapshot.vias };
 }

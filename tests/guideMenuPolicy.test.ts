@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { GUIDE_MENU_ACTIONS_ENABLED, GUIDE_ROUTE_EDITING_ENABLED } from '../lib/guideMenuPolicy';
 
-test('주유소·위험·POI 진입은 계속 닫고 경로 편집만 분리해 제공한다',()=>{
+test('위험 제보·주유소 메뉴는 계속 닫고 경로 편집을 분리해 제공한다',()=>{
   assert.equal(GUIDE_MENU_ACTIONS_ENABLED,false);
   assert.equal(GUIDE_ROUTE_EDITING_ENABLED,true);
 });

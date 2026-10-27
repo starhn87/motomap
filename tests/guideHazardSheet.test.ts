@@ -12,6 +12,8 @@ function setup(custom = true, pendingGPS = false) {
   const session = { goal: { name: '목적지' } as { name: string } | null };
   const picker = () => { opens++; order.push(custom ? 'custom' : 'legacy'); return new Promise<number>(resolve => { choose = resolve; }); };
   const module = loadModule<{ registerGuideEvents(): () => void }>('lib/guideEvents.ts', {
+    '@/lib/guidePreview': {},
+    '@/lib/guideGasPriceEvents': { handleGuideGasPrices: async () => {}, cancelGuideGasPrices() {} },
     '@/lib/guideMenuPolicy': { GUIDE_MENU_ACTIONS_ENABLED: true },
     '@/stores/useLocationPrivacyStore': {
       withLocationUse: async (_p: any, _v: any, work: any) => work(), locationUseAllowed: () => allowed,

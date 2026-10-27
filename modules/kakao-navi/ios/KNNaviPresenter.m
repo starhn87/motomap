@@ -8,6 +8,7 @@
 #import "KNNaviHiddenViews.h"
 #import "KNNaviHazardSheet.h"
 #import "KNNaviGasLayer.h"
+#import "KNNaviGasPriceLayer.h"
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
@@ -355,6 +356,7 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong) NSTimer *currentLocationExpiryTimer;
 @property(nonatomic, strong) NSTimer *footerPositionTimer;
 @property(nonatomic, strong) KNNaviManualPositionRequest *footerPositionRequest;
+@property(nonatomic, strong) KNNaviGasPriceLayer *gasPriceLayer;
 @property(nonatomic, strong) NSDate *footerPositionRequestAt;
 @property(nonatomic) NSUInteger footerPositionGeneration;
 @property(nonatomic) DoublePoint currentLocationPosition;
@@ -757,6 +759,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self.currentLocationExpiryTimer invalidate];
   self.currentLocationExpiryTimer = nil;
   if (self.finished) return;
+  [self.gasPriceLayer updatePosition:self.currentLocationPosition timestamp:self.currentLocationGPSAt active:[self canRefreshFooterPosition]];
   KNTrip *trip = self.guidance.trip;
   NSMutableDictionary *state = [@{@"volume":@(self.volume), @"busy":@(self.changingDestination || self.arrivalRecovery.requesting)} mutableCopy];
   if (self.arrivalRecovery.waiting || self.arrivalMessage) {
@@ -840,6 +843,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [NSNotificationCenter.defaultCenter removeObserver:self];
   [self.footerPositionTimer invalidate];
   [self.footerPositionRequest cancel];
+  [self.gasPriceLayer invalidate];
   [self stopObservingBottomView];
   [self.bottomPanel invalidate];
 }
@@ -861,6 +865,15 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   KNMapView *inner = [self findInnerMapViewIn:self.naviView.mapView depth:0];
   // eventListener 는 weak — self(화면과 수명 동일)를 그대로 걸어도 안전하다
   inner.poiProperties.eventListener = self;
+  if (inner && !self.preview && !self.gasPriceLayer) {
+    self.gasPriceLayer = [[KNNaviGasPriceLayer alloc] initWithMap:inner];
+    __weak KNNaviViewController *weakSelf=self;
+    self.gasPriceLayer.onFetch=^{ if (weakSelf.onMenu) weakSelf.onMenu(109); };
+    self.gasPriceLayer.onSelect=^(NSDictionary *station) {
+      [weakSelf emitPoiName:station[@"name"] longitude:[station[@"longitude"] doubleValue] latitude:[station[@"latitude"] doubleValue]];
+    };
+  } else if (inner) [self.gasPriceLayer attachToMap:inner];
+  [self updateBottomPanel];
 }
 
 // 지도 POI(상호·건물) 탭 — 이름·KATEC 좌표가 온다. WGS84 로 바꿔 JS 로 넘긴다.
@@ -868,13 +881,21 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
  onSingleTapped:(SInt64)aPOIId
         poiName:(NSArray *)aPOIName
      coordinate:(FloatPoint)aCoordinate {
-  if (self.onPoiTap == nil) return;
+  if (!KNNaviRouteEditingEnabled || ![self canRefreshFooterPosition] || self.changingDestination ||
+      self.presentedViewController || self.onPoiTap == nil ||
+      !isfinite(aCoordinate.x) || !isfinite(aCoordinate.y) || fabs(aCoordinate.x)>INT_MAX || fabs(aCoordinate.y)>INT_MAX) return;
   KNSDK *sdk = [KNSDK sharedInstance];
   if (sdk == nil) return;
   DoublePoint wgs = [sdk convertKATECToWGS84WithX:(SInt32)lround(aCoordinate.x)
                                                 y:(SInt32)lround(aCoordinate.y)];
   NSString *name = [aPOIName componentsJoinedByString:@" "] ?: @"";
-  self.onPoiTap(name, wgs.x, wgs.y);  // (경도, 위도)
+  [self emitPoiName:name longitude:wgs.x latitude:wgs.y];
+}
+
+- (void)emitPoiName:(NSString *)name longitude:(double)lng latitude:(double)lat {
+  if (![self canRefreshFooterPosition] || self.changingDestination || self.presentedViewController ||
+      !self.onPoiTap || !isfinite(lng) || !isfinite(lat) || fabs(lng)>180 || fabs(lat)>90) return;
+  self.onPoiTap(name ?: @"",lng,lat);
 }
 
 - (void)mapView:(KNMapView *)aMapView
@@ -1040,6 +1061,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self updateCustomControlsVisibility];
   [self applyCarTheme];
   [self refreshHiddenViews];
+  [self attachPoiListener];
   [self updateBottomPanel];
   // JS 가 이 신호를 받아 밑 화면을 지도로 바꿔 둔다 — 안내가 어떤 경로로
   // 걷히든(도착·취소·SDK 자체 닫힘) 드러나는 건 항상 지도다.
@@ -1377,6 +1399,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)pauseFooterPosition {
   self.footerPositionGeneration++;
+  [self.gasPriceLayer pause];
   [self.footerPositionRequest cancel]; self.footerPositionRequest = nil;
   self.regionRequestGeneration++; self.regionRequestInFlight = NO;
 }
@@ -1388,6 +1411,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)refreshFooterPosition {
   if (![self canRefreshFooterPosition]) { [self pauseFooterPosition]; return; }
+  if (!self.gasPriceLayer) [self attachPoiListener];
   if (self.currentLocationGPSAt && fabs(self.currentLocationGPSAt.timeIntervalSinceNow) <= 5) {
     [self requestCurrentRegionIfNeeded]; [self updateBottomPanel]; return;
   }
@@ -1516,6 +1540,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self pauseFooterPosition];
   [self.footerPositionTimer invalidate]; self.footerPositionTimer = nil;
   [self.manualPositionRequest cancel]; self.manualPositionRequest = nil;
+  [self.gasPriceLayer invalidate];
   [self.gasLayer invalidate];
   self.regionRequestGeneration++; self.regionRequestInFlight = NO;
   [self.currentLocationExpiryTimer invalidate];
@@ -1882,6 +1907,35 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   }];
   navi.hazardSheet = sheet;
   [navi presentViewController:sheet animated:NO completion:nil];
+}
+
+// 위험 제보의 기능 플래그와 분리해 POI 선택만 연다.
++ (void)showPoiOptionsWithTitle:(NSString *)title canAddVia:(BOOL)canAddVia completion:(void (^)(NSInteger))completion {
+  KNNaviViewController *navi = gActiveNavi;
+  if (!KNNaviRouteEditingEnabled || ![navi canRefreshFooterPosition] || navi.changingDestination ||
+      navi.presentedViewController || navi.hazardSheet) { completion(-1); return; }
+  NSMutableArray *options = [NSMutableArray arrayWithObject:@{@"key":@"goal", @"label":@"목적지로 설정", @"symbol":@"mappin.and.ellipse"}];
+  KNTrip *trip = navi.guidance.trip ?: navi.trip;
+  BOOL viaAvailable = canAddVia && trip.vias.count <= 3 && MAX(0,(NSInteger)trip.vias.count-(NSInteger)trip.passedVias.count) < 3;
+  if (viaAvailable) [options addObject:@{@"key":@"via", @"label":@"경유지로 추가", @"symbol":@"plus.circle"}];
+  NSString *name = title.length ? [title substringToIndex:MIN(title.length,200)] : @"선택한 장소";
+  __weak KNNaviViewController *weakNavi = navi;
+  KNNaviHazardSheet *sheet = [[KNNaviHazardSheet alloc] initWithTitle:name detail:@"미리보기에서 확인 후 안내를 변경해요" options:options completion:^(NSInteger picked) {
+    weakNavi.hazardSheet = nil; completion(picked);
+  }];
+  navi.hazardSheet = sheet;
+  [navi presentViewController:sheet animated:NO completion:nil];
+}
+
++ (NSDictionary *)guideGasPriceContext {
+  KNNaviViewController *vc=gActiveNavi;
+  return [vc canRefreshFooterPosition] ? vc.gasPriceLayer.context : nil;
+}
++ (void)updateGuideGasPriceMarkers:(NSString *)json {
+  NSData *data=[json dataUsingEncoding:NSUTF8StringEncoding];
+  if (!data || data.length>100000) return;
+  NSDictionary *response=[NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+  if ([response isKindOfClass:NSDictionary.class]) [gActiveNavi.gasPriceLayer applyResponse:response];
 }
 
 + (NSDictionary *)guideGasContext {
