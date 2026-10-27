@@ -20,6 +20,64 @@
 // NAV-039: 1.2.10은 안내 음량·종료만 제공한다. SDK 재안내 성공 검증 후 재검토한다.
 static const BOOL KNNaviGuideMenuActionsEnabled = NO;
 
+// 원문·좌표를 오류 코드에 넣지 않는다. 실패 단계와 알려진 SDK 코드만 브리지로 보낸다.
+static NSError *ManualRerouteError(NSString *stage, KNError *vendor, NSString *message) {
+  NSString *domain = [@"E_KNSDK_RESUME_" stringByAppendingString:stage];
+  if ([stage isEqualToString:@"TRIP"] || [stage isEqualToString:@"APPLY"]) {
+    NSString *code = [KNSDKBridge errorCodeOf:vendor];
+    BOOL known = code && [code rangeOfString:@"^([CG][0-9]{3}|[0-9]{5})$" options:NSRegularExpressionSearch].location != NSNotFound;
+    domain = [domain stringByAppendingFormat:@"_%@", known ? code : @"UNKNOWN"];
+  }
+  return [NSError errorWithDomain:domain code:1 userInfo:@{NSLocalizedDescriptionKey:message}];
+}
+
+// 안내 중 SDK 위치가 아직 없을 때만 시스템 위치를 한 번 받는다. 권한 요청은 하지 않는다.
+@interface KNNaviManualPositionRequest : NSObject <CLLocationManagerDelegate>
+@property(nonatomic, strong) CLLocationManager *manager;
+@property(nonatomic, copy) void (^completion)(CLLocation *);
++ (BOOL)isUsableLocation:(CLLocation *)location;
+- (void)start:(void (^)(CLLocation *))completion;
+- (void)cancel;
+@end
+@implementation KNNaviManualPositionRequest
++ (BOOL)isUsableLocation:(CLLocation *)location {
+  return location && CLLocationCoordinate2DIsValid(location.coordinate) &&
+      isfinite(location.coordinate.latitude) && isfinite(location.coordinate.longitude) &&
+      isfinite(location.horizontalAccuracy) && location.horizontalAccuracy >= 0 && location.horizontalAccuracy <= 100 &&
+      location.timestamp && fabs(location.timestamp.timeIntervalSinceNow) <= 10;
+}
+- (void)cancel {
+  [self.manager stopUpdatingLocation]; self.manager.delegate = nil; self.manager = nil; self.completion = nil;
+}
+- (void)resolve:(CLLocation *)location {
+  void (^done)(CLLocation *) = self.completion;
+  [self cancel]; if (done) done(location);
+}
+- (void)start:(void (^)(CLLocation *))completion {
+  self.completion = completion;
+  self.manager = [CLLocationManager new];
+  CLAuthorizationStatus status = self.manager.authorizationStatus;
+  if (![KNSDKBridge isLocationUseAllowed] ||
+      (status != kCLAuthorizationStatusAuthorizedAlways && status != kCLAuthorizationStatusAuthorizedWhenInUse)) {
+    [self resolve:nil]; return;
+  }
+  self.manager.delegate = self; self.manager.desiredAccuracy = kCLLocationAccuracyBest;
+  [self.manager startUpdatingLocation];
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW,8*NSEC_PER_SEC),dispatch_get_main_queue(),^{
+    if (self.completion) [self resolve:nil];
+  });
+}
+- (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray<CLLocation *> *)locations {
+  if (![KNSDKBridge isLocationUseAllowed]) { [self resolve:nil]; return; }
+  for (CLLocation *location in locations.reverseObjectEnumerator) {
+    if ([KNNaviManualPositionRequest isUsableLocation:location]) { [self resolve:location]; return; }
+  }
+}
+- (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {
+  if (error.code == kCLErrorDenied) [self resolve:nil];
+}
+@end
+
 // KNSDK 1.12.14 는 이륜차 경로를 시작하거나 안전운행 화면으로 바꿀 때마다
 // 비공개 carImageType: 에 2를 넘겨 bike_on/off 기본 캐릭터를 다시 선택한다.
 // 알려진 상태 콜백 뒤에서 되돌리는 것만으로는 새 내부 전환이 생길 때마다 같은
@@ -309,7 +367,8 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, copy) NSArray<NSDictionary *> *previewRemainingVias;
 @property(nonatomic, copy) NSArray<NSDictionary *> *previewPassedVias;
 @property(nonatomic, copy) NSArray<NSDictionary *> *completedViaPoints;
-@property(nonatomic, copy) void (^onResumeError)(NSString *);
+@property(nonatomic, copy) void (^onResumeError)(NSError *);
+@property(nonatomic, strong) KNNaviManualPositionRequest *manualPositionRequest;
 
 @property(nonatomic, strong, nullable) UIView *observedBottomView;
 @property(nonatomic, strong, nullable) KNNaviAudioFocus *audioFocus;
@@ -982,13 +1041,18 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)guidance:(KNGuidance *)aGuidance routeUnchangedWithError:(KNError *)aError {
+  // 현재 엔진의 자동 재탐색 실패는 수동 위치/경로 준비 요청의 실패가 아니다.
+  if (self.suspended && self.changingDestination && !self.resumeCommitting) {
+    [self.naviView guidance:aGuidance routeUnchangedWithError:aError];
+    [self applyCarTheme]; return;
+  }
   self.changingDestination = NO;
   self.resumeCommitting = NO;
   self.pendingDestinationTrip = nil;
   if (self.onResumeError) {
-    void (^failure)(NSString *) = self.onResumeError;
+    void (^failure)(NSError *) = self.onResumeError;
     self.onResumeError = nil; self.onStarted = nil;
-    failure(aError.msg ?: @"안내를 변경하지 못했어요.");
+    failure(ManualRerouteError(@"APPLY", aError, @"안내를 변경하지 못했어요."));
   }
   if (self.arrivalRecovery.requesting) {
     [self arrivalReturnFailedForGeneration:self.routeRequestGeneration];
@@ -1053,6 +1117,30 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   for (id candidate in @[self.guidance.locationGuide.gpsOrigin ?: NSNull.null,
                           manager.recentGpsData ?: NSNull.null, manager.lastValidGpsData ?: NSNull.null]) {
     if (candidate == NSNull.null || ![self usableRecoveryGPS:candidate]) continue;
+    KNGPSData *gps = candidate;
+    if (!newest || [gps.timestamp compare:newest.timestamp] == NSOrderedDescending) newest = gps;
+  }
+  return newest;
+}
+
+// 수동 편집의 출발점은 SDK가 수신한 유효한 최근 위치로 정한다.
+// 도착/자동 복귀용 posTrust 조건은 위의 별도 정책에 남긴다.
+- (BOOL)usableManualRerouteGPS:(KNGPSData *)gps {
+  return gps && gps.valid && isfinite(gps.pos.x) && isfinite(gps.pos.y) &&
+      gps.timestamp && fabs(gps.timestamp.timeIntervalSinceNow) <= 10;
+}
+
+- (void)requestManualPosition:(void (^)(CLLocation *))completion {
+  self.manualPositionRequest = [KNNaviManualPositionRequest new];
+  [self.manualPositionRequest start:completion];
+}
+
+- (KNGPSData *)latestManualRerouteGPS {
+  KNGPSManager *manager = [KNSDK sharedInstance].sharedGpsManager;
+  KNGPSData *newest = nil;
+  for (id candidate in @[self.guidance.locationGuide.gpsOrigin ?: NSNull.null,
+                          manager.recentGpsData ?: NSNull.null, manager.lastValidGpsData ?: NSNull.null]) {
+    if (candidate == NSNull.null || ![self usableManualRerouteGPS:candidate]) continue;
     KNGPSData *gps = candidate;
     if (!newest || [gps.timestamp compare:newest.timestamp] == NSOrderedDescending) newest = gps;
   }
@@ -1337,6 +1425,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)finish {
   if (self.finished) return;
   self.finished = YES;
+  [self.manualPositionRequest cancel]; self.manualPositionRequest = nil;
   [self.gasLayer invalidate];
   self.regionRequestGeneration++; self.regionRequestInFlight = NO;
   [self.currentLocationExpiryTimer invalidate];
@@ -1344,7 +1433,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.currentRegionName = nil; self.currentRegionAt = nil;
   self.routeRequestGeneration++;
   self.onStarted = nil;
-  if (self.onResumeError) self.onResumeError(@"길안내가 종료됐어요.");
+  if (self.onResumeError) self.onResumeError(ManualRerouteError(@"STATE", nil, @"길안내가 종료됐어요."));
   self.onResumeError = nil;
   if (gSuspendedNavi == self) gSuspendedNavi = nil;
   [self.bottomPanel invalidate];
@@ -1518,7 +1607,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 + (void)openGuidePreview:(void (^)(NSDictionary *, NSString *))completion {
   if (!KNNaviGuideMenuActionsEnabled) { completion(nil, @"이번 버전에서는 안내 중 경로 변경을 지원하지 않아요."); return; }
   [self openGuidePreviewForController:gActiveNavi
-                                 gps:[gActiveNavi latestRecoveryGPS]
+                                 gps:[gActiveNavi latestManualRerouteGPS]
                           completion:completion];
 }
 
@@ -1530,7 +1619,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (!vc.trip.goal) { completion(nil, @"안내 목적지를 확인할 수 없어요."); return; }
   // 편집 진입과 실제 안내 적용을 분리한다. resumeGuide의 최신 GPS 검사는 유지한다.
   id startPoint = NSNull.null;
-  if ([vc usableRecoveryGPS:gps]) {
+  if ([vc usableManualRerouteGPS:gps]) {
     DoublePoint start = [[KNSDK sharedInstance] convertKATECToWGS84WithX:(SInt32)gps.pos.x y:(SInt32)gps.pos.y];
     startPoint = @{@"longitude":@(start.x), @"latitude":@(start.y)};
   }
@@ -1563,7 +1652,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   while (top.presentedViewController) top = top.presentedViewController;
   if (!top.viewIfLoaded.window || top.isBeingDismissed || top.isBeingPresented) { completion(NO); return; }
   vc.routeRequestGeneration++;
-  if (vc.onResumeError) vc.onResumeError(@"경로 선택을 취소했어요.");
+  [vc.manualPositionRequest cancel]; vc.manualPositionRequest = nil;
+  if (vc.onResumeError) vc.onResumeError(ManualRerouteError(@"CANCELLED", nil, @"경로 선택을 취소했어요."));
   vc.onResumeError = nil; vc.onStarted = nil; vc.changingDestination = NO; vc.pendingDestinationTrip = nil;
   vc.suspended = NO;
   [top presentViewController:vc animated:YES completion:^{
@@ -1580,12 +1670,12 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 + (void)prepareResumeTripFor:(KNNaviViewController *)vc generation:(NSUInteger)generation
                     origin:(KNPOI *)origin goal:(KNPOI *)goal vias:(NSArray<NSNumber *> *)vias
-                completion:(void (^)(KNTrip *, NSArray<NSNumber *> *, NSString *))completion {
+                completion:(void (^)(KNTrip *, NSArray<NSNumber *> *, NSError *))completion {
   NSArray *filtered = KNNaviRemainingVias(vias, vc.previewRemainingVias, KNNaviNewPassedVias(vc.previewPassedVias,[self passedPointsFor:vc]));
   [[KNSDK sharedInstance] makeTripWithStart:origin goal:goal vias:[KNSDKBridge viasFromFlat:filtered] completion:^(KNError *error, KNTrip *trip) {
     dispatch_async(dispatch_get_main_queue(), ^{
       if (vc.finished || !vc.suspended || generation != vc.routeRequestGeneration || ![KNSDKBridge isLocationUseAllowed]) return;
-      if (error || !trip) { completion(nil,filtered,error.msg ?: @"경로를 만들지 못했어요."); return; }
+      if (error || !trip) { completion(nil,filtered,ManualRerouteError(@"TRIP", error, @"경로를 만들지 못했어요.")); return; }
       NSArray *latest = KNNaviRemainingVias(vias, vc.previewRemainingVias, KNNaviNewPassedVias(vc.previewPassedVias,[self passedPointsFor:vc]));
       if (![latest isEqual:filtered]) {
         // 경로 계산 중 통과한 경유지까지 제외한다. 배열이 줄어드는 경우만 재시도한다.
@@ -1597,46 +1687,60 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 + (void)resumeGuide:(NSInteger)token toLng:(double)lng lat:(double)lat name:(NSString *)name
-              vias:(NSArray<NSNumber *> *)vias priority:(NSInteger)priority completion:(void (^)(NSDictionary *, NSString *))completion {
-  if (!KNNaviGuideMenuActionsEnabled) { completion(nil, @"이번 버전에서는 안내 중 경로 변경을 지원하지 않아요."); return; }
+              vias:(NSArray<NSNumber *> *)vias priority:(NSInteger)priority completion:(void (^)(NSDictionary *, NSError *))completion {
+  if (!KNNaviGuideMenuActionsEnabled) { completion(nil, ManualRerouteError(@"UNAVAILABLE", nil, @"이번 버전에서는 안내 중 경로 변경을 지원하지 않아요.")); return; }
   KNNaviViewController *vc = gSuspendedNavi;
   if (!vc || vc.previewToken != token || !vc.suspended || vc.finished || vc.changingDestination || ![KNSDKBridge isLocationUseAllowed]) {
-    completion(nil, @"길안내 상태가 변경됐어요."); return;
+    completion(nil, ManualRerouteError(@"STATE", nil, @"길안내 상태가 변경됐어요.")); return;
   }
   KNSDK *sdk = [KNSDK sharedInstance];
-  KNGPSData *gps = [vc latestRecoveryGPS];
-  if (![vc usableRecoveryGPS:gps]) { completion(nil, @"현재 위치를 확인한 뒤 다시 시도해 주세요."); return; }
   NSUInteger generation = ++vc.routeRequestGeneration;
   vc.changingDestination = YES;
   __block BOOL completed = NO;
-  void (^done)(NSDictionary *, NSString *) = ^(NSDictionary *result, NSString *error) {
-    if (completed) return; completed = YES; completion(result, error);
+  void (^done)(NSDictionary *, NSError *) = ^(NSDictionary *result, NSError *error) {
+    if (completed) return; completed = YES;
+    [vc.manualPositionRequest cancel]; vc.manualPositionRequest = nil;
+    completion(result, error);
   };
-  vc.onResumeError = ^(NSString *error) { done(nil,error); };
-  // 미리보기 출발지 대신, 선택 완료 시점의 실제 GPS에서 다시 계산한다.
-  KNPOI *origin = [[KNPOI alloc] initWithName:@"현재 위치" pos:IntPointMakeWithDoublePoint(gps.pos)];
-  IntPoint pos = [sdk convertWGS84ToKATECWithLongitude:lng latitude:lat];
-  KNPOI *goal = [[KNPOI alloc] initWithName:name pos:pos];
+  vc.onResumeError = ^(NSError *error) { done(nil,error); };
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 25 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
     if (!completed && !vc.finished && !vc.resumeCommitting && generation == vc.routeRequestGeneration) {
       vc.routeRequestGeneration++; vc.changingDestination = NO; vc.pendingDestinationTrip = nil;
-      vc.onStarted = nil; vc.onResumeError = nil; done(nil,@"경로 변경 시간이 초과됐어요. 다시 시도해 주세요.");
+      vc.onStarted = nil; vc.onResumeError = nil; done(nil,ManualRerouteError(@"TIMEOUT", nil, @"경로 변경 시간이 초과됐어요. 다시 시도해 주세요."));
     }
   });
-  [self prepareResumeTripFor:vc generation:generation origin:origin goal:goal vias:vias completion:^(KNTrip *trip, NSArray<NSNumber *> *appliedVias, NSString *error) {
+  void (^applyFromPosition)(IntPoint) = ^(IntPoint start) {
+    if (completed || vc.finished || !vc.suspended || generation != vc.routeRequestGeneration || ![KNSDKBridge isLocationUseAllowed]) return;
+    KNPOI *origin = [[KNPOI alloc] initWithName:@"현재 위치" pos:start];
+    IntPoint pos = [sdk convertWGS84ToKATECWithLongitude:lng latitude:lat];
+    KNPOI *goal = [[KNPOI alloc] initWithName:name pos:pos];
+    [self prepareResumeTripFor:vc generation:generation origin:origin goal:goal vias:vias completion:^(KNTrip *trip, NSArray<NSNumber *> *appliedVias, NSError *error) {
       if (vc.finished || !vc.suspended || generation != vc.routeRequestGeneration || ![KNSDKBridge isLocationUseAllowed]) return;
-      if (error || !trip) { vc.changingDestination = NO; vc.onResumeError = nil; done(nil,error ?: @"경로를 만들지 못했어요."); return; }
+      if (error || !trip) { vc.changingDestination = NO; vc.onResumeError = nil; done(nil,error ?: ManualRerouteError(@"TRIP", nil, @"경로를 만들지 못했어요.")); return; }
       trip.routeConfig = [[KNRouteConfiguration alloc] initWithCarType:KNCarType_Bike];
       NSArray *passedPoints = [self passedPointsFor:vc];
       vc.resumeCommitting = YES;
       vc.pendingDestinationTrip = trip; vc.pendingDestinationPriority = (KNRoutePriority)priority;
       vc.onStarted = ^{
         if (vc.finished || generation != vc.routeRequestGeneration || !vc.suspended) return;
-        // 경로 적용 성공과 화면 복원은 별개다. 백그라운드 복원 실패도 적용 ack는 보낸다.
         vc.completedViaPoints = passedPoints;
         done(@{@"vias":appliedVias, @"passedVias":passedPoints},nil);
       };
       [vc.naviView guideNewDestinations:trip priority:(KNRoutePriority)priority avoidOptions:KNRouteAvoidOption_None];
+    }];
+  };
+  // SDK 위치는 그대로 사용한다. 없으면 기존 동의/권한 안에서 정확한 최근 시스템 위치를 확보한다.
+  KNGPSData *gps = [vc latestManualRerouteGPS];
+  if ([vc usableManualRerouteGPS:gps]) {
+    applyFromPosition(IntPointMakeWithDoublePoint(gps.pos)); return;
+  }
+  [vc requestManualPosition:^(CLLocation *location) {
+    if (completed || vc.finished || !vc.suspended || generation != vc.routeRequestGeneration || ![KNSDKBridge isLocationUseAllowed]) return;
+    if (!location) {
+      vc.changingDestination = NO; vc.onResumeError = nil;
+      done(nil,ManualRerouteError(@"GPS", nil, @"현재 위치를 확인한 뒤 다시 시도해 주세요.")); return;
+    }
+    applyFromPosition([sdk convertWGS84ToKATECWithLongitude:location.coordinate.longitude latitude:location.coordinate.latitude]);
   }];
 }
 

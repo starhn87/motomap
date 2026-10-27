@@ -15,6 +15,8 @@
 @property(nonatomic, strong) KNNaviView *naviView;
 - (void)guidanceGuideEnded:(KNGuidance *)guidance;
 - (void)guidanceGuideStarted:(KNGuidance *)guidance;
+- (void)guidance:(KNGuidance *)guidance routeUnchangedWithError:(KNError *)error;
+@property(nonatomic, copy) void (^onResumeError)(NSError *);
 - (void)naviViewScreenState:(KNNaviViewState)state;
 - (void)setBottomMenuVisible:(BOOL)visible;
 - (void)updateBottomPanel;
@@ -27,6 +29,8 @@
 - (void)lookupRegionAt:(IntPoint)point completion:(void (^)(NSString *))completion;
 - (KNGPSData *)latestRecoveryGPS;
 - (BOOL)usableRecoveryGPS:(KNGPSData *)gps;
+- (BOOL)usableManualRerouteGPS:(KNGPSData *)gps;
+- (KNGPSData *)latestManualRerouteGPS;
 - (BOOL)guidance:(KNGuidance *)guidance shouldPlayVoiceGuide:(KNGuide_Voice *)voice replaceSndData:(NSData **)data;
 @end
 @interface KNNaviPresenter (PreviewTest)
@@ -55,6 +59,7 @@
 - (void)trafficMode:(BOOL)enabled {}
 - (void)guidanceGuideStarted:(id)guidance {}
 - (void)resumeRouteModeForPreview:(BOOL)preview {}
+- (void)guidance:(KNGuidance *)guidance routeUnchangedWithError:(KNError *)error {}
 @end
 @interface MapActionProbe : NSObject
 @property(nonatomic) NSUInteger calls;
@@ -136,8 +141,22 @@
 }
 @end
 
+@interface KNNaviManualPositionRequest : NSObject
++ (BOOL)isUsableLocation:(CLLocation *)location;
+@end
+
 int RunKNNaviSessionTests(void) {
   int failures = 0;
+  CLLocationCoordinate2D coordinate=CLLocationCoordinate2DMake(37.4977,127.0276);
+  for (int scenario=0;scenario<5;scenario++) {
+    double accuracy=scenario==1?-1:scenario==2?101:scenario==3?NAN:20;
+    CLLocation *position=[[CLLocation alloc] initWithCoordinate:coordinate altitude:0 horizontalAccuracy:accuracy verticalAccuracy:1 timestamp:[NSDate dateWithTimeIntervalSinceNow:scenario==4?-11:0]];
+    if ([KNNaviManualPositionRequest isUsableLocation:position] != (scenario==0)) {
+      NSLog(@"FAIL system manual reroute position policy scenario=%d",scenario); failures++;
+    }
+  }
+  if ([KNNaviManualPositionRequest isUsableLocation:nil]) failures++;
+
   // 실제 SDK 렌더 메서드에 진입한다. SDK 초기화/GPS/경로 탐색만 생략한 뷰다.
   if (![KNNaviRouteView isSDKModeBoundaryCompatible]) { NSLog(@"FAIL SDK mode ABI changed"); failures++; }
   RuntimeModeProbe *sdkView = [RuntimeModeProbe alloc];
@@ -207,6 +226,39 @@ int RunKNNaviSessionTests(void) {
   if ([controller usableRecoveryGPS:(id)gps]) failures++;
   gps.posTrust = YES;
   if (![controller usableRecoveryGPS:(id)gps]) failures++;
+  // 수동 재안내는 SDK가 사용하는 유효한 최근 위치를 허용하되 도착 신뢰 조건은 유지한다.
+  gps.posTrust = NO; gps.valid = YES; gps.timestamp = NSDate.date;
+  gps.pos = (DoublePoint){300000,400000};
+  if (![controller respondsToSelector:@selector(usableManualRerouteGPS:)]) {
+    NSLog(@"FAIL manual reroute GPS policy missing"); failures++;
+  } else {
+    if (![controller usableManualRerouteGPS:(id)gps] || [controller usableRecoveryGPS:(id)gps]) {
+      NSLog(@"FAIL manual reroute trust policy is not isolated from arrival"); failures++;
+    }
+    gps.valid=NO;
+    if ([controller usableManualRerouteGPS:(id)gps]) failures++;
+    gps.valid=YES; gps.timestamp=[NSDate dateWithTimeIntervalSinceNow:-11];
+    if ([controller usableManualRerouteGPS:(id)gps]) failures++;
+    gps.timestamp=NSDate.date; gps.pos=(DoublePoint){NAN,400000};
+    if ([controller usableManualRerouteGPS:(id)gps]) failures++;
+    gps.pos=(DoublePoint){300000,INFINITY};
+    if ([controller usableManualRerouteGPS:(id)gps] || [controller usableManualRerouteGPS:nil]) failures++;
+  }
+  __block NSError *applyFailure = nil;
+  controller.onResumeError = ^(NSError *error) { applyFailure=error; };
+  [controller setValue:@YES forKey:@"suspended"]; [controller setValue:@YES forKey:@"changingDestination"];
+  [controller setValue:@NO forKey:@"resumeCommitting"];
+  [controller guidance:nil routeUnchangedWithError:[KNError errorWithCode:@"C020" msg:@"existing-engine-error"]];
+  if (applyFailure || !controller.onResumeError || ![[controller valueForKey:@"changingDestination"] boolValue]) {
+    NSLog(@"FAIL automatic old route error aborted manual position request"); failures++;
+  }
+  [controller setValue:@YES forKey:@"resumeCommitting"];
+  [controller guidance:nil routeUnchangedWithError:[KNError errorWithCode:@"20412" msg:@"secret-vendor-coordinates"]];
+  if (![applyFailure.domain isEqual:@"E_KNSDK_RESUME_APPLY_20412"] ||
+      [applyFailure.localizedDescription containsString:@"secret"] || controller.onResumeError) {
+    NSLog(@"FAIL resume application stage/code not preserved safely"); failures++;
+  }
+  [controller setValue:@NO forKey:@"suspended"];
   // SDK 도착으로 안내 화면을 유지해도 방문 기록 이벤트는 한 번 발생해야 한다.
   [KNSDKBridge setLocationUseAllowed:YES];
   SessionControllerProbe *arrivalController=[SessionControllerProbe new];
@@ -240,7 +292,7 @@ int RunKNNaviSessionTests(void) {
   if (!opened || ![[editor valueForKey:@"suspended"] boolValue]) { NSLog(@"FAIL editor blocked by unavailable GPS"); failures++; }
   __block BOOL rejectedApply = NO;
   [KNNaviPresenter resumeGuide:[[editor valueForKey:@"previewToken"] integerValue] toLng:127 lat:37.5 name:@"새 목적지" vias:@[] priority:0
-                   completion:^(NSDictionary *result, NSString *error) { rejectedApply = !result && [error containsString:@"이번 버전"]; }];
+                   completion:^(NSDictionary *result, NSError *error) { rejectedApply = !result && [error.domain isEqual:@"E_KNSDK_RESUME_UNAVAILABLE"]; }];
   if (!rejectedApply || [[editor valueForKey:@"changingDestination"] boolValue]) { NSLog(@"FAIL GPS-free route applied"); failures++; }
   __block BOOL publicPreviewRejected = NO;
   [KNNaviPresenter openGuidePreview:^(NSDictionary *snapshot, NSString *error) { publicPreviewRejected = !snapshot && [error containsString:@"이번 버전"]; }];
@@ -274,9 +326,12 @@ int RunKNNaviSessionTests(void) {
     if (scenario == 2 ? candidate != nil : candidate != (id)fresh) {
       NSLog(@"FAIL recovery GPS selection scenario=%d",scenario); failures++;
     }
+    if ([resumer latestManualRerouteGPS] != (id)fresh) {
+      NSLog(@"FAIL manual reroute newest valid GPS selection scenario=%d",scenario); failures++;
+    }
     __block BOOL policyRejected = NO;
     [KNNaviPresenter resumeGuide:[[resumer valueForKey:@"previewToken"] integerValue] toLng:127 lat:37.5 name:@"새 목적지" vias:@[] priority:0
-                     completion:^(NSDictionary *result, NSString *error) { policyRejected = !result && [error containsString:@"이번 버전"]; }];
+                     completion:^(NSDictionary *result, NSError *error) { policyRejected = !result && [error.domain isEqual:@"E_KNSDK_RESUME_UNAVAILABLE"]; }];
     if (!policyRejected || resumeSDK.tripCalls != before || [[resumer valueForKey:@"changingDestination"] boolValue]) {
       NSLog(@"FAIL disabled resume reached SDK scenario=%d",scenario); failures++;
     }

@@ -47,3 +47,24 @@ test('알 수 없는 공급자 오류 원문은 사용자에게 노출하지 않
   assert.equal(friendlyRouteError({ code: 'E_KNSDK_ROUTE_20412' }), '경유지가 도로와 이어지지 않아요.');
   assert.match(friendlyRouteError('vendor text', '20413'), /자동차 전용도로/);
 });
+
+
+test('재안내는 위치·세션·시간 초과를 원문 없이 구분한다', () => {
+  assert.match(friendlyRouteError({code:'E_KNSDK_RESUME_GPS', message:'secret-coordinates'}), /현재 위치/);
+  assert.match(friendlyRouteError({code:'E_KNSDK_RESUME_STATE'}), /안내 상태/);
+  assert.match(friendlyRouteError({code:'E_KNSDK_RESUME_TIMEOUT'}), /시간/);
+  assert.match(friendlyRouteError({code:'E_KNSDK_RESUME_UNAVAILABLE'}), /지원하지/);
+  assert.match(friendlyRouteError({code:'E_KNSDK_RESUME_CANCELLED'}), /취소/);
+});
+
+test('재안내 경로 생성·SDK 적용 오류는 허용한 코드와 단계만 보존한다', () => {
+  for (const stage of ['TRIP','APPLY']) {
+    assert.equal(kakaoNaviErrorCode({code:`E_KNSDK_RESUME_${stage}_20412`}), '20412');
+    assert.match(friendlyRouteError({code:`E_KNSDK_RESUME_${stage}_20412`}), /경유지/);
+    assert.equal(kakaoNaviErrorCode({code:`E_KNSDK_RESUME_${stage}_C020`}), 'C020');
+  }
+  assert.match(friendlyRouteError({code:'E_KNSDK_RESUME_TRIP_UNKNOWN'}), /경로를 만들/);
+  assert.match(friendlyRouteError({code:'E_KNSDK_RESUME_APPLY_UNKNOWN'}), /적용/);
+  assert.equal(kakaoNaviErrorCode({code:'E_KNSDK_RESUME_APPLY_secret-key'}), undefined);
+  assert.equal(friendlyRouteError({code:'E_KNSDK_RESUME_APPLY_UNKNOWN',message:'secret-coordinates'}).includes('secret-coordinates'),false);
+});

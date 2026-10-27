@@ -32,7 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)resumeGuide:(NSInteger)token
              toLng:(double)lng lat:(double)lat name:(NSString *)name
               vias:(NSArray<NSNumber *> *)vias priority:(NSInteger)priority
-        completion:(void (^)(NSDictionary *_Nullable result, NSString *_Nullable error))completion NS_SWIFT_NAME(resumeGuide(_:toLng:lat:name:vias:priority:completion:));
+        completion:(void (^)(NSDictionary *_Nullable result, NSError *_Nullable error))completion NS_SWIFT_NAME(resumeGuide(_:toLng:lat:name:vias:priority:completion:));
 
 // ── 안내 화면 위 상호작용 (JS 가 내용을 채운다) ──────────────────────────
 
