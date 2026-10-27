@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { GUIDE_MENU_ACTIONS_ENABLED } from '../lib/guideMenuPolicy';
+import { GUIDE_MENU_ACTIONS_ENABLED, GUIDE_ROUTE_EDITING_ENABLED } from '../lib/guideMenuPolicy';
 
-test('1.2.10 배포 메뉴 정책은 부가 기능을 열지 않는다',()=>{
+test('주유소·위험·POI 진입은 계속 닫고 경로 편집만 분리해 제공한다',()=>{
   assert.equal(GUIDE_MENU_ACTIONS_ENABLED,false);
+  assert.equal(GUIDE_ROUTE_EDITING_ENABLED,true);
 });
-test('실제 하단 문서는 음량·종료와 기존 접힌 바 제어만 제공한다',()=>{
+test('실제 하단 메뉴는 다른 경로·통합 경로 편집·음량·종료를 제공한다',()=>{
   const html=readFileSync(new URL('../modules/kakao-navi/ios/Resources/navigation-bottom.html',import.meta.url),'utf8');
   const actions=[...html.matchAll(/data-action="([^"]+)"/g)].map(m=>m[1]).sort();
-  assert.deepEqual(actions,['end','menu','recenter','refresh']);
+  assert.deepEqual(actions,['end','menu','recenter','refresh','routeEdit','routePreview']);
   assert.match(html,/type="range" id="volume"/);
   assert.match(html,/id="mute"/);
   assert.doesNotMatch(html,/viasLabel|class="actions"/);

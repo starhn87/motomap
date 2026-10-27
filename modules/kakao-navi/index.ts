@@ -54,6 +54,7 @@ export const KAKAO_NAVI_FEATURES = [
   'accessibility_nil_guard',
   'location_privacy_stop',
   'guide_web_bottom',
+  'guide_route_editing',
   'guide_hazard_sheet',
   'guide_gas_stations',
   'guide_arrival_record',

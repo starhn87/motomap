@@ -26,6 +26,11 @@
 - (void)finish;
 @property(nonatomic, strong) id gasLayer;
 - (BOOL)hasCurrentRegion;
+- (BOOL)canRefreshFooterPosition;
+- (void)refreshFooterPosition;
+- (void)pauseFooterPosition;
+- (void)requestFooterPosition:(void (^)(CLLocation *))completion;
+- (void)requestManualPosition:(void (^)(CLLocation *))completion;
 - (void)lookupRegionAt:(IntPoint)point completion:(void (^)(NSString *))completion;
 - (KNGPSData *)latestRecoveryGPS;
 - (BOOL)usableRecoveryGPS:(KNGPSData *)gps;
@@ -110,10 +115,17 @@
 @end
 
 @interface SessionControllerProbe : KNNaviViewController
+@property(nonatomic) BOOL footerEnabled;
+@property(nonatomic) NSUInteger footerCalls;
+@property(nonatomic, copy) void (^footerCompletion)(CLLocation *);
 @property(nonatomic) NSUInteger regionCalls;
 @property(nonatomic, copy) void (^regionCompletion)(NSString *);
 @end
 @implementation SessionControllerProbe
+- (instancetype)init { if ((self=[super init])) self.footerEnabled=YES; return self; }
+- (BOOL)canRefreshFooterPosition { return self.footerEnabled && ![[self valueForKey:@"finished"] boolValue] && ![[self valueForKey:@"suspended"] boolValue] && [KNSDKBridge isLocationUseAllowed]; }
+- (void)requestFooterPosition:(void (^)(CLLocation *))completion { self.footerCalls++; self.footerCompletion=completion; }
+- (void)requestManualPosition:(void (^)(CLLocation *))completion { completion(nil); }
 - (void)lookupRegionAt:(IntPoint)point completion:(void (^)(NSString *))completion { self.regionCalls++; self.regionCompletion = completion; }
 - (void)viewDidLoad {}
 - (void)viewDidAppear:(BOOL)animated {}
@@ -292,11 +304,11 @@ int RunKNNaviSessionTests(void) {
   if (!opened || ![[editor valueForKey:@"suspended"] boolValue]) { NSLog(@"FAIL editor blocked by unavailable GPS"); failures++; }
   __block BOOL rejectedApply = NO;
   [KNNaviPresenter resumeGuide:[[editor valueForKey:@"previewToken"] integerValue] toLng:127 lat:37.5 name:@"새 목적지" vias:@[] priority:0
-                   completion:^(NSDictionary *result, NSError *error) { rejectedApply = !result && [error.domain isEqual:@"E_KNSDK_RESUME_UNAVAILABLE"]; }];
+                   completion:^(NSDictionary *result, NSError *error) { rejectedApply = !result && [error.domain isEqual:@"E_KNSDK_RESUME_GPS"]; }];
   if (!rejectedApply || [[editor valueForKey:@"changingDestination"] boolValue]) { NSLog(@"FAIL GPS-free route applied"); failures++; }
   __block BOOL publicPreviewRejected = NO;
-  [KNNaviPresenter openGuidePreview:^(NSDictionary *snapshot, NSString *error) { publicPreviewRejected = !snapshot && [error containsString:@"이번 버전"]; }];
-  if (!publicPreviewRejected) { NSLog(@"FAIL disabled public preview"); failures++; }
+  [KNNaviPresenter openGuidePreview:^(NSDictionary *snapshot, NSString *error) { publicPreviewRejected = !snapshot && error.length > 0; }];
+  if (!publicPreviewRejected) { NSLog(@"FAIL inactive public preview"); failures++; }
   __block BOOL destinationRejected = NO;
   [KNNaviPresenter changeDestinationToLng:127 lat:37.5 name:@"변경" priority:0 completion:^(NSString *code, NSString *message) { destinationRejected = [code isEqual:@"UNAVAILABLE"]; }];
   if (!destinationRejected || [KNNaviPresenter guideGasContext] || [KNNaviPresenter takeGuideGasSelection]) { NSLog(@"FAIL disabled native menu API"); failures++; }
@@ -329,20 +341,20 @@ int RunKNNaviSessionTests(void) {
     if ([resumer latestManualRerouteGPS] != (id)fresh) {
       NSLog(@"FAIL manual reroute newest valid GPS selection scenario=%d",scenario); failures++;
     }
-    __block BOOL policyRejected = NO;
+    // 완료는 메인 큐에 예약된다. 여기서는 실제 trip 요청 경계까지 도달하는지 확인한다.
     [KNNaviPresenter resumeGuide:[[resumer valueForKey:@"previewToken"] integerValue] toLng:127 lat:37.5 name:@"새 목적지" vias:@[] priority:0
-                     completion:^(NSDictionary *result, NSError *error) { policyRejected = !result && [error.domain isEqual:@"E_KNSDK_RESUME_UNAVAILABLE"]; }];
-    if (!policyRejected || resumeSDK.tripCalls != before || [[resumer valueForKey:@"changingDestination"] boolValue]) {
-      NSLog(@"FAIL disabled resume reached SDK scenario=%d",scenario); failures++;
+                     completion:^(NSDictionary *result, NSError *error) {}];
+    if (resumeSDK.tripCalls != before + 1 || ![[resumer valueForKey:@"changingDestination"] boolValue]) {
+      NSLog(@"FAIL fresh manual resume did not reach trip boundary scenario=%d",scenario); failures++;
     }
-    [resumer setValue:@YES forKey:@"finished"];
+    [resumer setValue:@YES forKey:@"finished"]; resumer.onResumeError=nil;
   }
   method_setImplementation(sharedSDKMethod, originalSDK); imp_removeBlock(fakeSDK);
 
   SessionControllerProbe *regionController = [SessionControllerProbe new];
   LocationNameProbe *road = [LocationNameProbe new]; road.facilityName = @"시설 이름";
   LocationGuideProbe *sample = [LocationGuideProbe new]; sample.location = road;
-  GPSProbe *regionGPS = [GPSProbe new]; regionGPS.valid = YES; regionGPS.posTrust = YES; regionGPS.timestamp = NSDate.date;
+  GPSProbe *regionGPS = [GPSProbe new]; regionGPS.valid = YES; regionGPS.posTrust = NO; regionGPS.timestamp = NSDate.date;
   regionGPS.pos = (DoublePoint){300000,400000}; sample.gpsOrigin = regionGPS;
   [regionController updateCurrentLocationWithGuide:(id)sample];
   if (regionController.regionCalls != 1) { NSLog(@"FAIL missing road did not request dong"); failures++; }
@@ -361,6 +373,7 @@ int RunKNNaviSessionTests(void) {
   [regionController updateCurrentLocationWithGuide:(id)sample];
   if (oldRegion) oldRegion(@"이전 동");
   if ([[regionController valueForKey:@"currentRegionName"] isEqual:@"이전 동"]) { NSLog(@"FAIL stale moved dong response accepted"); failures++; }
+  [regionController setValue:[NSDate dateWithTimeIntervalSinceNow:-11] forKey:@"currentLocationGPSAt"];
   regionGPS.valid = NO; [regionController updateCurrentLocationWithGuide:(id)sample];
   if (oldRegion) oldRegion(@"무효 동");
   if ([regionController valueForKey:@"currentRegionName"]) { NSLog(@"FAIL invalid GPS retained dong"); failures++; }
@@ -369,6 +382,32 @@ int RunKNNaviSessionTests(void) {
   [KNSDKBridge setLocationUseAllowed:NO];
   if (regionController.regionCompletion) regionController.regionCompletion(@"동의 철회 후 응답");
   if ([regionController valueForKey:@"currentRegionName"]) { NSLog(@"FAIL revoked region response accepted"); failures++; }
+  [KNSDKBridge setLocationUseAllowed:YES];
+  SessionControllerProbe *fallback = [SessionControllerProbe new]; fallback.footerEnabled=YES;
+  [fallback refreshFooterPosition];
+  if (fallback.footerCalls!=1) { NSLog(@"FAIL footer system position not requested"); failures++; }
+  // 공개 테스트 좌표만 사용하고 실기기 위치·주소는 로그에 남기지 않는다.
+  CLLocation *systemPosition=[[CLLocation alloc] initWithCoordinate:coordinate altitude:0 horizontalAccuracy:20 verticalAccuracy:1 timestamp:NSDate.date];
+  if (fallback.footerCompletion) fallback.footerCompletion(systemPosition);
+  if (fallback.regionCalls!=1) { NSLog(@"FAIL footer system position did not look up dong"); failures++; }
+  if (fallback.regionCompletion) fallback.regionCompletion(@"중구 명동");
+  sample.gpsOrigin=nil; [fallback updateCurrentLocationWithGuide:(id)sample];
+  if (![fallback hasCurrentRegion]) { NSLog(@"FAIL empty SDK callback erased fresh system dong"); failures++; }
+  [fallback pauseFooterPosition];
+  [fallback setValue:nil forKey:@"footerPositionRequestAt"]; [fallback setValue:nil forKey:@"currentLocationGPSAt"];
+  [fallback refreshFooterPosition]; void (^lateFooter)(CLLocation *)=fallback.footerCompletion;
+  [fallback pauseFooterPosition];
+  if (lateFooter) lateFooter(systemPosition);
+  if ([fallback valueForKey:@"currentLocationGPSAt"]) { NSLog(@"FAIL cancelled footer location accepted"); failures++; }
+  [fallback setValue:@YES forKey:@"finished"]; [fallback updateBottomPanel];
+  regionController.footerEnabled=NO;
+  NSUInteger inactiveRegionCalls=regionController.regionCalls;
+  sample.gpsOrigin=regionGPS; regionGPS.valid=YES; regionGPS.timestamp=NSDate.date;
+  [regionController setValue:nil forKey:@"regionRequestAt"];
+  [regionController updateCurrentLocationWithGuide:(id)sample];
+  if (regionController.regionCalls!=inactiveRegionCalls) { NSLog(@"FAIL inactive SDK callback started geocoding"); failures++; }
+  if (regionController.regionCompletion) regionController.regionCompletion(@"비활성 주소");
+  if ([[regionController valueForKey:@"currentRegionName"] isEqual:@"비활성 주소"]) { NSLog(@"FAIL inactive address response accepted"); failures++; }
   [regionController setValue:@YES forKey:@"finished"]; [regionController updateBottomPanel];
   [controller setValue:@YES forKey:@"finished"];
   if ([controller guidance:nil shouldPlayVoiceGuide:(id)voice replaceSndData:&replacement]) failures++;
@@ -544,9 +583,19 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
       if (![state[@"currentLocationName"] isEqual:@"테헤란로"] || ![[controller valueForKey:@"currentLocationAt"] isEqual:namedAt]) { NSLog(@"FAIL sparse road name lost or freshness extended"); failures++; }
       [controller setValue:[NSDate dateWithTimeIntervalSinceNow:-11] forKey:@"currentLocationAt"];
       [controller updateBottomPanel]; state = [panel valueForKey:@"state"];
-      if ([state[@"currentLocationName"] length] || ![state[@"currentLocationStatus"] isEqual:@"주소 정보 없음"]) { NSLog(@"FAIL stale road name used as current"); failures++; }
+      if ([state[@"currentLocationName"] length] || ![@[@"주소 정보 없음",@"주소 확인 중"] containsObject:state[@"currentLocationStatus"]]) { NSLog(@"FAIL stale road name used as current"); failures++; }
+      [controller setValue:[NSDate dateWithTimeIntervalSinceNow:-11] forKey:@"currentLocationGPSAt"];
       gps.valid = NO; [controller updateCurrentLocationWithGuide:(id)locationGuide]; [controller updateBottomPanel];
       if (![[panel valueForKey:@"state"][@"currentLocationStatus"] isEqual:@"GPS 수신 대기"]) { NSLog(@"FAIL missing GPS status"); failures++; }
+      gps.valid = YES; gps.posTrust=NO; gps.timestamp=NSDate.date;
+      [controller setValue:nil forKey:@"regionRequestAt"];
+      [controller updateCurrentLocationWithGuide:(id)locationGuide];
+      if (controller.regionCompletion) controller.regionCompletion(@"중구 명동");
+      [controller setValue:@YES forKey:@"currentRoadAvailable"];
+      [controller setValue:[NSDate dateWithTimeIntervalSinceNow:-11] forKey:@"currentLocationAt"];
+      [controller updateBottomPanel];
+      if (![[panel valueForKey:@"state"][@"currentLocationName"] isEqual:@"중구 명동"]) { NSLog(@"FAIL expired road blocked dong in footer state"); failures++; }
+      [controller setValue:[NSDate dateWithTimeIntervalSinceNow:-11] forKey:@"currentLocationGPSAt"];
       gps.valid = YES; gps.timestamp = [NSDate dateWithTimeIntervalSinceNow:-11];
       [controller updateCurrentLocationWithGuide:(id)locationGuide]; [controller updateBottomPanel];
       if (![[panel valueForKey:@"state"][@"currentLocationStatus"] isEqual:@"GPS 수신 대기"]) { NSLog(@"FAIL stale GPS presented as current"); failures++; }
@@ -588,7 +637,7 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
               [menuWeb takeSnapshotWithConfiguration:nil completionHandler:^(UIImage *image, NSError *error) {
                 NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"bottom-expanded.png"];
                 if (image) [UIImagePNGRepresentation(image) writeToFile:path atomically:YES];
-                NSString *script = @"const safe=Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe'));const end=document.querySelector('.end').getBoundingClientRect();const safeEnd=safe>=20&&end.bottom<=innerHeight-safe;const row=!document.querySelector('.actions')&&['hazard','gas','routePreview','destination','vias'].every(action=>!document.querySelector('[data-action='+action+']'));const footer=getComputedStyle(document.querySelector('.bar')).display==='none';document.getElementById('volume').value=35;document.getElementById('volume').dispatchEvent(new Event('input'));document.getElementById('mute').click();const muted=document.getElementById('volume').value==='0'&&document.getElementById('mute').getAttribute('aria-pressed')==='true';document.getElementById('mute').click();const restored=document.getElementById('volume').value==='100'&&document.getElementById('mute').getAttribute('aria-label').includes('음소거');document.querySelector('[data-action=end]').click();JSON.stringify({row,footer,safeEnd,muted,restored,noClose:!document.querySelector('.close')})";
+                NSString *script = @"const safe=Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe'));const end=document.querySelector('.end').getBoundingClientRect();const safeEnd=safe>=20&&end.bottom<=innerHeight-safe;const row=['hazard','gas','destination','vias'].every(action=>!document.querySelector('[data-action='+action+']'))&&document.querySelector('[data-action=routePreview]').textContent==='다른 경로'&&document.querySelector('[data-action=routeEdit]').textContent==='경로 편집';const footer=getComputedStyle(document.querySelector('.bar')).display==='none';document.getElementById('volume').value=35;document.getElementById('volume').dispatchEvent(new Event('input'));document.getElementById('mute').click();const muted=document.getElementById('volume').value==='0'&&document.getElementById('mute').getAttribute('aria-pressed')==='true';document.getElementById('mute').click();const restored=document.getElementById('volume').value==='100'&&document.getElementById('mute').getAttribute('aria-label').includes('음소거');document.querySelector('[data-action=end]').click();JSON.stringify({row,footer,safeEnd,muted,restored,noClose:!document.querySelector('.close')})";
                 [menuWeb evaluateJavaScript:script completionHandler:^(id value, NSError *error) {
                   if (error || ![value containsString:@"\"muted\":true"] || ![value containsString:@"\"restored\":true"] || ![value containsString:@"\"row\":true"] || ![value containsString:@"\"footer\":true"] || ![value containsString:@"\"safeEnd\":true"]) { NSLog(@"FAIL menu layout %@ %@",value,error); failures++; }
                   WaitAsync(^BOOL{ return actions.count == 6 && fabs(volume-1)<.001 && panel.menuView.hidden; },NSDate.timeIntervalSinceReferenceDate+3,^(BOOL sent) {

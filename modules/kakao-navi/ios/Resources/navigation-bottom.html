@@ -51,6 +51,9 @@
     input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; height: 44px; flex: 1; min-width: 0; margin: 0; touch-action: pan-x; }
     input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 5px; background: linear-gradient(to right, var(--volume-blue) var(--volume, 100%), var(--track) var(--volume, 100%)); }
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; margin-top: -9.5px; background: #fff; border: 1px solid #e4e4e7; box-shadow: 0 1px 4px #18181b26; }
+    .routeActions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .routeActions button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border: 1px solid var(--line); border-radius: 10px; font-size: 15px; font-weight: 650; }
+    .routeActions svg { width: 22px; height: 22px; }
     .end { flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 48px; margin-top: 14px; border-radius: 8px; background: var(--brand); color: var(--on-brand); font-size: 15px; font-weight: 650; }
     .end svg { width: 18px; height: 18px; }
     .end:active { opacity: .82; background: var(--brand); }
@@ -72,7 +75,10 @@
           <input type="range" id="volume" aria-label="안내 음량" min="0" max="100" value="100">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4zM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></svg>
         </div>
-
+        <div class="routeActions">
+          <button data-action="routePreview"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 20V7a3 3 0 0 1 3-3h8m-3-3 3 3-3 3M6 15h9a3 3 0 0 0 3-3v-1"/></svg><span>다른 경로</span></button>
+          <button data-action="routeEdit" id="routeEdit"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="5" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><path d="M5 7v7a5 5 0 0 0 5 5h7M13 5h8m-4-4v8"/></svg><span>경로 편집</span></button>
+        </div>
       </div>
       <button class="end" data-action="end"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m20 4-6 16-3-7-7-3z"/></svg><span>길안내 종료</span></button>
     </section>
@@ -176,6 +182,8 @@
             volume.value = Math.round((state.volume ?? 1) * 100);
             showVolume(volume.value);
           }
+          $('routeEdit').disabled = !state.canRouteEdit || !!state.busy;
+          document.querySelector('[data-action=routePreview]').disabled = !!state.busy;
           latestState = state;
           showLocation();
           const seconds = state.remainingTime;

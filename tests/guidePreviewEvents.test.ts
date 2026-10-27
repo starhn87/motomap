@@ -2,19 +2,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
 
-function setup(failOpen = false, enabled = true) {
+function setup(failOpen = false, enabled = true, routeEditing = enabled, capability = true) {
   const callbacks: Record<string, (payload: any) => void> = {};
   const snapshot = { token: 9, goal: { name: '목적지' }, vias: [], passedVias: [] };
   let finishAudit!: () => void, clearCount = 0;
   const pushed: any[] = [], notices: string[] = [];
   const store: any = { goal: snapshot.goal, preview: null, setPreview(value: any) { store.preview = value; }, clear() { clearCount++; store.goal = null; } };
   const module = loadModule<{ registerGuideEvents(): () => void }>('lib/guideEvents.ts', {
-    '@/lib/guideMenuPolicy': { GUIDE_MENU_ACTIONS_ENABLED: enabled, GUIDE_MENU_UNAVAILABLE_MESSAGE: '이번 버전에서는 안내 음량과 종료만 지원해요.' },
+    '@/lib/guideMenuPolicy': { GUIDE_MENU_ACTIONS_ENABLED: enabled, GUIDE_ROUTE_EDITING_ENABLED: routeEditing, GUIDE_MENU_UNAVAILABLE_MESSAGE: '이번 버전에서는 안내 음량과 종료만 지원해요.' },
     '@/stores/useLocationPrivacyStore': { withLocationUse: async (_purpose: any, _provider: any, work: any) => { await work(); await new Promise<void>((resolve) => { finishAudit = resolve; }); } },
     '@react-native-async-storage/async-storage': { __esModule: true, default: { getItem: async () => null, removeItem: async () => {} } },
     'expo-router': { router: { push: (value: any) => pushed.push(value) } },
     '@/modules/kakao-navi': { __esModule: true, default: { addListener: (event: string, fn: any) => { callbacks[event] = fn; return { remove() {} }; }, openGuidePreview: async () => { if (failOpen) throw Error('GPS unavailable'); return snapshot; }, showGuideToast: async (message: string) => { notices.push(message); }, showGuideNotice: async (message: string) => { notices.push(message); } },
-      HAZARD_BUTTON_ID: 101, MOTOMAP_MENU_ID: 100, supportsKakaoNaviFeature: () => true, friendlyRouteError: String },
+      HAZARD_BUTTON_ID: 101, MOTOMAP_MENU_ID: 100, supportsKakaoNaviFeature: () => capability, friendlyRouteError: String },
     '@/lib/guideSession': { useGuideSession: { getState: () => store } },
     '@/lib/guideArrival': {},
     '@/lib/dialog': {}, 'expo-location': {}, '@/constants/hazards': {}, '@/lib/api/hazards': {}, '@/lib/api/places': {}, '@/lib/api/directions': {}, '@/lib/distance': {}, '@/lib/mapFocus': {}, '@/lib/api/rides': {},
@@ -40,10 +40,10 @@ test('기존 안내 중 새 일반 안내가 거절돼도 기존 세션과 라�
 });
 
 
-for (const [id, edit] of [[104, 'goal'], [105, 'vias']] as const) {
-  test(`메뉴 ${id}는 기존 안내를 보존하고 ${edit} 편집 모드로 진입한다`, async () => {
+for (const id of [104,105,107]) {
+  test(`메뉴 ${id}는 기존 안내를 보존하고 통합 경로 편집 모드로 진입한다`, async () => {
     const f = setup(); f.callbacks.onGuideMenu({ id }); await f.flush();
-    assert.equal(f.pushed.length, 1); assert.equal(f.store.preview.edit, edit);
+    assert.equal(f.pushed.length, 1); assert.equal(f.store.preview.edit, null);
     assert.equal(f.clears, 0); f.finishAudit();
   });
 }
@@ -60,5 +60,16 @@ for (const id of [100,101,103,104,105,106,108]) {
     assert.equal(f.pushed.length,0); assert.equal(f.store.preview,null); assert.equal(f.clears,0);
     assert.match(f.notices[0],/안내 음량과 종료/);
     assert.equal(f.callbacks.onGuidePoiTap,undefined);
+  });
+}
+
+for (const id of [103,107]) {
+  test(`경로 전용 정책은 ${id}만 새 네이티브 계약에서 열고 위험·주유소는 유지 차단한다`, async () => {
+    const f=setup(false,false,true); f.callbacks.onGuideMenu({id}); await f.flush();
+    assert.equal(f.pushed.length,1); assert.equal(f.store.preview.edit,null); f.finishAudit();
+    for (const removed of [100,101,106,108]) f.callbacks.onGuideMenu({id:removed});
+    await f.flush(); assert.equal(f.pushed.length,1); assert.equal(f.callbacks.onGuidePoiTap,undefined);
+    const old=setup(false,false,true,false); old.callbacks.onGuideMenu({id}); await old.flush();
+    assert.equal(old.pushed.length,0);
   });
 }

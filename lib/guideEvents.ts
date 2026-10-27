@@ -1,4 +1,4 @@
-import { GUIDE_MENU_ACTIONS_ENABLED, GUIDE_MENU_UNAVAILABLE_MESSAGE } from '@/lib/guideMenuPolicy';
+import { GUIDE_MENU_ACTIONS_ENABLED, GUIDE_ROUTE_EDITING_ENABLED, GUIDE_MENU_UNAVAILABLE_MESSAGE } from '@/lib/guideMenuPolicy';
 import { withLocationUse, locationUseAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -329,23 +329,14 @@ export function registerGuideEvents(): () => void {
 
   // 커스텀 슬롯이 하나뿐이라 버튼 하나에서 1차 시트로 가른다
   const menu = KakaoNavi.addListener('onGuideMenu', ({ id }) => {
-    // 구 바이너리의 버튼·늦은 이벤트도 제거한 기능으로 진입시키지 않는다.
-    if (!GUIDE_MENU_ACTIONS_ENABLED) {
-      void KakaoNavi.showGuideToast(GUIDE_MENU_UNAVAILABLE_MESSAGE).catch(() => {});
-      return;
-    }
-    if ([106,108].includes(id) && supportsKakaoNaviFeature('guide_gas_stations')) {
-      void import('@/lib/guideGasEvents').then(module => module.handleGuideGasMenu(id)).catch(() => {});
-      return;
-    }
-    if ([103, 104, 105].includes(id) && supportsKakaoNaviFeature('guide_web_bottom')) {
+    if (GUIDE_ROUTE_EDITING_ENABLED && [103, 104, 105, 107].includes(id) && supportsKakaoNaviFeature('guide_route_editing')) {
       void (async () => {
         try {
           await withLocationUse('navigation', 'kakao', async () => {
             const snapshot = await KakaoNavi.openGuidePreview();
             const session = useGuideSession.getState();
             if (!session.goal) { await KakaoNavi.returnToGuide(snapshot.token); return; }
-            session.setPreview({ snapshot, edit: id === 104 ? 'goal' : id === 105 ? 'vias' : null, returnPending: false });
+            session.setPreview({ snapshot, edit: null, returnPending: false });
             try { router.push({ pathname: '/navi', params: { resume: String(snapshot.token) } }); }
             catch (error) { session.setPreview(null); await KakaoNavi.returnToGuide(snapshot.token); throw error; }
           });
@@ -353,6 +344,15 @@ export function registerGuideEvents(): () => void {
           void KakaoNavi.showGuideNotice(`경로 미리보기를 열 수 없어요. ${friendlyRouteError(error)}`);
         }
       })();
+      return;
+    }
+    // 구 바이너리의 버튼·늦은 이벤트도 제거한 기능으로 진입시키지 않는다.
+    if (!GUIDE_MENU_ACTIONS_ENABLED) {
+      void KakaoNavi.showGuideToast(GUIDE_MENU_UNAVAILABLE_MESSAGE).catch(() => {});
+      return;
+    }
+    if ([106,108].includes(id) && supportsKakaoNaviFeature('guide_gas_stations')) {
+      void import('@/lib/guideGasEvents').then(module => module.handleGuideGasMenu(id)).catch(() => {});
       return;
     }
     // 전용 위험 버튼 — 1차 시트를 건너뛰고 타입 선택으로 직행 (구빌드에는

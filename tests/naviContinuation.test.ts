@@ -43,7 +43,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
   const chain: any = new Proxy({}, { get: () => () => chain });
   const defaultExport = (value: any) => ({ __esModule: true, default: value });
   const deps: Record<string, any> = {
-    '@/lib/guideMenuPolicy': { GUIDE_MENU_ACTIONS_ENABLED: enabled, GUIDE_MENU_UNAVAILABLE_MESSAGE: '안내 종료 후 다시 설정해 주세요.' },
+    '@/lib/guideMenuPolicy': { GUIDE_ROUTE_EDITING_ENABLED: enabled, GUIDE_MENU_UNAVAILABLE_MESSAGE: '안내 종료 후 다시 설정해 주세요.' },
     '@/stores/useMyPlacesStore': { useMyPlacesStore: (select: any) => select({ places: {}, load() {} }) },
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'Spinner', StyleSheet: { create: (x: any) => x } },
@@ -69,7 +69,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
     '@/lib/toast': { toast: { error: (message: string) => calls.errors.push(message) } },
     '@/components/useColorScheme': { useColorScheme: () => 'light' },
     '@/constants/Colors': defaultExport({ light: {} }),
-    '@/modules/kakao-navi': { ...defaultExport(native), friendlyRouteError: String, pairsFromFlat: () => [] },
+    '@/modules/kakao-navi': { ...defaultExport(native), friendlyRouteError: String, supportsKakaoNaviFeature: () => true, pairsFromFlat: () => [] },
     '@/components/navi/RouteFieldRow': { ...defaultExport('RouteFieldRow'), ROW_H: 48, nearestSlot: () => 0 },
   };
   for (const path of ['@expo/vector-icons/Ionicons', '@expo/vector-icons/MaterialCommunityIcons', '@/components/ui/CloseIcon', '@/components/search/PointSearchModal', '@/components/navi/PreviewMap', '@/components/navi/RouteAlternatives']) deps[path] = defaultExport(path);

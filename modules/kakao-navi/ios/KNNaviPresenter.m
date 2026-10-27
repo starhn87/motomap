@@ -19,6 +19,7 @@
 
 // NAV-039: 1.2.10은 안내 음량·종료만 제공한다. SDK 재안내 성공 검증 후 재검토한다.
 static const BOOL KNNaviGuideMenuActionsEnabled = NO;
+static const BOOL KNNaviRouteEditingEnabled = YES;
 
 // 원문·좌표를 오류 코드에 넣지 않는다. 실패 단계와 알려진 SDK 코드만 브리지로 보낸다.
 static NSError *ManualRerouteError(NSString *stage, KNError *vendor, NSString *message) {
@@ -31,7 +32,7 @@ static NSError *ManualRerouteError(NSString *stage, KNError *vendor, NSString *m
   return [NSError errorWithDomain:domain code:1 userInfo:@{NSLocalizedDescriptionKey:message}];
 }
 
-// 안내 중 SDK 위치가 아직 없을 때만 시스템 위치를 한 번 받는다. 권한 요청은 하지 않는다.
+// SDK 위치가 없을 때 수동 재안내·전경 주소 표시가 공유하는 단발 위치 수신기다. 권한 요청은 하지 않는다.
 @interface KNNaviManualPositionRequest : NSObject <CLLocationManagerDelegate>
 @property(nonatomic, strong) CLLocationManager *manager;
 @property(nonatomic, copy) void (^completion)(CLLocation *);
@@ -352,6 +353,10 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong) NSDate *currentLocationAt;
 @property(nonatomic, strong) NSDate *currentLocationGPSAt;
 @property(nonatomic, strong) NSTimer *currentLocationExpiryTimer;
+@property(nonatomic, strong) NSTimer *footerPositionTimer;
+@property(nonatomic, strong) KNNaviManualPositionRequest *footerPositionRequest;
+@property(nonatomic, strong) NSDate *footerPositionRequestAt;
+@property(nonatomic) NSUInteger footerPositionGeneration;
 @property(nonatomic) DoublePoint currentLocationPosition;
 @property(nonatomic) BOOL currentRoadAvailable;
 @property(nonatomic, copy) NSString *currentRegionName;
@@ -421,6 +426,10 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)viewDidLoad {
   [super viewDidLoad];
   if (![KNSDKBridge isLocationUseAllowed]) { [self finish]; return; }
+  [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(pauseFooterPosition)
+      name:UIApplicationWillResignActiveNotification object:nil];
+  [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(refreshFooterPosition)
+      name:UIApplicationDidBecomeActiveNotification object:nil];
   self.view.backgroundColor = UIColor.blackColor;
   // SDK 경계가 바뀌면 원래 SDK 화면으로 폴백하지 않고 안내 화면을 열지 않는다.
   if (![KNNaviRouteView isSDKModeBoundaryCompatible]) { [self finish]; return; }
@@ -655,6 +664,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
       }
     } else if ([action isEqualToString:@"refresh"]) {
       [vc refreshCurrentRoute];
+    } else if (KNNaviRouteEditingEnabled && ([action isEqualToString:@"routePreview"] || [action isEqualToString:@"routeEdit"])) {
+      if (vc.onMenu) vc.onMenu([action isEqualToString:@"routeEdit"] ? 107 : 103);
     } else if ([action isEqualToString:@"end"]) [vc finish];
     [vc updateBottomPanel];
   };
@@ -735,7 +746,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   // 메뉴 배경은 화면 하단까지, 조작부는 홈 인디케이터 위에 둔다.
   CGFloat menuInset = self.view.safeAreaInsets.bottom;
   [self.bottomPanel setMenuBottomInset:menuInset];
-  CGFloat sheetHeight = MIN(190 + menuInset, self.view.bounds.size.height - self.view.safeAreaInsets.top);
+  CGFloat sheetHeight = MIN(254 + menuInset, self.view.bounds.size.height - self.view.safeAreaInsets.top);
   sheet.bounds = CGRectMake(0, 0, self.view.bounds.size.width, MAX(0, sheetHeight));
   sheet.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height - sheetHeight / 2);
   if (!web) { sheet.hidden = YES; self.menuBackdrop.hidden = YES; }
@@ -759,11 +770,11 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   BOOL freshGPS = self.currentLocationGPSAt && fabs(self.currentLocationGPSAt.timeIntervalSinceNow) <= 10;
   BOOL freshName = self.currentLocationAt && fabs(self.currentLocationAt.timeIntervalSinceNow) <= 10;
   NSString *name = freshName ? self.currentLocationName : nil;
-  if (!self.currentRoadAvailable && [self hasCurrentRegion]) name = self.currentRegionName;
+  if ((!self.currentRoadAvailable || !freshName) && [self hasCurrentRegion]) name = self.currentRegionName;
   state[@"currentLocationName"] = freshGPS ? (name ?: @"") : @"";
   state[@"currentLocationStatus"] = freshGPS ? (self.regionRequestInFlight ? @"주소 확인 중" : @"주소 정보 없음") : @"GPS 수신 대기";
   state[@"showRecenter"] = @(self.mapControlsHidden && self.mapDetached);
-  state[@"canEditVias"] = @(self.trip.vias.count <= 3);
+  state[@"canRouteEdit"] = @(KNNaviRouteEditingEnabled && self.trip.vias.count <= 3);
   [self.bottomPanel updateState:state];
   // SDK 콜백이 끊겨도 마지막 위치 문자열이 화면에 무기한 남지 않게 한다.
   NSTimeInterval expiry = DBL_MAX;
@@ -772,7 +783,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     NSTimeInterval remaining = 10 + timestamp.timeIntervalSinceNow;
     if (remaining > 0) expiry = MIN(expiry, remaining);
   }
-  if (!self.currentRoadAvailable && [self hasCurrentRegion]) {
+  if ((!self.currentRoadAvailable || !freshName) && [self hasCurrentRegion]) {
     expiry = MIN(expiry, 120 + self.currentRegionAt.timeIntervalSinceNow);
   }
   if (expiry != DBL_MAX) {
@@ -826,6 +837,9 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)dealloc {
+  [NSNotificationCenter.defaultCenter removeObserver:self];
+  [self.footerPositionTimer invalidate];
+  [self.footerPositionRequest cancel];
   [self stopObservingBottomView];
   [self.bottomPanel invalidate];
 }
@@ -877,6 +891,13 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)viewDidAppear:(BOOL)animated {
   [super viewDidAppear:animated];
+  [self refreshFooterPosition];
+  if (!self.footerPositionTimer && !self.preview) {
+    __weak KNNaviViewController *weakSelf = self;
+    self.footerPositionTimer = [NSTimer scheduledTimerWithTimeInterval:5 repeats:YES block:^(NSTimer *timer) {
+      [weakSelf refreshFooterPosition];
+    }];
+  }
   [self attachPoiListener];
   [self.naviView resumeView];
 
@@ -887,6 +908,12 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     self.previewNoticed = YES;
     [KNNaviPresenter showNotice:@"정한 출발지에서 경로를 미리 보여드려요. 실제 주행 안내가 아니에요."];
   }
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+  [super viewWillDisappear:animated];
+  [self pauseFooterPosition];
+  [self.footerPositionTimer invalidate]; self.footerPositionTimer = nil;
 }
 
 // 안내가 시작되거나 위치가 처음 잡히면 SDK 가 자차를 다시 그리면서
@@ -1296,10 +1323,11 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)requestCurrentRegionIfNeeded {
-  if (self.finished || self.preview || self.suspended || ![KNSDKBridge isLocationUseAllowed] ||
+  if (![self canRefreshFooterPosition] ||
       fabs(self.currentLocationPosition.x) > INT_MAX || fabs(self.currentLocationPosition.y) > INT_MAX ||
-      self.currentRoadAvailable || [self hasCurrentRegion] || self.regionRequestInFlight ||
-      (self.regionRequestAt && -self.regionRequestAt.timeIntervalSinceNow < 30)) return;
+      !self.currentLocationGPSAt || fabs(self.currentLocationGPSAt.timeIntervalSinceNow) > 10 ||
+      (self.currentRoadAvailable && self.currentLocationAt && fabs(self.currentLocationAt.timeIntervalSinceNow) <= 10) || [self hasCurrentRegion] || self.regionRequestInFlight ||
+      (self.regionRequestAt && -self.regionRequestAt.timeIntervalSinceNow < 10)) return;
   self.regionRequestAt = NSDate.date;
   self.regionRequestInFlight = YES;
   NSUInteger generation = ++self.regionRequestGeneration;
@@ -1308,9 +1336,9 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self lookupRegionAt:point completion:^(NSString *name) {
     void (^apply)(void) = ^{
       KNNaviViewController *vc = weakSelf;
-      if (!vc || generation != vc.regionRequestGeneration || vc.finished) return;
+      if (!vc || generation != vc.regionRequestGeneration || vc.finished || vc.suspended) return;
       vc.regionRequestInFlight = NO;
-      if (![KNSDKBridge isLocationUseAllowed]) return;
+      if (![vc canRefreshFooterPosition]) return;
       if (!vc.currentLocationGPSAt || fabs(vc.currentLocationGPSAt.timeIntervalSinceNow) > 10 ||
           hypot(vc.currentLocationPosition.x - point.x, vc.currentLocationPosition.y - point.y) > 150) {
         [vc updateBottomPanel];
@@ -1335,22 +1363,82 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   });
 }
 
+// 표시에 쓰는 위치는 도로 매칭 신뢰도(posTrust)와 분리한다. 자동 복귀·도착 조건은 그대로다.
+- (BOOL)usableFooterGPS:(KNGPSData *)gps {
+  return gps && gps.valid && isfinite(gps.pos.x) && isfinite(gps.pos.y) &&
+      fabs(gps.pos.x) <= INT_MAX && fabs(gps.pos.y) <= INT_MAX &&
+      gps.timestamp && fabs(gps.timestamp.timeIntervalSinceNow) <= 10;
+}
+
+- (BOOL)canRefreshFooterPosition {
+  return !self.finished && !self.preview && !self.suspended && self.viewIfLoaded.window &&
+      UIApplication.sharedApplication.applicationState == UIApplicationStateActive && [KNSDKBridge isLocationUseAllowed];
+}
+
+- (void)pauseFooterPosition {
+  self.footerPositionGeneration++;
+  [self.footerPositionRequest cancel]; self.footerPositionRequest = nil;
+  self.regionRequestGeneration++; self.regionRequestInFlight = NO;
+}
+
+- (void)requestFooterPosition:(void (^)(CLLocation *))completion {
+  self.footerPositionRequest = [KNNaviManualPositionRequest new];
+  [self.footerPositionRequest start:completion];
+}
+
+- (void)refreshFooterPosition {
+  if (![self canRefreshFooterPosition]) { [self pauseFooterPosition]; return; }
+  if (self.currentLocationGPSAt && fabs(self.currentLocationGPSAt.timeIntervalSinceNow) <= 5) {
+    [self requestCurrentRegionIfNeeded]; [self updateBottomPanel]; return;
+  }
+  if (self.footerPositionRequest || (self.footerPositionRequestAt && -self.footerPositionRequestAt.timeIntervalSinceNow < 5)) return;
+  self.footerPositionRequestAt = NSDate.date;
+  NSUInteger generation = ++self.footerPositionGeneration;
+  __weak KNNaviViewController *weakSelf = self;
+  [self requestFooterPosition:^(CLLocation *location) {
+    KNNaviViewController *vc = weakSelf;
+    if (!vc || generation != vc.footerPositionGeneration) return;
+    vc.footerPositionRequest = nil;
+    if (![vc canRefreshFooterPosition]) return;
+    if ([KNNaviManualPositionRequest isUsableLocation:location] &&
+        (!vc.currentLocationGPSAt || [location.timestamp compare:vc.currentLocationGPSAt] == NSOrderedDescending)) {
+      IntPoint point = [[KNSDK sharedInstance] convertWGS84ToKATECWithLongitude:location.coordinate.longitude latitude:location.coordinate.latitude];
+      vc.currentLocationPosition = (DoublePoint){point.x, point.y};
+      vc.currentLocationGPSAt = location.timestamp;
+      // 시스템 위치에는 도로명이 없다. 동 주소가 현재 위치에 맞는지 다시 확인한다.
+      vc.currentRoadAvailable = NO;
+      vc.currentLocationName = nil; vc.currentLocationAt = nil;
+      [vc requestCurrentRegionIfNeeded];
+    }
+    [vc updateBottomPanel];
+  }];
+}
+
 - (void)updateCurrentLocationWithGuide:(KNGuide_Location *)guide {
   KNGPSData *gps = guide.gpsOrigin;
-  if (![self usableRecoveryGPS:gps]) {
-    self.currentLocationGPSAt = nil;
-    self.currentLocationName = nil;
-    self.currentLocationAt = nil;
-    self.currentRegionName = nil; self.currentRegionAt = nil;
-    self.regionRequestGeneration++; self.regionRequestInFlight = NO;
+  if (![self usableFooterGPS:gps]) {
+    // SDK가 잠시 빈 콜백을 줘도 방금 수신한 시스템 위치/동 주소를 지우지 않는다.
+    if (!self.currentLocationGPSAt || fabs(self.currentLocationGPSAt.timeIntervalSinceNow) > 10) {
+      self.currentLocationGPSAt = nil;
+      self.currentLocationName = nil; self.currentLocationAt = nil;
+      self.currentRegionName = nil; self.currentRegionAt = nil;
+      self.currentRoadAvailable = NO;
+      self.regionRequestGeneration++; self.regionRequestInFlight = NO;
+    }
+    [self refreshFooterPosition];
     return;
   }
-  self.currentLocationGPSAt = gps.timestamp;
-  self.currentLocationPosition = gps.pos;
+  BOOL older = self.currentLocationGPSAt && [gps.timestamp compare:self.currentLocationGPSAt] == NSOrderedAscending;
+  double moved = hypot(self.currentLocationPosition.x - gps.pos.x, self.currentLocationPosition.y - gps.pos.y);
+  if (older && moved > 150) return;
+  if (!older) {
+    if (moved > 150) { self.currentLocationName = nil; self.currentLocationAt = nil; }
+    self.currentLocationGPSAt = gps.timestamp;
+    self.currentLocationPosition = gps.pos;
+  }
   NSCharacterSet *space = NSCharacterSet.whitespaceAndNewlineCharacterSet;
   NSString *name = [guide.location.roadName stringByTrimmingCharactersInSet:space];
   self.currentRoadAvailable = name.length > 0;
-  // 이름 없는 콜백이 이전 이름을 지우거나 유효 시간을 계속 연장하지 않게 한다.
   if (name.length) {
     self.currentLocationName = name;
     self.currentLocationAt = gps.timestamp;
@@ -1425,6 +1513,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)finish {
   if (self.finished) return;
   self.finished = YES;
+  [self pauseFooterPosition];
+  [self.footerPositionTimer invalidate]; self.footerPositionTimer = nil;
   [self.manualPositionRequest cancel]; self.manualPositionRequest = nil;
   [self.gasLayer invalidate];
   self.regionRequestGeneration++; self.regionRequestInFlight = NO;
@@ -1605,7 +1695,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 + (void)openGuidePreview:(void (^)(NSDictionary *, NSString *))completion {
-  if (!KNNaviGuideMenuActionsEnabled) { completion(nil, @"이번 버전에서는 안내 중 경로 변경을 지원하지 않아요."); return; }
+  if (!KNNaviRouteEditingEnabled) { completion(nil, @"이번 버전에서는 안내 중 경로 변경을 지원하지 않아요."); return; }
   [self openGuidePreviewForController:gActiveNavi
                                  gps:[gActiveNavi latestManualRerouteGPS]
                           completion:completion];
@@ -1636,6 +1726,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   }
   vc.previewRemainingVias = [remainingPoints copy];
   vc.previewPassedVias = passedPoints;
+  [vc pauseFooterPosition];
   vc.suspended = YES; vc.previewToken = ++gPreviewToken;
   vc.routeRequestGeneration++; [vc.arrivalRecovery requestFailed];
   gSuspendedNavi = vc;
@@ -1688,7 +1779,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 + (void)resumeGuide:(NSInteger)token toLng:(double)lng lat:(double)lat name:(NSString *)name
               vias:(NSArray<NSNumber *> *)vias priority:(NSInteger)priority completion:(void (^)(NSDictionary *, NSError *))completion {
-  if (!KNNaviGuideMenuActionsEnabled) { completion(nil, ManualRerouteError(@"UNAVAILABLE", nil, @"이번 버전에서는 안내 중 경로 변경을 지원하지 않아요.")); return; }
+  if (!KNNaviRouteEditingEnabled) { completion(nil, ManualRerouteError(@"UNAVAILABLE", nil, @"이번 버전에서는 안내 중 경로 변경을 지원하지 않아요.")); return; }
   KNNaviViewController *vc = gSuspendedNavi;
   if (!vc || vc.previewToken != token || !vc.suspended || vc.finished || vc.changingDestination || ![KNSDKBridge isLocationUseAllowed]) {
     completion(nil, ManualRerouteError(@"STATE", nil, @"길안내 상태가 변경됐어요.")); return;
