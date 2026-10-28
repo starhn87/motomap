@@ -181,7 +181,7 @@ int RunKNNaviGasPriceTests(void) {
   [coordinator setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"settledAt"];
   [coordinator performSelector:NSSelectorFromString(@"poll")];
   NSString *viewportId=coordinator.context[@"requestId"]?:@"missing";
-  if([viewportId isEqual:@"missing"] || viewportRequests!=1){NSLog(@"FAIL viewport context missing");failures++;}
+  if([viewportId isEqual:@"missing"] || viewportRequests!=1 || !coordinator.context[@"center"]){NSLog(@"FAIL viewport context or screen center missing");failures++;}
   double expiry=NSDate.date.timeIntervalSince1970*1000+60000;
   NSDictionary *place=@{@"key":@"place:fixture",@"name":@"카페",@"latitude":@37.5,@"longitude":@127,@"category":@"cafe"};
   if([coordinator applyResponse:@{@"requestId":@"stale",@"pois":@[place],@"expiresAt":@(expiry)}] || map.poiProperties.isVisible){NSLog(@"FAIL stale snapshot exposed SDK POIs");failures++;}

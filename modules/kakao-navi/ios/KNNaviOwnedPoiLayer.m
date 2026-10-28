@@ -10,6 +10,7 @@
 @property(nonatomic, strong) KNNaviGuidePoiOverlay *renderer;
 @property(nonatomic, strong) NSTimer *timer;
 @property(nonatomic, copy) NSDictionary *context;
+@property(nonatomic, copy) NSDictionary *viewportCenter;
 @property(nonatomic, copy) NSArray *pose;
 @property(nonatomic, strong) NSDate *settledAt;
 @property(nonatomic, strong) NSDate *dirtySince;
@@ -64,6 +65,7 @@ static BOOL ContainsBounds(NSDictionary *outer,NSDictionary *inner) {
 }
 - (void)refresh {
   [self fallback];self.context=nil;self.pose=nil;self.requestedAt=nil;self.retryAfter=nil;self.dirtySince=nil;
+  self.viewportCenter=nil;
   if(![self active])[self restoreSdkVisibility];
   [self.artwork removeAllObjects];
 }
@@ -97,6 +99,7 @@ static BOOL ContainsBounds(NSDictionary *outer,NSDictionary *inner) {
     south=c.y-lat;north=c.y+lat;west=c.x-lng;east=c.x+lng;
   }
   if(south < -90 || north>90 || west < -180 || east>180 || north-south>2 || east-west>2)return nil;
+  self.viewportCenter=@{@"latitude":@(c.y),@"longitude":@(c.x)};
   return @{@"south":@(south),@"north":@(north),@"west":@(west),@"east":@(east)};
 }
 - (void)poll {
@@ -132,7 +135,7 @@ static BOOL ContainsBounds(NSDictionary *outer,NSDictionary *inner) {
   NSDictionary *coverage=@{@"south":@([bounds[@"south"] doubleValue]-lat),@"north":@([bounds[@"north"] doubleValue]+lat),
     @"west":@([bounds[@"west"] doubleValue]-lng),@"east":@([bounds[@"east"] doubleValue]+lng)};
   self.requestedAt=NSDate.date;
-  self.context=@{@"requestId":NSUUID.UUID.UUIDString,@"bounds":coverage};
+  self.context=@{@"requestId":NSUUID.UUID.UUIDString,@"bounds":coverage,@"center":self.viewportCenter};
   if(self.onRequest)self.onRequest();
 }
 - (BOOL)applyResponse:(NSDictionary *)response {

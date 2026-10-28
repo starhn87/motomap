@@ -3,7 +3,7 @@ import { fetchGuidePlaces, fetchGuideFavorites } from '@/lib/api/guidePois';
 import { fetchNearbyGasStationsSnapshot } from '@/lib/api/gasStations';
 import { fetchGuideOrdinaryPois } from '@/lib/api/guideOrdinaryPois';
 import { GuidePoiData } from '@/lib/guidePoiData';
-import { mergeGuidePois, poiPriority, validPoiBounds, type GuidePoi } from '@/lib/guidePoiCatalog';
+import { insidePoiBounds, limitGuidePoiCandidates, mergeGuidePois, poiPriority, validPoiBounds, type GuidePoi } from '@/lib/guidePoiCatalog';
 import { haversine } from '@/lib/distance';
 import { listenGuideFavoritesChanged } from '@/lib/guidePoiChanges';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -57,10 +57,11 @@ export function registerGuidePoiEvents(open:OpenPoi):()=>void {
     let basePublished=false;
     try {
       if(!validPoiBounds(context.bounds))throw new Error('invalid_bounds');
-      const center={latitude:(context.bounds.south+context.bounds.north)/2,longitude:(context.bounds.west+context.bounds.east)/2};
+      const center=context.center && insidePoiBounds(context.center,context.bounds)?context.center:
+        {latitude:(context.bounds.south+context.bounds.north)/2,longitude:(context.bounds.west+context.bounds.east)/2};
       async function publish(result:Awaited<ReturnType<GuidePoiData['load']>>) {
         if(!live())return null;
-        const points=result.pois.sort((a,b)=>poiPriority(a)-poiPriority(b)||haversine(center,a)-haversine(center,b)).slice(0,60);
+        const points=limitGuidePoiCandidates(result.pois.sort((a,b)=>poiPriority(a)-poiPriority(b)||haversine(center,a)-haversine(center,b)));
         // 주소·서버 ID는 JS catalog에만 두고 표시용 최소 항목만 네이티브에 전달한다.
         const pois=points.map(({key,name,latitude,longitude,category,personal,favorite,brand,price,gasId})=>
           ({key,name:name.trim().slice(0,200),latitude,longitude,category,personal,favorite,brand,price,gasId}));
@@ -82,7 +83,7 @@ export function registerGuidePoiEvents(open:OpenPoi):()=>void {
           });
           return publication;
         }
-        const extras:Promise<unknown>[]=[fetchGuideOrdinaryPois(context.bounds,work.controller.signal).then(result=>{
+        const extras:Promise<unknown>[]=[fetchGuideOrdinaryPois(context.bounds,work.controller.signal,context.center).then(result=>{
           ordinary=result.pois;partial=partial||result.partial;
           if(ordinary.length || partial)return publishExtras();
         })];

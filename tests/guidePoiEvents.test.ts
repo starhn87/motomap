@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
-import { mergeGuidePois, poiPriority, validPoiBounds } from '../lib/guidePoiCatalog';
+import { insidePoiBounds, limitGuidePoiCandidates, mergeGuidePois, poiPriority, validPoiBounds } from '../lib/guidePoiCatalog';
+import { haversine } from '../lib/distance';
 
 function store<T>(initial:T) {
   let state=initial;const listeners=new Set<(state:T,previous:T)=>void>();
@@ -27,7 +28,7 @@ function setup(capability=true,gasAllowed=false,ordinaryPois:any[]=[] ) {
       clear(){clears++;}invalidateFavorites(){}
       load(...args:any[]){calls.push(args);return new Promise(resolve=>resolvers.push(resolve));}
     }},
-    '@/lib/guidePoiCatalog':{mergeGuidePois,poiPriority,validPoiBounds},'@/lib/distance':{haversine:()=>0},
+    '@/lib/guidePoiCatalog':{insidePoiBounds,limitGuidePoiCandidates,mergeGuidePois,poiPriority,validPoiBounds},'@/lib/distance':{haversine},
     '@/lib/guidePoiChanges':{listenGuideFavoritesChanged:(fn:any)=>{favoriteChange=fn;return ()=>{};}},
     '@/stores/useAuthStore':{useAuthStore:auth},'@/stores/useMyPlacesStore':{useMyPlacesStore:personal},
     '@/stores/useLocationPrivacyStore':{useLocationPrivacyStore:privacy,providerLocationAllowed:(recipient:string)=>allowed && (recipient!=='opinet'||gasAllowed)},
@@ -37,7 +38,7 @@ function setup(capability=true,gasAllowed=false,ordinaryPois:any[]=[] ) {
   const poi={key:'place:verified',placeId:'verified',name:'등록 장소',latitude:37.5,longitude:127};
   return {events,updates,opens,calls,auth,guide,privacy,cleanup,poi,get resets(){return resets;},get clears(){return clears;},
     favoriteChange:()=>favoriteChange(),setContext:(value:any)=>{context=value;},setSelection:(value:any)=>{selection=value;},setAccepted:(value:boolean)=>{accepted=value;},
-    revoke:()=>{allowed=false;privacy.set({revision:2});},resolve:(index=0)=>resolvers[index]({pois:[poi],expiresAt:Date.now()+60_000}),
+    revoke:()=>{allowed=false;privacy.set({revision:2});},resolve:(index=0,pois:any[]=[poi])=>resolvers[index]({pois,expiresAt:Date.now()+60_000}),
     flush:async()=>{for(let i=0;i<30;i++)await Promise.resolve();}};
 }
 test('새 capability가 없는 바이너리에는 자체 POI 요청·구독을 열지 않는다',()=>{
@@ -82,4 +83,14 @@ test('일반 장소는 느린 유가와 독립적으로 표시하고 등록·외
   f.setSelection({snapshotId:'first',key:point.key});f.events.onGuideMenu({id:111});await f.flush();
   assert.equal(f.opens[0].point.providerId,'ordinary');assert.equal(f.opens[0].point.placeId,undefined);
   f.resolve(1);await f.flush();assert.equal(f.updates.at(-1).pois.length,2);f.cleanup();
+});
+test('등록 장소가 밀집한3D 화면에서도 실제 화면 초점에 가까운 일반 장소를 먼저 보낸다',async()=>{
+  const ordinary=[...Array.from({length:30},(_,i)=>({key:`kakao:focus${i}`,name:'중앙 일반 장소',latitude:37.45+i*0.00001,longitude:127.04})),
+    ...Array.from({length:30},(_,i)=>({key:`kakao:far${i}`,name:'먼 일반 장소',latitude:37.47+i*0.00001,longitude:127.04}))];
+  const f=setup(true,false,ordinary);
+  f.setContext({requestId:'focus',bounds:{south:37.4,west:126.9,north:37.6,east:127.1},center:{latitude:37.45,longitude:127.04}});
+  f.events.onGuideMenu({id:110});await f.flush();
+  f.resolve(0,Array.from({length:80},(_,i)=>({...f.poi,key:`place:${i}`,placeId:String(i)})));await f.flush();
+  const selected=f.updates.at(-1).pois.filter((p:any)=>p.key.startsWith('kakao:'));
+  assert.equal(selected.length,16);assert(selected.every((p:any)=>p.key.startsWith('kakao:focus')));f.cleanup();
 });

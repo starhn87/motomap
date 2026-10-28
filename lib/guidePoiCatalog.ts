@@ -34,6 +34,22 @@ export function paddedPoiBounds(b: PoiBounds): PoiBounds {
 }
 export const poiPriority = (p: GuidePoi) => p.personal ? 0 : p.favorite ? 1 : p.gasId ? 2 : p.placeId ? 3 : 4;
 
+// 개인 표시는 우선하고 등록 장소가 많아도 일반 장소 후보를 모두 잘라내지 않는다.
+export function limitGuidePoiCandidates(sorted:GuidePoi[],limit=60):GuidePoi[] {
+  const personal=sorted.filter(p=>p.personal||p.favorite).slice(0,limit),room=limit-personal.length;
+  const primary=sorted.filter(p=>!p.personal&&!p.favorite&&(p.placeId||p.gasId));
+  const ordinary=sorted.filter(p=>!p.personal&&!p.favorite&&!p.placeId&&!p.gasId);
+  const reserved=Math.min(16,ordinary.length,Math.floor(room/3));
+  const main=primary.slice(0,room-reserved),other=ordinary.slice(0,room-main.length);
+  const mixed:GuidePoi[]=[];
+  // 네이티브의 가시 개수 제한 전에도 두 종류가 섞여 있도록 가까운 순서끼리 배치한다.
+  for(let i=0,j=0;i<main.length||j<other.length;) {
+    for(let n=0;n<3&&i<main.length;n++)mixed.push(main[i++]);
+    if(j<other.length)mixed.push(other[j++]);
+  }
+  return [...personal,...mixed];
+}
+
 // 같은 ID만 통합한다. 가깝다는 이유로 다른 점포의 가격이나 등록 ID를 옮기지 않는다.
 export function mergeGuidePois(rows: GuidePoi[], bounds: PoiBounds): GuidePoi[] {
   const result: GuidePoi[]=[];

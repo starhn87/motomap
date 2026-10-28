@@ -104,7 +104,7 @@ type GuideEventPayload = {
 
 interface KakaoNaviModule {
   setGuideOwnedPoiEnabled(enabled:boolean):Promise<void>;
-  getGuidePoiContext():Promise<{requestId:string;bounds:{south:number;west:number;north:number;east:number}}|null>;
+  getGuidePoiContext():Promise<{requestId:string;bounds:{south:number;west:number;north:number;east:number};center?:{latitude:number;longitude:number}}|null>;
   takeGuidePoiSelection():Promise<{key:string;snapshotId:string}|null>;
   updateGuidePoiSnapshot(json:string):Promise<boolean>;
   resetGuidePoiSnapshot():Promise<void>;

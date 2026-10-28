@@ -61,11 +61,11 @@
 + (UIImage *)imageForPoi:(NSDictionary *)poi {
   if ([poi[@"price"] doubleValue]>0) return [self priceImage:poi];
   NSString *name=poi[@"name"]?:@"";
-  UIFont *font=[UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
+  UIFont *font=[UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
   NSMutableParagraphStyle *paragraph=[NSMutableParagraphStyle new];
   paragraph.alignment=NSTextAlignmentCenter;paragraph.lineBreakMode=NSLineBreakByWordWrapping;
-  NSDictionary *attributes=@{NSFontAttributeName:font,NSForegroundColorAttributeName:[UIColor colorWithWhite:0.1 alpha:1],
-    NSStrokeColorAttributeName:UIColor.whiteColor,NSStrokeWidthAttributeName:@-4,NSParagraphStyleAttributeName:paragraph};
+  NSDictionary *attributes=@{NSFontAttributeName:font,NSForegroundColorAttributeName:UIColor.blackColor,
+    NSStrokeColorAttributeName:UIColor.whiteColor,NSStrokeWidthAttributeName:@-2,NSParagraphStyleAttributeName:paragraph};
   CGFloat textWidth=MIN(108,MAX(30,ceil([name sizeWithAttributes:@{NSFontAttributeName:font}].width)));
   CGRect measured=[name boundingRectWithSize:CGSizeMake(textWidth,CGFLOAT_MAX) options:NSStringDrawingUsesLineFragmentOrigin|NSStringDrawingUsesFontLeading attributes:attributes context:nil];
   CGFloat textHeight=MIN(ceil(font.lineHeight*2),MAX(ceil(font.lineHeight),ceil(measured.size.height)));

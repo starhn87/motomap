@@ -1,6 +1,5 @@
 import { providerLocationAllowed, withCoordinateUse } from '@/stores/useLocationPrivacyStore';
 import { ProviderError, providerHttpError, rememberProviderFailure, requireProviderAvailable } from '@/lib/providerErrors';
-import { haversine } from '@/lib/distance';
 import { insidePoiBounds, validPoiBounds, type GuidePoi, type PoiBounds } from '@/lib/guidePoiCatalog';
 
 // 일반 장소는 추천 등록 장소와 구분해 중립 아이콘으로 표시한다. 전체 카탈로그가 아닌 상위 결과다.
@@ -8,11 +7,14 @@ export const GUIDE_ORDINARY_CATEGORIES=['CE7','FD6','CS2','PK6','OL7','AT4'] as 
 const REST_KEY=process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY;
 
 // 공급자 결과를 디스크/서버/영역 캐시에 저장하지 않는다. 현재 화면에 표시할 응답만 반환한다.
-export async function fetchGuideOrdinaryPois(bounds:PoiBounds,signal:AbortSignal):Promise<{pois:GuidePoi[];partial:boolean}> {
+export async function fetchGuideOrdinaryPois(bounds:PoiBounds,signal:AbortSignal,focus?:{latitude:number;longitude:number}):Promise<{pois:GuidePoi[];partial:boolean}> {
   if(!validPoiBounds(bounds))throw new ProviderError('kakao-local','search','invalid_request');
   if(!providerLocationAllowed('kakao') || signal.aborted)throw new ProviderError('kakao-local','search','cancelled');
-  const center={latitude:(bounds.south+bounds.north)/2,longitude:(bounds.west+bounds.east)/2};
-  if(haversine(center,{latitude:bounds.north,longitude:bounds.east})>3000)return {pois:[],partial:false};
+  const center=focus && insidePoiBounds(focus,bounds)?focus:{latitude:(bounds.south+bounds.north)/2,longitude:(bounds.west+bounds.east)/2};
+  // 축소/3D의 먼 모서리 때문에 전체 조회를 건너뛰지 않고 중심 주변 약3km 안으로 제한한다.
+  const halfLat=3000/Math.SQRT2/111_320,halfLng=halfLat/Math.max(0.1,Math.cos(center.latitude*Math.PI/180));
+  const searchBounds={south:Math.max(bounds.south,center.latitude-halfLat),north:Math.min(bounds.north,center.latitude+halfLat),
+    west:Math.max(bounds.west,center.longitude-halfLng),east:Math.min(bounds.east,center.longitude+halfLng)};
   if(!REST_KEY)throw new ProviderError('kakao-local','search','configuration');
   const controller=new AbortController(),abort=()=>controller.abort();
   signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();
@@ -23,7 +25,7 @@ export async function fetchGuideOrdinaryPois(bounds:PoiBounds,signal:AbortSignal
       const category=GUIDE_ORDINARY_CATEGORIES[cursor++];
       try {
         requireProviderAvailable('kakao-local');
-        const params=new URLSearchParams({category_group_code:category,rect:[bounds.west,bounds.south,bounds.east,bounds.north].join(','),
+        const params=new URLSearchParams({category_group_code:category,rect:[searchBounds.west,searchBounds.south,searchBounds.east,searchBounds.north].join(','),
           x:String(center.longitude),y:String(center.latitude),sort:'distance',size:'15',page:'1'});
         const response=await withCoordinateUse(center,'search','kakao',()=>fetch(`https://dapi.kakao.com/v2/local/search/category.json?${params}`,{
           headers:{Authorization:`KakaoAK ${REST_KEY}`},signal:controller.signal,
@@ -40,7 +42,7 @@ export async function fetchGuideOrdinaryPois(bounds:PoiBounds,signal:AbortSignal
             (row.address_name!=null && typeof row.address_name!=='string') || (row.road_address_name!=null && typeof row.road_address_name!=='string'))
             throw new ProviderError('kakao-local','search','invalid_response');
           const point={latitude:Number(row.y),longitude:Number(row.x)};
-          if(!insidePoiBounds(point,bounds))continue;
+          if(!insidePoiBounds(point,searchBounds))continue;
           rows.push({...point,key:`kakao:${row.id}`,providerId:row.id,name:row.place_name.trim().slice(0,200),address:row.road_address_name||row.address_name||''});
         }
         pois.push(...rows);

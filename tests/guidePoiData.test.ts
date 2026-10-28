@@ -1,13 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { GuidePoiData } from '../lib/guidePoiData';
-import { mergeGuidePois, GuidePoiRegionCache } from '../lib/guidePoiCatalog';
+import { limitGuidePoiCandidates, mergeGuidePois, GuidePoiRegionCache } from '../lib/guidePoiCatalog';
 import type { GuidePoi } from '../lib/guidePoiCatalog';
 import { loadModule } from './helpers/loadModule';
 
 const bounds={south:37.499,west:126.999,north:37.501,east:127.001};
 const point={latitude:37.5,longitude:127};
 const registered:GuidePoi={...point,key:'place:a',placeId:'a',name:'카페',providerId:'10',category:'cafe'};
+test('등록 장소가60개를 넘더라도 개인 표시를 보존하고 일반 장소 후보도 섞는다',()=>{
+  const personal={...point,key:'personal:home',personal:'home' as const,name:'집'};
+  const rows=[personal,...Array.from({length:80},(_,i)=>({...registered,key:`place:${i}`,placeId:String(i)})),
+    ...Array.from({length:30},(_,i)=>({...point,key:`kakao:${i}`,name:'일반 장소'}))];
+  const selected=limitGuidePoiCandidates(rows);
+  assert.equal(selected.length,60);assert.equal(selected[0].key,personal.key);
+  assert(selected.some(p=>p.key.startsWith('kakao:')));
+  assert(selected.slice(0,30).some(p=>p.key.startsWith('kakao:')));
+});
 function setup() {
   let now=1_000_000,places=0,favorites=0,gas=0;
   const service=new GuidePoiData({now:()=>now,
