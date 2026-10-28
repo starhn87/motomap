@@ -13,8 +13,8 @@ Deno.serve(createTmapPoiHandler({
       p_payload: { expectedActor: actor, clientCapabilities: ['tmap'] } });
     return !error && data?.status === 'active' && data.version === '2026-10-11-location-v2' && Array.isArray(data.providers) && data.providers.includes('tmap');
   },
-  claim: async (lat, lon) => {
-    const { data, error } = await admin.rpc('claim_tmap_poi_refresh', { p_lat: lat, p_lon: lon });
+  claim: async (lat, lon, coverageKm) => {
+    const { data, error } = await admin.rpc('claim_tmap_poi_refresh', { p_lat: lat, p_lon: lon, p_coverage_km: coverageKm });
     if (error || !data) throw new Error('cache_unavailable');
     return data as TmapClaim;
   },

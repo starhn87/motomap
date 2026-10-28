@@ -2,10 +2,10 @@ import { providerLocationAllowed, withCoordinateUse, useLocationPrivacyStore } f
 import { supabase } from '@/lib/supabase';
 import { ProviderError, edgeProviderError, rememberProviderFailure, requireProviderAvailable } from '@/lib/providerErrors';
 import { insidePoiBounds, validPoiBounds, type GuidePoi, type PoiBounds } from '@/lib/guidePoiCatalog';
-import { tmapCell, TMAP_INDUSTRIES, TMAP_DEVICE_TTL, TMAP_SERVER_TTL, validTmapCell } from '../../supabase/functions/_shared/tmapPoi';
+import { tmapCell, TMAP_INDUSTRIES, TMAP_DEVICE_TTL, TMAP_SERVER_TTL, validTmapCell, tmapCoverageRadius, tmapCoversBounds, tmapCellCenter, tmapDistance, type TmapCell } from '../../supabase/functions/_shared/tmapPoi';
 
 // 공급자 원본 만료를 공유하는 세션 메모리 캐시. 로그아웃·동의 변경 때 비운다.
-const cache = new Map<string, { pois: GuidePoi[]; expiresAt: number; partial: boolean }>();
+const cache = new Map<string, { pois: GuidePoi[]; expiresAt: number; partial: boolean; sourceCell: TmapCell; coverageComplete: boolean }>();
 export function clearGuideOrdinaryPoiCache() { cache.clear(); }
 export async function fetchGuideOrdinaryPois(bounds: PoiBounds, signal: AbortSignal, focus?: { latitude: number; longitude: number }): Promise<{ pois: GuidePoi[]; partial: boolean; expiresAt: number }> {
   if (!validPoiBounds(bounds)) throw new ProviderError('tmap-poi', 'search', 'invalid_request');
@@ -20,16 +20,20 @@ export async function fetchGuideOrdinaryPois(bounds: PoiBounds, signal: AbortSig
   const searchBounds = { south: Math.max(bounds.south, center.latitude - halfLat), north: Math.min(bounds.north, center.latitude + halfLat),
     west: Math.max(bounds.west, center.longitude - halfLon), east: Math.min(bounds.east, center.longitude + halfLon) };
   const result = (entry: { pois: GuidePoi[]; partial: boolean; expiresAt: number }) => ({ pois: entry.pois.filter(p => insidePoiBounds(p, searchBounds)), partial: entry.partial, expiresAt: entry.expiresAt });
-  const cached = cache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return result(cached);
-  cache.delete(key);
+  // 매 이동마다 원본5km의 네 모서리 포함 여부를 확인한다. 요청 격자 이름으로 재저장하지 않는다.
+  for (const [id, entry] of cache) if (entry.expiresAt <= Date.now()) cache.delete(id);
+  const cached = [...cache.values()].filter(entry => (entry.coverageComplete || `${entry.sourceCell.lat}:${entry.sourceCell.lon}` === key) && tmapCoversBounds(entry.sourceCell, searchBounds))
+    .sort((a, b) => tmapDistance(tmapCellCenter(a.sourceCell), center) - tmapDistance(tmapCellCenter(b.sourceCell), center))[0];
+  if (cached) return result(cached);
+  // 실제 화면 좌표 대신 격자 중심에서 필요한 반경만1km 단위로 올려 서버에 보낸다.
+  const coverageKm = Math.max(1, Math.ceil(tmapCoverageRadius(cell, searchBounds) / 1000));
   const controller = new AbortController(), abort = () => controller.abort();
   signal.addEventListener('abort', abort, { once: true }); if (signal.aborted) abort();
   const timer = setTimeout(abort, 16_000);
   try {
     requireProviderAvailable('tmap-poi');
     const { data, error } = await withCoordinateUse(center, 'search', 'tmap', () => supabase.functions.invoke('tmap-poi-search', {
-      body: { ...cell, secret: state.secret, actor }, signal: controller.signal,
+      body: { ...cell, coverageKm, secret: state.secret, actor }, signal: controller.signal,
     }));
     if (!current()) throw new ProviderError('tmap-poi', 'search', 'cancelled');
     if (controller.signal.aborted) throw new ProviderError('tmap-poi', 'search', 'timeout');
@@ -40,7 +44,8 @@ export async function fetchGuideOrdinaryPois(bounds: PoiBounds, signal: AbortSig
       throw edgeProviderError('tmap-poi', 'search', error);
     }
     const now = Date.now();
-    if (!data || !Array.isArray(data.pois) || data.pois.length > 1800 || typeof data.partial !== 'boolean' ||
+    if (!data || !data.sourceCell || !validTmapCell(data.sourceCell) ||
+      ((data.sourceCell.lat !== cell.lat || data.sourceCell.lon !== cell.lon) && (data.coverageComplete !== true || data.partial !== false)) || !tmapCoversBounds(data.sourceCell, searchBounds) || !Array.isArray(data.pois) || data.pois.length > 1800 || typeof data.partial !== 'boolean' ||
       !Number.isFinite(data.fetchedAt) || !Number.isFinite(data.expiresAt) || data.fetchedAt > now + 60_000 ||
       data.expiresAt <= now || data.expiresAt <= data.fetchedAt || data.expiresAt - data.fetchedAt > TMAP_SERVER_TTL) throw new ProviderError('tmap-poi', 'search', 'invalid_response');
     const pois: GuidePoi[] = data.pois.map((row: Record<string, unknown>) => {
@@ -50,9 +55,9 @@ export async function fetchGuideOrdinaryPois(bounds: PoiBounds, signal: AbortSig
       return { key: `tmap:${row.id}`, provider: 'tmap', providerId: row.id, name: row.name.trim(), address: row.address,
         latitude: Number(row.latitude), longitude: Number(row.longitude), industry: row.industry as GuidePoi['industry'] };
     });
-    const entry = { pois, partial: data.partial, expiresAt: Math.min(data.expiresAt, now + TMAP_DEVICE_TTL) };
+    const entry = { pois, coverageComplete: data.coverageComplete === true && !data.partial, sourceCell: data.sourceCell as TmapCell, partial: data.partial, expiresAt: Math.min(data.expiresAt, now + TMAP_DEVICE_TTL) };
     if (!current()) throw new ProviderError('tmap-poi', 'search', 'cancelled');
-    cache.set(key, entry);
+    cache.set(`${entry.sourceCell.lat}:${entry.sourceCell.lon}`, entry);
     while (cache.size > 12) cache.delete(cache.keys().next().value!);
     return result(entry);
   } catch (error) {

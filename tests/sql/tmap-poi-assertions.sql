@@ -31,7 +31,7 @@ do $$declare v jsonb; begin
 end $$;
 reset role;
 do $$begin
- if has_function_privilege('anon','public.claim_tmap_poi_refresh(integer,integer)','EXECUTE') or
+ if has_function_privilege('anon','public.claim_tmap_poi_refresh(integer,integer,integer)','EXECUTE') or
  has_function_privilege('authenticated','public.finish_tmap_poi_refresh(integer,integer,uuid,jsonb)','EXECUTE') or
  has_table_privilege('authenticated','public.tmap_poi_cache','SELECT') then raise exception 'public cache privilege'; end if;
 end $$;
@@ -42,15 +42,15 @@ do $$declare a jsonb; b jsonb; expiry numeric; begin
  b:=public.claim_tmap_poi_refresh(1875,6350);
  if b->>'state'<>'busy' then raise exception 'not single flight'; end if;
  begin
-   perform public.finish_tmap_poi_refresh(1875,6350,gen_random_uuid(),jsonb_build_object('pois','[]'::jsonb,'fetchedAt',a->'fetchedAt','expiresAt',(a->>'fetchedAt')::numeric+10000,'partial',false));
+   perform public.finish_tmap_poi_refresh(1875,6350,gen_random_uuid(),jsonb_build_object('pois','[]'::jsonb,'fetchedAt',a->'fetchedAt','expiresAt',(a->>'fetchedAt')::numeric+10000,'partial',false,'coverageComplete',true));
    raise exception 'stale writer accepted';
  exception when others then if sqlerrm='stale writer accepted' then raise; end if; end;
  begin
-   perform public.finish_tmap_poi_refresh(1875,6350,(a->>'token')::uuid,jsonb_build_object('pois','[]'::jsonb,'fetchedAt',a->'fetchedAt','expiresAt',(a->>'fetchedAt')::numeric+86400000,'partial',false));
+   perform public.finish_tmap_poi_refresh(1875,6350,(a->>'token')::uuid,jsonb_build_object('pois','[]'::jsonb,'fetchedAt',a->'fetchedAt','expiresAt',(a->>'fetchedAt')::numeric+86400000,'partial',false,'coverageComplete',true));
    raise exception '24 hour cache accepted';
  exception when others then if sqlerrm='24 hour cache accepted' then raise; end if; end;
  expiry:=(a->>'fetchedAt')::numeric+82800000;
- perform public.finish_tmap_poi_refresh(1875,6350,(a->>'token')::uuid,jsonb_build_object('pois','[]'::jsonb,'fetchedAt',a->'fetchedAt','expiresAt',expiry,'partial',false));
+ perform public.finish_tmap_poi_refresh(1875,6350,(a->>'token')::uuid,jsonb_build_object('pois','[]'::jsonb,'fetchedAt',a->'fetchedAt','expiresAt',expiry,'partial',false,'coverageComplete',true));
  update public.tmap_poi_daily_budget set calls=19997;
  b:=public.claim_tmap_poi_refresh(1875,6350);
  if b->>'state'<>'hit' or (b->'snapshot'->>'expiresAt')::numeric<>expiry then raise exception 'hit renews expiry or consumes budget'; end if;
@@ -61,5 +61,38 @@ do $$declare a jsonb; b jsonb; expiry numeric; begin
  if b->>'state'<>'claimed' or (select calls from public.tmap_poi_daily_budget limit 1)<>20000 then raise exception 'free limit not fully available'; end if;
  b:=public.claim_tmap_poi_refresh(1878,6350);
  if b->>'state'<>'limited' then raise exception '20000 cap bypass'; end if;
+end $$;
+reset role;
+
+set role service_role;
+truncate public.tmap_poi_cache,public.tmap_poi_daily_budget;
+do $$declare a jsonb; b jsonb; n integer; begin
+ a:=public.claim_tmap_poi_refresh(1875,6350);
+ perform public.finish_tmap_poi_refresh(1875,6350,(a->>'token')::uuid,jsonb_build_object('pois','[]'::jsonb,'fetchedAt',a->'fetchedAt','expiresAt',(a->>'fetchedAt')::numeric+82800000,'partial',false,'coverageComplete',true));
+ select calls into n from public.tmap_poi_daily_budget limit 1;
+ b:=public.claim_tmap_poi_refresh(1875,6351,2);
+ if b->>'state'<>'hit' or b->'snapshot'->'sourceCell'<> '{"lat":1875,"lon":6350}'::jsonb then raise exception 'neighbor source not reused'; end if;
+ if (select calls from public.tmap_poi_daily_budget limit 1)<>n then raise exception 'neighbor hit used budget'; end if;
+ if exists(select 1 from public.tmap_poi_cache where cell_lon=6351) then raise exception 'neighbor snapshot copied and TTL renewed'; end if;
+ b:=public.claim_tmap_poi_refresh(1875,6352,2);
+ if b->>'state'<>'claimed' then raise exception 'unsafe coverage reused'; end if;
+ perform public.finish_tmap_poi_refresh(1875,6352,(b->>'token')::uuid,jsonb_build_object('pois','[]'::jsonb,'fetchedAt',b->'fetchedAt','expiresAt',(b->>'fetchedAt')::numeric+60000,'partial',true));
+ b:=public.claim_tmap_poi_refresh(1875,6353,2);
+ if b->>'state'<>'claimed' then raise exception 'partial neighbor reused'; end if;
+ update public.tmap_poi_cache set expires_at=clock_timestamp()-interval '1 second' where cell_lon=6350;
+ b:=public.claim_tmap_poi_refresh(1875,6351,2);
+ if b->>'state'<>'claimed' then raise exception 'expired neighbor reused'; end if;
+end $$;
+reset role;
+
+set role service_role;
+truncate public.tmap_poi_cache,public.tmap_poi_daily_budget;
+do $$declare a jsonb; b jsonb; begin
+ a:=public.claim_tmap_poi_refresh(1875,6350);
+ perform public.finish_tmap_poi_refresh(1875,6350,(a->>'token')::uuid,jsonb_build_object('pois','[]'::jsonb,'fetchedAt',a->'fetchedAt','expiresAt',(a->>'fetchedAt')::numeric+82800000,'partial',false,'coverageComplete',false));
+ b:=public.claim_tmap_poi_refresh(1875,6350,2);
+ if b->>'state'<>'hit' then raise exception 'truncated exact cache not reused'; end if;
+ b:=public.claim_tmap_poi_refresh(1875,6351,2);
+ if b->>'state'<>'claimed' then raise exception 'truncated neighbor incorrectly reused'; end if;
 end $$;
 reset role;

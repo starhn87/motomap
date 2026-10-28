@@ -5,7 +5,7 @@ import { insidePoiBounds, validPoiBounds, mergeGuidePois } from '../lib/guidePoi
 import * as tmap from '../supabase/functions/_shared/tmapPoi';
 import * as errors from '../lib/providerErrors';
 const bounds = { south: 37.499, west: 126.999, north: 37.501, east: 127.001 };
-function setup(options: { allowed?: boolean; bad?: boolean; error?: boolean; expiry?: number } = {}) {
+function setup(options: { allowed?: boolean; bad?: boolean; error?: boolean; expiry?: number; sourceCell?: tmap.TmapCell; partial?: boolean; coverageComplete?: boolean } = {}) {
   const requests: any[] = [], recipients: string[] = [];
   const state = { revision: 1, actor: 'actor', secret: 'a'.repeat(64) };
   const api = loadModule<typeof import('../lib/api/guideOrdinaryPois')>('lib/api/guideOrdinaryPois.ts', {
@@ -15,7 +15,7 @@ function setup(options: { allowed?: boolean; bad?: boolean; error?: boolean; exp
     '@/lib/supabase': { supabase: { functions: { invoke: async (name: string, options2: any) => {
       requests.push({ name, ...options2 });
       if (options.error) return { error: { context: new Response(JSON.stringify({ kind: 'rate_limited' }), { status: 429 }) } };
-      return { data: { fetchedAt: Date.now() - 1000, expiresAt: options.expiry ?? Date.now() + tmap.TMAP_SERVER_TTL - 1000, partial: false,
+      return { data: { fetchedAt: Date.now() - 1000, expiresAt: options.expiry ?? Date.now() + tmap.TMAP_SERVER_TTL - 1000, partial: options.partial ?? false, coverageComplete: options.coverageComplete ?? true, sourceCell: options.sourceCell ?? {lat:options2.body.lat,lon:options2.body.lon},
         pois: [{ id: '1', name: '일반 장소', address: '도로명', latitude: options.bad ? NaN : 37.5, longitude: 127, industry: 'pharmacy' }] } };
     } } } },
   }, { AbortController, Response });
@@ -68,4 +68,39 @@ test('동일 숫자 ID의 카카오 등록 장소와 TMAP 장소를 같은 장�
     {key:'tmap:1',provider:'tmap',providerId:'1',industry:'pharmacy',name:'티맵 장소',latitude:37.5,longitude:127},
   ],bounds);
   assert.equal(rows.length,2);assert.equal(rows[1].placeId,undefined);
+});
+
+test('인접 격자에서도 원본5km가 화면을 덮으면 기기 캐시를 재사용하고 만료를 연장하지 않는다',async()=>{
+  const expiry=Date.now()+5000,f=setup({expiry});
+  await f.api.fetchGuideOrdinaryPois(bounds,new AbortController().signal);
+  const shifted={...bounds,west:127.020,east:127.022};
+  const result=await f.api.fetchGuideOrdinaryPois(shifted,new AbortController().signal);
+  assert.equal(f.requests.length,1);assert.equal(result.expiresAt,expiry);
+  assert.equal(f.requests[0].body.coverageKm,2);
+});
+test('이동·줌으로 원본 검색 범위를 벗어나면 캐시를 현재 격자 것으로 오인하지 않고 새로 조회한다',async()=>{
+  const f=setup();await f.api.fetchGuideOrdinaryPois(bounds,new AbortController().signal);
+  await f.api.fetchGuideOrdinaryPois({...bounds,west:127.020,east:127.022},new AbortController().signal);
+  assert.equal(f.requests.length,1);
+  await f.api.fetchGuideOrdinaryPois({south:37.45,north:37.55,west:127,east:127.08},new AbortController().signal,{latitude:37.5,longitude:127.041});
+  assert.equal(f.requests.length,2);assert.equal(f.requests[1].body.lon,6352);
+});
+test('서버 인접 캐시의 원본 격자를 보존하며 다른 화면으로 이동할 때 다시 범위를 검사한다',async()=>{
+  const f=setup({sourceCell:{lat:1875,lon:6350}});
+  await f.api.fetchGuideOrdinaryPois({...bounds,west:127.020,east:127.022},new AbortController().signal);
+  await f.api.fetchGuideOrdinaryPois(bounds,new AbortController().signal);
+  assert.equal(f.requests.length,1);
+  await assert.rejects(f.api.fetchGuideOrdinaryPois({...bounds,west:127.079,east:127.081},new AbortController().signal));
+  assert.equal(f.requests.length,2,'안전 범위 밖의 서버 결과도 거부한다');
+});
+test('부분 실패 캐시는 인접 격자에 전파하지 않는다',async()=>{
+  const f=setup({partial:true});await f.api.fetchGuideOrdinaryPois(bounds,new AbortController().signal);
+  await f.api.fetchGuideOrdinaryPois({...bounds,west:127.020,east:127.022},new AbortController().signal);
+  assert.equal(f.requests.length,2);
+});
+
+test('정상 응답이어도 상위100개에서 잘린 결과는 인접 격자 캐시로 쓰지 않는다',async()=>{
+  const f=setup({coverageComplete:false});await f.api.fetchGuideOrdinaryPois(bounds,new AbortController().signal);
+  await f.api.fetchGuideOrdinaryPois(bounds,new AbortController().signal);assert.equal(f.requests.length,1,'원래 격자에서는 정상 TTL 재사용');
+  await f.api.fetchGuideOrdinaryPois({...bounds,west:127.020,east:127.022},new AbortController().signal);assert.equal(f.requests.length,2);
 });

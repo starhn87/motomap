@@ -34,6 +34,22 @@ export function tmapCell(point: { latitude: number; longitude: number }) {
 export function validTmapCell(cell: { lat: number; lon: number }) {
   return Number.isInteger(cell.lat) && Number.isInteger(cell.lon) && cell.lat >= 1600 && cell.lat < 1950 && cell.lon >= 6200 && cell.lon < 6600;
 }
+export interface TmapCell { lat: number; lon: number }
+export function tmapCellCenter(cell: TmapCell) {
+  return { latitude: (cell.lat + .5) / 50, longitude: (cell.lon + .5) / 50 };
+}
+export function tmapDistance(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) {
+  const rad = Math.PI / 180;
+  const h = Math.sin((a.latitude - b.latitude) * rad / 2) ** 2 + Math.cos(a.latitude * rad) * Math.cos(b.latitude * rad) * Math.sin((a.longitude - b.longitude) * rad / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+export function tmapCoverageRadius(cell: TmapCell, bounds: { south: number; west: number; north: number; east: number }) {
+  const center = tmapCellCenter(cell);
+  return Math.max(...[bounds.south, bounds.north].flatMap(latitude => [bounds.west, bounds.east].map(longitude => tmapDistance(center, { latitude, longitude }))));
+}
+export function tmapCoversBounds(cell: TmapCell, bounds: { south: number; west: number; north: number; east: number }) {
+  return validTmapCell(cell) && tmapCoverageRadius(cell, bounds) <= 5000;
+}
 function text(value: unknown, max = 200): string {
   if (value == null) return '';
   if (typeof value !== 'string' || value.length > max || [...value].some(c => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127)) throw new Error('invalid_response');

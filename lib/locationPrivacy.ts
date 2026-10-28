@@ -48,7 +48,7 @@ export function requiresLocationProvisionNotice(purpose: LocationPurpose, recipi
 export const LOCATION_PROVIDERS = ['kakao', 'kma', 'airkorea', 'opinet', 'anthropic', 'tmap'] as const;
 export const LOCATION_PROVIDER_DETAILS = {
   kakao: '주변 검색·주소 확인·경로/길안내: 기준 좌표·출발지·경유지·도착지',
-  tmap: '길안내 지도 주변 장소: 약2km 격자의 검색 기준 위치(선택 동의, 기본 꺼짐)',
+  tmap: '길안내 지도 주변 장소: 약2km 격자의 검색 기준 위치·지도 표시 반경(1km 단위, 선택 동의, 기본 꺼짐)',
   kma: '날씨: 조회 지점의 격자 위치',
   airkorea: '미세먼지: 조회 지점의 TM 좌표(카카오 좌표 변환도 필요)',
   opinet: '주변 유가: 조회 기준 좌표',

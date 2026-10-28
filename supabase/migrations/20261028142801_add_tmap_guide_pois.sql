@@ -161,18 +161,33 @@ grant all on public.tmap_poi_daily_budget to service_role;
 
 -- 격자별 lease로 여러 서버/사용자의 동시 미스를 합친다. 호출 전18회를 예약한다.
 -- 무료20,000건을 상한으로 하며 실패/중단 예약은 보수적으로 돌려주지 않는다.
-create function public.claim_tmap_poi_refresh(p_lat integer,p_lon integer)
+create function public.claim_tmap_poi_refresh(p_lat integer,p_lon integer,p_coverage_km integer default 5)
 returns jsonb language plpgsql security invoker set search_path='' as $$
 declare
   v_row public.tmap_poi_cache%rowtype;
   v_token uuid;
   v_count integer;
+  v_near public.tmap_poi_cache%rowtype;
 begin
+  if p_coverage_km is null or p_coverage_km<1 or p_coverage_km>5 then raise exception 'invalid coverage'; end if;
   if p_lat is null or p_lon is null or p_lat<1600 or p_lat>=1950 or p_lon<6200 or p_lon>=6600 then raise exception 'invalid cell'; end if;
+  -- 인접 원본5km가 필요한 범위의 원을 덮을 때 새 예약·다른 셀 복제 없이 반환한다.
+  select * into v_near from public.tmap_poi_cache c
+  where c.cell_lat between p_lat-2 and p_lat+2 and c.cell_lon between p_lon-2 and p_lon+2
+    and c.expires_at>clock_timestamp() and c.snapshot is not null and c.snapshot->'partial'='false'::jsonb and c.snapshot->'coverageComplete'='true'::jsonb
+    and 2*6371000*asin(least(1,sqrt(
+      power(sin(radians((c.cell_lat-p_lat)/50.0)/2),2)
+      +cos(radians((c.cell_lat+.5)/50.0))*cos(radians((p_lat+.5)/50.0))*power(sin(radians((c.cell_lon-p_lon)/50.0)/2),2)
+    ))) <= 5000-p_coverage_km*1000
+  order by power(c.cell_lat-p_lat,2)+power((c.cell_lon-p_lon)*cos(radians((p_lat+.5)/50.0)),2),c.expires_at desc,c.cell_lat,c.cell_lon
+  limit 1;
+  if found then
+    return jsonb_build_object('state','hit','snapshot',v_near.snapshot || jsonb_build_object('sourceCell',jsonb_build_object('lat',v_near.cell_lat,'lon',v_near.cell_lon)));
+  end if;
   insert into public.tmap_poi_cache(cell_lat,cell_lon) values(p_lat,p_lon) on conflict do nothing;
   select * into v_row from public.tmap_poi_cache where cell_lat=p_lat and cell_lon=p_lon for update;
   if v_row.expires_at>clock_timestamp() and v_row.snapshot is not null then
-    return jsonb_build_object('state','hit','snapshot',v_row.snapshot);
+    return jsonb_build_object('state','hit','snapshot',v_row.snapshot || jsonb_build_object('sourceCell',jsonb_build_object('lat',v_row.cell_lat,'lon',v_row.cell_lon)));
   end if;
   if v_row.lease_at>clock_timestamp()-interval '30 seconds' then return jsonb_build_object('state','busy'); end if;
   insert into public.tmap_poi_daily_budget(day,calls) values((now() at time zone 'Asia/Seoul')::date,18)
@@ -192,8 +207,8 @@ begin
   delete from public.tmap_poi_daily_budget where day<(now() at time zone 'Asia/Seoul')::date-2;
   return jsonb_build_object('state','claimed','token',v_token,'fetchedAt',floor(extract(epoch from v_row.lease_at)*1000));
 end $$;
-revoke all on function public.claim_tmap_poi_refresh(integer,integer) from public,anon,authenticated;
-grant execute on function public.claim_tmap_poi_refresh(integer,integer) to service_role;
+revoke all on function public.claim_tmap_poi_refresh(integer,integer,integer) from public,anon,authenticated;
+grant execute on function public.claim_tmap_poi_refresh(integer,integer,integer) to service_role;
 
 create function public.finish_tmap_poi_refresh(p_lat integer,p_lon integer,p_token uuid,p_snapshot jsonb)
 returns void language plpgsql security invoker set search_path='' as $$
