@@ -1,7 +1,7 @@
 import KakaoNavi, { supportsKakaoNaviFeature } from '@/modules/kakao-navi';
 import { fetchGuidePlaces, fetchGuideFavorites } from '@/lib/api/guidePois';
 import { fetchNearbyGasStationsSnapshot } from '@/lib/api/gasStations';
-import { fetchGuideOrdinaryPois } from '@/lib/api/guideOrdinaryPois';
+import { fetchGuideOrdinaryPois, clearGuideOrdinaryPoiCache } from '@/lib/api/guideOrdinaryPois';
 import { GuidePoiData } from '@/lib/guidePoiData';
 import { insidePoiBounds, limitGuidePoiCandidates, mergeGuidePois, poiPriority, validPoiBounds, type GuidePoi } from '@/lib/guidePoiCatalog';
 import { haversine } from '@/lib/distance';
@@ -34,7 +34,7 @@ export function registerGuidePoiEvents(open:OpenPoi):()=>void {
       if(session.preview){cancel();catalog=null;}
       return;
     }
-    cancel();catalog=null;scope?.data.clear();scope=null;
+    cancel();catalog=null;scope?.data.clear();clearGuideOrdinaryPoiCache();scope=null;
     void KakaoNavi.resetGuidePoiSnapshot().catch(()=>{});
     if(!visit || !providerLocationAllowed('kakao'))return;
     scope={actor,revision:privacy.revision,visit,data:new GuidePoiData({
@@ -63,8 +63,8 @@ export function registerGuidePoiEvents(open:OpenPoi):()=>void {
         if(!live())return null;
         const points=limitGuidePoiCandidates(result.pois.sort((a,b)=>poiPriority(a)-poiPriority(b)||haversine(center,a)-haversine(center,b)));
         // 주소·서버 ID는 JS catalog에만 두고 표시용 최소 항목만 네이티브에 전달한다.
-        const pois=points.map(({key,name,latitude,longitude,category,personal,favorite,brand,price,gasId})=>
-          ({key,name:name.trim().slice(0,200),latitude,longitude,category,personal,favorite,brand,price,gasId}));
+        const pois=points.map(({key,name,latitude,longitude,category,industry,personal,favorite,brand,price,gasId})=>
+          ({key,name:name.trim().slice(0,200),latitude,longitude,category,industry,personal,favorite,brand,price,gasId}));
         const payload={requestId:context!.requestId,pois,expiresAt:result.expiresAt};
         const accepted=await KakaoNavi.updateGuidePoiSnapshot(JSON.stringify(payload));
         if(accepted && live())catalog={snapshotId:context!.requestId,scope:current!,expiresAt:result.expiresAt,points:new Map(points.map(point=>[point.key,point]))};
@@ -74,19 +74,20 @@ export function registerGuidePoiEvents(open:OpenPoi):()=>void {
       const base=await current.data.load(context.bounds,!!current.actor,false,work.controller.signal);
       const first=await publish(base);basePublished=!!first?.accepted;basePayload=first?.payload??null;
       if(basePublished) {
-        let latest=base,ordinary:GuidePoi[]=[],partial=false,publication=Promise.resolve();
+        let latest=base,ordinary:GuidePoi[]=[],ordinaryExpiresAt=Infinity,partial=false,publication=Promise.resolve();
         function publishExtras() {
           // 두 공급자가 같은 순간 완료돼도 native ack와 JS 선택 catalog의 순서를 맞춘다.
           publication=publication.then(async()=>{
             await publish({pois:mergeGuidePois([...latest.pois,...ordinary],context!.bounds),
-              expiresAt:partial?Math.min(latest.expiresAt,Date.now()+30_000):latest.expiresAt});
+              expiresAt:Math.min(latest.expiresAt,ordinaryExpiresAt,partial?Date.now()+30_000:Infinity)});
           });
           return publication;
         }
-        const extras:Promise<unknown>[]=[fetchGuideOrdinaryPois(context.bounds,work.controller.signal,context.center).then(result=>{
-          ordinary=result.pois;partial=partial||result.partial;
+        const extras:Promise<unknown>[]=[];
+        if(providerLocationAllowed('tmap'))extras.push(fetchGuideOrdinaryPois(context.bounds,work.controller.signal,context.center).then(result=>{
+          ordinary=result.pois;ordinaryExpiresAt=result.expiresAt??Infinity;partial=partial||result.partial;
           if(ordinary.length || partial)return publishExtras();
-        })];
+        }));
         if(providerLocationAllowed('opinet'))extras.push(current.data.load(context.bounds,!!current.actor,true,work.controller.signal).then(result=>{
           latest=result;return publishExtras();
         }));
@@ -116,12 +117,12 @@ export function registerGuidePoiEvents(open:OpenPoi):()=>void {
     if(id===110)void request().catch(()=>{});
     if(id===111)void select().catch(()=>{});
   });
-  const end=KakaoNavi.addListener('onGuideEnd',()=>{cancel();catalog=null;scope?.data.clear();scope=null;});
+  const end=KakaoNavi.addListener('onGuideEnd',()=>{cancel();catalog=null;scope?.data.clear();clearGuideOrdinaryPoiCache();scope=null;});
   const unsubscribe=[useAuthStore.subscribe(sync),useLocationPrivacyStore.subscribe(sync),useGuideSession.subscribe(sync),
     useMyPlacesStore.subscribe((state,previous)=>{if(state.places!==previous.places)refreshFavorites();}),listenGuideFavoritesChanged(refreshFavorites)];
   sync();void KakaoNavi.setGuideOwnedPoiEnabled(true).catch(()=>{});
   return ()=>{
-    disposed=true;cancel();catalog=null;scope?.data.clear();scope=null;
+    disposed=true;cancel();catalog=null;scope?.data.clear();clearGuideOrdinaryPoiCache();scope=null;
     menu.remove();end.remove();unsubscribe.forEach(remove=>remove());
     void KakaoNavi.setGuideOwnedPoiEnabled(false).catch(()=>{});
   };

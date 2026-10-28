@@ -40,9 +40,11 @@
 // 일반 지도와 같은 이미지 자산을 쓰고 안내 지도용 배치와 글자만 합성한다.
 + (UIImage *)markerImageForPoi:(NSDictionary *)poi {
   NSString *personal=poi[@"personal"];
-  if(!personal) {
+  NSString *industry=poi[@"industry"];
+  if(!personal && (!industry || poi[@"category"] || [@[@"cafe",@"food",@"fuel",@"repair"] containsObject:industry])) {
     NSSet *categories=[NSSet setWithArray:@[@"cafe",@"restaurant",@"rest_stop",@"gas_station",@"repair_shop",@"viewpoint",@"gear_shop",@"camping",@"car_wash"]];
-    NSString *category=[categories containsObject:poi[@"category"]?:@""]?poi[@"category"]:@"general";
+    NSString *mapped=@{@"cafe":@"cafe",@"food":@"restaurant",@"fuel":@"gas_station",@"repair":@"repair_shop"}[industry?:@""];
+    NSString *category=[categories containsObject:poi[@"category"]?:@""]?poi[@"category"]:(mapped?:@"general");
     NSString *file=[NSString stringWithFormat:@"%@_circle%@",category,[poi[@"favorite"] boolValue]?@"_fav":@""];
     NSURL *url=[NSBundle.mainBundle URLForResource:@"MotoMapNavigationUI" withExtension:@"bundle"];
     NSString *path=[[NSBundle bundleWithURL:url] pathForResource:file ofType:@"png"];
@@ -52,8 +54,13 @@
   return [[[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(30,30)] imageWithActions:^(UIGraphicsImageRendererContext *context){
     [[UIColor colorWithRed:0.443 green:0.369 blue:0.294 alpha:1] setFill];
     [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(1,1,28,28)] fill];
-    NSString *symbol=[personal isEqual:@"home"]?@"house.fill":[personal isEqual:@"work"]?@"briefcase.fill":@"mappin";
+    NSDictionary *symbols=@{@"bakery":@"birthday.cake.fill",@"shop":@"bag.fill",@"lodging":@"bed.double.fill",
+      @"bank":@"banknote.fill",@"civic":@"building.columns.fill",@"beauty":@"scissors",@"toilet":@"figure.stand",
+      @"park":@"leaf.fill",@"transit":@"bus.fill",@"parking":@"parkingsign",@"medical":@"cross.case.fill",
+      @"pharmacy":@"pills.fill",@"culture":@"theatermasks.fill"};
+    NSString *symbol=[personal isEqual:@"home"]?@"house.fill":[personal isEqual:@"work"]?@"briefcase.fill":(symbols[industry?:@""]?:@"mappin");
     UIImage *icon=[UIImage systemImageNamed:symbol withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:16 weight:UIImageSymbolWeightSemibold]];
+    if(!icon)icon=[UIImage systemImageNamed:@"mappin"];
     CGFloat scale=MIN(17/icon.size.width,17/icon.size.height);CGSize fitted=CGSizeMake(icon.size.width*scale,icon.size.height*scale);
     [[icon imageWithTintColor:UIColor.whiteColor renderingMode:UIImageRenderingModeAlwaysOriginal] drawInRect:CGRectMake(15-fitted.width/2,15-fitted.height/2,fitted.width,fitted.height)];
   }];

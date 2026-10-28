@@ -253,7 +253,7 @@ test('서버 요청은 시작 당시 계정을 CAS 인자로 고정한다', asyn
     '@/lib/supabase': {supabase:{rpc: (_name: string,value:unknown) => { args=value; return {abortSignal:async()=>({data:{},error:null})};}}},
   },{AbortController});
   await module.locationPrivacyRpc('withdraw','private-token',{},'A');
-  assert.deepEqual(JSON.parse(JSON.stringify(args)),{p_action:'withdraw',p_secret:'private-token',p_payload:{expectedActor:'A'}});
+  assert.deepEqual(JSON.parse(JSON.stringify(args)),{p_action:'withdraw',p_secret:'private-token',p_payload:{expectedActor:'A',clientCapabilities:['tmap']}});
 });
 test('위치 관리 화면 전체를 마스킹하고 최초 동의는 별도 단일 화면에서 미선택이다', () => {
   const panel=readFileSync(new URL('../components/LocationPrivacyPanel.tsx',import.meta.url),'utf8');

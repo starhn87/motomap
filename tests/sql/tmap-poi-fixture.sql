@@ -1,0 +1,16 @@
+create role anon;
+create role authenticated;
+create role service_role bypassrls;
+create schema auth;
+create schema extensions;
+create extension pgcrypto with schema extensions;
+create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+grant usage on schema auth to anon,authenticated;
+create table public.profiles(id uuid primary key);
+create table public.places(id uuid,name text);
+create table public.courses(id uuid,name text);
+create table public.place_rides(id uuid,user_id uuid,place_id uuid,name text,created_at timestamptz,role text,excluded_from_place_stats boolean,address text,latitude float8,longitude float8,bike_model text);
+create table public.course_completions(id uuid,user_id uuid,course_id uuid,completed_at timestamptz,bike_model text);
+create schema cron;
+create function cron.schedule(text,text,text) returns bigint language sql as $$select 1::bigint$$;
+insert into public.profiles values('11111111-1111-1111-1111-111111111111');

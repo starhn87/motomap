@@ -77,3 +77,22 @@ JWT HTTP 호출을 대신한 검증이 아니라 운영 DB 역할·RLS 실행 �
 적용 전후 Security Advisor의 새 항목은0개다. 원격 생성 타입의 두 RPC 인자·반환 필드·기본
 타입을 대조했다. 생성기가 RETURNS TABLE 필드의 nullable을 추론하지 못하므로 로컬의
 명시적 null 반환 타입은 유지했다. 실기기 실제 계정/표시 확인과 장시간 성능 검증은 남는다.
+
+### 2026-10-28 TMAP 공용 캐시·기존 위치 동의 호환 후보(NAV-055)
+
+`20261028142801_add_tmap_guide_pois.sql`은 선택형 TMAP 수신자를 추가하고 capability 없는
+구버전에 provider/event를 숨긴다. 기존 consent version·일반 장소 provider 제약은 유지한다.
+기존 control의 definer/actor 소유 검사·기록/철회 권한을 유지하고 새 공개 definer를 만들지 않는다.
+
+공용 캐시와 호출 예산은 RLS 활성·anon/authenticated 직접 접근/실행 금지·service_role 전용이다.
+두 cache RPC는 invoker/빈 search_path다. 격자 PK 행 잠금+30초 lease/token으로 분산 중복 요청과
+지연 writer를 막고 원본23시간·스냅샷 크기/항목 수·KST 하루16,000회 예약 상한을 검사한다.
+만료 결과를 반환하지 않으며 조회 때 만료 행을 정리한다. 원 GPS·계정·즐겨찾기는 캐시에 없다.
+`scripts/test-tmap-poi-sql.sh`는 임시 PostgreSQL에서 실제 구/신 동의·해제·이력·서비스 역할과
+캐시 적중/중복/원본 만료/상한을 검증한다. 운영 Advisor·마이그레이션 적용은 별도 승인 후다.
+
+후속 리뷰에서 만료 셀 정리가 다른 claim의 행 잠금과 budget 잠금을 역순으로 기다리는
+데드락을 재현했다. 정리 후보100개를 FOR UPDATE SKIP LOCKED로 확보한 뒤 삭제한다.
+`scripts/test-tmap-poi-concurrency.py`는 실제 두 연결의 동일 경합 조건과 신규 SQL assertions를
+검사한다. 최대 결과도18×100=1,800개로 맞췄다. 전체 철회 시 TMAP 선택을 제거하고 withdrawn
+subject의 구버전 재동의에서 새 제공자를 복원하지 않는 회귀 검사도 통과했다.

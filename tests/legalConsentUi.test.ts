@@ -23,9 +23,9 @@ function fixture(options: { needsLegal?: boolean; consent?:()=>Promise<void>; le
     'react-native':{ActivityIndicator:'ActivityIndicator',Modal:'Modal',Pressable:'Pressable',SafeAreaView:'SafeAreaView',ScrollView:'ScrollView',Text:'Text',View:'View',StyleSheet:{create:(v:unknown)=>v}},
     '@/constants/legal':{LEGAL_DOCS:documents},
     '@/lib/legalConsent':{acceptCurrentLegalDocuments:async()=>{calls.push('legal'); await options.legal?.();}},
-    '@/lib/locationPrivacy':{LOCATION_CONSENT_VERSION:'2026-10-11-location-v2',LOCATION_PROVIDERS:['kakao','kma','airkorea','opinet','anthropic'],
-      LOCATION_PROVIDER_DETAILS:{kakao:'routes',kma:'weather',airkorea:'air',opinet:'gas',anthropic:'AI'},
-      RECIPIENT_LABELS:{kakao:'카카오',kma:'기상청',airkorea:'한국환경공단',opinet:'한국석유공사',anthropic:'Anthropic'}},
+    '@/lib/locationPrivacy':{LOCATION_CONSENT_VERSION:'2026-10-11-location-v2',LOCATION_PROVIDERS:['kakao','kma','airkorea','opinet','anthropic','tmap'],
+      LOCATION_PROVIDER_DETAILS:{kakao:'routes',kma:'weather',airkorea:'air',opinet:'gas',anthropic:'AI',tmap:'주변 장소 검색: 약2km 격자'},
+      RECIPIENT_LABELS:{kakao:'카카오',kma:'기상청',airkorea:'한국환경공단',opinet:'한국석유공사',anthropic:'Anthropic',tmap:'TMAP'}},
     '@/stores/useLocationPrivacyStore':{useLocationPrivacyStore:Object.assign(()=>state,{getState:()=>state})},
     '@/stores/useAuthStore':{useAuthStore:{getState:()=>({session:{access_token:`test-token-${actor}`,user:{id:actor}},refreshOnboardingStatus:async()=>{calls.push('refresh');},signOut:async()=>{}})}},
   };
@@ -121,4 +121,16 @@ test('저장 중 버튼에는 문구 대신 스피너만 표시하고 크기·�
   resolve(); await new Promise(done=>setTimeout(done,0));
   assert.equal(submit(f).props.accessibilityState.busy,false);
   assert.ok(elements(submit(f)).some(n=>n.props.children==='동의하고 시작하기'));
+});
+
+test('새 TMAP 제공자는 기본 꺼짐이며 자세히 보기에서 직접 켠 경우만 동의한다',async()=>{
+  const defaults=fixture();checkAll(defaults);submit(defaults).props.onPress();
+  await new Promise(done=>setTimeout(done,0));
+  assert.ok(!defaults.consentArgs()[3].includes('tmap'));
+  const f=fixture();elements(f.render()).find(n=>n.props.accessibilityLabel==='location 보기')!.props.onPress();
+  const tmap=elements(f.render()).find(n=>n.props.accessibilityRole==='checkbox'&&elements(n).some(c=>c.props.children==='TMAP'))!;
+  assert.equal(tmap.props.accessibilityState.checked,false);tmap.props.onPress();
+  elements(f.render()).find(n=>n.props.accessibilityLabel==='약관 문서 닫기')!.props.onPress();
+  checkAll(f);submit(f).props.onPress();await new Promise(done=>setTimeout(done,0));
+  assert.ok(f.consentArgs()[3].includes('tmap'));
 });

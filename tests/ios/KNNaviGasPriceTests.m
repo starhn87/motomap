@@ -172,6 +172,20 @@ int RunKNNaviGasPriceTests(void) {
     longLabel.size.height<=shortLabel.size.height || longLabel.size.width>114 || longLabel.size.height>68){
     NSLog(@"FAIL map icon parity or two-line POI layout");failures++;
   }
+  NSArray *industries=@[@"cafe",@"food",@"bakery",@"shop",@"lodging",@"bank",@"civic",@"beauty",@"toilet",@"park",@"transit",@"fuel",@"parking",@"repair",@"medical",@"pharmacy",@"culture",@"general"];
+  for(NSString *industry in industries) {
+    UIImage *icon=[KNNaviGuidePoiArtwork markerImageForPoi:@{@"industry":industry}];
+    if(!icon || icon.size.width<28 || icon.size.height<28){NSLog(@"FAIL industry marker absent");failures++;}
+  }
+  UIImage *industryGrid=[[[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(400,600)] imageWithActions:^(UIGraphicsImageRendererContext *context){
+    [[UIColor colorWithWhite:.94 alpha:1] setFill];UIRectFill(CGRectMake(0,0,400,600));
+    [industries enumerateObjectsUsingBlock:^(NSString *industry,NSUInteger i,BOOL *stop){
+      UIImage *image=[KNNaviGuidePoiArtwork imageForPoi:@{@"industry":industry,@"name":industry}];
+      [image drawAtPoint:CGPointMake(15+(i%4)*100,15+(i/4)*110)];
+    }];
+  }];
+  NSString *gridPath=[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"owned-poi-industries.png"];
+  [UIImagePNGRepresentation(industryGrid) writeToFile:gridPath atomically:YES];
   map.poiProperties=[PoiPropertiesProbe new];map.poiProperties.isVisible=YES;
   KNNaviOwnedPoiLayer *coordinator=[[KNNaviOwnedPoiLayer alloc] initWithMap:(id)map];
   __block BOOL active=YES;coordinator.isActive=^BOOL{return active;};
@@ -187,6 +201,10 @@ int RunKNNaviGasPriceTests(void) {
   if([coordinator applyResponse:@{@"requestId":@"stale",@"pois":@[place],@"expiresAt":@(expiry)}] || map.poiProperties.isVisible){NSLog(@"FAIL stale snapshot exposed SDK POIs");failures++;}
   BOOL accepted=[coordinator applyResponse:@{@"requestId":viewportId,@"pois":@[place],@"expiresAt":@(expiry)}];
   if(!accepted || map.poiProperties.isVisible || !coordinator.ownsPoiVisibility){NSLog(@"FAIL ready snapshot did not own base POIs");failures++;}
+  NSMutableDictionary *industryPlace=[place mutableCopy];industryPlace[@"industry"]=@"pharmacy";[industryPlace removeObjectForKey:@"category"];
+  [coordinator applyResponse:@{@"requestId":viewportId,@"pois":@[industryPlace],@"expiresAt":@(expiry)}];
+  NSDictionary *industryStyle=[coordinator valueForKey:@"artwork"][@"place:fixture"][@"style"];
+  if(![industryStyle[@"industry"] isEqual:@"pharmacy"]){NSLog(@"FAIL industry dropped in native snapshot");failures++;}
   __block NSString *selectedPoiKey=nil;coordinator.onSelect=^(NSString *key,NSString *snapshotId){if([snapshotId isEqual:viewportId])selectedPoiKey=key;};
   KNNaviGuidePoiOverlay *presentation=[coordinator valueForKey:@"renderer"];
   UIButton *poiButton=((NSArray *)[presentation valueForKey:@"owned"]).firstObject[@"button"];

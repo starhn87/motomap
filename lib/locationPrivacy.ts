@@ -34,10 +34,10 @@ export function saveLocationStopIntent(actor: string | null, intent: LocationSto
   });
 }
 export type LocationPurpose = 'map' | 'search' | 'address' | 'weather' | 'gas' | 'route' | 'navigation' | 'ai' | 'arrival';
-export type LocationRecipient = 'device' | 'motomap' | 'naver' | 'kakao' | 'kma' | 'airkorea' | 'opinet' | 'anthropic';
+export type LocationRecipient = 'device' | 'motomap' | 'naver' | 'kakao' | 'tmap' | 'kma' | 'airkorea' | 'opinet' | 'anthropic';
 // 본인에게 결과를 돌려주는 기존 서비스 요청만 분류한다. 새 외부 전달은 자동으로 제외하지 않는다.
 const SERVICE_LOCATION_RECIPIENTS: Record<LocationPurpose, readonly LocationRecipient[]> = {
-  map: ['naver'], search: ['kakao'], address: ['kakao'],
+  map: ['naver'], search: ['kakao', 'tmap'], address: ['kakao'],
   weather: ['kakao', 'kma', 'airkorea'], gas: ['opinet'],
   route: ['kakao'], navigation: ['kakao'], ai: ['anthropic'], arrival: [],
 };
@@ -45,9 +45,10 @@ export function requiresLocationProvisionNotice(purpose: LocationPurpose, recipi
   if (recipient === 'device' || recipient === 'motomap') return false;
   return !SERVICE_LOCATION_RECIPIENTS[purpose]?.includes(recipient);
 }
-export const LOCATION_PROVIDERS = ['kakao', 'kma', 'airkorea', 'opinet', 'anthropic'] as const;
+export const LOCATION_PROVIDERS = ['kakao', 'kma', 'airkorea', 'opinet', 'anthropic', 'tmap'] as const;
 export const LOCATION_PROVIDER_DETAILS = {
   kakao: '주변 검색·주소 확인·경로/길안내: 기준 좌표·출발지·경유지·도착지',
+  tmap: '길안내 지도 주변 장소: 약2km 격자의 검색 기준 위치(선택 동의, 기본 꺼짐)',
   kma: '날씨: 조회 지점의 격자 위치',
   airkorea: '미세먼지: 조회 지점의 TM 좌표(카카오 좌표 변환도 필요)',
   opinet: '주변 유가: 조회 기준 좌표',
@@ -89,7 +90,7 @@ export async function locationPrivacyRpc(action: string, secret: string, payload
   const timer = setTimeout(() => controller.abort(), 8000);
   try {
     const { data, error } = await supabase.rpc('location_privacy', {
-      p_action: action, p_secret: secret, p_payload: { ...payload, expectedActor: actor },
+      p_action: action, p_secret: secret, p_payload: { ...payload, expectedActor: actor, clientCapabilities: ['tmap'] },
     }).abortSignal(controller.signal);
     if (error) throw new Error('위치정보 설정을 처리하지 못했어요. 다시 시도해 주세요.');
     if (data === null) throw new Error('위치정보 응답을 확인하지 못했어요.');
@@ -108,7 +109,8 @@ export async function setLocationHistoryEnabled(enabled: boolean, actor: string)
   try {
     const { data,error } = await supabase.rpc('set_location_history_enabled',{p_enabled:enabled,p_actor:actor}).abortSignal(controller.signal);
     if(error || data===null) throw new Error('방문 기록 설정을 저장하지 못했어요. 다시 시도해 주세요.');
-    return parseLocationPrivacy(data);
+    // 구버전 기록 설정 RPC는 새 제공자를 숨긴다. capability가 있는 상태 응답으로 다시 읽는다.
+    return parseLocationPrivacy(await locationPrivacyRpc('status', await deviceLocationSecret(), {}, actor));
   } finally { clearTimeout(timer); }
 }
 export function parseLocationPrivacy(value: Json): LocationPrivacyState {
@@ -116,7 +118,7 @@ export function parseLocationPrivacy(value: Json): LocationPrivacyState {
   if (!['unknown','active','paused','withdrawn'].includes(String(v.status)) || typeof v.historyAllowed !== 'boolean'
     || typeof v.historyCount !== 'number' || !Number.isSafeInteger(v.historyCount) || v.historyCount < 0
     || (v.version !== null && typeof v.version !== 'string')) throw new Error('위치정보 설정을 확인하지 못했어요.');
-  if (!Array.isArray(v.providers) || v.providers.some((p) => typeof p !== 'string' || !['naver','kakao','kma','airkorea','opinet','anthropic'].includes(p)))
+  if (!Array.isArray(v.providers) || v.providers.some((p) => typeof p !== 'string' || !['naver','kakao','tmap','kma','airkorea','opinet','anthropic'].includes(p)))
     throw new Error('위치 제공 범위를 확인하지 못했어요.');
   return { status: v.status as LocationPrivacyStatus, version: v.version as string | null,
     historyAllowed: v.historyAllowed, historyCount: v.historyCount, providers: v.providers as LocationRecipient[] };
@@ -127,6 +129,6 @@ export const PURPOSE_LABELS: Record<LocationPurpose, string> = {
   gas: '주변 유가 확인', route: '경로 탐색', navigation: '길안내', ai: 'AI 추천', arrival: '방문·완주 기록',
 };
 export const RECIPIENT_LABELS: Record<LocationRecipient, string> = {
-  device: '기기 안에서 처리', motomap: '모토맵', naver: '네이버', kakao: '카카오',
+  device: '기기 안에서 처리', motomap: '모토맵', naver: '네이버', kakao: '카카오', tmap: 'TMAP(티맵모빌리티)',
   kma: '기상청', airkorea: '한국환경공단', opinet: '한국석유공사', anthropic: 'Anthropic',
 };

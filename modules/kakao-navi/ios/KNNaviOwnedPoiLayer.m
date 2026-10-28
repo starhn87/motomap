@@ -164,7 +164,7 @@ static BOOL ContainsBounds(NSDictionary *outer,NSDictionary *inner) {
     double lat=[row[@"latitude"] doubleValue],lng=[row[@"longitude"] doubleValue];
     if(!isfinite(lat)||!isfinite(lng)||fabs(lat)>90||fabs(lng)>180){[self fallback];return NO;}
     NSMutableDictionary *style=[@{@"name":name} mutableCopy];
-    for(NSString *field in @[@"category",@"personal",@"brand"])if([row[field] isKindOfClass:NSString.class])style[field]=row[field];
+    for(NSString *field in @[@"category",@"industry",@"personal",@"brand"])if([row[field] isKindOfClass:NSString.class])style[field]=row[field];
     if([row[@"favorite"] isKindOfClass:NSNumber.class])style[@"favorite"]=row[@"favorite"];
     if([row[@"price"] isKindOfClass:NSNumber.class]&&isfinite([row[@"price"] doubleValue])&&[row[@"price"] doubleValue]>0&&[row[@"price"] doubleValue]<=100000)style[@"price"]=row[@"price"];
     NSDictionary *old=self.artwork[key];UIImage *image=[old[@"style"] isEqual:style]?old[@"image"]:[KNNaviGuidePoiArtwork imageForPoi:style];

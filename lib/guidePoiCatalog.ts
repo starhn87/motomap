@@ -1,4 +1,5 @@
 import type { PlaceCategory } from '../types';
+import type { TmapIndustry } from '../supabase/functions/_shared/tmapPoi';
 
 export interface PoiBounds { south: number; west: number; north: number; east: number }
 export interface GuidePoi {
@@ -11,6 +12,8 @@ export interface GuidePoi {
   placeId?: string;
   generalPlaceId?: string;
   providerId?: string;
+  provider?: 'kakao' | 'tmap';
+  industry?: TmapIndustry;
   favorite?: boolean;
   personal?: 'home' | 'work';
   brand?: string;
@@ -57,14 +60,14 @@ export function mergeGuidePois(rows: GuidePoi[], bounds: PoiBounds): GuidePoi[] 
   const ambiguous=new Set<string>();
   const providerPlaces=new Map<string,Set<string>>();
   for(const row of rows) if(row.providerId && row.placeId) {
-    const places=providerPlaces.get(row.providerId)??new Set<string>();places.add(row.placeId);
-    providerPlaces.set(row.providerId,places);
-    if(places.size>1)ambiguous.add(`kakao:${row.providerId}`);
+    const places=providerPlaces.get(`${row.provider ?? 'kakao'}:${row.providerId}`)??new Set<string>();places.add(row.placeId);
+    providerPlaces.set(`${row.provider ?? 'kakao'}:${row.providerId}`,places);
+    if(places.size>1)ambiguous.add(`${row.provider ?? 'kakao'}:${row.providerId}`);
   }
   for (const row of rows) {
     if (!row.name.trim() || !insidePoiBounds(row,bounds)) continue;
     const identities=[row.key,...(row.placeId ? [`place:${row.placeId}`] : []),
-      ...(row.generalPlaceId ? [`general:${row.generalPlaceId}`] : []),...(row.providerId ? [`kakao:${row.providerId}`] : [])];
+      ...(row.generalPlaceId ? [`general:${row.generalPlaceId}`] : []),...(row.providerId ? [`${row.provider ?? 'kakao'}:${row.providerId}`] : [])];
     let index=identities.filter(id=>!ambiguous.has(id)).map(id=>ids.get(id)).find(index=>index!==undefined);
     if(index!==undefined && row.placeId && result[index].placeId && row.placeId!==result[index].placeId) {
       // 서로 다른 등록 ID가 같은 외부 ID를 주장하면 어느 쪽에도 일반 장소 ID를 붙이지 않는다.

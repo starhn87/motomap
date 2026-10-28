@@ -113,6 +113,7 @@ for ((i=0; i<150; i++)); do
     if [[ -f "$container/Documents/hazard-sheet.png" ]]; then cp "$container/Documents/hazard-sheet.png" /tmp/motomap-hazard-sheet.png; fi
     if [[ -f "$container/Documents/gas-sheet.png" ]]; then cp "$container/Documents/gas-sheet.png" /tmp/motomap-gas-sheet.png; fi
     if [[ -f "$container/Documents/owned-poi-labels.png" ]]; then cp "$container/Documents/owned-poi-labels.png" /tmp/motomap-owned-poi-labels.png; fi
+    if [[ -f "$container/Documents/owned-poi-industries.png" ]]; then cp "$container/Documents/owned-poi-industries.png" /tmp/motomap-owned-poi-industries.png; fi
     result=$(cat "$container/Documents/session-result.txt")
     printf '%s\n' "$result"
     status=0

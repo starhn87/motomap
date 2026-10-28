@@ -14,7 +14,7 @@ export default function LegalConsentScreen({ needsLegal = true, onReady, onCompl
   const state = useLocationPrivacyStore();
   const [agreed, setAgreed] = useState<Partial<Record<LegalDocType, boolean>>>({});
   const [providers, setProviders] = useState<LocationRecipient[]>(() => state.version === LOCATION_CONSENT_VERSION
-    ? state.providers.filter(p => p !== 'naver') : [...LOCATION_PROVIDERS]);
+    ? state.providers.filter(p => p !== 'naver') : LOCATION_PROVIDERS.filter(p => p !== 'tmap'));
   const [viewing, setViewing] = useState<LegalDocType | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

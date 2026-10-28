@@ -1,64 +1,62 @@
-import { providerLocationAllowed, withCoordinateUse } from '@/stores/useLocationPrivacyStore';
-import { ProviderError, providerHttpError, rememberProviderFailure, requireProviderAvailable } from '@/lib/providerErrors';
+import { providerLocationAllowed, withCoordinateUse, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
+import { supabase } from '@/lib/supabase';
+import { ProviderError, edgeProviderError, rememberProviderFailure, requireProviderAvailable } from '@/lib/providerErrors';
 import { insidePoiBounds, validPoiBounds, type GuidePoi, type PoiBounds } from '@/lib/guidePoiCatalog';
+import { tmapCell, TMAP_INDUSTRIES, TMAP_DEVICE_TTL, TMAP_SERVER_TTL, validTmapCell } from '../../supabase/functions/_shared/tmapPoi';
 
-// 일반 장소는 추천 등록 장소와 구분해 중립 아이콘으로 표시한다. 전체 카탈로그가 아닌 상위 결과다.
-export const GUIDE_ORDINARY_CATEGORIES=['CE7','FD6','CS2','PK6','OL7','AT4'] as const;
-const REST_KEY=process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY;
-
-// 공급자 결과를 디스크/서버/영역 캐시에 저장하지 않는다. 현재 화면에 표시할 응답만 반환한다.
-export async function fetchGuideOrdinaryPois(bounds:PoiBounds,signal:AbortSignal,focus?:{latitude:number;longitude:number}):Promise<{pois:GuidePoi[];partial:boolean}> {
-  if(!validPoiBounds(bounds))throw new ProviderError('kakao-local','search','invalid_request');
-  if(!providerLocationAllowed('kakao') || signal.aborted)throw new ProviderError('kakao-local','search','cancelled');
-  const center=focus && insidePoiBounds(focus,bounds)?focus:{latitude:(bounds.south+bounds.north)/2,longitude:(bounds.west+bounds.east)/2};
-  // 축소/3D의 먼 모서리 때문에 전체 조회를 건너뛰지 않고 중심 주변 약3km 안으로 제한한다.
-  const halfLat=3000/Math.SQRT2/111_320,halfLng=halfLat/Math.max(0.1,Math.cos(center.latitude*Math.PI/180));
-  const searchBounds={south:Math.max(bounds.south,center.latitude-halfLat),north:Math.min(bounds.north,center.latitude+halfLat),
-    west:Math.max(bounds.west,center.longitude-halfLng),east:Math.min(bounds.east,center.longitude+halfLng)};
-  if(!REST_KEY)throw new ProviderError('kakao-local','search','configuration');
-  const controller=new AbortController(),abort=()=>controller.abort();
-  signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();
-  const timer=setTimeout(abort,8000);
-  const pois:GuidePoi[]=[];let cursor=0,partial=false;
-  async function worker() {
-    while(cursor<GUIDE_ORDINARY_CATEGORIES.length && !controller.signal.aborted) {
-      const category=GUIDE_ORDINARY_CATEGORIES[cursor++];
-      try {
-        requireProviderAvailable('kakao-local');
-        const params=new URLSearchParams({category_group_code:category,rect:[searchBounds.west,searchBounds.south,searchBounds.east,searchBounds.north].join(','),
-          x:String(center.longitude),y:String(center.latitude),sort:'distance',size:'15',page:'1'});
-        const response=await withCoordinateUse(center,'search','kakao',()=>fetch(`https://dapi.kakao.com/v2/local/search/category.json?${params}`,{
-          headers:{Authorization:`KakaoAK ${REST_KEY}`},signal:controller.signal,
-        }));
-        if(!response.ok)throw providerHttpError('kakao-local','search',response.status);
-        const data=await response.json();
-        if(!Array.isArray(data?.documents) || data.documents.length>15 || typeof data?.meta?.is_end!=='boolean')
-          throw new ProviderError('kakao-local','search','invalid_response');
-        const rows:GuidePoi[]=[];
-        for(const row of data.documents) {
-          if(!row || typeof row.id!=='string' || !row.id || row.id.length>100 || typeof row.place_name!=='string' || !row.place_name.trim() ||
-            typeof row.x!=='string' || !row.x.trim() || typeof row.y!=='string' || !row.y.trim() ||
-            !Number.isFinite(Number(row.x)) || !Number.isFinite(Number(row.y)) ||
-            (row.address_name!=null && typeof row.address_name!=='string') || (row.road_address_name!=null && typeof row.road_address_name!=='string'))
-            throw new ProviderError('kakao-local','search','invalid_response');
-          const point={latitude:Number(row.y),longitude:Number(row.x)};
-          if(!insidePoiBounds(point,searchBounds))continue;
-          rows.push({...point,key:`kakao:${row.id}`,providerId:row.id,name:row.place_name.trim().slice(0,200),address:row.road_address_name||row.address_name||''});
-        }
-        pois.push(...rows);
-      } catch(error) {
-        if(signal.aborted)throw new ProviderError('kakao-local','search','cancelled');
-        partial=true;
-        const failure=error instanceof ProviderError?error:new ProviderError('kakao-local','search',controller.signal.aborted?'timeout':'offline');
-        rememberProviderFailure(failure);
-        if(failure.kind==='configuration' || failure.kind==='rate_limited')controller.abort();
-      }
-    }
-  }
+// 공급자 원본 만료를 공유하는 세션 메모리 캐시. 로그아웃·동의 변경 때 비운다.
+const cache = new Map<string, { pois: GuidePoi[]; expiresAt: number; partial: boolean }>();
+export function clearGuideOrdinaryPoiCache() { cache.clear(); }
+export async function fetchGuideOrdinaryPois(bounds: PoiBounds, signal: AbortSignal, focus?: { latitude: number; longitude: number }): Promise<{ pois: GuidePoi[]; partial: boolean; expiresAt: number }> {
+  if (!validPoiBounds(bounds)) throw new ProviderError('tmap-poi', 'search', 'invalid_request');
+  if (!providerLocationAllowed('tmap') || signal.aborted) throw new ProviderError('tmap-poi', 'search', 'cancelled');
+  const state = useLocationPrivacyStore.getState(), revision = state.revision, actor = state.actor;
+  const current = () => !signal.aborted && providerLocationAllowed('tmap') && useLocationPrivacyStore.getState().revision === revision && useLocationPrivacyStore.getState().actor === actor;
+  const center = focus && insidePoiBounds(focus, bounds) ? focus : { latitude: (bounds.south + bounds.north) / 2, longitude: (bounds.west + bounds.east) / 2 };
+  const cell = tmapCell(center), key = `${cell.lat}:${cell.lon}`;
+  if (!validTmapCell(cell)) return { pois: [], partial: false, expiresAt: Date.now() + TMAP_DEVICE_TTL };
+  // 5km 공급자 검색은 격자 모서리 차이를 포함해 중심 약3km의 표시를 덮는다.
+  const halfLat = 3000 / Math.SQRT2 / 111_320, halfLon = halfLat / Math.cos(center.latitude * Math.PI / 180);
+  const searchBounds = { south: Math.max(bounds.south, center.latitude - halfLat), north: Math.min(bounds.north, center.latitude + halfLat),
+    west: Math.max(bounds.west, center.longitude - halfLon), east: Math.min(bounds.east, center.longitude + halfLon) };
+  const result = (entry: { pois: GuidePoi[]; partial: boolean; expiresAt: number }) => ({ pois: entry.pois.filter(p => insidePoiBounds(p, searchBounds)), partial: entry.partial, expiresAt: entry.expiresAt });
+  const cached = cache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return result(cached);
+  cache.delete(key);
+  const controller = new AbortController(), abort = () => controller.abort();
+  signal.addEventListener('abort', abort, { once: true }); if (signal.aborted) abort();
+  const timer = setTimeout(abort, 16_000);
   try {
-    // 한 화면당 최대6회, 동시에3회. 페이지를 모두 긁거나 영역을 분할 수집하지 않는다.
-    await Promise.all([worker(),worker(),worker()]);
-    if(signal.aborted || !providerLocationAllowed('kakao'))throw new ProviderError('kakao-local','search','cancelled');
-    return {pois,partial:partial||controller.signal.aborted};
-  } finally {clearTimeout(timer);signal.removeEventListener('abort',abort);}
+    requireProviderAvailable('tmap-poi');
+    const { data, error } = await withCoordinateUse(center, 'search', 'tmap', () => supabase.functions.invoke('tmap-poi-search', {
+      body: { ...cell, secret: state.secret, actor }, signal: controller.signal,
+    }));
+    if (!current()) throw new ProviderError('tmap-poi', 'search', 'cancelled');
+    if (controller.signal.aborted) throw new ProviderError('tmap-poi', 'search', 'timeout');
+    if (error) {
+      let kind: unknown;
+      try { kind = (await (error as { context?: Response }).context?.clone().json())?.kind; } catch { /* 공급자 원문은 버린다. */ }
+      if (['configuration', 'temporary', 'timeout', 'rate_limited', 'invalid_request', 'invalid_response'].includes(String(kind))) throw new ProviderError('tmap-poi', 'search', kind as ProviderError['kind']);
+      throw edgeProviderError('tmap-poi', 'search', error);
+    }
+    const now = Date.now();
+    if (!data || !Array.isArray(data.pois) || data.pois.length > 1800 || typeof data.partial !== 'boolean' ||
+      !Number.isFinite(data.fetchedAt) || !Number.isFinite(data.expiresAt) || data.fetchedAt > now + 60_000 ||
+      data.expiresAt <= now || data.expiresAt <= data.fetchedAt || data.expiresAt - data.fetchedAt > TMAP_SERVER_TTL) throw new ProviderError('tmap-poi', 'search', 'invalid_response');
+    const pois: GuidePoi[] = data.pois.map((row: Record<string, unknown>) => {
+      if (!row || typeof row.id !== 'string' || !row.id.trim() || row.id.length > 100 || typeof row.name !== 'string' || !row.name.trim() || row.name.length > 200 ||
+        typeof row.address !== 'string' || row.address.length > 1000 || !Number.isFinite(row.latitude) || !Number.isFinite(row.longitude) ||
+        Number(row.latitude) < 32 || Number(row.latitude) > 39 || Number(row.longitude) < 124 || Number(row.longitude) > 132 || !TMAP_INDUSTRIES.includes(String(row.industry))) throw new ProviderError('tmap-poi', 'search', 'invalid_response');
+      return { key: `tmap:${row.id}`, provider: 'tmap', providerId: row.id, name: row.name.trim(), address: row.address,
+        latitude: Number(row.latitude), longitude: Number(row.longitude), industry: row.industry as GuidePoi['industry'] };
+    });
+    const entry = { pois, partial: data.partial, expiresAt: Math.min(data.expiresAt, now + TMAP_DEVICE_TTL) };
+    if (!current()) throw new ProviderError('tmap-poi', 'search', 'cancelled');
+    cache.set(key, entry);
+    while (cache.size > 12) cache.delete(cache.keys().next().value!);
+    return result(entry);
+  } catch (error) {
+    const failure = !current() ? new ProviderError('tmap-poi', 'search', 'cancelled') : error instanceof ProviderError ? error : edgeProviderError('tmap-poi', 'search', error);
+    rememberProviderFailure(failure); throw failure;
+  } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
 }

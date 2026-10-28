@@ -23,7 +23,7 @@ function setup(capability=true,gasAllowed=false,ordinaryPois:any[]=[] ) {
       updateGuidePoiSnapshot:async(json:string)=>{updates.push(JSON.parse(json));return accepted;},
     }},
     '@/lib/api/guidePois':{},'@/lib/api/gasStations':{},
-    '@/lib/api/guideOrdinaryPois':{fetchGuideOrdinaryPois:async()=>({pois:ordinaryPois,partial:false})},
+    '@/lib/api/guideOrdinaryPois':{clearGuideOrdinaryPoiCache:()=>{},fetchGuideOrdinaryPois:async()=>({pois:ordinaryPois,partial:false})},
     '@/lib/guidePoiData':{GuidePoiData:class {
       clear(){clears++;}invalidateFavorites(){}
       load(...args:any[]){calls.push(args);return new Promise(resolve=>resolvers.push(resolve));}
