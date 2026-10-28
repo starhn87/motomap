@@ -86,7 +86,7 @@ JWT HTTP 호출을 대신한 검증이 아니라 운영 DB 역할·RLS 실행 �
 
 공용 캐시와 호출 예산은 RLS 활성·anon/authenticated 직접 접근/실행 금지·service_role 전용이다.
 두 cache RPC는 invoker/빈 search_path다. 격자 PK 행 잠금+30초 lease/token으로 분산 중복 요청과
-지연 writer를 막고 원본23시간·스냅샷 크기/항목 수·KST 하루16,000회 예약 상한을 검사한다.
+지연 writer를 막고 원본23시간·스냅샷 크기/항목 수·KST 하루20,000회 예약 상한을 검사한다.
 만료 결과를 반환하지 않으며 조회 때 만료 행을 정리한다. 원 GPS·계정·즐겨찾기는 캐시에 없다.
 `scripts/test-tmap-poi-sql.sh`는 임시 PostgreSQL에서 실제 구/신 동의·해제·이력·서비스 역할과
 캐시 적중/중복/원본 만료/상한을 검증한다. 운영 Advisor·마이그레이션 적용은 별도 승인 후다.

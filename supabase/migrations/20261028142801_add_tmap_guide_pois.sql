@@ -153,14 +153,14 @@ revoke all on public.tmap_poi_cache from public,anon,authenticated;
 grant all on public.tmap_poi_cache to service_role;
 create table public.tmap_poi_daily_budget (
   day date primary key,
-  calls integer not null check(calls>=0 and calls<=16000)
+  calls integer not null check(calls>=0 and calls<=20000)
 );
 alter table public.tmap_poi_daily_budget enable row level security;
 revoke all on public.tmap_poi_daily_budget from public,anon,authenticated;
 grant all on public.tmap_poi_daily_budget to service_role;
 
 -- 격자별 lease로 여러 서버/사용자의 동시 미스를 합친다. 호출 전18회를 예약한다.
--- 무료20,000건 중16,000건에서 멈추며 실패/중단 예약은 보수적으로 돌려주지 않는다.
+-- 무료20,000건을 상한으로 하며 실패/중단 예약은 보수적으로 돌려주지 않는다.
 create function public.claim_tmap_poi_refresh(p_lat integer,p_lon integer)
 returns jsonb language plpgsql security invoker set search_path='' as $$
 declare
@@ -177,7 +177,7 @@ begin
   if v_row.lease_at>clock_timestamp()-interval '30 seconds' then return jsonb_build_object('state','busy'); end if;
   insert into public.tmap_poi_daily_budget(day,calls) values((now() at time zone 'Asia/Seoul')::date,18)
     on conflict(day) do update set calls=tmap_poi_daily_budget.calls+18
-    where tmap_poi_daily_budget.calls+18<=16000 returning calls into v_count;
+    where tmap_poi_daily_budget.calls+18<=20000 returning calls into v_count;
   if v_count is null then return jsonb_build_object('state','limited'); end if;
   v_token:=gen_random_uuid();
   update public.tmap_poi_cache set snapshot=null,expires_at=null,lease_token=v_token,lease_at=clock_timestamp()

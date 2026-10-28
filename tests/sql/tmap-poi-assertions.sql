@@ -51,10 +51,15 @@ do $$declare a jsonb; b jsonb; expiry numeric; begin
  exception when others then if sqlerrm='24 hour cache accepted' then raise; end if; end;
  expiry:=(a->>'fetchedAt')::numeric+82800000;
  perform public.finish_tmap_poi_refresh(1875,6350,(a->>'token')::uuid,jsonb_build_object('pois','[]'::jsonb,'fetchedAt',a->'fetchedAt','expiresAt',expiry,'partial',false));
- update public.tmap_poi_daily_budget set calls=15997;
+ update public.tmap_poi_daily_budget set calls=19997;
  b:=public.claim_tmap_poi_refresh(1875,6350);
  if b->>'state'<>'hit' or (b->'snapshot'->>'expiresAt')::numeric<>expiry then raise exception 'hit renews expiry or consumes budget'; end if;
  b:=public.claim_tmap_poi_refresh(1876,6350);
  if b->>'state'<>'limited' then raise exception 'global budget exceeded'; end if;
+ update public.tmap_poi_daily_budget set calls=19982;
+ b:=public.claim_tmap_poi_refresh(1877,6350);
+ if b->>'state'<>'claimed' or (select calls from public.tmap_poi_daily_budget limit 1)<>20000 then raise exception 'free limit not fully available'; end if;
+ b:=public.claim_tmap_poi_refresh(1878,6350);
+ if b->>'state'<>'limited' then raise exception '20000 cap bypass'; end if;
 end $$;
 reset role;
