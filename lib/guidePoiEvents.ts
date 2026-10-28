@@ -1,8 +1,9 @@
 import KakaoNavi, { supportsKakaoNaviFeature } from '@/modules/kakao-navi';
 import { fetchGuidePlaces, fetchGuideFavorites } from '@/lib/api/guidePois';
 import { fetchNearbyGasStationsSnapshot } from '@/lib/api/gasStations';
+import { fetchGuideOrdinaryPois } from '@/lib/api/guideOrdinaryPois';
 import { GuidePoiData } from '@/lib/guidePoiData';
-import { poiPriority, validPoiBounds, type GuidePoi } from '@/lib/guidePoiCatalog';
+import { mergeGuidePois, poiPriority, validPoiBounds, type GuidePoi } from '@/lib/guidePoiCatalog';
 import { haversine } from '@/lib/distance';
 import { listenGuideFavoritesChanged } from '@/lib/guidePoiChanges';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -13,7 +14,7 @@ import { useGuideSession } from '@/lib/guideSession';
 type Scope={actor:string|null;revision:number;visit:object;data:GuidePoiData};
 type OpenPoi=(point:GuidePoi,current:()=>boolean)=>Promise<void>;
 
-// 새 capability가 있는 바이너리만 참여한다. RPC 부재/필수 조회 실패는 SDK 표시로 복원한다.
+// 새 capability가 있는 바이너리만 참여한다. 실패해도 안내 중 SDK 상호와 자체 표시를 섞지 않는다.
 export function registerGuidePoiEvents(open:OpenPoi):()=>void {
   if(!supportsKakaoNaviFeature('guide_owned_poi'))return ()=>{};
   let disposed=false,scope:Scope|null=null;
@@ -71,9 +72,25 @@ export function registerGuidePoiEvents(open:OpenPoi):()=>void {
       // 느린 오피넷 응답 때문에 이동 중 기본 장소 전환까지 계속 지연시키지 않는다.
       const base=await current.data.load(context.bounds,!!current.actor,false,work.controller.signal);
       const first=await publish(base);basePublished=!!first?.accepted;basePayload=first?.payload??null;
-      if(basePublished && providerLocationAllowed('opinet')) {
-        const result=await current.data.load(context.bounds,!!current.actor,true,work.controller.signal);
-        await publish(result);
+      if(basePublished) {
+        let latest=base,ordinary:GuidePoi[]=[],partial=false,publication=Promise.resolve();
+        function publishExtras() {
+          // 두 공급자가 같은 순간 완료돼도 native ack와 JS 선택 catalog의 순서를 맞춘다.
+          publication=publication.then(async()=>{
+            await publish({pois:mergeGuidePois([...latest.pois,...ordinary],context!.bounds),
+              expiresAt:partial?Math.min(latest.expiresAt,Date.now()+30_000):latest.expiresAt});
+          });
+          return publication;
+        }
+        const extras:Promise<unknown>[]=[fetchGuideOrdinaryPois(context.bounds,work.controller.signal).then(result=>{
+          ordinary=result.pois;partial=partial||result.partial;
+          if(ordinary.length || partial)return publishExtras();
+        })];
+        if(providerLocationAllowed('opinet'))extras.push(current.data.load(context.bounds,!!current.actor,true,work.controller.signal).then(result=>{
+          latest=result;return publishExtras();
+        }));
+        const results=await Promise.allSettled(extras);
+        if(results.some(result=>result.status==='rejected') && live()){partial=true;await publishExtras();}
       }
     } catch {
       if(pending===work && valid(current)) {

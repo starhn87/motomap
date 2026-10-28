@@ -54,6 +54,8 @@ static BOOL ContainsBounds(NSDictionary *outer,NSDictionary *inner) {
 }
 - (void)fallback {
   [self.renderer clear];self.snapshotId=nil;self.keys=nil;self.expiresAt=nil;self.snapshotBounds=nil;
+}
+- (void)restoreSdkVisibility {
   if (self.ownsPoiVisibility) {
     // 이 계층이 바꾼 상태가 남아 있을 때만 원래 SDK 표시 설정을 돌려준다.
     if (!self.map.poiProperties.isVisible) self.map.poiProperties.isVisible=self.previousVisibility;
@@ -62,17 +64,18 @@ static BOOL ContainsBounds(NSDictionary *outer,NSDictionary *inner) {
 }
 - (void)refresh {
   [self fallback];self.context=nil;self.pose=nil;self.requestedAt=nil;self.retryAfter=nil;self.dirtySince=nil;
+  if(![self active])[self restoreSdkVisibility];
   [self.artwork removeAllObjects];
 }
 - (void)invalidate {
   if(self.invalidated)return;
-  [self refresh];self.invalidated=YES;[self.timer invalidate];self.timer=nil;
+  self.invalidated=YES;[self refresh];[self.timer invalidate];self.timer=nil;
   [self.renderer invalidate];self.isActive=nil;self.onRequest=nil;self.onSelect=nil;self.onModeChanged=nil;self.exclusions=nil;
 }
 - (void)dealloc { [self.timer invalidate];[self.renderer invalidate];if(self.ownsPoiVisibility && !self.map.poiProperties.isVisible)self.map.poiProperties.isVisible=self.previousVisibility; }
 - (NSDictionary *)viewport {
   KNMapView *map=self.map;CGRect b=map.bounds;
-  if(b.size.width<1 || b.size.height<1 || !isfinite(map.zoom) || map.zoom<=0 || map.zoom>=32)return nil;
+  if(b.size.width<1 || b.size.height<1 || !isfinite(map.zoom) || map.zoom<=0)return nil;
   FloatPoint center=[map screenToKatec:CGPointMake(CGRectGetMidX(b),CGRectGetMidY(b))];
   if(!isfinite(center.x)||!isfinite(center.y)||fabs(center.x)>INT_MAX||fabs(center.y)>INT_MAX)return nil;
   KNSDK *sdk=[KNSDK sharedInstance];
@@ -98,6 +101,11 @@ static BOOL ContainsBounds(NSDictionary *outer,NSDictionary *inner) {
 }
 - (void)poll {
   if(![self active]) { [self refresh];return; }
+  // 안내 중에는 조회/만료/축척과 관계없이 표시 주체를 바꾸지 않는다.
+  if(!self.ownsPoiVisibility){
+    self.previousVisibility=self.map.poiProperties.isVisible;self.ownsPoiVisibility=YES;
+    self.map.poiProperties.isVisible=NO;if(self.onModeChanged)self.onModeChanged(YES);
+  } else if(self.map.poiProperties.isVisible)self.map.poiProperties.isVisible=NO;
   // 자동 따라가기 중에도 만료·실패 복원은 카메라 변경보다 먼저 처리한다.
   if(self.ownsPoiVisibility && self.expiresAt.timeIntervalSinceNow<=0) { [self fallback];self.needsRequest=YES; }
   if(self.context && -self.requestedAt.timeIntervalSinceNow>20) { self.context=nil;[self fallback];self.needsRequest=YES; }
@@ -111,9 +119,9 @@ static BOOL ContainsBounds(NSDictionary *outer,NSDictionary *inner) {
     self.pose=pose;self.settledAt=NSDate.date;
     if(self.ownsPoiVisibility && !ContainsBounds(self.snapshotBounds,bounds))[self fallback];
     if(self.context && !ContainsBounds(self.context[@"bounds"],bounds))self.context=nil;
-    self.needsRequest=!self.ownsPoiVisibility;
+    self.needsRequest=!self.snapshotId;
   }
-  if(self.ownsPoiVisibility && ContainsBounds(self.snapshotBounds,bounds))self.needsRequest=NO;
+  if(self.snapshotId && ContainsBounds(self.snapshotBounds,bounds))self.needsRequest=NO;
   if(self.needsRequest && !self.dirtySince)self.dirtySince=NSDate.date;
   if(!self.needsRequest || self.context || self.retryAfter.timeIntervalSinceNow>0)return;
   // 손 이동은600ms 정지 후, 자동 이동은 최대2초 대기 뒤 조회한다.
@@ -160,7 +168,9 @@ static BOOL ContainsBounds(NSDictionary *outer,NSDictionary *inner) {
     artwork[key]=@{@"style":style,@"image":image};
     IntPoint p=[[KNSDK sharedInstance] convertWGS84ToKATECWithLongitude:lng latitude:lat];
     NSInteger priority=style[@"personal"]?0:[style[@"favorite"] boolValue]?1:row[@"gasId"]?2:3;
-    [items addObject:@{@"key":key,@"x":@(p.x),@"y":@(p.y),@"image":image,@"label":name,@"priority":@(priority),@"price":@([style[@"price"] doubleValue]>0)}];
+    BOOL price=[style[@"price"] doubleValue]>0;
+    [items addObject:@{@"key":key,@"x":@(p.x),@"y":@(p.y),@"image":image,@"label":name,@"priority":@(priority),@"price":@(price),
+      @"anchor":[NSValue valueWithCGPoint:CGPointMake(0.5,price?1:15/image.size.height)]}];
     [keys addObject:key];
   }
   self.artwork=artwork;self.keys=keys;self.snapshotId=requestId;self.snapshotBounds=coverage;self.expiresAt=[NSDate dateWithTimeIntervalSince1970:expires];

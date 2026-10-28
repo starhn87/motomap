@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
-import { poiPriority, validPoiBounds } from '../lib/guidePoiCatalog';
+import { mergeGuidePois, poiPriority, validPoiBounds } from '../lib/guidePoiCatalog';
 
 function store<T>(initial:T) {
   let state=initial;const listeners=new Set<(state:T,previous:T)=>void>();
   return {getState:()=>state,subscribe:(listener:(state:T,previous:T)=>void)=>{listeners.add(listener);return ()=>{listeners.delete(listener);};},
     set:(next:T)=>{const previous=state;state=next;listeners.forEach(fn=>fn(state,previous));}};
 }
-function setup(capability=true,gasAllowed=false) {
+function setup(capability=true,gasAllowed=false,ordinaryPois:any[]=[] ) {
   const visit={},guide=store<any>({goal:{visitIdentity:visit},preview:null});
   const auth=store<any>({session:{user:{id:'actor-a'}}}),privacy=store({revision:1}),personal=store({places:{},load:async()=>{}});
   let allowed=true,context:any={requestId:'first',bounds:{south:37.49,west:126.99,north:37.51,east:127.01}},selection:any=null,accepted=true;
@@ -22,11 +22,12 @@ function setup(capability=true,gasAllowed=false) {
       updateGuidePoiSnapshot:async(json:string)=>{updates.push(JSON.parse(json));return accepted;},
     }},
     '@/lib/api/guidePois':{},'@/lib/api/gasStations':{},
+    '@/lib/api/guideOrdinaryPois':{fetchGuideOrdinaryPois:async()=>({pois:ordinaryPois,partial:false})},
     '@/lib/guidePoiData':{GuidePoiData:class {
       clear(){clears++;}invalidateFavorites(){}
       load(...args:any[]){calls.push(args);return new Promise(resolve=>resolvers.push(resolve));}
     }},
-    '@/lib/guidePoiCatalog':{poiPriority,validPoiBounds},'@/lib/distance':{haversine:()=>0},
+    '@/lib/guidePoiCatalog':{mergeGuidePois,poiPriority,validPoiBounds},'@/lib/distance':{haversine:()=>0},
     '@/lib/guidePoiChanges':{listenGuideFavoritesChanged:(fn:any)=>{favoriteChange=fn;return ()=>{};}},
     '@/stores/useAuthStore':{useAuthStore:auth},'@/stores/useMyPlacesStore':{useMyPlacesStore:personal},
     '@/stores/useLocationPrivacyStore':{useLocationPrivacyStore:privacy,providerLocationAllowed:(recipient:string)=>allowed && (recipient!=='opinet'||gasAllowed)},
@@ -73,4 +74,12 @@ test('느린 유가 응답을 기다리지 않고 등록 장소를 먼저 표시
   assert.equal(f.updates.length,1);assert.equal(f.calls.length,2);
   f.setSelection({snapshotId:'first',key:'place:verified'});f.events.onGuideMenu({id:111});await f.flush();
   assert.equal(f.opens.length,1);f.resolve(1);await f.flush();assert.equal(f.updates.length,2);f.cleanup();
+});
+test('일반 장소는 느린 유가와 독립적으로 표시하고 등록·외부 ID를 서로 바꾸지 않는다',async()=>{
+  const point={key:'kakao:ordinary',providerId:'ordinary',name:'편의점',latitude:37.5,longitude:127};
+  const f=setup(true,true,[point]);f.events.onGuideMenu({id:110});await f.flush();f.resolve(0);await f.flush();
+  assert.equal(f.updates.at(-1).pois.length,2);assert.equal(f.calls.length,2);
+  f.setSelection({snapshotId:'first',key:point.key});f.events.onGuideMenu({id:111});await f.flush();
+  assert.equal(f.opens[0].point.providerId,'ordinary');assert.equal(f.opens[0].point.placeId,undefined);
+  f.resolve(1);await f.flush();assert.equal(f.updates.at(-1).pois.length,2);f.cleanup();
 });

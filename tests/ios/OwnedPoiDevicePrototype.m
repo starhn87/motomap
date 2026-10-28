@@ -37,6 +37,7 @@ static NSArray *targetA,*targetB;
 @property(nonatomic,strong) KNNaviGuidePoiOverlay *fixtureLayer;
 @property(nonatomic,strong) KNNaviOwnedPoiLayer *ownedProbe;
 @property(nonatomic,strong) NSDate *smokeStartedAt;
+@property(nonatomic) BOOL smokeInitialSDKVisibility;
 @property(nonatomic,weak) KNMapView *fixtureMap;
 @property(nonatomic,strong) UILabel *status;
 @property(nonatomic) FloatPoint initialCenter;
@@ -89,12 +90,13 @@ static NSArray *targetA,*targetB;
  if(finished)return;
  if(!self.ownedProbe){
   [self.fixtureLayer invalidate];self.fixtureLayer=nil;
+  self.smokeInitialSDKVisibility=self.fixtureMap.poiProperties.isVisible;
   self.ownedProbe=[[KNNaviOwnedPoiLayer alloc] initWithMap:self.fixtureMap];
   self.smokeStartedAt=NSDate.date;
   __weak ProbeHost *weakSelf=self;
   self.ownedProbe.isActive=^BOOL{return weakSelf.view.window!=nil;};
  }
- KNMapView *map=self.fixtureMap;BOOL previous=map.poiProperties.isVisible;
+ KNMapView *map=self.fixtureMap;
  // 실제 SDK의 비동기 카메라/레이아웃 준비와 제품의 정지 대기 시간을 그대로 기다린다.
  [self.ownedProbe performSelector:NSSelectorFromString(@"poll")];
  NSString *requestId=self.ownedProbe.context[@"requestId"];
@@ -133,12 +135,16 @@ static NSArray *targetA,*targetB;
  [self.ownedProbe setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"expiresAt"];
  [map moveCamera:[KNMapCameraUpdate zoomTo:map.zoom*1.01] withUserLocation:NO];
  [self.ownedProbe performSelector:NSSelectorFromString(@"poll")];
- BOOL restored=map.poiProperties.isVisible==previous && !self.ownedProbe.ownsPoiVisibility;
+ BOOL expiredCleared=!map.poiProperties.isVisible && self.ownedProbe.ownsPoiVisibility && !renderer.hasItems;
  [self.ownedProbe invalidate];
- if(!accepted || !hidden || items.count!=6 || !selected || !restored){Finish(NO,@"smoke_owned_poi_failed");return;}
+ BOOL restored=map.poiProperties.isVisible==self.smokeInitialSDKVisibility && !self.ownedProbe.ownsPoiVisibility;
+ if(!accepted || !hidden || items.count!=6 || !selected || !expiredCleared || !restored){
+  finished=YES;Record(@{@"error":@"smoke_owned_poi_failed",@"pass":@NO,@"accepted":@(accepted),@"hidden":@(hidden),
+    @"fixtureCount":@(items.count),@"selected":@(selected),@"expiredCleared":@(expiredCleared),@"restored":@(restored)});return;
+ }
  finished=YES;
  Record(@{@"event":@"prototype_ready",@"smoke":@YES,@"sdkSnapshotAccepted":@(accepted),@"fixtureCount":@6,
-  @"baseHiddenAfterAck":@(hidden),@"selectionCallback":@(selected),@"expiryRestoredDuringMove":@(restored),@"syntheticSelection":@YES});
+  @"baseHiddenAfterAck":@(hidden),@"selectionCallback":@(selected),@"expiryKeptOwnedMode":@(expiredCleared),@"cleanupRestoredSDK":@(restored),@"syntheticSelection":@YES});
 }
 - (void)toggleTilt { [self.fixtureMap moveCamera:[KNMapCameraUpdate tiltTo:self.fixtureMap.tilt>20?0:45] withUserLocation:NO]; }
 - (void)resetCamera {

@@ -37,41 +37,47 @@
     [price drawInRect:priceRect withAttributes:@{NSFontAttributeName:font,NSForegroundColorAttributeName:ink}];
   }];
 }
+// 일반 지도와 같은 이미지 자산을 쓰고 안내 지도용 배치와 글자만 합성한다.
++ (UIImage *)markerImageForPoi:(NSDictionary *)poi {
+  NSString *personal=poi[@"personal"];
+  if(!personal) {
+    NSSet *categories=[NSSet setWithArray:@[@"cafe",@"restaurant",@"rest_stop",@"gas_station",@"repair_shop",@"viewpoint",@"gear_shop",@"camping",@"car_wash"]];
+    NSString *category=[categories containsObject:poi[@"category"]?:@""]?poi[@"category"]:@"general";
+    NSString *file=[NSString stringWithFormat:@"%@_circle%@",category,[poi[@"favorite"] boolValue]?@"_fav":@""];
+    NSURL *url=[NSBundle.mainBundle URLForResource:@"MotoMapNavigationUI" withExtension:@"bundle"];
+    NSString *path=[[NSBundle bundleWithURL:url] pathForResource:file ofType:@"png"];
+    UIImage *image=path?[UIImage imageWithContentsOfFile:path]:nil;
+    if(image)return image;
+  }
+  return [[[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(30,30)] imageWithActions:^(UIGraphicsImageRendererContext *context){
+    [[UIColor colorWithRed:0.443 green:0.369 blue:0.294 alpha:1] setFill];
+    [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(1,1,28,28)] fill];
+    NSString *symbol=[personal isEqual:@"home"]?@"house.fill":[personal isEqual:@"work"]?@"briefcase.fill":@"mappin";
+    UIImage *icon=[UIImage systemImageNamed:symbol withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:16 weight:UIImageSymbolWeightSemibold]];
+    CGFloat scale=MIN(17/icon.size.width,17/icon.size.height);CGSize fitted=CGSizeMake(icon.size.width*scale,icon.size.height*scale);
+    [[icon imageWithTintColor:UIColor.whiteColor renderingMode:UIImageRenderingModeAlwaysOriginal] drawInRect:CGRectMake(15-fitted.width/2,15-fitted.height/2,fitted.width,fitted.height)];
+  }];
+}
 + (UIImage *)imageForPoi:(NSDictionary *)poi {
   if ([poi[@"price"] doubleValue]>0) return [self priceImage:poi];
-  NSDictionary *symbols=@{@"cafe":@"cup.and.saucer.fill",@"restaurant":@"fork.knife",@"rest_stop":@"parkingsign.circle.fill",
-    @"gas_station":@"fuelpump.fill",@"repair_shop":@"wrench.and.screwdriver.fill",@"viewpoint":@"camera.fill",
-    @"gear_shop":@"bag.fill",@"camping":@"tent.fill",@"car_wash":@"drop.fill"};
-  NSString *personal=poi[@"personal"];
-  NSString *symbol=[personal isEqual:@"home"]?@"house.fill":[personal isEqual:@"work"]?@"briefcase.fill":
-    [poi[@"favorite"] boolValue]?@"star.fill":symbols[poi[@"category"]?:@""]?:@"mappin.circle.fill";
   NSString *name=poi[@"name"]?:@"";
-  UIFont *font=[UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
-  CGFloat textWidth=MIN(126,ceil([name sizeWithAttributes:@{NSFontAttributeName:font}].width));
-  CGSize size=CGSizeMake(28+textWidth+4,28);
+  UIFont *font=[UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
+  NSMutableParagraphStyle *paragraph=[NSMutableParagraphStyle new];
+  paragraph.alignment=NSTextAlignmentCenter;paragraph.lineBreakMode=NSLineBreakByWordWrapping;
+  NSDictionary *attributes=@{NSFontAttributeName:font,NSForegroundColorAttributeName:[UIColor colorWithWhite:0.1 alpha:1],
+    NSStrokeColorAttributeName:UIColor.whiteColor,NSStrokeWidthAttributeName:@-4,NSParagraphStyleAttributeName:paragraph};
+  CGFloat textWidth=MIN(108,MAX(30,ceil([name sizeWithAttributes:@{NSFontAttributeName:font}].width)));
+  CGRect measured=[name boundingRectWithSize:CGSizeMake(textWidth,CGFLOAT_MAX) options:NSStringDrawingUsesLineFragmentOrigin|NSStringDrawingUsesFontLeading attributes:attributes context:nil];
+  CGFloat textHeight=MIN(ceil(font.lineHeight*2),MAX(ceil(font.lineHeight),ceil(measured.size.height)));
+  CGSize size=CGSizeMake(textWidth+6,30+3+textHeight+4);
+  UIImage *icon=[self markerImageForPoi:poi];
   return [[[UIGraphicsImageRenderer alloc] initWithSize:size] imageWithActions:^(UIGraphicsImageRendererContext *context) {
-    UIImage *logo=[self brandImage:poi[@"brand"]];
-    if (logo && !personal && ![poi[@"favorite"] boolValue]) {
-      CGFloat scale=MIN(22/logo.size.width,20/logo.size.height);
-      CGSize fitted=CGSizeMake(logo.size.width*scale,logo.size.height*scale);
-      [logo drawInRect:CGRectMake(12-fitted.width/2,14-fitted.height/2,fitted.width,fitted.height)];
-    } else {
-      UIImageSymbolConfiguration *configuration=[UIImageSymbolConfiguration configurationWithPointSize:18 weight:UIImageSymbolWeightSemibold];
-      UIImage *icon=[UIImage systemImageNamed:symbol withConfiguration:configuration]?:[UIImage systemImageNamed:@"mappin.circle.fill" withConfiguration:configuration];
-      NSDictionary *colors=@{@"cafe":@0xA16207,@"restaurant":@0xEF4444,@"rest_stop":@0x3B82F6,@"gas_station":@0x22C55E,
-        @"repair_shop":@0x8B5CF6,@"viewpoint":@0xEC4899,@"gear_shop":@0x0EA5E9,@"camping":@0xF97316,@"car_wash":@0x14B8A6};
-      unsigned int hex=personal?0x715E4B:[poi[@"favorite"] boolValue]?0xFBBF24:[colors[poi[@"category"]?:@""]?:@0x715E4B unsignedIntValue];
-      UIColor *color=[UIColor colorWithRed:((hex>>16)&255)/255.0 green:((hex>>8)&255)/255.0 blue:(hex&255)/255.0 alpha:1];
-      CGFloat scale=MIN(20/icon.size.width,20/icon.size.height);
-      CGSize fitted=CGSizeMake(icon.size.width*scale,icon.size.height*scale);
-      // 배경 박스 없이 기존 아이콘의 비율을 보존하고 지도 위 대비만 확보한다.
-      CGContextSetShadowWithColor(context.CGContext,CGSizeZero,2,UIColor.whiteColor.CGColor);
-      [[icon imageWithTintColor:color renderingMode:UIImageRenderingModeAlwaysOriginal] drawInRect:CGRectMake(12-fitted.width/2,14-fitted.height/2,fitted.width,fitted.height)];
-      CGContextSetShadowWithColor(context.CGContext,CGSizeZero,0,nil);
-    }
-    NSMutableParagraphStyle *paragraph=[NSMutableParagraphStyle new];paragraph.lineBreakMode=NSLineBreakByTruncatingTail;
-    [name drawInRect:CGRectMake(28,6,textWidth,17) withAttributes:@{NSFontAttributeName:font,NSForegroundColorAttributeName:[UIColor colorWithWhite:0.1 alpha:1],
-      NSStrokeColorAttributeName:UIColor.whiteColor,NSStrokeWidthAttributeName:@-4,NSParagraphStyleAttributeName:paragraph}];
+    [icon drawInRect:CGRectMake((size.width-30)/2,0,30,30)];
+    // 상호는 아이콘 아래 최대 두 줄, 긴 마지막 줄만 말줄임한다.
+    UILabel *label=[[UILabel alloc] initWithFrame:CGRectMake(3,33,textWidth,textHeight)];
+    label.numberOfLines=2;label.lineBreakMode=NSLineBreakByTruncatingTail;label.attributedText=[[NSAttributedString alloc] initWithString:name attributes:attributes];
+    CGContextSaveGState(context.CGContext);CGContextTranslateCTM(context.CGContext,label.frame.origin.x,label.frame.origin.y);
+    [label.layer renderInContext:context.CGContext];CGContextRestoreGState(context.CGContext);
   }];
 }
 @end

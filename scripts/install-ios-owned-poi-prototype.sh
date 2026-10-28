@@ -70,6 +70,8 @@ mkdir -p "$app/MotoMapNavigationVoice.bundle" "$app/MotoMapNavigationUI.bundle"
 cp "$root/modules/kakao-navi/ios/Resources/navigation-start.mp3" "$app/MotoMapNavigationVoice.bundle/"
 cp "$root/modules/kakao-navi/ios/Resources/navigation-bottom.html" "$app/MotoMapNavigationUI.bundle/"
 cp "$root"/modules/kakao-navi/ios/Resources/GasBrands/*.png "$app/MotoMapNavigationUI.bundle/"
+# 시제품도 실제 빌드에 들어간 원본 아이콘을 사용해 패키징 누락을 숨기지 않는다.
+cp "$fullapp"/MotoMapNavigationUI.bundle/*_circle*.png "$app/MotoMapNavigationUI.bundle/"
 cp "$fullapp/embedded.mobileprovision" "$app/"
 codesign -d --entitlements :- "$fullapp" > "$work/entitlements.plist" 2>/dev/null
 identity=$(security find-identity -v -p codesigning | python3 -c 'import sys,re; s=sys.stdin.read(); m=re.search(r"([A-F0-9]{40}) .*Apple Development",s); assert m; print(m[1])')

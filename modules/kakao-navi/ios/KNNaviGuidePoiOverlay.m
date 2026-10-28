@@ -27,6 +27,7 @@
 @property(nonatomic, strong) NSDate *expiresAt;
 @property(nonatomic) BOOL invalidated;
 @property(nonatomic) BOOL cameraKnown;
+@property(nonatomic) BOOL hasNormalLabels;
 @property(nonatomic) FloatPoint lastCoordinate;
 @property(nonatomic) FloatPoint lastAnchor;
 @property(nonatomic) float lastZoom;
@@ -54,6 +55,7 @@
   [self.displayLink invalidate];self.displayLink=nil;
   [self.overlay removeFromSuperview];self.overlay=nil;
   [self.owned removeAllObjects];self.expiresAt=nil;self.cameraKnown=NO;
+  self.hasNormalLabels=NO;
   _selectedKey=nil;
 }
 - (void)invalidate { [self clear];self.invalidated=YES;self.onSelect=nil;self.isActive=nil;self.map=nil; }
@@ -86,7 +88,9 @@
     button.accessibilityIdentifier=[@"guide-poi-" stringByAppendingString:key];
     [button addTarget:self action:@selector(poiTapped:) forControlEvents:UIControlEventTouchUpInside];
     [self.overlay addSubview:button];
-    [self.owned addObject:@{@"button":button,@"content":content,@"image":image,@"key":key,@"x":@(x),@"y":@(y),@"price":item[@"price"]?:@YES}];
+    [self.owned addObject:@{@"button":button,@"content":content,@"image":image,@"key":key,@"x":@(x),@"y":@(y),@"price":item[@"price"]?:@YES,
+      @"anchor":item[@"anchor"]?:[NSValue valueWithCGPoint:CGPointMake(0.5,1)]}];
+    if(item[@"price"] && ![item[@"price"] boolValue])self.hasNormalLabels=YES;
     [keys addObject:key];if (self.owned.count>=60) break;
   }
   if (!self.owned.count) { [self clear];return; }
@@ -112,7 +116,7 @@
   self.lastZoom=zoomValue;self.lastBearing=bearing;self.lastTilt=tilt;
   self.overlay.frame=frame;
   CGFloat zoom=zoomValue;
-  self.overlay.hidden=!isfinite(zoom) || zoom<=0 || zoom>=32;
+  self.overlay.hidden=!isfinite(zoom) || zoom<=0 || (zoom>=32 && !self.hasNormalLabels);
   if (self.overlay.hidden) return;
   CGFloat scale=MIN(1,MAX(0.5,pow(1.3/zoom,0.25)));
   NSMutableArray<NSValue *> *visible=[NSMutableArray new];
@@ -128,14 +132,15 @@
     CGFloat width=image.size.width*itemScale,height=image.size.height*itemScale;
     CGPoint point=[self.map katecToScreen:(FloatPoint){[item[@"x"] floatValue],[item[@"y"] floatValue]}];
     point=[self.map convertPoint:point toView:self.overlay];
-    CGRect visual=CGRectMake(point.x-width/2,point.y-height,width,height);
-    CGRect touch=CGRectMake(point.x-MAX(44,width)/2,point.y-height/2-MAX(44,height)/2,MAX(44,width),MAX(44,height));
+    CGPoint anchor=[item[@"anchor"] CGPointValue];
+    CGRect visual=CGRectMake(point.x-width*anchor.x,point.y-height*anchor.y,width,height);
+    CGRect touch=CGRectMake(CGRectGetMidX(visual)-MAX(44,width)/2,CGRectGetMidY(visual)-MAX(44,height)/2,MAX(44,width),MAX(44,height));
     BOOL hidden=!isfinite(point.x) || !isfinite(point.y) || !CGRectIntersectsRect(self.overlay.bounds,visual) ||
-      (isPrice && prices>=(zoom>4?8:24)) || (zoom>4 && visible.count>=30);
+      (isPrice && (zoom>=32 || prices>=(zoom>4?8:24))) || (zoom>4 && visible.count>=30);
     for(NSValue *rect in self.exclusionRects)if(CGRectIntersectsRect(touch,rect.CGRectValue)){hidden=YES;break;}
     for (NSValue *other in visible) if (CGRectIntersectsRect(CGRectInset(touch,-3,-3),other.CGRectValue)) { hidden=YES;break; }
     button.hidden=hidden;if (hidden) continue;
-    button.center=CGPointMake(point.x,point.y-height/2);button.bounds=(CGRect){CGPointZero,touch.size};
+    button.center=CGPointMake(CGRectGetMidX(visual),CGRectGetMidY(visual));button.bounds=(CGRect){CGPointZero,touch.size};
     UIImageView *content=item[@"content"];content.center=CGPointMake(touch.size.width/2,touch.size.height/2);
     content.transform=CGAffineTransformMakeScale(itemScale,itemScale);
     [visible addObject:[NSValue valueWithCGRect:touch]];

@@ -82,6 +82,7 @@ cp "$root/modules/kakao-navi/ios/Resources/navigation-start.mp3" "$app/MotoMapNa
 mkdir -p "$app/MotoMapNavigationUI.bundle"
 cp "$root/modules/kakao-navi/ios/Resources/navigation-bottom.html" "$app/MotoMapNavigationUI.bundle/"
 cp "$root"/modules/kakao-navi/ios/Resources/GasBrands/*.png "$app/MotoMapNavigationUI.bundle/"
+cp "$root"/assets/images/markers/*_circle*.png "$app/MotoMapNavigationUI.bundle/"
 codesign --force --sign - "$app" >/dev/null 2>&1
 xcrun simctl list runtimes --json > "$work/runtimes.json"
 xcrun simctl list devicetypes --json > "$work/types.json"

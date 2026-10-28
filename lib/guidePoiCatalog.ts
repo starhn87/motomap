@@ -32,7 +32,7 @@ export function paddedPoiBounds(b: PoiBounds): PoiBounds {
   const lat=(b.north-b.south)*0.25, lng=(b.east-b.west)*0.25;
   return { south:Math.max(-90,b.south-lat), north:Math.min(90,b.north+lat), west:Math.max(-180,b.west-lng), east:Math.min(180,b.east+lng) };
 }
-export const poiPriority = (p: GuidePoi) => p.personal ? 0 : p.favorite ? 1 : p.gasId ? 2 : 3;
+export const poiPriority = (p: GuidePoi) => p.personal ? 0 : p.favorite ? 1 : p.gasId ? 2 : p.placeId ? 3 : 4;
 
 // 같은 ID만 통합한다. 가깝다는 이유로 다른 점포의 가격이나 등록 ID를 옮기지 않는다.
 export function mergeGuidePois(rows: GuidePoi[], bounds: PoiBounds): GuidePoi[] {
