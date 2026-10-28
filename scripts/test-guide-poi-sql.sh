@@ -9,7 +9,7 @@ cleanup() { "$pg_bin/pg_ctl" -D "$work/data" -m immediate stop >/dev/null 2>&1 |
 trap cleanup EXIT
 "$pg_bin/initdb" -D "$work/data" -A trust --no-locale >/dev/null
 "$pg_bin/pg_ctl" -D "$work/data" -l "$work/server.log" -o "-k $work -p 54389 -c listen_addresses=''" start >/dev/null
-for sql in "$root/tests/sql/guide-poi-fixture.sql" "$root/supabase/migrations/20261028120911_add_guide_poi_map_reads.sql" "$root/tests/sql/guide-poi-assertions.sql";do
+for sql in "$root/tests/sql/guide-poi-fixture.sql" "$root/supabase/migrations/20261028130630_add_guide_poi_map_reads.sql" "$root/tests/sql/guide-poi-assertions.sql";do
  "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h "$work" -p 54389 -d postgres -f "$sql" >/dev/null
 done
 echo GUIDE_POI_SQL_PASS
