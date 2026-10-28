@@ -4,6 +4,8 @@
 #import <KNSDK/KNMapMarker.h>
 #import <KNSDK/KNMapMarkerEventListener.h>
 #import "KNNaviGasPriceLayer.h"
+#import "KNNaviGuidePoiOverlay.h"
+#import "KNNaviOwnedPoiFixtures.h"
 #import "KNNaviHazardSheet.h"
 #import "KNSDKBridge.h"
 
@@ -65,45 +67,48 @@ int RunKNNaviGasPriceTests(void) {
   NSDictionary *station=@{@"id":@"fixture",@"name":@"공개 검사 주유소",@"brand":@"S-OIL",@"price":@1699,@"latitude":@37.501,@"longitude":@127.001};
   NSMutableDictionary *zero=[station mutableCopy];zero[@"id"]=@"zero";zero[@"price"]=@0;
   [layer applyResponse:@{@"requestId":first,@"stations":@[station,zero],@"fetchedAt":@(now-1800000),@"expiresAt":@(now+1800000)}];
-  NSArray *owned=[layer valueForKey:@"owned"];
+  NSArray *owned=[[layer valueForKey:@"renderer"] valueForKey:@"owned"];
   UIButton *own=owned.firstObject[@"button"];UIImage *image=owned.firstObject[@"image"];
-  UIView *content=owned.firstObject[@"content"];UIView *overlay=[layer valueForKey:@"overlay"];
+  UIView *content=owned.firstObject[@"content"];UIView *overlay=[[layer valueForKey:@"renderer"] valueForKey:@"overlay"];
   if (![own isDescendantOfView:map] || owned.count!=1 || image.size.width!=116 || image.size.height!=34 || map.markers.count!=1 || map.markerEventListener!=previous) { NSLog(@"FAIL price overlay touched SDK markers/listener"); failures++; }
   [own sendActionsForControlEvents:UIControlEventTouchUpInside];
   CGFloat lastScale=2;
   for (NSNumber *zoom in @[@1,@2,@3,@4,@8,@16]) {
-    map.zoom=zoom.floatValue;[layer performSelector:NSSelectorFromString(@"updateScreenPositions")];
+    map.zoom=zoom.floatValue;[[layer valueForKey:@"renderer"] performSelector:NSSelectorFromString(@"updateScreenPositions")];
     CGFloat scale=content.transform.a;
-    if (scale>=lastScale || own.bounds.size.height!=44 || ((NSArray *)[layer valueForKey:@"owned"]).firstObject[@"image"]!=image) { NSLog(@"FAIL continuous price scale/image/touch area"); failures++; }
+    if (scale>=lastScale || own.bounds.size.height!=44 || ((NSArray *)[[layer valueForKey:@"renderer"] valueForKey:@"owned"]).firstObject[@"image"]!=image) { NSLog(@"FAIL continuous price scale/image/touch area"); failures++; }
     lastScale=scale;
   }
-  map.zoom=32;[layer performSelector:NSSelectorFromString(@"updateScreenPositions")];
+  map.zoom=32;[[layer valueForKey:@"renderer"] performSelector:NSSelectorFromString(@"updateScreenPositions")];
   if (!overlay.hidden) { NSLog(@"FAIL regional overview retained prices"); failures++; }
-  map.zoom=1;[layer performSelector:NSSelectorFromString(@"updateScreenPositions")];
+  map.zoom=1;[[layer valueForKey:@"renderer"] performSelector:NSSelectorFromString(@"updateScreenPositions")];
   CGPoint buttonPoint=[own convertPoint:CGPointMake(own.bounds.size.width/2,22) toView:overlay];
   if ([overlay hitTest:buttonPoint withEvent:nil]!=own || [overlay hitTest:CGPointMake(1,1) withEvent:nil]!=nil) { NSLog(@"FAIL price touch/passthrough"); failures++; }
+  [overlay removeFromSuperview];
+  [[layer valueForKey:@"renderer"] performSelector:NSSelectorFromString(@"updateScreenPositions")];
+  if (overlay.superview!=map) { NSLog(@"FAIL SDK child cleanup lost cached POI overlay");failures++; }
   for (int i=0;i<50;i++) [layer updatePosition:position timestamp:NSDate.date active:YES];
-  if (requests!=1 || ((NSArray *)[layer valueForKey:@"owned"]).firstObject[@"button"]!=own || [[layer valueForKey:@"expiresAt"] timeIntervalSince1970]>now/1000+1801) { NSLog(@"FAIL price cache restarted TTL or rebuilt per GPS"); failures++; }
+  if (requests!=1 || ((NSArray *)[[layer valueForKey:@"renderer"] valueForKey:@"owned"]).firstObject[@"button"]!=own || [[layer valueForKey:@"expiresAt"] timeIntervalSince1970]>now/1000+1801) { NSLog(@"FAIL price cache restarted TTL or rebuilt per GPS"); failures++; }
   id<KNMapMarkerEventListener> listener=map.markerEventListener;
   [listener mapView:(id)map onSingleTappedWithMarker:foreign];[listener mapView:(id)map onDoubleTappedWithMarker:foreign];[listener mapView:(id)map onLongPressedWithMarker:foreign];[listener mapView:(id)map onMarkerAnimationEnded:foreign];[listener mapView:(id)map onCalloutBubbleSelected:foreign];
   if (selections!=1 || previous.forwarded!=5) { NSLog(@"FAIL price selection/SDK listener preservation"); failures++; }
   [layer pause];
-  if ([[layer valueForKey:@"owned"] count] || [layer valueForKey:@"displayLink"] || layer.context) { NSLog(@"FAIL hidden price marker/pending cleanup"); failures++; }
+  if ([[[layer valueForKey:@"renderer"] valueForKey:@"owned"] count] || [[layer valueForKey:@"renderer"] valueForKey:@"displayLink"] || layer.context) { NSLog(@"FAIL hidden price marker/pending cleanup"); failures++; }
   [layer updatePosition:position timestamp:NSDate.date active:YES];
-  if (requests!=1 || [[layer valueForKey:@"owned"] count]!=1) { NSLog(@"FAIL foreground price cache reuse"); failures++; }
+  if (requests!=1 || [[[layer valueForKey:@"renderer"] valueForKey:@"owned"] count]!=1) { NSLog(@"FAIL foreground price cache reuse"); failures++; }
   [layer setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"expiresAt"];
   [layer updatePosition:position timestamp:NSDate.date active:YES];
-  if ([[layer valueForKey:@"owned"] count]) { NSLog(@"FAIL expired price remained visible"); failures++; }
+  if ([[[layer valueForKey:@"renderer"] valueForKey:@"owned"] count]) { NSLog(@"FAIL expired price remained visible"); failures++; }
   [layer setValue:[NSDate dateWithTimeIntervalSinceNow:-31] forKey:@"requestedAt"];
   [layer updatePosition:position timestamp:NSDate.date active:YES];NSString *second=layer.context[@"requestId"];
   [layer pause];[layer applyResponse:@{@"requestId":second,@"stations":@[station],@"fetchedAt":@(now),@"expiresAt":@(now+3600000)}];
-  if ([[layer valueForKey:@"owned"] count]) { NSLog(@"FAIL late inactive response recreated markers"); failures++; }
+  if ([[[layer valueForKey:@"renderer"] valueForKey:@"owned"] count]) { NSLog(@"FAIL late inactive response recreated markers"); failures++; }
   [layer setValue:nil forKey:@"requestedAt"];[layer updatePosition:position timestamp:NSDate.date active:YES];
   NSString *third=layer.context[@"requestId"];
   [layer applyResponse:@{@"requestId":first,@"stations":@[station],@"fetchedAt":@(now),@"expiresAt":@(now+3600000)}];
   if (![layer.context[@"requestId"] isEqual:third]) { NSLog(@"FAIL stale request cleared newer price request"); failures++; }
   [KNSDKBridge setLocationUseAllowed:NO];[layer applyResponse:@{@"requestId":third,@"stations":@[station],@"fetchedAt":@(now),@"expiresAt":@(now+3600000)}];
-  if ([[layer valueForKey:@"owned"] count]) { NSLog(@"FAIL revoked location showed prices"); failures++; }
+  if ([[[layer valueForKey:@"renderer"] valueForKey:@"owned"] count]) { NSLog(@"FAIL revoked location showed prices"); failures++; }
   [layer invalidate];
   if (map.markerEventListener!=previous || map.markers.count!=1) { NSLog(@"FAIL price teardown touched SDK marker/listener"); failures++; }
   [KNSDKBridge setLocationUseAllowed:YES];
@@ -112,15 +117,36 @@ int RunKNNaviGasPriceTests(void) {
   NSMutableArray *many=[NSMutableArray new];
   for (int i=0;i<30;i++) { NSMutableDictionary *row=[station mutableCopy];row[@"id"]=[NSString stringWithFormat:@"station-%d",i];row[@"latitude"]=@(37.501+i*0.001);[many addObject:row]; }
   [dense applyResponse:@{@"requestId":dense.context[@"requestId"],@"stations":many,@"fetchedAt":@(now),@"expiresAt":@(now+3600000)}];
-  NSArray *items=[dense valueForKey:@"owned"];map.zoom=8;[dense performSelector:NSSelectorFromString(@"updateScreenPositions")];
+  NSArray *items=[[dense valueForKey:@"renderer"] valueForKey:@"owned"];map.zoom=8;[[dense valueForKey:@"renderer"] performSelector:NSSelectorFromString(@"updateScreenPositions")];
   NSUInteger visible=0;for (NSDictionary *item in items) if (![item[@"button"] isHidden]) visible++;
   if (items.count!=24 || visible>8) { NSLog(@"FAIL zoomed-out price density"); failures++; }
   [dense invalidate];
   KNNaviGasPriceLayer *empty=[[KNNaviGasPriceLayer alloc] initWithMap:(id)map];
   [empty updatePosition:position timestamp:NSDate.date active:YES];
   [empty applyResponse:@{@"requestId":empty.context[@"requestId"],@"stations":@[],@"fetchedAt":@(now),@"expiresAt":@(now+300000)}];
-  if ([empty valueForKey:@"overlay"] || [empty valueForKey:@"displayLink"]) { NSLog(@"FAIL empty results kept visual polling alive"); failures++; }
+  if ([[empty valueForKey:@"renderer"] valueForKey:@"overlay"] || [[empty valueForKey:@"renderer"] valueForKey:@"displayLink"]) { NSLog(@"FAIL empty results kept visual polling alive"); failures++; }
   [empty invalidate];
+  // 다종 POI는 같은 표시 계층을 사용하고 가격 없는 주유소도 유효한 항목이다.
+  KNNaviGuidePoiOverlay *mixed=[[KNNaviGuidePoiOverlay alloc] initWithMap:(id)map];map.zoom=0.5;
+  NSArray *fixtures=KNNaviOwnedPoiFixtures((IntPoint){300000,400000});
+  [mixed showItems:fixtures expiresAt:[NSDate dateWithTimeIntervalSinceNow:60]];
+  NSArray *mixedItems=[mixed valueForKey:@"owned"];
+  if (mixedItems.count!=6 || ![mixedItems.firstObject[@"key"] isEqual:@"home"]) { NSLog(@"FAIL mixed POI snapshot/priority");failures++; }
+  __block NSString *selectedKey=nil;mixed.onSelect=^(NSString *key){selectedKey=key;};
+  for (NSDictionary *item in mixedItems) {
+    UIButton *button=item[@"button"];
+    if (button.bounds.size.width<44 || button.bounds.size.height<44) { NSLog(@"FAIL POI touch target below44");failures++; }
+    if ([item[@"key"] isEqual:@"no-price"]) {
+      [button sendActionsForControlEvents:UIControlEventTouchUpInside];
+      if (![selectedKey isEqual:@"no-price"]) { NSLog(@"FAIL no-price POI selection identity");failures++; }
+    }
+  }
+  map.bearing=90;map.tilt=50;map.coordinate=(FloatPoint){300010,400010};
+  [mixed performSelector:NSSelectorFromString(@"updateScreenPositions")];
+  if ([[mixed valueForKey:@"owned"] count]!=6 || ![[mixed valueForKey:@"cameraKnown"] boolValue]) { NSLog(@"FAIL camera change removed POI snapshot");failures++; }
+  [KNSDKBridge setLocationUseAllowed:NO];[mixed performSelector:NSSelectorFromString(@"updateScreenPositions")];
+  if (mixed.hasItems || [mixed valueForKey:@"displayLink"]) { NSLog(@"FAIL revoked POI snapshot retained");failures++; }
+  [KNSDKBridge setLocationUseAllowed:YES];[mixed invalidate];
   window.hidden=YES;
   method_setImplementation(method,original);imp_removeBlock(replacement);
   [KNSDKBridge setLocationUseAllowed:YES];
