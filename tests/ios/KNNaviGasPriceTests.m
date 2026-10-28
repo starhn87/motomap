@@ -6,10 +6,17 @@
 #import "KNNaviGasPriceLayer.h"
 #import "KNNaviGuidePoiOverlay.h"
 #import "KNNaviOwnedPoiFixtures.h"
+#import "KNNaviOwnedPoiLayer.h"
+#import "KNNaviGuidePoiArtwork.h"
 #import "KNNaviHazardSheet.h"
 #import "KNSDKBridge.h"
 
+@interface PoiPropertiesProbe:NSObject
+@property(nonatomic) BOOL isVisible;
+@end
+@implementation PoiPropertiesProbe @end
 @interface PriceMapProbe : UIView
+@property(nonatomic, strong) PoiPropertiesProbe *poiProperties;
 @property(nonatomic, weak) id<KNMapMarkerEventListener> markerEventListener;
 @property(nonatomic, strong) NSMutableArray *markers;
 @property(nonatomic)float zoom;
@@ -20,6 +27,7 @@
 @end
 @implementation PriceMapProbe
 - (CGPoint)katecToScreen:(FloatPoint)p { return CGPointMake(self.bounds.size.width/2+(p.x-300000)/self.zoom,self.bounds.size.height/2-(p.y-400000)/self.zoom); }
+- (FloatPoint)screenToKatec:(CGPoint)p { return (FloatPoint){300000+(p.x-self.bounds.size.width/2)*self.zoom,400000-(p.y-self.bounds.size.height/2)*self.zoom}; }
 - (void)addMarker:(KNMapMarker *)marker { [self.markers addObject:marker]; }
 - (void)removeMarker:(KNMapMarker *)marker { [self.markers removeObjectIdenticalTo:marker]; }
 @end
@@ -129,6 +137,13 @@ int RunKNNaviGasPriceTests(void) {
   // 다종 POI는 같은 표시 계층을 사용하고 가격 없는 주유소도 유효한 항목이다.
   KNNaviGuidePoiOverlay *mixed=[[KNNaviGuidePoiOverlay alloc] initWithMap:(id)map];map.zoom=0.5;
   NSArray *fixtures=KNNaviOwnedPoiFixtures((IntPoint){300000,400000});
+  UIGraphicsImageRenderer *labelRenderer=[[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(360,204)];
+  UIImage *labelSheet=[labelRenderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+    [[UIColor colorWithWhite:0.93 alpha:1] setFill];UIRectFill(CGRectMake(0,0,360,204));
+    for(NSUInteger i=0;i<fixtures.count;i++)[fixtures[i][@"image"] drawAtPoint:CGPointMake(12+(i%2)*178,18+(i/2)*64)];
+  }];
+  NSString *labelFile=[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"owned-poi-labels.png"];
+  [UIImagePNGRepresentation(labelSheet) writeToFile:labelFile atomically:YES];
   [mixed showItems:fixtures expiresAt:[NSDate dateWithTimeIntervalSinceNow:60]];
   NSArray *mixedItems=[mixed valueForKey:@"owned"];
   if (mixedItems.count!=6 || ![mixedItems.firstObject[@"key"] isEqual:@"home"]) { NSLog(@"FAIL mixed POI snapshot/priority");failures++; }
@@ -147,6 +162,52 @@ int RunKNNaviGasPriceTests(void) {
   [KNSDKBridge setLocationUseAllowed:NO];[mixed performSelector:NSSelectorFromString(@"updateScreenPositions")];
   if (mixed.hasItems || [mixed valueForKey:@"displayLink"]) { NSLog(@"FAIL revoked POI snapshot retained");failures++; }
   [KNSDKBridge setLocationUseAllowed:YES];[mixed invalidate];
+  map.zoom=1;map.coordinate=(FloatPoint){300000,400000};
+  map.poiProperties=[PoiPropertiesProbe new];map.poiProperties.isVisible=YES;
+  KNNaviOwnedPoiLayer *coordinator=[[KNNaviOwnedPoiLayer alloc] initWithMap:(id)map];
+  __block BOOL active=YES;coordinator.isActive=^BOOL{return active;};
+  __block NSUInteger viewportRequests=0;coordinator.onRequest=^{viewportRequests++;};
+  [coordinator performSelector:NSSelectorFromString(@"poll")];
+  if(coordinator.context || !map.poiProperties.isVisible){NSLog(@"FAIL owned POI fetched before camera settled");failures++;}
+  [coordinator setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"settledAt"];
+  [coordinator performSelector:NSSelectorFromString(@"poll")];
+  NSString *viewportId=coordinator.context[@"requestId"]?:@"missing";
+  if([viewportId isEqual:@"missing"] || viewportRequests!=1){NSLog(@"FAIL viewport context missing");failures++;}
+  double expiry=NSDate.date.timeIntervalSince1970*1000+60000;
+  NSDictionary *place=@{@"key":@"place:fixture",@"name":@"카페",@"latitude":@37.5,@"longitude":@127,@"category":@"cafe"};
+  if([coordinator applyResponse:@{@"requestId":@"stale",@"pois":@[place],@"expiresAt":@(expiry)}] || !map.poiProperties.isVisible){NSLog(@"FAIL stale snapshot changed base POIs");failures++;}
+  BOOL accepted=[coordinator applyResponse:@{@"requestId":viewportId,@"pois":@[place],@"expiresAt":@(expiry)}];
+  if(!accepted || map.poiProperties.isVisible || !coordinator.ownsPoiVisibility){NSLog(@"FAIL ready snapshot did not own base POIs");failures++;}
+  __block NSString *selectedPoiKey=nil;coordinator.onSelect=^(NSString *key,NSString *snapshotId){if([snapshotId isEqual:viewportId])selectedPoiKey=key;};
+  KNNaviGuidePoiOverlay *presentation=[coordinator valueForKey:@"renderer"];
+  UIButton *poiButton=((NSArray *)[presentation valueForKey:@"owned"]).firstObject[@"button"];
+  [poiButton sendActionsForControlEvents:UIControlEventTouchUpInside];
+  if(![selectedPoiKey isEqual:@"place:fixture"]){NSLog(@"FAIL owned POI stable selection key");failures++;}
+  presentation.exclusionRects=@[[NSValue valueWithCGRect:map.bounds]];
+  [presentation performSelector:NSSelectorFromString(@"updateScreenPositions")];
+  if(!poiButton.hidden){NSLog(@"FAIL protected navigation UI covered by POI");failures++;}
+  [coordinator setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"expiresAt"];
+  map.coordinate=(FloatPoint){300001,400001};[coordinator performSelector:NSSelectorFromString(@"poll")];
+  if(!map.poiProperties.isVisible || coordinator.ownsPoiVisibility){NSLog(@"FAIL moving camera skipped expired POI restoration");failures++;}
+  [coordinator refresh];
+  if(!map.poiProperties.isVisible || coordinator.ownsPoiVisibility){NSLog(@"FAIL explicit reset failed to restore SDK POIs");failures++;}
+  [coordinator performSelector:NSSelectorFromString(@"poll")];[coordinator setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"settledAt"];
+  [coordinator performSelector:NSSelectorFromString(@"poll")];
+  [coordinator applyResponse:@{@"requestId":coordinator.context[@"requestId"]?:@"missing",@"error":@"unavailable"}];
+  if(!map.poiProperties.isVisible){NSLog(@"FAIL provider failure failed to restore SDK POIs");failures++;}
+  [coordinator refresh];map.coordinate=(FloatPoint){300002,400002};[coordinator performSelector:NSSelectorFromString(@"poll")];
+  [coordinator setValue:[NSDate dateWithTimeIntervalSinceNow:-3] forKey:@"dirtySince"];
+  map.coordinate=(FloatPoint){300003,400003};[coordinator performSelector:NSSelectorFromString(@"poll")];
+  NSString *movingId=coordinator.context[@"requestId"]?:@"missing";
+  map.coordinate=(FloatPoint){300004,400004};[coordinator performSelector:NSSelectorFromString(@"poll")];
+  if(![coordinator.context[@"requestId"] isEqual:movingId] || [movingId isEqual:@"missing"] ||
+    ![coordinator applyResponse:@{@"requestId":movingId,@"pois":@[place],@"expiresAt":@(expiry)}]) {
+    NSLog(@"FAIL auto-follow starved or rejected in-coverage POI response");failures++;
+  }
+  if(![coordinator applyResponse:@{@"requestId":movingId,@"pois":@[place],@"expiresAt":@(expiry)}]){NSLog(@"FAIL gas followup rejected current snapshot");failures++;}
+  active=NO;[coordinator performSelector:NSSelectorFromString(@"poll")];
+  if(coordinator.context || !map.poiProperties.isVisible){NSLog(@"FAIL inactive viewport was retained");failures++;}
+  [coordinator invalidate];
   window.hidden=YES;
   method_setImplementation(method,original);imp_removeBlock(replacement);
   [KNSDKBridge setLocationUseAllowed:YES];

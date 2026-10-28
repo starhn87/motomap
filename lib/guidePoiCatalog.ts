@@ -39,6 +39,12 @@ export function mergeGuidePois(rows: GuidePoi[], bounds: PoiBounds): GuidePoi[] 
   const result: GuidePoi[]=[];
   const ids=new Map<string,number>();
   const ambiguous=new Set<string>();
+  const providerPlaces=new Map<string,Set<string>>();
+  for(const row of rows) if(row.providerId && row.placeId) {
+    const places=providerPlaces.get(row.providerId)??new Set<string>();places.add(row.placeId);
+    providerPlaces.set(row.providerId,places);
+    if(places.size>1)ambiguous.add(`kakao:${row.providerId}`);
+  }
   for (const row of rows) {
     if (!row.name.trim() || !insidePoiBounds(row,bounds)) continue;
     const identities=[row.key,...(row.placeId ? [`place:${row.placeId}`] : []),

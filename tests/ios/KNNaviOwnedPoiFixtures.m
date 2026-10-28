@@ -1,26 +1,21 @@
 #import "KNNaviOwnedPoiFixtures.h"
+#import "KNNaviGuidePoiArtwork.h"
 
 NSArray<NSDictionary *> *KNNaviOwnedPoiFixtures(IntPoint center) {
+  // 위치·가격은 가짜지만 표시는 실제 제품 artwork를 그대로 사용한다.
   NSArray *rows=@[
-    @[@"home",@"house.fill",@"테스트 집",@0],
-    @[@"work",@"briefcase.fill",@"테스트 회사",@0],
-    @[@"favorite",@"star.fill",@"저장 테스트",@1],
-    @[@"cafe",@"cup.and.saucer.fill",@"카페 테스트",@3],
-    @[@"gas",@"fuelpump.fill",@"1,699원 테스트",@2],
-    @[@"no-price",@"fuelpump",@"가격 없음",@2],
+    @{@"key":@"home",@"name":@"집",@"personal":@"home",@"priority":@0},
+    @{@"key":@"work",@"name":@"회사",@"personal":@"work",@"priority":@0},
+    @{@"key":@"favorite",@"name":@"저장한 장소",@"favorite":@YES,@"priority":@1},
+    @{@"key":@"cafe",@"name":@"모토 카페",@"category":@"cafe",@"priority":@3},
+    @{@"key":@"gas",@"name":@"검사 주유소",@"brand":@"S-OIL",@"price":@1699,@"priority":@2},
+    @{@"key":@"no-price",@"name":@"가격 없는 주유소",@"brand":@"HD현대오일뱅크",@"category":@"gas_station",@"priority":@2},
   ];
   NSMutableArray *items=[NSMutableArray new];
   for (NSUInteger i=0;i<rows.count;i++) {
-    NSArray *row=rows[i];
-    UIGraphicsImageRenderer *renderer=[[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(116,34)];
-    UIImage *image=[renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
-      UIBezierPath *shape=[UIBezierPath bezierPathWithRoundedRect:CGRectMake(1,1,114,32) cornerRadius:10];
-      [UIColor.whiteColor setFill];[shape fill];[UIColor.grayColor setStroke];shape.lineWidth=1;[shape stroke];
-      UIImage *icon=[UIImage systemImageNamed:row[1] withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:18 weight:UIImageSymbolWeightRegular]];
-      [[icon imageWithTintColor:UIColor.systemOrangeColor renderingMode:UIImageRenderingModeAlwaysOriginal] drawInRect:CGRectMake(7,8,18,18)];
-      [row[2] drawInRect:CGRectMake(30,9,82,19) withAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:11 weight:UIFontWeightSemibold],NSForegroundColorAttributeName:UIColor.blackColor}];
-    }];
-    [items addObject:@{@"key":row[0],@"label":row[2],@"priority":row[3],@"image":image,
+    NSDictionary *row=rows[i];
+    [items addObject:@{@"key":row[@"key"],@"label":row[@"name"],@"priority":row[@"priority"],
+      @"image":[KNNaviGuidePoiArtwork imageForPoi:row],@"price":@([row[@"price"] doubleValue]>0),
       @"x":@(center.x+(i%2?45:-45)),@"y":@(center.y+(1-(NSInteger)(i/2))*70)}];
   }
   return items;

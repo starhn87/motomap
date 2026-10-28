@@ -11,6 +11,7 @@ function setup(failOpen = false, enabled = true, routeEditing = enabled, capabil
   const store: any = { goal: snapshot.goal, preview: null, setPreview(value: any) { store.preview = value; }, clear() { clearCount++; store.goal = null; } };
   const module = loadModule<{ registerGuideEvents(): () => void }>('lib/guideEvents.ts', {
     '@/lib/guidePreview': guidePreview,
+    '@/lib/guidePoiEvents': { registerGuidePoiEvents:()=>()=>{} },
     '@/lib/guideGasPriceEvents': { handleGuideGasPrices: async () => {}, cancelGuideGasPrices() {} },
     '@/lib/guideMenuPolicy': { GUIDE_MENU_ACTIONS_ENABLED: enabled, GUIDE_ROUTE_EDITING_ENABLED: routeEditing, GUIDE_MENU_UNAVAILABLE_MESSAGE: '이번 버전에서는 안내 음량과 종료만 지원해요.' },
     '@/stores/useLocationPrivacyStore': { locationUseAllowed: () => true, useLocationPrivacyStore:{ getState:() => ({revision:1}) }, withLocationUse: async (_purpose: any, _provider: any, work: any) => { await work(); await new Promise<void>((resolve) => { finishAudit = resolve; }); } },

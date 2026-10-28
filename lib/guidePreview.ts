@@ -12,10 +12,13 @@ function samePoint(a: { latitude: number; longitude: number }, b: { latitude: nu
 export function guidePreviewInitial(snapshot: GuidePreviewSnapshot, goal: GuideGoal, viaPlaces: GuideViaPlace[]): ParsedNaviParams {
   const vias = snapshot.vias.map((via, index): NavTarget => ({
     ...via,
-    placeId: (snapshot.gasViaAdded || snapshot.unregisteredViaAdded) && index === 0 ? undefined : viaPlaces.find((place) => samePoint(place, via))?.placeId,
+    ...(snapshot.selectedPoi?.via && index===0 ? snapshot.selectedPoi.point : {}),
+    placeId: snapshot.selectedPoi?.via && index===0 ? snapshot.selectedPoi.point.placeId
+      : (snapshot.gasViaAdded || snapshot.unregisteredViaAdded) && index === 0 ? undefined : viaPlaces.find((place) => samePoint(place, via))?.placeId,
   }));
   return {
-    goal: { ...snapshot.goal, ...(!snapshot.goalReplaced && samePoint(snapshot.goal, goal) ? goal : {}) },
+    goal: { ...snapshot.goal, ...(snapshot.selectedPoi && !snapshot.selectedPoi.via ? snapshot.selectedPoi.point : {}),
+      ...(!snapshot.goalReplaced && samePoint(snapshot.goal, goal) ? goal : {}) },
     start: snapshot.start ? [snapshot.start.longitude, snapshot.start.latitude] : null,
     startName: null,
     userVias: vias.length <= 3 ? vias : [],
@@ -58,13 +61,17 @@ export function continuedGoal(snapshot: GuidePreviewSnapshot, original: GuideGoa
 }
 
 // 지도 POI는 장소 ID를 주지 않는다. 인접한 예전 장소의 정체성을 상속하지 않는다.
-export function proposeGuidePoiPreview(snapshot: GuidePreviewSnapshot, point: GuidePreviewSnapshot['goal'], via: boolean, courseMode: boolean): GuidePreviewSnapshot {
+export function proposeGuidePoiPreview(snapshot: GuidePreviewSnapshot, point: GuidePreviewSnapshot['goal'], via: boolean, courseMode: boolean,
+  verifiedIdentity?:Pick<GuideGoal,'placeId'|'generalPlaceId'>): GuidePreviewSnapshot {
   if (!Number.isFinite(point.latitude) || !Number.isFinite(point.longitude) ||
       Math.abs(point.latitude) > 90 || Math.abs(point.longitude) > 180) throw new Error('invalid_point');
   const selected = { name: point.name.trim().slice(0, 200) || '선택한 장소', latitude: point.latitude, longitude: point.longitude };
+  const selectedPoi=verifiedIdentity?.placeId || verifiedIdentity?.generalPlaceId
+    ? {via,point:{...selected,placeId:verifiedIdentity.placeId,
+      generalPlaceId:verifiedIdentity.placeId?undefined:verifiedIdentity.generalPlaceId}} : undefined;
   if (via) {
     if (courseMode || snapshot.vias.length >= 3) throw new Error('via_limit');
-    return { ...snapshot, vias: [selected, ...snapshot.vias], unregisteredViaAdded: true };
+    return { ...snapshot, vias: [selected, ...snapshot.vias], unregisteredViaAdded: true, selectedPoi };
   }
-  return { ...snapshot, goal: selected, goalReplaced: true, vias: courseMode ? [] : snapshot.vias };
+  return { ...snapshot, goal: selected, goalReplaced: true, vias: courseMode ? [] : snapshot.vias, selectedPoi };
 }

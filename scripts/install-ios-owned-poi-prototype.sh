@@ -42,7 +42,7 @@ assert 'location' in info['UIBackgroundModes']
 (app/'Info.plist').write_bytes(plistlib.dumps(info))
 run_id=str(uuid.uuid4())
 (work/'run-id.txt').write_text(run_id)
-(app/'ProbeConfig.plist').write_bytes(plistlib.dumps({'key':os.environ['KAKAO_NATIVE_APP_KEY'],'runId':run_id}))
+(app/'ProbeConfig.plist').write_bytes(plistlib.dumps({'key':os.environ['KAKAO_NATIVE_APP_KEY'],'runId':run_id,'autoSmoke':os.environ.get('MOTOMAP_PROTOTYPE_AUTOSMOKE')=='1'}))
 (work/'product-presenter.sha256').write_text(hashlib.sha256(src.encode()).hexdigest()+'\n')
 PY
 sdkroot=$(xcrun --sdk iphoneos --show-sdk-path)
@@ -61,6 +61,8 @@ xcrun clang -fobjc-arc -fmodules -target arm64-apple-ios16.4 -isysroot "$sdkroot
  "$root/modules/kakao-navi/ios/KNNaviHazardSheet.m" \
  "$root/modules/kakao-navi/ios/KNNaviGasPriceLayer.m" \
  "$root/modules/kakao-navi/ios/KNNaviGuidePoiOverlay.m" \
+ "$root/modules/kakao-navi/ios/KNNaviGuidePoiArtwork.m" \
+ "$root/modules/kakao-navi/ios/KNNaviOwnedPoiLayer.m" \
  "$root/tests/ios/KNNaviOwnedPoiFixtures.m" \
  "$root/modules/kakao-navi/ios/KNNaviGasLayer.m" \
  "$root/tests/ios/OwnedPoiDevicePrototype.m" -o "$app/RerouteDeviceProbe" > "$work/compile.log" 2>&1
@@ -97,6 +99,10 @@ PY
  sleep 2
 done
 if [[ "$ready" != 1 ]]; then echo 'Prototype readiness timed out; restoring full app.';exit 1;fi
+if [[ "${MOTOMAP_PROTOTYPE_AUTOSMOKE:-0}" == 1 ]]; then
+ echo 'SDK smoke passed; restoring full app.'
+ exit 0
+fi
 # 준비된 뒤에만 사용자가 실제 손가락으로 검사할 수 있도록 시제품을 유지한다.
 installed=0
 {

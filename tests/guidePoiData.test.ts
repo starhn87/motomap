@@ -26,6 +26,12 @@ test('등록·저장·주유소는 원본 ID로 통합하고 가까운 다른 �
   assert.equal(rows.length,2);assert.equal(rows[0].placeId,'a');assert.equal(rows[0].favorite,true);
   assert.equal(rows[0].price,undefined);assert.equal(rows[1].price,1500);
 });
+test('동일 외부 ID를 주장하는 서로 다른 등록 장소는 일반 즐겨찾기를 임의 흡수하지 않는다',()=>{
+  const result=mergeGuidePois([{...point,key:'general:x',generalPlaceId:'x',providerId:'10',name:'저장 장소'},
+    registered,{...registered,key:'place:b',placeId:'b'}],bounds);
+  assert.equal(result.length,3);
+  assert.equal(result.find(row=>row.generalPlaceId==='x')?.placeId,undefined);
+});
 test('5분 등록 캐시·즐겨찾기 무효화·유가 원본 1시간 만료를 분리한다',async()=>{
   const f=setup();const signal=new AbortController().signal;
   const first=await f.service.load(bounds,true,true,signal);

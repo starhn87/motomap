@@ -50,6 +50,8 @@ xcrun clang -fobjc-arc -fmodules -target "$arch-apple-ios16.4-simulator" -isysro
   "$root/modules/kakao-navi/ios/KNNaviHazardSheet.m" \
   "$root/modules/kakao-navi/ios/KNNaviGasPriceLayer.m" \
   "$root/modules/kakao-navi/ios/KNNaviGuidePoiOverlay.m" \
+  "$root/modules/kakao-navi/ios/KNNaviGuidePoiArtwork.m" \
+  "$root/modules/kakao-navi/ios/KNNaviOwnedPoiLayer.m" \
   "$root/modules/kakao-navi/ios/KNNaviGasLayer.m" \
   "$root/tests/ios/KNNaviGasPriceTests.m" \
   "$root/tests/ios/KNNaviOwnedPoiFixtures.m" \
@@ -109,6 +111,7 @@ for ((i=0; i<150; i++)); do
     if [[ -f "$container/Documents/bottom-collapsed.png" ]]; then cp "$container/Documents/bottom-collapsed.png" /tmp/motomap-bottom-collapsed.png; fi
     if [[ -f "$container/Documents/hazard-sheet.png" ]]; then cp "$container/Documents/hazard-sheet.png" /tmp/motomap-hazard-sheet.png; fi
     if [[ -f "$container/Documents/gas-sheet.png" ]]; then cp "$container/Documents/gas-sheet.png" /tmp/motomap-gas-sheet.png; fi
+    if [[ -f "$container/Documents/owned-poi-labels.png" ]]; then cp "$container/Documents/owned-poi-labels.png" /tmp/motomap-owned-poi-labels.png; fi
     result=$(cat "$container/Documents/session-result.txt")
     printf '%s\n' "$result"
     status=0

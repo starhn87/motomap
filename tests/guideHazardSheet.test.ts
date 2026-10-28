@@ -13,6 +13,7 @@ function setup(custom = true, pendingGPS = false) {
   const picker = () => { opens++; order.push(custom ? 'custom' : 'legacy'); return new Promise<number>(resolve => { choose = resolve; }); };
   const module = loadModule<{ registerGuideEvents(): () => void }>('lib/guideEvents.ts', {
     '@/lib/guidePreview': {},
+    '@/lib/guidePoiEvents': { registerGuidePoiEvents:()=>()=>{} },
     '@/lib/guideGasPriceEvents': { handleGuideGasPrices: async () => {}, cancelGuideGasPrices() {} },
     '@/lib/guideMenuPolicy': { GUIDE_MENU_ACTIONS_ENABLED: true },
     '@/stores/useLocationPrivacyStore': {

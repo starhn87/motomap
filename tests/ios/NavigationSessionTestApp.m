@@ -9,12 +9,16 @@ extern void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int));
 
 @interface NavigationSessionTestScene : UIResponder <UIWindowSceneDelegate>
 @property(nonatomic, strong) UIWindow *window;
+@property(nonatomic) BOOL ran;
 @end
 @implementation NavigationSessionTestScene
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
   self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
   self.window.rootViewController = [UIViewController new];
   [self.window makeKeyAndVisible];
+}
+- (void)sceneDidBecomeActive:(UIScene *)scene {
+  if(self.ran)return;self.ran=YES;
   dispatch_async(dispatch_get_main_queue(), ^{
     int failures = RunKNNaviSessionTests()+RunKNNaviGasPriceTests();
     RunKNNaviBottomTests(self.window, ^(int bottomFailures) {

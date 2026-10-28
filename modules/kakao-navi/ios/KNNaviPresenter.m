@@ -9,6 +9,7 @@
 #import "KNNaviHazardSheet.h"
 #import "KNNaviGasLayer.h"
 #import "KNNaviGasPriceLayer.h"
+#import "KNNaviOwnedPoiLayer.h"
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
@@ -357,6 +358,9 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong) NSTimer *footerPositionTimer;
 @property(nonatomic, strong) KNNaviManualPositionRequest *footerPositionRequest;
 @property(nonatomic, strong) KNNaviGasPriceLayer *gasPriceLayer;
+@property(nonatomic, strong) KNNaviOwnedPoiLayer *ownedPoiLayer;
+@property(nonatomic, weak) KNMapView *ownedPoiMap;
+@property(nonatomic, copy) NSDictionary *ownedPoiSelection;
 @property(nonatomic, strong) NSDate *footerPositionRequestAt;
 @property(nonatomic) NSUInteger footerPositionGeneration;
 @property(nonatomic) DoublePoint currentLocationPosition;
@@ -418,6 +422,7 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 static KNNaviViewController *gSuspendedNavi = nil;
 static NSInteger gPreviewToken = 0;
 static NSUInteger gLocationGeneration = 0;
+static BOOL gOwnedPoiEnabled = NO;
 
 static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   @synchronized(KNNaviPresenter.class) { return generation == gLocationGeneration && [KNSDKBridge isLocationUseAllowed]; }
@@ -759,7 +764,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self.currentLocationExpiryTimer invalidate];
   self.currentLocationExpiryTimer = nil;
   if (self.finished) return;
-  [self.gasPriceLayer updatePosition:self.currentLocationPosition timestamp:self.currentLocationGPSAt active:[self canRefreshFooterPosition]];
+  [self.gasPriceLayer updatePosition:self.currentLocationPosition timestamp:self.currentLocationGPSAt active:[self canRefreshFooterPosition] && !self.ownedPoiLayer.ownsPoiVisibility];
   KNTrip *trip = self.guidance.trip;
   NSMutableDictionary *state = [@{@"volume":@(self.volume), @"busy":@(self.changingDestination || self.arrivalRecovery.requesting)} mutableCopy];
   if (self.arrivalRecovery.waiting || self.arrivalMessage) {
@@ -844,6 +849,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self.footerPositionTimer invalidate];
   [self.footerPositionRequest cancel];
   [self.gasPriceLayer invalidate];
+  [self.ownedPoiLayer invalidate];self.ownedPoiSelection=nil;
   [self stopObservingBottomView];
   [self.bottomPanel invalidate];
 }
@@ -873,7 +879,40 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
       [weakSelf emitPoiName:station[@"name"] longitude:[station[@"longitude"] doubleValue] latitude:[station[@"latitude"] doubleValue]];
     };
   } else if (inner) [self.gasPriceLayer attachToMap:inner];
+  if(inner && gOwnedPoiEnabled && !self.preview && (!self.ownedPoiLayer || self.ownedPoiMap!=inner)) {
+    [self.ownedPoiLayer invalidate];self.ownedPoiMap=inner;
+    self.ownedPoiLayer=[[KNNaviOwnedPoiLayer alloc] initWithMap:inner];
+    __weak KNNaviViewController *weakSelf=self;
+    self.ownedPoiLayer.isActive=^BOOL { return [weakSelf canRefreshFooterPosition]; };
+    self.ownedPoiLayer.onRequest=^{ if(weakSelf.onMenu)weakSelf.onMenu(110); };
+    self.ownedPoiLayer.onSelect=^(NSString *key,NSString *snapshotId) {
+      weakSelf.ownedPoiSelection=@{@"key":key,@"snapshotId":snapshotId};
+      if(weakSelf.onMenu)weakSelf.onMenu(111);
+    };
+    self.ownedPoiLayer.onModeChanged=^(BOOL owned) { [weakSelf updateBottomPanel]; };
+    self.ownedPoiLayer.exclusions=^NSArray * { return [weakSelf ownedPoiExclusions]; };
+  }
   [self updateBottomPanel];
+}
+
+- (NSArray<NSValue *> *)ownedPoiExclusions {
+  KNMapView *map=self.ownedPoiMap;if(!map)return @[];
+  NSMutableArray *rects=[NSMutableArray new];
+  for(UIView *view in @[self.naviView.curDirView,self.bottomPanel?:self.naviView.bottomView]) {
+    if(!view.hidden && view.window)[rects addObject:[NSValue valueWithCGRect:CGRectInset([view convertRect:view.bounds toView:map],-8,-8)]];
+  }
+  if(self.currentLocationGPSAt && fabs(self.currentLocationGPSAt.timeIntervalSinceNow)<10) {
+    CGPoint p=[map katecToScreen:(FloatPoint){self.currentLocationPosition.x,self.currentLocationPosition.y}];
+    [rects addObject:[NSValue valueWithCGRect:CGRectMake(p.x-40,p.y-40,80,80)]];
+  }
+  KNTrip *trip=self.guidance.trip?:self.trip;
+  NSMutableArray *points=[NSMutableArray arrayWithArray:trip.vias?:@[]];
+  if(trip.start)[points addObject:trip.start];if(trip.goal)[points addObject:trip.goal];
+  for(KNPOI *poi in points) {
+    CGPoint p=[map katecToScreen:(FloatPoint){poi.pos.x,poi.pos.y}];
+    [rects addObject:[NSValue valueWithCGRect:CGRectMake(p.x-24,p.y-32,48,56)]];
+  }
+  return rects;
 }
 
 // 지도 POI(상호·건물) 탭 — 이름·KATEC 좌표가 온다. WGS84 로 바꿔 JS 로 넘긴다.
@@ -1399,6 +1438,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)pauseFooterPosition {
   self.footerPositionGeneration++;
+  [self.ownedPoiLayer refresh];self.ownedPoiSelection=nil;
   [self.gasPriceLayer pause];
   [self.footerPositionRequest cancel]; self.footerPositionRequest = nil;
   self.regionRequestGeneration++; self.regionRequestInFlight = NO;
@@ -1541,6 +1581,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self.footerPositionTimer invalidate]; self.footerPositionTimer = nil;
   [self.manualPositionRequest cancel]; self.manualPositionRequest = nil;
   [self.gasPriceLayer invalidate];
+  [self.ownedPoiLayer invalidate];self.ownedPoiSelection=nil;
   [self.gasLayer invalidate];
   self.regionRequestGeneration++; self.regionRequestInFlight = NO;
   [self.currentLocationExpiryTimer invalidate];
@@ -1925,6 +1966,23 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   }];
   navi.hazardSheet = sheet;
   [navi presentViewController:sheet animated:NO completion:nil];
+}
+
++ (void)setGuideOwnedPoiEnabled:(BOOL)enabled {
+  gOwnedPoiEnabled=enabled;
+  if(enabled)[gActiveNavi attachPoiListener];
+  else { [gActiveNavi.ownedPoiLayer invalidate];gActiveNavi.ownedPoiLayer=nil;gActiveNavi.ownedPoiSelection=nil;[gActiveNavi updateBottomPanel]; }
+}
++ (NSDictionary *)guidePoiContext { return [gActiveNavi canRefreshFooterPosition]?gActiveNavi.ownedPoiLayer.context:nil; }
++ (NSDictionary *)takeGuidePoiSelection {
+  NSDictionary *value=[gActiveNavi canRefreshFooterPosition]?gActiveNavi.ownedPoiSelection:nil;
+  gActiveNavi.ownedPoiSelection=nil;return value;
+}
++ (void)resetGuidePoiSnapshot { [gActiveNavi.ownedPoiLayer refresh];gActiveNavi.ownedPoiSelection=nil; }
++ (BOOL)updateGuidePoiSnapshot:(NSString *)json {
+  NSData *data=[json dataUsingEncoding:NSUTF8StringEncoding];if(!data||data.length>100000)return NO;
+  NSDictionary *response=[NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+  return [response isKindOfClass:NSDictionary.class] && [gActiveNavi.ownedPoiLayer applyResponse:response];
 }
 
 + (NSDictionary *)guideGasPriceContext {

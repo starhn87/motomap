@@ -14,6 +14,8 @@ import KakaoNavi, {
 } from '@/modules/kakao-navi';
 import { handleGuideGasPrices, cancelGuideGasPrices } from '@/lib/guideGasPriceEvents';
 import { proposeGuidePoiPreview } from '@/lib/guidePreview';
+import { registerGuidePoiEvents } from '@/lib/guidePoiEvents';
+import type { GuidePoi } from '@/lib/guidePoiCatalog';
 import { useGuideSession } from '@/lib/guideSession';
 import { HAZARD_LIST } from '@/constants/hazards';
 import { submitHazard } from '@/lib/api/hazards';
@@ -292,15 +294,15 @@ async function handleGuideEnd() {
 }
 
 let openingPoi: object | null = null;
-async function openGuidePoi(point: { name: string; latitude: number; longitude: number }) {
+async function openGuidePoi(point: { name: string; latitude: number; longitude: number } & Partial<Pick<GuidePoi,'placeId'|'generalPlaceId'>>, sourceCurrent:()=>boolean=()=>true, verifiedIdentity=false) {
   const original = useGuideSession.getState().goal;
   const revision = useLocationPrivacyStore.getState().revision;
-  if (!original || openingPoi || !locationUseAllowed() ||
+  if (!original || openingPoi || !locationUseAllowed() || !sourceCurrent() ||
       !Number.isFinite(point.latitude) || !Number.isFinite(point.longitude) ||
       Math.abs(point.latitude) > 90 || Math.abs(point.longitude) > 180) return;
   const request = {}; openingPoi = request;
   const current = () => original === useGuideSession.getState().goal &&
-    revision === useLocationPrivacyStore.getState().revision && locationUseAllowed();
+    revision === useLocationPrivacyStore.getState().revision && locationUseAllowed() && sourceCurrent();
   let token: number | undefined;
   try {
     const name = point.name.trim().slice(0,200) || '선택한 장소';
@@ -311,7 +313,8 @@ async function openGuidePoi(point: { name: string; latitude: number; longitude: 
       if (!current()) return;
       const snapshot = await KakaoNavi.openGuidePreview(); token = snapshot.token;
       if (!current()) { await KakaoNavi.returnToGuide(token); token = undefined; return; }
-      const proposed = proposeGuidePoiPreview(snapshot,{ ...point,name },picked === 1,!!original.courseId || snapshot.vias.length > 3);
+      const proposed = proposeGuidePoiPreview(snapshot,{ ...point,name },picked === 1,!!original.courseId || snapshot.vias.length > 3,
+        verifiedIdentity ? {placeId:point.placeId,generalPlaceId:point.generalPlaceId} : undefined);
       useGuideSession.getState().setPreview({ snapshot: proposed, edit: null, returnPending: false });
       router.push({ pathname:'/navi', params:{ resume:String(token) } }); token=undefined;
       // 확인자료 후처리와 다음 편집 진입을 분리한다.
@@ -330,6 +333,7 @@ async function openGuidePoi(point: { name: string; latitude: number; longitude: 
 
 /** 루트 레이아웃에서 1회 등록. 반환값은 해제 함수. */
 export function registerGuideEvents(): () => void {
+  const removeOwnedPois=registerGuidePoiEvents((point,current)=>openGuidePoi(point,current,true));
   // 앱 시작 시점 = 직전 실행이 어떻게 끝났든 안내는 이미 없다 — 남은 마커를 정산
   void reconcileAbandonedGuide();
   const arrival = supportsKakaoNaviFeature('guide_arrival_record')
@@ -355,6 +359,7 @@ export function registerGuideEvents(): () => void {
 
   // 커스텀 슬롯이 하나뿐이라 버튼 하나에서 1차 시트로 가른다
   const menu = KakaoNavi.addListener('onGuideMenu', ({ id }) => {
+    if(id===110 || id===111)return;
     if (id === 109 && supportsKakaoNaviFeature('guide_gas_price_markers')) { void handleGuideGasPrices().catch(() => {}); return; }
     if (GUIDE_ROUTE_EDITING_ENABLED && [103, 104, 105, 107].includes(id) && supportsKakaoNaviFeature('guide_route_editing')) {
       void (async () => {
@@ -399,6 +404,7 @@ export function registerGuideEvents(): () => void {
     })();
   });
   return () => {
+    removeOwnedPois();
     cancelGuideGasPrices();
     arrival.remove();
     poiTap.remove();

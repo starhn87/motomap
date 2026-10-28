@@ -17,7 +17,7 @@ public class KakaoNaviModule: Module {
     // JS가 앱 버전 문자열을 추측하지 않고 실제 바이너리 기능을 확인한다.
     // 기능을 추가·삭제하거나 wire 계약이 바뀌면 bridgeVersion을 올린다.
     Constants([
-      "bridgeVersion": 33,
+      "bridgeVersion": 34,
       "features": [
         "bike_route_preview",
         "guide_options",
@@ -29,9 +29,26 @@ public class KakaoNaviModule: Module {
         "guide_route_editing",
         "guide_poi_tap",
         "guide_gas_price_markers",
+        "guide_owned_poi",
         "guide_arrival_record",
       ],
     ])
+
+    AsyncFunction("setGuideOwnedPoiEnabled") { (enabled: Bool) in
+      KNNaviPresenter.setGuideOwnedPoiEnabled(enabled)
+    }.runOnQueue(.main)
+    AsyncFunction("getGuidePoiContext") { () -> [AnyHashable: Any]? in
+      KNNaviPresenter.guidePoiContext()
+    }.runOnQueue(.main)
+    AsyncFunction("takeGuidePoiSelection") { () -> [AnyHashable: Any]? in
+      KNNaviPresenter.takeGuidePoiSelection()
+    }.runOnQueue(.main)
+    AsyncFunction("updateGuidePoiSnapshot") { (json: String) -> Bool in
+      KNNaviPresenter.updateGuidePoiSnapshot(json)
+    }.runOnQueue(.main)
+    AsyncFunction("resetGuidePoiSnapshot") {
+      KNNaviPresenter.resetGuidePoiSnapshot()
+    }.runOnQueue(.main)
 
     AsyncFunction("initialize") { (appKey: String, promise: Promise) in
       let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"

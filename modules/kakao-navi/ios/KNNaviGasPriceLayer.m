@@ -1,6 +1,7 @@
 #import "KNNaviGasPriceLayer.h"
 #import "KNSDKBridge.h"
 #import "KNNaviGuidePoiOverlay.h"
+#import "KNNaviGuidePoiArtwork.h"
 #import <limits.h>
 #import <math.h>
 
@@ -87,42 +88,7 @@
     if ([weakSelf.context[@"requestId"] isEqual:requestId]) weakSelf.context=nil;
   });
 }
-- (UIImage *)brandImage:(NSString *)brand {
-  NSDictionary *files = @{@"SK에너지":@"sk.png",@"GS칼텍스":@"gs.png",@"S-OIL":@"soil.png",@"HD현대오일뱅크":@"hd.png",@"자영알뜰":@"altteul.png",@"NH알뜰":@"altteul.png"};
-  NSString *file = files[brand]; if (!file) return nil;
-  NSURL *url = [NSBundle.mainBundle URLForResource:@"MotoMapNavigationUI" withExtension:@"bundle"];
-  NSBundle *bundle = url ? [NSBundle bundleWithURL:url] : nil;
-  NSString *path = [bundle pathForResource:file.stringByDeletingPathExtension ofType:file.pathExtension];
-  return path ? [UIImage imageWithContentsOfFile:path] : nil;
-}
-- (UIImage *)imageForStation:(NSDictionary *)station {
-  CGSize size = CGSizeMake(116,34);
-  // 비트맵은 최초 한 번만 만들고 UIView 변환으로 축척을 연속 반영한다.
-  UIGraphicsImageRendererFormat *format=[UIGraphicsImageRendererFormat defaultFormat];
-  UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
-  return [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
-    UIColor *ink=[UIColor colorWithWhite:0.095 alpha:1];
-    UIBezierPath *shape=[UIBezierPath bezierPathWithRoundedRect:CGRectInset((CGRect){CGPointZero,size},1,1) cornerRadius:11];
-    [UIColor.whiteColor setFill];[shape fill]; [[UIColor colorWithWhite:0.55 alpha:1] setStroke];shape.lineWidth=1;[shape stroke];
-    CGRect logoRect=CGRectMake(7,7,36,20);
-    UIImage *logo=[self brandImage:station[@"brand"]];
-    if (logo && logo.size.width>0 && logo.size.height>0) {
-      CGFloat scale=MIN(logoRect.size.width/logo.size.width,logoRect.size.height/logo.size.height);
-      CGSize fitted=CGSizeMake(logo.size.width*scale,logo.size.height*scale);
-      [logo drawInRect:CGRectMake(CGRectGetMidX(logoRect)-fitted.width/2,CGRectGetMidY(logoRect)-fitted.height/2,fitted.width,fitted.height)];
-    } else {
-      NSString *brand=[station[@"brand"] containsString:@"알뜰"]?@"알뜰":@"주유";
-      [brand drawInRect:logoRect withAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:12 weight:UIFontWeightSemibold],NSForegroundColorAttributeName:ink}];
-    }
-    NSNumberFormatter *formatter=[NSNumberFormatter new];formatter.numberStyle=NSNumberFormatterDecimalStyle;
-    NSString *price=[formatter stringFromNumber:station[@"price"]];
-    CGRect priceRect=CGRectMake(47,7,64,23);
-    UIFont *font=[UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightBold];
-    CGFloat width=[price sizeWithAttributes:@{NSFontAttributeName:font}].width;
-    if (width>priceRect.size.width) font=[font fontWithSize:font.pointSize*priceRect.size.width/width];
-    [price drawInRect:priceRect withAttributes:@{NSFontAttributeName:font,NSForegroundColorAttributeName:ink}];
-  }];
-}
+- (UIImage *)imageForStation:(NSDictionary *)station { return [KNNaviGuidePoiArtwork imageForPoi:station]; }
 - (void)renderPrices {
   if (![self hasFreshPosition] || self.expiresAt.timeIntervalSinceNow<=0 || !self.stations.count || !self.map) return;
   NSMutableArray *items=[NSMutableArray new];

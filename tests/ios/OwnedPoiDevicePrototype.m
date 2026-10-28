@@ -7,6 +7,7 @@
 #import <KNSDK/KNMapView.h>
 #import <KNSDK/KNMapCameraUpdate.h>
 #import "KNNaviGuidePoiOverlay.h"
+#import "KNNaviOwnedPoiLayer.h"
 #import "KNNaviOwnedPoiFixtures.h"
 #import "KNNaviPresenter.h"
 #import "KNSDKBridge.h"
@@ -16,7 +17,7 @@ static void Record(NSDictionary *d) {
  NSDictionary *config=[NSDictionary dictionaryWithContentsOfFile:[NSBundle.mainBundle pathForResource:@"ProbeConfig" ofType:@"plist"]];
  record[@"runId"]=config[@"runId"]?:@"missing";
  NSData *data=[NSJSONSerialization dataWithJSONObject:record options:0 error:nil];
- if ([d[@"event"] isEqual:@"prototype_ready"] || d[@"error"]) {
+ if (([d[@"event"] isEqual:@"prototype_ready"] && (![config[@"autoSmoke"] boolValue] || [d[@"smoke"] boolValue])) || d[@"error"]) {
   NSString *path=[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"owned-poi-ready.json"];
   [data writeToFile:path atomically:YES];
  }
@@ -34,6 +35,7 @@ static NSArray *targetA,*targetB;
 @end
 @interface ProbeHost:KNNaviViewController
 @property(nonatomic,strong) KNNaviGuidePoiOverlay *fixtureLayer;
+@property(nonatomic,strong) KNNaviOwnedPoiLayer *ownedProbe;
 @property(nonatomic,weak) KNMapView *fixtureMap;
 @property(nonatomic,strong) UILabel *status;
 @property(nonatomic) FloatPoint initialCenter;
@@ -79,6 +81,47 @@ static NSArray *targetA,*targetB;
  reset.backgroundColor=UIColor.systemBackgroundColor;reset.layer.cornerRadius=12;
  [reset addTarget:self action:@selector(resetCamera) forControlEvents:UIControlEventTouchUpInside];[self.view addSubview:reset];
  [self resetCamera];Record(@{@"event":@"prototype_ready",@"fixtureCount":@6,@"basePoiKept":@YES});
+ NSDictionary *config=[NSDictionary dictionaryWithContentsOfFile:[NSBundle.mainBundle pathForResource:@"ProbeConfig" ofType:@"plist"]];
+ if([config[@"autoSmoke"] boolValue])dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC),dispatch_get_main_queue(),^{[self runOwnedSmoke];});
+}
+- (void)runOwnedSmoke {
+ [self.fixtureLayer invalidate];self.fixtureLayer=nil;
+ KNMapView *map=self.fixtureMap;BOOL previous=map.poiProperties.isVisible;
+ self.ownedProbe=[[KNNaviOwnedPoiLayer alloc] initWithMap:map];
+ __weak ProbeHost *weakSelf=self;
+ self.ownedProbe.isActive=^BOOL{return weakSelf.view.window!=nil;};
+ [self.ownedProbe performSelector:NSSelectorFromString(@"poll")];
+ [self.ownedProbe setValue:[NSDate dateWithTimeIntervalSinceNow:-3] forKey:@"dirtySince"];
+ [self.ownedProbe setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"settledAt"];
+ [self.ownedProbe performSelector:NSSelectorFromString(@"poll")];
+ NSString *requestId=self.ownedProbe.context[@"requestId"];
+ if(!requestId){Finish(NO,@"smoke_context_missing");return;}
+ NSMutableArray *pois=[NSMutableArray new];
+ for(NSDictionary *item in KNNaviOwnedPoiFixtures((IntPoint){(int)self.initialCenter.x,(int)self.initialCenter.y})) {
+  DoublePoint w=[[KNSDK sharedInstance] convertKATECToWGS84WithX:[item[@"x"] intValue] y:[item[@"y"] intValue]];
+  NSMutableDictionary *row=[@{@"key":item[@"key"],@"name":item[@"label"],@"latitude":@(w.y),@"longitude":@(w.x)} mutableCopy];
+  NSString *key=item[@"key"];
+  if([key isEqual:@"home"]||[key isEqual:@"work"])row[@"personal"]=key;
+  else if([key isEqual:@"favorite"])row[@"favorite"]=@YES;
+  else if([key isEqual:@"cafe"])row[@"category"]=@"cafe";
+  else {row[@"category"]=@"gas_station";row[@"brand"]=@"S-OIL";if([key isEqual:@"gas"])row[@"price"]=@1699;}
+  [pois addObject:row];
+ }
+ BOOL accepted=[self.ownedProbe applyResponse:@{@"requestId":requestId,@"pois":pois,@"expiresAt":@(NSDate.date.timeIntervalSince1970*1000+60000)}];
+ BOOL hidden=!map.poiProperties.isVisible && self.ownedProbe.ownsPoiVisibility;
+ KNNaviGuidePoiOverlay *renderer=[self.ownedProbe valueForKey:@"renderer"];
+ NSArray *items=[[renderer valueForKey:@"owned"] copy];
+ __block BOOL selected=NO;
+ self.ownedProbe.onSelect=^(NSString *key,NSString *snapshotId){selected=[snapshotId isEqual:requestId] && key.length>0;};
+ for(NSDictionary *item in items){UIButton *button=item[@"button"];if(!button.hidden){[button sendActionsForControlEvents:UIControlEventTouchUpInside];break;}}
+ [self.ownedProbe setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"expiresAt"];
+ [map moveCamera:[KNMapCameraUpdate zoomTo:map.zoom*1.01] withUserLocation:NO];
+ [self.ownedProbe performSelector:NSSelectorFromString(@"poll")];
+ BOOL restored=map.poiProperties.isVisible==previous && !self.ownedProbe.ownsPoiVisibility;
+ [self.ownedProbe invalidate];
+ if(!accepted || !hidden || items.count!=6 || !selected || !restored){Finish(NO,@"smoke_owned_poi_failed");return;}
+ Record(@{@"event":@"prototype_ready",@"smoke":@YES,@"sdkSnapshotAccepted":@(accepted),@"fixtureCount":@6,
+  @"baseHiddenAfterAck":@(hidden),@"selectionCallback":@(selected),@"expiryRestoredDuringMove":@(restored),@"syntheticSelection":@YES});
 }
 - (void)toggleTilt { [self.fixtureMap moveCamera:[KNMapCameraUpdate tiltTo:self.fixtureMap.tilt>20?0:45] withUserLocation:NO]; }
 - (void)resetCamera {
@@ -88,7 +131,7 @@ static NSArray *targetA,*targetB;
 - (void)restoreFixtures {
  if (!self.fixtureLayer.hasItems) [self.fixtureLayer showItems:KNNaviOwnedPoiFixtures((IntPoint){(int)self.initialCenter.x,(int)self.initialCenter.y}) expiresAt:[NSDate dateWithTimeIntervalSinceNow:1800]];
 }
-- (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self];[self.fixtureLayer invalidate]; }
+- (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self];[self.fixtureLayer invalidate];[self.ownedProbe invalidate]; }
 @end
 @interface ProbeScene:UIResponder<UIWindowSceneDelegate,CLLocationManagerDelegate>
 @property(nonatomic,strong)UIWindow *window;

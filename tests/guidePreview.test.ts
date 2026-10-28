@@ -12,6 +12,16 @@ const snapshot: GuidePreviewSnapshot = { token: 5, start: { latitude: 37.42, lon
 const previous = [passed, removed, remaining];
 const flat = (points: { longitude: number; latitude: number }[]) => points.flatMap((p) => [p.longitude, p.latitude]);
 
+test('자체 catalog로 검증한 목적지·경유지는 새 ID를 유지하고 이전 인접 ID를 재사용하지 않는다',()=>{
+  const newPoint={name:'새 장소',latitude:goal.latitude,longitude:goal.longitude};
+  const proposed=proposeGuidePoiPreview(snapshot,newPoint,false,false,{placeId:'verified-new'});
+  const initial=guidePreviewInitial(proposed,goal,previous);
+  assert.equal(initial.goal.placeId,'verified-new');assert.equal(initial.courseId,undefined);
+  const via=proposeGuidePoiPreview({...snapshot,vias:[remaining]},remaining,true,false,{placeId:'verified-via'});
+  const viaInitial=guidePreviewInitial(via,goal,previous);
+  assert.equal(viaInitial.userVias[0].placeId,'verified-via');
+});
+
 test('현재 GPS부터 기존 목적지·남은 경유지로 미리보기를 열고 장소 정체성을 유지한다', () => {
   const initial = guidePreviewInitial(snapshot, goal, previous);
   assert.deepEqual(initial.start, [127.11, 37.42]);

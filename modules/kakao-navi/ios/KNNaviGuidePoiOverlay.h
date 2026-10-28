@@ -8,6 +8,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, copy, nullable) void (^onSelect)(NSString *key);
 @property(nonatomic, copy, nullable) BOOL (^isActive)(void);
 @property(nonatomic, readonly) BOOL hasItems;
+@property(nonatomic, copy) NSArray<NSValue *> *exclusionRects;
+@property(nonatomic, copy, nullable) NSString *selectedKey;
 - (instancetype)initWithMap:(KNMapView *)map;
 // key, x, y, image, label, priority. 작은 priority가 먼저 표시된다.
 - (void)showItems:(NSArray<NSDictionary *> *)items expiresAt:(NSDate *)expiresAt;
