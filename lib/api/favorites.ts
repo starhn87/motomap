@@ -3,6 +3,7 @@ import type { Place } from '@/types';
 import { rowToPlace } from '@/lib/api/places';
 import { requireUser, getCurrentUser } from '@/lib/auth';
 import { ensureGeneralPlace, type GeneralPlaceInput } from '@/lib/api/generalPlaces';
+import { notifyGuideFavoritesChanged } from '@/lib/guidePoiChanges';
 
 // 즐겨찾기는 두 갈래다 — 등록 장소(place_id)와 일반 장소(이름+좌표).
 // 라이더 특화 장소가 아니어도 자주 가는 곳이 있어서, 집·회사 두 칸으로는
@@ -97,6 +98,7 @@ export async function setFavorite(placeId: string, on: boolean): Promise<void> {
     });
     // 이미 원하는 상태면 성공으로 취급한다.
     if (error && error.code !== '23505') throw error;
+    notifyGuideFavoritesChanged();
     return;
   }
 
@@ -106,6 +108,7 @@ export async function setFavorite(placeId: string, on: boolean): Promise<void> {
     .eq('user_id', user.id)
     .eq('place_id', placeId);
   if (error) throw error;
+  notifyGuideFavoritesChanged();
 }
 
 export interface GeneralFavoriteChange {
@@ -136,6 +139,7 @@ export async function setGeneralFavorite({
       .eq('id', id)
       .eq('user_id', user.id);
     if (error) throw error;
+    notifyGuideFavoritesChanged();
     return;
   }
 
@@ -151,4 +155,5 @@ export async function setGeneralFavorite({
     phone: place.phone ?? null,
   });
   if (error && error.code !== '23505') throw error;
+  notifyGuideFavoritesChanged();
 }

@@ -42,3 +42,20 @@ public 확장은 SDK/RPC 의존성이 있어 전체 확장 이동으로 급히 �
 영업시간 캐시 771개는 전후 건수와 서버 내 전체 행 체크섬이 같다. 체크섬 원문은 공개하지 않는다.
 공개 장소/주변 조회·리뷰 읽기와 익명 개인 기록 차단을 실제 Data API로 확인했다.
 전체 RLS/Storage/Edge·계정 삭제 실동작·백업 보존 검증 완료를 의미하지 않는다.
+
+
+## DBSEC-002 — 길안내 지도 전용 공개 영역·본인 즐겨찾기 읽기 (2026-10-28)
+
+기존 전체 all_places 다운로드를 안내 지도 갱신에 사용하지 않는다. 새
+`guide_places_in_viewport`는 승인·미삭제의 기존 공개 기준을 유지하고 PostGIS GiST 영역 필터,
+UUID 커서와1~251행 상한을 둔다. bbox는 유효 좌표·양의 넓이·최대2도 범위를 검증한다.
+`guide_map_favorites`는 사용자 ID 인자를 받지 않고 auth.uid()의 본인 행만 조회한다.
+두 함수는 SECURITY INVOKER·빈 search_path·schema 명시를 적용한다. 즐겨찾기는 PUBLIC/anon
+실행을 제거하고 authenticated에만 부여하며 본인 RLS도 그대로 적용한다. 기존 테이블 정책과
+기존 RPC의 권한·계약은 바꾸지 않는다. 두 함수 추가이므로 API1과 구버전 호출을 유지한다.
+
+`scripts/test-guide-poi-sql.sh`는 운영 접속 없이 임시 로컬 PostgreSQL/PostGIS와 최소 대응
+schema/RLS fixture에서 migration과 실제 역할별 쿼리를 실행한다. 검사 후 서버/자료를 지운다.
+원격 Advisor와 전체 migration 재생을 통과했다고 표시하지 않는다. 생성 타입은 새 RPC 반환
+계약을 로컬 정의와 동기화한 준비본이며 원격 승인·적용 후 다시 생성/대조한다. DB 배포·푸시는
+사용자가 구체적인 변경을 확인하고 승인한 뒤 진행한다.

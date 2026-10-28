@@ -15,6 +15,7 @@ function fixture() {
     longitude: old.longitude, general_place_id: canonicalId, place_id: null, user_id: 'test-user' }];
   const api = loadModule<typeof FavoritesAPI>('lib/api/favorites.ts', {
     '@/lib/favoriteMatching': favoriteMatching,
+    '@/lib/guidePoiChanges': { notifyGuideFavoritesChanged() {} },
     '@/lib/auth': { requireUser: async () => ({ id: 'test-user' }), getCurrentUser: async () => ({ id: 'test-user' }) },
     '@/lib/api/places': { rowToPlace: (row: unknown) => row },
     '@/lib/api/generalPlaces': { ensureGeneralPlace: async () => ({ id: canonicalId }) },

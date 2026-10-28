@@ -2272,6 +2272,14 @@ export type Database = {
           type: string
         }[]
       }
+      guide_places_in_viewport: {
+        Args: { p_south: number; p_west: number; p_north: number; p_east: number; p_after_id?: string; p_limit?: number }
+        Returns: { id: string; name: string; address: string; category: string; latitude: number; longitude: number; source_provider: string | null; source_place_id: string | null }[]
+      }
+      guide_map_favorites: {
+        Args: { p_after_id?: string; p_limit?: number }
+        Returns: { id: string; place_id: string | null; general_place_id: string | null; name: string; address: string; category: string | null; latitude: number; longitude: number; source_provider: string | null; source_place_id: string | null }[]
+      }
       nearby_places: {
         Args: {
           category_filter?: string
