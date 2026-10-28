@@ -36,6 +36,7 @@ static NSArray *targetA,*targetB;
 @interface ProbeHost:KNNaviViewController
 @property(nonatomic,strong) KNNaviGuidePoiOverlay *fixtureLayer;
 @property(nonatomic,strong) KNNaviOwnedPoiLayer *ownedProbe;
+@property(nonatomic,strong) NSDate *smokeStartedAt;
 @property(nonatomic,weak) KNMapView *fixtureMap;
 @property(nonatomic,strong) UILabel *status;
 @property(nonatomic) FloatPoint initialCenter;
@@ -85,17 +86,32 @@ static NSArray *targetA,*targetB;
  if([config[@"autoSmoke"] boolValue])dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC),dispatch_get_main_queue(),^{[self runOwnedSmoke];});
 }
 - (void)runOwnedSmoke {
- [self.fixtureLayer invalidate];self.fixtureLayer=nil;
+ if(finished)return;
+ if(!self.ownedProbe){
+  [self.fixtureLayer invalidate];self.fixtureLayer=nil;
+  self.ownedProbe=[[KNNaviOwnedPoiLayer alloc] initWithMap:self.fixtureMap];
+  self.smokeStartedAt=NSDate.date;
+  __weak ProbeHost *weakSelf=self;
+  self.ownedProbe.isActive=^BOOL{return weakSelf.view.window!=nil;};
+ }
  KNMapView *map=self.fixtureMap;BOOL previous=map.poiProperties.isVisible;
- self.ownedProbe=[[KNNaviOwnedPoiLayer alloc] initWithMap:map];
- __weak ProbeHost *weakSelf=self;
- self.ownedProbe.isActive=^BOOL{return weakSelf.view.window!=nil;};
- [self.ownedProbe performSelector:NSSelectorFromString(@"poll")];
- [self.ownedProbe setValue:[NSDate dateWithTimeIntervalSinceNow:-3] forKey:@"dirtySince"];
- [self.ownedProbe setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"settledAt"];
+ // 실제 SDK의 비동기 카메라/레이아웃 준비와 제품의 정지 대기 시간을 그대로 기다린다.
  [self.ownedProbe performSelector:NSSelectorFromString(@"poll")];
  NSString *requestId=self.ownedProbe.context[@"requestId"];
- if(!requestId){Finish(NO,@"smoke_context_missing");return;}
+ if(!requestId){
+  if(-self.smokeStartedAt.timeIntervalSinceNow<10){
+   dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC/5),dispatch_get_main_queue(),^{[self runOwnedSmoke];});
+   return;
+  }
+  finished=YES;
+  Record(@{@"error":@"smoke_context_missing",@"pass":@NO,
+   @"active":[self.ownedProbe valueForKey:@"active"],@"mapWindow":@(map.window!=nil),
+   @"locationAllowed":@([KNSDKBridge isLocationUseAllowed]),
+   @"foreground":@(UIApplication.sharedApplication.applicationState==UIApplicationStateActive),
+   @"viewportReady":@([self.ownedProbe valueForKey:@"viewport"]!=nil),
+   @"zoomEligible":@(isfinite(map.zoom)&&map.zoom>0&&map.zoom<32)});
+  return;
+ }
  NSMutableArray *pois=[NSMutableArray new];
  for(NSDictionary *item in KNNaviOwnedPoiFixtures((IntPoint){(int)self.initialCenter.x,(int)self.initialCenter.y})) {
   DoublePoint w=[[KNSDK sharedInstance] convertKATECToWGS84WithX:[item[@"x"] intValue] y:[item[@"y"] intValue]];
@@ -120,6 +136,7 @@ static NSArray *targetA,*targetB;
  BOOL restored=map.poiProperties.isVisible==previous && !self.ownedProbe.ownsPoiVisibility;
  [self.ownedProbe invalidate];
  if(!accepted || !hidden || items.count!=6 || !selected || !restored){Finish(NO,@"smoke_owned_poi_failed");return;}
+ finished=YES;
  Record(@{@"event":@"prototype_ready",@"smoke":@YES,@"sdkSnapshotAccepted":@(accepted),@"fixtureCount":@6,
   @"baseHiddenAfterAck":@(hidden),@"selectionCallback":@(selected),@"expiryRestoredDuringMove":@(restored),@"syntheticSelection":@YES});
 }
