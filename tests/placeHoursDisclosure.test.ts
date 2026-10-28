@@ -13,8 +13,17 @@ function ui() {
     '@/components/useColorScheme': { useColorScheme: () => 'light' },
     '@/lib/hours': hours,
   });
-  return loadModule<any>('components/place/PlaceHoursDisclosure.tsx', {
+  const mod = loadModule<any>('components/place/PlaceHoursDisclosure.tsx', {
     'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react': { useEffect: (effect: () => void) => effect() },
+    'react-native-reanimated': {
+      __esModule: true, default: { View: 'AnimatedView' },
+      useSharedValue: (value: number) => ({ value }),
+      useAnimatedStyle: (style: () => object) => new Proxy({}, { get: (_, key) => (style() as any)[key] }),
+      withTiming: (value: number) => value,
+      Easing: { out: (easing: any) => easing, cubic: (value: number) => value },
+      ReduceMotion: { System: 'system' },
+    },
     'react-native': { ActivityIndicator: 'Spinner', Pressable: 'Pressable', Text: 'Text', View: 'View', StyleSheet: { create: (s: any) => s } },
     '@expo/vector-icons/Ionicons': { __esModule: true, default: 'Icon' },
     '@/constants/Colors': { __esModule: true, default: { light: {} } },
@@ -22,6 +31,7 @@ function ui() {
     '@/components/place/OpenBadge': badge,
     '@/lib/hours': hours,
   });
+  return { ...mod, OpenBadge: badge.default };
 }
 const nodes = (node: any): any[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
 const text = (node: any): string => Array.isArray(node) ? node.map(text).join('') : node?.props ? text(node.props.children) : typeof node === 'string' ? node : '';
@@ -39,7 +49,7 @@ test('접힌 시간표는 숨기고 펼침/접기 버튼은 반대 화살표와 
   assert.equal(nodes(button()).filter(n => n.type === 'Icon').at(-1).props.name, 'chevron-down');
   button().props.onPress();
   assert.equal(button().props.accessibilityState.expanded, true);
-  assert.equal(nodes(button()).filter(n => n.type === 'Icon').at(-1).props.name, 'chevron-up');
+  assert.ok(nodes(button()).some(n => n.type === 'AnimatedView' && n.props.style.transform[0].rotate === '180deg'));
   assert.ok(text(mod.PlaceHoursDetails({ expanded, hours: { mon: [] } })).includes('월요일'));
   assert.ok(text(mod.PlaceHoursDetails({ expanded, hours: { mon: [] } })).includes('휴무'));
 });
@@ -69,4 +79,27 @@ test('독립 운영시간 행은 실제 영업 상태와 마감 시각을 보여
   assert.ok(!nodes(closed).some(n => n.type === 'Pressable'));
   const closedBadge = nodes(closed).find(n => typeof n.type === 'function' && n.props.inlineStart);
   assert.ok(text(closedBadge.type(closedBadge.props)).includes('폐업'));
+});
+
+
+test('시계 옆 상태는 점 없이 표시하고 접힌 본문은 측정용으로 유지하되 접근성에서 숨긴다', () => {
+  const mod = ui();
+  const allDay = Object.fromEntries(hours.WEEK.map(day => [day, [{ open: '00:00', close: '24:00' }]]));
+  const hasDot = (tree: any) => nodes(tree).some(n => n.type === 'View' && Array.isArray(n.props.style) && n.props.style.some((s: any) => s?.width === 6 && s?.height === 6));
+  assert.ok(hasDot(mod.OpenBadge({ hours: allDay })));
+  for (const row of [mod.PlaceHoursToggle({ hours: allDay, expanded: false, onToggle() {} }),
+    mod.PlaceHoursRow({ businessStatus: 'CLOSED_PERMANENTLY', expanded: false, onToggle() {} })]) {
+    const badge = nodes(row).find(n => typeof n.type === 'function' && n.props.inlineStart);
+    assert.equal(hasDot(badge.type(badge.props)), false);
+  }
+  const closed = mod.PlaceHoursDetails({ expanded: false, hours: { mon: [] } });
+  assert.ok(text(closed).includes('월요일'));
+  assert.equal(closed.props.accessibilityElementsHidden, true);
+  assert.equal(closed.props.importantForAccessibility, 'no-hide-descendants');
+  assert.equal(closed.props.pointerEvents, 'none');
+  assert.equal(closed.props.style.at(-1).height, 0);
+  const open = mod.PlaceHoursDetails({ expanded: true, hours: { mon: [] } });
+  nodes(open).find(n => n.props.onLayout).props.onLayout({ nativeEvent: { layout: { height: 183 } } });
+  assert.equal(open.props.style.at(-1).height, 183);
+  assert.equal(open.props.accessibilityElementsHidden, false);
 });

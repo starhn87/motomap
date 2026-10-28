@@ -17,6 +17,7 @@ interface Props {
   inline?: boolean;
   fallbackText?: string;
   inlineStart?: boolean;
+  showDot?: boolean;
 }
 
 // 구글이 주는 값. OPERATIONAL 은 평범한 영업 상태라 따로 표시할 게 없다.
@@ -48,6 +49,7 @@ export default function OpenBadge({
   inline = false,
   fallbackText,
   inlineStart = false,
+  showDot = true,
 }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -63,7 +65,7 @@ export default function OpenBadge({
 
   return (
     <View style={[styles.row, inline && styles.inlineRow, inlineStart && styles.startRow]}>
-      <View style={[styles.dot, { backgroundColor: open ? '#22C55E' : '#EF4444' }]} />
+      {showDot && <View style={[styles.dot, { backgroundColor: open ? '#22C55E' : '#EF4444' }]} />}
       <Text
         style={[
           styles.text,
