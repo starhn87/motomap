@@ -128,10 +128,10 @@ static NSArray *targetA,*targetB;
  BOOL accepted=[self.ownedProbe applyResponse:@{@"requestId":requestId,@"pois":pois,@"expiresAt":@(NSDate.date.timeIntervalSince1970*1000+60000)}];
  BOOL hidden=!map.poiProperties.isVisible && self.ownedProbe.ownsPoiVisibility;
  KNNaviGuidePoiOverlay *renderer=[self.ownedProbe valueForKey:@"renderer"];
- NSArray *items=[[renderer valueForKey:@"owned"] copy];
+ NSArray *items=[[[renderer valueForKey:@"entries"] allValues] copy];
  __block BOOL selected=NO;
  self.ownedProbe.onSelect=^(NSString *key,NSString *snapshotId){selected=[snapshotId isEqual:requestId] && key.length>0;};
- for(NSDictionary *item in items){UIButton *button=item[@"button"];if(!button.hidden){[button sendActionsForControlEvents:UIControlEventTouchUpInside];break;}}
+ for(id entry in items){[map.markerEventListener mapView:map onSingleTappedWithMarker:[entry valueForKey:@"marker"]];break;}
  [self.ownedProbe setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"expiresAt"];
  [map moveCamera:[KNMapCameraUpdate zoomTo:map.zoom*1.01] withUserLocation:NO];
  [self.ownedProbe performSelector:NSSelectorFromString(@"poll")];
