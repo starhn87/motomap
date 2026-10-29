@@ -18,6 +18,25 @@
 - 네이티브 브리지 계약: **37**
 - 백엔드 API 계약: **1**
 
+## 2026-10-29 TestFlight 전달 — 1.2.11(63), native37/API1
+
+사용자의 새 빌드/TestFlight 요청으로 소스299853f를 clean checkout에서 EAS local production으로
+빌드했다. EAS cloud는 월 무료 iOS 할당량 소진으로 거절돼 유료 전환 없이 로컬로 대체했다.
+최종 IPA는1.2.11(63)/runtime1.2.11/channel production이며 최신 TMAP JS·업종 아이콘 코드와
+마커20종 포함·서버 키 미포함을 검사했다. IPA SHA256:
+`ff49d045034aeaa75602b2ce410fff15d96aabd532dfe2d24bae041946808354`.
+
+EAS Submit `54334813-952b-4814-83f9-c32e59eee60f`가 Apple 업로드를 완료했다. ASC build
+`9fcad82f-4f73-486b-909e-476a50013d51`의 processingState=VALID, expired=false,
+internalBuildState=IN_BETA_TESTING을 실제 API로 확인했다. 외부 테스트/새 App Store 심사는
+제출하지 않았다. EAS 무료 플랜은 changelog 전달 옵션을 거절해 그 옵션 없이 업로드하고,
+기존 ASC 키로 해당 빌드의 한국어 betaBuildLocalization만 등록·응답 일치를 확인했다.
+
+TMAP 서버 migration20261029001626·서버 키·Edge v1은 적용/HTTP 검증을 완료했다. 기존
+동의를 자동 활성화하지 않으며 테스트 전 **위치정보 관리 → 동의 범위 변경 → TMAP** 선택이
+필요하다. 기존 운영1.2.10(61)의 App Store 상태나 원격 최소 버전은 변경하지 않았다.
+실제 기기의 새 POI 표시/동작은 사용자가 TestFlight63으로 확인할 후속 검증이다.
+
 ## 2026-10-28 TMAP 일반 장소 후보(native37)
 
 NAV-055: 일반 장소를 TMAP의 지원 업종 전체 묶음 검색으로 전환한다. 새 앱은 TMAP을

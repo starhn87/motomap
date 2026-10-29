@@ -2368,3 +2368,11 @@ EAS cloud는 월 무료 iOS 할당량 소진으로 업로드 후 빌드를 거�
 동일 clean checkout299853f의 EAS local production 빌드와 path 제출로 이어간다. 별도
 checkout의 Node 기본 경로가 깨진 Homebrew25를 가리켜 실패한 환경 문제는 기존 정상 NVM22
 PATH를 명시해 해결했다. 무관한 dirty 파일·개인.env는 빌드 입력에 포함하지 않는다.
+
+최종 TestFlight 전달: EAS local production으로1.2.11(63)을 빌드했고 runtime1.2.11/channel
+production·최신 TMAP JS/업종 코드·20개 마커 리소스·서버 키 미포함을 IPA에서 확인했다.
+배포용 PNG는 Xcode CgBI 최적화로 소스와 바이트가 달라 이름·치수를 대조했다. 로컬 리소스
+원본 간 바이트 일치 검사는 별도로 유지한다. EAS Submit의 무료 changelog 옵션 제한을 피해
+일반 path 업로드 후 ASC에서 한국어 테스트 설명을 직접 등록·검증했다. ASC build63은
+VALID/IN_BETA_TESTING, expired=false다. 새 App Store 심사나 외부 테스트 심사는 제출하지 않았다.
+새 POI 실기기 표시/주행 검증은 TestFlight63에서 진행하며 TMAP 선택 동의를 먼저 켜야 한다.
