@@ -80,7 +80,7 @@ JWT HTTP 호출을 대신한 검증이 아니라 운영 DB 역할·RLS 실행 �
 
 ### 2026-10-28 TMAP 공용 캐시·기존 위치 동의 호환 후보(NAV-055)
 
-`20261028142801_add_tmap_guide_pois.sql`은 선택형 TMAP 수신자를 추가하고 capability 없는
+`20261029001626_add_tmap_guide_pois.sql`은 선택형 TMAP 수신자를 추가하고 capability 없는
 구버전에 provider/event를 숨긴다. 기존 consent version·일반 장소 provider 제약은 유지한다.
 기존 control의 definer/actor 소유 검사·기록/철회 권한을 유지하고 새 공개 definer를 만들지 않는다.
 
@@ -108,3 +108,21 @@ invoker/권한은 유지한다. 근처25개 격자·원본 유효기간·정상 
 인접 선택은 `coverageComplete=true`도 요구한다. source5km 안이어도100개 첫 페이지에서
 잘린 결과는 전체 지역의 캐시로 간주하지 않으며 기존 메타데이터 없는 snapshot도 자기 격자
 이외에는 사용하지 않는다. 예산/권한/원본 TTL은 바꾸지 않는다.
+
+### 2026-10-29 운영 적용 후 검증
+
+사용자의 새 빌드/TestFlight 요청에 필요한 서버 준비로 TMAP migration·서버 키·Edge v1을
+적용했다. 실제 migration version은20261029001626이고 원격/로컬 SQL MD5가 일치함을 확인해
+파일명과 로컬 검사 경로를 맞췄다. 실제 새 두 RPC는 invoker, 캐시/예산은 RLS 활성·anon/
+authenticated 직접 읽기 및 claim 불가·service_role claim 가능을 운영 카탈로그에서 확인했다.
+생성 타입은 새 테이블2개/RPC2개의 공식 결과만 병합해 기존 nullability 보완은 보존했다.
+
+Security Advisor는 기존7그룹을 유지한다. RLS 활성·정책 없음 INFO가 service-only 신규 테이블
+2개에 추가됐으며 의도한 deny-all 정책이다. 이 INFO를 없애려고 공개 policy를 추가하지 않는다.
+다른 기존 finding은 바뀌지 않았다. 일반 사용자 권한을 넓히거나 기존 동의를 자동 활성화하지 않았다.
+
+전용 임시 비회원 fixture로 실제 HTTP 동의→TMAP 조회200/158장소·partial=false→같은 셀
+캐시 적중/원본 만료 동일→전체 철회를 확인했다. 서버 예산은18회로 유지돼 두 번째 조회가
+공급자를 재호출하지 않았음을 검증했다. 첫 페이지 잘림 때문에 인접 실조회는 생략했다.
+미동의 요청은403으로 차단했고 캐시/공급자 예산을 쓰지 않았다. 임시 subject는 철회 후 그
+무작위 해시와 user_id is null 조건으로 한 행만 정리했다. 실제 이용자 동의/계정은 변경하지 않았다.

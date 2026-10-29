@@ -9,7 +9,7 @@ def sql(s):return run([p+'psql','-X','-h',w,'-p','54392','-d','postgres','-v','O
 try:
  run([p+'initdb','-D',w+'/data','-A','trust','--no-locale'])
  run([p+'pg_ctl','-D',w+'/data','-l',w+'/server.log','-o','-k '+w+" -p 54392 -c listen_addresses=''",'start'])
- for f in ['tests/sql/tmap-poi-fixture.sql','supabase/migrations/20261011142734_add_location_privacy_controls.sql','supabase/migrations/20261011150411_add_location_history_setting.sql','supabase/migrations/20261028142801_add_tmap_guide_pois.sql','tests/sql/tmap-poi-assertions.sql']:
+ for f in ['tests/sql/tmap-poi-fixture.sql','supabase/migrations/20261011142734_add_location_privacy_controls.sql','supabase/migrations/20261011150411_add_location_history_setting.sql','supabase/migrations/20261029001626_add_tmap_guide_pois.sql','tests/sql/tmap-poi-assertions.sql']:
   run([p+'psql','-X','-h',w,'-p','54392','-d','postgres','-v','ON_ERROR_STOP=1','-f',f])
  sql("truncate public.tmap_poi_cache,public.tmap_poi_daily_budget; insert into public.tmap_poi_cache(cell_lat,cell_lon,expires_at) values(1875,6350,now()-interval '1 hour'),(1876,6350,now()-interval '1 hour');")
  with concurrent.futures.ThreadPoolExecutor() as pool:

@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      tmap_poi_cache: {
+        Row: {
+          cell_lat: number
+          cell_lon: number
+          expires_at: string | null
+          lease_at: string | null
+          lease_token: string | null
+          snapshot: Json | null
+        }
+        Insert: {
+          cell_lat: number
+          cell_lon: number
+          expires_at?: string | null
+          lease_at?: string | null
+          lease_token?: string | null
+          snapshot?: Json | null
+        }
+        Update: {
+          cell_lat?: number
+          cell_lon?: number
+          expires_at?: string | null
+          lease_at?: string | null
+          lease_token?: string | null
+          snapshot?: Json | null
+        }
+        Relationships: []
+      }
+      tmap_poi_daily_budget: {
+        Row: {
+          calls: number
+          day: string
+        }
+        Insert: {
+          calls: number
+          day: string
+        }
+        Update: {
+          calls?: number
+          day?: string
+        }
+        Relationships: []
+      }
       air_cache: {
         Row: {
           body: Json
@@ -1791,6 +1833,19 @@ export type Database = {
       }
     }
     Functions: {
+      claim_tmap_poi_refresh: {
+        Args: { p_coverage_km?: number; p_lat: number; p_lon: number }
+        Returns: Json
+      }
+      finish_tmap_poi_refresh: {
+        Args: {
+          p_lat: number
+          p_lon: number
+          p_snapshot: Json
+          p_token: string
+        }
+        Returns: undefined
+      }
       get_place_catalog_suppressions: {
         Args: Record<PropertyKey, never>
         Returns: Json

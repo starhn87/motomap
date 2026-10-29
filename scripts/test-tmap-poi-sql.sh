@@ -9,7 +9,7 @@ cleanup() { "$pg_bin/pg_ctl" -D "$work/data" -m immediate stop >/dev/null 2>&1 |
 trap cleanup EXIT
 "$pg_bin/initdb" -D "$work/data" -A trust --no-locale >/dev/null
 "$pg_bin/pg_ctl" -D "$work/data" -l "$work/server.log" -o "-k $work -p 54390 -c listen_addresses=''" start >/dev/null
-for sql in "$root/tests/sql/tmap-poi-fixture.sql" "$root/supabase/migrations/20261011142734_add_location_privacy_controls.sql" "$root/supabase/migrations/20261011150411_add_location_history_setting.sql" "$root/supabase/migrations/20261028142801_add_tmap_guide_pois.sql" "$root/tests/sql/tmap-poi-assertions.sql";do
+for sql in "$root/tests/sql/tmap-poi-fixture.sql" "$root/supabase/migrations/20261011142734_add_location_privacy_controls.sql" "$root/supabase/migrations/20261011150411_add_location_history_setting.sql" "$root/supabase/migrations/20261029001626_add_tmap_guide_pois.sql" "$root/tests/sql/tmap-poi-assertions.sql";do
  "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -h "$work" -p 54390 -d postgres -f "$sql" >/dev/null
 done
 echo TMAP_POI_SQL_PASS
