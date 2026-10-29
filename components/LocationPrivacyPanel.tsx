@@ -74,7 +74,7 @@ export default function LocationPrivacyPanel() {
 
   if (view==='consent') return <PostHogMaskView style={styles.screen}>
     {button('위치정보 관리로 돌아가기',()=>setView('overview'))}
-    <LegalConsentScreen needsLegal={false} onComplete={()=>setView('overview')} />
+    <LegalConsentScreen needsLegal={false} showProvidersInline onComplete={()=>setView('overview')} />
   </PostHogMaskView>;
   const active = state.status==='active' && state.version===LOCATION_CONSENT_VERSION;
   return <PostHogMaskView style={styles.screen}><ScrollView contentContainerStyle={styles.content}>

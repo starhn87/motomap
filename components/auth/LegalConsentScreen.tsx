@@ -9,8 +9,8 @@ import { useAuthStore } from '@/stores/useAuthStore';
 
 const TYPES: LegalDocType[] = ['terms', 'privacy', 'location'];
 
-export default function LegalConsentScreen({ needsLegal = true, onReady, onComplete }:
-  { needsLegal?: boolean; onReady?: () => void; onComplete?: () => void }) {
+export default function LegalConsentScreen({ needsLegal = true, showProvidersInline = false, onReady, onComplete }:
+  { needsLegal?: boolean; showProvidersInline?: boolean; onReady?: () => void; onComplete?: () => void }) {
   const state = useLocationPrivacyStore();
   const [agreed, setAgreed] = useState<Partial<Record<LegalDocType, boolean>>>({});
   const [providers, setProviders] = useState<LocationRecipient[]>(() => state.version === LOCATION_CONSENT_VERSION
@@ -56,9 +56,23 @@ export default function LegalConsentScreen({ needsLegal = true, onReady, onCompl
     finally { submitting.current = false; setLoading(false); }
   }
 
+  const providerChoices = <>
+    <Text style={styles.documentTitle}>위치 전달 범위</Text>
+    <Text style={styles.body}>선택한 전달 범위에 동의해 주세요. 선택하지 않은 서비스에는 위치를 보내지 않아요.</Text>
+    {LOCATION_PROVIDERS.map(provider => <View key={provider} style={styles.provider}>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: providers.includes(provider), disabled: loading }} disabled={loading}
+        style={styles.agreement} onPress={() => setProviders(old => old.includes(provider) ? old.filter(p => p !== provider) : [...old, provider])}>
+        <View style={[styles.checkbox, providers.includes(provider) && styles.checked]}>{providers.includes(provider) && <Text style={styles.checkmark}>✓</Text>}</View>
+        <Text style={styles.label}>{RECIPIENT_LABELS[provider]}</Text>
+      </Pressable><Text style={styles.body}>{LOCATION_PROVIDER_DETAILS[provider]}</Text>
+    </View>)}
+  </>;
+
+  const submitLabel = showProvidersInline ? '동의하고 저장' : '동의하고 시작하기';
+
   return <SafeAreaView style={styles.screen} onLayout={onReady}>
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.title}>모토맵 시작하기</Text>
+      <Text style={styles.title}>{showProvidersInline ? '위치 전달 범위 변경' : '모토맵 시작하기'}</Text>
       <Text style={styles.body}>필요한 동의를 확인해 주세요. 설정에서 언제든 바꿀 수 있어요.</Text>
       {types.map(type => <View key={type} style={styles.row}>
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: !!agreed[type], disabled: loading }}
@@ -71,12 +85,12 @@ export default function LegalConsentScreen({ needsLegal = true, onReady, onCompl
         <Pressable accessibilityRole="button" accessibilityLabel={`${LEGAL_DOCS[type].title} 보기`}
           style={styles.viewLink} onPress={() => setViewing(type)}><Text style={styles.link}>보기</Text></Pressable>
       </View>)}
-      <Text style={styles.body}>현재 위치는 네이버 지도와 카카오 길안내·날씨·유가·AI 추천에 사용될 수 있어요.
-        {'\n'}위치 동의의 자세히 보기에서 전달 범위를 선택할 수 있어요. 방문 기록 저장은 설정에서 따로 켤 수 있어요.</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="동의하고 시작하기" disabled={!accepted || loading}
+      {showProvidersInline ? providerChoices : <Text style={styles.body}>현재 위치는 네이버 지도와 카카오 길안내·날씨·유가·AI 추천에 사용될 수 있어요.
+        {'\n'}위치 동의의 자세히 보기에서 전달 범위를 선택할 수 있어요. 방문 기록 저장은 설정에서 따로 켤 수 있어요.</Text>}
+      <Pressable accessibilityRole="button" accessibilityLabel={submitLabel} disabled={!accepted || loading}
         accessibilityState={{ disabled: !accepted || loading, busy: loading }}
         onPress={() => void accept()} style={({ pressed }) => [styles.button, (!accepted || loading || pressed) && styles.dimmed]}>
-        {loading ? <ActivityIndicator size="small" color="#0A0A0A" /> : <Text style={styles.buttonText}>동의하고 시작하기</Text>}
+        {loading ? <ActivityIndicator size="small" color="#0A0A0A" /> : <Text style={styles.buttonText}>{submitLabel}</Text>}
       </Pressable>
       {!onComplete && <Pressable accessibilityRole="button" disabled={loading} style={styles.browse} onPress={() => void browse()}>
         <Text style={styles.link}>{needsLegal ? '로그아웃하고 둘러보기' : '현재 위치 없이 둘러보기'}</Text>
@@ -94,17 +108,7 @@ export default function LegalConsentScreen({ needsLegal = true, onReady, onCompl
             onPress={() => setViewing(null)}><Text style={styles.link}>닫기</Text></Pressable>
         </View>
         <ScrollView key={viewing} contentContainerStyle={styles.content}>
-          {viewing === 'location' && <>
-            <Text style={styles.documentTitle}>위치 전달 범위</Text>
-            <Text style={styles.body}>시작 화면의 위치 동의가 아래 선택한 범위를 포함해요. 선택하지 않은 서비스에는 위치를 보내지 않아요.</Text>
-            {LOCATION_PROVIDERS.map(provider => <View key={provider} style={styles.provider}>
-              <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: providers.includes(provider), disabled: loading }} disabled={loading}
-                style={styles.agreement} onPress={() => setProviders(old => old.includes(provider) ? old.filter(p => p !== provider) : [...old, provider])}>
-                <View style={[styles.checkbox, providers.includes(provider) && styles.checked]}>{providers.includes(provider) && <Text style={styles.checkmark}>✓</Text>}</View>
-                <Text style={styles.label}>{RECIPIENT_LABELS[provider]}</Text>
-              </Pressable><Text style={styles.body}>{LOCATION_PROVIDER_DETAILS[provider]}</Text>
-            </View>)}
-          </>}
+          {viewing === 'location' && !showProvidersInline && providerChoices}
           <Text style={styles.body}>{viewing && LEGAL_DOCS[viewing].content}</Text>
         </ScrollView>
       </SafeAreaView>

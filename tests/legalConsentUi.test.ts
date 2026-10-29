@@ -5,7 +5,7 @@ import { Script } from 'node:vm';
 import { transformSync } from 'esbuild';
 
 type Element = { type: unknown; props: Record<string, any> };
-function fixture(options: { needsLegal?: boolean; consent?:()=>Promise<void>; legal?:()=>Promise<void> } = {}) {
+function fixture(options: { needsLegal?: boolean; showProvidersInline?: boolean; consent?:()=>Promise<void>; legal?:()=>Promise<void> } = {}) {
   const states: any[]=[]; let cursor=0; let actor='A'; const calls: string[]=[];
   let consentArgs: unknown[]=[];
   const state={actor:'A',version:null,providers:[],historyAllowed:false,ready:true,
@@ -32,7 +32,7 @@ function fixture(options: { needsLegal?: boolean; consent?:()=>Promise<void>; le
   new Script(code).runInNewContext({module,exports:module.exports,require:(name:string)=>{
     if(!(name in dependencies)) throw new Error(`미지정 약관 UI 의존성: ${name}`); return dependencies[name];
   }});
-  return {render:()=>{cursor=0;return module.exports.default({needsLegal:options.needsLegal ?? true});},
+  return {render:()=>{cursor=0;return module.exports.default({needsLegal:options.needsLegal ?? true,showProvidersInline:options.showProvidersInline ?? false});},
     calls,consentArgs:()=>JSON.parse(JSON.stringify(consentArgs)),actor:(next:string)=>{actor=next;}};
 }
 function elements(node:any):Element[]{
@@ -44,7 +44,7 @@ function checkAll(f:ReturnType<typeof fixture>){
   elements(f.render()).filter(n=>n.props.accessibilityRole==='checkbox').forEach(n=>n.props.onPress());
 }
 function submit(f:ReturnType<typeof fixture>){
-  return elements(f.render()).find(n=>n.type==='Pressable' && n.props.accessibilityLabel==='동의하고 시작하기')!;
+  return elements(f.render()).find(n=>n.type==='Pressable' && ['동의하고 시작하기','동의하고 저장'].includes(n.props.accessibilityLabel))!;
 }
 test('처음에는 미선택 기본 동의만 보이고 공급자 선택은 자세히 보기에 담는다',()=>{
   const f=fixture(); const nodes=elements(f.render());
@@ -133,4 +133,29 @@ test('새 TMAP 제공자는 기본 꺼짐이며 자세히 보기에서 직접 �
   elements(f.render()).find(n=>n.props.accessibilityLabel==='약관 문서 닫기')!.props.onPress();
   checkAll(f);submit(f).props.onPress();await new Promise(done=>setTimeout(done,0));
   assert.ok(f.consentArgs()[3].includes('tmap'));
+});
+
+function visibleElements(node:any):Element[]{
+  if(Array.isArray(node))return node.flatMap(visibleElements);
+  if(!node||typeof node!=='object'||!node.props||(node.type==='Modal'&&!node.props.visible))return [];
+  return [node,...visibleElements(node.props.children)];
+}
+test('설정의 동의 범위 변경은 약관 보기를 누르지 않아도 TMAP을 선택하고 저장할 수 있다',async()=>{
+  const f=fixture({needsLegal:false,showProvidersInline:true});
+  const tmap=visibleElements(f.render()).find(n=>n.props.accessibilityRole==='checkbox'&&elements(n).some(c=>c.props.children==='TMAP'));
+  assert.ok(tmap,'설정 본문에 TMAP 선택이 보여야 한다');assert.equal(tmap.props.accessibilityState.checked,false);
+  tmap.props.onPress();
+  const agreement=visibleElements(f.render()).find(n=>n.props.accessibilityRole==='checkbox'&&elements(n).some(c=>c.props.children==='만 14세 이상 · 위치 이용·전달 동의'))!;
+  agreement.props.onPress();assert.equal(submit(f).props.accessibilityLabel,'동의하고 저장');
+  submit(f).props.onPress();await new Promise(done=>setTimeout(done,0));
+  assert.ok(f.consentArgs()[3].includes('tmap'));
+  const source=readFileSync(new URL('../components/LocationPrivacyPanel.tsx',import.meta.url),'utf8');
+  assert.match(source,/<LegalConsentScreen needsLegal=\{false\} showProvidersInline/);
+});
+test('기존 온보딩은 제공자 목록을 본문에 자동 노출하지 않고 설정 모달에는 중복 선택을 만들지 않는다',()=>{
+  const onboard=fixture({needsLegal:false});assert.equal(visibleElements(onboard.render()).filter(n=>n.props.accessibilityRole==='checkbox').length,1);
+  const f=fixture({needsLegal:false,showProvidersInline:true});
+  visibleElements(f.render()).find(n=>n.props.accessibilityLabel==='location 보기')!.props.onPress();
+  const modal=visibleElements(f.render()).find(n=>n.type==='Modal')!;
+  assert.equal(elements(modal).filter(n=>n.props.accessibilityRole==='checkbox').length,0);
 });
