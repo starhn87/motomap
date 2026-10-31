@@ -1,9 +1,8 @@
 import KakaoNavi, { supportsKakaoNaviFeature } from '@/modules/kakao-navi';
-import { fetchGuidePlaces, fetchGuideFavorites } from '@/lib/api/guidePois';
+import { fetchGuideFavorites } from '@/lib/api/guidePois';
 import { fetchNearbyGasStationsSnapshot } from '@/lib/api/gasStations';
-import { fetchGuideOrdinaryPois, clearGuideOrdinaryPoiCache } from '@/lib/api/guideOrdinaryPois';
 import { GuidePoiData } from '@/lib/guidePoiData';
-import { insidePoiBounds, limitGuidePoiCandidates, mergeGuidePois, poiPriority, validPoiBounds, type GuidePoi } from '@/lib/guidePoiCatalog';
+import { insidePoiBounds, limitGuidePoiCandidates, poiPriority, validPoiBounds, type GuidePoi } from '@/lib/guidePoiCatalog';
 import { haversine } from '@/lib/distance';
 import { listenGuideFavoritesChanged } from '@/lib/guidePoiChanges';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -13,6 +12,9 @@ import { useGuideSession } from '@/lib/guideSession';
 
 type Scope={actor:string|null;revision:number;visit:object;data:GuidePoiData};
 type OpenPoi=(point:GuidePoi,current:()=>boolean)=>Promise<void>;
+
+// SDK 기본 POI 는 켜 둔 채 기본 지도에 없는 것만 마커로 얹는다(NAV-058).
+const augmentsBaseMap=(poi:GuidePoi)=>!!poi.personal || !!poi.favorite || (poi.price??0)>0;
 
 // 새 capability가 있는 바이너리만 참여한다. 실패해도 안내 중 SDK 상호와 자체 표시를 섞지 않는다.
 export function registerGuidePoiEvents(open:OpenPoi):()=>void {
@@ -34,11 +36,12 @@ export function registerGuidePoiEvents(open:OpenPoi):()=>void {
       if(session.preview){cancel();catalog=null;}
       return;
     }
-    cancel();catalog=null;scope?.data.clear();clearGuideOrdinaryPoiCache();scope=null;
+    cancel();catalog=null;scope?.data.clear();scope=null;
     void KakaoNavi.resetGuidePoiSnapshot().catch(()=>{});
     if(!visit || !providerLocationAllowed('kakao'))return;
     scope={actor,revision:privacy.revision,visit,data:new GuidePoiData({
-      places:fetchGuidePlaces,favorites:fetchGuideFavorites,
+      // 등록 장소는 기본 POI 와 겹치므로 조회하지 않는다.
+      places:async()=>[],favorites:fetchGuideFavorites,
       gas:(center,signal)=>fetchNearbyGasStationsSnapshot({...center,prod:'B027',radius:5000,preciseCenter:true,signal}),
       personal:async()=>{await useMyPlacesStore.getState().load();return useMyPlacesStore.getState().places;},
     })};
@@ -61,7 +64,7 @@ export function registerGuidePoiEvents(open:OpenPoi):()=>void {
         {latitude:(context.bounds.south+context.bounds.north)/2,longitude:(context.bounds.west+context.bounds.east)/2};
       async function publish(result:Awaited<ReturnType<GuidePoiData['load']>>) {
         if(!live())return null;
-        const points=limitGuidePoiCandidates(result.pois.sort((a,b)=>poiPriority(a)-poiPriority(b)||haversine(center,a)-haversine(center,b)));
+        const points=limitGuidePoiCandidates(result.pois.filter(augmentsBaseMap).sort((a,b)=>poiPriority(a)-poiPriority(b)||haversine(center,a)-haversine(center,b)));
         // 주소·서버 ID는 JS catalog에만 두고 표시용 최소 항목만 네이티브에 전달한다.
         const pois=points.map(({key,name,latitude,longitude,category,industry,personal,favorite,brand,price,gasId})=>
           ({key,name:name.trim().slice(0,200),latitude,longitude,category,industry,personal,favorite,brand,price,gasId}));
@@ -73,27 +76,9 @@ export function registerGuidePoiEvents(open:OpenPoi):()=>void {
       // 느린 오피넷 응답 때문에 이동 중 기본 장소 전환까지 계속 지연시키지 않는다.
       const base=await current.data.load(context.bounds,!!current.actor,false,work.controller.signal);
       const first=await publish(base);basePublished=!!first?.accepted;basePayload=first?.payload??null;
-      if(basePublished) {
-        let latest=base,ordinary:GuidePoi[]=[],ordinaryExpiresAt=Infinity,partial=false,publication=Promise.resolve();
-        function publishExtras() {
-          // 두 공급자가 같은 순간 완료돼도 native ack와 JS 선택 catalog의 순서를 맞춘다.
-          publication=publication.then(async()=>{
-            await publish({pois:mergeGuidePois([...latest.pois,...ordinary],context!.bounds),
-              expiresAt:Math.min(latest.expiresAt,ordinaryExpiresAt,partial?Date.now()+30_000:Infinity)});
-          });
-          return publication;
-        }
-        const extras:Promise<unknown>[]=[];
-        if(providerLocationAllowed('tmap'))extras.push(fetchGuideOrdinaryPois(context.bounds,work.controller.signal,context.center).then(result=>{
-          ordinary=result.pois;ordinaryExpiresAt=result.expiresAt??Infinity;partial=partial||result.partial;
-          if(ordinary.length || partial)return publishExtras();
-        }));
-        if(providerLocationAllowed('opinet'))extras.push(current.data.load(context.bounds,!!current.actor,true,work.controller.signal).then(result=>{
-          latest=result;return publishExtras();
-        }));
-        const results=await Promise.allSettled(extras);
-        if(results.some(result=>result.status==='rejected') && live()){partial=true;await publishExtras();}
-      }
+      // 가격은 느린 오피넷 응답 뒤 같은 snapshot 의 후속으로 보탠다. 실패하면 아래에서 짧은 만료로 다시 조회한다.
+      if(basePublished && providerLocationAllowed('opinet'))
+        await publish(await current.data.load(context.bounds,!!current.actor,true,work.controller.signal));
     } catch {
       if(pending===work && valid(current)) {
         if(!basePublished)catalog=null;
@@ -117,12 +102,12 @@ export function registerGuidePoiEvents(open:OpenPoi):()=>void {
     if(id===110)void request().catch(()=>{});
     if(id===111)void select().catch(()=>{});
   });
-  const end=KakaoNavi.addListener('onGuideEnd',()=>{cancel();catalog=null;scope?.data.clear();clearGuideOrdinaryPoiCache();scope=null;});
+  const end=KakaoNavi.addListener('onGuideEnd',()=>{cancel();catalog=null;scope?.data.clear();scope=null;});
   const unsubscribe=[useAuthStore.subscribe(sync),useLocationPrivacyStore.subscribe(sync),useGuideSession.subscribe(sync),
     useMyPlacesStore.subscribe((state,previous)=>{if(state.places!==previous.places)refreshFavorites();}),listenGuideFavoritesChanged(refreshFavorites)];
   sync();void KakaoNavi.setGuideOwnedPoiEnabled(true).catch(()=>{});
   return ()=>{
-    disposed=true;cancel();catalog=null;scope?.data.clear();clearGuideOrdinaryPoiCache();scope=null;
+    disposed=true;cancel();catalog=null;scope?.data.clear();scope=null;
     menu.remove();end.remove();unsubscribe.forEach(remove=>remove());
     void KakaoNavi.setGuideOwnedPoiEnabled(false).catch(()=>{});
   };

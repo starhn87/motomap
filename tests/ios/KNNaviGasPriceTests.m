@@ -195,16 +195,16 @@ int RunKNNaviGasPriceTests(void) {
   __block BOOL active=YES;coordinator.isActive=^BOOL{return active;};
   __block NSUInteger viewportRequests=0;coordinator.onRequest=^{viewportRequests++;};
   [coordinator performSelector:NSSelectorFromString(@"poll")];
-  if(coordinator.context || map.poiProperties.isVisible){NSLog(@"FAIL pending POI exposed SDK symbols or fetched before settle");failures++;}
+  if(coordinator.context || !map.poiProperties.isVisible){NSLog(@"FAIL pending POI hid SDK symbols or fetched before settle (SDK base POIs must stay visible)");failures++;}
   [coordinator setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"settledAt"];
   [coordinator performSelector:NSSelectorFromString(@"poll")];
   NSString *viewportId=coordinator.context[@"requestId"]?:@"missing";
   if([viewportId isEqual:@"missing"] || viewportRequests!=1 || !coordinator.context[@"center"]){NSLog(@"FAIL viewport context or screen center missing");failures++;}
   double expiry=NSDate.date.timeIntervalSince1970*1000+60000;
   NSDictionary *place=@{@"key":@"place:fixture",@"name":@"카페",@"latitude":@37.5,@"longitude":@127,@"category":@"cafe"};
-  if([coordinator applyResponse:@{@"requestId":@"stale",@"pois":@[place],@"expiresAt":@(expiry)}] || map.poiProperties.isVisible){NSLog(@"FAIL stale snapshot exposed SDK POIs");failures++;}
+  if([coordinator applyResponse:@{@"requestId":@"stale",@"pois":@[place],@"expiresAt":@(expiry)}] || !map.poiProperties.isVisible){NSLog(@"FAIL stale snapshot hid SDK POIs (SDK base POIs must stay visible)");failures++;}
   BOOL accepted=[coordinator applyResponse:@{@"requestId":viewportId,@"pois":@[place],@"expiresAt":@(expiry)}];
-  if(!accepted || map.poiProperties.isVisible || !coordinator.ownsPoiVisibility){NSLog(@"FAIL ready snapshot did not own base POIs");failures++;}
+  if(!accepted || !map.poiProperties.isVisible || !coordinator.ownsPoiVisibility){NSLog(@"FAIL ready snapshot not accepted (SDK base POIs must stay visible)");failures++;}
   NSMutableDictionary *industryPlace=[place mutableCopy];industryPlace[@"industry"]=@"pharmacy";[industryPlace removeObjectForKey:@"category"];
   [coordinator applyResponse:@{@"requestId":viewportId,@"pois":@[industryPlace],@"expiresAt":@(expiry)}];
   NSDictionary *industryStyle=[coordinator valueForKey:@"artwork"][@"place:fixture"][@"style"];
@@ -218,15 +218,15 @@ int RunKNNaviGasPriceTests(void) {
   if(poiMarker.priority!=60000 || !presentation.hasItems){NSLog(@"FAIL owned POI selection emphasis");failures++;}
   [coordinator setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"expiresAt"];
   map.coordinate=(FloatPoint){300001,400001};[coordinator performSelector:NSSelectorFromString(@"poll")];
-  if(map.poiProperties.isVisible || !coordinator.ownsPoiVisibility || presentation.hasItems){NSLog(@"FAIL expiry exposed SDK POIs or retained expired labels");failures++;}
+  if(!map.poiProperties.isVisible || !coordinator.ownsPoiVisibility || presentation.hasItems){NSLog(@"FAIL expiry hid SDK POIs or retained expired labels (SDK base POIs must stay visible)");failures++;}
   [coordinator refresh];
-  if(map.poiProperties.isVisible || !coordinator.ownsPoiVisibility){NSLog(@"FAIL explicit reset exposed SDK POIs");failures++;}
+  if(!map.poiProperties.isVisible || !coordinator.ownsPoiVisibility){NSLog(@"FAIL explicit reset hid SDK POIs (SDK base POIs must stay visible)");failures++;}
   [coordinator performSelector:NSSelectorFromString(@"poll")];[coordinator setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"settledAt"];
   [coordinator performSelector:NSSelectorFromString(@"poll")];
   [coordinator applyResponse:@{@"requestId":coordinator.context[@"requestId"]?:@"missing",@"error":@"unavailable"}];
-  if(map.poiProperties.isVisible){NSLog(@"FAIL provider failure exposed SDK POIs");failures++;}
+  if(!map.poiProperties.isVisible){NSLog(@"FAIL provider failure hid SDK POIs (SDK base POIs must stay visible)");failures++;}
   map.zoom=32;[coordinator performSelector:NSSelectorFromString(@"poll")];
-  if(map.poiProperties.isVisible){NSLog(@"FAIL wide zoom exposed SDK POIs");failures++;}
+  if(!map.poiProperties.isVisible){NSLog(@"FAIL wide zoom hid SDK POIs (SDK base POIs must stay visible)");failures++;}
   map.zoom=1;
   [coordinator refresh];map.coordinate=(FloatPoint){300002,400002};[coordinator performSelector:NSSelectorFromString(@"poll")];
   [coordinator setValue:[NSDate dateWithTimeIntervalSinceNow:-3] forKey:@"dirtySince"];
@@ -238,6 +238,24 @@ int RunKNNaviGasPriceTests(void) {
     NSLog(@"FAIL auto-follow starved or rejected in-coverage POI response");failures++;
   }
   if(![coordinator applyResponse:@{@"requestId":movingId,@"pois":@[place],@"expiresAt":@(expiry)}]){NSLog(@"FAIL gas followup rejected current snapshot");failures++;}
+  // 조회 범위를 벗어나도 새 snapshot 이 올 때까지 기존 마커를 지우지 않고, 바뀌지 않은 마커는 그대로 둔다.
+  KNMapMarker *keptMarker=[[presentation valueForKey:@"entries"][@"place:fixture"] valueForKey:@"marker"];
+  map.zoom=3;[coordinator performSelector:NSSelectorFromString(@"poll")];
+  if(!presentation.hasItems){NSLog(@"FAIL moving out of coverage cleared POIs");failures++;}
+  [coordinator setValue:nil forKey:@"retryAfter"];
+  [coordinator setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"settledAt"];
+  [coordinator setValue:[NSDate dateWithTimeIntervalSinceNow:-3] forKey:@"requestedAt"];
+  [coordinator performSelector:NSSelectorFromString(@"poll")];
+  NSString *widerId=coordinator.context[@"requestId"]?:@"missing";
+  if([widerId isEqual:@"missing"] || !presentation.hasItems){NSLog(@"FAIL out-of-coverage move skipped refresh or cleared POIs");failures++;}
+  [coordinator applyResponse:@{@"requestId":widerId,@"error":@"unavailable"}];
+  if(!presentation.hasItems){NSLog(@"FAIL refresh failure cleared still-valid POIs");failures++;}
+  [coordinator setValue:nil forKey:@"retryAfter"];[coordinator setValue:[NSDate dateWithTimeIntervalSinceNow:-3] forKey:@"requestedAt"];
+  [coordinator performSelector:NSSelectorFromString(@"poll")];
+  widerId=coordinator.context[@"requestId"]?:@"missing";
+  if(![coordinator applyResponse:@{@"requestId":widerId,@"pois":@[place],@"expiresAt":@(expiry)}] ||
+    [[presentation valueForKey:@"entries"][@"place:fixture"] valueForKey:@"marker"]!=keptMarker){NSLog(@"FAIL refreshed snapshot rebuilt unchanged marker");failures++;}
+  map.zoom=1;
   active=NO;[coordinator performSelector:NSSelectorFromString(@"poll")];
   if(coordinator.context || !map.poiProperties.isVisible){NSLog(@"FAIL inactive viewport was retained");failures++;}
   [coordinator invalidate];

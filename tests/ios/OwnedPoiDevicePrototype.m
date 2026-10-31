@@ -126,7 +126,7 @@ static NSArray *targetA,*targetB;
   [pois addObject:row];
  }
  BOOL accepted=[self.ownedProbe applyResponse:@{@"requestId":requestId,@"pois":pois,@"expiresAt":@(NSDate.date.timeIntervalSince1970*1000+60000)}];
- BOOL hidden=!map.poiProperties.isVisible && self.ownedProbe.ownsPoiVisibility;
+ BOOL hidden=map.poiProperties.isVisible && self.ownedProbe.ownsPoiVisibility; // 기본 POI 유지 + 자체 모드
  KNNaviGuidePoiOverlay *renderer=[self.ownedProbe valueForKey:@"renderer"];
  NSArray *items=[[[renderer valueForKey:@"entries"] allValues] copy];
  __block BOOL selected=NO;
@@ -135,7 +135,7 @@ static NSArray *targetA,*targetB;
  [self.ownedProbe setValue:[NSDate dateWithTimeIntervalSinceNow:-1] forKey:@"expiresAt"];
  [map moveCamera:[KNMapCameraUpdate zoomTo:map.zoom*1.01] withUserLocation:NO];
  [self.ownedProbe performSelector:NSSelectorFromString(@"poll")];
- BOOL expiredCleared=!map.poiProperties.isVisible && self.ownedProbe.ownsPoiVisibility && !renderer.hasItems;
+ BOOL expiredCleared=map.poiProperties.isVisible && self.ownedProbe.ownsPoiVisibility && !renderer.hasItems;
  [self.ownedProbe invalidate];
  BOOL restored=map.poiProperties.isVisible==self.smokeInitialSDKVisibility && !self.ownedProbe.ownsPoiVisibility;
  if(!accepted || !hidden || items.count!=6 || !selected || !expiredCleared || !restored){

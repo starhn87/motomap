@@ -13,7 +13,7 @@ function setup(capability=true,gasAllowed=false,ordinaryPois:any[]=[] ) {
   const visit={},guide=store<any>({goal:{visitIdentity:visit},preview:null});
   const auth=store<any>({session:{user:{id:'actor-a'}}}),privacy=store({revision:1}),personal=store({places:{},load:async()=>{}});
   let allowed=true,context:any={requestId:'first',bounds:{south:37.49,west:126.99,north:37.51,east:127.01}},selection:any=null,accepted=true;
-  let favoriteChange=()=>{},resets=0,clears=0;
+  let favoriteChange=()=>{},resets=0,clears=0,ordinaryCalls=0;
   const events:Record<string,(value:any)=>void>={},updates:any[]=[],opens:any[]=[],calls:any[]=[],resolvers:((value:any)=>void)[]=[];
   const module=loadModule<typeof import('../lib/guidePoiEvents')>('lib/guidePoiEvents.ts',{
     '@/modules/kakao-navi':{__esModule:true,supportsKakaoNaviFeature:()=>capability,default:{
@@ -23,7 +23,7 @@ function setup(capability=true,gasAllowed=false,ordinaryPois:any[]=[] ) {
       updateGuidePoiSnapshot:async(json:string)=>{updates.push(JSON.parse(json));return accepted;},
     }},
     '@/lib/api/guidePois':{},'@/lib/api/gasStations':{},
-    '@/lib/api/guideOrdinaryPois':{clearGuideOrdinaryPoiCache:()=>{},fetchGuideOrdinaryPois:async()=>({pois:ordinaryPois,partial:false})},
+    '@/lib/api/guideOrdinaryPois':{clearGuideOrdinaryPoiCache:()=>{},fetchGuideOrdinaryPois:async()=>{ordinaryCalls++;return {pois:ordinaryPois,partial:false};}},
     '@/lib/guidePoiData':{GuidePoiData:class {
       clear(){clears++;}invalidateFavorites(){}
       load(...args:any[]){calls.push(args);return new Promise(resolve=>resolvers.push(resolve));}
@@ -35,8 +35,8 @@ function setup(capability=true,gasAllowed=false,ordinaryPois:any[]=[] ) {
     '@/lib/guideSession':{useGuideSession:guide},
   },{AbortController});
   const cleanup=module.registerGuidePoiEvents(async(point,current)=>{opens.push({point,current});});
-  const poi={key:'place:verified',placeId:'verified',name:'등록 장소',latitude:37.5,longitude:127};
-  return {events,updates,opens,calls,auth,guide,privacy,cleanup,poi,get resets(){return resets;},get clears(){return clears;},
+  const poi={key:'place:verified',placeId:'verified',name:'저장한 장소',favorite:true,latitude:37.5,longitude:127};
+  return {events,updates,opens,calls,auth,guide,privacy,cleanup,poi,get resets(){return resets;},get ordinaryCalls(){return ordinaryCalls;},get clears(){return clears;},
     favoriteChange:()=>favoriteChange(),setContext:(value:any)=>{context=value;},setSelection:(value:any)=>{selection=value;},setAccepted:(value:boolean)=>{accepted=value;},
     revoke:()=>{allowed=false;privacy.set({revision:2});},resolve:(index=0,pois:any[]=[poi])=>resolvers[index]({pois,expiresAt:Date.now()+60_000}),
     flush:async()=>{for(let i=0;i<30;i++)await Promise.resolve();}};
@@ -70,27 +70,21 @@ test('늦은 영역 응답과 네이티브가 거절한 snapshot의 선택은 �
   f.setSelection({snapshotId:'second',key:'place:verified'});f.events.onGuideMenu({id:111});await f.flush();
   assert.equal(f.opens.length,0);f.cleanup();
 });
-test('느린 유가 응답을 기다리지 않고 등록 장소를 먼저 표시한다',async()=>{
+test('느린 유가 응답을 기다리지 않고 저장 장소를 먼저 표시한다',async()=>{
   const f=setup(true,true);f.events.onGuideMenu({id:110});await f.flush();f.resolve(0);await f.flush();
   assert.equal(f.updates.length,1);assert.equal(f.calls.length,2);
   f.setSelection({snapshotId:'first',key:'place:verified'});f.events.onGuideMenu({id:111});await f.flush();
   assert.equal(f.opens.length,1);f.resolve(1);await f.flush();assert.equal(f.updates.length,2);f.cleanup();
 });
-test('일반 장소는 느린 유가와 독립적으로 표시하고 등록·외부 ID를 서로 바꾸지 않는다',async()=>{
+test('SDK 기본 POI 위에는 집·회사·즐겨찾기·가격 있는 주유소만 보내고 일반 장소는 조회하지 않는다',async()=>{
   const point={key:'kakao:ordinary',providerId:'ordinary',name:'편의점',latitude:37.5,longitude:127};
-  const f=setup(true,true,[point]);f.events.onGuideMenu({id:110});await f.flush();f.resolve(0);await f.flush();
-  assert.equal(f.updates.at(-1).pois.length,2);assert.equal(f.calls.length,2);
-  f.setSelection({snapshotId:'first',key:point.key});f.events.onGuideMenu({id:111});await f.flush();
-  assert.equal(f.opens[0].point.providerId,'ordinary');assert.equal(f.opens[0].point.placeId,undefined);
-  f.resolve(1);await f.flush();assert.equal(f.updates.at(-1).pois.length,2);f.cleanup();
-});
-test('등록 장소가 밀집한3D 화면에서도 실제 화면 초점에 가까운 일반 장소를 먼저 보낸다',async()=>{
-  const ordinary=[...Array.from({length:30},(_,i)=>({key:`kakao:focus${i}`,name:'중앙 일반 장소',latitude:37.45+i*0.00001,longitude:127.04})),
-    ...Array.from({length:30},(_,i)=>({key:`kakao:far${i}`,name:'먼 일반 장소',latitude:37.47+i*0.00001,longitude:127.04}))];
-  const f=setup(true,false,ordinary);
-  f.setContext({requestId:'focus',bounds:{south:37.4,west:126.9,north:37.6,east:127.1},center:{latitude:37.45,longitude:127.04}});
-  f.events.onGuideMenu({id:110});await f.flush();
-  f.resolve(0,Array.from({length:80},(_,i)=>({...f.poi,key:`place:${i}`,placeId:String(i)})));await f.flush();
-  const selected=f.updates.at(-1).pois.filter((p:any)=>p.key.startsWith('kakao:'));
-  assert.equal(selected.length,16);assert(selected.every((p:any)=>p.key.startsWith('kakao:focus')));f.cleanup();
+  const f=setup(true,false,[point]);f.events.onGuideMenu({id:110});await f.flush();
+  f.resolve(0,[f.poi,
+    {key:'place:registered',placeId:'registered',name:'등록 카페',category:'cafe',latitude:37.5,longitude:127},
+    {key:'personal:home',name:'집',personal:'home',latitude:37.501,longitude:127},
+    {key:'gas:priced',gasId:'priced',name:'가격 주유소',category:'gas_station',brand:'S-OIL',price:1699,latitude:37.502,longitude:127},
+    {key:'gas:plain',gasId:'plain',name:'가격 없는 주유소',category:'gas_station',brand:'S-OIL',latitude:37.503,longitude:127}]);
+  await f.flush();
+  assert.deepEqual(f.updates.at(-1).pois.map((p:any)=>p.key).sort(),['gas:priced','personal:home','place:verified']);
+  assert.equal(f.ordinaryCalls,0);f.cleanup();
 });

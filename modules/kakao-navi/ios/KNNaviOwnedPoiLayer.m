@@ -105,13 +105,15 @@ static BOOL ContainsBounds(NSDictionary *outer,NSDictionary *inner) {
 - (void)poll {
   if(![self active]) { [self refresh];return; }
   // 안내 중에는 조회/만료/축척과 관계없이 표시 주체를 바꾸지 않는다.
+  // SDK 기본 POI 는 켜 둔 채 집·회사·즐겨찾기·가격만 보강한다(NAV-058). ownsPoiVisibility 는 자체 모드 여부다.
   if(!self.ownsPoiVisibility){
     self.previousVisibility=self.map.poiProperties.isVisible;self.ownsPoiVisibility=YES;
-    self.map.poiProperties.isVisible=NO;if(self.onModeChanged)self.onModeChanged(YES);
-  } else if(self.map.poiProperties.isVisible)self.map.poiProperties.isVisible=NO;
+    if(self.onModeChanged)self.onModeChanged(YES);
+  }
   // 자동 따라가기 중에도 만료·실패 복원은 카메라 변경보다 먼저 처리한다.
   if(self.ownsPoiVisibility && self.expiresAt.timeIntervalSinceNow<=0) { [self fallback];self.needsRequest=YES; }
-  if(self.context && -self.requestedAt.timeIntervalSinceNow>20) { self.context=nil;[self fallback];self.needsRequest=YES; }
+  // 응답이 늦어도 아직 유효한 기존 표시는 지우지 않고 다시 조회한다.
+  if(self.context && -self.requestedAt.timeIntervalSinceNow>20) { self.context=nil;self.needsRequest=YES; }
   if(self.exclusions)self.renderer.exclusionRects=self.exclusions();
   KNMapView *map=self.map;
   NSArray *pose=@[@(map.coordinate.x),@(map.coordinate.y),@(map.zoom),@(map.bearing),@(map.tilt),
@@ -120,11 +122,11 @@ static BOOL ContainsBounds(NSDictionary *outer,NSDictionary *inner) {
   if(!bounds) { [self fallback];self.context=nil;self.pose=pose;self.needsRequest=YES;return; }
   if(![self.pose isEqual:pose]) {
     self.pose=pose;self.settledAt=NSDate.date;
-    if(self.ownsPoiVisibility && !ContainsBounds(self.snapshotBounds,bounds))[self fallback];
     if(self.context && !ContainsBounds(self.context[@"bounds"],bounds))self.context=nil;
-    self.needsRequest=!self.snapshotId;
   }
-  if(self.snapshotId && ContainsBounds(self.snapshotBounds,bounds))self.needsRequest=NO;
+  // 조회 범위를 벗어나도 기존 마커는 만료 전까지 남겨 두고, 새 snapshot 이 오면 바뀐 것만 교체한다(NAV-058).
+  if(!self.snapshotId || !ContainsBounds(self.snapshotBounds,bounds))self.needsRequest=YES;
+  else self.needsRequest=NO;
   if(self.needsRequest && !self.dirtySince)self.dirtySince=NSDate.date;
   if(!self.needsRequest || self.context || self.retryAfter.timeIntervalSinceNow>0)return;
   // 손 이동은600ms 정지 후, 자동 이동은 최대2초 대기 뒤 조회한다.
@@ -146,9 +148,9 @@ static BOOL ContainsBounds(NSDictionary *outer,NSDictionary *inner) {
   if(!pending && !followup)return NO;
   NSDictionary *coverage=pending?self.context[@"bounds"]:self.snapshotBounds;
   if(pending)self.context=nil;
-  if(!ContainsBounds(coverage,[self viewport])) { [self fallback];self.needsRequest=YES;return NO; }
+  if(!ContainsBounds(coverage,[self viewport])) { self.needsRequest=YES;return NO; }
   self.needsRequest=NO;self.dirtySince=nil;
-  if(response[@"error"]) { [self fallback];self.needsRequest=YES;self.retryAfter=[NSDate dateWithTimeIntervalSinceNow:30];return NO; }
+  if(response[@"error"]) { self.needsRequest=YES;self.retryAfter=[NSDate dateWithTimeIntervalSinceNow:30];return NO; }
   if(![response[@"expiresAt"] isKindOfClass:NSNumber.class]) { [self fallback];return NO; }
   double expires=[response[@"expiresAt"] doubleValue]/1000,now=NSDate.date.timeIntervalSince1970;
   NSArray *pois=response[@"pois"];
@@ -178,7 +180,7 @@ static BOOL ContainsBounds(NSDictionary *outer,NSDictionary *inner) {
   }
   self.artwork=artwork;self.keys=keys;self.snapshotId=requestId;self.snapshotBounds=coverage;self.expiresAt=[NSDate dateWithTimeIntervalSince1970:expires];
   if(!self.ownsPoiVisibility)self.previousVisibility=self.map.poiProperties.isVisible;
-  self.map.poiProperties.isVisible=NO;self.ownsPoiVisibility=YES;
+  self.ownsPoiVisibility=YES;
   if(self.onModeChanged)self.onModeChanged(YES);
   [self.renderer showItems:items expiresAt:self.expiresAt];
   return YES;
