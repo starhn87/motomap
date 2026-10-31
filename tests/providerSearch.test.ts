@@ -10,6 +10,7 @@ import { allowedLocationPrivacy } from './helpers/allowedLocationPrivacy';
 type KakaoModule = {
   searchKakaoLocalPage: (query: string, near?: { latitude: number; longitude: number },
     options?: { signal?: AbortSignal; throwOnError?: boolean }) => Promise<{ results: unknown[]; isEnd: boolean }>;
+  findKakaoGasStationAt: (point: { latitude: number; longitude: number }) => Promise<{ name: string; latitude: number; longitude: number } | null>;
 };
 const validBody = {
   documents: [{ id: 'test', place_name: '테스트 카페', x: '127.1', y: '37.5', address_name: '경기도 테스트' }],
@@ -161,3 +162,14 @@ test('전체 실패와 취소는 0건 성공으로 반환하지 않는다', asyn
   await assert.rejects(searchFixture().searchUnifiedPlaces('카페', undefined, { signal: controller.signal }),
     (error: unknown) => (error as providerErrors.ProviderError).kind === 'cancelled');
 });
+
+test('이름 없는 길안내 주유소 아이콘은 30m 안의 카카오 주유소만 고르고 LPG 충전소는 뺀다', async () => {
+  const point = { latitude: 37.5, longitude: 127 };
+  const doc = (place_name: string, y: string) => ({ place_name, x: '127', y });
+  const near = kakaoFixture({ body: { documents: [doc('SK가스 테스트충전소', '37.50001'), doc('GS칼텍스 테스트주유소', '37.5001'), doc('S-OIL 먼주유소', '37.5004')] } });
+  assert.deepEqual({ ...(await near.api.findKakaoGasStationAt(point)) }, { name: 'GS칼텍스 테스트주유소', latitude: 37.5001, longitude: 127 });
+  const far = kakaoFixture({ body: { documents: [doc('S-OIL 먼주유소', '37.5004')] } });
+  assert.equal(await far.api.findKakaoGasStationAt(point), null);
+  await assert.rejects(kakaoFixture({ body: { documents: null } }).api.findKakaoGasStationAt(point));
+});
+

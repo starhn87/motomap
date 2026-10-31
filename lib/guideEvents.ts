@@ -26,7 +26,7 @@ import { focusPlaceOnMap, focusPointOnMap, followMyLocationOnMap } from '@/lib/m
 import { hasGuideArrived, matchesGuideArrival, recordGuideArrival } from '@/lib/guideArrival';
 import { toast } from '@/lib/toast';
 import { createAnalyticsId, track } from '@/lib/analytics';
-import { coordToAddress } from '@/lib/api/kakaoLocal';
+import { coordToAddress, findKakaoGasStationAt } from '@/lib/api/kakaoLocal';
 import { fetchGasPricesAt, gasPriceSummary, looksLikeGasStation } from '@/lib/api/gasStations';
 
 // 길안내 전역 이벤트 — 안내가 시작되면 /navi 화면은 지도로 빠져 언마운트되므로
@@ -306,17 +306,22 @@ async function openGuidePoi(point: { name: string; latitude: number; longitude: 
     revision === useLocationPrivacyStore.getState().revision && locationUseAllowed() && sourceCurrent();
   let token: number | undefined;
   try {
-    const name = point.name.trim().slice(0,200) || '선택한 장소';
+    const tappedName = point.name.trim().slice(0,200);
+    let name = tappedName || '선택한 장소';
     // 시트를 띄운 뒤에도 엔진은 진행하므로 실제 경유지 상한은 snapshot으로 다시 확인한다.
     // 기본 POI 가 주유소면 시트를 먼저 띄우고 휘발유·고급휘발유 가격은 도착하는 대로 채운다(NAV-059).
+    // 주유소 아이콘은 이름 없이 탭되므로 그때는 좌표의 카카오 주유소로 이름을 찾는다.
     let sheetOpen = true;
-    if (supportsKakaoNaviFeature('guide_poi_detail_update') && providerLocationAllowed('opinet') && looksLikeGasStation(name)) {
-      void fetchGasPricesAt({ name, latitude: point.latitude, longitude: point.longitude }).then((detail) => {
-        const summary = gasPriceSummary(detail);
-        if (summary && sheetOpen && openingPoi === request && current())
-          return KakaoNavi.updateGuidePoiOptionsDetail(`${summary}\n미리보기에서 확인 후 안내를 변경해요`);
-      }).catch(() => {});
-    }
+    const sheetLive = () => sheetOpen && openingPoi === request && current();
+    if (supportsKakaoNaviFeature('guide_poi_sheet_update') && providerLocationAllowed('opinet')) void (async () => {
+      const station = tappedName
+        ? (looksLikeGasStation(tappedName) ? { name: tappedName, latitude: point.latitude, longitude: point.longitude } : null)
+        : providerLocationAllowed('kakao') ? await findKakaoGasStationAt(point) : null;
+      if (!station || !sheetLive()) return;
+      if (!tappedName) { name = station.name; await KakaoNavi.updateGuidePoiOptions(station.name, null); }
+      const summary = gasPriceSummary(await fetchGasPricesAt(station));
+      if (summary && sheetLive()) await KakaoNavi.updateGuidePoiOptions(null, `${summary}\n미리보기에서 확인 후 안내를 변경해요`);
+    })().catch(() => {});
     const picked = await KakaoNavi.showGuidePoiOptions(name, !original.courseId);
     sheetOpen = false;
     if ((picked !== 0 && picked !== 1) || !current()) return;

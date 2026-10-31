@@ -1951,10 +1951,13 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [navi presentViewController:sheet animated:NO completion:nil];
 }
 
-+ (void)updatePoiOptionsDetail:(NSString *)detail {
++ (void)updatePoiOptionsTitle:(NSString *)title detail:(NSString *)detail {
   KNNaviHazardSheet *sheet = gPoiOptionsSheet;
-  if (!sheet || gActiveNavi.hazardSheet != sheet || ![detail isKindOfClass:NSString.class] || !detail.length) return;
-  [sheet updateDetail:[detail substringToIndex:MIN(detail.length,200)]];
+  if (!sheet || gActiveNavi.hazardSheet != sheet) return;
+  NSString *(^clip)(NSString *) = ^NSString *(NSString *text) {
+    return [text isKindOfClass:NSString.class] && text.length ? [text substringToIndex:MIN(text.length,200)] : nil;
+  };
+  [sheet updateTitle:clip(title) detail:clip(detail)];
 }
 
 + (void)setGuideOwnedPoiEnabled:(BOOL)enabled {

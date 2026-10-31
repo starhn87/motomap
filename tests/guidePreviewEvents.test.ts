@@ -4,11 +4,11 @@ import { loadModule } from './helpers/loadModule';
 import * as guidePreview from '@/lib/guidePreview';
 
 // 주유소 POI 시트 가격 보강 검사용 — 시트가 열려 있는 동안 가격이 도착하는 상황을 만든다.
-let gasDetail: any = null, sheetGate: Promise<void> | null = null;
-const detailUpdates: string[] = [];
+let gasDetail: any = null, sheetGate: Promise<void> | null = null, kakaoStation: any = null;
+const detailUpdates: string[] = [], titleUpdates: string[] = [], gasLookups: any[] = [];
 const gasStationsMock = {
   looksLikeGasStation: (name: string) => name.includes('주유소'),
-  fetchGasPricesAt: async () => gasDetail,
+  fetchGasPricesAt: async (place: any) => { gasLookups.push(place); return gasDetail; },
   gasPriceSummary: (detail: any) => detail ? detail.prices.map((p: any) => `${p.prod === 'B027' ? '휘발유' : '고급휘발유'} ${p.price}원`).join(' · ') : null,
 };
 function setup(failOpen = false, enabled = true, routeEditing = enabled, capability = true, poiChoice = 0) {
@@ -25,12 +25,12 @@ function setup(failOpen = false, enabled = true, routeEditing = enabled, capabil
     '@/stores/useLocationPrivacyStore': { locationUseAllowed: () => true, useLocationPrivacyStore:{ getState:() => ({revision:1}) }, providerLocationAllowed: () => true, withLocationUse: async (_purpose: any, _provider: any, work: any) => { await work(); await new Promise<void>((resolve) => { finishAudit = resolve; }); } },
     '@react-native-async-storage/async-storage': { __esModule: true, default: { getItem: async () => null, removeItem: async () => {} } },
     'expo-router': { router: { push: (value: any) => pushed.push(value) } },
-    '@/modules/kakao-navi': { __esModule: true, default: { addListener: (event: string, fn: any) => { callbacks[event] = fn; return { remove() {} }; }, showGuidePoiOptions: async () => { await sheetGate; return poiChoice; }, updateGuidePoiOptionsDetail: async (detail: string) => { detailUpdates.push(detail); }, returnToGuide: async () => true, openGuidePreview: async () => { if (failOpen) throw Error('GPS unavailable'); return snapshot; }, showGuideToast: async (message: string) => { notices.push(message); }, showGuideNotice: async (message: string) => { notices.push(message); } },
+    '@/modules/kakao-navi': { __esModule: true, default: { addListener: (event: string, fn: any) => { callbacks[event] = fn; return { remove() {} }; }, showGuidePoiOptions: async () => { await sheetGate; return poiChoice; }, updateGuidePoiOptions: async (title: string | null, detail: string | null) => { if (title) titleUpdates.push(title); if (detail) detailUpdates.push(detail); }, returnToGuide: async () => true, openGuidePreview: async () => { if (failOpen) throw Error('GPS unavailable'); return snapshot; }, showGuideToast: async (message: string) => { notices.push(message); }, showGuideNotice: async (message: string) => { notices.push(message); } },
       HAZARD_BUTTON_ID: 101, MOTOMAP_MENU_ID: 100, supportsKakaoNaviFeature: () => capability, friendlyRouteError: String },
     '@/lib/guideSession': { useGuideSession: { getState: () => store } },
     '@/lib/guideArrival': {},
     '@/lib/dialog': {}, 'expo-location': {}, '@/constants/hazards': {}, '@/lib/api/hazards': {}, '@/lib/api/places': {}, '@/lib/api/directions': {}, '@/lib/distance': {}, '@/lib/mapFocus': {}, '@/lib/api/rides': {},
-    '@/lib/toast': { toast: { error() {} } }, '@/lib/analytics': { track: {} }, '@/lib/api/courseLibrary': {}, '@/lib/api/kakaoLocal': {}, '@/lib/api/gasStations': gasStationsMock, '@/stores/useMyPlacesStore': {}, '@/lib/ridePlaceStats': {},
+    '@/lib/toast': { toast: { error() {} } }, '@/lib/analytics': { track: {} }, '@/lib/api/courseLibrary': {}, '@/lib/api/kakaoLocal': { findKakaoGasStationAt: async () => kakaoStation }, '@/lib/api/gasStations': gasStationsMock, '@/stores/useMyPlacesStore': {}, '@/lib/ridePlaceStats': {},
   });
   module.registerGuideEvents();
   return { callbacks, store, pushed, notices, get clears() { return clearCount; }, finishAudit: () => finishAudit?.(), flush: async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); } };
@@ -108,5 +108,21 @@ test('기본 POI 주유소 시트는 먼저 열고 휘발유·고급휘발유 �
   f.callbacks.onGuidePoiTap({ name: '모토 카페', latitude: 37.5, longitude: 127 }); await f.flush();
   assert.equal(detailUpdates.length, 1);
   sheetGate = null; gasDetail = null;
+});
+
+test('이름 없이 탭된 주유소 아이콘은 좌표의 카카오 주유소로 제목을 채우고 그 이름으로 가격을 찾는다', async () => {
+  let open!: () => void; sheetGate = new Promise<void>((resolve) => { open = resolve; });
+  kakaoStation = { name: 'GS칼텍스 삼성주유소', latitude: 37.5001, longitude: 127.0001 };
+  gasDetail = { prices: [{ prod: 'B027', price: 1699 }] }; detailUpdates.length = 0; titleUpdates.length = 0; gasLookups.length = 0;
+  const f = setup(false, true, true, true, -1); f.callbacks.onGuidePoiTap({ name: '', latitude: 37.5, longitude: 127 }); await f.flush();
+  assert.deepEqual(titleUpdates, ['GS칼텍스 삼성주유소']);
+  assert.equal(gasLookups[0].name, 'GS칼텍스 삼성주유소'); assert.equal(gasLookups[0].latitude, 37.5001);
+  assert.match(detailUpdates[0], /휘발유 1699원/);
+  open(); await f.flush();
+  // 근처에 주유소가 없는 이름 없는 POI는 제목·가격을 바꾸지 않는다.
+  kakaoStation = null; sheetGate = null;
+  f.callbacks.onGuidePoiTap({ name: '', latitude: 37.6, longitude: 127.1 }); await f.flush();
+  assert.equal(titleUpdates.length, 1); assert.equal(gasLookups.length, 1);
+  gasDetail = null;
 });
 

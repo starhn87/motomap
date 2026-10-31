@@ -62,7 +62,7 @@ export const KAKAO_NAVI_FEATURES = [
   'guide_arrival_record',
   'guide_gas_search_expansion',
   'guide_gas_cache_expiry',
-  'guide_poi_detail_update',
+  'guide_poi_sheet_update',
 ] as const;
 
 export type KakaoNaviFeature = (typeof KAKAO_NAVI_FEATURES)[number];
@@ -146,8 +146,8 @@ interface KakaoNaviModule {
   getGuideGasPriceContext(): Promise<{requestId: string; latitude: number; longitude: number} | null>;
   updateGuideGasPriceMarkers(json: string): Promise<void>;
   showGuidePoiOptions(title: string, canAddVia: boolean): Promise<number>;
-  /** 열린 POI 선택 시트의 설명 줄을 바꾼다. 시트가 닫혔으면 무시된다. */
-  updateGuidePoiOptionsDetail(detail: string): Promise<void>;
+  /** 열린 POI 선택 시트의 제목·설명 줄을 바꾼다. null 은 그대로 두고, 시트가 닫혔으면 무시된다. */
+  updateGuidePoiOptions(title: string | null, detail: string | null): Promise<void>;
   showGuideOptions(title: string, labels: string[]): Promise<number>;
   showGuideHazardOptions(options: { key: string; label: string }[]): Promise<number>;
   showGuideToast(message: string): Promise<void>;
@@ -195,7 +195,7 @@ const unavailableModule = {
   getGuideGasPriceContext: unavailable,
   updateGuideGasPriceMarkers: unavailable,
   showGuidePoiOptions: unavailable,
-  updateGuidePoiOptionsDetail: unavailable,
+  updateGuidePoiOptions: unavailable,
   showGuideOptions: unavailable,
   showGuideHazardOptions: unavailable,
   showGuideToast: unavailable,

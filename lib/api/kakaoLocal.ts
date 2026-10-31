@@ -156,6 +156,37 @@ export async function searchKakaoLocalPage(
   }
 }
 
+// 길안내 지도의 주유소는 이름 없는 브랜드 아이콘으로 탭돼 SDK가 빈 이름을 준다(NAV-059 후속).
+// 같은 카카오 데이터의 주유소 카테고리(OL7)로 그 좌표에 바로 붙은 주유소를 찾는다. LPG 충전소는 뺀다.
+export async function findKakaoGasStationAt(point: { latitude: number; longitude: number }): Promise<{ name: string; latitude: number; longitude: number } | null> {
+  requireProviderAvailable('kakao-local');
+  if (!REST_KEY) throw new ProviderError('kakao-local', 'search', 'configuration');
+  if (!Number.isFinite(point.latitude) || !Number.isFinite(point.longitude) ||
+    Math.abs(point.latitude) > 90 || Math.abs(point.longitude) > 180) throw new ProviderError('kakao-local', 'search', 'invalid_request');
+  const url = `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=OL7&x=${point.longitude}&y=${point.latitude}&radius=50&sort=distance&size=5`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const res = await withCoordinateUse(point, 'search', 'kakao', () => fetch(url, {
+      headers: { Authorization: `KakaoAK ${REST_KEY}` }, signal: controller.signal,
+    }));
+    if (!res.ok) throw providerHttpError('kakao-local', 'search', res.status);
+    const documents = (await res.json())?.documents;
+    if (!Array.isArray(documents)) throw new ProviderError('kakao-local', 'search', 'invalid_response');
+    const stations = documents.flatMap((d: any) => {
+      const station = { name: typeof d?.place_name === 'string' ? d.place_name.trim() : '', latitude: Number(d?.y), longitude: Number(d?.x) };
+      if (!station.name || !Number.isFinite(station.latitude) || !Number.isFinite(station.longitude)) return [];
+      if (/충전소|LPG/i.test(station.name) && !/주유소/.test(station.name)) return [];
+      return [{ ...station, distance: approxMeters(point, station) }];
+    }).sort((a: { distance: number }, b: { distance: number }) => a.distance - b.distance);
+    // 같은 지도 데이터라 좌표가 거의 같다. 옆 건물 주유소를 고르지 않게 30m 안만 인정한다.
+    const nearest = stations[0];
+    return nearest && nearest.distance <= 30 ? { name: nearest.name, latitude: nearest.latitude, longitude: nearest.longitude } : null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // 역지오코딩 — 좌표를 실제 주소(도로명 우선, 없으면 지번)로 바꾼다.
 // 코스 내비 경유지 이름 등 표시에 쓰이므로 실패는 조용히 null (호출부가 라벨 fallback).
 export async function coordToAddress(latitude: number, longitude: number): Promise<string | null> {

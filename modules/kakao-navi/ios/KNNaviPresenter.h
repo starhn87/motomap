@@ -47,7 +47,7 @@ NS_ASSUME_NONNULL_BEGIN
 // 앱 소유 POI 경로 선택 시트. 목적지0/경유지1/취소-1.
 + (void)showPoiOptionsWithTitle:(NSString *)title canAddVia:(BOOL)canAddVia
                    completion:(void (^)(NSInteger pickedIndex))completion NS_SWIFT_NAME(showPoiOptions(title:canAddVia:completion:));
-+ (void)updatePoiOptionsDetail:(NSString *)detail NS_SWIFT_NAME(updatePoiOptionsDetail(_:));
++ (void)updatePoiOptionsTitle:(nullable NSString *)title detail:(nullable NSString *)detail NS_SWIFT_NAME(updatePoiOptions(title:detail:));
 + (void)showToast:(NSString *)message;
 + (void)setGuideOwnedPoiEnabled:(BOOL)enabled;
 + (NSDictionary *_Nullable)guidePoiContext;

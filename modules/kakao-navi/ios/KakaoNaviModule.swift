@@ -28,7 +28,7 @@ public class KakaoNaviModule: Module {
         "guide_web_bottom",
         "guide_route_editing",
         "guide_poi_tap",
-        "guide_poi_detail_update",
+        "guide_poi_sheet_update",
         "guide_arrival_record",
       ],
     ])
@@ -156,8 +156,8 @@ public class KakaoNaviModule: Module {
       }
     }
 
-    AsyncFunction("updateGuidePoiOptionsDetail") { (detail: String) in
-      KNNaviPresenter.updatePoiOptionsDetail(detail)
+    AsyncFunction("updateGuidePoiOptions") { (title: String?, detail: String?) in
+      KNNaviPresenter.updatePoiOptions(title: title, detail: detail)
     }.runOnQueue(.main)
 
     AsyncFunction("showGuidePoiOptions") { (title: String, canAddVia: Bool, promise: Promise) in

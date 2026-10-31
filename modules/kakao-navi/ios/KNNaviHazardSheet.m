@@ -13,6 +13,7 @@ static const CGFloat KNNaviOptionIconSize=21;
 @property(nonatomic, strong) NSLayoutConstraint *heightConstraint;
 @property(nonatomic, strong) UIStackView *grid;
 @property(nonatomic, strong) UIView *header;
+@property(nonatomic, strong) UILabel *titleLabel;
 @property(nonatomic, strong) UILabel *detailLabel;
 @property(nonatomic, strong) UIButton *cancelButton;
 @property(nonatomic, copy) void (^afterClose)(void);
@@ -23,9 +24,11 @@ static const CGFloat KNNaviOptionIconSize=21;
 @end
 
 @implementation KNNaviHazardSheet
-- (void)updateDetail:(NSString *)detail {
+- (void)updateTitle:(NSString *)title detail:(NSString *)detail {
   if (self.closed || self.closing) return;
-  self.headingDetail = detail; self.detailLabel.text = detail;
+  if (title.length) { self.headingTitle = title; self.titleLabel.text = title; }
+  if (detail.length) { self.headingDetail = detail; self.detailLabel.text = detail; }
+  [self.view setNeedsLayout];
 }
 - (instancetype)initWithOptions:(NSArray<NSDictionary<NSString *,NSString *> *> *)options completion:(void (^)(NSInteger))completion {
   return [self initWithTitle:@"위험 제보" detail:@"유형을 선택하면 바로 제보돼요" options:options completion:completion];
@@ -89,7 +92,7 @@ static const CGFloat KNNaviOptionIconSize=21;
   UIView *header = [UIView new]; self.header = header; header.translatesAutoresizingMaskIntoConstraints = NO; [self.sheet addSubview:header];
   UIView *handle = [UIView new]; handle.backgroundColor = UIColor.systemGray3Color;
   handle.layer.cornerRadius = 2; handle.translatesAutoresizingMaskIntoConstraints = NO; [header addSubview:handle];
-  UILabel *title = [UILabel new]; title.text = self.headingTitle; title.textColor = ink;
+  UILabel *title = [UILabel new]; title.text = self.headingTitle; self.titleLabel = title; title.textColor = ink;
   title.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline]; title.adjustsFontForContentSizeCategory = YES;
   title.accessibilityTraits = UIAccessibilityTraitHeader; title.numberOfLines = 2;
   UILabel *detail = [UILabel new]; detail.text = self.headingDetail; detail.textColor = UIColor.secondaryLabelColor;
