@@ -27,7 +27,7 @@ static const CGFloat KNNaviOptionIconSize=21;
 - (void)updateTitle:(NSString *)title detail:(NSString *)detail {
   if (self.closed || self.closing) return;
   if (title.length) { self.headingTitle = title; self.titleLabel.text = title; }
-  if (detail.length) { self.headingDetail = detail; self.detailLabel.text = detail; }
+  if (detail.length) { self.headingDetail = detail; self.detailLabel.text = detail; self.detailLabel.hidden = NO; }
   [self.view setNeedsLayout];
 }
 - (instancetype)initWithOptions:(NSArray<NSDictionary<NSString *,NSString *> *> *)options completion:(void (^)(NSInteger))completion {
@@ -97,7 +97,9 @@ static const CGFloat KNNaviOptionIconSize=21;
   title.accessibilityTraits = UIAccessibilityTraitHeader; title.numberOfLines = 2;
   UILabel *detail = [UILabel new]; detail.text = self.headingDetail; detail.textColor = UIColor.secondaryLabelColor;
   detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]; detail.adjustsFontForContentSizeCategory = YES;
-  detail.numberOfLines = 0; self.detailLabel = detail;
+  detail.numberOfLines = 0;
+  // POI 시트는 설명 없이 열고 주유소 가격이 오면 그때 보인다.
+  detail.hidden = !self.headingDetail.length; self.detailLabel = detail;
   UIStackView *heading = [[UIStackView alloc] initWithArrangedSubviews:@[title,detail]];
   heading.axis = UILayoutConstraintAxisVertical; heading.spacing = 5;
   heading.translatesAutoresizingMaskIntoConstraints = NO; [header addSubview:heading];

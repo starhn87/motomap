@@ -317,7 +317,7 @@ async function openGuidePoi(point: { name: string; latitude: number; longitude: 
       if (!station || !sheetLive()) return;
       if (!tappedName) { name = station.name; await KakaoNavi.updateGuidePoiOptions(station.name, null); }
       const summary = gasPriceSummary(await fetchGasPricesAt(station));
-      if (summary && sheetLive()) await KakaoNavi.updateGuidePoiOptions(null, `${summary}\n미리보기에서 확인 후 안내를 변경해요`);
+      if (summary && sheetLive()) await KakaoNavi.updateGuidePoiOptions(null, summary);
     })().catch(() => {});
     const picked = await KakaoNavi.showGuidePoiOptions(name, !original.courseId);
     sheetOpen = false;

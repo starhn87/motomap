@@ -1910,7 +1910,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (viaAvailable) [options addObject:@{@"key":@"via", @"label":@"경유지로 추가", @"symbol":@"plus.circle"}];
   NSString *name = title.length ? [title substringToIndex:MIN(title.length,200)] : @"선택한 장소";
   __weak KNNaviViewController *weakNavi = navi;
-  KNNaviHazardSheet *sheet = [[KNNaviHazardSheet alloc] initWithTitle:name detail:@"미리보기에서 확인 후 안내를 변경해요" options:options completion:^(NSInteger picked) {
+  KNNaviHazardSheet *sheet = [[KNNaviHazardSheet alloc] initWithTitle:name detail:@"" options:options completion:^(NSInteger picked) {
     weakNavi.hazardSheet = nil; completion(picked);
   }];
   navi.hazardSheet = sheet; gPoiOptionsSheet = sheet;
