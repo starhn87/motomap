@@ -48,13 +48,8 @@ xcrun clang -fobjc-arc -fmodules -target "$arch-apple-ios16.4-simulator" -isysro
   "$root/modules/kakao-navi/ios/KNNaviBottomPanel.m" \
   "$root/modules/kakao-navi/ios/KNNaviHiddenViews.m" \
   "$root/modules/kakao-navi/ios/KNNaviHazardSheet.m" \
-  "$root/modules/kakao-navi/ios/KNNaviGasPriceLayer.m" \
-  "$root/modules/kakao-navi/ios/KNNaviGuidePoiOverlay.m" \
-  "$root/modules/kakao-navi/ios/KNNaviGuidePoiArtwork.m" \
-  "$root/modules/kakao-navi/ios/KNNaviOwnedPoiLayer.m" \
   "$root/modules/kakao-navi/ios/KNNaviGasLayer.m" \
-  "$root/tests/ios/KNNaviGasPriceTests.m" \
-  "$root/tests/ios/KNNaviOwnedPoiFixtures.m" \
+  "$root/tests/ios/KNNaviPoiSheetTests.m" \
   "$root/tests/ios/KNNaviSessionTests.m" "$root/tests/ios/NavigationSessionTestApp.m" \
   -o "$app/NavigationSessionTests"
 cat > "$app/Info.plist" <<'PLIST'
@@ -82,7 +77,6 @@ cp "$root/modules/kakao-navi/ios/Resources/navigation-start.mp3" "$app/MotoMapNa
 mkdir -p "$app/MotoMapNavigationUI.bundle"
 cp "$root/modules/kakao-navi/ios/Resources/navigation-bottom.html" "$app/MotoMapNavigationUI.bundle/"
 cp "$root"/modules/kakao-navi/ios/Resources/GasBrands/*.png "$app/MotoMapNavigationUI.bundle/"
-cp "$root"/assets/images/markers/*_circle*.png "$app/MotoMapNavigationUI.bundle/"
 codesign --force --sign - "$app" >/dev/null 2>&1
 xcrun simctl list runtimes --json > "$work/runtimes.json"
 xcrun simctl list devicetypes --json > "$work/types.json"
@@ -112,8 +106,6 @@ for ((i=0; i<150; i++)); do
     if [[ -f "$container/Documents/bottom-collapsed.png" ]]; then cp "$container/Documents/bottom-collapsed.png" /tmp/motomap-bottom-collapsed.png; fi
     if [[ -f "$container/Documents/hazard-sheet.png" ]]; then cp "$container/Documents/hazard-sheet.png" /tmp/motomap-hazard-sheet.png; fi
     if [[ -f "$container/Documents/gas-sheet.png" ]]; then cp "$container/Documents/gas-sheet.png" /tmp/motomap-gas-sheet.png; fi
-    if [[ -f "$container/Documents/owned-poi-labels.png" ]]; then cp "$container/Documents/owned-poi-labels.png" /tmp/motomap-owned-poi-labels.png; fi
-    if [[ -f "$container/Documents/owned-poi-industries.png" ]]; then cp "$container/Documents/owned-poi-industries.png" /tmp/motomap-owned-poi-industries.png; fi
     result=$(cat "$container/Documents/session-result.txt")
     printf '%s\n' "$result"
     status=0

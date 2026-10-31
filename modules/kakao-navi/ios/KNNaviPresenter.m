@@ -8,8 +8,6 @@
 #import "KNNaviHiddenViews.h"
 #import "KNNaviHazardSheet.h"
 #import "KNNaviGasLayer.h"
-#import "KNNaviGasPriceLayer.h"
-#import "KNNaviOwnedPoiLayer.h"
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
@@ -357,11 +355,7 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong) NSTimer *currentLocationExpiryTimer;
 @property(nonatomic, strong) NSTimer *footerPositionTimer;
 @property(nonatomic, strong) KNNaviManualPositionRequest *footerPositionRequest;
-@property(nonatomic, strong) KNNaviGasPriceLayer *gasPriceLayer;
 @property(nonatomic, weak) KNMapView *poiListenerMap;
-@property(nonatomic, strong) KNNaviOwnedPoiLayer *ownedPoiLayer;
-@property(nonatomic, weak) KNMapView *ownedPoiMap;
-@property(nonatomic, copy) NSDictionary *ownedPoiSelection;
 @property(nonatomic, strong) NSDate *footerPositionRequestAt;
 @property(nonatomic) NSUInteger footerPositionGeneration;
 @property(nonatomic) DoublePoint currentLocationPosition;
@@ -423,7 +417,6 @@ static __weak KNNaviViewController *gActiveNavi = nil;
 static KNNaviViewController *gSuspendedNavi = nil;
 static NSInteger gPreviewToken = 0;
 static NSUInteger gLocationGeneration = 0;
-static BOOL gOwnedPoiEnabled = NO;
 static __weak KNNaviHazardSheet *gPoiOptionsSheet = nil;
 
 static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
@@ -766,7 +759,6 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self.currentLocationExpiryTimer invalidate];
   self.currentLocationExpiryTimer = nil;
   if (self.finished) return;
-  [self.gasPriceLayer updatePosition:self.currentLocationPosition timestamp:self.currentLocationGPSAt active:[self canRefreshFooterPosition] && !self.ownedPoiLayer.ownsPoiVisibility];
   KNTrip *trip = self.guidance.trip;
   NSMutableDictionary *state = [@{@"volume":@(self.volume), @"busy":@(self.changingDestination || self.arrivalRecovery.requesting)} mutableCopy];
   if (self.arrivalRecovery.waiting || self.arrivalMessage) {
@@ -850,8 +842,6 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [NSNotificationCenter.defaultCenter removeObserver:self];
   [self.footerPositionTimer invalidate];
   [self.footerPositionRequest cancel];
-  [self.gasPriceLayer invalidate];
-  [self.ownedPoiLayer invalidate];self.ownedPoiSelection=nil;
   [self stopObservingBottomView];
   [self.bottomPanel invalidate];
 }
@@ -876,26 +866,6 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   // 안내 지도에는 앱 마커를 올리지 않는다. SDK 기본 POI 만 보이고 탭은 앱 시트로 받는다(NAV-059).
   self.poiListenerMap = inner;
   [self updateBottomPanel];
-}
-
-- (NSArray<NSValue *> *)ownedPoiExclusions {
-  KNMapView *map=self.ownedPoiMap;if(!map)return @[];
-  NSMutableArray *rects=[NSMutableArray new];
-  for(UIView *view in @[self.naviView.curDirView,self.bottomPanel?:self.naviView.bottomView]) {
-    if(!view.hidden && view.window)[rects addObject:[NSValue valueWithCGRect:CGRectInset([view convertRect:view.bounds toView:map],-8,-8)]];
-  }
-  if(self.currentLocationGPSAt && fabs(self.currentLocationGPSAt.timeIntervalSinceNow)<10) {
-    CGPoint p=[map katecToScreen:(FloatPoint){self.currentLocationPosition.x,self.currentLocationPosition.y}];
-    [rects addObject:[NSValue valueWithCGRect:CGRectMake(p.x-40,p.y-40,80,80)]];
-  }
-  KNTrip *trip=self.guidance.trip?:self.trip;
-  NSMutableArray *points=[NSMutableArray arrayWithArray:trip.vias?:@[]];
-  if(trip.start)[points addObject:trip.start];if(trip.goal)[points addObject:trip.goal];
-  for(KNPOI *poi in points) {
-    CGPoint p=[map katecToScreen:(FloatPoint){poi.pos.x,poi.pos.y}];
-    [rects addObject:[NSValue valueWithCGRect:CGRectMake(p.x-24,p.y-32,48,56)]];
-  }
-  return rects;
 }
 
 // 지도 POI(상호·건물) 탭 — 이름·KATEC 좌표가 온다. WGS84 로 바꿔 JS 로 넘긴다.
@@ -1421,8 +1391,6 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)pauseFooterPosition {
   self.footerPositionGeneration++;
-  [self.ownedPoiLayer refresh];self.ownedPoiSelection=nil;
-  [self.gasPriceLayer pause];
   [self.footerPositionRequest cancel]; self.footerPositionRequest = nil;
   self.regionRequestGeneration++; self.regionRequestInFlight = NO;
 }
@@ -1563,8 +1531,6 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self pauseFooterPosition];
   [self.footerPositionTimer invalidate]; self.footerPositionTimer = nil;
   [self.manualPositionRequest cancel]; self.manualPositionRequest = nil;
-  [self.gasPriceLayer invalidate];
-  [self.ownedPoiLayer invalidate];self.ownedPoiSelection=nil;
   [self.gasLayer invalidate];
   self.regionRequestGeneration++; self.regionRequestInFlight = NO;
   [self.currentLocationExpiryTimer invalidate];
@@ -1958,34 +1924,6 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     return [text isKindOfClass:NSString.class] && text.length ? [text substringToIndex:MIN(text.length,200)] : nil;
   };
   [sheet updateTitle:clip(title) detail:clip(detail)];
-}
-
-+ (void)setGuideOwnedPoiEnabled:(BOOL)enabled {
-  gOwnedPoiEnabled=enabled;
-  if(enabled)[gActiveNavi attachPoiListener];
-  else { [gActiveNavi.ownedPoiLayer invalidate];gActiveNavi.ownedPoiLayer=nil;gActiveNavi.ownedPoiSelection=nil;[gActiveNavi updateBottomPanel]; }
-}
-+ (NSDictionary *)guidePoiContext { return [gActiveNavi canRefreshFooterPosition]?gActiveNavi.ownedPoiLayer.context:nil; }
-+ (NSDictionary *)takeGuidePoiSelection {
-  NSDictionary *value=[gActiveNavi canRefreshFooterPosition]?gActiveNavi.ownedPoiSelection:nil;
-  gActiveNavi.ownedPoiSelection=nil;return value;
-}
-+ (void)resetGuidePoiSnapshot { [gActiveNavi.ownedPoiLayer refresh];gActiveNavi.ownedPoiSelection=nil; }
-+ (BOOL)updateGuidePoiSnapshot:(NSString *)json {
-  NSData *data=[json dataUsingEncoding:NSUTF8StringEncoding];if(!data||data.length>100000)return NO;
-  NSDictionary *response=[NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-  return [response isKindOfClass:NSDictionary.class] && [gActiveNavi.ownedPoiLayer applyResponse:response];
-}
-
-+ (NSDictionary *)guideGasPriceContext {
-  KNNaviViewController *vc=gActiveNavi;
-  return [vc canRefreshFooterPosition] ? vc.gasPriceLayer.context : nil;
-}
-+ (void)updateGuideGasPriceMarkers:(NSString *)json {
-  NSData *data=[json dataUsingEncoding:NSUTF8StringEncoding];
-  if (!data || data.length>100000) return;
-  NSDictionary *response=[NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-  if ([response isKindOfClass:NSDictionary.class]) [gActiveNavi.gasPriceLayer applyResponse:response];
 }
 
 + (NSDictionary *)guideGasContext {
