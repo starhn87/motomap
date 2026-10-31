@@ -78,6 +78,11 @@ import type { Href } from 'expo-router';
 import { useIsFocused, type ParamListBase } from 'expo-router/react-navigation';
 import type { NativeStackNavigationProp } from 'expo-router';
 import { TrackedUserLocationMarker } from '@/components/map/TrackedUserLocationMarker';
+import RegisteredPlaceMarkers, {
+  PLACE_MARKER_GLOBAL_Z_INDEX,
+  TEMPORARILY_CLOSED_MARKER_ALPHA,
+  markerCaption,
+} from '@/components/map/RegisteredPlaceMarkers';
 import { toast } from '@/lib/toast';
 import { useSharedGeneralPlaces } from '@/hooks/useCommunityPlaceSignals';
 import { usePlaceOperationalStatuses } from '@/hooks/usePlaceOperationalStatus';
@@ -91,60 +96,6 @@ import {
 } from '@/lib/mapCamera';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-// 네이버 기본 심벌(-100,000~100,000)보다 위, 내 위치(300,000)보다 아래다.
-// 등록 장소 아이콘은 줌별 충돌 재판정에서도 숨지 않고 네이티브 POI를 가린다.
-const PLACE_MARKER_GLOBAL_Z_INDEX = 200_000;
-const TEMPORARILY_CLOSED_MARKER_ALPHA = 0.52;
-
-function markerCaption(name: string, temporarilyClosed: boolean): string {
-  return temporarilyClosed ? `임시 휴업 · ${name}` : name;
-}
-
-const RegisteredPlaceMarkers = memo(function RegisteredPlaceMarkers({
-  places,
-  selectedPlaceId,
-  operationalStatuses,
-  dark,
-  onTap,
-}: {
-  places: Place[];
-  selectedPlaceId: string | null;
-  operationalStatuses: Record<string, string>;
-  dark: boolean;
-  onTap: (place: Place) => void;
-}) {
-  return places
-    .filter((place) => place.id !== selectedPlaceId)
-    .map((place) => {
-      const temporarilyClosed = operationalStatuses[place.id] === 'temporarily_closed';
-      return (
-        <NaverMapMarkerOverlay
-          key={place.id}
-          latitude={place.latitude}
-          longitude={place.longitude}
-          image={MARKER_IMAGES_CIRCLE[place.category]}
-          width={30}
-          height={30}
-          anchor={{ x: 0.5, y: 0.5 }}
-          alpha={temporarilyClosed ? TEMPORARILY_CLOSED_MARKER_ALPHA : 1}
-          globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
-          zIndex={10}
-          isForceShowIcon
-          isHideCollidedSymbols
-          isHideCollidedCaptions
-          caption={{
-            text: markerCaption(place.name, temporarilyClosed),
-            textSize: 12,
-            minZoom: 8,
-            color: dark ? '#F9FAFB' : '#111827',
-            haloColor: dark ? '#111827' : '#FFFFFF',
-          }}
-          onTap={() => onTap(place)}
-        />
-      );
-    });
-});
 
 // 장소 선택 시 상세 시트가 마커를 가리지 않도록 카메라 중심을 남쪽으로 내려
 // 마커를 화면 중심보다 위에 둔다. 등록·일반 장소가 같은 보정을 사용하며,

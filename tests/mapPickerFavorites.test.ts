@@ -16,6 +16,11 @@ function setup() {
       }];
     },
     useRef(initial: any) { return react.useState(() => ({ current: initial }))[0]; },
+    useMemo(run: any, deps: any[]) {
+      const slot = react.useState(() => ({ deps: null as any[] | null, value: undefined as any }))[0];
+      if (!slot.deps || deps.some((value, i) => !Object.is(value, slot.deps![i]))) { slot.deps = deps; slot.value = run(); }
+      return slot.value;
+    },
     useEffect(run: any, deps: any[]) {
       const index = effectCursor++, old = effects[index];
       if (old && deps.every((value, i) => Object.is(value, old.deps[i]))) return;
@@ -24,6 +29,9 @@ function setup() {
   };
   const jsx = (type: unknown, props: any) => ({ type, props });
   const favorites = { places: [{ id: 'favorite', name: '이름 몰랐던 카페', address: '주소', latitude: 37.5, longitude: 127, category: 'cafe' }], general: [] };
+  // 등록 장소 조회 결과 — 즐겨찾기와 같은 장소는 별 마커만 남아야 한다.
+  const registered = [favorites.places[0], { id: 'repair', name: '바이크 정비소', address: '정비소 주소', latitude: 37.5005, longitude: 127.0005, category: 'repair_shop' }];
+  const placeQueries: any[] = [];
   const mod = loadModule<any>('components/map/MapPickerModal.tsx', {
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', Modal: 'Modal', ActivityIndicator: 'Spinner', StyleSheet: { create: (v: any) => v, absoluteFill: {} } },
@@ -37,8 +45,11 @@ function setup() {
     '@/hooks/useFavorites': { useFavoritePlaces: () => ({ data: favorites }) },
     '@/constants/markerImages': { MARKER_IMAGES_CIRCLE_FAV: { cafe: 'favorite' }, GENERAL_MARKER_CIRCLE_FAV: 'general' },
     '@/assets/images/markers/general.png': 'pin',
+    '@/hooks/usePlaces': { usePlaces: (_c: any, center: any, enabled: boolean) => { placeQueries.push({ center, enabled }); return { data: enabled ? registered : undefined }; }, isInMapRenderWindow: () => true },
+    '@/hooks/usePlaceOperationalStatus': { usePlaceOperationalStatuses: () => ({ data: {} }) },
+    '@/components/map/RegisteredPlaceMarkers': { __esModule: true, default: 'Registered' },
   });
-  const props = { visible: true, initial: null, allowFavorites: true, onClose() {}, onPick: (point: any) => { picked.push(point); } };
+  const props = { visible: true, initial: null, allowPlaces: true, onClose() {}, onPick: (point: any) => { picked.push(point); } };
   const render = () => {
     for (let attempt = 0; attempt < 20; attempt++) {
       cursor = effectCursor = 0; dirty = false; tree = mod.default(props);
@@ -51,7 +62,7 @@ function setup() {
     ? node.flatMap(child => all(type, child)) : [...(node.type === type ? [node] : []), ...all(type, node.props?.children ?? null)];
   const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); render(); };
   render();
-  return { props, render, all, flush, addresses, picked };
+  return { props, render, all, flush, addresses, picked, placeQueries };
 }
 
 test('지도에서 즐겨찾기를 선택하면 ID를 보존하고 이전 역지오코딩이 덮지 않는다', async () => {
@@ -71,9 +82,22 @@ test('지도 정지 후 즐겨찾기 터치 영역을 투영하고 이동 시 �
   assert.equal(hit.props.style.left, 98); assert.equal(hit.props.style.width, 44);
   map.props.onCameraChanged(); f.render();
   assert.equal(f.all('Pressable').filter(node => node.props.accessibilityLabel?.includes('즐겨찾기 선택')).length, 0);
-  f.all('Map')[0].props.onCameraIdle(); await f.flush();
+  f.all('Map')[0].props.onCameraIdle({ latitude: 37.5, longitude: 127, zoom: 16 }); await f.flush();
   hit = f.all('Pressable').find(node => node.props.accessibilityLabel?.includes('즐겨찾기 선택'));
   hit.props.onPress(); f.render();
   f.all('Pressable').find(node => node.props.accessibilityLabel === '이 위치로 선택').props.onPress();
   assert.equal(f.picked[0].placeId, 'favorite');
 });
+test('지도에서 선택에도 메인 지도처럼 등록(바이크 특화) 장소 마커를 보여 주고 선택하면 ID를 보존한다', async () => {
+  const f = setup(), map = f.all('Map')[0];
+  map.props.ref.current = { coordinateToScreen: async () => ({ isValid: true, screenX: 120, screenY: 200 }) };
+  map.props.onInitialized(); await f.flush();
+  assert(f.placeQueries.some(q => q.enabled && q.center), '열자마자 초기 카메라 범위로 조회');
+  const layer = f.all('Registered')[0];
+  assert.deepEqual(layer.props.places.map((p: any) => p.id), ['repair']);
+  assert(f.all('Pressable').some(node => node.props.accessibilityLabel === '바이크 정비소, 장소 선택'));
+  layer.props.onTap(layer.props.places[0]); f.render();
+  f.all('Pressable').find(node => node.props.accessibilityLabel === '이 위치로 선택').props.onPress();
+  assert.equal(f.picked[0].placeId, 'repair'); assert.equal(f.picked[0].address, '정비소 주소');
+});
+

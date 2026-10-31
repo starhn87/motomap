@@ -390,10 +390,10 @@ export default function PointSearchModal({
             style={[styles.resultRow, { borderBottomColor: colors.border }]}>
             <Ionicons name="map-outline" size={20} color={colors.tint} />
             <Text style={[styles.resultName, { color: colors.text }]}>지도에서 선택</Text>
-            <Text style={{ color: colors.textSecondary }}>즐겨찾기 장소도 선택할 수 있어요</Text>
+            <Text style={{ color: colors.textSecondary }}>즐겨찾기·바이크 장소도 선택할 수 있어요</Text>
           </Pressable>
         )}
-        <MapPickerModal visible={visible && mapPicking} allowFavorites
+        <MapPickerModal visible={visible && mapPicking} allowPlaces
           initial={getSearchAnchor().near}
           onClose={() => setMapPicking(false)}
           onPick={point => { setMapPicking(false); selectPoint({ name: point.name ?? point.address ?? '지도에서 선택한 위치',

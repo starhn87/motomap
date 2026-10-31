@@ -1,5 +1,5 @@
 import { View, Text, Pressable, Modal, StyleSheet, ActivityIndicator } from 'react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { NaverMapView, NaverMapMarkerOverlay, type NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,12 +11,16 @@ import { coordToAddress } from '@/lib/api/kakaoLocal';
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useFavoritePlaces } from '@/hooks/useFavorites';
 import { MARKER_IMAGES_CIRCLE_FAV, GENERAL_MARKER_CIRCLE_FAV } from '@/constants/markerImages';
+import { isInMapRenderWindow, usePlaces, type MapCenter } from '@/hooks/usePlaces';
+import { usePlaceOperationalStatuses } from '@/hooks/usePlaceOperationalStatus';
+import RegisteredPlaceMarkers from '@/components/map/RegisteredPlaceMarkers';
 import type { NavTarget } from '@/lib/navigation';
 
 interface Props {
   visible: boolean;
   initial?: { latitude: number; longitude: number } | null;
-  allowFavorites?: boolean;
+  /** 즐겨찾기와 등록(바이크 특화) 장소 마커를 메인 지도처럼 보여 주고 선택하게 한다. */
+  allowPlaces?: boolean;
   onClose: () => void;
   onPick: (coord: { latitude: number; longitude: number; address: string | null; name?: string; placeId?: string; generalPlaceId?: string }) => void;
 }
@@ -24,18 +28,29 @@ interface Props {
 // 지도를 탭해 지점을 찍는 선택기. 중앙 고정 핀 방식은 지도를 움직일 때마다
 // 역지오코딩을 부르는데, 지도는 훑어보려고 움직이는 경우가 대부분이라 헛호출이 많다.
 // 탭한 순간에만 핀을 옮기고 그때 한 번 주소를 조회한다.
-export default function MapPickerModal({ visible, initial, allowFavorites = false, onClose, onPick }: Props) {
+// 투영 터치 영역은 화면 안의 장소만, 너무 많으면 앞쪽 일부만 만든다(정지 때마다 좌표 변환).
+const MAX_HIT_AREAS = 80;
+
+export default function MapPickerModal({ visible, initial, allowPlaces = false, onClose, onPick }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
 
   const [marker, setMarker] = useState<{ latitude: number; longitude: number } | null>(null);
-  const { data: favorites } = useFavoritePlaces(visible && allowFavorites);
+  const { data: favorites } = useFavoritePlaces(visible && allowPlaces);
+  const [mapCenter, setMapCenter] = useState<MapCenter | null>(null);
+  const { data: registered } = usePlaces(null, mapCenter, visible && allowPlaces && !!mapCenter);
+  const { data: operationalStatuses = {} } = usePlaceOperationalStatuses(visible && allowPlaces);
+  // 즐겨찾기는 별 마커로 따로 그리므로 등록 장소 목록에서는 뺀다(메인 지도와 같은 규칙).
+  const windowedPlaces = useMemo(() => {
+    const favoriteIds = new Set((favorites?.places ?? []).map(place => place.id));
+    return (registered ?? []).filter(place => !favoriteIds.has(place.id) && isInMapRenderWindow(place, mapCenter));
+  }, [registered, favorites, mapCenter]);
   const generation = useRef(0);
   const mapRef = useRef<NaverMapViewRef>(null);
   const mapReady = useRef(false);
   const projection = useRef(0);
-  const [hitAreas, setHitAreas] = useState<(NavTarget & { address: string; x: number; y: number })[]>([]);
+  const [hitAreas, setHitAreas] = useState<(NavTarget & { address: string; favorite: boolean; x: number; y: number })[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<NavTarget | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
@@ -47,21 +62,23 @@ export default function MapPickerModal({ visible, initial, allowFavorites = fals
     setSelectedPlace(null);
     setResolving(false);
     setMarker(initial ?? null);
+    setMapCenter(initial ? { ...initial, zoom: 16 } : { latitude: DEFAULT_CENTER[1], longitude: DEFAULT_CENTER[0], zoom: DEFAULT_ZOOM });
     setAddress(null);
     if (initial) void resolveAddress(initial.latitude, initial.longitude);
     return () => { generation.current += 1; projection.current += 1; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  useEffect(() => { void projectFavorites(); }, [visible, favorites, allowFavorites]);
+  useEffect(() => { void projectPlaces(); }, [visible, favorites, allowPlaces, windowedPlaces]);
 
-  async function projectFavorites() {
+  async function projectPlaces() {
     const map=mapRef.current, request=++projection.current;
-    if (!visible || !allowFavorites || !mapReady.current || !map) { setHitAreas([]); return; }
+    if (!visible || !allowPlaces || !mapReady.current || !map) { setHitAreas([]); return; }
     const points = [
-      ...(favorites?.places ?? []).map(place => ({ name: place.name, latitude: place.latitude, longitude: place.longitude, placeId: place.id, address: place.address ?? '' })),
-      ...(favorites?.general ?? []).map(place => ({ name: place.name, latitude: place.latitude, longitude: place.longitude, generalPlaceId: place.generalPlaceId, address: place.address })),
-    ];
+      ...(favorites?.places ?? []).map(place => ({ name: place.name, latitude: place.latitude, longitude: place.longitude, placeId: place.id, address: place.address ?? '', favorite: true })),
+      ...(favorites?.general ?? []).map(place => ({ name: place.name, latitude: place.latitude, longitude: place.longitude, generalPlaceId: place.generalPlaceId, address: place.address, favorite: true })),
+      ...windowedPlaces.map(place => ({ name: place.name, latitude: place.latitude, longitude: place.longitude, placeId: place.id, address: place.address ?? '', favorite: false })),
+    ].slice(0, MAX_HIT_AREAS);
     const projected = await Promise.all(points.map(async point => {
       try {
         const screen=await map.coordinateToScreen(point);
@@ -91,7 +108,7 @@ export default function MapPickerModal({ visible, initial, allowFavorites = fals
     void resolveAddress(latitude, longitude);
   };
 
-  const chooseFavorite = (point: NavTarget, address: string) => {
+  const choosePlace = (point: NavTarget, address: string) => {
     generation.current += 1;
     setSelectedPlace(point); setMarker(point); setAddress(address); setResolving(false);
   };
@@ -101,9 +118,13 @@ export default function MapPickerModal({ visible, initial, allowFavorites = fals
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         <NaverMapView
           ref={mapRef}
-          onInitialized={() => { mapReady.current=true; void projectFavorites(); }}
+          onInitialized={() => { mapReady.current=true; void projectPlaces(); }}
           onCameraChanged={() => { projection.current += 1; setHitAreas([]); }}
-          onCameraIdle={() => { void projectFavorites(); }}
+          onCameraIdle={(e) => {
+            // 등록 장소 조회 범위는 메인 지도처럼 카메라가 멈췄을 때만 갱신한다.
+            setMapCenter({ latitude: e.latitude, longitude: e.longitude, zoom: e.zoom ?? DEFAULT_ZOOM, region: e.region });
+            void projectPlaces();
+          }}
           locationOverlay={{ isVisible: false }}
           style={StyleSheet.absoluteFill}
           mapType="Basic"
@@ -119,16 +140,21 @@ export default function MapPickerModal({ visible, initial, allowFavorites = fals
             zoom: initial ? 16 : DEFAULT_ZOOM,
           }}
           onTapMap={handleTap}>
-          {allowFavorites && favorites?.places.map(place => (
+          {allowPlaces && (
+            <RegisteredPlaceMarkers places={windowedPlaces} selectedPlaceId={null}
+              operationalStatuses={operationalStatuses} dark={colorScheme === 'dark'}
+              onTap={place => choosePlace({ name: place.name, latitude: place.latitude, longitude: place.longitude, placeId: place.id }, place.address ?? '')} />
+          )}
+          {allowPlaces && favorites?.places.map(place => (
             <NaverMapMarkerOverlay key={place.id} latitude={place.latitude} longitude={place.longitude}
               image={MARKER_IMAGES_CIRCLE_FAV[place.category]} width={34} height={34}
               caption={{ text: place.name }}
-              onTap={() => chooseFavorite({ name: place.name, latitude: place.latitude, longitude: place.longitude, placeId: place.id }, place.address ?? '')} />
+              onTap={() => choosePlace({ name: place.name, latitude: place.latitude, longitude: place.longitude, placeId: place.id }, place.address ?? '')} />
           ))}
-          {allowFavorites && favorites?.general.map(place => (
+          {allowPlaces && favorites?.general.map(place => (
             <NaverMapMarkerOverlay key={`general-${place.id}`} latitude={place.latitude} longitude={place.longitude}
               image={GENERAL_MARKER_CIRCLE_FAV} width={34} height={34} caption={{ text: place.name }}
-              onTap={() => chooseFavorite({ name: place.name, latitude: place.latitude, longitude: place.longitude, generalPlaceId: place.generalPlaceId }, place.address)} />
+              onTap={() => choosePlace({ name: place.name, latitude: place.latitude, longitude: place.longitude, generalPlaceId: place.generalPlaceId }, place.address)} />
           ))}
           {marker && (
             <NaverMapMarkerOverlay
@@ -146,8 +172,8 @@ export default function MapPickerModal({ visible, initial, allowFavorites = fals
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
           {hitAreas.map(point => (
             <Pressable key={point.placeId ?? point.generalPlaceId ?? `${point.latitude}:${point.longitude}`}
-              accessibilityRole="button" accessibilityLabel={`${point.name}, 즐겨찾기 선택`}
-              onPress={() => chooseFavorite(point, point.address)}
+              accessibilityRole="button" accessibilityLabel={`${point.name}, ${point.favorite ? '즐겨찾기' : '장소'} 선택`}
+              onPress={() => choosePlace(point, point.address)}
               style={{ position: 'absolute', left: point.x-22, top: point.y-22, width: 44, height: 44 }} />
           ))}
         </View>
