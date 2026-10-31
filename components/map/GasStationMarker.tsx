@@ -14,14 +14,15 @@ interface Props {
 
 // 캡슐 자연 폭이 얼마든 잘리지 않도록 마커 캔버스를 넉넉히 잡는다 (여백은 투명으로 캡처됨)
 const HEIGHT = 40;
-const SELECTED_HEIGHT = 48;
+// 선택 마커는 캡슐을 키우고 그림자가 잘리지 않을 여백을 더 둔다
+const SELECTED_HEIGHT = 58;
 
-// 유가 라벨 마커 — [브랜드 칩][가격] 캡슐. children 은 정적 비트맵으로 한 번 캡처되므로
+// 유가 라벨 마커 — [브랜드 칩][가격] 캡슐. 선택하면 색은 그대로 두고 크기와 그림자만 키운다(MAP-058). children 은 정적 비트맵으로 한 번 캡처되므로
 // 순수 View/Text 로만 그리고, 표시 내용(가격·최저·선택)이 바뀌면 상위에서 key 를 바꿔 재캡처시킨다.
 // 클러스터링 대신 SDK 의 겹침 숨김을 쓴다 — 겹치면 비싼 마커부터 숨고 최저가는 항상 표시.
 export default function GasStationMarker({ station, isCheapest, isSelected, rank, onTap }: Props) {
   const badge = BRAND_BADGES[station.brand];
-  const width = (isCheapest ? 150 : 120) + (isSelected ? 24 : 0);
+  const width = (isCheapest ? 150 : 120) + (isSelected ? 40 : 0);
   const height = isSelected ? SELECTED_HEIGHT : HEIGHT;
 
   return (
@@ -36,10 +37,12 @@ export default function GasStationMarker({ station, isCheapest, isSelected, rank
       isForceShowIcon={isCheapest || isSelected}
       onTap={() => onTap(station)}>
       <View collapsable={false} style={[styles.wrap, { width, height }]}>
-        <View style={[styles.capsule, isSelected && styles.capsuleSelected]}>
+        {/* 그림자는 overflow:hidden 캡슐 바깥 래퍼에 둬야 잘리지 않는다 */}
+        <View style={[styles.capsuleShadow, isSelected && styles.capsuleShadowSelected]}>
+        <View style={styles.capsule}>
           {badge && (
-            <View style={[styles.brandChip, { backgroundColor: badge.color }]}>
-              <Text numberOfLines={1} style={[styles.brandText, badge.textColor ? { color: badge.textColor } : null]}>
+            <View style={[styles.brandChip, isSelected && styles.brandChipSelected, { backgroundColor: badge.color }]}>
+              <Text numberOfLines={1} style={[styles.brandText, isSelected && styles.brandTextSelected, badge.textColor ? { color: badge.textColor } : null]}>
                 {badge.label}
               </Text>
             </View>
@@ -51,7 +54,8 @@ export default function GasStationMarker({ station, isCheapest, isSelected, rank
             </Text>
           </View>
         </View>
-        <View style={[styles.pointer, isCheapest && styles.pointerCheapest, isSelected && styles.pointerSelected]} />
+        </View>
+        <View style={[styles.pointer, isSelected && styles.pointerSelected, isCheapest && styles.pointerCheapest]} />
       </View>
     </NaverMapMarkerOverlay>
   );
@@ -69,19 +73,34 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
     overflow: 'hidden',
   },
-  capsuleSelected: {
-    borderWidth: 3,
-    borderColor: '#FBBF24',
+  capsuleShadow: {
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+  },
+  capsuleShadowSelected: {
+    marginBottom: 1,
+    shadowColor: '#000000',
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
   },
   brandChip: {
     paddingLeft: 9,
     paddingRight: 7,
     justifyContent: 'center',
   },
+  brandChipSelected: {
+    paddingLeft: 11,
+    paddingRight: 9,
+  },
   brandText: {
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '800',
+  },
+  brandTextSelected: {
+    fontSize: 13,
   },
   priceChip: {
     backgroundColor: '#1F2937',
@@ -93,10 +112,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#16A34A',
   },
   priceChipSelected: {
-    paddingVertical: 7,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
   },
   priceSelected: {
-    fontSize: 15,
+    fontSize: 16,
   },
   price: {
     color: '#FFFFFF',
@@ -114,8 +134,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#1F2937',
   },
   pointerSelected: {
-    borderTopColor: '#FBBF24',
-    borderTopWidth: 8,
+    borderTopWidth: 7,
     borderLeftWidth: 6,
     borderRightWidth: 6,
   },
