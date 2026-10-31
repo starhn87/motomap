@@ -28,8 +28,7 @@ public class KakaoNaviModule: Module {
         "guide_web_bottom",
         "guide_route_editing",
         "guide_poi_tap",
-        "guide_gas_price_markers",
-        "guide_owned_poi",
+        "guide_poi_detail_update",
         "guide_arrival_record",
       ],
     ])
@@ -156,6 +155,10 @@ public class KakaoNaviModule: Module {
         promise.resolve(picked)
       }
     }
+
+    AsyncFunction("updateGuidePoiOptionsDetail") { (detail: String) in
+      KNNaviPresenter.updatePoiOptionsDetail(detail)
+    }.runOnQueue(.main)
 
     AsyncFunction("showGuidePoiOptions") { (title: String, canAddVia: Bool, promise: Promise) in
       KNNaviPresenter.showPoiOptions(title: title, canAddVia: canAddVia) { picked in promise.resolve(picked) }

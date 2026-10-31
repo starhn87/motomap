@@ -2396,6 +2396,8 @@ VALID/IN_BETA_TESTING, expired=false다. 새 App Store 심사나 외부 테스�
 
 ## NAV-056 — 자체 POI 표시를 SDK 마커로 되돌린다 (2026-10-29)
 
+대체됨(NAV-059): 안내 지도의 앱 마커는 모두 없앤다.
+
 후속: 표시 대상은 NAV-058에서 집·회사·즐겨찾기·가격 주유소로 줄인다. SDK 마커 렌더 방식은 유지한다.
 
 - 날짜: 2026-10-29
@@ -2442,6 +2444,8 @@ VALID/IN_BETA_TESTING, expired=false다. 새 App Store 심사나 외부 테스�
 
 ## NAV-057 — 하단 메뉴는 목적지 변경·다른 경로, 목적지 유지 문구 삭제 (2026-10-31)
 
+부분 대체(NAV-059): 목적지 변경 버튼 아이콘은 연필 대신 하단 목적지 핀을 쓴다.
+
 - 날짜: 2026-10-31
 - 상태: 활성(로컬 후보, native38에 포함, 실기기 검증 전)
 - 관련 구현: `modules/kakao-navi/ios/Resources/navigation-bottom.html`, `modules/kakao-navi/ios/KNNaviPresenter.m`
@@ -2458,6 +2462,8 @@ VALID/IN_BETA_TESTING, expired=false다. 새 App Store 심사나 외부 테스�
 
 
 ## NAV-058 — 기본 POI를 켜고 집·회사·즐겨찾기·가격만 보강한다 (2026-10-31)
+
+대체됨(NAV-059): 집·회사·즐겨찾기·가격 보강 마커도 없애고 기본 POI만 남긴다.
 
 - 날짜: 2026-10-31
 - 상태: 활성(로컬 후보, native38, 실기기 검증 전)
@@ -2483,4 +2489,25 @@ SDK 벡터 POI 레이어에 넣을 방법은 없고, 앱이 올릴 수 있는 �
 - TMAP 서버 Edge·공유 캐시·위치정보 관리의 TMAP 선택 동의는 그대로 남아 있다. 앱은 더 이상 TMAP에 위치를 보내지 않으므로, 동의 화면에서 TMAP 선택지를 내릴지는 별도로 결정한다.
 - `lib/api/guideOrdinaryPois.ts`는 호출처가 없어졌지만 서버 계약과 함께 정리할 때 지운다.
 - 검증: JS 486개(표시 대상 필터·TMAP 미호출 회귀 포함), 네이티브 세션 failures=0(기본 POI 유지, 범위 밖 이동·갱신 실패 시 마커 유지, 바뀌지 않은 마커 재사용), `tsc`, `check:release`. 실기기에서 기본 POI와 겹침, 이동 시 깜빡임은 아직 확인 전이다.
+
+
+## NAV-059 — 안내 지도 앱 마커 제거, 기본 POI 주유소 시트에 휘발유·고급휘발유 가격 (2026-10-31)
+
+- 날짜: 2026-10-31
+- 상태: 활성(로컬 후보, native38, 실기기 검증 전)
+- 관련 구현: `modules/kakao-navi/ios/KNNaviPresenter.m`, `KNNaviHazardSheet.m`, `lib/guideEvents.ts`, `lib/api/gasStations.ts`, `navigation-bottom.html`
+
+### 결정
+사용자는 앱 마커를 모두 없애고, 기본 POI 주유소를 탭했을 때 시트에 휘발유·고급휘발유 가격을 같이
+보여 주는 것이 최선이라고 정했다.
+
+- 안내 지도에는 앱 마커를 올리지 않는다. 가격 말풍선 계층(`KNNaviGasPriceLayer`)과 자체 POI 계층(`KNNaviOwnedPoiLayer`)을 만들지 않고, `guide_gas_price_markers`·`guide_owned_poi` 기능도 광고하지 않는다. SDK 기본 POI 탭 리스너만 붙인다.
+- 기본 POI 탭은 이름·좌표만 주고 업종이 없다. 그래서 일반 지도와 같은 `looksLikeGasStation`으로 이름을 보고, 오피넷 반경 500m에서 좌표 150m(상호 일치 시 300m) 안의 주유소를 찾는 `fetchGasPricesAt`을 재사용한다. 오피넷 위치 전달을 선택한 경우에만 조회한다.
+- 시트는 가격을 기다리지 않고 바로 연다. 가격이 오면 새 `updateGuidePoiOptionsDetail`(기능 `guide_poi_detail_update`)로 설명 줄을 `휘발유 N원 · 고급휘발유 N원` + 기존 안내 문구로 바꾼다. 시트가 닫혔거나 다른 시트면 무시한다. 못 찾으면 기존 문구 그대로다.
+- 목적지 변경 버튼 아이콘은 접힌 하단의 목적지 핀과 같은 도형을 쓰고, 세로로 긴 모양이라 갈림길 아이콘과 높이가 맞게 20pt·선 두께 2로 줄인다. 연필(MDI pencil)과 그 출처 표기는 뺀다.
+
+### 영향과 남은 일
+- 이름 판정·좌표 매칭이라 상호가 특이한 주유소는 가격이 안 나올 수 있고, 붙어 있는 두 주유소는 잘못 매칭될 여지가 있다(일반 지도와 같은 한계).
+- 자체 POI·가격 마커 네이티브/JS 코드, 등록 장소·즐겨찾기 RPC, TMAP Edge·캐시·동의 선택지는 호출되지 않은 채 남아 있다. 정리는 별도 작업이다.
+- 검증: JS 488개(시트 선표시 후 가격 갱신, 주유소 아닌 장소 미조회, 가격 요약 포맷), 네이티브 세션 failures=0(시트 설명 줄 갱신, 하단 메뉴), `tsc`, `check:release`.
 

@@ -358,6 +358,7 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong) NSTimer *footerPositionTimer;
 @property(nonatomic, strong) KNNaviManualPositionRequest *footerPositionRequest;
 @property(nonatomic, strong) KNNaviGasPriceLayer *gasPriceLayer;
+@property(nonatomic, weak) KNMapView *poiListenerMap;
 @property(nonatomic, strong) KNNaviOwnedPoiLayer *ownedPoiLayer;
 @property(nonatomic, weak) KNMapView *ownedPoiMap;
 @property(nonatomic, copy) NSDictionary *ownedPoiSelection;
@@ -423,6 +424,7 @@ static KNNaviViewController *gSuspendedNavi = nil;
 static NSInteger gPreviewToken = 0;
 static NSUInteger gLocationGeneration = 0;
 static BOOL gOwnedPoiEnabled = NO;
+static __weak KNNaviHazardSheet *gPoiOptionsSheet = nil;
 
 static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   @synchronized(KNNaviPresenter.class) { return generation == gLocationGeneration && [KNSDKBridge isLocationUseAllowed]; }
@@ -871,27 +873,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   KNMapView *inner = [self findInnerMapViewIn:self.naviView.mapView depth:0];
   // eventListener 는 weak — self(화면과 수명 동일)를 그대로 걸어도 안전하다
   inner.poiProperties.eventListener = self;
-  if (inner && !self.preview && !self.gasPriceLayer) {
-    self.gasPriceLayer = [[KNNaviGasPriceLayer alloc] initWithMap:inner];
-    __weak KNNaviViewController *weakSelf=self;
-    self.gasPriceLayer.onFetch=^{ if (weakSelf.onMenu) weakSelf.onMenu(109); };
-    self.gasPriceLayer.onSelect=^(NSDictionary *station) {
-      [weakSelf emitPoiName:station[@"name"] longitude:[station[@"longitude"] doubleValue] latitude:[station[@"latitude"] doubleValue]];
-    };
-  } else if (inner) [self.gasPriceLayer attachToMap:inner];
-  if(inner && gOwnedPoiEnabled && !self.preview && (!self.ownedPoiLayer || self.ownedPoiMap!=inner)) {
-    [self.ownedPoiLayer invalidate];self.ownedPoiMap=inner;
-    self.ownedPoiLayer=[[KNNaviOwnedPoiLayer alloc] initWithMap:inner];
-    __weak KNNaviViewController *weakSelf=self;
-    self.ownedPoiLayer.isActive=^BOOL { return [weakSelf canRefreshFooterPosition]; };
-    self.ownedPoiLayer.onRequest=^{ if(weakSelf.onMenu)weakSelf.onMenu(110); };
-    self.ownedPoiLayer.onSelect=^(NSString *key,NSString *snapshotId) {
-      weakSelf.ownedPoiSelection=@{@"key":key,@"snapshotId":snapshotId};
-      if(weakSelf.onMenu)weakSelf.onMenu(111);
-    };
-    self.ownedPoiLayer.onModeChanged=^(BOOL owned) { [weakSelf updateBottomPanel]; };
-    self.ownedPoiLayer.exclusions=^NSArray * { return [weakSelf ownedPoiExclusions]; };
-  }
+  // 안내 지도에는 앱 마커를 올리지 않는다. SDK 기본 POI 만 보이고 탭은 앱 시트로 받는다(NAV-059).
+  self.poiListenerMap = inner;
   [self updateBottomPanel];
 }
 
@@ -1451,7 +1434,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)refreshFooterPosition {
   if (![self canRefreshFooterPosition]) { [self pauseFooterPosition]; return; }
-  if (!self.gasPriceLayer) [self attachPoiListener];
+  if (!self.poiListenerMap) [self attachPoiListener];
   if (self.currentLocationGPSAt && fabs(self.currentLocationGPSAt.timeIntervalSinceNow) <= 5) {
     [self requestCurrentRegionIfNeeded]; [self updateBottomPanel]; return;
   }
@@ -1964,8 +1947,14 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   KNNaviHazardSheet *sheet = [[KNNaviHazardSheet alloc] initWithTitle:name detail:@"미리보기에서 확인 후 안내를 변경해요" options:options completion:^(NSInteger picked) {
     weakNavi.hazardSheet = nil; completion(picked);
   }];
-  navi.hazardSheet = sheet;
+  navi.hazardSheet = sheet; gPoiOptionsSheet = sheet;
   [navi presentViewController:sheet animated:NO completion:nil];
+}
+
++ (void)updatePoiOptionsDetail:(NSString *)detail {
+  KNNaviHazardSheet *sheet = gPoiOptionsSheet;
+  if (!sheet || gActiveNavi.hazardSheet != sheet || ![detail isKindOfClass:NSString.class] || !detail.length) return;
+  [sheet updateDetail:[detail substringToIndex:MIN(detail.length,200)]];
 }
 
 + (void)setGuideOwnedPoiEnabled:(BOOL)enabled {

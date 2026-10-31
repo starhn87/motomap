@@ -198,6 +198,16 @@ export async function fetchGasPricesAtSnapshot(place: {
     expiresAt: Math.min(snapshot.expiresAt, detail.expiresAt ?? snapshot.expiresAt) };
 }
 
+// 길안내 POI 시트 한 줄 요약: "휘발유 1,699원 · 고급휘발유 1,950원". 가격이 하나도 없으면 null.
+export function gasPriceSummary(detail: GasStationDetail | null): string | null {
+  if (!detail) return null;
+  const parts = (['B027', 'B034'] as const).flatMap((prod) => {
+    const price = detail.prices.find((p) => p.prod === prod)?.price;
+    return price && price > 0 ? [`${FUEL_LABELS[prod]} ${price.toLocaleString()}원`] : [];
+  });
+  return parts.length ? parts.join(' · ') : null;
+}
+
 export async function fetchGasPricesAt(place: { name: string; latitude: number; longitude: number }): Promise<GasStationDetail | null> {
   return (await fetchGasPricesAtSnapshot(place)).detail;
 }

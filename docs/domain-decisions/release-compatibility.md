@@ -26,6 +26,7 @@ NAV-056: 길안내 자체 POI 표시를 지도 위 UIView 오버레이에서 KNS
 native38로 기록한다. **OTA로는 전달되지 않으며** 새 빌드가 필요하다. 실기기 검증 전이다.
 같은 native38 후보에 NAV-057(하단 메뉴 `목적지 변경`·`다른 경로` 표기·순서, 목적지 유지 문구 삭제)을 포함한다.
 NAV-058(기본 POI 유지, 집·회사·즐겨찾기·가격만 보강, TMAP 일반 장소 조회 중단, 이동 중 마커 유지)도 같은 후보에 포함한다. JS 필터는 OTA로도 바뀌지만 기본 POI 유지는 native38 바이너리에만 있다.
+NAV-059로 native38은 앱 마커를 만들지 않고 `guide_gas_price_markers`·`guide_owned_poi`를 광고하지 않으며 `guide_poi_detail_update`를 새로 광고한다. 구 바이너리(native37 이하)는 기존 기능 광고대로 동작한다.
 
 ## 2026-10-29 TestFlight 전달 — 1.2.11(63), native37/API1
 

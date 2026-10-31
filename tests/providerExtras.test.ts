@@ -75,6 +75,14 @@ test('정상 주유소·일반 POI 유가 매칭과 이륜차 휴게소 제외�
   assert.equal(await notFound.gas.fetchGasPricesAt({ name: '테스트 주유소', latitude: 37.5, longitude: 127 }), null);
 });
 
+test('길안내 POI 시트 가격 요약은 휘발유·고급휘발유만 순서대로, 0원은 뺀다', () => {
+  const api = fixture(detail);
+  assert.equal(api.gas.gasPriceSummary({ ...detail, prices: [{ prod: 'B034', price: 1950, tradeAt: '' }, { prod: 'D047', price: 1500, tradeAt: '' }, { prod: 'B027', price: 1699, tradeAt: '' }] }),
+    `휘발유 ${(1699).toLocaleString()}원 · 고급휘발유 ${(1950).toLocaleString()}원`);
+  assert.equal(api.gas.gasPriceSummary({ ...detail, prices: [{ prod: 'B027', price: 0, tradeAt: '' }] }), null);
+  assert.equal(api.gas.gasPriceSummary(null), null);
+});
+
 test('주유소 상세의 정상 가격·가격 0건과 잘못된 응답을 구분한다', async () => {
   assert.equal((await fixture(detail).gas.fetchGasStationDetail('fixture')).prices[0].price, 1800);
   assert.equal((await fixture({ ...detail, prices: [] }).gas.fetchGasStationDetail('fixture')).prices.length, 0);

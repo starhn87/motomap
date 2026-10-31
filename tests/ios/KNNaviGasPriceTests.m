@@ -60,6 +60,8 @@ int RunKNNaviGasPriceTests(void) {
   [KNSDKBridge setLocationUseAllowed:YES];
   KNNaviHazardSheet *poi=[[KNNaviHazardSheet alloc] initWithTitle:@"지도 테스트 장소" detail:@"미리보기에서 확인 후 안내를 변경해요" options:@[@{@"key":@"goal",@"label":@"목적지로 설정",@"symbol":@"motomap.destination"},@{@"key":@"via",@"label":@"경유지로 추가",@"symbol":@"plus.circle"}] completion:^(NSInteger picked) {}];
   [poi loadViewIfNeeded];
+  [poi updateDetail:@"휘발유 1,699원 · 고급휘발유 1,950원"];
+  if (!HasLabel(poi.view,@"휘발유 1,699원 · 고급휘발유 1,950원")) { NSLog(@"FAIL POI sheet detail update"); failures++; }
   if (!HasLabel(poi.view,@"지도 테스트 장소") || !HasLabel(poi.view,@"목적지로 설정") || !HasLabel(poi.view,@"경유지로 추가") || poi.modalPresentationStyle!=UIModalPresentationOverFullScreen) { NSLog(@"FAIL app-owned POI sheet title/actions"); failures++; }
   PriceSDKProbe *sdk=[PriceSDKProbe new];
   Method method=class_getClassMethod(KNSDK.class,@selector(sharedInstance)); IMP original=method_getImplementation(method);

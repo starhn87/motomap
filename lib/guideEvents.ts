@@ -1,5 +1,5 @@
 import { GUIDE_MENU_ACTIONS_ENABLED, GUIDE_ROUTE_EDITING_ENABLED, GUIDE_MENU_UNAVAILABLE_MESSAGE } from '@/lib/guideMenuPolicy';
-import { withLocationUse, locationUseAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
+import { withLocationUse, locationUseAllowed, providerLocationAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 
@@ -27,6 +27,7 @@ import { hasGuideArrived, matchesGuideArrival, recordGuideArrival } from '@/lib/
 import { toast } from '@/lib/toast';
 import { createAnalyticsId, track } from '@/lib/analytics';
 import { coordToAddress } from '@/lib/api/kakaoLocal';
+import { fetchGasPricesAt, gasPriceSummary, looksLikeGasStation } from '@/lib/api/gasStations';
 
 // 길안내 전역 이벤트 — 안내가 시작되면 /navi 화면은 지도로 빠져 언마운트되므로
 // 종료·메뉴 처리는 화면이 아니라 여기(루트에서 1회 등록)가 맡는다.
@@ -307,7 +308,17 @@ async function openGuidePoi(point: { name: string; latitude: number; longitude: 
   try {
     const name = point.name.trim().slice(0,200) || '선택한 장소';
     // 시트를 띄운 뒤에도 엔진은 진행하므로 실제 경유지 상한은 snapshot으로 다시 확인한다.
+    // 기본 POI 가 주유소면 시트를 먼저 띄우고 휘발유·고급휘발유 가격은 도착하는 대로 채운다(NAV-059).
+    let sheetOpen = true;
+    if (supportsKakaoNaviFeature('guide_poi_detail_update') && providerLocationAllowed('opinet') && looksLikeGasStation(name)) {
+      void fetchGasPricesAt({ name, latitude: point.latitude, longitude: point.longitude }).then((detail) => {
+        const summary = gasPriceSummary(detail);
+        if (summary && sheetOpen && openingPoi === request && current())
+          return KakaoNavi.updateGuidePoiOptionsDetail(`${summary}\n미리보기에서 확인 후 안내를 변경해요`);
+      }).catch(() => {});
+    }
     const picked = await KakaoNavi.showGuidePoiOptions(name, !original.courseId);
+    sheetOpen = false;
     if ((picked !== 0 && picked !== 1) || !current()) return;
     await withLocationUse('navigation','kakao',async () => {
       if (!current()) return;

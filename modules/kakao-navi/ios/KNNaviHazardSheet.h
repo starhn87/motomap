@@ -9,5 +9,7 @@ NS_ASSUME_NONNULL_BEGIN
                       options:(NSArray<NSDictionary<NSString *, NSString *> *> *)options
                    completion:(void (^)(NSInteger index))completion;
 - (void)cancelForNavigationEnd:(void (^)(void))completion;
+// 열린 시트의 설명 줄을 바꾼다(주유소 가격처럼 늦게 오는 정보).
+- (void)updateDetail:(NSString *)detail;
 @end
 NS_ASSUME_NONNULL_END

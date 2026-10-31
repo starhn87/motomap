@@ -33,7 +33,7 @@ function setup(custom = true, pendingGPS = false) {
     '@/lib/guideSession': { useGuideSession: { getState: () => session } },
     '@/lib/guideArrival': {},
     '@/lib/dialog': {}, '@/lib/api/places': {}, '@/lib/api/directions': {}, '@/lib/distance': {}, '@/lib/mapFocus': {}, '@/lib/api/rides': {},
-    '@/lib/toast': { toast: {} }, '@/lib/analytics': { track: {} }, '@/lib/api/courseLibrary': {}, '@/lib/api/kakaoLocal': {}, '@/stores/useMyPlacesStore': {}, '@/lib/ridePlaceStats': {},
+    '@/lib/toast': { toast: {} }, '@/lib/analytics': { track: {} }, '@/lib/api/courseLibrary': {}, '@/lib/api/kakaoLocal': {}, '@/lib/api/gasStations': {}, '@/stores/useMyPlacesStore': {}, '@/lib/ridePlaceStats': {},
   }, { setTimeout: (fn: () => void) => { expireGPS = fn; return 1; }, clearTimeout: () => {} });
   module.registerGuideEvents();
   return { session, reports, order, notices, expireGPS: () => expireGPS?.(), resolveGPS: () => resolveGPS({ coords: { ...position } }), tap: () => callbacks.onGuideMenu({ id: 101 }), choose: (index: number) => choose(index),
