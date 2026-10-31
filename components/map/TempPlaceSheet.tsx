@@ -70,6 +70,8 @@ interface Props {
   place: TempPlace | null;
   onClose: () => void;
   animatedPosition?: SharedValue<number>;
+  /** 지도에서 선택 화면에서 열 때 — 출발·도착·공유 대신 이 버튼 하나와 장소 정보만 보인다. */
+  pickAction?: { label: string; onPress: () => void };
 }
 
 const SNAP_POINTS = [100, '45%', '100%'];
@@ -81,7 +83,7 @@ const DETAIL_CARD_GAP = 10;
 
 // 일반 장소도 등록 장소와 같은 확장형 상세 경험을 쓴다. 차이는 카테고리·라이더
 // 집계처럼 모토맵이 검증한 정보 대신 카카오 정보와 라이더 리뷰가 중심이라는 점이다.
-export default function TempPlaceSheet({ place, onClose, animatedPosition }: Props) {
+export default function TempPlaceSheet({ place, onClose, animatedPosition, pickAction }: Props) {
   const [hoursExpanded, setHoursExpanded] = useState(false);
   useEffect(() => { setHoursExpanded(false); }, [place?.name, place?.latitude, place?.longitude]);
   const colorScheme = useColorScheme();
@@ -400,6 +402,19 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
 
           <PlaceAddressRow address={place.address} />
 
+          {pickAction ? (
+            // 지도에서 선택(경로 지점 편집) 중에는 출발·도착·공유로 흐름을 벗어나지 않고 이 장소를 고르는 버튼만 둔다.
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                accessibilityLabel={pickAction.label}
+                accessibilityRole="button"
+                onPress={pickAction.onPress}
+                activeOpacity={0.8}
+                style={[styles.actionButton, { backgroundColor: colors.tint }]}>
+                <Text style={[styles.navButtonText, { color: colors.background }]}>{pickAction.label}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
           <View style={styles.actionRow}>
             <TouchableOpacity
               accessibilityRole="button"
@@ -455,6 +470,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
               <Text style={[styles.shareButtonText, { color: colors.tint }]}>공유</Text>
             </TouchableOpacity>
           </View>
+          )}
 
           <PlacePhoneRow phone={place.phone} />
           <PlaceHoursRow hours={placeHours?.hours} businessStatus={placeHours?.businessStatus}
@@ -578,7 +594,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
             </Pressable>
           )}
 
-          {!isGasStation && (
+          {!isGasStation && !pickAction && (
             <Pressable
               accessibilityRole="button"
               onPress={handleSubmit}
@@ -627,7 +643,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition }: Pro
                 </View>
               )}
             </View>
-            <ReviewForm target={{ kind: 'general', place: resolvedPlace ?? place }} />
+            {!pickAction && <ReviewForm target={{ kind: 'general', place: resolvedPlace ?? place }} />}
             <View style={styles.reviewDivider} />
             {reviewTarget ? (
               <ReviewList target={reviewTarget} />

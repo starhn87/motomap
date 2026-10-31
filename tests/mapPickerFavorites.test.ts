@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
 
-function setup() {
+function setup(overrides: Record<string, unknown> = {}) {
   const values: any[] = [], effects: any[] = [], scheduled: (() => void)[] = [];
   let cursor = 0, effectCursor = 0, dirty = false, tree: any;
   const addresses: { resolve: (address: string) => void }[] = [], picked: any[] = [];
@@ -48,8 +48,12 @@ function setup() {
     '@/hooks/usePlaces': { usePlaces: (_c: any, center: any, enabled: boolean) => { placeQueries.push({ center, enabled }); return { data: enabled ? registered : undefined }; }, isInMapRenderWindow: () => true },
     '@/hooks/usePlaceOperationalStatus': { usePlaceOperationalStatuses: () => ({ data: {} }) },
     '@/components/map/RegisteredPlaceMarkers': { __esModule: true, default: 'Registered' },
+    'react-native-gesture-handler': { GestureHandlerRootView: 'GestureRoot' },
+    '@/components/map/PlaceBottomSheet': { __esModule: true, default: 'PlaceSheet' },
+    '@/components/map/TempPlaceSheet': { __esModule: true, default: 'TempSheet' },
+    '@/lib/symbolPlace': { resolveSymbolPlace: async () => (prev: any) => ({ ...prev, generalPlaceId: 'general-resolved' }) },
   });
-  const props = { visible: true, initial: null, allowPlaces: true, confirmLabel: '경유지 추가', onClose() {}, onPick: (point: any) => { picked.push(point); } };
+  const props = { visible: true, initial: null, allowPlaces: true, confirmLabel: '경유지 추가', onClose() {}, onPick: (point: any) => { picked.push(point); }, ...overrides };
   const render = () => {
     for (let attempt = 0; attempt < 20; attempt++) {
       cursor = effectCursor = 0; dirty = false; tree = mod.default(props);
@@ -62,7 +66,8 @@ function setup() {
     ? node.flatMap(child => all(type, child)) : [...(node.type === type ? [node] : []), ...all(type, node.props?.children ?? null)];
   const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); render(); };
   render();
-  return { props, render, all, flush, addresses, picked, placeQueries };
+  const sheet = () => [...all('PlaceSheet'), ...all('TempSheet')][0];
+  return { props, render, all, flush, addresses, picked, placeQueries, sheet };
 }
 
 test('지도에서 즐겨찾기를 선택하면 ID를 보존하고 이전 역지오코딩이 덮지 않는다', async () => {
@@ -70,7 +75,7 @@ test('지도에서 즐겨찾기를 선택하면 ID를 보존하고 이전 역지
   f.all('Map')[0].props.onTapMap({ latitude: 37, longitude: 127 }); f.render();
   f.all('Marker').find(node => node.props.onTap).props.onTap(); f.render();
   f.addresses[0].resolve('이전 지도 탭 주소'); await f.flush();
-  f.all('Pressable').find(node => node.props.accessibilityLabel === '경유지 추가').props.onPress();
+  f.sheet().props.pickAction.onPress();
   assert.equal(f.picked[0].placeId, 'favorite'); assert.equal(f.picked[0].name, '이름 몰랐던 카페');
   assert.equal(f.picked[0].address, '주소');
 });
@@ -85,7 +90,7 @@ test('지도 정지 후 즐겨찾기 터치 영역을 투영하고 이동 시 �
   f.all('Map')[0].props.onCameraIdle({ latitude: 37.5, longitude: 127, zoom: 16 }); await f.flush();
   hit = f.all('Pressable').find(node => node.props.accessibilityLabel?.includes('즐겨찾기 선택'));
   hit.props.onPress(); f.render();
-  f.all('Pressable').find(node => node.props.accessibilityLabel === '경유지 추가').props.onPress();
+  f.sheet().props.pickAction.onPress();
   assert.equal(f.picked[0].placeId, 'favorite');
 });
 test('지도에서 선택에도 메인 지도처럼 등록(바이크 특화) 장소 마커를 보여 주고 선택하면 ID를 보존한다', async () => {
@@ -97,7 +102,38 @@ test('지도에서 선택에도 메인 지도처럼 등록(바이크 특화) 장
   assert.deepEqual(layer.props.places.map((p: any) => p.id), ['repair']);
   assert(f.all('Pressable').some(node => node.props.accessibilityLabel === '바이크 정비소, 장소 선택'));
   layer.props.onTap(layer.props.places[0]); f.render();
-  f.all('Pressable').find(node => node.props.accessibilityLabel === '경유지 추가').props.onPress();
+  f.sheet().props.pickAction.onPress();
   assert.equal(f.picked[0].placeId, 'repair'); assert.equal(f.picked[0].address, '정비소 주소');
+});
+
+test('장소를 고르면 상세 시트에 경유지 추가 버튼만 두고 하단 확인 바는 숨긴다', async () => {
+  const f = setup();
+  f.all('Marker').find(node => node.props.onTap).props.onTap(); f.render();
+  assert.equal(f.sheet().type, 'PlaceSheet'); assert.equal(f.sheet().props.pickAction.label, '경유지 추가');
+  assert.equal(f.all('Pressable').some(node => node.props.accessibilityLabel === '경유지 추가'), false);
+  f.sheet().props.onClose(); f.render();
+  assert.equal(f.sheet(), undefined);
+  assert(f.all('Pressable').some(node => node.props.accessibilityLabel === '경유지 추가'));
+});
+
+test('일반 장소 심벌을 탭하면 일반 장소 상세로 고르고, 빈 지도 탭이 그 선택을 좌표 핀으로 덮지 않는다', async () => {
+  const f = setup();
+  f.all('Map')[0].props.onTapSymbol({ latitude: 37.51, longitude: 127.01, caption: '동네 국밥' }); await f.flush();
+  assert.equal(f.sheet().type, 'TempSheet'); assert.equal(f.sheet().props.place.name, '동네 국밥');
+  assert.equal(f.sheet().props.place.generalPlaceId, 'general-resolved');
+  f.sheet().props.pickAction.onPress();
+  assert.equal(f.picked[0].name, '동네 국밥'); assert.equal(f.picked[0].generalPlaceId, 'general-resolved');
+  const lookups = f.addresses.length;
+  f.all('Map')[0].props.onTapMap({ latitude: 37, longitude: 127 }); f.render();
+  assert.equal(f.sheet(), undefined); assert.equal(f.addresses.length, lookups, '시트를 닫는 탭은 새 지점을 찍지 않는다');
+  assert.equal(f.all('Marker').filter(node => node.props.image === 'pin').length, 0);
+});
+
+test('길찾기 지점 선택은 핀 없이 열리고, 위험 제보 선택기는 초기 위치 핀을 유지한다', () => {
+  const route = setup({ initial: { latitude: 37.5, longitude: 127 } });
+  const confirm = route.all('Pressable').find(node => node.props.accessibilityLabel === '경유지 추가');
+  assert.equal(confirm.props.disabled, true); assert.equal(route.addresses.length, 0);
+  const hazard = setup({ initial: { latitude: 37.5, longitude: 127 }, allowPlaces: false, confirmLabel: undefined });
+  assert.equal(hazard.all('Marker').length, 1); assert.equal(hazard.addresses.length, 1);
 });
 

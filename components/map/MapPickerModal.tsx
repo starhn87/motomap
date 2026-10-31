@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { NaverMapView, NaverMapMarkerOverlay, type NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import Colors from '@/constants/Colors';
 import CloseIcon from '@/components/ui/CloseIcon';
@@ -14,7 +15,12 @@ import { MARKER_IMAGES_CIRCLE_FAV, GENERAL_MARKER_CIRCLE_FAV } from '@/constants
 import { isInMapRenderWindow, usePlaces, type MapCenter } from '@/hooks/usePlaces';
 import { usePlaceOperationalStatuses } from '@/hooks/usePlaceOperationalStatus';
 import RegisteredPlaceMarkers from '@/components/map/RegisteredPlaceMarkers';
+import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
+import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
+import { resolveSymbolPlace } from '@/lib/symbolPlace';
 import type { NavTarget } from '@/lib/navigation';
+import type { Place } from '@/types';
+import type { GeneralFavorite } from '@/lib/api/favorites';
 
 interface Props {
   visible: boolean;
@@ -32,6 +38,9 @@ interface Props {
 // 탭한 순간에만 핀을 옮기고 그때 한 번 주소를 조회한다.
 // 투영 터치 영역은 화면 안의 장소만, 너무 많으면 앞쪽 일부만 만든다(정지 때마다 좌표 변환).
 const MAX_HIT_AREAS = 80;
+
+// 장소를 탭하면 메인 지도와 같은 상세 시트를 띄우고, 그 안의 확인 버튼으로 고른다.
+type PlaceDetail = { kind: 'registered'; place: Place } | { kind: 'general'; place: TempPlace };
 
 export default function MapPickerModal({ visible, initial, allowPlaces = false, confirmLabel = '이 위치로 선택', onClose, onPick }: Props) {
   const colorScheme = useColorScheme();
@@ -52,21 +61,25 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
   const mapRef = useRef<NaverMapViewRef>(null);
   const mapReady = useRef(false);
   const projection = useRef(0);
-  const [hitAreas, setHitAreas] = useState<(NavTarget & { address: string; favorite: boolean; x: number; y: number })[]>([]);
+  const [hitAreas, setHitAreas] = useState<{ key: string; name: string; favorite: boolean; open: () => void; x: number; y: number }[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<NavTarget | null>(null);
+  const [detail, setDetail] = useState<PlaceDetail | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
 
-  // 열 때마다 초기 위치(현재 위치 등)에 핀을 놓고 시작한다
+  // 위험 제보처럼 지점만 찍는 화면은 초기 위치(현재 위치 등)에 핀을 놓고 시작한다.
+  // 길찾기 지점은 고르지 않은 곳이 경유지로 들어가지 않도록 빈 상태로 연다.
   useEffect(() => {
     if (!visible) { generation.current += 1; projection.current += 1; mapReady.current=false; setHitAreas([]); return; }
     generation.current += 1;
     setSelectedPlace(null);
+    setDetail(null);
     setResolving(false);
-    setMarker(initial ?? null);
+    const startPin = allowPlaces ? null : initial ?? null;
+    setMarker(startPin);
     setMapCenter(initial ? { ...initial, zoom: 16 } : { latitude: DEFAULT_CENTER[1], longitude: DEFAULT_CENTER[0], zoom: DEFAULT_ZOOM });
     setAddress(null);
-    if (initial) void resolveAddress(initial.latitude, initial.longitude);
+    if (startPin) void resolveAddress(startPin.latitude, startPin.longitude);
     return () => { generation.current += 1; projection.current += 1; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
@@ -77,9 +90,9 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
     const map=mapRef.current, request=++projection.current;
     if (!visible || !allowPlaces || !mapReady.current || !map) { setHitAreas([]); return; }
     const points = [
-      ...(favorites?.places ?? []).map(place => ({ name: place.name, latitude: place.latitude, longitude: place.longitude, placeId: place.id, address: place.address ?? '', favorite: true })),
-      ...(favorites?.general ?? []).map(place => ({ name: place.name, latitude: place.latitude, longitude: place.longitude, generalPlaceId: place.generalPlaceId, address: place.address, favorite: true })),
-      ...windowedPlaces.map(place => ({ name: place.name, latitude: place.latitude, longitude: place.longitude, placeId: place.id, address: place.address ?? '', favorite: false })),
+      ...(favorites?.places ?? []).map(place => ({ key: place.id, name: place.name, latitude: place.latitude, longitude: place.longitude, favorite: true, open: () => openRegistered(place) })),
+      ...(favorites?.general ?? []).map(place => ({ key: `general-${place.id}`, name: place.name, latitude: place.latitude, longitude: place.longitude, favorite: true, open: () => openGeneral(generalFavoritePlace(place)) })),
+      ...windowedPlaces.map(place => ({ key: place.id, name: place.name, latitude: place.latitude, longitude: place.longitude, favorite: false, open: () => openRegistered(place) })),
     ].slice(0, MAX_HIT_AREAS);
     const projected = await Promise.all(points.map(async point => {
       try {
@@ -104,6 +117,8 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
   };
 
   const handleTap = ({ latitude, longitude }: { latitude: number; longitude: number }) => {
+    // 상세 시트가 열려 있으면 빈 지도 탭은 시트만 닫는다(메인 지도와 같은 관례).
+    if (detail) { closeDetail(); return; }
     setSelectedPlace(null);
     setMarker({ latitude, longitude });
     setAddress(null);
@@ -115,9 +130,44 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
     setSelectedPlace(point); setMarker(point); setAddress(address); setResolving(false);
   };
 
+  const openRegistered = (place: Place) => {
+    choosePlace({ name: place.name, latitude: place.latitude, longitude: place.longitude, placeId: place.id }, place.address ?? '');
+    setDetail({ kind: 'registered', place });
+  };
+
+  const openGeneral = (place: TempPlace) => {
+    choosePlace({ name: place.name, latitude: place.latitude, longitude: place.longitude, generalPlaceId: place.generalPlaceId }, place.address);
+    setDetail({ kind: 'general', place });
+  };
+
+  const closeDetail = () => {
+    generation.current += 1;
+    setDetail(null); setSelectedPlace(null); setMarker(null); setAddress(null); setResolving(false);
+  };
+
+  // 네이버 지도 기본 심벌(일반 장소). 패치된 네이티브는 이름 있는 심벌 탭을 소비하므로
+  // 이 핸들러가 없으면 일반 장소를 눌러도 아무 일도 일어나지 않는다.
+  const handleSymbolTap = ({ latitude, longitude, caption }: { latitude: number; longitude: number; caption: string }) => {
+    openGeneral({ name: caption, address: '', latitude, longitude });
+    const same = (place: TempPlace) => place.name === caption && place.latitude === latitude;
+    const update = (apply: (place: TempPlace) => TempPlace) =>
+      setDetail(prev => (prev?.kind === 'general' && same(prev.place) ? { kind: 'general', place: apply(prev.place) } : prev));
+    void coordToAddress(latitude, longitude).then(found => { if (found) update(place => ({ ...place, address: found })); }).catch(() => {});
+    void resolveSymbolPlace(caption, latitude, longitude).then(apply => { if (apply) update(apply); }).catch(() => {});
+  };
+
+  const confirmDetail = () => {
+    if (!detail) return;
+    const { place } = detail;
+    onPick(detail.kind === 'registered'
+      ? { latitude: place.latitude, longitude: place.longitude, name: place.name, placeId: detail.place.id, address: place.address ?? null }
+      : { latitude: place.latitude, longitude: place.longitude, name: place.name, generalPlaceId: detail.place.generalPlaceId, address: place.address || null });
+  };
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.root, { backgroundColor: colors.background }]}>
+      {/* 모달 안은 앱 루트의 제스처 영역 밖이라 상세 시트 드래그를 위해 따로 감싼다. */}
+      <GestureHandlerRootView style={[styles.root, { backgroundColor: colors.background }]}>
         <NaverMapView
           ref={mapRef}
           onInitialized={() => { mapReady.current=true; void projectPlaces(); }}
@@ -141,22 +191,24 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
             longitude: initial?.longitude ?? DEFAULT_CENTER[0],
             zoom: initial ? 16 : DEFAULT_ZOOM,
           }}
-          onTapMap={handleTap}>
+          onTapMap={handleTap}
+          onTapSymbol={allowPlaces ? handleSymbolTap : undefined}>
           {allowPlaces && (
-            <RegisteredPlaceMarkers places={windowedPlaces} selectedPlaceId={null}
+            <RegisteredPlaceMarkers places={windowedPlaces}
+              selectedPlaceId={detail?.kind === 'registered' ? detail.place.id : null}
               operationalStatuses={operationalStatuses} dark={colorScheme === 'dark'}
-              onTap={place => choosePlace({ name: place.name, latitude: place.latitude, longitude: place.longitude, placeId: place.id }, place.address ?? '')} />
+              onTap={openRegistered} />
           )}
           {allowPlaces && favorites?.places.map(place => (
             <NaverMapMarkerOverlay key={place.id} latitude={place.latitude} longitude={place.longitude}
               image={MARKER_IMAGES_CIRCLE_FAV[place.category]} width={34} height={34}
               caption={{ text: place.name }}
-              onTap={() => choosePlace({ name: place.name, latitude: place.latitude, longitude: place.longitude, placeId: place.id }, place.address ?? '')} />
+              onTap={() => openRegistered(place)} />
           ))}
           {allowPlaces && favorites?.general.map(place => (
             <NaverMapMarkerOverlay key={`general-${place.id}`} latitude={place.latitude} longitude={place.longitude}
               image={GENERAL_MARKER_CIRCLE_FAV} width={34} height={34} caption={{ text: place.name }}
-              onTap={() => choosePlace({ name: place.name, latitude: place.latitude, longitude: place.longitude, generalPlaceId: place.generalPlaceId }, place.address)} />
+              onTap={() => openGeneral(generalFavoritePlace(place))} />
           ))}
           {marker && (
             <NaverMapMarkerOverlay
@@ -173,9 +225,9 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
         {/* SDK 마커 탭이 누락돼도 정지한 지도 위의 실제 터치 영역으로 선택한다. */}
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
           {hitAreas.map(point => (
-            <Pressable key={point.placeId ?? point.generalPlaceId ?? `${point.latitude}:${point.longitude}`}
+            <Pressable key={point.key}
               accessibilityRole="button" accessibilityLabel={`${point.name}, ${point.favorite ? '즐겨찾기' : '장소'} 선택`}
-              onPress={() => choosePlace(point, point.address)}
+              onPress={point.open}
               style={{ position: 'absolute', left: point.x-22, top: point.y-22, width: 44, height: 44 }} />
           ))}
         </View>
@@ -197,7 +249,14 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
           <CloseIcon size={20} color={colors.text} />
         </Pressable>
 
-        <View
+        {detail?.kind === 'registered' && (
+          <PlaceBottomSheet place={detail.place} onClose={closeDetail} pickAction={{ label: confirmLabel, onPress: confirmDetail }} />
+        )}
+        {detail?.kind === 'general' && (
+          <TempPlaceSheet place={detail.place} onClose={closeDetail} pickAction={{ label: confirmLabel, onPress: confirmDetail }} />
+        )}
+
+        {!detail && <View
           style={[
             styles.footer,
             {
@@ -235,8 +294,8 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
               <Text style={[styles.confirmText, { color: colors.background }]}>{confirmLabel}</Text>
             )}
           </Pressable>
-        </View>
-      </View>
+        </View>}
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -268,3 +327,7 @@ const styles = StyleSheet.create({
   confirm: { borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
   confirmText: { fontSize: 15, fontWeight: '700' },
 });
+
+function generalFavoritePlace({ name, address, latitude, longitude, phone, providerId, placeUrl, generalPlaceId }: GeneralFavorite): TempPlace {
+  return { name, address, latitude, longitude, phone, providerId, placeUrl, generalPlaceId };
+}

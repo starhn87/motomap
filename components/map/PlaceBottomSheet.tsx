@@ -56,6 +56,8 @@ interface Props {
   animatedPosition?: SharedValue<number>;
   /** 내 리뷰에서 진입 — 시트를 끝까지 펼치고 이 리뷰로 스크롤·강조한다. key(nonce)마다 재실행 */
   highlightReview?: { id: string; key: string } | null;
+  /** 지도에서 선택 화면에서 열 때 — 출발·도착·공유 대신 이 버튼 하나와 장소 정보만 보인다. */
+  pickAction?: { label: string; onPress: () => void };
 }
 
 // 최소 스냅은 비율이 아니라 고정 높이 — 지도 탭에서는 하단 탭바(~83pt)가
@@ -75,6 +77,7 @@ function PlaceBottomSheet({
   onClose,
   animatedPosition,
   highlightReview,
+  pickAction,
 }: Props) {
   const [hoursExpanded, setHoursExpanded] = useState(false);
   useEffect(() => { setHoursExpanded(false); }, [place?.name, place?.latitude, place?.longitude]);
@@ -415,6 +418,19 @@ function PlaceBottomSheet({
           <PlaceAddressRow address={displayPlace.address} />
 
           {/* 출발/도착/공유 — 시트 안 액션 행. 접힌 스냅에서도 보이도록 상단에 둔다 */}
+          {pickAction ? (
+            // 지도에서 선택(경로 지점 편집) 중에는 출발·도착·공유로 흐름을 벗어나지 않고 이 장소를 고르는 버튼만 둔다.
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                accessibilityLabel={pickAction.label}
+                accessibilityRole="button"
+                onPress={pickAction.onPress}
+                activeOpacity={0.8}
+                style={[styles.actionButton, { backgroundColor: colors.tint }]}>
+                <Text style={[styles.navButtonText, { color: colors.background }]}>{pickAction.label}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
           <View style={styles.actionRow}>
             <TouchableOpacity
               accessibilityRole="button"
@@ -478,6 +494,7 @@ function PlaceBottomSheet({
               <Text style={[styles.shareButtonText, { color: colors.tint }]}>공유</Text>
             </TouchableOpacity>
           </View>
+          )}
 
           <PlacePhoneRow phone={displayPlace.phone} />
           <PlaceHoursRow hours={hours} fallbackText={displayPlace.openingHours}
@@ -583,7 +600,7 @@ function PlaceBottomSheet({
             </View>
           ) : null}
 
-          {displayPlace && <NearbyPlaces place={displayPlace} />}
+          {displayPlace && !pickAction && <NearbyPlaces place={displayPlace} />}
 
           <View
             style={[styles.reviewSection, { borderTopColor: colors.border }]}
@@ -607,7 +624,7 @@ function PlaceBottomSheet({
                 </View>
               )}
             </View>
-            <ReviewForm target={{ kind: 'place', id: place.id }} />
+            {!pickAction && <ReviewForm target={{ kind: 'place', id: place.id }} />}
             <View style={styles.reviewDivider} />
             <View
               onLayout={(e) => {
