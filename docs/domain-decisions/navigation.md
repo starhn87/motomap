@@ -2508,6 +2508,53 @@ SDK 벡터 POI 레이어에 넣을 방법은 없고, 앱이 올릴 수 있는 �
 
 ### 영향과 남은 일
 - 이름 판정·좌표 매칭이라 상호가 특이한 주유소는 가격이 안 나올 수 있고, 붙어 있는 두 주유소는 잘못 매칭될 여지가 있다(일반 지도와 같은 한계).
-- 자체 POI·가격 마커 네이티브/JS 코드, 등록 장소·즐겨찾기 RPC, TMAP Edge·캐시·동의 선택지는 호출되지 않은 채 남아 있다. 정리는 별도 작업이다.
+- 자체 POI·가격 마커 네이티브/JS 코드, 등록 장소·즐겨찾기 RPC, TMAP Edge·캐시·동의 선택지는 호출되지 않은 채 남아 있다. 정리는 별도 작업이다. → 앱 코드는 NAV-060에서 제거했고, 서버 쪽은 NAV-060의 정리안(미실행)으로 남긴다.
 - 검증: JS 488개(시트 선표시 후 가격 갱신, 주유소 아닌 장소 미조회, 가격 요약 포맷), 네이티브 세션 failures=0(시트 설명 줄 갱신, 하단 메뉴), `tsc`, `check:release`.
 
+
+## NAV-060 — 안내 지도 앱 마커 코드 제거와 서버 정리안 (2026-10-31)
+
+- 날짜: 2026-10-31
+- 상태: 활성(로컬 후보, native38, 실기기 검증 전)
+- 관련 구현: `modules/kakao-navi/ios/KNNaviPresenter.m`, `KakaoNaviModule.swift`, `lib/guideEvents.ts`, `lib/guidePreview.ts`, `tests/guidePreviewEvents.test.ts`, `tests/ios/KNNaviPoiSheetTests.m`
+
+### 배경
+NAV-059로 안내 지도에 앱 마커를 올리지 않게 되면서 자체 POI·가격 말풍선 계층이 호출되지 않는 코드로 남았다.
+동작은 바꾸지 않고 앱 코드만 걷어 낸다.
+
+### 결정
+- 네이티브: `KNNaviOwnedPoiLayer`·`KNNaviGasPriceLayer`·`KNNaviGuidePoiOverlay`·`KNNaviGuidePoiArtwork`, presenter의 계층 참조·`gOwnedPoiEnabled`·`ownedPoiExclusions`,
+  모듈 함수 7개(`setGuideOwnedPoiEnabled`·`getGuidePoiContext`·`takeGuidePoiSelection`·`updateGuidePoiSnapshot`·`resetGuidePoiSnapshot`·`getGuideGasPriceContext`·`updateGuideGasPriceMarkers`),
+  마커 전용 리소스 `Resources/MapMarkers`(원형 아이콘 20개)와 podspec glob을 지운다. `GasBrands`는 주유소 메뉴(106·108)가 쓰므로 남긴다.
+- JS: `guidePoiEvents`·`guidePoiData`·`guidePoiCatalog`·`guideGasPriceEvents`·`guidePoiChanges`, `api/guidePois`·`api/guideOrdinaryPois`와 각 테스트를 지운다.
+  즐겨찾기 변경 알림(`notifyGuideFavoritesChanged`)은 듣는 쪽이 없어 호출도 뺀다. 자체 catalog로 검증된 선택만 쓰던
+  `openGuidePoi`의 `verifiedIdentity`·`sourceCurrent`, 미리보기의 `selectedPoi`도 항상 비어 있게 되어 같이 지운다.
+  기본 POI 탭은 원래부터 이 경로를 쓰지 않았으므로 선택 흐름은 같다.
+- 검사 도구: 실기기 시제품(`OwnedPoiDevicePrototype.m`, `install-ios-owned-poi-prototype.sh`)과 계층 fixture·검사를 지운다.
+  NAV-059의 POI 시트 설명 줄 갱신 검사는 `KNNaviPoiSheetTests.m`으로 옮겨 유지한다.
+- **메뉴 id 109·110·111은 JS에서 계속 조용히 버린다.** native37(TestFlight 63)은 가격 계층을 무조건 만들어 위치 갱신 때
+  최대 30초 간격으로 109를 보낸다. 분기를 지우면 이 id가 아래로 흘러 `GUIDE_MENU_ACTIONS_ENABLED`가 꺼진 빌드에서
+  '메뉴 사용 불가' 토스트가 반복된다. 회귀 검사(`tests/guidePreviewEvents.test.ts`)로 고정했고, 가드를 빼면 실패함을 확인했다.
+
+### 구 바이너리 호환 (REL-004)
+`guide_gas_price_markers`(native26~)·`guide_owned_poi`(native34~)를 광고한 바이너리는 모두 1.2.11 후보이고, 그중 배포된 것은 TestFlight 63(native37)뿐이다.
+공개 1.2.10(61, native23)은 두 기능을 광고하지 않으며 runtime도 달라 1.2.11 OTA를 받지 않는다. 따라서 TestFlight 전용 기능 철회로 보고 JS도 지운다.
+이 JS를 OTA로 받은 native37은 다음처럼 동작한다(의도한 결과).
+- 자체 POI: JS opt-in(`setGuideOwnedPoiEnabled`)이 없어 계층이 생기지 않는다. SDK 기본 POI가 보인다.
+- 가격 말풍선: 요청(109)에 응답이 없어 표시되지 않는다. 계층은 20초 뒤 요청을 스스로 비우고 30초 간격으로만 다시 요청한다.
+- POI 시트 가격: `guide_poi_detail_update`가 없어 기존 안내 문구만 보인다.
+
+### 서버 정리안 (미실행, 결정 필요)
+운영 배포·동의 문구와 얽혀 있어 이번 작업에서는 바꾸지 않았다. 앱의 호출처는 모두 사라졌다.
+1. 등록 장소·즐겨찾기 RPC(`guide_places_in_viewport`·`guide_map_favorites`, `20261028130630_add_guide_poi_map_reads.sql`):
+   native37/TestFlight 63 설치본도 새 OTA를 받으면 호출하지 않는다. TestFlight 63에 새 OTA가 적용된 뒤 drop 마이그레이션 하나로 지우고 `database.types.ts`를 재생성한다.
+2. TMAP Edge `tmap-poi-search`·`_shared/tmapPoi*.ts`·`tmap_poi_cache`·`tmap_poi_daily_budget`·`claim/finish_tmap_poi_refresh`(`20261029001626_add_tmap_guide_pois.sql`)와
+   관련 검사(`tests/tmapPoiSearch.test.ts`, `scripts/test-tmap-poi-*.{sh,py}`): Edge 함수를 먼저 내리고(또는 410 응답), 다음 마이그레이션에서 테이블·함수를 drop한 뒤 서버 키를 회수한다.
+   NAV-058 이후 앱이 이 Edge를 호출하지 않으므로 순서는 자유롭지만, 캐시 테이블은 공급자 원본 23시간 이내 자료뿐이라 보관할 이유가 없다.
+3. 위치정보 동의의 TMAP 선택지(`lib/locationPrivacy.ts`의 `tmap` 수신자, `LegalConsentScreen`, `location_private.control`의 `clientCapabilities: ['tmap']`):
+   앱은 더 이상 TMAP에 위치를 보내지 않으므로 선택지를 내리는 것이 맞다. 다만 기존 동의 기록·철회 이력과 위치정보 이용약관의 수신자 목록이 바뀌므로
+   `location-privacy.md` 결정과 약관 개정 절차를 먼저 거친다. 이미 TMAP을 선택한 사용자의 기록은 지우지 않고, 새 버전에서 선택지만 숨긴다.
+4. `config/release-notes.json`의 1.2.11 문구 중 길안내 지도 장소 아이콘·두 줄 이름·일반 장소·TMAP·가격 말풍선 4줄은 NAV-059 이후 사실과 다르다. 제출 전 사용자가 문구를 정한다.
+
+### 검증
+`npx tsc --noEmit`, `npm test`(451개, 109·110·111 무시 회귀 포함), `npm run check:release`(BASE_SHA=origin/main), 네이티브 세션 검사.

@@ -2,7 +2,7 @@
 #import "KNNaviAudioFocus.h"
 
 extern int RunKNNaviSessionTests(void);
-extern int RunKNNaviGasPriceTests(void);
+extern int RunKNNaviPoiSheetTests(void);
 extern void RunKNNaviGasTests(UIWindow *window, void (^completion)(int));
 extern void RunKNNaviHazardSheetTests(UIWindow *window, void (^completion)(int));
 extern void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int));
@@ -20,7 +20,7 @@ extern void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int));
 - (void)sceneDidBecomeActive:(UIScene *)scene {
   if(self.ran)return;self.ran=YES;
   dispatch_async(dispatch_get_main_queue(), ^{
-    int failures = RunKNNaviSessionTests()+RunKNNaviGasPriceTests();
+    int failures = RunKNNaviSessionTests()+RunKNNaviPoiSheetTests();
     RunKNNaviBottomTests(self.window, ^(int bottomFailures) {
     RunKNNaviHazardSheetTests(self.window, ^(int hazardFailures) {
     RunKNNaviGasTests(self.window, ^(int gasFailures) {

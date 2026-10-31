@@ -55,8 +55,6 @@ export const KAKAO_NAVI_FEATURES = [
   'location_privacy_stop',
   'guide_web_bottom',
   'guide_route_editing',
-  'guide_gas_price_markers',
-  'guide_owned_poi',
   'guide_hazard_sheet',
   'guide_gas_stations',
   'guide_arrival_record',
@@ -85,8 +83,6 @@ export interface GuidePreviewSnapshot {
   goalReplaced?: boolean;
   gasViaAdded?: boolean;
   unregisteredViaAdded?: boolean;
-  /** 현재 세션 catalog에서 검증한 자체 POI 선택만 장소 ID를 유지한다. */
-  selectedPoi?: { via:boolean; point:{name:string;latitude:number;longitude:number;placeId?:string;generalPlaceId?:string} };
   start: { latitude: number; longitude: number } | null;
   goal: { latitude: number; longitude: number; name: string };
   vias: { latitude: number; longitude: number; name: string }[];
@@ -104,11 +100,6 @@ type GuideEventPayload = {
 };
 
 interface KakaoNaviModule {
-  setGuideOwnedPoiEnabled(enabled:boolean):Promise<void>;
-  getGuidePoiContext():Promise<{requestId:string;bounds:{south:number;west:number;north:number;east:number};center?:{latitude:number;longitude:number}}|null>;
-  takeGuidePoiSelection():Promise<{key:string;snapshotId:string}|null>;
-  updateGuidePoiSnapshot(json:string):Promise<boolean>;
-  resetGuidePoiSnapshot():Promise<void>;
   openGuidePreview(): Promise<GuidePreviewSnapshot>;
   returnToGuide(token: number): Promise<boolean>;
   resumeGuide(token: number, lng: number, lat: number, name: string, vias: number[], priority: RoutePriority): Promise<{ vias: number[]; passedVias: GuidePreviewSnapshot['passedVias'] }>;
@@ -143,8 +134,6 @@ interface KakaoNaviModule {
     listener: (payload: GuideEventPayload[E]) => void,
   ): { remove: () => void };
   /** 안내 화면 위 액션시트. 고른 인덱스, 취소면 -1 */
-  getGuideGasPriceContext(): Promise<{requestId: string; latitude: number; longitude: number} | null>;
-  updateGuideGasPriceMarkers(json: string): Promise<void>;
   showGuidePoiOptions(title: string, canAddVia: boolean): Promise<number>;
   /** 열린 POI 선택 시트의 설명 줄을 바꾼다. 시트가 닫혔으면 무시된다. */
   updateGuidePoiOptionsDetail(detail: string): Promise<void>;
@@ -177,11 +166,6 @@ interface KakaoNaviModule {
 const nativeModule = requireOptionalNativeModule<KakaoNaviModule>('KakaoNavi');
 const unavailable = () => Promise.reject(new Error('이 기기에서는 앱 내 길안내를 지원하지 않습니다.'));
 const unavailableModule = {
-  setGuideOwnedPoiEnabled:unavailable,
-  getGuidePoiContext:unavailable,
-  takeGuidePoiSelection:unavailable,
-  updateGuidePoiSnapshot:unavailable,
-  resetGuidePoiSnapshot:unavailable,
   stopLocationUse: async () => {},
   setLocationUseAllowed: unavailable,
   bridgeVersion: 0,
@@ -192,8 +176,6 @@ const unavailableModule = {
   returnToGuide: unavailable,
   resumeGuide: unavailable,
   addListener: () => ({ remove: () => {} }),
-  getGuideGasPriceContext: unavailable,
-  updateGuideGasPriceMarkers: unavailable,
   showGuidePoiOptions: unavailable,
   updateGuidePoiOptionsDetail: unavailable,
   showGuideOptions: unavailable,

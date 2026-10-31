@@ -49,13 +49,6 @@ NS_ASSUME_NONNULL_BEGIN
                    completion:(void (^)(NSInteger pickedIndex))completion NS_SWIFT_NAME(showPoiOptions(title:canAddVia:completion:));
 + (void)updatePoiOptionsDetail:(NSString *)detail NS_SWIFT_NAME(updatePoiOptionsDetail(_:));
 + (void)showToast:(NSString *)message;
-+ (void)setGuideOwnedPoiEnabled:(BOOL)enabled;
-+ (NSDictionary *_Nullable)guidePoiContext;
-+ (NSDictionary *_Nullable)takeGuidePoiSelection;
-+ (BOOL)updateGuidePoiSnapshot:(NSString *)json;
-+ (void)resetGuidePoiSnapshot;
-+ (NSDictionary *_Nullable)guideGasPriceContext;
-+ (void)updateGuideGasPriceMarkers:(NSString *)json;
 + (NSDictionary *_Nullable)guideGasContext;
 + (NSDictionary *_Nullable)takeGuideGasSelection;
 + (void)updateGuideGasStations:(NSString *)json;

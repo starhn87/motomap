@@ -33,22 +33,6 @@ public class KakaoNaviModule: Module {
       ],
     ])
 
-    AsyncFunction("setGuideOwnedPoiEnabled") { (enabled: Bool) in
-      KNNaviPresenter.setGuideOwnedPoiEnabled(enabled)
-    }.runOnQueue(.main)
-    AsyncFunction("getGuidePoiContext") { () -> [AnyHashable: Any]? in
-      KNNaviPresenter.guidePoiContext()
-    }.runOnQueue(.main)
-    AsyncFunction("takeGuidePoiSelection") { () -> [AnyHashable: Any]? in
-      KNNaviPresenter.takeGuidePoiSelection()
-    }.runOnQueue(.main)
-    AsyncFunction("updateGuidePoiSnapshot") { (json: String) -> Bool in
-      KNNaviPresenter.updateGuidePoiSnapshot(json)
-    }.runOnQueue(.main)
-    AsyncFunction("resetGuidePoiSnapshot") {
-      KNNaviPresenter.resetGuidePoiSnapshot()
-    }.runOnQueue(.main)
-
     AsyncFunction("initialize") { (appKey: String, promise: Promise) in
       let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
       KNSDKBridge.initialize(withAppKey: appKey, clientVersion: version) { errorCode, errorMessage in
@@ -166,13 +150,6 @@ public class KakaoNaviModule: Module {
 
     AsyncFunction("showGuideHazardOptions") { (options: [[String: String]], promise: Promise) in
       KNNaviPresenter.showHazardOptions(options) { picked in promise.resolve(picked) }
-    }.runOnQueue(.main)
-
-    AsyncFunction("getGuideGasPriceContext") { () -> [AnyHashable: Any]? in
-      return KNNaviPresenter.guideGasPriceContext()
-    }.runOnQueue(.main)
-    AsyncFunction("updateGuideGasPriceMarkers") { (json: String) in
-      KNNaviPresenter.updateGuideGasPriceMarkers(json)
     }.runOnQueue(.main)
 
     AsyncFunction("getGuideGasContext") { () -> [AnyHashable: Any]? in

@@ -19,8 +19,6 @@ function setup(failOpen = false, enabled = true, routeEditing = enabled, capabil
   const store: any = { goal: snapshot.goal, preview: null, setPreview(value: any) { store.preview = value; }, clear() { clearCount++; store.goal = null; } };
   const module = loadModule<{ registerGuideEvents(): () => void }>('lib/guideEvents.ts', {
     '@/lib/guidePreview': guidePreview,
-    '@/lib/guidePoiEvents': { registerGuidePoiEvents:()=>()=>{} },
-    '@/lib/guideGasPriceEvents': { handleGuideGasPrices: async () => {}, cancelGuideGasPrices() {} },
     '@/lib/guideMenuPolicy': { GUIDE_MENU_ACTIONS_ENABLED: enabled, GUIDE_ROUTE_EDITING_ENABLED: routeEditing, GUIDE_MENU_UNAVAILABLE_MESSAGE: '이번 버전에서는 안내 음량과 종료만 지원해요.' },
     '@/stores/useLocationPrivacyStore': { locationUseAllowed: () => true, useLocationPrivacyStore:{ getState:() => ({revision:1}) }, providerLocationAllowed: () => true, withLocationUse: async (_purpose: any, _provider: any, work: any) => { await work(); await new Promise<void>((resolve) => { finishAudit = resolve; }); } },
     '@react-native-async-storage/async-storage': { __esModule: true, default: { getItem: async () => null, removeItem: async () => {} } },
@@ -110,3 +108,13 @@ test('기본 POI 주유소 시트는 먼저 열고 휘발유·고급휘발유 �
   sheetGate = null; gasDetail = null;
 });
 
+
+// native37(TestFlight 63)은 JS가 응답하지 않아도 가격 말풍선(109)·자체 POI(110·111) 요청을 계속 보낸다(NAV-060).
+for (const enabled of [true, false]) {
+  test(`구 바이너리의 마커 계층 요청 109·110·111은 메뉴 허용(${enabled})과 무관하게 조용히 버린다`, async () => {
+    const f = setup(false, enabled);
+    for (const id of [109, 110, 111]) f.callbacks.onGuideMenu({ id });
+    await f.flush();
+    assert.deepEqual(f.notices, []); assert.equal(f.pushed.length, 0); assert.equal(f.store.preview, null);
+  });
+}
