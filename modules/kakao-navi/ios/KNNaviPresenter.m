@@ -768,7 +768,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   KNTrip *trip = self.guidance.trip;
   NSMutableDictionary *state = [@{@"volume":@(self.volume), @"busy":@(self.changingDestination || self.arrivalRecovery.requesting)} mutableCopy];
   if (self.arrivalRecovery.waiting || self.arrivalMessage) {
-    state[@"status"] = self.arrivalRecovery.requesting ? @"복귀 경로를 찾고 있어요" : @"목적지를 유지하고 있어요";
+    state[@"status"] = self.arrivalRecovery.requesting ? @"복귀 경로를 찾고 있어요" : @"왼쪽 새로고침으로 다시 안내";
     state[@"detail"] = @"왼쪽 새로고침으로 다시 안내";
   } else if (trip) {
     state[@"remainingDistance"] = @(trip.remainDist);
@@ -1031,7 +1031,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (self.preview) { [self finish]; return; }
   if (!self.arrivalRecovery.waiting) [self guidanceGuideEnded:nil];
   if (!self.arrivalRecovery.requesting) {
-    [self showArrivalUIWithMessage:@"목적지를 유지하고 있어요.\n목적지까지 다시 안내할 수 있어요."];
+    [self showArrivalUIWithMessage:@"목적지까지 다시 안내할 수 있어요."];
   }
 }
 
@@ -1147,7 +1147,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     return;
   }
   if (self.arrivalRecovery.waiting) {
-    [self showArrivalUIWithMessage:@"경로를 바꾸지 못했어요.\n기존 목적지를 유지하고 있어요. 다시 시도해 주세요."];
+    [self showArrivalUIWithMessage:@"경로를 바꾸지 못했어요.\n다시 시도해 주세요."];
     return;
   }
   [self.naviView guidance:aGuidance routeUnchangedWithError:aError];
@@ -1315,7 +1315,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (self.finished || generation != self.routeRequestGeneration || !self.arrivalRecovery.requesting) return;
   self.routeRequestGeneration++; // 시간 초과 뒤의 늦은 응답은 안내를 재시작하지 않는다.
   [self.arrivalRecovery requestFailed];
-  [self showArrivalUIWithMessage:@"돌아가는 경로를 찾지 못했어요.\n목적지를 유지하고 있어요. 다시 시도해 주세요."];
+  [self showArrivalUIWithMessage:@"돌아가는 경로를 찾지 못했어요.\n다시 시도해 주세요."];
 }
 
 - (void)requestArrivalReturnWithGPS:(KNGPSData *)gps {
@@ -2083,7 +2083,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
                     if (error != nil || trip == nil) {
                       navi.changingDestination = NO;
                       if (navi.arrivalRecovery.waiting) {
-                        [navi showArrivalUIWithMessage:@"목적지를 바꾸지 못했어요.\n기존 목적지를 유지하고 있어요."];
+                        [navi showArrivalUIWithMessage:@"목적지를 바꾸지 못했어요."];
                       }
                       completion([KNSDKBridge errorCodeOf:error],
                                  error ? (error.msg ?: @"경로 생성 실패") : @"경로를 만들지 못했다");
