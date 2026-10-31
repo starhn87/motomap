@@ -393,7 +393,7 @@ export default function PointSearchModal({
             <Text style={{ color: colors.textSecondary }}>즐겨찾기·바이크 장소도 선택할 수 있어요</Text>
           </Pressable>
         )}
-        <MapPickerModal visible={visible && mapPicking} allowPlaces
+        <MapPickerModal visible={visible && mapPicking} allowPlaces confirmLabel={title}
           initial={getSearchAnchor().near}
           onClose={() => setMapPicking(false)}
           onPick={point => { setMapPicking(false); selectPoint({ name: point.name ?? point.address ?? '지도에서 선택한 위치',

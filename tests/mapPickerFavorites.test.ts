@@ -49,7 +49,7 @@ function setup() {
     '@/hooks/usePlaceOperationalStatus': { usePlaceOperationalStatuses: () => ({ data: {} }) },
     '@/components/map/RegisteredPlaceMarkers': { __esModule: true, default: 'Registered' },
   });
-  const props = { visible: true, initial: null, allowPlaces: true, onClose() {}, onPick: (point: any) => { picked.push(point); } };
+  const props = { visible: true, initial: null, allowPlaces: true, confirmLabel: '경유지 추가', onClose() {}, onPick: (point: any) => { picked.push(point); } };
   const render = () => {
     for (let attempt = 0; attempt < 20; attempt++) {
       cursor = effectCursor = 0; dirty = false; tree = mod.default(props);
@@ -70,7 +70,7 @@ test('지도에서 즐겨찾기를 선택하면 ID를 보존하고 이전 역지
   f.all('Map')[0].props.onTapMap({ latitude: 37, longitude: 127 }); f.render();
   f.all('Marker').find(node => node.props.onTap).props.onTap(); f.render();
   f.addresses[0].resolve('이전 지도 탭 주소'); await f.flush();
-  f.all('Pressable').find(node => node.props.accessibilityLabel === '이 위치로 선택').props.onPress();
+  f.all('Pressable').find(node => node.props.accessibilityLabel === '경유지 추가').props.onPress();
   assert.equal(f.picked[0].placeId, 'favorite'); assert.equal(f.picked[0].name, '이름 몰랐던 카페');
   assert.equal(f.picked[0].address, '주소');
 });
@@ -85,7 +85,7 @@ test('지도 정지 후 즐겨찾기 터치 영역을 투영하고 이동 시 �
   f.all('Map')[0].props.onCameraIdle({ latitude: 37.5, longitude: 127, zoom: 16 }); await f.flush();
   hit = f.all('Pressable').find(node => node.props.accessibilityLabel?.includes('즐겨찾기 선택'));
   hit.props.onPress(); f.render();
-  f.all('Pressable').find(node => node.props.accessibilityLabel === '이 위치로 선택').props.onPress();
+  f.all('Pressable').find(node => node.props.accessibilityLabel === '경유지 추가').props.onPress();
   assert.equal(f.picked[0].placeId, 'favorite');
 });
 test('지도에서 선택에도 메인 지도처럼 등록(바이크 특화) 장소 마커를 보여 주고 선택하면 ID를 보존한다', async () => {
@@ -97,7 +97,7 @@ test('지도에서 선택에도 메인 지도처럼 등록(바이크 특화) 장
   assert.deepEqual(layer.props.places.map((p: any) => p.id), ['repair']);
   assert(f.all('Pressable').some(node => node.props.accessibilityLabel === '바이크 정비소, 장소 선택'));
   layer.props.onTap(layer.props.places[0]); f.render();
-  f.all('Pressable').find(node => node.props.accessibilityLabel === '이 위치로 선택').props.onPress();
+  f.all('Pressable').find(node => node.props.accessibilityLabel === '경유지 추가').props.onPress();
   assert.equal(f.picked[0].placeId, 'repair'); assert.equal(f.picked[0].address, '정비소 주소');
 });
 

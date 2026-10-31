@@ -21,6 +21,8 @@ interface Props {
   initial?: { latitude: number; longitude: number } | null;
   /** 즐겨찾기와 등록(바이크 특화) 장소 마커를 메인 지도처럼 보여 주고 선택하게 한다. */
   allowPlaces?: boolean;
+  /** 확인 버튼 문구. 길찾기 지점은 '경유지 추가'처럼 지금 하는 일을 쓴다. */
+  confirmLabel?: string;
   onClose: () => void;
   onPick: (coord: { latitude: number; longitude: number; address: string | null; name?: string; placeId?: string; generalPlaceId?: string }) => void;
 }
@@ -31,7 +33,7 @@ interface Props {
 // 투영 터치 영역은 화면 안의 장소만, 너무 많으면 앞쪽 일부만 만든다(정지 때마다 좌표 변환).
 const MAX_HIT_AREAS = 80;
 
-export default function MapPickerModal({ visible, initial, allowPlaces = false, onClose, onPick }: Props) {
+export default function MapPickerModal({ visible, initial, allowPlaces = false, confirmLabel = '이 위치로 선택', onClose, onPick }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
@@ -215,7 +217,7 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
             </Text>
           </View>
           <Pressable
-            accessibilityLabel="이 위치로 선택"
+            accessibilityLabel={confirmLabel}
             accessibilityRole="button"
             accessibilityState={{ disabled: !marker || resolving, busy: resolving }}
             onPress={() => marker && onPick({ ...marker, ...selectedPlace, address })}
@@ -230,7 +232,7 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
             {resolving ? (
               <ActivityIndicator size="small" color={colors.background} />
             ) : (
-              <Text style={[styles.confirmText, { color: colors.background }]}>이 위치로 선택</Text>
+              <Text style={[styles.confirmText, { color: colors.background }]}>{confirmLabel}</Text>
             )}
           </Pressable>
         </View>
