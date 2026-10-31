@@ -2263,7 +2263,7 @@ native36/API1·네이티브 세션 검증을 통과했다. 최종 Release 빌드
 
 ## NAV-055 — TMAP 주변 업종 검색과 선택 동의·공유 캐시
 
-부분 대체됨(NAV-058): 앱의 TMAP 일반 장소 조회·표시는 중단한다. 서버 Edge·캐시·동의 선택은 남아 있다.
+부분 대체됨(NAV-058): 앱의 TMAP 일반 장소 조회·표시는 중단한다. 서버 Edge·캐시·동의 선택은 남아 있다. 앱 클라이언트 코드는 NAV-060에서 제거했고 서버 정리안도 NAV-060에 있다.
 
 - 날짜: 2026-10-28
 - 상태: 활성(로컬 후보, 운영 적용 대기)
@@ -2487,7 +2487,7 @@ SDK 벡터 POI 레이어에 넣을 방법은 없고, 앱이 올릴 수 있는 �
 ### 영향과 남은 일
 - 기본 POI와 자체 마커가 같은 장소에 겹칠 수 있다(예: 즐겨찾기 카페의 SDK 상호와 즐겨찾기 아이콘).
 - TMAP 서버 Edge·공유 캐시·위치정보 관리의 TMAP 선택 동의는 그대로 남아 있다. 앱은 더 이상 TMAP에 위치를 보내지 않으므로, 동의 화면에서 TMAP 선택지를 내릴지는 별도로 결정한다.
-- `lib/api/guideOrdinaryPois.ts`는 호출처가 없어졌지만 서버 계약과 함께 정리할 때 지운다.
+- `lib/api/guideOrdinaryPois.ts`는 호출처가 없어졌지만 서버 계약과 함께 정리할 때 지운다. → NAV-060에서 앱 쪽만 먼저 제거했다. 서버는 NAV-060 정리안을 따른다.
 - 검증: JS 486개(표시 대상 필터·TMAP 미호출 회귀 포함), 네이티브 세션 failures=0(기본 POI 유지, 범위 밖 이동·갱신 실패 시 마커 유지, 바뀌지 않은 마커 재사용), `tsc`, `check:release`. 실기기에서 기본 POI와 겹침, 이동 시 깜빡임은 아직 확인 전이다.
 
 
@@ -2547,10 +2547,12 @@ NAV-059로 안내 지도에 앱 마커를 올리지 않게 되면서 자체 POI�
 ### 서버 정리안 (미실행, 결정 필요)
 운영 배포·동의 문구와 얽혀 있어 이번 작업에서는 바꾸지 않았다. 앱의 호출처는 모두 사라졌다.
 1. 등록 장소·즐겨찾기 RPC(`guide_places_in_viewport`·`guide_map_favorites`, `20261028130630_add_guide_poi_map_reads.sql`):
-   native37/TestFlight 63 설치본도 새 OTA를 받으면 호출하지 않는다. TestFlight 63에 새 OTA가 적용된 뒤 drop 마이그레이션 하나로 지우고 `database.types.ts`를 재생성한다.
+   TestFlight 63은 내장 JS(`299853f`)로 이 RPC를 실제 호출한다. 새 OTA를 받은 뒤에는 호출하지 않으므로 **TestFlight 63에 새 OTA가 적용된 뒤** drop 마이그레이션 하나로 지우고
+   `database.types.ts`를 재생성한다. SQL 검사 `scripts/test-guide-poi-sql.sh`도 함께 지운다.
 2. TMAP Edge `tmap-poi-search`·`_shared/tmapPoi*.ts`·`tmap_poi_cache`·`tmap_poi_daily_budget`·`claim/finish_tmap_poi_refresh`(`20261029001626_add_tmap_guide_pois.sql`)와
    관련 검사(`tests/tmapPoiSearch.test.ts`, `scripts/test-tmap-poi-*.{sh,py}`): Edge 함수를 먼저 내리고(또는 410 응답), 다음 마이그레이션에서 테이블·함수를 drop한 뒤 서버 키를 회수한다.
-   NAV-058 이후 앱이 이 Edge를 호출하지 않으므로 순서는 자유롭지만, 캐시 테이블은 공급자 원본 23시간 이내 자료뿐이라 보관할 이유가 없다.
+   현재 로컬 JS는 호출하지 않지만 TestFlight 63의 내장 JS는 TMAP을 선택한 사용자에게서 이 Edge를 실제 호출한다. 1번과 같이 **TestFlight 63에 새 OTA가 적용된 뒤** 내린다(REL-004).
+   캐시 테이블은 공급자 원본 23시간 이내 자료뿐이라 보관할 이유가 없다.
 3. 위치정보 동의의 TMAP 선택지(`lib/locationPrivacy.ts`의 `tmap` 수신자, `LegalConsentScreen`, `location_private.control`의 `clientCapabilities: ['tmap']`):
    앱은 더 이상 TMAP에 위치를 보내지 않으므로 선택지를 내리는 것이 맞다. 다만 기존 동의 기록·철회 이력과 위치정보 이용약관의 수신자 목록이 바뀌므로
    `location-privacy.md` 결정과 약관 개정 절차를 먼저 거친다. 이미 TMAP을 선택한 사용자의 기록은 지우지 않고, 새 버전에서 선택지만 숨긴다.
