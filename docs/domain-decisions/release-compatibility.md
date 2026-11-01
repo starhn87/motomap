@@ -18,6 +18,13 @@
 - 네이티브 브리지 계약: **38**
 - 백엔드 API 계약: **1**
 
+## 2026-11-01 TestFlight 전달: 1.2.11(66), native38/API1
+
+사용자 요청으로 `ef056ea`를 푸시하고 clean clone에서 EAS cloud production으로 빌드했다. EAS build
+`d88cadcf-eb03-4483-8405-1bfa326b42f1`이 `FINISHED`, 1.2.11(66)/runtime1.2.11임을 확인했고 submission
+`e928082d-0b89-46e5-88db-580e6a0da428`가 **App Store Connect 업로드 성공**으로 끝났다. 확인 시점은 Apple 처리
+단계다. NAV-061·SEARCH-020·MAP-059를 담은 첫 바이너리이며 실기기 확인은 66번에서 한다. OTA·심사 제출은 하지 않았다.
+
 ## 2026-11-01 65번 이후 후보: 하단 메뉴 목적지 변경 단일화(native38 유지)
 
 NAV-061로 번들 HTML에서 `다른 경로` 버튼을 지운다. JS 계약은 같아 브리지 번호는 38을 유지하지만 새 바이너리에서만
