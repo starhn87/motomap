@@ -44,9 +44,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   MARKER_IMAGES,
   MARKER_IMAGES_FAV,
-  MARKER_IMAGES_CIRCLE,
-  MARKER_IMAGES_CIRCLE_FAV,
-  GENERAL_MARKER_CIRCLE_FAV,
   GENERAL_MARKER_CIRCLE,
   GENERAL_MARKER_FAV,
 } from '@/constants/markerImages';
@@ -74,6 +71,7 @@ import type { Href } from 'expo-router';
 import { useIsFocused, type ParamListBase } from 'expo-router/react-navigation';
 import type { NativeStackNavigationProp } from 'expo-router';
 import { TrackedUserLocationMarker } from '@/components/map/TrackedUserLocationMarker';
+import FavoritePlaceMarkers from '@/components/map/FavoritePlaceMarkers';
 import RegisteredPlaceMarkers, {
   PLACE_MARKER_GLOBAL_Z_INDEX,
   TEMPORARILY_CLOSED_MARKER_ALPHA,
@@ -870,80 +868,30 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
               />
             ))}
 
-        {/* 즐겨찾기는 높은 우선순위로 겹친 일반 마커보다 먼저 보인다. */}
-        {showFavorites &&
-          windowedFavoritePlaces
-            .filter((p) => p.id !== selectedPlaceId)
-            .map((p) => {
-              const temporarilyClosed = operationalStatuses[p.id] === 'temporarily_closed';
-              return (
-                <NaverMapMarkerOverlay
-                  key={p.id}
-                  latitude={p.latitude}
-                  longitude={p.longitude}
-                  image={MARKER_IMAGES_CIRCLE_FAV[p.category]}
-                  width={30}
-                  height={30}
-                  anchor={{ x: 0.5, y: 0.5 }}
-                  alpha={temporarilyClosed ? TEMPORARILY_CLOSED_MARKER_ALPHA : 1}
-                  globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
-                  zIndex={50}
-                  isForceShowIcon
-                  isHideCollidedSymbols
-                  isHideCollidedCaptions
-                  caption={{
-                    text: markerCaption(p.name, temporarilyClosed),
-                    textSize: 13,
-                    minZoom: PLACE_CAPTION_MIN_ZOOM,
-                    color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
-                    haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
-                  }}
-                  onTap={() => handleMarkerPress(p)}
-                />
-              );
-            })}
-
-        {/* 등록되지 않은 일반 장소 즐겨찾기 — 카테고리가 없어 색으로 구분되지
-            않는다(중립 회색 + 별). 탭하면 등록 장소 대신 임시 카드가 뜬다. */}
-        {showFavorites &&
-          windowedGeneralFavorites
+        {showFavorites && (
+          <FavoritePlaceMarkers
+            places={windowedFavoritePlaces}
+            general={windowedGeneralFavorites}
+            selectedPlaceId={selectedPlaceId}
             // 고른 것은 아래에서 핀으로 다시 그린다 — 안 빼면 원형 위에 핀이 겹친다
-            .filter((f) => !tempPlace || !findGeneralFavorite([f], tempPlace))
-            .map((f) => (
-            <NaverMapMarkerOverlay
-              key={`fav-general-${f.id}`}
-              latitude={f.latitude}
-              longitude={f.longitude}
-              image={GENERAL_MARKER_CIRCLE_FAV}
-              width={30}
-              height={30}
-              anchor={{ x: 0.5, y: 0.5 }}
-              globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
-              zIndex={50}
-              isForceShowIcon
-              isHideCollidedSymbols
-              isHideCollidedCaptions
-              caption={{
-                text: f.name,
-                textSize: 13,
-                minZoom: PLACE_CAPTION_MIN_ZOOM,
-                color: colorScheme === 'dark' ? '#F9FAFB' : '#111827',
-                haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
-              }}
-              onTap={() =>
-                handleTempPlaceSelect({
-                  name: f.name,
-                  address: f.address,
-                  latitude: f.latitude,
-                  longitude: f.longitude,
-                  phone: f.phone,
-                  providerId: f.providerId,
-                  placeUrl: f.placeUrl,
-                  generalPlaceId: f.generalPlaceId,
-                })
-              }
-            />
-          ))}
+            selectedGeneralId={selectedGeneralFav?.id ?? null}
+            operationalStatuses={operationalStatuses}
+            dark={colorScheme === 'dark'}
+            onTapPlace={handleMarkerPress}
+            onTapGeneral={(f) =>
+              handleTempPlaceSelect({
+                name: f.name,
+                address: f.address,
+                latitude: f.latitude,
+                longitude: f.longitude,
+                phone: f.phone,
+                providerId: f.providerId,
+                placeUrl: f.placeUrl,
+                generalPlaceId: f.generalPlaceId,
+              })
+            }
+          />
+        )}
 
         {/* 선택된 장소 강조 — 원형 대신 핀으로 바꿔 얹는다. 크기만 키우는 것보다
             대비가 커서 "이걸 골랐다"가 분명하다(네이버 지도식). */}

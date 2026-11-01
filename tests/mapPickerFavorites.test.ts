@@ -28,7 +28,10 @@ function setup(overrides: Record<string, unknown> = {}) {
     },
   };
   const jsx = (type: unknown, props: any) => ({ type, props });
-  const favorites = { places: [{ id: 'favorite', name: '이름 몰랐던 카페', address: '주소', latitude: 37.5, longitude: 127, category: 'cafe' }], general: [] };
+  const favorites = {
+    places: [{ id: 'favorite', name: '이름 몰랐던 카페', address: '주소', latitude: 37.5, longitude: 127, category: 'cafe' }],
+    general: [{ id: 'fav-general', name: '바닷가 풀빌라', address: '바닷가 주소', latitude: 37.52, longitude: 127.02, generalPlaceId: 'general-saved' }],
+  };
   // 등록 장소 조회 결과 — 즐겨찾기와 같은 장소는 별 마커만 남아야 한다.
   const registered = [favorites.places[0], { id: 'repair', name: '바이크 정비소', address: '정비소 주소', latitude: 37.5005, longitude: 127.0005, category: 'repair_shop' }];
   const placeQueries: any[] = [];
@@ -43,11 +46,14 @@ function setup(overrides: Record<string, unknown> = {}) {
     '@/lib/api/kakaoLocal': { coordToAddress: async () => new Promise(resolve => { addresses.push({ resolve }); }) },
     '@/constants/mapStyle': { DEFAULT_CENTER: [127,37], DEFAULT_ZOOM: 15 },
     '@/hooks/useFavorites': { useFavoritePlaces: () => ({ data: favorites }) },
-    '@/constants/markerImages': { MARKER_IMAGES_CIRCLE_FAV: { cafe: 'favorite' }, GENERAL_MARKER_CIRCLE_FAV: 'general' },
+    '@/constants/markerImages': { MARKER_IMAGES: { cafe: 'cafe-pin', repair_shop: 'repair-pin' }, MARKER_IMAGES_FAV: { cafe: 'favorite-pin' }, GENERAL_MARKER_FAV: 'general-favorite-pin' },
+    '@/lib/api/favorites': { findGeneralFavorite: (list: any[], place: any) => list.find(item => item.name === place.name) },
+    '@/components/map/FavoritePlaceMarkers': { __esModule: true, default: 'Favorites' },
+    '@/components/map/TempPlaceMarker': { __esModule: true, default: 'TempMarker' },
     '@/assets/images/markers/general.png': 'pin',
     '@/hooks/usePlaces': { usePlaces: (_c: any, center: any, enabled: boolean) => { placeQueries.push({ center, enabled }); return { data: enabled ? registered : undefined }; }, isInMapRenderWindow: () => true },
     '@/hooks/usePlaceOperationalStatus': { usePlaceOperationalStatuses: () => ({ data: {} }) },
-    '@/components/map/RegisteredPlaceMarkers': { __esModule: true, default: 'Registered' },
+    '@/components/map/RegisteredPlaceMarkers': { __esModule: true, default: 'Registered', PLACE_MARKER_GLOBAL_Z_INDEX: 1, TEMPORARILY_CLOSED_MARKER_ALPHA: 0.5, markerCaption: (name: string) => name },
     'react-native-gesture-handler': { GestureHandlerRootView: 'GestureRoot' },
     '@/components/map/PlaceBottomSheet': { __esModule: true, default: 'PlaceSheet' },
     '@/components/map/TempPlaceSheet': { __esModule: true, default: 'TempSheet' },
@@ -68,13 +74,14 @@ function setup(overrides: Record<string, unknown> = {}) {
   render();
   // 일반 장소 시트는 닫힌 채(place=null) 계속 붙어 있으므로 장소가 든 시트만 연 것으로 본다.
   const sheet = () => [...all('PlaceSheet'), ...all('TempSheet')].find(node => node.props.place);
-  return { props, render, all, flush, addresses, picked, placeQueries, sheet };
+  const tapFavorite = () => { all('Favorites')[0].props.onTapPlace(favorites.places[0]); render(); };
+  return { props, render, all, flush, addresses, picked, placeQueries, sheet, tapFavorite, favorites };
 }
 
 test('지도에서 즐겨찾기를 선택하면 ID를 보존하고 이전 역지오코딩이 덮지 않는다', async () => {
   const f = setup();
   f.all('Map')[0].props.onTapMap({ latitude: 37, longitude: 127 }); f.render();
-  f.all('Marker').find(node => node.props.onTap).props.onTap(); f.render();
+  f.tapFavorite();
   f.addresses[0].resolve('이전 지도 탭 주소'); await f.flush();
   f.sheet().props.pickAction.onPress();
   assert.equal(f.picked[0].placeId, 'favorite'); assert.equal(f.picked[0].name, '이름 몰랐던 카페');
@@ -109,7 +116,7 @@ test('지도에서 선택에도 메인 지도처럼 등록(바이크 특화) 장
 
 test('장소를 고르면 상세 시트에 경유지 추가 버튼만 두고 하단 확인 바는 숨긴다', async () => {
   const f = setup();
-  f.all('Marker').find(node => node.props.onTap).props.onTap(); f.render();
+  f.tapFavorite();
   assert.equal(f.sheet().type, 'PlaceSheet'); assert.equal(f.sheet().props.pickAction.label, '경유지 추가');
   assert.equal(f.all('Pressable').some(node => node.props.accessibilityLabel === '경유지 추가'), false);
   f.sheet().props.onClose(); f.render();
@@ -140,3 +147,25 @@ test('길찾기 지점 선택은 핀 없이 열리고, 위험 제보 선택기�
   assert.equal(hazard.all('Marker').length, 1); assert.equal(hazard.addresses.length, 1);
 });
 
+
+test('장소를 고르면 원형 마커 대신 그 장소 핀만 남고, 찍은 지점 핀이 겹치지 않는다', async () => {
+  const f = setup();
+  f.all('Map')[0].props.onTapMap({ latitude: 37, longitude: 127 }); f.render();
+  assert.equal(f.all('Marker').filter(node => node.props.image === 'pin').length, 1, '빈 지도 탭은 좌표 핀');
+  f.tapFavorite();
+  assert.equal(f.all('Favorites')[0].props.selectedPlaceId, 'favorite', '고른 즐겨찾기 원형은 뺀다');
+  assert.deepEqual(f.all('Marker').map(node => node.props.image), ['favorite-pin']);
+  f.sheet().props.onClose(); f.render();
+  assert.equal(f.all('Favorites')[0].props.selectedPlaceId, null);
+  assert.equal(f.all('Marker').length, 0);
+
+  f.all('Favorites')[0].props.onTapGeneral(f.favorites.general[0]); f.render();
+  assert.equal(f.all('Favorites')[0].props.selectedGeneralId, 'fav-general');
+  assert.deepEqual(f.all('Marker').map(node => node.props.image), ['general-favorite-pin']);
+  assert.equal(f.sheet().props.place.generalPlaceId, 'general-saved');
+
+  f.sheet().props.onClose(); f.render();
+  f.all('Map')[0].props.onTapSymbol({ latitude: 37.51, longitude: 127.01, caption: '동네 국밥' }); f.render();
+  assert.equal(f.all('TempMarker').length, 1, '즐겨찾기 아닌 일반 장소는 메인 지도와 같은 일반 장소 핀');
+  assert.equal(f.all('Marker').length, 0);
+});

@@ -11,10 +11,17 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { coordToAddress } from '@/lib/api/kakaoLocal';
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useFavoritePlaces } from '@/hooks/useFavorites';
-import { MARKER_IMAGES_CIRCLE_FAV, GENERAL_MARKER_CIRCLE_FAV } from '@/constants/markerImages';
+import { MARKER_IMAGES, MARKER_IMAGES_FAV, GENERAL_MARKER_FAV } from '@/constants/markerImages';
+import { findGeneralFavorite } from '@/lib/api/favorites';
 import { isInMapRenderWindow, usePlaces, type MapCenter } from '@/hooks/usePlaces';
 import { usePlaceOperationalStatuses } from '@/hooks/usePlaceOperationalStatus';
-import RegisteredPlaceMarkers from '@/components/map/RegisteredPlaceMarkers';
+import RegisteredPlaceMarkers, {
+  PLACE_MARKER_GLOBAL_Z_INDEX,
+  TEMPORARILY_CLOSED_MARKER_ALPHA,
+  markerCaption,
+} from '@/components/map/RegisteredPlaceMarkers';
+import FavoritePlaceMarkers from '@/components/map/FavoritePlaceMarkers';
+import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
 import { resolveSymbolPlace } from '@/lib/symbolPlace';
@@ -68,6 +75,13 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
   const [detail, setDetail] = useState<PlaceDetail | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
+  // 고른 장소는 원형 마커를 빼고 핀으로 다시 그린다(메인 지도와 같은 규칙).
+  const favoriteIds = new Set((favorites?.places ?? []).map(place => place.id));
+  const selectedRegistered = detail?.kind === 'registered' ? detail.place : null;
+  const selectedClosed = !!selectedRegistered && operationalStatuses[selectedRegistered.id] === 'temporarily_closed';
+  const selectedGeneralFavorite = detail?.kind === 'general' ? findGeneralFavorite(favorites?.general ?? [], detail.place) : undefined;
+  const dark = colorScheme === 'dark';
+  const captionColors = { color: dark ? '#F9FAFB' : '#111827', haloColor: dark ? '#111827' : '#FFFFFF' };
 
   // 위험 제보처럼 지점만 찍는 화면은 초기 위치(현재 위치 등)에 핀을 놓고 시작한다.
   // 길찾기 지점은 고르지 않은 곳이 경유지로 들어가지 않도록 빈 상태로 연다.
@@ -198,21 +212,52 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
           {allowPlaces && (
             <RegisteredPlaceMarkers places={windowedPlaces}
               selectedPlaceId={detail?.kind === 'registered' ? detail.place.id : null}
-              operationalStatuses={operationalStatuses} dark={colorScheme === 'dark'}
+              operationalStatuses={operationalStatuses} dark={dark}
               onTap={openRegistered} />
           )}
-          {allowPlaces && favorites?.places.map(place => (
-            <NaverMapMarkerOverlay key={place.id} latitude={place.latitude} longitude={place.longitude}
-              image={MARKER_IMAGES_CIRCLE_FAV[place.category]} width={34} height={34}
-              caption={{ text: place.name }}
-              onTap={() => openRegistered(place)} />
+          {allowPlaces && (
+            <FavoritePlaceMarkers
+              places={(favorites?.places ?? []).filter(place => isInMapRenderWindow(place, mapCenter))}
+              general={(favorites?.general ?? []).filter(place => isInMapRenderWindow(place, mapCenter))}
+              selectedPlaceId={selectedRegistered?.id ?? null}
+              selectedGeneralId={selectedGeneralFavorite?.id ?? null}
+              operationalStatuses={operationalStatuses} dark={dark}
+              onTapPlace={openRegistered}
+              onTapGeneral={place => openGeneral(generalFavoritePlace(place))} />
+          )}
+          {/* 고른 장소는 메인 지도처럼 원형 대신 핀으로 바꿔 얹는다. */}
+          {selectedRegistered && (
+            <NaverMapMarkerOverlay
+              latitude={selectedRegistered.latitude}
+              longitude={selectedRegistered.longitude}
+              image={favoriteIds.has(selectedRegistered.id)
+                ? MARKER_IMAGES_FAV[selectedRegistered.category]
+                : MARKER_IMAGES[selectedRegistered.category]}
+              width={38}
+              height={44}
+              anchor={{ x: 0.5, y: 1 }}
+              alpha={selectedClosed ? TEMPORARILY_CLOSED_MARKER_ALPHA : 1}
+              globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
+              zIndex={100}
+              isForceShowIcon
+              isHideCollidedSymbols
+              caption={{ text: markerCaption(selectedRegistered.name, selectedClosed), textSize: 12, ...captionColors }} />
+          )}
+          {detail?.kind === 'general' && (selectedGeneralFavorite ? (
+            <NaverMapMarkerOverlay
+              latitude={detail.place.latitude}
+              longitude={detail.place.longitude}
+              image={GENERAL_MARKER_FAV}
+              width={38}
+              height={44}
+              anchor={{ x: 0.5, y: 1 }}
+              zIndex={100}
+              caption={{ text: detail.place.name, textSize: 13, ...captionColors }} />
+          ) : (
+            <TempPlaceMarker latitude={detail.place.latitude} longitude={detail.place.longitude} />
           ))}
-          {allowPlaces && favorites?.general.map(place => (
-            <NaverMapMarkerOverlay key={`general-${place.id}`} latitude={place.latitude} longitude={place.longitude}
-              image={GENERAL_MARKER_CIRCLE_FAV} width={34} height={34} caption={{ text: place.name }}
-              onTap={() => openGeneral(generalFavoritePlace(place))} />
-          ))}
-          {marker && (
+          {/* 빈 지도를 탭해 찍은 지점. 장소를 고르면 위의 장소 핀이 대신한다. */}
+          {marker && !detail && (
             <NaverMapMarkerOverlay
               latitude={marker.latitude}
               longitude={marker.longitude}
