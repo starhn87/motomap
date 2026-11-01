@@ -119,6 +119,7 @@ export default function AddressSearchModal({ visible, onClose, onSelect }: Props
             keyExtractor={(item, i) => `${item.placeName}-${i}`}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets
             ListHeaderComponent={results.length && searchError ? (
               <Text style={[styles.empty, { color: colors.textSecondary }]}>{searchError}</Text>
             ) : null}

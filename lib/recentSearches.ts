@@ -3,10 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Place } from '@/types';
 import type { NavTarget } from '@/lib/navigation';
 
-// 검색에서 선택한 장소·라이딩 추천 최근 5개 (최신순). course는 이전 OTA가
+// 검색에서 선택한 장소·라이딩 추천 최근 기록 (최신순). course는 이전 OTA가
 // 저장한 항목을 계속 열기 위한 읽기 호환 타입이다.
+// 길찾기 지점 검색은 전부, 검색 화면은 앞 5개만 보이고 펼쳐서 나머지를 본다.
 const KEY = 'recent-searches';
-const MAX = 5;
+export const MAX_RECENT_SEARCHES = 30;
 
 export type RecentSearch =
   | { type: 'place'; place: Place }
@@ -43,7 +44,7 @@ export async function loadRecentSearches(): Promise<RecentSearch[]> {
 
 export async function addRecentSearch(entry: RecentSearch): Promise<RecentSearch[]> {
   const current = await loadRecentSearches();
-  const next = [entry, ...current.filter((e) => recentKey(e) !== recentKey(entry))].slice(0, MAX);
+  const next = [entry, ...current.filter((e) => recentKey(e) !== recentKey(entry))].slice(0, MAX_RECENT_SEARCHES);
   try {
     await AsyncStorage.setItem(KEY, JSON.stringify(next));
   } catch {

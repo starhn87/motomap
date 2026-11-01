@@ -419,6 +419,9 @@ export default function PointSearchModal({
             item.kind === 'place' ? `place-${item.place.id}` : `kakao-${item.k.generalPlaceId ?? item.k.providerId ?? `${item.k.latitude}:${item.k.longitude}:${item.k.placeName}`}`
           }
           keyboardShouldPersistTaps={confirmSlot ? 'always' : 'handled'}
+          // 키보드에 가린 아래 결과도 스크롤로 닿게 하고(iOS 인셋), 끌면 키보드를 내린다.
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="on-drag"
           ListHeaderComponent={
             query.trim() ? (searchIssue ? (
               <Text style={{ color: colors.textSecondary, padding: 20 }}>{searchIssue}</Text>

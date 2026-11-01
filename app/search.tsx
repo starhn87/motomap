@@ -58,6 +58,9 @@ import { useUnifiedPlaceSearch } from '@/hooks/useUnifiedPlaceSearch';
 // 2자 이상 입력하면 통합 검색 결과로 전환된다. 장소 선택은 지도 탭의
 // focusPlaceId 파라미터(승인 푸시 딥링크와 같은 경로)로 전달한다.
 
+// 최근 검색은 앞쪽만 보이고 나머지는 펼쳐서 본다.
+const RECENT_PREVIEW_COUNT = 5;
+
 // 최근 검색의 일반 장소가 그 사이 제보로 등록됐으면 등록 장소 항목으로 승격한다
 async function promoteRegisteredKakao(list: RecentSearch[]): Promise<RecentSearch[] | null> {
   if (!list.some((e) => e.type === 'kakao')) return null;
@@ -154,6 +157,7 @@ export default function SearchScreen() {
   });
 
   const [recent, setRecent] = useState<RecentSearch[]>([]);
+  const [recentExpanded, setRecentExpanded] = useState(false);
   const [recentLoading, setRecentLoading] = useState(true);
 
   useEffect(() => {
@@ -495,7 +499,7 @@ export default function SearchScreen() {
         </Pressable>
       </View>
       {showFavorites ? (
-        <ScrollView keyboardShouldPersistTaps="handled">
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets>
           {favorites?.places.map(place => placeRow(place, 'favorite'))}
           {favorites?.general.map(place => (
             <Pressable key={place.id} style={[styles.row, { borderBottomColor: colors.border }]}
@@ -565,6 +569,8 @@ export default function SearchScreen() {
             }
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
+            // 키보드에 가린 아래 결과도 스크롤로 닿게 한다(iOS 인셋).
+            automaticallyAdjustKeyboardInsets
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={unifiedSearch.isError || results?.failedSources?.length ? null :
               <Text style={[styles.noResult, { color: colors.textSecondary }]}>
@@ -653,6 +659,7 @@ export default function SearchScreen() {
         <ScrollView
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
           contentContainerStyle={styles.listContent}>
 
           <Pressable
@@ -682,6 +689,7 @@ export default function SearchScreen() {
                   hitSlop={8}
                   onPress={() => {
                     setRecent([]);
+                    setRecentExpanded(false);
                     clearRecentSearches();
                   }}>
                   <Text style={[styles.sectionAction, { color: colors.textSecondary }]}>
@@ -689,7 +697,7 @@ export default function SearchScreen() {
                   </Text>
                 </Pressable>,
               )}
-              {recent.map((entry) => {
+              {(recentExpanded ? recent : recent.slice(0, RECENT_PREVIEW_COUNT)).map((entry) => {
                 const key = recentKey(entry);
                 return (
                   <Pressable
@@ -743,6 +751,22 @@ export default function SearchScreen() {
                   </Pressable>
                 );
               })}
+              {recent.length > RECENT_PREVIEW_COUNT && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: recentExpanded }}
+                  onPress={() => setRecentExpanded((value) => !value)}
+                  style={({ pressed }) => [styles.recentToggle, { opacity: pressed ? 0.6 : 1 }]}>
+                  <Text style={[styles.sectionAction, { color: colors.textSecondary }]}>
+                    {recentExpanded ? '접기' : `펼치기 (${recent.length - RECENT_PREVIEW_COUNT})`}
+                  </Text>
+                  <Ionicons
+                    name={recentExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={14}
+                    color={colors.textSecondary}
+                  />
+                </Pressable>
+              )}
             </>
           )}
 
@@ -916,6 +940,13 @@ const styles = StyleSheet.create({
   sectionAction: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  recentToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    minHeight: 44,
   },
   browseAreaCard: {
     marginHorizontal: 16,
