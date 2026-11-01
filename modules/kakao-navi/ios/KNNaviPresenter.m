@@ -749,7 +749,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   // 메뉴 배경은 화면 하단까지, 조작부는 홈 인디케이터 위에 둔다.
   CGFloat menuInset = self.view.safeAreaInsets.bottom;
   [self.bottomPanel setMenuBottomInset:menuInset];
-  CGFloat sheetHeight = MIN(254 + menuInset, self.view.bounds.size.height - self.view.safeAreaInsets.top);
+  // 238 = 메뉴 HTML(핸들·음량·목적지 변경·종료) 내용 높이. 남는 높이는 목적지 변경과 종료 사이 간격으로 벌어진다.
+  CGFloat sheetHeight = MIN(238 + menuInset, self.view.bounds.size.height - self.view.safeAreaInsets.top);
   sheet.bounds = CGRectMake(0, 0, self.view.bounds.size.width, MAX(0, sheetHeight));
   sheet.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height - sheetHeight / 2);
   if (!web) { sheet.hidden = YES; self.menuBackdrop.hidden = YES; }
