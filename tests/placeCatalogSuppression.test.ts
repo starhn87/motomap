@@ -22,6 +22,7 @@ test('external provider result uses suppression before returning while preservin
   suppression.replacePlaceCatalogSuppressions([{ provider: 'kakao', providerId: 'closed' }]);
   const api = loadModule<typeof import('../lib/api/externalPlaces')>('lib/api/externalPlaces.ts', {
     '@/lib/placeCatalogSuppression': suppression,
+    '@/lib/searchMatching': loadModule('lib/searchMatching.ts', { '@/lib/distance': loadModule('lib/distance.ts', {}) }),
     '@/lib/api/kakaoLocal': { searchKakaoLocalPage: async () => ({ results: [
       { source: 'kakao', providerId: 'closed', placeName: 'Cafe' },
       { source: 'kakao', providerId: 'open', placeName: 'Cafe' },

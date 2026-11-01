@@ -81,14 +81,16 @@ test('공급자 실패와 잘못된 응답은 0건 성공이 아니다', async (
 });
 
 type External = typeof import('../lib/api/externalPlaces');
-function externalFixture(options: { kakaoFails?: boolean; kakaoEmpty?: boolean; naverFails?: boolean; naverEmpty?: boolean } = {}) {
+function externalFixture(options: { kakaoFails?: boolean; kakaoEmpty?: boolean; naverFails?: boolean; naverEmpty?: boolean; kakaoRows?: any[] } = {}) {
   let naverCalls = 0;
   const api = loadModule<External>('lib/api/externalPlaces.ts', {
     '@/lib/providerErrors': errors,
     '@/lib/placeCatalogSuppression': loadModule('lib/placeCatalogSuppression.ts', {}),
+    '@/lib/searchMatching': loadModule('lib/searchMatching.ts', { '@/lib/distance': loadModule('lib/distance.ts', {}) }),
     '@/lib/api/kakaoLocal': { searchKakaoLocalPage: async () => {
       if (options.kakaoFails) throw new errors.ProviderError('kakao-local', 'search', 'temporary');
-      return { results: options.kakaoEmpty ? [] : [{ placeName: '테스트 카페' }], totalCount: 1, pageableCount: 1, isEnd: true };
+      const results = options.kakaoEmpty ? [] : options.kakaoRows ?? [{ placeName: '테스트 카페' }];
+      return { results, totalCount: results.length, pageableCount: results.length, isEnd: true };
     } },
     '@/lib/api/naverLocal': { searchNaverLocal: async () => {
       naverCalls++;
@@ -115,6 +117,27 @@ test('카카오 성공은 추가 호출하지 않고 0건·실패에서만 네�
   }
 });
 
+test('카카오 결과에 검색어로 시작하는 이름이 없으면 네이버로 보완해 앞에 두고, 실패는 조용히 넘긴다', async () => {
+  const other = { placeName: '그릴테스트', latitude: 35, longitude: 129, source: 'kakao' };
+  const supplemented = externalFixture({ kakaoRows: [other] });
+  const page = await supplemented.api.searchExternalPlacesPage('테스트');
+  assert.equal(supplemented.naverCalls(), 1);
+  assert.equal(page.results.map((row: any) => row.placeName).join('|'), '테스트 빌라|그릴테스트');
+  assert.equal(page.isEnd, true, '카카오 페이지 정보는 그대로 둔다');
+  assert.equal(page.failedSources, undefined);
+
+  const failed = externalFixture({ kakaoRows: [other], naverFails: true });
+  const fallback = await failed.api.searchExternalPlacesPage('테스트');
+  assert.equal(fallback.results.length, 1); assert.equal(fallback.failedSources, undefined, '보완 실패는 검색 실패가 아니다');
+
+  // 같은 곳(정규화 이름 일치 + 근접 좌표)은 카카오 결과 하나만 남는다.
+  const [naverRow] = parseNaverLocal(body);
+  const duplicate = externalFixture({ kakaoRows: [other, { ...naverRow, source: 'kakao', placeName: '테스트빌라 ' }] });
+  const deduped = await duplicate.api.searchExternalPlacesPage('빌라');
+  assert.equal(deduped.results.length, 2);
+  assert.equal(duplicate.naverCalls(), 1);
+});
+
 test('검색 출처는 결과 단위이며 저장된 네이버 URL도 인식한다', () => {
   const { api } = externalFixture();
   assert.equal(api.externalPlaceAttribution([{ source: 'naver' }]), '장소 정보 제공: 네이버');
@@ -138,6 +161,7 @@ test('실패한 공급자를 정확히 구분하고 취소 후 보완 요청을 
   const api = loadModule<External>('lib/api/externalPlaces.ts', {
     '@/lib/providerErrors': errors,
     '@/lib/placeCatalogSuppression': loadModule('lib/placeCatalogSuppression.ts', {}),
+    '@/lib/searchMatching': loadModule('lib/searchMatching.ts', { '@/lib/distance': loadModule('lib/distance.ts', {}) }),
     '@/lib/api/kakaoLocal': { searchKakaoLocalPage: async () => { throw new errors.ProviderError('kakao-local', 'search', 'cancelled'); } },
     '@/lib/api/naverLocal': { searchNaverLocal: async () => { requests++; return []; } },
   });
