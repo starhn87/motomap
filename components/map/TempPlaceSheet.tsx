@@ -38,7 +38,7 @@ import { useGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorit
 import { useGasPricesAt } from '@/hooks/useGasStations';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
 import { poiSourceKey } from '@/lib/api/placeHours';
-import { PlaceHoursRow } from '@/components/place/PlaceHoursDisclosure';
+import { PlaceHoursRow, showsPlaceHoursRow } from '@/components/place/PlaceHoursDisclosure';
 import { PlaceAddressRow, PlacePhoneRow } from '@/components/place/PlaceContactRows';
 import { FUEL_LABELS, formatTradeAt, looksLikeGasStation } from '@/lib/api/gasStations';
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
@@ -327,6 +327,8 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
     [handleIndicatorStyle],
   );
 
+  const actionRowAlone = !place?.phone && !showsPlaceHoursRow({ hours: placeHours?.hours, businessStatus: placeHours?.businessStatus });
+
   return (
     <>
       <BottomSheet
@@ -404,7 +406,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
 
           {pickAction ? (
             // 지도에서 선택(경로 지점 편집) 중에는 출발·도착·공유로 흐름을 벗어나지 않고 이 장소를 고르는 버튼만 둔다.
-            <View style={styles.actionRow}>
+            <View style={[styles.actionRow, actionRowAlone && styles.actionRowAlone]}>
               <TouchableOpacity
                 accessibilityLabel={pickAction.label}
                 accessibilityRole="button"
@@ -415,7 +417,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
               </TouchableOpacity>
             </View>
           ) : (
-          <View style={styles.actionRow}>
+          <View style={[styles.actionRow, actionRowAlone && styles.actionRowAlone]}>
             <TouchableOpacity
               accessibilityRole="button"
               onPress={() =>
@@ -752,6 +754,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 4,
   },
+  // 아래에 전화·운영시간 행이 없으면 다음 카드·섹션이 버튼에 붙지 않게 띄운다.
+  actionRowAlone: { marginBottom: 16 },
   actionButton: {
     flex: 1,
     minHeight: 36,

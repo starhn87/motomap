@@ -25,7 +25,7 @@ import BottomSheet, {
 import { useRef, useEffect, useState, useCallback, memo, useMemo } from 'react';
 
 import { placeWebUrl } from '@/constants/app';
-import { PlaceHoursRow } from '@/components/place/PlaceHoursDisclosure';
+import { PlaceHoursRow, showsPlaceHoursRow } from '@/components/place/PlaceHoursDisclosure';
 import { PlaceAddressRow, PlacePhoneRow } from '@/components/place/PlaceContactRows';
 import { usePlaceHours } from '@/hooks/usePlaceHours';
 import Colors, { semantic } from '@/constants/Colors';
@@ -322,6 +322,9 @@ function PlaceBottomSheet({
   });
 
   const hours = displayPlace.hours ?? googleHours?.hours ?? undefined;
+  const actionRowAlone = !displayPlace.phone && !showsPlaceHoursRow({
+    hours, fallbackText: displayPlace.openingHours, businessStatus: googleHours?.businessStatus, operationalStatus,
+  });
 
   const infoCards = [
     displayPlace.parkingInfo && {
@@ -420,7 +423,7 @@ function PlaceBottomSheet({
           {/* 출발/도착/공유 — 시트 안 액션 행. 접힌 스냅에서도 보이도록 상단에 둔다 */}
           {pickAction ? (
             // 지도에서 선택(경로 지점 편집) 중에는 출발·도착·공유로 흐름을 벗어나지 않고 이 장소를 고르는 버튼만 둔다.
-            <View style={styles.actionRow}>
+            <View style={[styles.actionRow, actionRowAlone && styles.actionRowAlone]}>
               <TouchableOpacity
                 accessibilityLabel={pickAction.label}
                 accessibilityRole="button"
@@ -431,7 +434,7 @@ function PlaceBottomSheet({
               </TouchableOpacity>
             </View>
           ) : (
-          <View style={styles.actionRow}>
+          <View style={[styles.actionRow, actionRowAlone && styles.actionRowAlone]}>
             <TouchableOpacity
               accessibilityRole="button"
               onPress={() =>
@@ -846,6 +849,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 4,
   },
+  // 아래에 전화·운영시간 행이 없으면 다음 카드·섹션이 버튼에 붙지 않게 띄운다.
+  actionRowAlone: { marginBottom: 16 },
   actionButton: {
     flex: 1,
     minHeight: 36,

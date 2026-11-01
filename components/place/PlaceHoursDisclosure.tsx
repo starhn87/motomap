@@ -14,6 +14,14 @@ export function hasPlaceHours(hours?: Hours | null, fallbackText?: string | null
   return !!(hours && formatDailyHours(hours).length) || !!hours?.note?.trim() || !!fallbackText?.trim();
 }
 
+/** 운영시간 행이 그려지는지 — 시간표가 없어도 확인된 휴업·폐업·이전은 행으로 남는다. */
+export function showsPlaceHoursRow({ hours, fallbackText, businessStatus, operationalStatus }: {
+  hours?: Hours | null; fallbackText?: string | null;
+  businessStatus?: string | null; operationalStatus?: PlaceOperationalStatus;
+}) {
+  return hasPlaceHours(hours, fallbackText) || !!placeStatusLabel(businessStatus, operationalStatus);
+}
+
 type HoursRowProps = {
   hours?: Hours | null; fallbackText?: string | null;
   businessStatus?: string | null; operationalStatus?: PlaceOperationalStatus;
