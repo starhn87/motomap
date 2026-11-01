@@ -423,8 +423,7 @@ function PlaceBottomSheet({
           {/* 출발/도착/공유 — 시트 안 액션 행. 접힌 스냅에서도 보이도록 상단에 둔다 */}
           {pickAction ? (
             // 지도에서 선택(경로 지점 편집) 중에는 출발·도착·공유로 흐름을 벗어나지 않고 이 장소를 고르는 버튼만 둔다.
-            // 이 버튼이 시트의 주 동작이라 아래 정보 행 유무와 상관없이 띄운다.
-            <View style={[styles.actionRow, styles.actionRowAlone]}>
+            <View style={[styles.actionRow, actionRowAlone && styles.actionRowAlone]}>
               <TouchableOpacity
                 accessibilityLabel={pickAction.label}
                 accessibilityRole="button"
