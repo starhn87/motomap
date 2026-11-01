@@ -261,7 +261,7 @@ License: Apache-2.0 (Pictogrammers Free License, icons).
     input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; height: 44px; flex: 1; min-width: 0; margin: 0; touch-action: pan-x; }
     input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 5px; background: linear-gradient(to right, var(--volume-blue) var(--volume, 100%), var(--track) var(--volume, 100%)); }
     input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; margin-top: -9.5px; background: #fff; border: 1px solid #e4e4e7; box-shadow: 0 1px 4px #18181b26; }
-    .routeActions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .routeActions { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
     .routeActions button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border: 1px solid var(--line); border-radius: 10px; font-size: 15px; font-weight: 650; }
     .routeActions svg { width: 22px; height: 22px; }
     /* 하단 목적지 아이콘과 같은 핀. 세로로 길어 갈림길 아이콘과 눈높이가 맞게 줄인다. */
@@ -289,7 +289,6 @@ License: Apache-2.0 (Pictogrammers Free License, icons).
         </div>
         <div class="routeActions">
           <button data-action="routeEdit" id="routeEdit"><svg class="goalGlyph" aria-hidden="true" viewBox="0 0 24 24"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5" fill="currentColor" stroke="none"/></svg><span>목적지 변경</span></button>
-          <button data-action="routePreview"><svg aria-hidden="true" viewBox="0 0 24 24"><g transform="translate(24 0) scale(-1 1)" stroke="none"><path fill="var(--route-inactive)" d="M14,4L16.29,6.29L13.41,9.17L14.83,10.59L17.71,7.71L20,10V4"/><path fill="currentColor" d="M10,4H4V10L6.29,7.71L11,12.41V20H13V11.59L7.71,6.29"/></g></svg><span>다른 경로</span></button>
         </div>
       </div>
       <button class="end" data-action="end"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m20 4-6 16-3-7-7-3z"/></svg><span>길안내 종료</span></button>
@@ -395,7 +394,6 @@ License: Apache-2.0 (Pictogrammers Free License, icons).
             showVolume(volume.value);
           }
           $('routeEdit').disabled = !state.canRouteEdit || !!state.busy;
-          document.querySelector('[data-action=routePreview]').disabled = !!state.busy;
           latestState = state;
           showLocation();
           const seconds = state.remainingTime;

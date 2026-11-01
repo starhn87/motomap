@@ -666,8 +666,9 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
       }
     } else if ([action isEqualToString:@"refresh"]) {
       [vc refreshCurrentRoute];
-    } else if (KNNaviRouteEditingEnabled && ([action isEqualToString:@"routePreview"] || [action isEqualToString:@"routeEdit"])) {
-      if (vc.onMenu) vc.onMenu([action isEqualToString:@"routeEdit"] ? 107 : 103);
+    } else if (KNNaviRouteEditingEnabled && [action isEqualToString:@"routeEdit"]) {
+      // 다른 경로(103)는 목적지 변경과 같은 미리보기를 열어 메뉴에서 뺐다(NAV-061). JS는 구빌드용으로 103을 계속 받는다.
+      if (vc.onMenu) vc.onMenu(107);
     } else if ([action isEqualToString:@"end"]) [vc finish];
     [vc updateBottomPanel];
   };
