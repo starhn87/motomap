@@ -30,6 +30,8 @@ interface Props {
   /** 확인 버튼 문구. 길찾기 지점은 '경유지 추가'처럼 지금 하는 일을 쓴다. */
   confirmLabel?: string;
   onClose: () => void;
+  /** iOS: 모달이 완전히 내려간 뒤 호출된다. 고른 뒤 다른 화면으로 넘어가는 일은 여기서 한다. */
+  onDismiss?: () => void;
   onPick: (coord: { latitude: number; longitude: number; address: string | null; name?: string; placeId?: string; generalPlaceId?: string }) => void;
 }
 
@@ -42,7 +44,7 @@ const MAX_HIT_AREAS = 80;
 // 장소를 탭하면 메인 지도와 같은 상세 시트를 띄우고, 그 안의 확인 버튼으로 고른다.
 type PlaceDetail = { kind: 'registered'; place: Place } | { kind: 'general'; place: TempPlace };
 
-export default function MapPickerModal({ visible, initial, allowPlaces = false, confirmLabel = '이 위치로 선택', onClose, onPick }: Props) {
+export default function MapPickerModal({ visible, initial, allowPlaces = false, confirmLabel = '이 위치로 선택', onClose, onDismiss, onPick }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
@@ -165,7 +167,7 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose} onDismiss={onDismiss}>
       {/* 모달 안은 앱 루트의 제스처 영역 밖이라 상세 시트 드래그를 위해 따로 감싼다. */}
       <GestureHandlerRootView style={[styles.root, { backgroundColor: colors.background }]}>
         <NaverMapView
@@ -252,8 +254,11 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
         {detail?.kind === 'registered' && (
           <PlaceBottomSheet place={detail.place} onClose={closeDetail} pickAction={{ label: confirmLabel, onPress: confirmDetail }} />
         )}
-        {detail?.kind === 'general' && (
-          <TempPlaceSheet place={detail.place} onClose={closeDetail} pickAction={{ label: confirmLabel, onPress: confirmDetail }} />
+        {/* 일반 장소 시트는 메인 지도처럼 닫힌 채로 계속 붙여 두고 장소가 들어올 때 연다.
+            장소와 함께 마운트하면 첫 snap 명령이 초기 index 적용과 경합해 시트가 안 열릴 때가 있다. */}
+        {allowPlaces && (
+          <TempPlaceSheet place={detail?.kind === 'general' ? detail.place : null} onClose={closeDetail}
+            pickAction={{ label: confirmLabel, onPress: confirmDetail }} />
         )}
 
         {!detail && <View

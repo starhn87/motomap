@@ -66,7 +66,8 @@ function setup(overrides: Record<string, unknown> = {}) {
     ? node.flatMap(child => all(type, child)) : [...(node.type === type ? [node] : []), ...all(type, node.props?.children ?? null)];
   const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); render(); };
   render();
-  const sheet = () => [...all('PlaceSheet'), ...all('TempSheet')][0];
+  // 일반 장소 시트는 닫힌 채(place=null) 계속 붙어 있으므로 장소가 든 시트만 연 것으로 본다.
+  const sheet = () => [...all('PlaceSheet'), ...all('TempSheet')].find(node => node.props.place);
   return { props, render, all, flush, addresses, picked, placeQueries, sheet };
 }
 
@@ -118,8 +119,10 @@ test('장소를 고르면 상세 시트에 경유지 추가 버튼만 두고 하
 
 test('일반 장소 심벌을 탭하면 일반 장소 상세로 고르고, 빈 지도 탭이 그 선택을 좌표 핀으로 덮지 않는다', async () => {
   const f = setup();
+  assert.equal(f.all('TempSheet')[0].props.place, null, '일반 장소 시트는 닫힌 채 미리 붙어 있다');
   f.all('Map')[0].props.onTapSymbol({ latitude: 37.51, longitude: 127.01, caption: '동네 국밥' }); await f.flush();
   assert.equal(f.sheet().type, 'TempSheet'); assert.equal(f.sheet().props.place.name, '동네 국밥');
+  assert.equal(f.all('TempSheet').length, 1, '장소가 들어오기 전부터 붙어 있던 같은 시트를 연다');
   assert.equal(f.sheet().props.place.generalPlaceId, 'general-resolved');
   f.sheet().props.pickAction.onPress();
   assert.equal(f.picked[0].name, '동네 국밥'); assert.equal(f.picked[0].generalPlaceId, 'general-resolved');

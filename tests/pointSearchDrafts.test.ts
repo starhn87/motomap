@@ -39,7 +39,7 @@ function setup() {
     'react-native': {
       ActivityIndicator: 'ActivityIndicator', FlatList: 'FlatList', Modal: 'Modal',
       Pressable: 'Pressable', Text: 'Text', TextInput: 'TextInput', View: 'View',
-      Keyboard: { dismiss() {} }, StyleSheet: { create: (value: unknown) => value },
+      Keyboard: { dismiss() {} }, StyleSheet: { create: (value: unknown) => value }, Platform: { OS: 'ios' },
     },
     '@expo/vector-icons/Ionicons': { __esModule: true, default: 'Ionicons' },
     '@/constants/Colors': { __esModule: true, default: { light: {} } },
@@ -132,9 +132,18 @@ test('출발·도착·경유 편집에서 지도 선택은 장소 ID를 보존�
   for (const draftKey of ['start', 'goal', 'via-1']) {
     const f = setup(); f.props.draftKey = draftKey; f.render();
     const point = { name: '즐겨찾기 카페', latitude: 37.5, longitude: 127, placeId: 'favorite-place', address: '주소' };
-    f.find('MapPickerModal')!.props.onPick(point); await f.flush();
+    f.find('MapPickerModal')!.props.onPick(point); f.render();
+    // iOS는 지도 모달이 다 내려간 뒤에 넘긴다. 두 모달이 함께 닫히며 화면이 바뀌면 검은 화면이 남는다.
+    assert.equal(f.selections.length, 0, '지도 모달이 내려가기 전에는 고르지 않는다');
+    assert.equal(f.find('MapPickerModal')!.props.visible, false);
+    f.find('MapPickerModal')!.props.onDismiss(); await f.flush();
+    assert.equal(f.selections.length, 1, '받침 타이머가 돌아도 한 번만 고른다');
     assert.equal(f.selections[0].placeId, 'favorite-place');
     assert.equal(f.selections[0].name, '즐겨찾기 카페');
     assert.equal(f.requests.length, 0);
   }
+  // onDismiss가 오지 않아도 받침 타이머로 고른다.
+  const f = setup(); f.props.draftKey = 'goal'; f.render();
+  f.find('MapPickerModal')!.props.onPick({ name: '카페', latitude: 37.5, longitude: 127, address: '주소' }); await f.flush();
+  assert.equal(f.selections.length, 1);
 });

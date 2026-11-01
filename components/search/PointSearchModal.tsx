@@ -4,6 +4,7 @@ import {
   FlatList,
   Keyboard,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -82,6 +83,14 @@ export default function PointSearchModal({
   const myPlaces = useMyPlacesStore((s) => s.places);
   const [query, setQuery] = useState('');
   const draftQueries = useRef(new Map<string, string>());
+  // 지도에서 고른 지점은 지도 모달이 완전히 내려간 뒤에 넘긴다. iOS에서 두 모달이 함께 닫히는
+  // 도중 다음 화면으로 넘어가면 검은 화면이 남는다. onDismiss가 오지 않아도 잃지 않게 타이머로 받친다.
+  const pendingMapPick = useRef<(() => void) | null>(null);
+  const finishMapPick = () => {
+    const pick = pendingMapPick.current;
+    pendingMapPick.current = null;
+    pick?.();
+  };
   const [selectionConfirmation, setSelectionConfirmation] = useState<AppDialog | null>(null);
   const selectPoint = (point: Point, address?: string) => {
     if (!confirmSlot || point === 'current') {
@@ -390,14 +399,19 @@ export default function PointSearchModal({
             style={[styles.resultRow, { borderBottomColor: colors.border }]}>
             <Ionicons name="map-outline" size={20} color={colors.tint} />
             <Text style={[styles.resultName, { color: colors.text }]}>지도에서 선택</Text>
-            <Text style={{ color: colors.textSecondary }}>즐겨찾기·바이크 장소도 선택할 수 있어요</Text>
           </Pressable>
         )}
         <MapPickerModal visible={visible && mapPicking} allowPlaces confirmLabel={title}
           initial={getSearchAnchor().near}
           onClose={() => setMapPicking(false)}
-          onPick={point => { setMapPicking(false); selectPoint({ name: point.name ?? point.address ?? '지도에서 선택한 위치',
-            latitude: point.latitude, longitude: point.longitude, placeId: point.placeId, generalPlaceId: point.generalPlaceId }, point.address ?? undefined); }} />
+          onDismiss={finishMapPick}
+          onPick={point => {
+            pendingMapPick.current = () => selectPoint({ name: point.name ?? point.address ?? '지도에서 선택한 위치',
+              latitude: point.latitude, longitude: point.longitude, placeId: point.placeId, generalPlaceId: point.generalPlaceId }, point.address ?? undefined);
+            setMapPicking(false);
+            if (Platform.OS === 'ios') setTimeout(finishMapPick, 700);
+            else finishMapPick();
+          }} />
         <Mask masked={!allowSaved}>
         <FlatList
           data={showFavList ? favItems : rankedResults}
