@@ -158,3 +158,32 @@ export function formatDailyHours(hours: Hours) {
       spans.length === 0 ? '휴무' : spans.map(span => `${span.open}-${span.close}`).join(', ') };
   });
 }
+
+const CLOSURE_MESSAGES: Record<string, string> = {
+  '임시 휴업': '임시 휴업 중이에요.',
+  폐업: '폐업한 곳으로 표시돼 있어요.',
+  이전: '다른 곳으로 이전한 것으로 표시돼 있어요.',
+};
+
+const hhmm = (date: Date) =>
+  `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+/**
+ * 도착 예정 시각에 문을 닫은 상태면 안내 문구, 아니면 null.
+ * 영업 중이거나 근거가 없을 때는 아무 말도 하지 않는다 — 안내 시작을 막는 확인창이라
+ * 틀린 경고가 틀린 영업중만큼 거슬린다.
+ */
+export function describeArrivalClosure(
+  place: { hours?: Hours | null; statusLabel?: string },
+  arrival: Date,
+  now = new Date(),
+): string | null {
+  if (place.statusLabel) return CLOSURE_MESSAGES[place.statusLabel] ?? null;
+  const state = getOpenState(place.hours, arrival);
+  if (state.status !== 'closed') return null;
+  const sameDay = arrival.toDateString() === now.toDateString();
+  const when = `도착 예정 ${sameDay ? '' : '내일 '}${hhmm(arrival)}`;
+  if (state.dayOff) return `${when}, 그날은 휴무예요.`;
+  if (state.opensAt) return `${when}, ${state.opensAt}에 문을 열어요.`;
+  return `${when}, 영업이 끝난 뒤예요.`;
+}

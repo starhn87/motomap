@@ -30,6 +30,9 @@ import PreviewMap from '@/components/navi/PreviewMap';
 import RouteAlternatives from '@/components/navi/RouteAlternatives';
 import RouteFieldRow, { ROW_H, nearestSlot } from '@/components/navi/RouteFieldRow';
 import { useBikeRoutes } from '@/hooks/useBikeRoutes';
+import { useArrivalHours } from '@/hooks/useArrivalHours';
+import { describeArrivalClosure } from '@/lib/hours';
+import { appAlert } from '@/lib/dialog';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -102,6 +105,8 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
   // 도착지 — 파라미터는 초기값일 뿐, 상단 카드에서 바꿀 수 있다.
   // 바꾸면 placeId(도착 후 리뷰 연결)는 원래 장소 것이라 함께 버린다.
   const [goal, setGoal] = useState<NavTarget>(initial.goal);
+  // 안내 시작 때 쓸 목적지 시간표 — 미리보기 동안 미리 받아 둔다
+  const arrivalHours = useArrivalHours(goal);
   const [start, setStart] = useState<[number, number] | null>(initial.start); // [lng, lat]
   const [locationError, setLocationError] = useState(false);
   const [locationAttempt, setLocationAttempt] = useState(0);
@@ -441,12 +446,24 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
     };
   }, [router, start, locationBlocked, privacyRevision, locationAttempt, continuation]);
 
-  const startGuide = () => {
+  const startGuide = (closureConfirmed = false) => {
     if (continuationRef.current && (!GUIDE_ROUTE_EDITING_ENABLED || !supportsKakaoNaviFeature('guide_route_editing'))) {
       toast.error('안내 중 경로 변경은 이번 버전에서 지원하지 않습니다', GUIDE_MENU_UNAVAILABLE_MESSAGE);
       return;
     }
     if (!start || !route || locationBlocked || startingRef.current || courseOnly) return;
+    // 도착 예정 시각에 목적지가 문을 닫았으면 한 번 묻는다. 시간표를 아직 못 받았으면
+    // 기다리지 않고 그냥 시작한다. 모의 주행 미리보기는 실제로 가는 게 아니라 묻지 않는다.
+    const closure = !closureConfirmed && !previewOnly && route.duration
+      ? describeArrivalClosure(arrivalHours, new Date(Date.now() + route.duration * 1000))
+      : null;
+    if (closure) {
+      appAlert('도착할 때 영업하지 않아요', closure, [
+        { text: '취소', style: 'cancel' },
+        { text: '안내 시작', onPress: () => startGuide(true) },
+      ]);
+      return;
+    }
     startingRef.current = true;
     setStarting(true);
     const context = continuationRef.current;
@@ -730,7 +747,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
         ) : null}
 
         <Pressable
-          onPress={startGuide}
+          onPress={() => startGuide()}
           disabled={locationBlocked || !start || !route || starting || courseOnly}
           style={({ pressed }) => [
             styles.startButton,
