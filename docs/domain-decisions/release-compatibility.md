@@ -18,6 +18,17 @@
 - 네이티브 브리지 계약: **38**
 - 백엔드 API 계약: **1**
 
+## 2026-11-01 TestFlight 전달: 1.2.11(65), native38/API1
+
+사용자 요청으로 소스 `3692ae0`을 main에 푸시하고 clean clone에서 EAS cloud production으로
+빌드했다. 작업 저장소에서 바로 올린 첫 시도는 프로젝트 압축본 3.4GB가 2GB 한도를 넘어
+업로드 전에 실패했지만 원격 buildNumber 64는 소모됐다. 그래서 `npm ci`만 한 clean clone에서 다시 빌드했다.
+EAS build `7aa588f7-0144-4606-bb8a-3d16928bfcb7`이 `FINISHED`, 1.2.11(65)/runtime1.2.11/production임을
+확인했고, submission `0e69f112-b6b8-4bbf-8da7-fb174ad37adf`가 **App Store Connect 업로드 성공**으로
+끝났다. 확인 시점은 Apple 처리 단계라 TestFlight 표시와 설치까지 끝났다는 뜻은 아니다.
+native38이 처음 배포된 것이므로 이후 네이티브 계약을 바꾸면 39로 올린다. OTA·심사 제출·원격 버전
+정책 변경은 하지 않았다. NAV-056~060, SEARCH-018/019, MAP-058의 실기기 확인은 65번에서 한다.
+
 ## 2026-10-29 길안내 POI SDK 마커 복귀 후보(native38)
 
 NAV-056: 길안내 자체 POI 표시를 지도 위 UIView 오버레이에서 KNSDK `KNMapMarker`로 되돌린다.
