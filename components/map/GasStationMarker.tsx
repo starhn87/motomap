@@ -17,7 +17,7 @@ const HEIGHT = 40;
 // 선택 마커는 캡슐을 키우고 그림자가 잘리지 않을 여백을 더 둔다
 const SELECTED_HEIGHT = 58;
 
-// 유가 라벨 마커 — [브랜드 칩][가격] 캡슐. 선택하면 색은 그대로 두고 크기와 그림자만 키운다(MAP-058). children 은 정적 비트맵으로 한 번 캡처되므로
+// 유가 라벨 마커 — [브랜드 칩][가격] 캡슐. 선택하면 색은 그대로 두고 크기와 그림자만 키운다(MAP-058). 꼬리 삼각형은 두지 않는다(MAP-059). children 은 정적 비트맵으로 한 번 캡처되므로
 // 순수 View/Text 로만 그리고, 표시 내용(가격·최저·선택)이 바뀌면 상위에서 key 를 바꿔 재캡처시킨다.
 // 클러스터링 대신 SDK 의 겹침 숨김을 쓴다 — 겹치면 비싼 마커부터 숨고 최저가는 항상 표시.
 export default function GasStationMarker({ station, isCheapest, isSelected, rank, onTap }: Props) {
@@ -55,7 +55,6 @@ export default function GasStationMarker({ station, isCheapest, isSelected, rank
           </View>
         </View>
         </View>
-        <View style={[styles.pointer, isSelected && styles.pointerSelected, isCheapest && styles.pointerCheapest]} />
       </View>
     </NaverMapMarkerOverlay>
   );
@@ -78,7 +77,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   capsuleShadowSelected: {
-    marginBottom: 1,
+    // 꼬리가 없으니 아래 그림자가 비트맵 밖으로 잘리지 않게 바닥 여백을 둔다
+    marginBottom: 8,
     shadowColor: '#000000',
     shadowOpacity: 0.3,
     shadowRadius: 5,
@@ -122,23 +122,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
-  },
-  pointer: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 5,
-    borderRightWidth: 5,
-    borderTopWidth: 6,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: '#1F2937',
-  },
-  pointerSelected: {
-    borderTopWidth: 7,
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-  },
-  pointerCheapest: {
-    borderTopColor: '#16A34A',
   },
 });
