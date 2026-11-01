@@ -7,6 +7,7 @@ type Element = { type: any; props: any };
 // 목적지 시간표·확인창 — 기본은 시간표 없음(확인창 없이 시작)
 let arrivalHours: any = {};
 const dialogs: { title: string; message?: string; buttons: any[] }[] = [];
+const arrivals: number[] = [];
 const goal = { name: '기존 목적지', latitude: 37.5, longitude: 127.1, placeId: 'original' };
 const nextGoal = { name: '새 목적지', latitude: 37.6, longitude: 127.2, placeId: 'new' };
 
@@ -70,7 +71,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
     '@/lib/analytics': { createAnalyticsId: () => 'new', track: { navigationStarted() { calls.tracked++; } } },
     '@/lib/distance': { haversine: () => 0 },
     '@/hooks/useArrivalHours': { useArrivalHours: () => arrivalHours },
-    '@/lib/hours': { describeArrivalClosure: (place: any) => place.statusLabel ? `${place.statusLabel} 중이에요.` : null },
+    '@/lib/hours': { describeArrivalClosure: (place: any, arrival: Date) => (arrivals.push(arrival.getTime()), place.statusLabel) ? `${place.statusLabel} 중이에요.` : null },
     '@/lib/dialog': { appAlert(title: string, message: string, buttons: any[]) { dialogs.push({ title, message, buttons }); } },
     '@/lib/toast': { toast: { error: (message: string) => calls.errors.push(message) } },
     '@/components/useColorScheme': { useColorScheme: () => 'light' },
@@ -206,8 +207,10 @@ test('제거된 기능의 기존 미리보기에서도 native 재안내를 호�
 test('도착 때 문 닫은 목적지는 확인창을 띄우고 확인해야 재안내한다', () => {
   arrivalHours = { statusLabel: '임시 휴업' }; dialogs.length = 0;
   try {
-    const f = setup(); f.start(); f.render();
+    const f = setup(); arrivals.length = 0; const pressed = Date.now(); f.start(); f.render();
     assert.equal(f.calls.resumed.length, 0);
+    // 도착 예정 = 누른 시각 + 선택한 경로의 소요 시간(초)
+    assert.ok(Math.abs(arrivals[0] - pressed - 600_000) < 1000);
     assert.equal(dialogs.length, 1);
     assert.equal(dialogs[0].message, '임시 휴업 중이에요.');
     dialogs[0].buttons.find(b => b.text === '안내 시작').onPress(); f.render();
