@@ -54,8 +54,10 @@ function ThemeOption({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
       onPress={() => onPress(value)}
-      style={[
+      style={({ pressed }) => [
         styles.themeOption,
         {
           backgroundColor: isActive
@@ -64,6 +66,7 @@ function ThemeOption({
               ? '#1A1A1A'
               : '#F3F4F6',
           borderColor: isActive ? colors.tint : colors.border,
+          opacity: pressed ? 0.7 : 1,
         },
       ]}>
       <Text
@@ -230,9 +233,8 @@ export default function SettingsScreen() {
         style={[styles.settingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.settingText}>
           <Text style={[styles.settingLabel, { color: colors.text }]}>햅틱 피드백</Text>
-          <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>버튼과 지도 선택의 진동 반응</Text>
           <Text style={[styles.settingHint, { color: colors.textSecondary }]}>
-            켜면 바로 테스트해요. 기기의 시스템 햅틱이 꺼져 있으면 동작하지 않아요.
+            켜면 진동을 테스트해요. 시스템 햅틱이 꺼져 있으면 동작하지 않을 수 있어요.
           </Text>
         </View>
         <View style={styles.settingSwitchSlot}>
@@ -439,13 +441,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  settingDescription: {
-    fontSize: 12,
-    marginTop: 3,
-  },
   settingHint: {
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 12,
+    lineHeight: 18,
     marginTop: 5,
   },
   loginMethodRow: {

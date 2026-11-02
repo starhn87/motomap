@@ -9,14 +9,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-} from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -33,8 +29,6 @@ import SubmitFeedback from '@/components/submit/SubmitFeedback';
 import SubmitHazard from '@/components/submit/SubmitHazard';
 import AddressSearchModal from '@/components/submit/AddressSearchModal';
 import type { PlaceCategory } from '@/types';
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type SubmitType = 'place' | 'riding' | 'hazard' | 'feedback';
 
@@ -60,12 +54,15 @@ function SubmitTypeTab({
 
   return (
     <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isActive }}
       onPress={() => onPress(type)}
-      style={[
+      style={({ pressed }) => [
         styles.tab,
         {
           backgroundColor: isActive ? colors.tint : 'transparent',
           borderColor: isActive ? colors.tint : colors.border,
+          opacity: pressed ? 0.7 : 1,
         },
       ]}>
       <Text
@@ -142,11 +139,6 @@ function SubmitPlace() {
     }
   }, [prefillName, prefillAddress, prefillLat, prefillLng, prefillProvider, prefillProviderId, prefillTs]);
 
-  const submitScale = useSharedValue(1);
-  const submitStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: submitScale.value }],
-  }));
-
   const handleSubmit = async () => {
     Keyboard.dismiss();
     if (!name.trim()) {
@@ -163,7 +155,6 @@ function SubmitPlace() {
     }
 
     setSubmitting(true);
-    submitScale.value = withSpring(0.95);
 
     try {
       // 같은 주소의 기존 장소/제보가 있으면 중복 제출을 막는다
@@ -217,7 +208,6 @@ function SubmitPlace() {
       toast.error('제보에 실패했습니다.', error.message);
     } finally {
       setSubmitting(false);
-      submitScale.value = withSpring(1);
     }
   };
 
@@ -245,12 +235,15 @@ function SubmitPlace() {
           {CATEGORY_LIST.map((cat) => (
             <Pressable
               key={cat.key}
+              accessibilityRole="button"
+              accessibilityState={{ selected: category === cat.key }}
               onPress={() => setCategory(cat.key)}
-              style={[
+              style={({ pressed }) => [
                 styles.categoryChip,
                 {
                   backgroundColor: category === cat.key ? cat.color : colors.surfaceMuted,
                   borderColor: category === cat.key ? cat.color : colors.border,
+                  opacity: pressed ? 0.7 : 1,
                 },
               ]}>
               <CategoryIcon category={cat.key} size={15} color={category === cat.key ? colors.background : cat.color} />
@@ -262,7 +255,9 @@ function SubmitPlace() {
         </View>
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>장소 검색 *</Text>
-        <Pressable onPress={() => setAddressModalVisible(true)} style={inputStyle}>
+        <Pressable accessibilityRole="button" accessibilityLabel="장소 검색"
+          onPress={() => setAddressModalVisible(true)}
+          style={({ pressed }) => [...inputStyle, { opacity: pressed ? 0.7 : 1 }]}>
           <Text style={{ color: address ? colors.text : colors.textSecondary, fontSize: 15 }}>
             {address || '탭해서 상호·주소 검색'}
           </Text>
@@ -283,16 +278,22 @@ function SubmitPlace() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>설명</Text>
         <TextInput style={[...inputStyle, styles.multiline]} placeholder="이 장소에 대해 알려주세요" placeholderTextColor={colors.textSecondary} value={description} onChangeText={setDescription} multiline numberOfLines={3} />
 
-        <AnimatedPressable
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="장소 제보하기"
+          accessibilityState={{ disabled: submitting, busy: submitting }}
           onPress={handleSubmit}
           disabled={submitting}
-          style={[
+          style={({ pressed }) => [
             styles.submitButton,
-            submitStyle,
-            { backgroundColor: colors.tint, opacity: submitting ? 0.6 : 1 },
+            { backgroundColor: colors.tint, opacity: submitting ? 0.6 : pressed ? 0.7 : 1 },
           ]}>
-          <Text style={[styles.submitText, { color: colors.background }]}>{submitting ? '제보 중...' : '장소 제보하기'}</Text>
-        </AnimatedPressable>
+          <Text accessibilityElementsHidden={submitting} importantForAccessibility={submitting ? 'no-hide-descendants' : 'auto'}
+            style={[styles.submitText, { color: colors.background, opacity: submitting ? 0 : 1 }]}>장소 제보하기</Text>
+          {submitting && <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            <ActivityIndicator color={colors.background} style={{ flex: 1 }} />
+          </View>}
+        </Pressable>
       </ScrollView>
       <AddressSearchModal
         visible={addressModalVisible}

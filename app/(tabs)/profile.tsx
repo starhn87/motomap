@@ -11,12 +11,7 @@ import {
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { router } from 'expo-router';
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-  FadeInDown,
-} from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -31,8 +26,6 @@ import { appAlert } from '@/lib/dialog';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import ImageViewer from '@/components/ui/ImageViewer';
 import MyBikeHero from '@/components/profile/MyBikeHero';
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 function MenuItem({
   icon,
@@ -50,22 +43,16 @@ function MenuItem({
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   return (
-    <AnimatedPressable
+    <Pressable
+      accessibilityRole="button"
       onPress={onPress}
-      onPressIn={() => { scale.value = withSpring(0.97); }}
-      onPressOut={() => { scale.value = withSpring(1); }}
-      style={[
+      style={({ pressed }) => [
         styles.menuItem,
-        animatedStyle,
         {
           backgroundColor: colors.surface,
           borderColor: colors.border,
+          opacity: pressed ? 0.7 : 1,
         },
       ]}>
       <View style={styles.menuIcon}>{icon}</View>
@@ -81,7 +68,7 @@ function MenuItem({
           {trailing}
         </Text>
       )}
-    </AnimatedPressable>
+    </Pressable>
   );
 }
 
@@ -164,8 +151,11 @@ function LoggedInContent() {
         {/* 아바타 어디를 눌러도 확대 보기로 통일 — 변경은 뷰어 하단 버튼에서.
             뱃지는 터치 타깃이 아니라 "바꿀 수 있음"을 알리는 힌트다. */}
         <Pressable
+          accessibilityLabel="프로필 사진 보기 또는 변경"
+          accessibilityRole="button"
           onPress={avatarUrl ? () => setAvatarViewerOpen(true) : handleChangeAvatar}
-          disabled={uploading}>
+          disabled={uploading}
+          style={({ pressed }) => ({ opacity: pressed || uploading ? 0.7 : 1 })}>
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
           ) : (
@@ -262,12 +252,14 @@ export default function ProfileScreen() {
   const settingsButton = (
     // 설정 버튼은 로그인 여부와 관계없이 표시한다.
     <Pressable
+      accessibilityRole="button"
       onPress={() => router.push('/settings')}
-      style={[
+      style={({ pressed }) => [
         styles.settingsButton,
         {
           backgroundColor: colors.surface,
           borderColor: colors.border,
+          opacity: pressed ? 0.7 : 1,
         },
       ]}>
       <Ionicons name="settings-outline" size={22} color={colors.text} />

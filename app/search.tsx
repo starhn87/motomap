@@ -485,7 +485,7 @@ export default function SearchScreen() {
       <View style={[styles.myPlacesRow, { paddingHorizontal: 20, paddingBottom: 12 }]}>
         {(['home', 'work'] as const).map(slot => (
           <Pressable key={slot} accessibilityRole="button" onPress={() => handleMyPlace(slot)}
-            style={[styles.myPlaceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            style={({ pressed }) => [styles.myPlaceCard, { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}>
             <Ionicons name={slot === 'home' ? 'home' : 'business'} size={20} color={colors.tint} />
             <Text style={{ color: colors.text }}>{slot === 'home' ? '집' : '회사'}</Text>
           </Pressable>
