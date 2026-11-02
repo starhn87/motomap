@@ -6,10 +6,11 @@ import {
   fetchRidingGuides,
 } from '@/lib/api/ridingGuides';
 
-export function useRidingGuides() {
+export function useRidingGuides(enabled = true) {
   return useQuery({
     queryKey: ['riding-guides'],
     queryFn: fetchRidingGuides,
+    enabled,
   });
 }
 
