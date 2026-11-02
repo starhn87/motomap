@@ -119,6 +119,7 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
             <Stack.Screen name="chat" options={{ headerShown: false }} />
             <Stack.Screen name="notifications" options={{ title: '알림' }} />
             <Stack.Screen name="settings" options={{ title: '설정' }} />
+            <Stack.Screen name="recommended-places" options={{ title: '추천 목적지' }} />
             <Stack.Screen name="location-privacy" options={{ title: '위치정보 관리' }} />
             <Stack.Screen name="edit-nickname" options={{ title: '닉네임 변경' }} />
             <Stack.Screen name="edit-bike" options={{ title: '내 차고' }} />

@@ -52,6 +52,7 @@ export type PlaceSource =
   | 'map_marker'
   | 'search'
   | 'search_results'
+  | 'explore'
   | 'favorite'
   | 'chat'
   | 'notification'
