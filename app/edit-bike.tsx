@@ -540,22 +540,26 @@ export default function EditBikeScreen() {
       <View style={styles.listHeading}>
         <View style={styles.listTitleBody}>
           <Text style={[styles.listTitle, { color: colors.text }]}>내 바이크</Text>
-          <Text style={[styles.listSubtitle, { color: colors.textSecondary }]}>지금 타는 바이크와 함께 쌓인 기록을 관리해요.</Text>
+          {(bikes?.length ?? 0) > 0 && (
+            <Text style={[styles.listSubtitle, { color: colors.textSecondary }]}>바이크와 함께 쌓인 기록을 관리해요.</Text>
+          )}
         </View>
-        <Pressable
+        {(bikes?.length ?? 0) > 0 && <Pressable
+          accessibilityRole="button"
           onPress={openNew}
           style={({ pressed }) => [styles.addButton, { backgroundColor: colors.tint }, pressed && { opacity: 0.75 }]}>
           <Ionicons name="add" size={18} color={colors.background} />
           <Text style={[styles.addText, { color: colors.background }]}>추가</Text>
-        </Pressable>
+        </Pressable>}
       </View>
 
       {(bikes?.length ?? 0) === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <BikeIcon size={54} color={colors.tint} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>첫 바이크를 차고에 들여보세요</Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>기종과 애칭을 등록하면 리뷰와 주행 기록에 내 정체성이 남아요.</Text>
-          <Pressable onPress={openNew} style={[styles.emptyButton, { backgroundColor: colors.tint }]}>
+          <BikeIcon size={36} color={colors.textSecondary} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>등록한 바이크가 없어요</Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>바이크를 등록하면 리뷰와 방문 기록에 함께 표시돼요.</Text>
+          <Pressable accessibilityRole="button" onPress={openNew}
+            style={({ pressed }) => [styles.emptyButton, { backgroundColor: colors.tint, opacity: pressed ? 0.7 : 1 }]}>
             <Text style={[styles.emptyButtonText, { color: colors.background }]}>내 바이크 등록</Text>
           </Pressable>
         </View>
@@ -623,10 +627,10 @@ const styles = StyleSheet.create({
   activateText: { fontSize: 11.5, fontWeight: '700' },
   editButton: { marginLeft: 'auto', minWidth: 44, minHeight: 32, alignItems: 'center', justifyContent: 'center' },
   editText: { fontSize: 11.5, fontWeight: '600' },
-  emptyCard: { alignItems: 'center', padding: 28, gap: 10, borderWidth: 1, borderRadius: 20 },
-  emptyTitle: { marginTop: 4, fontSize: 18, fontWeight: '800' },
+  emptyCard: { alignItems: 'center', padding: 24, gap: 8, borderWidth: 1, borderRadius: 12 },
+  emptyTitle: { marginTop: 4, fontSize: 17, fontWeight: '600' },
   emptySubtitle: { textAlign: 'center', fontSize: 13, lineHeight: 19 },
-  emptyButton: { marginTop: 6, borderRadius: 13, paddingHorizontal: 20, paddingVertical: 12 },
+  emptyButton: { minHeight: 44, justifyContent: 'center', marginTop: 6, borderRadius: 13, paddingHorizontal: 20, paddingVertical: 12 },
   emptyButtonText: { fontSize: 14, fontWeight: '800' },
   passportCard: { marginTop: 6, minHeight: 72, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderWidth: 1, borderRadius: 16 },
   passportLabel: { marginBottom: 4, fontSize: 12, fontWeight: '600' },
