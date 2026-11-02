@@ -37,6 +37,11 @@ import type { PlaceCategory } from '@/types';
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type SubmitType = 'place' | 'riding' | 'hazard' | 'feedback';
+type PlaceSubmissionSource = 'tab' | 'arrival' | 'temp_place' | 'search_empty';
+
+function placeSubmissionSource(source: string | undefined): PlaceSubmissionSource {
+  return source === 'arrival' || source === 'temp_place' || source === 'search_empty' ? source : 'tab';
+}
 
 function SubmitTypeTab({
   type,
@@ -149,26 +154,35 @@ function SubmitPlace() {
 
   const handleSubmit = async () => {
     Keyboard.dismiss();
+    const source = placeSubmissionSource(prefillSource);
     if (!name.trim()) {
+      track.placeSubmissionAttempted({ source, result: 'missing_name' });
       toast.info('장소명을 입력해주세요.');
       return;
     }
     if (!category) {
+      track.placeSubmissionAttempted({ source, result: 'missing_category' });
       toast.info('카테고리를 선택해주세요.');
       return;
     }
     if (!address.trim() || !coords) {
+      track.placeSubmissionAttempted({ source, result: 'missing_address' });
       toast.info('주소를 검색해서 선택해주세요.');
       return;
     }
 
     setSubmitting(true);
     submitScale.value = withSpring(0.95);
+    let accepted = false;
 
     try {
       // 같은 주소의 기존 장소/제보가 있으면 중복 제출을 막는다
       const dup = await checkPlaceDuplicate(address.trim());
       if (dup) {
+        track.placeSubmissionAttempted({
+          source,
+          result: dup === 'approved' ? 'duplicate_approved' : 'duplicate_pending',
+        });
         toast.info(
           dup === 'approved' ? '이미 등록된 장소예요.' : '이미 제보된 장소예요.',
           dup === 'approved'
@@ -189,15 +203,12 @@ function SubmitPlace() {
         sourcePlaceId: sourceIdentity?.placeId,
       });
 
+      track.placeSubmissionAttempted({ source, result: 'submitted' });
       track.placeSubmitted({
         category,
-        source:
-          prefillSource === 'arrival' ||
-          prefillSource === 'temp_place' ||
-          prefillSource === 'search_empty'
-            ? prefillSource
-            : 'tab',
+        source,
       });
+      accepted = true;
 
       // 권한 요청(모달)이 완료 토스트·폼 리셋을 가리면 "제보가 안 됐다"고 오해해
       // 중복 제보하게 되므로, 권한 흐름을 먼저 끝낸 뒤 완료 처리를 한다.
@@ -214,6 +225,7 @@ function SubmitPlace() {
       setAddressDetail('');
       setSourceIdentity(null);
     } catch (error: any) {
+      if (!accepted) track.placeSubmissionAttempted({ source, result: 'error' });
       toast.error('제보에 실패했습니다.', error.message);
     } finally {
       setSubmitting(false);
@@ -318,10 +330,23 @@ export default function SubmitScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const [submitType, setSubmitType] = useState<SubmitType>('place');
-  const { submitType: requestedType, submitTs } = useLocalSearchParams<{
+  const { submitType: requestedType, submitTs, prefillSource, prefillTs } = useLocalSearchParams<{
     submitType?: string;
     submitTs?: string;
+    prefillSource?: string;
+    prefillTs?: string;
   }>();
+  const loginGateKey = useRef<string | null>(null);
+
+  // 도착·일반 장소·빈 검색에서 들어온 제보가 로그인 벽에 막히면 버튼 시도가 없다.
+  useEffect(() => {
+    if (user) return;
+    if (prefillSource !== 'arrival' && prefillSource !== 'temp_place' && prefillSource !== 'search_empty') return;
+    const key = `${prefillSource}:${prefillTs ?? submitTs ?? ''}`;
+    if (loginGateKey.current === key) return;
+    loginGateKey.current = key;
+    track.placeSubmissionAttempted({ source: prefillSource, result: 'login' });
+  }, [user, prefillSource, prefillTs, submitTs]);
 
   // 다른 화면의 CTA에서 제보 탭을 열 때, 이전에 보던 위험·건의 탭이 남지 않게 한다.
   // 같은 장소 CTA를 다시 눌러도 timestamp가 바뀌므로 매번 장소 탭으로 돌아온다.

@@ -51,6 +51,7 @@ const EVENTS = [
   ['place_submitted', '장소 제보'],
   ['place_submission_prompted', '도착 후 장소 제보 제안'],
   ['place_submission_opened', '장소 제보 열기'],
+  ['place_submission_attempted', '장소 제보 시도'],
   ['bike_setup_saved', '내 바이크 저장'],
   ['bike_ride_history_opened', '라이딩 기록 조회'],
   ['chat_message_sent', 'AI 챗 메시지'],
@@ -147,6 +148,24 @@ const exitLabel = (exit, hadArrived) => {
 };
 const [searchViewedCur = 0, searchSelectedCur = 0, searchViewedPrev = 0, searchSelectedPrev = 0] =
   searchSessions[0] ?? [];
+// 제보 시도의 result 분포. 열기−시도 = 버튼을 누르기 전에 나간 경우.
+const submissionAttempts = await hogql(`
+  SELECT properties.result AS result, count() AS n
+  FROM events
+  WHERE ${CUR} AND event = 'place_submission_attempted'
+  GROUP BY result
+  ORDER BY n DESC
+`);
+const submissionResultLabel = {
+  login: '로그인 벽',
+  missing_name: '장소명 없음',
+  missing_category: '카테고리 없음',
+  missing_address: '주소 없음',
+  duplicate_approved: '이미 등록',
+  duplicate_pending: '검토 중 중복',
+  error: '전송 실패',
+  submitted: '접수',
+};
 
 const lines = [];
 lines.push(`# 주간 다이제스트 (${kstDay(7)} ~ ${kstDay(0)})`);
@@ -170,6 +189,11 @@ if (searchViewedCur > 0) {
     : '—';
   lines.push(
     `**검색 결과 선택률(v2)**: ${curRate}% (결과 노출 ${searchViewedCur} · 선택 ${searchSelectedCur}, 전주 ${prevRate})`,
+  );
+}
+if (submissionAttempts.length > 0) {
+  lines.push(
+    `**장소 제보 시도**: ${submissionAttempts.map(([result, n]) => `${submissionResultLabel[result] ?? result} ${n}`).join(' · ')}`,
   );
 }
 lines.push('');

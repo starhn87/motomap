@@ -223,6 +223,21 @@ export const track = {
   placeSubmissionOpened: (p: { source: 'arrival' | 'temp_place' | 'search_empty' }) =>
     capture('place_submission_opened', p),
 
+  // 열기와 접수 사이. result 가 이탈 구간이다. login 은 버튼 전이므로
+  // 같은 방문에서 이후 submitted 가 또 남을 수 있다.
+  placeSubmissionAttempted: (p: {
+    source: 'tab' | 'arrival' | 'temp_place' | 'search_empty';
+    result:
+      | 'login'
+      | 'missing_name'
+      | 'missing_category'
+      | 'missing_address'
+      | 'duplicate_approved'
+      | 'duplicate_pending'
+      | 'error'
+      | 'submitted';
+  }) => capture('place_submission_attempted', p),
+
   // 제보 폼에는 사진 입력이 없다 — 카테고리와 진입 경로만 남긴다
   placeSubmitted: (p: {
     category: string;
