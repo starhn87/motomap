@@ -20,6 +20,16 @@
 
 ## 2026-11-01 TestFlight 전달: 1.2.11(67), native38/API1
 
+### 2026-11-02 이후 소스 후보 — 탐색 랭킹·iOS 네이티브 탭
+
+COMMUNITY-010의 일반 공개 추천수/등록 리뷰 평점 분리와 INTERACTION-012의 iOS NativeTabs
+전환을 다음 검증 후보에 포함한다. 설치된 SDK57의 JS 내비게이터를 사용하며 네이티브 코드·
+의존성·wire 계약 변경은 없어 app/runtime1.2.11·native38/API1을 유지한다. 이미 업로드한 67번이
+이 변경을 담았다는 뜻은 아니다. 새 바이너리의 Glass·헤더·지도/시트/모달 safe area를 확인한 후
+전달하며 검증 전 OTA는 하지 않는다. 커밋까지만 준비하고 푸시·빌드·배포는 별도 승인이다.
+
+아래 67번 전달 이력은 당시 사실로 보존한다.
+
 사용자 요청으로 `15e7441`을 clean clone에서 EAS cloud production으로 빌드했다. EAS build
 `7fd673f1-4ab6-436c-83ee-27677e463cc6`이 `FINISHED`, 1.2.11(67)/runtime1.2.11임을 확인했고 submission
 `fb91c96e-0324-4fc6-a79d-552de4c92254`가 **App Store Connect 업로드 성공**으로 끝났다. 확인 시점은 Apple 처리

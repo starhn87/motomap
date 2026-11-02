@@ -1,3 +1,12 @@
+## 2026-11-02 소스 후보 — 탐색 랭킹·iOS 네이티브 탭
+
+COMMUNITY-010/INTERACTION-012: 일반 장소 공개 추천수와 등록 장소 리뷰 평점을 분리하고,
+iOS 하단을 시스템 NativeTabs로 전환한다(iOS 26 이상 Liquid Glass). Android·웹은 기존 탭이다.
+app/runtime1.2.11·native38/API1은 유지한다. 이 후보는 기존 67번에 포함되지 않았다.
+제출 전 새 바이너리에서 4탭/헤더/알림, 지도·시트·키보드·모달 safe area, 상태 보존,
+라이트/다크·큰 글자·VoiceOver를 확인한다. 빌드·실기기·외부 QA 완료 전 제출/OTA하지 않는다.
+`config/release-notes.json`에는 후보 문구를 준비했으며 Apple 원격 메타데이터는 바꾸지 않았다.
+
 ## 2026-10-29 TestFlight 전달 — 1.2.11(63), native37/API1
 
 사용자의 새 빌드/TestFlight 요청으로 소스299853f를 clean checkout에서 EAS local production으로

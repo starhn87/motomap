@@ -10,6 +10,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import Skeleton from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
+import { withNativeTabScreen } from '@/components/navigation/NativeTabScreen';
 import { useSharedGeneralPlaces } from '@/hooks/useCommunityPlaceSignals';
 import { useRidingGuides } from '@/hooks/useRidingGuides';
 import type { GeneralPlace } from '@/lib/api/generalPlaces';
@@ -89,7 +90,7 @@ function RankingSkeleton() {
   ))}</View>;
 }
 
-export default function ExploreScreen() {
+function ExploreScreen() {
   const colors = Colors[useColorScheme() ?? 'light'];
   const [board, setBoard] = useState<Board>('recommended');
   const [visibleCount, setVisibleCount] = useState(10);
@@ -151,6 +152,8 @@ export default function ExploreScreen() {
     />
   );
 }
+
+export default withNativeTabScreen(ExploreScreen, { title: '탐색' });
 
 const styles = StyleSheet.create({
   list: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 },

@@ -1,0 +1,172 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { Script } from 'node:vm';
+import test from 'node:test';
+import ts from 'typescript';
+import { loadModule } from './helpers/loadModule';
+
+type Element = { type: any; props: any };
+const jsx = (type: any, props: any) => ({ type, props });
+const exported = (value: any) => ({ __esModule: true, default: value });
+const colors = { text: 'black', textSecondary: 'gray', tint: 'black', background: 'white', surfaceElevated: 'white', border: 'gray' };
+const nodes = (node: any): Element[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
+
+function layout(os: string, unread: number) {
+  const trigger = Object.assign(() => null, { Icon: 'NativeIcon', Label: 'NativeLabel', Badge: 'NativeBadge' });
+  const NativeTabs = Object.assign(() => null, { Trigger: trigger });
+  const insets = { top: 59, bottom: 34, left: 0, right: 0 };
+  const module = loadModule<{ default: () => Element }>('app/(tabs)/_layout.tsx', {
+    react: exported({}), 'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react-native': { Platform: { OS: os }, Pressable: 'Button' },
+    '@expo/vector-icons/Ionicons': exported('Icon'),
+    'expo-router': { Tabs: Object.assign(() => null, { Screen: 'LegacyScreen' }) },
+    'expo-router/unstable-native-tabs': { NativeTabs },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => insets },
+    'react-native-reanimated': { ...exported({ View: 'AnimatedView' }), useSharedValue: () => ({ value: 1 }) },
+    '@/constants/Colors': { ...exported({ light: colors }), semantic: { danger: 'red' } },
+    '@/components/useColorScheme': { useColorScheme: () => 'light' },
+    '@/hooks/useNotifications': { useUnreadCount: () => unread },
+    '@/components/navigation/NotificationBell': exported('Bell'),
+    '@/components/navigation/NativeTabScreen': { NativeTabDeviceInsetsContext: { Provider: 'DeviceInsets' } },
+  });
+  const entry = module.default();
+  return { tree: entry.type(entry.props), NativeTabs, trigger, insets };
+}
+
+test('iOS는 UIKit 탭 4개·시스템 아이콘·미읽음 배지를 쓰고 탭 높이나 가짜 블러를 지정하지 않는다', () => {
+  const { tree, NativeTabs, trigger, insets } = layout('ios', 12);
+  assert.equal(tree.type, 'DeviceInsets');
+  assert.equal(tree.props.value, insets);
+  const native = nodes(tree).find(node => node.type === NativeTabs)!;
+  assert.equal(native.props.minimizeBehavior, 'never');
+  assert.equal(native.props.sidebarAdaptable, false);
+  assert.equal(native.props.style, undefined);
+  assert.equal(native.props.backgroundColor, undefined);
+  assert.equal(native.props.blurEffect, undefined);
+  const tabs = nodes(tree).filter(node => node.type === trigger);
+  assert.deepEqual(tabs.map(tab => tab.props.name), ['index', 'courses', 'submit', 'profile']);
+  assert.ok(tabs.every(tab => tab.props.disableAutomaticContentInsets));
+  assert.equal(tabs[0].props.disablePopToTop, true);
+  assert.equal(tabs[0].props.disableScrollToTop, true);
+  assert.deepEqual(nodes(tree).filter(node => node.type === 'NativeLabel').map(node => node.props.children), ['지도', '탐색', '제보', '내 정보']);
+  assert.equal(nodes(tree).find(node => node.type === 'NativeBadge')?.props.children, '9+');
+  assert.ok(nodes(tree).filter(node => node.type === 'NativeIcon').every(node => node.props.sf.default && node.props.sf.selected));
+  assert.equal(nodes(layout('ios', 0).tree).some(node => node.type === 'NativeBadge'), false);
+});
+
+test('Android·웹은 기존 JS 탭과 4개 경로를 유지한다', () => {
+  for (const os of ['android', 'web']) {
+    const { tree } = layout(os, 0);
+    assert.deepEqual(nodes(tree).filter(node => node.type === 'LegacyScreen').map(node => node.props.name), ['index', 'courses', 'submit', 'profile']);
+    assert.equal(tree.props.screenOptions.tabBarStyle.height, 90);
+  }
+});
+
+function frameFixture(os = 'ios') {
+  let focused = false, visited: unknown;
+  let effects: (() => void)[] = [];
+  const insets = { top: 59, bottom: 34, left: 0, right: 0 };
+  const Screen = () => null;
+  const module = loadModule<any>('components/navigation/NativeTabScreen.tsx', {
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    react: { createContext: () => ({ Provider: 'DeviceInsets' }), useContext: () => insets,
+      useState: (initial: boolean) => { if (visited === undefined) visited = initial; return [visited, (value: boolean) => { visited = value; }]; },
+      useEffect: (fn: () => void) => effects.push(fn) },
+    'expo-router': { useIsFocused: () => focused },
+    'react-native': { Platform: { OS: os }, Text: 'Text', View: 'View', StyleSheet: { create: (style: any) => style, hairlineWidth: 0.5 } },
+    'react-native-screens/experimental': { SafeAreaView: 'NativeSafeArea' },
+    'react-native-safe-area-context': { SafeAreaInsetsContext: { Provider: 'DeviceEdges' } },
+    '@/constants/Colors': exported({ light: colors }), '@/components/useColorScheme': { useColorScheme: () => 'light' }, './NotificationBell': exported('Bell'),
+  });
+  const wrap = (options: any) => module.withNativeTabScreen(Screen, options);
+  const render = (wrapped: () => Element) => {
+    const entry = wrapped();
+    if (entry.type === Screen) return entry;
+    const tree = entry.type(entry.props);
+    effects.forEach(fn => fn()); effects = [];
+    return tree;
+  };
+  return { Screen, wrap, render, insets, focus(value: boolean) { focused = value; } };
+}
+
+test('iOS 화면은 첫 포커스 전까지 본체를 미루고 이후에는 탭 이탈에도 같은 본체를 보존한다', () => {
+  const app = frameFixture();
+  const wrapped = app.wrap({ title: '내 정보', notifications: true });
+  assert.equal(nodes(app.render(wrapped)).some(node => node.type === app.Screen), false);
+  app.focus(true);
+  let tree = app.render(wrapped);
+  assert.equal(nodes(tree).some(node => node.type === app.Screen), true);
+  app.focus(false);
+  tree = app.render(wrapped);
+  assert.equal(nodes(tree).find(node => node.type === app.Screen)?.type, app.Screen);
+  assert.equal(nodes(tree).find(node => node.type === 'Text')?.props.children, '내 정보');
+  assert.equal(nodes(tree).some(node => node.type === 'Bell'), true);
+  assert.equal(tree.props.value, app.insets, '전체화면 모달에는 탭 높이가 섞이지 않은 기기 inset을 전달');
+  assert.deepEqual({ ...nodes(tree).find(node => node.type === 'NativeSafeArea')?.props.edges }, { top: true, bottom: true, left: true, right: true });
+});
+
+test('지도에는 새 상단 헤더가 없고 Android에는 native safe-area·중복 헤더를 추가하지 않는다', () => {
+  const app = frameFixture();
+  app.focus(true);
+  const tree = app.render(app.wrap({}));
+  assert.equal(nodes(tree).some(node => node.type === 'Text'), false);
+  assert.equal(nodes(tree).find(node => node.type === 'NativeSafeArea')?.props.edges.top, false);
+  const android = frameFixture('android');
+  assert.equal(android.render(android.wrap({ title: '탐색' })).type, android.Screen);
+});
+
+test('로그인 알림 버튼의 진입·미읽음·즉시 눌림 복귀를 유지한다', () => {
+  let user: unknown = null, pushed = '';
+  const module = loadModule<any>('components/navigation/NotificationBell.tsx', {
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    '@expo/vector-icons/Ionicons': exported('Icon'), 'expo-router': { router: { push: (url: string) => { pushed = url; } } },
+    'react-native': { Pressable: 'Button', Text: 'Text', View: 'View', StyleSheet: { create: (style: any) => style } },
+    '@/constants/Colors': { ...exported({ light: colors }), semantic: { danger: 'red' } },
+    '@/components/useColorScheme': { useColorScheme: () => 'light' },
+    '@/stores/useAuthStore': { useAuthStore: (select: any) => select({ user }) }, '@/hooks/useNotifications': { useUnreadCount: () => 12 },
+  });
+  assert.equal(module.default(), null);
+  user = { id: 'fixture' };
+  const tree = module.default();
+  assert.match(tree.props.accessibilityLabel, /12개/);
+  assert.equal(nodes(tree).find(node => node.type === 'Text')?.props.children, '9+');
+  assert.equal(tree.props.style({ pressed: true })[1].opacity, 0.7);
+  assert.equal(tree.props.style({ pressed: false })[1].opacity, 1);
+  tree.props.onPress(); assert.equal(pushed, '/notifications');
+});
+
+test('지도 레이아웃이 달라지면 FAB와 장소 카메라 보정에 같은 실제 높이를 사용한다', () => {
+  const path = 'components/map/MapHome.tsx';
+  const source = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+  const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let offset: ts.FunctionDeclaration | undefined, onLayout: ts.Expression | undefined, select: ts.Expression | undefined, temp: ts.Expression | undefined;
+  function visit(node: ts.Node) {
+    if (ts.isFunctionDeclaration(node) && node.name?.text === 'sheetLatOffset') offset = node;
+    if (ts.isJsxAttribute(node) && node.name.getText(ast) === 'onLayout' && node.initializer && ts.isJsxExpression(node.initializer)) onLayout = node.initializer.expression;
+    if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'handleSearchPointSelect' && node.initializer && ts.isCallExpression(node.initializer)) select = node.initializer.arguments[0];
+    if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'handleTempPlaceSelect' && node.initializer && ts.isCallExpression(node.initializer)) temp = node.initializer.arguments[0];
+    ts.forEachChild(node, visit);
+  }
+  visit(ast);
+  assert.ok(offset && onLayout && select && temp);
+  const { outputText } = ts.transpileModule(`${offset.getText(ast)}\nmodule.exports = { layout: ${onLayout.getText(ast)}, select: ${select.getText(ast)}, temp: ${temp.getText(ast)} };`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  });
+  const shared = { value: 0 }, context: any = { mapViewportHeight: 900, containerHeight: shared,
+    setMapViewportHeight: (height: number) => { context.mapViewportHeight = height; }, followingRef: { current: true }, mapRef: { current: { animateCameraTo: (camera: any) => { context.camera = camera; } } },
+    mapCenter: { zoom: 15 }, setSelectedPlaceId() {}, setSelectedPlace() {}, setSelectedStation() {}, setHighlightReview() {}, setTempPlace() {},
+    module: { exports: {} } };
+  new Script(outputText).runInNewContext(context);
+  const api = context.module.exports;
+  for (const handler of [api.select, api.temp]) {
+    api.layout({ nativeEvent: { layout: { height: 700 } } });
+    assert.equal(shared.value, 700); assert.equal(context.mapViewportHeight, 700);
+    handler({ latitude: 37.5, longitude: 127 });
+    const first = context.camera.latitude;
+    api.layout({ nativeEvent: { layout: { height: 400 } } });
+    handler({ latitude: 37.5, longitude: 127 });
+    assert.ok(context.camera.latitude > first, '가용 지도 높이가 줄면 수직 보정도 줄어야 함');
+    assert.equal(context.camera.longitude, 127);
+    assert.equal(context.followingRef.current, false);
+  }
+});
