@@ -58,6 +58,8 @@ interface Props {
   highlightReview?: { id: string; key: string } | null;
   /** 지도에서 선택 화면에서 열 때 — 출발·도착·공유 대신 이 버튼 하나와 장소 정보만 보인다. */
   pickAction?: { label: string; onPress: () => void };
+  /** 지도 탭의 떠 있는 탭바 높이. 모달·다른 화면은 0. */
+  tabClearance?: number;
 }
 
 // 최소 스냅은 비율이 아니라 고정 높이 — 지도 탭에서는 하단 탭바(~83pt)가
@@ -78,6 +80,7 @@ function PlaceBottomSheet({
   animatedPosition,
   highlightReview,
   pickAction,
+  tabClearance = 0,
 }: Props) {
   const [hoursExpanded, setHoursExpanded] = useState(false);
   useEffect(() => { setHoursExpanded(false); }, [place?.name, place?.latitude, place?.longitude]);
@@ -364,6 +367,7 @@ function PlaceBottomSheet({
         keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
         enableBlurKeyboardOnGesture
+        bottomInset={tabClearance}
         // 스와이프로는 최소 스냅까지만 내려간다. 실수로 쓸어서 닫히는 걸 막고,
         // 닫기는 X 버튼과 풀확장 헤더의 뒤로가기 두 곳으로 모은다.
         enablePanDownToClose={false}

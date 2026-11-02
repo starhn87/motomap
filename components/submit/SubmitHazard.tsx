@@ -27,6 +27,7 @@ import MapPickerModal from '@/components/map/MapPickerModal';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { toast } from '@/lib/toast';
+import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
 import { registerPushToken } from '@/lib/push';
 import type { HazardType } from '@/types';
 
@@ -261,6 +262,7 @@ export default function SubmitHazard() {
             <Text style={[styles.submitText, { color: colors.background }]}>위험 제보하기</Text>
           )}
         </Pressable>
+        <TabScrollSpacer />
       </ScrollView>
 
       <AddressSearchModal

@@ -398,9 +398,9 @@ NativeTabs는 eager mount하므로 첫 포커스까지 화면 본체를 미루�
 JS 탭 전용 `useBottomTabBarHeight`를 호출하거나 기기별 높이를 추정하지 않는다.
 
 NativeTabs가 추가하는 tab-local SafeAreaProvider 때문에 전체화면 Modal의 하단 여백에 탭 높이가
-섞이지 않도록, 탭 레이아웃에서 읽은 기존 기기 inset을 자식에게 이어준다. 실제 탭 회피는 native
-SafeAreaView가 담당한다. 초기 구현은 지도까지 바텀 safe frame 안에 두어 하단 유리 뒤까지 지도를
-그리지 않는 보수적 배치다. edge-to-edge 지도가 필요하면 native inset 실측 후 별도로 분리한다.
+섞이지 않도록, 탭 레이아웃에서 읽은 기존 기기 inset을 자식에게 이어준다. 화면 전체를 바텀
+safe frame 안에 두던 배치는 INTERACTION-013으로 대체됐다. 탭바 높이 hook을 호출하거나
+기기별 높이를 상수로 추정하지 않는 경계는 유지한다.
 
 ### 검증과 전달
 
@@ -413,3 +413,23 @@ SafeAreaView가 담당한다. 초기 구현은 지도까지 바텀 safe frame �
 
 공식 근거: [Expo SDK57 NativeTabs](https://docs.expo.dev/versions/v57.0.0/sdk/router/native-tabs/),
 [Native tabs의 safe area·lazy loading](https://docs.expo.dev/router/advanced/native-tabs/).
+
+## INTERACTION-013 — 탭 바는 떠 있고 화면 높이를 차지하지 않는다
+
+- 날짜: 2026-11-02
+- 상태: 활성
+- 관련 구현: `app/(tabs)/_layout.tsx`, `components/navigation/NativeTabScreen.tsx`,
+  `components/navigation/tabOcclusion.tsx`
+- 대체: INTERACTION-012의 보수적 하단 safe frame
+
+### 결정
+
+탭 콘텐츠는 화면 맨 아래까지 그린다. iOS는 시스템 Liquid Glass 탭을 그대로 두고, 화면을
+줄이던 native bottom inset만 끈다. 탭 높이는 `useSafeAreaInsets`와 experimental
+SafeAreaView 실측 중 큰 값으로만 알고, 기기별 상수를 두지 않는다. Android·웹 JS 탭은
+`position: 'absolute'`로 띄우고 홈 인디케이터보다 10pt 위에 둔다. 그 높이는 우리가 정한
+56pt라 추정이 아니다.
+
+버튼·시트·스크롤 맨 끝만 그 높이만큼 비운다. 전체화면 모달과 탭 밖 화면은 탭 높이를
+더하지 않는다. 탐색·제보·내 정보 헤더는 같은 18pt 굵은 제목과 헤어라인 구분선을 쓴다.
+지도에는 헤더를 추가하지 않는다.

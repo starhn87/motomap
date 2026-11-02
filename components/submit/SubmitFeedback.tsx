@@ -21,6 +21,7 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { submitFeedback } from '@/lib/api/feedback';
 import { toast } from '@/lib/toast';
+import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
 import { registerPushToken } from '@/lib/push';
 import type { FeedbackType } from '@/lib/api/feedback';
 
@@ -144,6 +145,7 @@ export default function SubmitFeedback() {
             {submitting ? '제출 중...' : '의견 보내기'}
           </Text>
         </AnimatedPressable>
+        <TabScrollSpacer />
       </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -72,6 +72,8 @@ interface Props {
   animatedPosition?: SharedValue<number>;
   /** 지도에서 선택 화면에서 열 때 — 출발·도착·공유 대신 이 버튼 하나와 장소 정보만 보인다. */
   pickAction?: { label: string; onPress: () => void };
+  /** 지도 탭의 떠 있는 탭바 높이. 모달·다른 화면은 0. */
+  tabClearance?: number;
 }
 
 const SNAP_POINTS = [100, '45%', '100%'];
@@ -83,7 +85,7 @@ const DETAIL_CARD_GAP = 10;
 
 // 일반 장소도 등록 장소와 같은 확장형 상세 경험을 쓴다. 차이는 카테고리·라이더
 // 집계처럼 모토맵이 검증한 정보 대신 카카오 정보와 라이더 리뷰가 중심이라는 점이다.
-export default function TempPlaceSheet({ place, onClose, animatedPosition, pickAction }: Props) {
+export default function TempPlaceSheet({ place, onClose, animatedPosition, pickAction, tabClearance = 0 }: Props) {
   const [hoursExpanded, setHoursExpanded] = useState(false);
   useEffect(() => { setHoursExpanded(false); }, [place?.name, place?.latitude, place?.longitude]);
   const colorScheme = useColorScheme();
@@ -347,6 +349,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
         keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
         enableBlurKeyboardOnGesture
+        bottomInset={tabClearance}
         onChange={(index) => {
           if (index === -1 && place) onClose();
         }}

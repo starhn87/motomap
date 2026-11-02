@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, Pressable } from 'react-native';
+import { Platform, Pressable, StyleSheet } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
@@ -19,6 +19,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useUnreadCount } from '@/hooks/useNotifications';
 import NotificationBell from '@/components/navigation/NotificationBell';
 import { NativeTabDeviceInsetsContext } from '@/components/navigation/NativeTabScreen';
+import { FLOATING_TAB_BAR_HEIGHT, FLOATING_TAB_LIFT, TabOcclusionContext, useJsTabOcclusion } from '@/components/navigation/tabOcclusion';
 
 // 누르는 동안 움츠리고(pressIn) 떼는 순간 한 번만 튕기며 복귀(pressOut).
 // tabPress 는 손을 뗀 뒤에야 발생해 이 구분이 불가능하므로 tabBarButton 을 커스텀해
@@ -87,6 +88,7 @@ function LegacyTabLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  const occlusion = useJsTabOcclusion();
 
   const unreadCount = useUnreadCount();
   const mapTab = useTabPressScale();
@@ -95,22 +97,43 @@ function LegacyTabLayout() {
   const profileTab = useTabPressScale();
 
   return (
+    <TabOcclusionContext.Provider value={occlusion}>
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.tint,
         tabBarInactiveTintColor: colors.tabIconDefault,
+        // 레이아웃 높이를 먹지 않는 떠 있는 바. 화면 끝보다 조금 위에 둔다.
         tabBarStyle: {
+          position: 'absolute',
+          left: 16,
+          right: 16,
+          bottom: insets.bottom + FLOATING_TAB_LIFT,
+          height: FLOATING_TAB_BAR_HEIGHT,
+          borderRadius: 28,
+          borderTopWidth: 0,
+          paddingTop: 4,
           backgroundColor: colors.surfaceElevated,
-          borderTopColor: colors.border,
-          // 상단 여백을 주는 만큼 높이도 늘려야 라벨이 잘리지 않는다
-          paddingTop: 6,
-          height: 56 + insets.bottom,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.16,
+          shadowRadius: 16,
+          elevation: 8,
         },
         tabBarLabelStyle: {
-          marginTop: 4,
+          marginTop: 2,
+          fontSize: 11,
+          fontWeight: '600',
+        },
+        headerTitleAlign: 'center',
+        headerShadowVisible: false,
+        headerTitleStyle: {
+          fontSize: 18,
+          fontWeight: '700',
         },
         headerStyle: {
           backgroundColor: colors.surfaceElevated,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
         },
         headerTintColor: colors.text,
       }}>
@@ -169,6 +192,7 @@ function LegacyTabLayout() {
         }}
       />
     </Tabs>
+    </TabOcclusionContext.Provider>
   );
 }
 

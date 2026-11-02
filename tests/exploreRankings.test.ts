@@ -58,6 +58,7 @@ function fixture() {
     '@/components/useColorScheme': { useColorScheme: () => 'light' }, '@/components/ui/CategoryIcon': 'Category',
     '@/components/ui/Skeleton': 'Skeleton', '@/components/ui/EmptyState': 'Empty',
     '@/components/navigation/NativeTabScreen': { withNativeTabScreen: (screen: unknown) => screen },
+    '@/components/navigation/tabOcclusion': { TabScrollSpacer: () => null },
     '@/hooks/useCommunityPlaceSignals': { useSharedGeneralPlaces: () => shared }, '@/hooks/useRidingGuides': { useRidingGuides: () => guides },
     '@/lib/api/places': { fetchAllPlaces() {} }, '@/lib/api/gasStations': { looksLikeGasStation: (name: string) => name.includes('주유소') },
     '@/lib/exploreRankings': { rankRecommendedPlaces, rankReviewedPlaces, displayedRating },
@@ -90,7 +91,16 @@ test('탐색 첫 화면은 추천순이며 일반·등록 장소를 섞지 않�
   element.type(element.props).props.onPress();
   assert.equal(app.focused[1][1], 'cafe');
   assert.equal(app.focused[1][2].source, 'explore');
+  const header = texts(view.props.ListHeaderComponent);
+  assert.equal(header.includes('추천순'), true);
+  assert.equal(header.includes('평점순'), true);
+  assert.equal(header.some(line => line.includes('라이딩') || line.includes('추천 많이') || line.includes('평점 높은')), false);
 });
+function texts(node: any): string[] {
+  if (Array.isArray(node)) return node.flatMap(texts);
+  if (typeof node === 'string') return [node];
+  return node?.props ? texts(node.props.children) : [];
+}
 
 test('로딩·실패·정상 빈 목록을 구분하고 재조회 실패에는 기존 결과를 유지한다', () => {
   const app = fixture();

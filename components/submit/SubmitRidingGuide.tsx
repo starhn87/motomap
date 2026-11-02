@@ -24,6 +24,7 @@ import { submitRidingGuideProposal } from '@/lib/api/ridingGuideSubmissions';
 import { registerPushToken } from '@/lib/push';
 import { track } from '@/lib/analytics';
 import { toast } from '@/lib/toast';
+import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
 
 const SUGGESTED_TAGS = [
   '봄',
@@ -421,6 +422,7 @@ export default function SubmitRidingGuide() {
             <Text style={[styles.submitText, { color: colors.background }]}>라이딩 추천 보내기</Text>
           )}
         </Pressable>
+        <TabScrollSpacer />
       </ScrollView>
 
       <PointSearchModal

@@ -66,6 +66,7 @@ test('비로그인 내 정보에도 집·회사 편집 진입을 남긴다', () 
     '@/components/auth/LoginPrompt': exported('LoginPrompt'), '@/components/ui/ImageViewer': exported('ImageViewer'),
     '@/components/profile/MyBikeHero': exported('MyBikeHero'),
     '@/components/navigation/NativeTabScreen': { withNativeTabScreen: (screen: unknown) => screen },
+    '@/components/navigation/tabOcclusion': { TabScrollSpacer: () => null },
   });
   const nodes = (node: any): any[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
   const tree = nodes(profile.default());

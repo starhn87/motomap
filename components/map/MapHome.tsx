@@ -26,6 +26,7 @@ import Animated, { FadeOut,
   Extrapolation,
 } from 'react-native-reanimated';
 
+import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { track } from '@/lib/analytics';
@@ -639,6 +640,12 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     return () => setMapFocusOverride(null);
   }, [overlay]);
 
+  // 떠 있는 탭이 레이아웃을 먹지 않으므로, 탭 위 버튼만 그 높이만큼 올린다.
+  // 오버레이 지도에는 탭이 없다.
+  const tabOcclusion = useTabOcclusion(!overlay);
+  const tabOcclusionSv = useSharedValue(tabOcclusion);
+  if (tabOcclusionSv.value !== tabOcclusion) tabOcclusionSv.value = tabOcclusion;
+
   // 탭바와 같은 프레스 감각 — 누르는 동안 움츠리고 떼면 한 번만 튕기며 복귀
   const myLocationScale = useSharedValue(1);
   const myLocationStyle = useAnimatedStyle(() => ({
@@ -653,7 +660,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     const h = containerHeight.value;
     const fromSheet = h > 0 ? h - sheetPosition.value + 16 : 0;
     return {
-      bottom: Math.max(24, fromSheet),
+      bottom: Math.max(24 + tabOcclusionSv.value, fromSheet),
       opacity:
         h > 0
           ? interpolate(sheetPosition.value, [h * 0.2, h * 0.35], [0, 1], Extrapolation.CLAMP)
@@ -1079,7 +1086,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
 
       {showGasRefresh && !selectedStation && !placeDetailOpen && !weatherOpen && (
-        <Animated.View entering={FadeIn.duration(200)} style={styles.gasRefreshAnchor}>
+        <Animated.View entering={FadeIn.duration(200)} style={[styles.gasRefreshAnchor, { bottom: 26 + tabOcclusion }]}>
           <Pressable
             accessibilityLabel={gasFetching ? '주유소 검색 중' : gasError
               ? stations.length ? '이전 유가가 표시되고 있어요. 이 지역 주유소 다시 검색' : '유가 조회 실패. 이 지역 주유소 다시 검색'
@@ -1136,6 +1143,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
       <PlaceBottomSheet
         place={selectedPlace}
+        tabClearance={tabOcclusion}
         onClose={handleBottomSheetClose}
         animatedPosition={sheetPosition}
         highlightReview={highlightReview}
@@ -1145,6 +1153,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
       <TempPlaceSheet
         place={tempPlace}
+        tabClearance={tabOcclusion}
         onClose={handleBottomSheetClose}
         animatedPosition={sheetPosition}
       />

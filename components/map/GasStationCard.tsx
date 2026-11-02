@@ -13,6 +13,7 @@ import { useGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorit
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
 import { toast } from '@/lib/toast';
 import { haptics } from '@/lib/haptics';
+import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
 
 interface Props {
   station: GasStation;
@@ -23,6 +24,7 @@ interface Props {
 export default function GasStationCard({ station, fuelCode = 'B027', onClose }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const tabOcclusion = useTabOcclusion();
   const { data: detail, isLoading, isError, isFetching, refetch } = useGasStationDetail(station.id);
   // 내 바이크를 등록했으면 그 유종을 강조하고 가득 주유비를 보여준다
   const { spec: myBike } = useMyBike();
@@ -65,7 +67,7 @@ export default function GasStationCard({ station, fuelCode = 'B027', onClose }: 
     <Animated.View
       entering={FadeInUp.duration(250)}
       exiting={FadeOutDown.duration(200)}
-      style={[styles.card, { backgroundColor: colors.background, borderColor: colors.border }]}>
+      style={[styles.card, { bottom: 84 + tabOcclusion, backgroundColor: colors.background, borderColor: colors.border }]}>
       <View style={styles.header}>
         <View style={styles.titleWrap}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>

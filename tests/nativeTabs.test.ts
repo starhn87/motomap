@@ -17,7 +17,7 @@ function layout(os: string, unread: number) {
   const insets = { top: 59, bottom: 34, left: 0, right: 0 };
   const module = loadModule<{ default: () => Element }>('app/(tabs)/_layout.tsx', {
     react: exported({}), 'react/jsx-runtime': { jsx, jsxs: jsx },
-    'react-native': { Platform: { OS: os }, Pressable: 'Button' },
+    'react-native': { Platform: { OS: os }, Pressable: 'Button', StyleSheet: { hairlineWidth: 0.5 } },
     '@expo/vector-icons/Ionicons': exported('Icon'),
     'expo-router': { Tabs: Object.assign(() => null, { Screen: 'LegacyScreen' }) },
     'expo-router/unstable-native-tabs': { NativeTabs },
@@ -28,6 +28,12 @@ function layout(os: string, unread: number) {
     '@/hooks/useNotifications': { useUnreadCount: () => unread },
     '@/components/navigation/NotificationBell': exported('Bell'),
     '@/components/navigation/NativeTabScreen': { NativeTabDeviceInsetsContext: { Provider: 'DeviceInsets' } },
+    '@/components/navigation/tabOcclusion': {
+      TabOcclusionContext: { Provider: 'TabOcclusion' },
+      FLOATING_TAB_BAR_HEIGHT: 56,
+      FLOATING_TAB_LIFT: 10,
+      useJsTabOcclusion: () => insets.bottom + 10 + 56,
+    },
   });
   const entry = module.default();
   return { tree: entry.type(entry.props), NativeTabs, trigger, insets };
@@ -54,32 +60,45 @@ test('iOS는 UIKit 탭 4개·시스템 아이콘·미읽음 배지를 쓰고 탭
   assert.equal(nodes(layout('ios', 0).tree).some(node => node.type === 'NativeBadge'), false);
 });
 
-test('Android·웹은 기존 JS 탭과 4개 경로를 유지한다', () => {
+test('Android·웹은 기존 JS 탭과 4개 경로를 유지하고 탭은 화면 높이를 차지하지 않는다', () => {
   for (const os of ['android', 'web']) {
     const { tree } = layout(os, 0);
-    assert.deepEqual(nodes(tree).filter(node => node.type === 'LegacyScreen').map(node => node.props.name), ['index', 'courses', 'submit', 'profile']);
-    assert.equal(tree.props.screenOptions.tabBarStyle.height, 90);
+    assert.equal(tree.type, 'TabOcclusion');
+    const tabs = tree.props.children;
+    assert.deepEqual(nodes(tabs).filter(node => node.type === 'LegacyScreen').map(node => node.props.name), ['index', 'courses', 'submit', 'profile']);
+    assert.equal(tabs.props.screenOptions.tabBarStyle.position, 'absolute');
+    assert.equal(tabs.props.screenOptions.tabBarStyle.height, 56);
+    assert.equal(tabs.props.screenOptions.tabBarStyle.bottom, 44);
+    assert.equal(tabs.props.screenOptions.headerTitleStyle.fontWeight, '700');
   }
 });
 
 function frameFixture(os = 'ios') {
-  let focused = false, visited: unknown;
+  let focused = false;
+  let cursor = 0;
+  const states: unknown[] = [];
   let effects: (() => void)[] = [];
   const insets = { top: 59, bottom: 34, left: 0, right: 0 };
   const Screen = () => null;
   const module = loadModule<any>('components/navigation/NativeTabScreen.tsx', {
     'react/jsx-runtime': { jsx, jsxs: jsx },
     react: { createContext: () => ({ Provider: 'DeviceInsets' }), useContext: () => insets,
-      useState: (initial: boolean) => { if (visited === undefined) visited = initial; return [visited, (value: boolean) => { visited = value; }]; },
+      useState: (initial: unknown) => {
+        const index = cursor++;
+        if (!(index in states)) states[index] = initial;
+        return [states[index], (value: unknown) => { states[index] = typeof value === 'function' ? (value as (prev: unknown) => unknown)(states[index]) : value; }];
+      },
       useEffect: (fn: () => void) => effects.push(fn) },
     'expo-router': { useIsFocused: () => focused },
     'react-native': { Platform: { OS: os }, Text: 'Text', View: 'View', StyleSheet: { create: (style: any) => style, hairlineWidth: 0.5 } },
     'react-native-screens/experimental': { SafeAreaView: 'NativeSafeArea' },
-    'react-native-safe-area-context': { SafeAreaInsetsContext: { Provider: 'DeviceEdges' } },
+    'react-native-safe-area-context': { SafeAreaInsetsContext: { Provider: 'DeviceEdges' }, useSafeAreaInsets: () => insets },
+    './tabOcclusion': { TabOcclusionContext: { Provider: 'TabOcclusion' } },
     '@/constants/Colors': exported({ light: colors }), '@/components/useColorScheme': { useColorScheme: () => 'light' }, './NotificationBell': exported('Bell'),
   });
   const wrap = (options: any) => module.withNativeTabScreen(Screen, options);
   const render = (wrapped: () => Element) => {
+    cursor = 0;
     const entry = wrapped();
     if (entry.type === Screen) return entry;
     const tree = entry.type(entry.props);
@@ -102,7 +121,7 @@ test('iOS 화면은 첫 포커스 전까지 본체를 미루고 이후에는 탭
   assert.equal(nodes(tree).find(node => node.type === 'Text')?.props.children, '내 정보');
   assert.equal(nodes(tree).some(node => node.type === 'Bell'), true);
   assert.equal(tree.props.value, app.insets, '전체화면 모달에는 탭 높이가 섞이지 않은 기기 inset을 전달');
-  assert.deepEqual({ ...nodes(tree).find(node => node.type === 'NativeSafeArea')?.props.edges }, { top: true, bottom: true, left: true, right: true });
+  assert.deepEqual({ ...nodes(tree).find(node => node.type === 'NativeSafeArea')?.props.edges }, { top: true, bottom: false, left: true, right: true });
 });
 
 test('지도에는 새 상단 헤더가 없고 Android에는 native safe-area·중복 헤더를 추가하지 않는다', () => {

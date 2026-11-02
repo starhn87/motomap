@@ -64,6 +64,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
     View: 'View', Text: 'Text', ActivityIndicator: 'Spinner', Ionicons: 'Icon',
     FadeIn: { duration: () => ({}) }, useAnimatedStyle: (fn: () => unknown) => fn(),
     containerHeight: { value: 0 }, sheetPosition: { value: 999999 },
+    tabOcclusion: 0, tabOcclusionSv: { value: 0 },
     showGasRefresh: true, selectedStation: null, placeDetailOpen: false, weatherOpen: false,
     gasFetching: false, gasError: null, stations: [],
     colors: { surfaceElevated: 'white', border: 'gray', text: 'black', tint: 'black' },

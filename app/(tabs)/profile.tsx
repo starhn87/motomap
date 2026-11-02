@@ -27,6 +27,7 @@ import LoginPrompt from '@/components/auth/LoginPrompt';
 import ImageViewer from '@/components/ui/ImageViewer';
 import MyBikeHero from '@/components/profile/MyBikeHero';
 import { withNativeTabScreen } from '@/components/navigation/NativeTabScreen';
+import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
 
 function MenuItem({
   icon,
@@ -277,6 +278,7 @@ function ProfileScreen() {
           <MyPlacesSettings />
         </View>
         <LoginPrompt message="로그인하고 마이페이지를 확인하세요." />
+        <TabScrollSpacer />
       </View>
     );
   }
@@ -288,6 +290,7 @@ function ProfileScreen() {
       contentContainerStyle={styles.content}>
       {settingsButton}
       <LoggedInContent />
+      <TabScrollSpacer />
     </ScrollView>
   );
 }

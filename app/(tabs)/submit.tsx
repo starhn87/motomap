@@ -29,6 +29,7 @@ import SubmitFeedback from '@/components/submit/SubmitFeedback';
 import SubmitHazard from '@/components/submit/SubmitHazard';
 import AddressSearchModal from '@/components/submit/AddressSearchModal';
 import { withNativeTabScreen } from '@/components/navigation/NativeTabScreen';
+import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
 import type { PlaceCategory } from '@/types';
 
 type SubmitType = 'place' | 'riding' | 'hazard' | 'feedback';
@@ -307,6 +308,7 @@ function SubmitPlace() {
             <ActivityIndicator color={colors.background} style={{ flex: 1 }} />
           </View>}
         </Pressable>
+        <TabScrollSpacer />
       </ScrollView>
       <AddressSearchModal
         visible={addressModalVisible}
