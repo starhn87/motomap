@@ -57,6 +57,7 @@ function fixture() {
     '@/constants/categories': { CATEGORIES: { cafe: { label: '카페' } } },
     '@/components/useColorScheme': { useColorScheme: () => 'light' }, '@/components/ui/CategoryIcon': 'Category',
     '@/components/ui/Skeleton': 'Skeleton', '@/components/ui/EmptyState': 'Empty',
+    '@/components/navigation/NativeTabScreen': { withNativeTabScreen: (screen: unknown) => screen },
     '@/hooks/useCommunityPlaceSignals': { useSharedGeneralPlaces: () => shared }, '@/hooks/useRidingGuides': { useRidingGuides: () => guides },
     '@/lib/api/places': { fetchAllPlaces() {} }, '@/lib/api/gasStations': { looksLikeGasStation: (name: string) => name.includes('주유소') },
     '@/lib/exploreRankings': { rankRecommendedPlaces, rankReviewedPlaces, displayedRating },

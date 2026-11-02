@@ -26,6 +26,7 @@ import { appAlert } from '@/lib/dialog';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import ImageViewer from '@/components/ui/ImageViewer';
 import MyBikeHero from '@/components/profile/MyBikeHero';
+import { withNativeTabScreen } from '@/components/navigation/NativeTabScreen';
 
 function MenuItem({
   icon,
@@ -244,7 +245,7 @@ function LoggedInContent() {
   );
 }
 
-export default function ProfileScreen() {
+function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -290,6 +291,8 @@ export default function ProfileScreen() {
     </ScrollView>
   );
 }
+
+export default withNativeTabScreen(ProfileScreen, { title: '내 정보', notifications: true });
 
 const styles = StyleSheet.create({
   container: {

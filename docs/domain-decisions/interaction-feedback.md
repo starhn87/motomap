@@ -44,6 +44,8 @@
 12. 새 아이콘은 의미가 맞는 기존 표준 라이브러리 원본을 우선 재사용한다. 기존 아이콘이 있는데
     새 SVG 도형을 직접 그리지 않는다(NAV-049). 하단 목적지처럼 사용자가 같은 도형을
     명시한 경우는 기존 화면 도형을 재사용한다(NAV-045/046).
+13. iOS의 기본 탭은 시스템 NativeTabs로 제공한다. iOS 26 이상에서는 UIKit Liquid Glass를
+    사용하며 JS 탭의 축소·오버슛 애니메이션을 덧씌우지 않는다. Android·웹은 기존 JS 탭을 유지한다.
 
 ## INTERACTION-001 — 공유 아이콘과 눌림 상태를 앱 공통 규칙으로 둔다
 
@@ -364,3 +366,50 @@ UI 점검 항목 3·4·6·7의 적용 요청을 받았다. 내 정보 메뉴의 
 햅틱 설정은 제목 아래 안내 한 문장으로 정리하되 켰을 때 테스트와 시스템 햅틱 설정에 따라
 동작하지 않을 수 있다는 의미를 유지한다. 시스템 설정을 읽거나 변경하는 기능은 추가하지 않는다.
 JSX 대역 검사는 버튼 선택·눌림·등록 진입·로딩 슬롯을 확인하며 실제 터치 감각 검증과 구분한다.
+
+## INTERACTION-012 — iOS 탭을 UIKit Liquid Glass로 전환한다
+
+- 날짜: 2026-11-02
+- 상태: 사용자 승인 / 소스 구현, 새 바이너리·실기기 QA 전
+- 관련: `app/(tabs)/_layout.tsx`, `components/navigation/NativeTabScreen.tsx`,
+  `components/navigation/NotificationBell.tsx`, `tests/nativeTabs.test.ts`
+
+### 결정과 경계
+
+설치된 Expo SDK 57의 `expo-router/unstable-native-tabs`를 사용한다. iOS 26 이상은 시스템의
+Liquid Glass, 이전 iOS는 시스템 기본 탭 외형이다. 새 의존성·BlurView·고정 탭 너비/높이·임의
+OS 버전/빌드 번호 게이트를 추가하지 않는다. Android·웹은 기존 JS 탭을 유지한다.
+시스템 최소화는 `never`로 두고 iPad도 하단 탭을 유지한다. 지도·탐색·제보·내 정보의 URL과
+params, 지도 상세 포커스 helper는 그대로다. 지도 재선택으로 카메라/시트를 초기화하지 않는다.
+
+아이콘은 SF Symbols의 기본/선택 쌍이다. UIKit이 눌림·선택 효과를 그리므로 기존 Reanimated
+탭 오버슛을 iOS에 중복 적용하지 않는다. 내 정보 상단의 로그인 전용 알림 버튼과 탭 미읽음
+배지를 보존한다. NativeTabs에는 헤더 API가 없어 탐색·제보·내 정보에는 48pt 이상 공용 헤더를
+제공하고 지도에는 새 헤더를 추가하지 않는다.
+
+NativeTabs는 eager mount하므로 첫 포커스까지 화면 본체를 미루며, 한 번 연 뒤에는 포커스를
+잃어도 본체를 유지한다. 폼·목록·지도 상태를 탭 이동마다 없애는 `focused && <Screen />`는 쓰지 않는다.
+
+### 안전 영역과 지도
+
+자동 ScrollView inset 조정을 끄고 공식 권장 `react-native-screens/experimental` SafeAreaView로
+실제 native bottom/좌우 영역을 확보한다. 지도와 시트·FAB를 같은 가용 프레임에 두며, 지도 카메라
+보정도 기기 전체 높이 대신 MapHome의 실측 onLayout 높이를 쓴다. 탭바의 공개 높이 hook은 없으므로
+JS 탭 전용 `useBottomTabBarHeight`를 호출하거나 기기별 높이를 추정하지 않는다.
+
+NativeTabs가 추가하는 tab-local SafeAreaProvider 때문에 전체화면 Modal의 하단 여백에 탭 높이가
+섞이지 않도록, 탭 레이아웃에서 읽은 기존 기기 inset을 자식에게 이어준다. 실제 탭 회피는 native
+SafeAreaView가 담당한다. 초기 구현은 지도까지 바텀 safe frame 안에 두어 하단 유리 뒤까지 지도를
+그리지 않는 보수적 배치다. edge-to-edge 지도가 필요하면 native inset 실측 후 별도로 분리한다.
+
+### 검증과 전달
+
+대역 검사로 iOS/Android·웹 분기, 4개 경로, 배지·알림 진입, 첫 방문 지연·재방문 유지, 헤더와
+기기 inset 전달, 지도 실측 높이 연결을 확인한다. 이는 UIKit 실제 모양·Glass 투명도·VoiceOver·
+작은 화면/가로 화면·큰 글자·키보드·전체화면 사진/지도 선택 모달 검증을 대체하지 않는다.
+새 production/TestFlight 바이너리에서 이 항목을 확인한 뒤 배포한다. 기존 67번에서 OTA가
+가능하다고 단정하거나 미검증 소스를 바로 OTA하지 않는다. native bridge38/API1·runtime1.2.11은
+그대로이며 네이티브 소스·SDK 버전·서버 계약을 변경하지 않는다.
+
+공식 근거: [Expo SDK57 NativeTabs](https://docs.expo.dev/versions/v57.0.0/sdk/router/native-tabs/),
+[Native tabs의 safe area·lazy loading](https://docs.expo.dev/router/advanced/native-tabs/).

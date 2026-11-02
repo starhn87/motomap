@@ -131,6 +131,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const [mapViewportHeight, setMapViewportHeight] = useState(screenHeight);
   const [mapCameraAtMount] = useState<MapCameraSnapshot | null>(() =>
     overlay ? null : getLastMapCamera(),
   );
@@ -397,13 +398,13 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       // 현재 줌을 유지한 채 마커가 시트에 가리지 않는 위치로 카메라만 보정
       const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
       mapRef.current?.animateCameraTo({
-        latitude: place.latitude - sheetLatOffset(zoom, screenHeight, place.latitude),
+        latitude: place.latitude - sheetLatOffset(zoom, mapViewportHeight, place.latitude),
         longitude: place.longitude,
         zoom,
         duration: 400,
       });
     },
-    [setSelectedPlaceId, mapCenter, screenHeight]
+    [setSelectedPlaceId, mapCenter, mapViewportHeight]
   );
 
   const handleSearchSelect = useCallback(
@@ -414,7 +415,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       setSelectedPlaceId(place.id);
       setSelectedPlace(place);
       mapRef.current?.animateCameraTo({
-        latitude: place.latitude - sheetLatOffset(15, screenHeight, place.latitude),
+        latitude: place.latitude - sheetLatOffset(15, mapViewportHeight, place.latitude),
         longitude: place.longitude,
         zoom: 15,
         // 직전 지도에서 바로 팬·줌한다. Fly는 먼 거리에서 전국 단위까지
@@ -423,14 +424,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         easing: 'EaseOut',
       });
     },
-    [setSelectedPlaceId, screenHeight]
+    [setSelectedPlaceId, mapViewportHeight]
   );
 
   const handleSearchPointSelect = useCallback(
     (place: TempPlace) => {
       followingRef.current = false;
       mapRef.current?.animateCameraTo({
-        latitude: place.latitude - sheetLatOffset(15, screenHeight, place.latitude),
+        latitude: place.latitude - sheetLatOffset(15, mapViewportHeight, place.latitude),
         longitude: place.longitude,
         zoom: 15,
         // 등록 장소와 같은 가시 영역 위치로 직접 팬·줌한다.
@@ -438,7 +439,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         easing: 'EaseOut',
       });
     },
-    [screenHeight],
+    [mapViewportHeight],
   );
 
   // 라우트 파라미터(검색·푸시·내 리뷰·코스 근처 장소·카카오 일반 장소) 진입 처리
@@ -492,7 +493,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       setTempPlace(place);
       const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
       mapRef.current?.animateCameraTo({
-        latitude: place.latitude - sheetLatOffset(zoom, screenHeight, place.latitude),
+        latitude: place.latitude - sheetLatOffset(zoom, mapViewportHeight, place.latitude),
         longitude: place.longitude,
         zoom,
         duration: 400,
@@ -500,7 +501,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     },
     [
       mapCenter?.zoom,
-      screenHeight,
+      mapViewportHeight,
       setSelectedPlaceId,
       setSelectedStation,
       setHighlightReview,
@@ -716,7 +717,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           // 선택 시 카메라가 앉는 자리와 같은 좌표로 시작해 딥링크의
           // animateCameraTo 가 사실상 제자리걸음이 되게 한다. 등록 여부와
           // 무관하게 상세 시트를 제외한 같은 가시 영역 위치를 쓴다.
-          latitude: overlayLat - sheetLatOffset(15, screenHeight, overlayLat),
+          latitude: overlayLat - sheetLatOffset(15, mapViewportHeight, overlayLat),
           longitude: overlayLng,
           zoom: 15,
           tilt: 0,
@@ -742,7 +743,10 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     <View
       style={styles.container}
       onLayout={(e) => {
-        containerHeight.value = e.nativeEvent.layout.height;
+        const height = e.nativeEvent.layout.height;
+        containerHeight.value = height;
+        // 탭·가로 화면에서 달라지는 실제 지도 영역을 카메라 보정에도 쓴다.
+        if (height > 0) setMapViewportHeight(height);
       }}>
       <NaverMapView
         ref={mapRef}

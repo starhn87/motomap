@@ -28,6 +28,7 @@ import SubmitRidingGuide from '@/components/submit/SubmitRidingGuide';
 import SubmitFeedback from '@/components/submit/SubmitFeedback';
 import SubmitHazard from '@/components/submit/SubmitHazard';
 import AddressSearchModal from '@/components/submit/AddressSearchModal';
+import { withNativeTabScreen } from '@/components/navigation/NativeTabScreen';
 import type { PlaceCategory } from '@/types';
 
 type SubmitType = 'place' | 'riding' | 'hazard' | 'feedback';
@@ -326,7 +327,7 @@ function SubmitPlace() {
   );
 }
 
-export default function SubmitScreen() {
+function SubmitScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -385,6 +386,8 @@ export default function SubmitScreen() {
     </View>
   );
 }
+
+export default withNativeTabScreen(SubmitScreen, { title: '제보' });
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

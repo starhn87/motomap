@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, Tabs } from 'expo-router';
+import { Tabs } from 'expo-router';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -15,8 +16,9 @@ import type { BottomTabBarButtonProps } from 'expo-router/js-tabs';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { useAuthStore } from '@/stores/useAuthStore';
 import { useUnreadCount } from '@/hooks/useNotifications';
+import NotificationBell from '@/components/navigation/NotificationBell';
+import { NativeTabDeviceInsetsContext } from '@/components/navigation/NativeTabScreen';
 
 // 누르는 동안 움츠리고(pressIn) 떼는 순간 한 번만 튕기며 복귀(pressOut).
 // tabPress 는 손을 뗀 뒤에야 발생해 이 구분이 불가능하므로 tabBarButton 을 커스텀해
@@ -61,54 +63,6 @@ function TabButton({ tab, props }: { tab: TabScale; props: BottomTabBarButtonPro
   );
 }
 
-// 내 정보 헤더의 알림 종 — 안읽음 개수 뱃지를 단다. 지도 탭에서 옮겨왔다
-// (그 자리는 길찾기 버튼이 차지). 로그인한 사용자에게만 보인다.
-function NotificationBell() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const user = useAuthStore((s) => s.user);
-  const unreadCount = useUnreadCount();
-
-  if (!user) return null;
-  return (
-    <Pressable
-      onPress={() => router.push('/notifications')}
-      hitSlop={8}
-      style={bellStyles.button}>
-      <Ionicons name="notifications-outline" size={20} color={colors.text} />
-      {unreadCount > 0 && (
-        <View style={bellStyles.badge}>
-          <Text style={bellStyles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
-const bellStyles = StyleSheet.create({
-  button: {
-    marginRight: 16,
-  },
-  badge: {
-    position: 'absolute',
-    top: -5,
-    right: -7,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    backgroundColor: semantic.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 9.5,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
-  },
-});
-
 function TabBarIcon({
   name,
   color,
@@ -129,7 +83,7 @@ function TabBarIcon({
   );
 }
 
-export default function TabLayout() {
+function LegacyTabLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
@@ -216,4 +170,40 @@ export default function TabLayout() {
       />
     </Tabs>
   );
+}
+
+function IosTabLayout() {
+  const colors = Colors[useColorScheme() ?? 'light'];
+  const unreadCount = useUnreadCount();
+  const deviceInsets = useSafeAreaInsets();
+  return (
+    <NativeTabDeviceInsetsContext.Provider value={deviceInsets}>
+      <NativeTabs tintColor={colors.tint} iconColor={{ default: colors.textSecondary, selected: colors.tint }}
+        badgeBackgroundColor={semantic.danger} minimizeBehavior="never" sidebarAdaptable={false}>
+        <NativeTabs.Trigger name="index" disableAutomaticContentInsets disableScrollToTop disablePopToTop>
+          <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} md="map" />
+          <NativeTabs.Trigger.Label>지도</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="courses" disableAutomaticContentInsets>
+          <NativeTabs.Trigger.Icon sf={{ default: 'safari', selected: 'safari.fill' }} md="explore" />
+          <NativeTabs.Trigger.Label>탐색</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="submit" disableAutomaticContentInsets disableScrollToTop>
+          <NativeTabs.Trigger.Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} md="add_circle" />
+          <NativeTabs.Trigger.Label>제보</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="profile" disableAutomaticContentInsets>
+          <NativeTabs.Trigger.Icon sf={{ default: 'person', selected: 'person.fill' }} md="person" />
+          <NativeTabs.Trigger.Label>내 정보</NativeTabs.Trigger.Label>
+          {unreadCount > 0 && <NativeTabs.Trigger.Badge>{unreadCount > 9 ? '9+' : String(unreadCount)}</NativeTabs.Trigger.Badge>}
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    </NativeTabDeviceInsetsContext.Provider>
+  );
+}
+
+export default function TabLayout() {
+  // iOS 26 이상은 UIKit Liquid Glass, 이전 iOS는 같은 API의 기본 탭 외형이다.
+  // Android·웹은 검증된 기존 JS 탭을 유지한다. 임의 BlurView나 OS별 높이를 넣지 않는다.
+  return Platform.OS === 'ios' ? <IosTabLayout /> : <LegacyTabLayout />;
 }

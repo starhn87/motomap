@@ -65,6 +65,7 @@ test('비로그인 내 정보에도 집·회사 편집 진입을 남긴다', () 
     'posthog-react-native': { PostHogMaskView: 'Mask' }, '@/lib/nickname': {}, '@/lib/toast': {}, '@/lib/dialog': {},
     '@/components/auth/LoginPrompt': exported('LoginPrompt'), '@/components/ui/ImageViewer': exported('ImageViewer'),
     '@/components/profile/MyBikeHero': exported('MyBikeHero'),
+    '@/components/navigation/NativeTabScreen': { withNativeTabScreen: (screen: unknown) => screen },
   });
   const nodes = (node: any): any[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
   const tree = nodes(profile.default());

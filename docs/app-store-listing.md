@@ -1,3 +1,11 @@
+## 2026-11-02 다음 검증 후보 — 탐색 랭킹·iOS 네이티브 탭
+
+일반 장소는 공개 추천수, 등록 장소는 리뷰 평점으로 구분해 탐색한다(COMMUNITY-010).
+iOS 기본 탭은 NativeTabs이며 iOS 26 이상에서 UIKit Liquid Glass를 사용한다(INTERACTION-012).
+Android·웹 탭은 유지한다. app/runtime1.2.11·native38/API1의 소스 후보이며 67번에는 없다.
+후보 릴리즈 문구만 로컬에 준비했으며 푸시·새 빌드·TestFlight·심사·OTA는 아직 하지 않았다.
+새 바이너리의 지도/시트/모달 여백과 4탭 상태 보존 QA를 마친 후 실제 제출 문구로 확정한다.
+
 ## 2026-10-29 TestFlight 전달 — 1.2.11(63), native37/API1
 
 사용자의 새 빌드/TestFlight 요청으로 소스299853f를 clean checkout에서 EAS local production으로
