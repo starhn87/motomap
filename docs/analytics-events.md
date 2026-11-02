@@ -26,8 +26,10 @@ app_opened → place_viewed → navigation_started → navigation_ended(arrived)
 
 **C. 기여**
 ```
-place_submitted → 승인
+place_submission_opened → place_submission_attempted → place_submitted → 승인
 ```
+탭에서 바로 연 제보는 `place_submission_opened` 가 없다. 그 경우 분모는 화면 조회이고,
+버튼까지 간 결과는 `place_submission_attempted` 다.
 
 **D. 내 바이크 정체성**
 ```
@@ -78,7 +80,17 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `favorite_toggled` | `on` · `place_id` · `category` · `source` |
 | `place_submission_prompted` | `has_address` |
 | `place_submission_opened` | `source`(arrival·temp_place·search_empty) |
+| `place_submission_attempted` | `source`(tab·arrival·temp_place·search_empty) · `result`(login·missing_name·missing_category·missing_address·duplicate_approved·duplicate_pending·error·submitted) |
 | `place_submitted` | `category` · `source`(tab·arrival·temp_place·search_empty) |
+
+`place_submission_attempted` 는 열기와 접수 사이다. `result` 로 어디서 멈췄는지 가른다.
+
+- `login` — 도착·일반 장소·검색 없음에서 제보를 열었는데 로그인 벽이 보임. 버튼을 누르기 전이라, 로그인 후 제출하면 `submitted` 가 따로 남는다.
+- `missing_name` · `missing_category` · `missing_address` — 제보 버튼을 눌렀지만 그 항목이 비어 있음. 검사는 이름 → 카테고리 → 주소 순서다.
+- `duplicate_approved` · `duplicate_pending` — 같은 주소의 등록 장소 또는 검토 중 제보.
+- `error` — 전송 실패. `submitted` — 접수. 접수 때는 기존 `place_submitted` 도 같이 남긴다.
+
+열린 횟수에서 시도를 빼면, 버튼을 누르기 전에 나간 경우다.
 | `review_submitted` | `target`(place·general·course) · `rating` · `has_photo` |
 | `general_place_share_toggled` | `on` — 일반 장소 추천의 레거시 이벤트명 |
 | `chat_message_sent` | `turn_index` |
