@@ -68,8 +68,19 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | --- | --- |
 | `navigation_previewed` | `distance_m` · `duration_s` · `priority` · `via_count` · `has_custom_start` |
 | `navigation_started` | `guide_session_id` · `mode`(live·preview) · `priority` · `via_count` · `distance_m` |
-| `navigation_ended` | `guide_session_id` · `mode` · `reason`(arrived·cancelled·abandoned) · `duration_s` · `distance_m` |
+| `navigation_ended` | `guide_session_id` · `mode` · `reason`(arrived·cancelled·abandoned) · `exit`(user_end·no_goal·start_failed·process_end) · `had_arrived` · `duration_s` · `distance_m` · `remaining_m`(알 수 있을 때만) |
 | `route_failed` | `code`(KNSDK 에러 코드) · `via_count` |
+
+`reason` 은 주간 도착률의 기존 버킷이다. `exit` 는 그 버킷을 만든 계기다.
+
+- `user_end` — 종료 버튼·위치 이용 중지로 안내 화면이 닫힘. 목적지 400m 안·도착 콜백이면 `arrived`, 아니면 `cancelled`. `remaining_m` 는 그때의 남은 거리.
+- `no_goal` — 세션에 목적지가 없는 채로 닫힘 (`cancelled`).
+- `start_failed` — 시작 마커가 남은 상태에서 `onGuideFailed` (`cancelled`). 경로 탐색이 시작 전에 실패하면 마커가 없어 이벤트가 없다. 그 경우는 `route_failed`.
+- `process_end` — 다음 실행까지 마커가 남은 비정상 종료 (`abandoned`). 강제 종료·OS 종료·크래시를 구분하지 않는다.
+
+`had_arrived` 는 안내 중 300m 도착 콜백이 이 세션에 기록됐는지다. 화면은 도착해도 라이더가 종료를 누르기 전까지 유지되므로(NAV-013), 도착 뒤 앱이 죽으면 `reason` 은 `abandoned` 로 남고 `had_arrived` 만 true 가 된다. 도착률 정의를 바꾸지 않기 위한 분리다. `remaining_m` 는 좌표가 아니다.
+
+2026-11-02: 실주행 도착률이 약 12%(시작 169 · 도착 20 · 중도 66 · 비정상 72)까지 내려갔지만 `reason` 세 값 밖에는 원인이 없었다. 위 속성은 그 다음 주를 가르기 위한 것이고, 이미 쌓인 이벤트에는 소급하지 않는다.
 
 ### 참여·기여
 

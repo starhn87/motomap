@@ -69,7 +69,7 @@ function kstDay(offset) {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
 }
 
-const [wau, counts, liveNav, endReasons, searchSessions] = await Promise.all([
+const [wau, counts, liveNav, endReasons, endExits, searchSessions] = await Promise.all([
   // WAU — 어떤 이벤트든 남긴 고유 사용자 (화면 조회 포함)
   hogql(`
     SELECT
@@ -103,6 +103,17 @@ const [wau, counts, liveNav, endReasons, searchSessions] = await Promise.all([
       AND properties.guide_session_id IS NOT NULL
     GROUP BY reason
   `),
+  // 종료 계기. exit 가 없는 과거 이벤트는 빠진다 — reason 버킷은 위 쿼리가 유지한다.
+  hogql(`
+    SELECT properties.exit AS exit, properties.had_arrived AS had_arrived, count() AS n
+    FROM events
+    WHERE ${CUR} AND event = 'navigation_ended'
+      AND properties.mode = 'live'
+      AND properties.guide_session_id IS NOT NULL
+      AND properties.exit IS NOT NULL
+    GROUP BY exit, had_arrived
+    ORDER BY n DESC
+  `),
   // 검색 결과를 본 세션 중 하나라도 고른 세션 — 화면·결과 종류가 달라도 id로 묶는다.
   hogql(`
     SELECT
@@ -125,6 +136,15 @@ const cancelled = endReasons.find(([r]) => r === 'cancelled')?.[1] ?? 0;
 // abandoned = 안내 마커가 다음 앱 실행까지 남은 것. 강제 종료·OS 종료·크래시를
 // 구분할 수 없으므로 크래시율로 해석하지 않는다.
 const abandoned = endReasons.find(([r]) => r === 'abandoned')?.[1] ?? 0;
+const arrivedFlag = (value) => value === true || value === 'true' || value === 1;
+const exitLabel = (exit, hadArrived) => {
+  const viaArrival = arrivedFlag(hadArrived);
+  if (exit === 'user_end') return viaArrival ? '직접 종료·도착 콜백' : '직접 종료';
+  if (exit === 'process_end') return viaArrival ? '프로세스 종료·도착 콜백' : '프로세스 종료';
+  if (exit === 'no_goal') return '목적지 없음';
+  if (exit === 'start_failed') return '시작 실패';
+  return String(exit);
+};
 const [searchViewedCur = 0, searchSelectedCur = 0, searchViewedPrev = 0, searchSelectedPrev = 0] =
   searchSessions[0] ?? [];
 
@@ -136,6 +156,11 @@ lines.push(`**실주행(live 길안내)**: ${liveCur} (전주 ${livePrev}, ${del
 if (liveCur > 0) {
   lines.push(
     `**실주행 도착률(v2)**: ${Math.round((arrived / liveCur) * 100)}% (시작 ${liveCur} · 도착 ${arrived} · 중도 종료 ${cancelled} · 비정상 종료 ${abandoned})`,
+  );
+}
+if (endExits.length > 0) {
+  lines.push(
+    `**실주행 종료 계기**: ${endExits.map(([exit, hadArrived, n]) => `${exitLabel(exit, hadArrived)} ${n}`).join(' · ')}`,
   );
 }
 if (searchViewedCur > 0) {
