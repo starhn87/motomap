@@ -982,18 +982,17 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       {overlay ? (
         /* 오버레이는 "이 장소가 뭔지 보고 돌아오는" 화면 — 검색·필터·길찾기는
            지도 탭의 일이라 걷어내고 뒤로가기만 남긴다 */
-        <Pressable
+        <GlassButton
           accessibilityLabel="지도 미리보기 닫기"
           accessibilityRole="button"
           onPress={() => router.back()}
-          style={({ pressed }) => [
+          style={[
             styles.backButton,
             styles.backButtonOverlay,
-            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-            pressed && styles.controlPressed,
+            { borderRadius: 22 },
           ]}>
           <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </Pressable>
+        </GlassButton>
       ) : (
         <Animated.View
           pointerEvents="box-none"
@@ -1032,7 +1031,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
       {/* 즐겨찾기 지도 표시 — 날씨 FAB와 같은 행 오른쪽 끝, 켜면 별이 채워진다 */}
       {!overlay && (
-      <Pressable
+      <GlassButton
         accessibilityLabel={showFavorites ? '즐겨찾기 장소 숨기기' : '즐겨찾기 장소 보기'}
         accessibilityRole="button"
         onPress={() => {
@@ -1042,20 +1041,13 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           }
           toggleShowFavorites();
         }}
-        style={({ pressed }) => [
-          styles.favFab,
-          {
-            backgroundColor: colors.background,
-            borderColor: colors.border,
-          },
-          pressed && styles.controlPressed,
-        ]}>
+        style={styles.favFab}>
         <Ionicons
           name={showFavorites ? 'star' : 'star-outline'}
           size={20}
           color={showFavorites ? '#FACC15' : colors.textSecondary}
         />
-      </Pressable>
+      </GlassButton>
       )}
 
 

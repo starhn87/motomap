@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import GlassButton from '@/components/ui/GlassButton';
 import {
   ActivityIndicator,
   FlatList,
@@ -384,12 +385,13 @@ export default function PointSearchModal({
               />
             </Pressable>
           </View>
-          <Pressable
+          <GlassButton
             accessibilityRole="button"
             onPress={onClose}
+            style={{ minWidth: 56, height: 44, borderRadius: 22 }}
             hitSlop={{ top: 13, bottom: 13, left: 8, right: 8 }}>
             <Text style={[styles.modalCancel, { color: colors.text }]}>취소</Text>
-          </Pressable>
+          </GlassButton>
         </View>
 
         {/* 집·회사를 정하는 중이면 결과 목록에 사는 곳 주소가 그대로 뜬다.

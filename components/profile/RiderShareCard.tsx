@@ -14,6 +14,9 @@ import { captureRef, releaseCapture } from 'react-native-view-shot';
 
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import CloseIcon from '@/components/ui/CloseIcon';
+import GlassButton from '@/components/ui/GlassButton';
+import Colors from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
 import { APP_STORE_URL } from '@/constants/app';
 import { CATEGORIES } from '@/constants/categories';
 import { haptics } from '@/lib/haptics';
@@ -40,6 +43,7 @@ export default function RiderShareCard({
   rides,
   milestones,
 }: Props) {
+  const colors = Colors[useColorScheme() ?? 'light'];
   const cardRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
 
@@ -86,9 +90,10 @@ export default function RiderShareCard({
       <View style={styles.backdrop}>
         <View style={styles.topBar}>
           <Text style={styles.previewTitle}>공유 카드 미리보기</Text>
-          <Pressable accessibilityLabel="닫기" hitSlop={10} onPress={onClose}>
-            <CloseIcon size={26} color="#FFFFFF" />
-          </Pressable>
+          <GlassButton accessibilityRole="button" accessibilityLabel="닫기" hitSlop={10} onPress={onClose}
+            style={{ width: 44, height: 44, borderRadius: 22 }}>
+            <CloseIcon size={26} color={colors.text} />
+          </GlassButton>
         </View>
 
         <View ref={cardRef} collapsable={false} style={styles.card}>

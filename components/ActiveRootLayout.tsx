@@ -69,7 +69,7 @@ if (sentryDsn) {
   });
 }
 
-function AppHeader({ title, colorScheme, glass = false }: { title: string; colorScheme: 'light' | 'dark'; glass?: boolean }) {
+function AppHeader({ title, colorScheme, glass = false, borderless = false }: { title: string; colorScheme: 'light' | 'dark'; glass?: boolean; borderless?: boolean }) {
   const insets = useSafeAreaInsets();
   const colors = Colors[colorScheme];
   return (
@@ -77,21 +77,16 @@ function AppHeader({ title, colorScheme, glass = false }: { title: string; color
       style={{
         paddingTop: insets.top,
         backgroundColor: glass ? 'transparent' : colors.background,
-        borderBottomWidth: glass ? 0 : 0.5,
+        borderBottomWidth: glass || borderless ? 0 : 0.5,
         borderBottomColor: colors.border,
       }}>
       {glass && <HeaderBackdrop />}
       <View style={{ height: glass ? 44 : 48, alignItems: 'center', justifyContent: 'center' }}>
         {router.canGoBack() && (
-          glass ? <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()}
+          <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()}
             style={{ position: 'absolute', left: 16, width: 44, height: 44, borderRadius: 22 }}>
             <BackIcon size={26} color={colors.text} />
-          </GlassButton> : <Pressable
-            onPress={() => router.back()}
-            hitSlop={12}
-            style={{ position: 'absolute', left: 12 }}>
-            <Ionicons name="chevron-back" size={26} color={colors.text} />
-          </Pressable>
+          </GlassButton>
         )}
         <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text }}>{title}</Text>
       </View>
@@ -121,6 +116,7 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
                   title={typeof options.title === 'string' ? options.title : ''}
                   colorScheme={colorScheme === 'dark' ? 'dark' : 'light'}
                   glass={route.name === 'settings'}
+                  borderless={route.name === 'directions'}
                 />
               ),
             }}>

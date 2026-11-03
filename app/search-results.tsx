@@ -1,4 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import GlassButton from '@/components/ui/GlassButton';
+import GlassSurface from '@/components/ui/GlassSurface';
+import BackIcon from '@/components/ui/BackIcon';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -662,9 +665,9 @@ export default function SearchResultsScreen() {
           borderBottomColor: colors.border,
         },
       ]}>
-      <Pressable onPress={() => router.back()} hitSlop={8} style={styles.statusBackButton}>
-        <Ionicons name="chevron-back" size={22} color={colors.text} />
-      </Pressable>
+      <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()} hitSlop={8} style={styles.statusBackButton}>
+        <BackIcon size={22} color={colors.text} />
+      </GlassButton>
       <Text style={[styles.statusQuery, { color: colors.text }]} numberOfLines={1}>
         {resultLabel}
       </Text>
@@ -794,7 +797,9 @@ export default function SearchResultsScreen() {
       </NaverMapView>
 
       {/* 상단 검색어 바 — 상세 시트가 열려 있으면 결과 목록으로, 아니면 검색 화면으로 */}
-      <Pressable
+      <GlassSurface interactive style={[styles.queryBar, { top: insets.top + 8, paddingHorizontal: 0, borderRadius: 23 }]}>
+      {native => <Pressable accessibilityRole="button"
+        accessibilityLabel={detailOpen ? '검색 결과 목록으로 돌아가기' : '검색 화면으로 돌아가기'}
         onPress={() => {
           if (detailOpen) {
             setSelectedPlace(null);
@@ -803,20 +808,15 @@ export default function SearchResultsScreen() {
             router.back();
           }
         }}
-        style={[
-          styles.queryBar,
-          {
-            top: insets.top + 8,
-            backgroundColor: colors.background,
-            borderColor: colors.border,
-          },
-        ]}>
-        <Ionicons name="chevron-back" size={20} color={colors.text} />
+        style={({ pressed }) => ({ flex: 1, alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12,
+          opacity: pressed && !native ? 0.7 : 1 })}>
+        <BackIcon size={20} color={colors.text} />
         <Text style={[styles.queryText, { color: colors.text }]} numberOfLines={1}>
           {browseMode ? `${query} 주변` : query}
         </Text>
         <Ionicons name="search" size={16} color={colors.textSecondary} />
-      </Pressable>
+      </Pressable>}
+      </GlassSurface>
 
       {canSearchArea && cameraCenterRef.current && !detailOpen && (
         <Pressable
@@ -1052,8 +1052,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   statusBackButton: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },

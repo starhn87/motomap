@@ -47,6 +47,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
   const chain: any = new Proxy({}, { get: () => () => chain });
   const defaultExport = (value: any) => ({ __esModule: true, default: value });
   const deps: Record<string, any> = {
+    '@/components/ui/GlassButton': defaultExport('GlassButton'),
     '@/lib/guideMenuPolicy': { GUIDE_ROUTE_EDITING_ENABLED: enabled, GUIDE_MENU_UNAVAILABLE_MESSAGE: '안내 종료 후 다시 설정해 주세요.' },
     '@/stores/useMyPlacesStore': { useMyPlacesStore: (select: any) => select({ places: {}, load() {} }) },
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },

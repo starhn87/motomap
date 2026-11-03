@@ -16,6 +16,9 @@ function fixture(options: { needsLegal?: boolean; showProvidersInline?: boolean;
   const documents=Object.fromEntries(['terms','privacy','location'].map(type=>[type,{title:type,content:`current-${type}-body`}]));
   const module={exports:{} as {default:(props: Record<string,unknown>)=>Element}};
   const dependencies: Record<string,unknown>={
+    '@/components/ui/GlassButton': { __esModule: true, default: 'GlassButton' },
+    '@/components/useColorScheme': { useColorScheme: () => 'light' },
+    '@/constants/Colors': { __esModule: true, default: { light: { text: '#18181B' } } },
     react:{useState(initial:any){const i=cursor++; if(!(i in states)) states[i]=typeof initial==='function'?initial():initial;
       return [states[i],(v:any)=>{states[i]=typeof v==='function'?v(states[i]):v;}];},
       useRef(initial:any){const i=cursor++; if(!(i in states)) states[i]={current:initial}; return states[i];}},

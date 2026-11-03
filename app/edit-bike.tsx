@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import CloseIcon from '@/components/ui/CloseIcon';
+import GlassButton from '@/components/ui/GlassButton';
 import { router } from 'expo-router';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -395,9 +396,10 @@ export default function EditBikeScreen() {
               </Text>
               <Text style={[styles.editorSubtitle, { color: colors.textSecondary }]}>모델명보다 애칭이 먼저 보이도록 꾸밀 수 있어요.</Text>
             </View>
-            <Pressable hitSlop={10} onPress={closeEditor}>
+            <GlassButton accessibilityRole="button" accessibilityLabel="바이크 편집 닫기" hitSlop={10} onPress={closeEditor}
+              style={{ width: 44, height: 44, borderRadius: 22 }}>
               <CloseIcon size={24} color={colors.text} />
-            </Pressable>
+            </GlassButton>
           </View>
 
           <Pressable

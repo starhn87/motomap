@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import Colors from '@/constants/Colors';
 import CloseIcon from '@/components/ui/CloseIcon';
+import GlassButton from '@/components/ui/GlassButton';
 import { useColorScheme } from '@/components/useColorScheme';
 import { coordToAddress } from '@/lib/api/kakaoLocal';
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
@@ -279,22 +280,14 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
           ))}
         </View>
 
-        <Pressable
+        <GlassButton
           accessibilityLabel="위치 선택 닫기"
           accessibilityRole="button"
           onPress={onClose}
           hitSlop={10}
-          style={({ pressed }) => [
-            styles.close,
-            {
-              top: insets.top + 12,
-              backgroundColor: colors.surfaceElevated,
-              borderColor: pressed ? colors.tint : colors.border,
-              opacity: pressed ? 0.7 : 1,
-            },
-          ]}>
+          style={[styles.close, { top: insets.top + 12 }]}>
           <CloseIcon size={20} color={colors.text} />
-        </Pressable>
+        </GlassButton>
 
         {detail?.kind === 'registered' && (
           <PlaceBottomSheet place={detail.place} onClose={closeDetail} pickAction={{ label: confirmLabel, onPress: confirmDetail }} />

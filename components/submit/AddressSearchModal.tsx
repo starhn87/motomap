@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import GlassButton from '@/components/ui/GlassButton';
 import {
   Modal,
   View,
@@ -86,9 +87,10 @@ export default function AddressSearchModal({ visible, onClose, onSelect }: Props
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>주소 검색</Text>
-          <Pressable onPress={() => { reset(); onClose(); }} hitSlop={10}>
+          <GlassButton accessibilityRole="button" accessibilityLabel="주소 검색 닫기"
+            style={{ minWidth: 56, height: 44, borderRadius: 22 }} onPress={() => { reset(); onClose(); }} hitSlop={10}>
             <Text style={[styles.close, { color: colors.textSecondary }]}>닫기</Text>
-          </Pressable>
+          </GlassButton>
         </View>
 
         <View

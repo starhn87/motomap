@@ -1,4 +1,7 @@
 import { useRef, useState } from 'react';
+import GlassButton from '@/components/ui/GlassButton';
+import Colors from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
 import { ActivityIndicator, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LEGAL_DOCS, type LegalDocType } from '@/constants/legal';
 import { acceptCurrentLegalDocuments } from '@/lib/legalConsent';
@@ -12,6 +15,7 @@ const TYPES: LegalDocType[] = ['terms', 'privacy', 'location'];
 export default function LegalConsentScreen({ needsLegal = true, showProvidersInline = false, onReady, onComplete }:
   { needsLegal?: boolean; showProvidersInline?: boolean; onReady?: () => void; onComplete?: () => void }) {
   const state = useLocationPrivacyStore();
+  const colors = Colors[useColorScheme() ?? 'light'];
   const [agreed, setAgreed] = useState<Partial<Record<LegalDocType, boolean>>>({});
   const [providers, setProviders] = useState<LocationRecipient[]>(() => state.version === LOCATION_CONSENT_VERSION
     ? state.providers.filter(p => p !== 'naver') : LOCATION_PROVIDERS.filter(p => p !== 'tmap'));
@@ -104,8 +108,9 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
       <SafeAreaView style={styles.screen}>
         <View style={styles.documentHeader}>
           <Text accessibilityRole="header" style={styles.documentTitle}>{viewing && LEGAL_DOCS[viewing].title}</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="약관 문서 닫기" style={styles.viewLink}
-            onPress={() => setViewing(null)}><Text style={styles.link}>닫기</Text></Pressable>
+          <GlassButton accessibilityRole="button" accessibilityLabel="약관 문서 닫기"
+            style={{ minWidth: 56, height: 44, borderRadius: 22 }}
+            onPress={() => setViewing(null)}><Text style={[styles.link, { color: colors.text }]}>닫기</Text></GlassButton>
         </View>
         <ScrollView key={viewing} contentContainerStyle={styles.content}>
           {viewing === 'location' && !showProvidersInline && providerChoices}

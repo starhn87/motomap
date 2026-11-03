@@ -42,6 +42,7 @@ function setup() {
       Keyboard: { dismiss() {} }, StyleSheet: { create: (value: unknown) => value }, Platform: { OS: 'ios' },
     },
     '@expo/vector-icons/Ionicons': { __esModule: true, default: 'Ionicons' },
+    '@/components/ui/GlassButton': { __esModule: true, default: 'GlassButton' },
     '@/constants/Colors': { __esModule: true, default: { light: {} } },
     '@/components/useColorScheme': { useColorScheme: () => 'light' },
     '@/components/map/MapPickerModal': { __esModule: true, default: 'MapPickerModal' },

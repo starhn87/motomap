@@ -1,6 +1,9 @@
 import CloseIcon from '@/components/ui/CloseIcon';
+import GlassButton from '@/components/ui/GlassButton';
+import Colors from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
 import { useEffect, useState } from 'react';
-import { Modal, View, Text, Pressable, useWindowDimensions, StyleSheet } from 'react-native';
+import { Modal, View, Text, useWindowDimensions, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -33,6 +36,7 @@ export default function ImageViewer({
   onClose,
   renderFooter,
 }: Props) {
+  const colorScheme = useColorScheme() ?? 'light';
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [index, setIndex] = useState(initialIndex);
@@ -214,14 +218,14 @@ export default function ImageViewer({
           </View>
         )}
 
-        <Pressable
+        <GlassButton
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="사진 닫기"
           hitSlop={12}
           style={[styles.closeButton, { top: insets.top + 8 }]}>
-          <CloseIcon size={18} color="#FFFFFF" />
-        </Pressable>
+          <CloseIcon size={24} color={Colors[colorScheme].text} />
+        </GlassButton>
 
         {renderFooter && (
           <View
@@ -267,10 +271,9 @@ const styles = StyleSheet.create({
   closeButton: {
     position: 'absolute',
     right: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },

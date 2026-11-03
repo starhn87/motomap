@@ -1,4 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import GlassButton from '@/components/ui/GlassButton';
+import BackIcon from '@/components/ui/BackIcon';
 import BikeIcon from '@/components/ui/BikeIcon';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
@@ -304,14 +306,16 @@ export default function ChatScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* 헤더 */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </Pressable>
+        <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()} hitSlop={10}
+          style={[styles.backButton, { width: 44, height: 44, borderRadius: 22 }]}>
+          <BackIcon size={24} color={colors.text} />
+        </GlassButton>
         <Text style={[styles.headerTitle, { color: colors.text }]}>AI 추천</Text>
         {messages.length > 0 ? (
-          <Pressable onPress={handleNewChat} hitSlop={10} style={styles.newChatButton}>
+          <GlassButton accessibilityRole="button" accessibilityLabel="새 대화" onPress={handleNewChat} hitSlop={10}
+            style={[styles.newChatButton, { height: 44, borderRadius: 22 }]}>
             <Text style={[styles.newChatText, { color: colors.tint }]}>새 대화</Text>
-          </Pressable>
+          </GlassButton>
         ) : (
           <View style={styles.newChatButton} />
         )}

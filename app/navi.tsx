@@ -13,6 +13,7 @@ import * as Location from 'expo-location';
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import CloseIcon from '@/components/ui/CloseIcon';
+import GlassButton from '@/components/ui/GlassButton';
 
 import KakaoNavi, {
   friendlyRouteError,
@@ -563,15 +564,17 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
 
       {isCourseMode ? (
         /* 코스 안내 — 편집할 지점이 없으니 닫기 버튼만 */
-        <Pressable
+        <GlassButton
           onLayout={(e) => setTopCardH(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}
+          accessibilityRole="button"
+          accessibilityLabel="경로 미리보기 닫기"
           onPress={() => router.back()}
           style={[
             styles.closeButton,
-            { top: insets.top + 8, backgroundColor: colors.background },
+            { top: insets.top + 8, borderRadius: 22 },
           ]}>
           <CloseIcon size={22} color={colors.text} />
-        </Pressable>
+        </GlassButton>
       ) : (
         !guideStarted && (
           /* 경로 편집 카드 — 필드를 탭하면 그 지점을 바꾸고 경로를 다시 그린다 */
@@ -654,12 +657,12 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
             </View>
             {/* 오른쪽 열 — 닫기는 상단, 스왑은 최하단(닫기와 오터치 안 나게 멀리) */}
             <View style={styles.routeSide}>
-              <Pressable
+              <GlassButton compact accessibilityRole="button" accessibilityLabel="경로 미리보기 닫기"
                 onPress={returnToMap}
                 hitSlop={8}
                 style={styles.routeClose}>
                 <CloseIcon size={20} color={colors.text} />
-              </Pressable>
+              </GlassButton>
               {!continuation && <Pressable
                 onPress={swapEnds}
                 hitSlop={6}
@@ -848,8 +851,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   routeClose: {
-    width: 28,
-    height: 28,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },

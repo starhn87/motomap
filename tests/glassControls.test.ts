@@ -20,6 +20,10 @@ test('Glass 버튼은 native 상호작용을 켜고 폴백일 때만 눌림 투�
   const regular = module.default({ children: 'icon', glassEffectStyle: 'regular' });
   assert.equal(regular.props.glassEffectStyle, 'regular');
   assert.equal(regular.props.children(true).props.glassEffectStyle, undefined);
+  const onLayout = () => {};
+  const measured = module.default({ children: 'icon', onLayout });
+  assert.equal(measured.props.onLayout, onLayout);
+  assert.equal(measured.props.children(true).props.onLayout, undefined, '절대 위치의 측정은 표면에서 받는다');
   const disabled = module.default({ children: 'icon', disabled: true });
   assert.equal(disabled.props.interactive, false);
   assert.equal(disabled.props.children(false).props.disabled, true);
