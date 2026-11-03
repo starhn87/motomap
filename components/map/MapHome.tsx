@@ -19,11 +19,7 @@ import Animated, { FadeOut,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  withSequence,
-  Easing,
   FadeIn,
-  interpolate,
-  Extrapolation,
 } from 'react-native-reanimated';
 
 import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
@@ -83,6 +79,7 @@ import { useSharedGeneralPlaces } from '@/hooks/useCommunityPlaceSignals';
 import { usePlaceOperationalStatuses } from '@/hooks/usePlaceOperationalStatus';
 import type { Place, RoadHazard } from '@/types';
 import { haptics } from '@/lib/haptics';
+import GlassSurface from '@/components/ui/GlassSurface';
 import {
   getLastMapCamera,
   setMainMapFocused,
@@ -644,37 +641,32 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 오버레이 지도에는 탭이 없다.
   const tabOcclusion = useTabOcclusion(!overlay);
   const tabOcclusionSv = useSharedValue(tabOcclusion);
-  if (tabOcclusionSv.value !== tabOcclusion) tabOcclusionSv.value = tabOcclusion;
+  useEffect(() => { tabOcclusionSv.value = tabOcclusion; }, [tabOcclusion, tabOcclusionSv]);
 
-  // 탭바와 같은 프레스 감각 — 누르는 동안 움츠리고 떼면 한 번만 튕기며 복귀
+  // 누르는 동안만 살짝 줄이고 손을 떼는 즉시 원래 크기로 돌아온다.
   const myLocationScale = useSharedValue(1);
   const myLocationStyle = useAnimatedStyle(() => ({
     transform: [{ scale: myLocationScale.value }],
   }));
 
   // 내 위치 버튼이 장소 시트의 실시간 위치를 따라 위로 밀려난다 (시트 위 16px).
-  // 시트가 끝까지(100% 근처) 올라가면 페이드아웃. 닫히면 기본 위치로 자연 복귀.
+  // 시트가 끝까지 올라가면 숨긴다. 닫히면 기본 위치로 자연 복귀한다.
   const sheetPosition = useSharedValue(999999);
   const containerHeight = useSharedValue(0);
   const myLocationFollowStyle = useAnimatedStyle(() => {
     const h = containerHeight.value;
     const fromSheet = h > 0 ? h - sheetPosition.value + 16 : 0;
     return {
-      bottom: Math.max(24 + tabOcclusionSv.value, fromSheet),
-      opacity:
-        h > 0
-          ? interpolate(sheetPosition.value, [h * 0.2, h * 0.35], [0, 1], Extrapolation.CLAMP)
-          : 1,
+      bottom: Math.max(12 + tabOcclusionSv.value, fromSheet),
+      // Glass의 부모 opacity를 0으로 만들면 복귀 때 효과가 사라질 수 있다.
+      display: h > 0 && sheetPosition.value < h * 0.2 ? 'none' : 'flex',
     };
   });
   const handleMyLocationPressIn = () => {
-    myLocationScale.value = withTiming(0.85, { duration: 90 });
+    myLocationScale.value = withTiming(0.96, { duration: 90 });
   };
   const handleMyLocationPressOut = () => {
-    myLocationScale.value = withSequence(
-      withTiming(1.05, { duration: 100, easing: Easing.out(Easing.quad) }),
-      withTiming(1, { duration: 90, easing: Easing.inOut(Easing.quad) }),
-    );
+    myLocationScale.value = 1;
   };
 
   // 안내 종료 후 "내 위치 따라가기" — 위치 갱신마다 카메라가 따라가고,
@@ -775,6 +767,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         mapType="Basic"
         isNightModeEnabled={colorScheme === 'dark'}
         isShowLocationButton={false}
+        logoAlign="BottomLeft"
+        logoMargin={{ left: 8, right: 0, top: 0, bottom: 0 }}
         // SDK 자체 위치 오버레이 차단 — 커스텀 마커와 별개의 유령 마커가 뜬다.
         // 다른 지도 화면들과 같은 방어인데 여기만 빠져 있었다.
         locationOverlay={{ isVisible: false }}
@@ -1019,7 +1013,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       ) : (
         <Animated.View
           pointerEvents="box-none"
-          entering={FadeIn.duration(300)}
           style={styles.searchAndFilter}>
           <View style={styles.searchRow}>
             <SearchEntry />
@@ -1029,9 +1022,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
               onPress={() => router.push('/directions')}
               style={({ pressed }) => [
                 styles.directionsButton,
-                { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
                 pressed && styles.controlPressed,
               ]}>
+              <GlassSurface pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
               {/* 글리프의 세로 줄기가 왼쪽에 있어 시각 무게가 좌측으로 쏠린다 — 살짝 보정 */}
               <MaterialCommunityIcons
                 name="arrow-right-top-bold"
@@ -1086,7 +1079,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
 
       {showGasRefresh && !selectedStation && !placeDetailOpen && !weatherOpen && (
-        <Animated.View entering={FadeIn.duration(200)} style={[styles.gasRefreshAnchor, { bottom: 26 + tabOcclusion }]}>
+        <Animated.View entering={FadeIn.duration(200)} style={[styles.gasRefreshAnchor, { bottom: 14 + tabOcclusion }]}>
           <Pressable
             accessibilityLabel={gasFetching ? '주유소 검색 중' : gasError
               ? stations.length ? '이전 유가가 표시되고 있어요. 이 지역 주유소 다시 검색' : '유가 조회 실패. 이 지역 주유소 다시 검색'
@@ -1124,8 +1117,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           styles.myLocationButton,
           myLocationStyle,
           myLocationFollowStyle,
-          { backgroundColor: colors.background, shadowColor: '#000' },
         ]}>
+        <GlassSurface pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: 24 }]} />
         <View style={styles.myLocationIconContainer}>
           <View style={[styles.myLocationCrosshair, { borderColor: colors.tint }]}>
             <View style={[styles.myLocationCenter, { backgroundColor: colors.tint }]} />
@@ -1224,8 +1217,7 @@ const styles = StyleSheet.create({
   directionsButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -1252,11 +1244,11 @@ const styles = StyleSheet.create({
     elevation: 4,
     zIndex: 5,
   },
-  // 44pt 버튼의 중심을 내 위치 버튼(bottom 24 + 높이 48)의 중심과 맞춘다.
+  // 44pt 버튼의 중심을 내 위치 버튼(bottom 12 + 높이 48)의 중심과 맞춘다.
   gasRefreshAnchor: {
     position: 'absolute',
     alignSelf: 'center',
-    bottom: 26,
+    bottom: 14,
     width: 192,
     maxWidth: '55%',
     height: 44,

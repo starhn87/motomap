@@ -53,6 +53,7 @@ import {
 } from '@/lib/recentSearches';
 import type { Place, RidingGuideSearchResult } from '@/types';
 import { useUnifiedPlaceSearch } from '@/hooks/useUnifiedPlaceSearch';
+import GlassSurface from '@/components/ui/GlassSurface';
 
 // 검색 전용 화면 — 입력 전에는 최근 검색·즐겨찾기·추천 목적지를 모아 보여주고,
 // 2자 이상 입력하면 통합 검색 결과로 전환된다. 장소 선택은 지도 탭의
@@ -448,15 +449,15 @@ export default function SearchScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* 검색 입력 바 */}
       <View style={styles.searchBarRow}>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
+        <Pressable accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()}
+          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+          <GlassSurface style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
+          </GlassSurface>
         </Pressable>
-        <View
-          style={[
-            styles.inputContainer,
-            { backgroundColor: colors.surfaceElevated, borderColor: colors.tint },
-          ]}>
+        <GlassSurface style={styles.inputContainer}>
           <TextInput
+            accessibilityLabel="장소, 라이딩 검색"
             ref={inputRef}
             style={[styles.input, { color: colors.text }]}
             placeholder={listening ? '듣고 있어요…' : '장소, 라이딩 검색'}
@@ -468,18 +469,18 @@ export default function SearchScreen() {
           />
           {/* 인식 중에는 숨긴다 — 다음 중간 결과가 어차피 덮어써서 지운 게 무의미하다 */}
           {query.length > 0 && !listening && (
-            <Pressable onPress={() => setQuery('')} hitSlop={8} style={styles.inputAction}>
+            <Pressable accessibilityRole="button" accessibilityLabel="검색어 지우기" onPress={() => setQuery('')} style={styles.inputAction}>
               <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
             </Pressable>
           )}
-          <Pressable onPress={toggleVoice} hitSlop={8} style={styles.inputAction}>
+          <Pressable accessibilityRole="button" accessibilityLabel={listening ? '음성 검색 중지' : '음성 검색'} onPress={toggleVoice} style={styles.inputAction}>
             <Ionicons
               name={listening ? 'mic' : 'mic-outline'}
               size={20}
               color={listening ? colors.tint : colors.textSecondary}
             />
           </Pressable>
-        </View>
+        </GlassSurface>
       </View>
 
       <View style={[styles.myPlacesRow, { paddingHorizontal: 20, paddingBottom: 12 }]}>
@@ -864,17 +865,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 10,
-    gap: 4,
+    gap: 8,
   },
   backButton: {
-    padding: 6,
+    width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
   },
   inputContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 22,
     paddingHorizontal: 12,
     height: 44,
   },
@@ -883,7 +883,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   inputAction: {
-    paddingLeft: 8,
+    width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
   },
   listContent: {
     paddingBottom: 40,

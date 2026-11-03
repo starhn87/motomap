@@ -1,0 +1,273 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { View, Text, FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect, useIsFocused, useLocalSearchParams } from 'expo-router';
+
+import Colors from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
+import { focusPlaceOnMap } from '@/lib/mapFocus';
+import { useNotifications, useMarkAllRead } from '@/hooks/useNotifications';
+import { registerPushToken } from '@/lib/push';
+import EmptyState from '@/components/ui/EmptyState';
+import HighlightPulse from '@/components/ui/HighlightPulse';
+import type { AppNotification } from '@/lib/api/notifications';
+import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
+import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
+import { useAuthStore } from '@/stores/useAuthStore';
+
+function NotificationSkeletonList() {
+  return (
+    <View style={styles.list}>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <SkeletonContainer key={index} style={styles.notificationSkeleton}>
+          <Skeleton width={26} height={26} radius={13} />
+          <View style={styles.notificationSkeletonBody}>
+            <Skeleton width="52%" height={14} />
+            <Skeleton width="94%" height={13} style={{ marginTop: 8 }} />
+            <Skeleton width="72%" height={13} style={{ marginTop: 5 }} />
+            <Skeleton width={52} height={11} style={{ marginTop: 9 }} />
+          </View>
+        </SkeletonContainer>
+      ))}
+    </View>
+  );
+}
+
+// "3분 전", "2시간 전", "5일 전", 그 이상은 날짜
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return '방금 전';
+  if (min < 60) return `${min}분 전`;
+  const hour = Math.floor(min / 60);
+  if (hour < 24) return `${hour}시간 전`;
+  const day = Math.floor(hour / 24);
+  if (day < 7) return `${day}일 전`;
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}.${d.getDate()}`;
+}
+
+export default function NotificationsList({ active = true }: { active?: boolean }) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const user = useAuthStore(state => state.user);
+  const visible = useIsFocused() && active && !!user;
+  const bottomInset = useTabOcclusion();
+  const { data: notifications, isLoading, isError, refetch, isRefetching } = useNotifications(visible);
+  const { mutate: markAllRead } = useMarkAllRead();
+  // 들어온 순간 안 읽었던 알림들. 곧바로 읽음 처리하면 목록이 다시 조회되면서
+  // 표시가 지워지므로, 이 화면에 머무는 동안은 이 스냅샷으로 새 알림을 표시한다.
+  const [arrivedUnread, setArrivedUnread] = useState<Set<string> | null>(null);
+
+  // 반려 푸시 탭 → 해당 알림으로 스크롤·강조 (highlightTs 는 같은 알림 재탭용 nonce)
+  const { highlightId, highlightTs } = useLocalSearchParams<{
+    highlightId?: string;
+    highlightTs?: string;
+  }>();
+  const highlightKey = highlightId ? `${highlightId}-${highlightTs ?? ''}` : null;
+  const listRef = useRef<FlatList<AppNotification>>(null);
+  const scrolledKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!visible || !highlightKey || !highlightId || !notifications?.length) return;
+    if (scrolledKeyRef.current === highlightKey) return;
+    const index = notifications.findIndex((n) => n.id === highlightId);
+    if (index < 0) return;
+    scrolledKeyRef.current = highlightKey;
+    // 목록 첫 렌더가 끝난 뒤 스크롤 — 강조(delay 800ms)는 스크롤이 멎을 즈음 시작된다
+    const t = setTimeout(() => {
+      listRef.current?.scrollToIndex({ index, viewPosition: 0.2, animated: true });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [visible, highlightKey, highlightId, notifications]);
+
+  // 알림을 보러 온 사람에게 묻는 게 가장 맥락이 맞다. 이미 허용됐으면 창은 안 뜨고
+  // 토큰만 갱신되며, 거부한 적 있으면 조용히 지나간다.
+  useEffect(() => {
+    if (visible) void registerPushToken(true);
+  }, [visible, user?.id]);
+
+  // 들어올 때마다 스냅샷을 새로 잡는다 — 화면이 재사용되면 이전 방문의 스냅샷이
+  // 남아 새 알림에 점이 안 붙고 읽음 처리까지 건너뛴다(뱃지가 계속 남는다).
+  useFocusEffect(
+    useCallback(() => {
+      if (visible) setArrivedUnread(null);
+    }, [visible, user?.id])
+  );
+
+  // 화면에 들어오면 전부 읽음 처리 (뱃지 해소). 표시는 위 스냅샷이 맡는다.
+  useEffect(() => {
+    if (!visible || arrivedUnread || !notifications) return;
+    const unread = new Set(notifications.filter((n) => !n.readAt).map((n) => n.id));
+    setArrivedUnread(unread);
+    if (unread.size > 0) markAllRead();
+  }, [visible, notifications, arrivedUnread, markAllRead]);
+
+  const handlePress = (item: AppNotification) => {
+    if (item.data?.placeId) {
+      focusPlaceOnMap(item.data.placeId, { source: 'notification' });
+    } else if (item.data?.courseId) {
+      router.push(`/course/${item.data.courseId}`);
+    } else if (item.data?.guideId) {
+      router.push(`/riding/${item.data.guideId}`);
+    } else if (item.data?.url?.startsWith('/')) {
+      // 공지의 앱 내 딥링크 — 새 기능 공지가 해당 화면으로 바로 잇는다
+      router.push(item.data.url as never);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <NotificationSkeletonList />
+      </View>
+    );
+  }
+
+  if (isError && !notifications?.length) {
+    return <EmptyState title="알림을 불러오지 못했어요" hint="연결 상태를 확인하고 다시 시도해 주세요."
+      actionLabel="다시 시도" onAction={() => { void refetch(); }} />;
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {!notifications?.length ? (
+        <EmptyState
+          icon={<Ionicons name="notifications-outline" size={44} color={colors.textSecondary} />}
+          title="아직 알림이 없습니다"
+          hint="제보하신 장소나 라이딩 추천이 반영되면 여기서 알려드려요."
+          actionLabel="제보하러 가기"
+          onAction={() => router.navigate('/submit')}
+        />
+      ) : (
+        <FlatList
+          ref={listRef}
+          data={notifications}
+          ListHeaderComponent={isError ? <Text style={{ color: colors.textSecondary }}>새로 불러오지 못해 이전 알림을 보여줘요.</Text> : null}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[styles.list, { paddingBottom: 16 + bottomInset }]}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} tintColor={colors.tint} />}
+          onScrollToIndexFailed={(info) => {
+            // 가변 높이 카드라 미측정 구간은 근사 오프셋으로 이동 후 재시도
+            listRef.current?.scrollToOffset({
+              offset: info.averageItemLength * info.index,
+              animated: true,
+            });
+            setTimeout(() => {
+              listRef.current?.scrollToIndex({
+                index: info.index,
+                viewPosition: 0.2,
+                animated: true,
+              });
+            }, 350);
+          }}
+          renderItem={({ item }) => (
+            <HighlightPulse
+              pulseKey={item.id === highlightId ? (highlightKey ?? undefined) : undefined}
+              delay={800}
+              tint={colors.tint}
+              borderRadius={14}>
+              <Pressable
+                onPress={() => handlePress(item)}
+                style={({ pressed }) => [
+                  styles.item,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                  { opacity: pressed ? 0.8 : 1 },
+                ]}>
+                <View style={styles.itemIcon}>
+                  {item.type === 'notice' ? (
+                    <Ionicons name="megaphone-outline" size={20} color={colors.tint} />
+                  ) : item.type === 'feedback_reply' ? (
+                    <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.tint} />
+                  ) : item.type.startsWith('course') || item.type.startsWith('riding_guide') ? (
+                    <MaterialCommunityIcons name="road-variant" size={20} color={colors.tint} />
+                  ) : (
+                    <Ionicons name="location-outline" size={20} color={colors.tint} />
+                  )}
+                </View>
+                <View style={styles.itemBody}>
+                  <View style={styles.itemHeader}>
+                    <Text style={[styles.itemTitle, { color: colors.text }]}>
+                      {item.title}
+                    </Text>
+                    {arrivedUnread?.has(item.id) && (
+                      <View style={[styles.unreadDot, { backgroundColor: colors.tint }]} />
+                    )}
+                  </View>
+                  {/* 알림 목록이 본문 전문을 볼 수 있는 유일한 곳 — 말줄임 없이 그대로 보여준다 */}
+                  <Text style={[styles.itemText, { color: colors.textSecondary }]}>
+                    {item.body}
+                  </Text>
+                  <Text style={[styles.itemTime, { color: colors.textSecondary }]}>
+                    {timeAgo(item.createdAt)}
+                  </Text>
+                </View>
+              </Pressable>
+            </HighlightPulse>
+          )}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  list: {
+    padding: 16,
+    gap: 10,
+  },
+  item: {
+    flexDirection: 'row',
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+  },
+  notificationSkeleton: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+  },
+  notificationSkeletonBody: {
+    flex: 1,
+  },
+  itemIcon: {
+    width: 26,
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  itemBody: {
+    flex: 1,
+    gap: 3,
+  },
+  itemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  itemTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  itemText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  itemTime: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+});

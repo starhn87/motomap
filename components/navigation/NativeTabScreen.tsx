@@ -6,15 +6,15 @@ import { SafeAreaInsetsContext, useSafeAreaInsets, type EdgeInsets } from 'react
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import NotificationBell from './NotificationBell';
+import SettingsButton from './SettingsButton';
 import { TabOcclusionContext } from './tabOcclusion';
 
-type Options = { title?: string; notifications?: boolean };
+type Options = { title?: string; settings?: boolean };
 // NativeTabs가 만드는 tab-local provider 대신 기존 화면·전체화면 모달은 기기 가장자리의
-// inset을 계속 받는다. 실제 탭 회피는 아래 native SafeAreaView가 따로 담당한다.
+// inset을 계속 받는다. 탭 가림 높이는 native probe로 실측해 조작부·목록에 전달한다.
 export const NativeTabDeviceInsetsContext = createContext<EdgeInsets | null>(null);
 
-function NativeTabFrame({ Screen, title, notifications }: Options & { Screen: ComponentType }) {
+function NativeTabFrame({ Screen, title, settings }: Options & { Screen: ComponentType }) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const focused = useIsFocused();
   const [visited, setVisited] = useState(focused);
@@ -45,9 +45,9 @@ function NativeTabFrame({ Screen, title, notifications }: Options & { Screen: Co
             }}
             style={styles.probe}
           />
-          {title && <View style={[styles.header, { backgroundColor: colors.surfaceElevated, borderBottomColor: colors.border }]}>
+          {title && <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
             <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{title}</Text>
-            {notifications && <View style={styles.right}><NotificationBell /></View>}
+            {settings && <View style={styles.right}><SettingsButton /></View>}
           </View>}
           <View collapsable={false} style={styles.content}>
             {(visited || focused) && <Screen />}
@@ -59,7 +59,7 @@ function NativeTabFrame({ Screen, title, notifications }: Options & { Screen: Co
 }
 
 // URL·route params를 바꾸지 않고 iOS에만 헤더와 native safe area를 보완한다.
-// 실제 지도를 탭보다 위에 배치해 시트/FAB/선택 핀의 가시 영역을 일치시킨다.
+// 콘텐츠는 화면 끝까지 두고, 시트/FAB/목록만 실측된 탭 가림 높이를 피한다.
 export function withNativeTabScreen(Screen: ComponentType, options: Options = {}) {
   return function TabScreen() {
     if (Platform.OS !== 'ios') return <Screen />;

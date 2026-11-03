@@ -191,8 +191,6 @@ function LoggedInContent() {
         <MenuItem icon={<Ionicons name="create-outline" size={20} color={colors.text} />} label="닉네임 변경" onPress={() => router.push('/edit-nickname')} />
         <MyPlacesSettings />
         <MenuItem icon={<Ionicons name="star-outline" size={20} color={colors.text} />} label="즐겨찾기" onPress={() => router.push('/favorites')} />
-        <MenuItem icon={<Ionicons name="document-text-outline" size={20} color={colors.text} />} label="내 제보 목록" onPress={() => router.push('/my-submissions')} />
-        <MenuItem icon={<Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />} label="내 리뷰" onPress={() => router.push('/my-reviews')} />
         <MenuItem
           icon={<Ionicons name="log-out-outline" size={20} color={colors.text} />}
           label="로그아웃"
@@ -251,29 +249,10 @@ function ProfileScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
 
-  const settingsButton = (
-    // 설정 버튼은 로그인 여부와 관계없이 표시한다.
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => router.push('/settings')}
-      style={({ pressed }) => [
-        styles.settingsButton,
-        {
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
-          opacity: pressed ? 0.7 : 1,
-        },
-      ]}>
-      <Ionicons name="settings-outline" size={22} color={colors.text} />
-      <Text style={[styles.settingsLabel, { color: colors.text }]}>설정</Text>
-    </Pressable>
-  );
-
   // 로그인 폼이 자신의 스크롤과 키보드 회피를 처리하므로 중첩 스크롤을 만들지 않는다.
   if (!user) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        {settingsButton}
         <View style={[styles.menu, { marginTop: 16, marginBottom: 12 }]}>
           <MyPlacesSettings />
         </View>
@@ -288,14 +267,13 @@ function ProfileScreen() {
       keyboardShouldPersistTaps="handled"
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}>
-      {settingsButton}
       <LoggedInContent />
       <TabScrollSpacer />
     </ScrollView>
   );
 }
 
-export default withNativeTabScreen(ProfileScreen, { title: '내 정보', notifications: true });
+export default withNativeTabScreen(ProfileScreen, { title: '내 정보', settings: true });
 
 const styles = StyleSheet.create({
   container: {
@@ -305,26 +283,6 @@ const styles = StyleSheet.create({
     // 비로그인 화면(LoginPrompt)의 세로 중앙 정렬 유지 + 목록 하단 숨통
     flexGrow: 1,
     paddingBottom: 28,
-  },
-  settingsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-end',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginTop: 20,
-    marginRight: 16,
-  },
-  settingsIcon: {
-    fontSize: 16,
-    marginRight: 6,
-  },
-  settingsLabel: {
-    fontSize: 13,
-    fontWeight: '600',
   },
   profileHeader: {
     alignItems: 'center',

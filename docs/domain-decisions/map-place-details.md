@@ -1681,3 +1681,25 @@ MAP-056은 출발·도착·공유 행 아래를 4pt로 줄였다. 바로 아래 
 되돌림 OTA: source `28a62ab`, production/iOS/runtime 1.2.11 그룹 `3cda7b2c-d0cc-4ed0-9361-24f09ca6b1e1`.
 
 2026-11-01 OTA: source `43e867c`, production/iOS/runtime 1.2.11 그룹 `3a4f80df-1a8f-422c-9ea0-e45c2ead2639`. 기기 수신·화면은 확인 전이다.
+
+## MAP-061 — 지도 조작부 Glass·하단 간격과 NAVER 로고 표시 경계
+
+- 날짜: 2026-11-04
+- 상태: 소스 구현 / 기기 배치 확인 전
+- 관련: `MapHome.tsx`, `SearchEntry.tsx`, INTERACTION-014
+
+지도 검색 바·길찾기·내 위치의 배경을 공용 GlassSurface로 바꾼다. 지도·본문·모든 마커를 유리로
+덮지 않는다. 내 위치 기본 여백은 실측 탭 가림 높이 위 24pt에서 12pt로 줄이며 시트가 열리면
+기존처럼 시트 위로 따라간다. 같은 행 유가 재검색의 중심도 함께 낮춘다. 손을 누를 때만 0.96배,
+뗄 때 즉시 원래 크기로 돌아오며 오버슛은 제거한다. Glass 부모를 opacity 0으로 숨기는 문제를
+피하려고 풀 시트에서는 display로 숨기고 상단 검색 그룹의 opacity 0 진입 효과도 제거한다.
+
+사용자는 NAVER 로고가 떠 있는 탭의 아래쪽에 있기를 원했다. SDK 공식 `logoAlign=BottomLeft`,
+좌측 8pt·하단 0pt margin으로 남는 SDK 여백만 줄인다. 로고 비활성화·덮기·z-index로 탭 뒤로
+숨기기·문서화되지 않은 음수 margin은 사용하지 않으며 기본 로고 탭도 유지한다.
+SDK가 컨트롤 배치에 native safe area를 반영할 수 있어 이 설정만으로 **실제 탭보다 아래로
+내려갔다고 단정하지 않는다**. 다음 기기 QA에서 로고 전체 표시와 탭 충돌을 확인하고, 공간이
+없으면 가리지 않는 기존 위치를 우선한다. 가림이 생긴 배치는 공개 배포하지 않는다.
+
+[NAVER 공식 UI 규칙](https://navermaps.github.io/ios-map-sdk/guide-ko/4-1.html)은 위치 조정을
+허용하지만 앱 UI로 로고를 가리지 말 것을 요구한다. 앱의 탭·장소 카메라·마커 정책은 유지한다.

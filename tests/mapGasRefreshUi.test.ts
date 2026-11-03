@@ -109,3 +109,12 @@ test('재검색의 눌림·스피너·재시도와 시트 열림 숨김을 유�
     assert.equal(fixture(state).tree, false);
   }
 });
+
+test('내 위치는 탭 위 12pt를 비우며 풀 시트에서는 Glass 부모 opacity 대신 display로 숨긴다', () => {
+  const closed = fixture({ tabOcclusionSv: { value: 80 } }).myLocationFollowStyle;
+  assert.equal(closed.bottom, 92);
+  assert.equal(closed.display, 'flex');
+  const expanded = fixture({ containerHeight: { value: 800 }, sheetPosition: { value: 100 } }).myLocationFollowStyle;
+  assert.equal(expanded.display, 'none');
+  assert.notEqual(expanded.opacity, 0);
+});

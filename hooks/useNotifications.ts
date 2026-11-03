@@ -4,12 +4,12 @@ import { fetchNotifications, markAllNotificationsRead } from '@/lib/api/notifica
 import type { AppNotification } from '@/lib/api/notifications';
 import { useAuthStore } from '@/stores/useAuthStore';
 
-export function useNotifications() {
+export function useNotifications(enabled = true) {
   const user = useAuthStore((s) => s.user);
   return useQuery({
     queryKey: ['notifications', user?.id],
     queryFn: fetchNotifications,
-    enabled: !!user,
+    enabled: !!user && enabled,
     // 뱃지가 걸린 쿼리라 전역 기본(60초)보다 짧게 — 앱으로 돌아왔을 때
     // 대부분 다시 받아오도록 한다
     staleTime: 15 * 1000,

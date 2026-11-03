@@ -17,7 +17,7 @@ import type { BottomTabBarButtonProps } from 'expo-router/js-tabs';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useUnreadCount } from '@/hooks/useNotifications';
-import NotificationBell from '@/components/navigation/NotificationBell';
+import SettingsButton from '@/components/navigation/SettingsButton';
 import { NativeTabDeviceInsetsContext } from '@/components/navigation/NativeTabScreen';
 import { FLOATING_TAB_BAR_HEIGHT, FLOATING_TAB_LIFT, TabOcclusionContext, useJsTabOcclusion } from '@/components/navigation/tabOcclusion';
 
@@ -131,7 +131,7 @@ function LegacyTabLayout() {
           fontWeight: '700',
         },
         headerStyle: {
-          backgroundColor: colors.surfaceElevated,
+          backgroundColor: colors.background,
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.border,
         },
@@ -151,9 +151,11 @@ function LegacyTabLayout() {
       <Tabs.Screen
         name="courses"
         options={{
-          title: '탐색',
+          title: '활동',
+          tabBarBadge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount) : undefined,
+          tabBarBadgeStyle: { backgroundColor: semantic.danger, color: '#FFFFFF' },
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="compass" color={color} scale={coursesTab.scale} />
+            <TabBarIcon name="reader-outline" color={color} scale={coursesTab.scale} />
           ),
           tabBarButton: (props) => <TabButton tab={coursesTab} props={props} />,
         }}
@@ -172,19 +174,7 @@ function LegacyTabLayout() {
         name="profile"
         options={{
           title: '내 정보',
-          headerRight: () => <NotificationBell />,
-          // 종이 내 정보로 들어가면서 안읽음 신호는 탭 아이콘 뱃지로 남긴다
-          tabBarBadge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount) : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: semantic.danger,
-            color: '#FFFFFF',
-            fontSize: 10,
-            fontWeight: '800',
-            minWidth: 17,
-            height: 17,
-            lineHeight: 15,
-            borderRadius: 8.5,
-          },
+          headerRight: () => <SettingsButton />,
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="person" color={color} scale={profileTab.scale} />
           ),
@@ -209,8 +199,9 @@ function IosTabLayout() {
           <NativeTabs.Trigger.Label>지도</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="courses" disableAutomaticContentInsets>
-          <NativeTabs.Trigger.Icon sf={{ default: 'safari', selected: 'safari.fill' }} md="explore" />
-          <NativeTabs.Trigger.Label>탐색</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Icon sf={{ default: 'list.bullet.rectangle', selected: 'list.bullet.rectangle.fill' }} md="receipt_long" />
+          <NativeTabs.Trigger.Label>활동</NativeTabs.Trigger.Label>
+          {unreadCount > 0 && <NativeTabs.Trigger.Badge>{unreadCount > 9 ? '9+' : String(unreadCount)}</NativeTabs.Trigger.Badge>}
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="submit" disableAutomaticContentInsets disableScrollToTop>
           <NativeTabs.Trigger.Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} md="add_circle" />
@@ -219,7 +210,6 @@ function IosTabLayout() {
         <NativeTabs.Trigger name="profile" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon sf={{ default: 'person', selected: 'person.fill' }} md="person" />
           <NativeTabs.Trigger.Label>내 정보</NativeTabs.Trigger.Label>
-          {unreadCount > 0 && <NativeTabs.Trigger.Badge>{unreadCount > 9 ? '9+' : String(unreadCount)}</NativeTabs.Trigger.Badge>}
         </NativeTabs.Trigger>
       </NativeTabs>
     </NativeTabDeviceInsetsContext.Provider>
