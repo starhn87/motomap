@@ -10,6 +10,7 @@ import SettingsButton from './SettingsButton';
 import { TabOcclusionContext } from './tabOcclusion';
 import { HeaderInsetContext } from './headerInset';
 import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
+import { HeaderScrollProvider } from './headerScroll';
 
 type Options = { title?: string; settings?: boolean };
 // NativeTabs가 만드는 tab-local provider 대신 기존 화면·전체화면 모달은 기기 가장자리의
@@ -24,7 +25,7 @@ function NativeTabFrame({ Screen, title, settings }: Options & { Screen: Compone
   // 프로바이더를 덮어쓰기 전에 읽는다. 붙은 탭은 시스템 탭 윗변까지의 inset을 준다.
   const tabLocalBottom = useSafeAreaInsets().bottom;
   const [probed, setProbed] = useState(0);
-  const [headerHeight, setHeaderHeight] = useState(52);
+  const [headerHeight, setHeaderHeight] = useState((deviceInsets?.top ?? 0) + 44);
   const occlusion = Math.max(probed, tabLocalBottom);
   useEffect(() => { if (focused) setVisited(true); }, [focused]);
 
@@ -35,8 +36,9 @@ function NativeTabFrame({ Screen, title, settings }: Options & { Screen: Compone
   return (
     <SafeAreaInsetsContext.Provider value={deviceInsets}>
       <TabOcclusionContext.Provider value={occlusion}>
+        <HeaderScrollProvider>
         <SafeAreaView collapsable={false}
-          edges={{ top: !!title, bottom: false, left: true, right: true }}
+          edges={{ top: false, bottom: false, left: true, right: true }}
           style={{ flex: 1, backgroundColor: colors.background }}>
           <SafeAreaView
             pointerEvents="none"
@@ -54,12 +56,13 @@ function NativeTabFrame({ Screen, title, settings }: Options & { Screen: Compone
             </HeaderInsetContext.Provider>
           </View>
           {title && <View style={[styles.header, { paddingTop: deviceInsets?.top ?? 0 }]}
-            onLayout={event => setHeaderHeight(event.nativeEvent.layout.height - (deviceInsets?.top ?? 0))}>
+            onLayout={event => setHeaderHeight(event.nativeEvent.layout.height)}>
             <HeaderBackdrop />
             <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{title}</Text>
             {settings && <View style={[styles.right, { top: deviceInsets?.top ?? 0 }]}><SettingsButton /></View>}
           </View>}
         </SafeAreaView>
+        </HeaderScrollProvider>
       </TabOcclusionContext.Provider>
     </SafeAreaInsetsContext.Provider>
   );
@@ -80,7 +83,7 @@ const styles = StyleSheet.create({
   header: {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
     overflow: 'hidden',
-    minHeight: 52,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -90,7 +93,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: -0.3,
     textAlign: 'center',
-    marginVertical: 14,
+    marginVertical: 10,
     marginHorizontal: 64,
   },
   right: { position: 'absolute', right: 4, top: 0, bottom: 0, justifyContent: 'center' },

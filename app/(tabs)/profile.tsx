@@ -28,6 +28,7 @@ import ImageViewer from '@/components/ui/ImageViewer';
 import MyBikeHero from '@/components/profile/MyBikeHero';
 import { withNativeTabScreen } from '@/components/navigation/NativeTabScreen';
 import { useContentHeaderInset } from '@/components/navigation/headerInset';
+import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
 
 function MenuItem({
@@ -250,6 +251,7 @@ function ProfileScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
+  const trackHeaderScroll = useTrackHeaderScroll(true, { hasContent: !!user });
 
   // 로그인 폼이 자신의 스크롤과 키보드 회피를 처리하므로 중첩 스크롤을 만들지 않는다.
   if (!user) {
@@ -266,6 +268,7 @@ function ProfileScreen() {
 
   return (
     <ScrollView
+      onScroll={trackHeaderScroll} scrollEventThrottle={16}
       keyboardShouldPersistTaps="handled"
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.content, { paddingTop: headerInset }]}>

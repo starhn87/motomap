@@ -31,6 +31,7 @@ import { withNativeTabScreen } from '@/components/navigation/NativeTabScreen';
 import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
 import { HeaderInsetContext, useContentHeaderInset } from '@/components/navigation/headerInset';
 import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
+import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 import type { PlaceCategory } from '@/types';
 
 type SubmitType = 'place' | 'hazard' | 'feedback';
@@ -84,6 +85,7 @@ function SubmitTypeTab({
 }
 
 function SubmitPlace() {
+  const trackHeaderScroll = useTrackHeaderScroll();
   const headerInset = useContentHeaderInset();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -240,6 +242,7 @@ function SubmitPlace() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
+        onScroll={trackHeaderScroll} scrollEventThrottle={16}
         ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={[styles.content, { paddingTop: headerInset + 20 }]}
@@ -332,6 +335,7 @@ function SubmitPlace() {
 
 function SubmitScreen() {
   const headerInset = useContentHeaderInset();
+  const [tabHeight, setTabHeight] = useState(52);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -375,12 +379,12 @@ function SubmitScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <HeaderInsetContext.Provider value={headerInset + 60}>
+      <HeaderInsetContext.Provider value={headerInset + tabHeight}>
         {submitType === 'place' && <SubmitPlace />}
         {submitType === 'hazard' && <SubmitHazard />}
         {submitType === 'feedback' && <SubmitFeedback />}
       </HeaderInsetContext.Provider>
-      <View style={[styles.tabRow, { top: headerInset }]}>
+      <View style={[styles.tabRow, { top: headerInset }]} onLayout={event => setTabHeight(event.nativeEvent.layout.height)}>
         <HeaderBackdrop />
         <SubmitTypeTab type="place" current={submitType} onPress={setSubmitType} />
         <SubmitTypeTab type="hazard" current={submitType} onPress={setSubmitType} />
@@ -399,11 +403,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 4,
     paddingBottom: 4,
   },
   tab: {
     flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,

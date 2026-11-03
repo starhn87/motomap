@@ -1710,3 +1710,15 @@ SDK가 컨트롤 배치에 native safe area를 반영할 수 있어 이 설정�
 이 결정으로 대체하며 `BottomLeft`/좌측8·하단0 설정을 그대로 둔다. 로고를 더 내리기 위한
 native safe-area 무시·음수 margin·탭 겹침 보정은 추가하지 않는다. INTERACTION-015의
 Glass/블러 로컬 검증 빌드에서도 로고 위치는 바꾸지 않는다.
+
+## MAP-062 — 장소 헤더 조작부에도 공통 Glass를 사용한다
+
+- 날짜: 2026-11-04
+- 상태: 소스 구현 / 실기기 검증 후보
+- 관련: `PlaceSheetHeaderActions.tsx`, `PlaceBottomSheet.tsx`, `TempPlaceSheet.tsx`, INTERACTION-017
+
+등록·일반 장소의 접힌 헤더와 전체 확장 헤더 모두 즐겨찾기·닫기를 공용 GlassButton으로
+표시한다. 접힘36/확장44pt 크기와 기존 별 애니메이션·노랑색·장애/로그인/낙관 갱신 핸들러는
+유지한다. 전체 확장의 뒤로는44pt Glass와 기존28pt chevron 광학 보정을 쓴다. 이 액션들의
+부모를 FadeIn/FadeOut으로 opacity0에 두지 않는다. 제목 줄 터치/최대2줄·시트 snap·장소
+변경 시 스크롤 초기화·상단 여백 계산은 바꾸지 않는다. NAVER 로고는 MAP-061 후속 그대로다.

@@ -11,6 +11,7 @@ import {
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -169,6 +170,7 @@ function LoginMethods({ initialProviders }: { initialProviders: string[] }) {
 
 
 export default function SettingsScreen() {
+  const trackHeaderScroll = useTrackHeaderScroll();
   const insets = useSafeAreaInsets();
   const { current, hasUpdate, openStore } = useAppUpdate();
   const colorScheme = useColorScheme();
@@ -221,8 +223,9 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView
+      onScroll={trackHeaderScroll} scrollEventThrottle={16}
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 48 + 20, paddingBottom: insets.bottom + 32 }]}>
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 44 + 16, paddingBottom: insets.bottom + 32 }]}>
       <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 0 }]}>사용 환경</Text>
       <Text style={[styles.environmentLabel, { color: colors.text }]}>테마</Text>
       <View style={styles.themeRow}>

@@ -22,6 +22,7 @@ import StarRating from '@/components/review/StarRating';
 import PhotoStrip from '@/components/map/PhotoStrip';
 import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
 import { useContentHeaderInset } from '@/components/navigation/headerInset';
+import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 import SwipeDeleteRow from './SwipeDeleteRow';
 import { useDeleteActivityReview } from '@/hooks/useActivityActions';
 
@@ -70,6 +71,7 @@ export default function MyReviewsList({ active = true }: { active?: boolean }) {
       last.length === MY_REVIEWS_PAGE_SIZE ? all.length : undefined,
   });
   const reviews = data?.pages.flat();
+  const trackHeaderScroll = useTrackHeaderScroll(active, { hasContent: !!reviews?.length });
 
   // 탭하면 지도의 해당 장소 시트가 펼쳐지고 이 리뷰로 스크롤·강조된다
   const renderItem = ({ item }: { item: MyReview }) => (
@@ -137,6 +139,7 @@ export default function MyReviewsList({ active = true }: { active?: boolean }) {
         />
       ) : (
         <FlatList
+          onScroll={trackHeaderScroll} scrollEventThrottle={16}
           data={reviews}
           ListHeaderComponent={isError ? <Text style={{ color: colors.textSecondary }}>새로 불러오지 못해 이전 리뷰를 보여줘요.</Text> : null}
           keyExtractor={(item) => item.id}

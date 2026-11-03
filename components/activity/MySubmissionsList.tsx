@@ -27,6 +27,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
 import { useContentHeaderInset } from '@/components/navigation/headerInset';
+import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
 import SwipeDeleteRow from './SwipeDeleteRow';
 import { useActivityDismissals, useDismissSubmission } from '@/hooks/useActivityActions';
@@ -37,10 +38,10 @@ const FEEDBACK_LABEL: Record<FeedbackType, string> = {
   general: '기타 의견',
 };
 
-function SubmissionSkeletonList() {
+function SubmissionSkeletonList({ segmentHeight = 52 }: { segmentHeight?: number }) {
   const headerInset = useContentHeaderInset();
   return (
-    <View style={[styles.list, { paddingTop: headerInset + 60 + 16 }]}>
+    <View style={[styles.list, { paddingTop: headerInset + segmentHeight + 16 }]}>
       {Array.from({ length: 5 }).map((_, i) => (
         <SkeletonContainer key={i}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -62,6 +63,7 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
   const user = useAuthStore((s) => s.user);
   const bottomInset = useTabOcclusion();
   const [tab, setTab] = useState<'places' | 'feedback'>('places');
+  const [segmentHeight, setSegmentHeight] = useState(52);
   const headerInset = useContentHeaderInset();
   const dismissals = useActivityDismissals(active);
   const dismissal = useDismissSubmission();
@@ -86,6 +88,7 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
 
   const places = allPlaces?.filter(row => !dismissals.data?.some(hidden => hidden.kind === 'place_submission' && hidden.target_id === row.id));
   const feedback = allFeedback?.filter(row => !dismissals.data?.some(hidden => hidden.kind === 'feedback' && hidden.target_id === row.id));
+  const trackHeaderScroll = useTrackHeaderScroll(active, { resetKey: tab, hasContent: !!(tab === 'places' ? places : feedback)?.length });
 
   const renderItem = ({ item }: { item: MySubmission }) => {
     const category = CATEGORIES[item.category];
@@ -207,7 +210,7 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
   const failed = (tab === 'places' ? isError : feedbackError) || dismissals.isError;
   const retry = () => { void dismissals.refetch(); return tab === 'places' ? refetch() : refetchFeedback(); };
   const hasItems = dismissals.isError && !dismissals.data ? 0 : (tab === 'places' ? places : feedback)?.length;
-  const listStyle = [styles.list, { paddingTop: headerInset + 60 + 16, paddingBottom: 16 + bottomInset }];
+  const listStyle = [styles.list, { paddingTop: headerInset + segmentHeight + 16, paddingBottom: 16 + bottomInset }];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -217,7 +220,7 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
         새로 불러오지 못해 이전 목록을 보여줘요.
       </Text>}
       {showLoading ? (
-        <SubmissionSkeletonList />
+        <SubmissionSkeletonList segmentHeight={segmentHeight} />
       ) : failed && !hasItems ? (
         <EmptyState title="제보 목록을 불러오지 못했어요" hint="연결 상태를 확인하고 다시 시도해 주세요."
           actionLabel="다시 시도" onAction={() => { void retry(); }} />
@@ -232,6 +235,8 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
           />
         ) : (
           <FlatList
+            key="places"
+            onScroll={trackHeaderScroll} scrollEventThrottle={16}
             data={places}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
@@ -258,6 +263,8 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
         />
       ) : (
         <FlatList
+          key="feedback"
+          onScroll={trackHeaderScroll} scrollEventThrottle={16}
           data={feedback}
           keyExtractor={(item) => item.id}
           renderItem={renderFeedback}
@@ -272,7 +279,7 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
           }
         />
       )}
-      <View style={[styles.segmentRow, { top: headerInset }]}><HeaderBackdrop />
+      <View style={[styles.segmentRow, { top: headerInset }]} onLayout={event => setSegmentHeight(event.nativeEvent.layout.height)}><HeaderBackdrop />
         {(
           [
             ['places', '장소'],
@@ -316,8 +323,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   segment: {
     flex: 1,

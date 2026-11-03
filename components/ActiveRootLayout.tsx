@@ -17,7 +17,9 @@ import { PostHogProvider } from 'posthog-react-native';
 import PendingAccountLinkPrompt from '@/components/auth/PendingAccountLinkPrompt';
 import LegalConsentScreen from '@/components/auth/LegalConsentScreen';
 import GlassButton from '@/components/ui/GlassButton';
+import BackIcon from '@/components/ui/BackIcon';
 import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
+import { HeaderScrollProvider } from '@/components/navigation/headerScroll';
 import ServiceLoadingScreen from '@/components/ServiceLoadingScreen';
 import ServiceResumeScreen from '@/components/ServiceResumeScreen';
 import { APP_STORE_URL } from '@/constants/app';
@@ -77,11 +79,11 @@ function AppHeader({ title, colorScheme, glass = false }: { title: string; color
         borderBottomColor: colors.border,
       }}>
       {glass && <HeaderBackdrop />}
-      <View style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ height: glass ? 44 : 48, alignItems: 'center', justifyContent: 'center' }}>
         {router.canGoBack() && (
           glass ? <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()}
             style={{ position: 'absolute', left: 16, width: 44, height: 44, borderRadius: 22 }}>
-            <Ionicons name="chevron-back" size={26} color={colors.text} />
+            <BackIcon size={26} color={colors.text} />
           </GlassButton> : <Pressable
             onPress={() => router.back()}
             hitSlop={12}
@@ -108,6 +110,7 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
         <PersonalPlaceRideSync />
         <PlaceCatalogSync />
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <HeaderScrollProvider>
           <Stack
             screenOptions={{
               header: ({ options, route }) => (
@@ -141,6 +144,7 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
             <Stack.Screen name="navi" options={{ headerShown: false, animation: 'fade' }} />
             <Stack.Screen name="place-preview" options={{ headerShown: false }} />
           </Stack>
+          </HeaderScrollProvider>
         </ThemeProvider>
       </QueryClientProvider>
       <Toast config={toastConfig} topOffset={insets.top + 8} />

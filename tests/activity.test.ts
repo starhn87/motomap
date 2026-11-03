@@ -31,6 +31,7 @@ test('활동은 로그인 전 개인 목록을 만들지 않고 방문한 세 �
   const state = hooks();
   const module = loadModule<any>('components/activity/ActivityScreen.tsx', {
     react: state.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
+    '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
     '@/components/ui/HeaderBackdrop': exported('Backdrop'),
     './SwipeDeleteRow': exported('SwipeDelete'),
@@ -69,6 +70,7 @@ function notificationFixture() {
   const markAllRead = () => marks++;
   const module = loadModule<any>('components/activity/NotificationsList.tsx', {
     react: state.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
+    '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
     '@/components/ui/HeaderBackdrop': exported('Backdrop'),
     './SwipeDeleteRow': exported('SwipeDelete'),
@@ -116,6 +118,7 @@ test('리뷰 목록은 사용자별 키·페이지 연결을 유지하고 숨긴
   let user: any = { id: 'actor-a' }, config: any, fetches = 0;
   const module = loadModule<any>('components/activity/MyReviewsList.tsx', {
     'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
+    '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
     '@/components/ui/HeaderBackdrop': exported('Backdrop'),
     './SwipeDeleteRow': exported('SwipeDelete'),
@@ -143,6 +146,7 @@ test('내 제보는 선택한 종류만 조회하고 사용자별 키·숨김 �
   const state = hooks(); let configs: any[] = [];
   const module = loadModule<any>('components/activity/MySubmissionsList.tsx', {
     react: state.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
+    '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
     '@/components/ui/HeaderBackdrop': exported('Backdrop'),
     './SwipeDeleteRow': exported('SwipeDelete'),

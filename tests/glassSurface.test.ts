@@ -60,6 +60,9 @@ test('실제 API가 있어도 투명도 설정 확인 전에는 단색이며 해
   assert.equal(glass.props.isInteractive, false);
   assert.equal(nodes(glass).some(node => node.type === 'Button'), true);
   assert.equal(flatten(tree.props.style).backgroundColor, 'transparent');
+  const clear = app.render({ glassEffectStyle: 'clear' });
+  assert.equal(clear.props.glassEffectStyle, 'clear');
+  assert.equal(flatten(clear.props.style).backgroundColor, 'transparent', '다크 모드에서도 강제 검정 배경을 넣지 않는다');
   app.change(true); tree = app.render();
   assert.equal(nodes(tree).some(node => node.type === 'NativeGlass'), false);
   assert.equal(flatten(tree.props.style).backgroundColor, 'dark');
@@ -83,4 +86,7 @@ test('상호작용 표면은 실제 버튼을 native Glass 자식으로 두고 �
   assert.equal(tree.type, 'NativeGlass'); assert.equal(tree.props.isInteractive, true);
   assert.equal(tree.props.glassEffectStyle, 'regular'); assert.equal(tree.props.tintColor, '#FFFFFF50');
   assert.equal(tree.props.children.type, 'Button'); assert.equal(tree.props.children.props.native, true);
+  const clear = app.render({ glassEffectStyle: 'clear' });
+  assert.equal(clear.props.glassEffectStyle, 'clear');
+  assert.equal(flatten(clear.props.style).backgroundColor, 'transparent');
 });

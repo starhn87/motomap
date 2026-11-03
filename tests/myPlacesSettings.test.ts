@@ -66,6 +66,7 @@ test('비로그인 내 정보에도 집·회사 편집 진입을 남긴다', () 
     '@/components/auth/LoginPrompt': exported('LoginPrompt'), '@/components/ui/ImageViewer': exported('ImageViewer'),
     '@/components/profile/MyBikeHero': exported('MyBikeHero'),
     '@/components/navigation/NativeTabScreen': { withNativeTabScreen: (screen: unknown) => screen },
+    '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { useContentHeaderInset: () => 52 },
     '@/components/navigation/tabOcclusion': { TabScrollSpacer: () => null },
   });

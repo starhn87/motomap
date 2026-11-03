@@ -27,7 +27,7 @@ function ActivityContent() {
   const unread = useUnreadCount();
   const [section, setSection] = useState<Section>('submissions');
   const [visited, setVisited] = useState<Section[]>(['submissions']);
-  const [sectionHeight, setSectionHeight] = useState(48);
+  const [sectionHeight, setSectionHeight] = useState(44);
   return <View style={[styles.container, { backgroundColor: colors.background }]}>
     {SECTIONS.filter(item => visited.includes(item.key)).map(({ key, Content }) => (
       <View key={key} style={{ flex: 1, display: section === key ? 'flex' : 'none' }}
@@ -66,6 +66,6 @@ export default function ActivityScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   sections: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', zIndex: 5, overflow: 'hidden' },
-  section: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 2 },
+  section: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 2 },
   label: { fontSize: 15, fontWeight: '600' },
 });

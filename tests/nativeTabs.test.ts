@@ -11,7 +11,7 @@ const exported = (value: any) => ({ __esModule: true, default: value });
 const colors = { text: 'black', textSecondary: 'gray', tint: 'black', background: 'white', surfaceElevated: 'elevated', border: 'gray' };
 const nodes = (node: any): Element[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
 
-function layout(os: string, unread: number) {
+function layout(os: string, unread: number, scheme = 'light') {
   const trigger = Object.assign(() => null, { Icon: 'NativeIcon', Label: 'NativeLabel', Badge: 'NativeBadge' });
   const NativeTabs = Object.assign(() => null, { Trigger: trigger });
   const insets = { top: 59, bottom: 34, left: 0, right: 0 };
@@ -23,8 +23,8 @@ function layout(os: string, unread: number) {
     'expo-router/unstable-native-tabs': { NativeTabs },
     'react-native-safe-area-context': { useSafeAreaInsets: () => insets },
     'react-native-reanimated': { ...exported({ View: 'AnimatedView' }), useSharedValue: () => ({ value: 1 }) },
-    '@/constants/Colors': { ...exported({ light: colors }), semantic: { danger: 'red' } },
-    '@/components/useColorScheme': { useColorScheme: () => 'light' },
+    '@/constants/Colors': { ...exported({ light: colors, dark: colors }), semantic: { danger: 'red' } },
+    '@/components/useColorScheme': { useColorScheme: () => scheme },
     '@/hooks/useNotifications': { useUnreadCount: () => unread },
     '@/components/navigation/SettingsButton': exported('Settings'),
     '@/components/navigation/NativeTabScreen': { NativeTabDeviceInsetsContext: { Provider: 'DeviceInsets' } },
@@ -76,6 +76,15 @@ test('Android·웹은 기존 JS 탭과 4개 경로를 유지하고 탭은 화면
   }
 });
 
+test('앱에서 선택한 라이트·다크를 native host와 네 탭의 UIKit 외형에 동기화한다', () => {
+  for (const scheme of ['light', 'dark']) {
+    const { tree, NativeTabs, trigger } = layout('ios', 0, scheme);
+    assert.equal(nodes(tree).find(node => node.type === NativeTabs)?.props.unstable_nativeProps.colorScheme, scheme);
+    const tabs = nodes(tree).filter(node => node.type === trigger);
+    assert.ok(tabs.every(tab => tab.props.unstable_nativeProps.ios.experimental_userInterfaceStyle === scheme));
+  }
+});
+
 function frameFixture(os = 'ios') {
   let focused = false;
   let cursor = 0;
@@ -96,6 +105,7 @@ function frameFixture(os = 'ios') {
     'react-native': { Platform: { OS: os }, Text: 'Text', View: 'View', StyleSheet: { create: (style: any) => style, hairlineWidth: 0.5 } },
     'react-native-screens/experimental': { SafeAreaView: 'NativeSafeArea' },
     'react-native-safe-area-context': { SafeAreaInsetsContext: { Provider: 'DeviceEdges' }, useSafeAreaInsets: () => insets },
+    './headerScroll': { HeaderScrollProvider: 'ScrollProvider' },
     './headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' } },
     '@/components/ui/HeaderBackdrop': exported('Backdrop'),
     './tabOcclusion': { TabOcclusionContext: { Provider: 'TabOcclusion' } },
@@ -113,6 +123,18 @@ function frameFixture(os = 'ios') {
   return { Screen, wrap, render, insets, focus(value: boolean) { focused = value; } };
 }
 
+test('상단 안전영역은 헤더에 한 번만 포함하고 콘텐츠는 같은 총높이를 피한다', () => {
+  const app = frameFixture(); app.focus(true);
+  const screen = app.wrap({ title: '내 정보' });
+  let tree = app.render(screen);
+  assert.equal(nodes(tree).find(node => node.type === 'NativeSafeArea')?.props.edges.top, false);
+  assert.equal(nodes(tree).find(node => node.type === 'HeaderInset')?.props.value, app.insets.top + 44);
+  const header = nodes(tree).find(node => node.type === 'View' && Array.isArray(node.props.style) && node.props.style[0]?.zIndex === 10)!;
+  header.props.onLayout({ nativeEvent: { layout: { height: app.insets.top + 44 } } });
+  tree = app.render(screen);
+  assert.equal(nodes(tree).find(node => node.type === 'HeaderInset')?.props.value, app.insets.top + 44);
+});
+
 test('iOS 화면은 첫 포커스 전까지 본체를 미루고 이후에는 탭 이탈에도 같은 본체를 보존한다', () => {
   const app = frameFixture();
   const wrapped = app.wrap({ title: '내 정보', settings: true });
@@ -128,9 +150,9 @@ test('iOS 화면은 첫 포커스 전까지 본체를 미루고 이후에는 탭
   const header = nodes(tree).find(node => node.type === 'View' && Array.isArray(node.props.style) && node.props.style[0]?.zIndex === 10);
   assert.equal(header?.props.style[0].borderBottomWidth, undefined);
   assert.equal(nodes(header).some(node => node.type === 'Backdrop'), true);
-  assert.equal(nodes(tree).find(node => node.type === 'HeaderInset')?.props.value, 52);
+  assert.equal(nodes(tree).find(node => node.type === 'HeaderInset')?.props.value, app.insets.top + 44);
   assert.equal(tree.props.value, app.insets, '전체화면 모달에는 탭 높이가 섞이지 않은 기기 inset을 전달');
-  assert.deepEqual({ ...nodes(tree).find(node => node.type === 'NativeSafeArea')?.props.edges }, { top: true, bottom: false, left: true, right: true });
+  assert.deepEqual({ ...nodes(tree).find(node => node.type === 'NativeSafeArea')?.props.edges }, { top: false, bottom: false, left: true, right: true });
 });
 
 test('지도에는 새 상단 헤더가 없고 Android에는 native safe-area·중복 헤더를 추가하지 않는다', () => {

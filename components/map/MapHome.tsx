@@ -1170,7 +1170,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 5,
     elevation: 5,
-    gap: 0,
+    gap: 4,
   },
   searchRow: {
     flexDirection: 'row',

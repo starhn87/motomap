@@ -469,6 +469,7 @@ GlassView 또는 부모를 opacity 0으로 숨기는 효과는 복귀 시 native
 - 날짜: 2026-11-04
 - 상태: 소스 구현·검증 / 네이티브 외형 실기기 확인 전
 - 대체: INTERACTION-014의 배경 전용 Glass 구조, INTERACTION-013의 헤더 구분선
+- 일부 대체됨: 지도 검색 표면·항상 블러·안전 영역 계산은 INTERACTION-016을 따른다.
 
 GlassView를 표면 루트로 두고 실제 Pressable을 native contentView 안에 둔다. 버튼은
 `isInteractive`를 켜 UIKit의 터치 반응을 사용한다. `pointerEvents=none` 배경 위에 별도 버튼을
@@ -491,3 +492,56 @@ NativeTabs Badge를 사용한다(SDK가 공백 badgeValue로 UIKit 점을 표시
 
 [Expo GlassEffect](https://docs.expo.dev/versions/v57.0.0/sdk/glass-effect/),
 [Expo BlurView](https://docs.expo.dev/versions/v57.0.0/sdk/blur-view/).
+
+## INTERACTION-016 — 안전 영역은 한 번만 적용하고 스크롤했을 때만 헤더를 흐린다
+
+- 날짜: 2026-11-04
+- 상태: 회귀 수정·로컬 검사 / 수정본 기기 확인 후속
+- 관련: `NativeTabScreen.tsx`, `headerScroll.tsx`, `HeaderBackdrop.tsx`, `SearchEntry.tsx`
+
+사용자 실기기 캡처에서 내 정보 제목 위 빈 공간이 길고 프로필 사진 위쪽이 헤더에 가려진 것을
+확인했다. 바깥 SafeAreaView의 top과 절대 헤더의 paddingTop이 중복됐지만 콘텐츠 inset에서는
+top을 빼서, 헤더가 가리는 높이와 본문이 피하는 높이가 달랐다. 바깥 top 적용을 끄고 헤더 안에만
+기기 top을 한 번 적용한다. 콘텐츠도 동일한 헤더 실측 총높이를 피한다. 제목 줄은44pt,
+활동 분류는 최소44pt, 제보 내부 분류의 위아래 패딩은 각각4pt로 정리한다. 동적 글자는 실측한다.
+
+고정 헤더는 스크롤 전에는 본문과 같은 단색이다. 현재 보이는 ScrollView/FlatList의 offset이4pt를
+넘었을 때만 intensity18의 얇은 blur와 낮은 알파 배경을 사용한다(기존 상시65 대체).
+위로 되돌아오거나 당겨 새로고침하면 단색으로 복귀한다. 숨긴 활동 목록이 헤더 상태를 바꾸지 않으며
+분류를 다시 선택하면 그 목록의 보존된 스크롤 상태를 복원한다. 설정도 같은 상태 전달을 사용한다.
+내 제보의 장소/건의 전환은 목록을 새로 시작하고 헤더 상태를 초기화하며, 빈 목록·로그아웃
+안내로 바뀐 경우에도 이전 블러가 남지 않게 한다.
+모듈 없음·투명도 줄이기·Android/웹 폴백은 기존 불투명 배경이다.
+
+지도 검색의 '흐림 제거'를 불투명 테마 표면으로 잘못 해석한 시도는 사용자 실기기 확인에서
+거절됐다. 다크에서 검정 바가 되는 것은 의도와 반대였다. 이 부분은 INTERACTION-017로 대체한다.
+문구·아이콘의 기본 대비와 별도44pt 검색/마이크 터치 영역, 검색·음성 동작은 유지한다.
+
+`tests/nativeTabs.test.ts`, `tests/glassControls.test.ts`에서 이전 코드를 실제 실행해 안전 영역
+중복/총높이 불일치와 미스크롤 blur 검사 두 건이 실패하는 것을 확인한 뒤 수정했다.
+네이티브 외형은 설치 후 실기기 캡처로 별도 확인한다. JS 검사만으로 blur 외형을 보증하지 않는다.
+
+## INTERACTION-017 — 검색의 맑은 Glass와 UIKit 테마·아이콘 중심을 맞춘다
+
+- 날짜: 2026-11-04
+- 상태: 사용자 후속 수정 / 소스·기기 검증 후보
+- 대체: INTERACTION-016의 지도 검색 불투명 시도
+
+지도 검색은 GlassSurface의 native `clear` 재질을 사용한다. 검정/흰색 불투명 View로
+되돌리거나 별도 opacity를 전체 바에 적용하지 않는다. `regular`는 다른 버튼의 기존 기본값이며
+검색만 더 맑은 재질을 선택한다. 다크 모드에서도 지원 기기에서는 바탕이 transparent다.
+미지원·투명도 줄이기의 기존 접근성 폴백은 보존한다. 텍스트/아이콘은 기본 대비를 유지한다.
+
+앱 테마 변경은 JS 색만 바꾸던 상태라 OS가 다크인 기기의 앱 라이트 화면에서도 시스템 탭이
+다크 외형을 따를 수 있었다. 설치 SDK57이 지원하는 NativeTabs host `colorScheme`와 각
+trigger의 `ios.experimental_userInterfaceStyle`에 앱 테마를 명시한다. iOS에서 지원하지 않는
+`indicatorColor`로 선택 배경을 흉내 내거나 임의 pill을 겹치지 않는다. SDK 업데이트 시 이
+unstable native prop 전달 경로를 다시 검토한다.
+
+Glass 뒤로가기는 표준 Ionicons chevron-back을 쓰는 공용 BackIcon으로 통일하고, 글리프만
+1.5pt 왼쪽으로 광학 보정한다. 버튼 중앙정렬·44pt 영역·기존24/26/28pt 크기는 유지한다.
+등록/일반 장소의 뒤로·즐겨찾기·X도 Glass다. 즐겨찾기 노랑색/낙관 갱신/별 추가 애니메이션과
+타이틀의 독립 터치 영역을 유지한다. 기존 compact36·expanded44 크기는 그대로이며
+compact GlassButton은 내부 최소 크기도36으로 맞춰 헤더가 늘지 않게 한다.
+새 Glass의 부모를 opacity0으로 시작시키는 액션/페이지 헤더 FadeIn·FadeOut은 제거한다.
+지도 검색/카테고리 사이에는4pt를 더하며 로고와 지도 포커스·시트 동작은 바꾸지 않는다.

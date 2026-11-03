@@ -23,6 +23,7 @@ import { submitFeedback } from '@/lib/api/feedback';
 import { toast } from '@/lib/toast';
 import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
 import { useContentHeaderInset } from '@/components/navigation/headerInset';
+import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 import { registerPushToken } from '@/lib/push';
 import type { FeedbackType } from '@/lib/api/feedback';
 
@@ -35,6 +36,7 @@ const FEEDBACK_TYPES = [
 ];
 
 export default function SubmitFeedback() {
+  const trackHeaderScroll = useTrackHeaderScroll();
   const headerInset = useContentHeaderInset();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -82,6 +84,7 @@ export default function SubmitFeedback() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
+        onScroll={trackHeaderScroll} scrollEventThrottle={16}
         style={{ flex: 1 }}
         contentContainerStyle={[styles.content, { paddingTop: headerInset + 20 }]}
         keyboardShouldPersistTaps="handled"

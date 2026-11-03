@@ -1,6 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import CloseIcon from '@/components/ui/CloseIcon';
+import GlassButton from '@/components/ui/GlassButton';
+import BackIcon from '@/components/ui/BackIcon';
 import PlaceSheetHeaderActions from '@/components/map/PlaceSheetHeaderActions';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -397,8 +399,6 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
             </View>
             {!isExpanded && (
               <Animated.View
-                entering={FadeIn.duration(200)}
-                exiting={FadeOut.duration(150)}
                 style={styles.nameActions}>
                 {renderActions(false)}
               </Animated.View>
@@ -669,18 +669,17 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
       {place && isExpanded && (
         <Animated.View
           pointerEvents={headerReady ? 'auto' : 'box-only'}
-          entering={FadeIn.duration(200)}
           style={[
             styles.pageHeader,
             { paddingTop: insets.top, backgroundColor: colors.background },
           ]}>
-          <TouchableOpacity
+          <GlassButton
             accessibilityLabel="뒤로"
             accessibilityRole="button"
             onPress={() => bottomSheetRef.current?.close()}
-            style={[styles.iconButton, styles.pageHeaderIconButton]}>
-            <Ionicons name="chevron-back" size={28} color={colors.text} />
-          </TouchableOpacity>
+            style={[styles.iconButton, styles.pageHeaderIconButton, { borderRadius: 22 }]}>
+            <BackIcon size={28} color={colors.text} />
+          </GlassButton>
           <View style={styles.nameActions}>{renderActions(true)}</View>
         </Animated.View>
       )}

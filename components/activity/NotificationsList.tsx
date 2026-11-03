@@ -16,6 +16,7 @@ import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useContentHeaderInset } from '@/components/navigation/headerInset';
+import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 import SwipeDeleteRow from './SwipeDeleteRow';
 import { useDeleteActivityNotification } from '@/hooks/useActivityActions';
 
@@ -61,6 +62,7 @@ export default function NotificationsList({ active = true }: { active?: boolean 
   const visible = useIsFocused() && active && !!user;
   const bottomInset = useTabOcclusion();
   const { data: notifications, isLoading, isError, refetch, isRefetching } = useNotifications(visible);
+  const trackHeaderScroll = useTrackHeaderScroll(visible, { hasContent: !!notifications?.length });
   const { mutate: markAllRead } = useMarkAllRead();
   // 들어온 순간 안 읽었던 알림들. 곧바로 읽음 처리하면 목록이 다시 조회되면서
   // 표시가 지워지므로, 이 화면에 머무는 동안은 이 스냅샷으로 새 알림을 표시한다.
@@ -148,6 +150,7 @@ export default function NotificationsList({ active = true }: { active?: boolean 
         />
       ) : (
         <FlatList
+          onScroll={trackHeaderScroll} scrollEventThrottle={16}
           ref={listRef}
           data={notifications}
           ListHeaderComponent={isError ? <Text style={{ color: colors.textSecondary }}>새로 불러오지 못해 이전 알림을 보여줘요.</Text> : null}

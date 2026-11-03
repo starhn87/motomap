@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet } from 'react-native';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
-import { TouchableOpacity } from 'react-native-gesture-handler';
+import GlassButton from '@/components/ui/GlassButton';
 
 import CloseIcon from '@/components/ui/CloseIcon';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -34,7 +34,7 @@ export default function PlaceSheetHeaderActions({
 
   return (
     <>
-      <TouchableOpacity
+      <GlassButton compact={!expanded}
         accessibilityLabel={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
         accessibilityRole="button"
         accessibilityState={{ selected: isFavorite, disabled: !!favoriteDisabled }}
@@ -48,8 +48,8 @@ export default function PlaceSheetHeaderActions({
             color={isFavorite ? semantic.star : expanded ? colors.text : colors.textSecondary}
           />
         </Animated.View>
-      </TouchableOpacity>
-      <TouchableOpacity
+      </GlassButton>
+      <GlassButton compact={!expanded}
         accessibilityLabel="장소 상세 닫기"
         accessibilityRole="button"
         onPress={onClose}
@@ -58,7 +58,7 @@ export default function PlaceSheetHeaderActions({
           size={iconSize}
           color={expanded ? colors.text : colors.textSecondary}
         />
-      </TouchableOpacity>
+      </GlassButton>
     </>
   );
 }
@@ -67,11 +67,13 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 36,
     height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pageHeaderIconButton: {
     width: 44,
     height: 44,
+    borderRadius: 22,
   },
 });

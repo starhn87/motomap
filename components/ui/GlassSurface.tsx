@@ -17,10 +17,11 @@ const NativeGlass = native?.isLiquidGlassAvailable === true && native.isGlassEff
 /** 조작 요소의 바탕만 Glass로 그린다. 자식의 터치·접근성·배치는 바꾸지 않는다. */
 type Props = Omit<ViewProps, 'children'> & {
   interactive?: boolean;
+  glassEffectStyle?: 'regular' | 'clear';
   children?: ReactNode | ((nativeGlass: boolean) => ReactNode);
 };
 
-export default function GlassSurface({ style, children, interactive = false, ...props }: Props) {
+export default function GlassSurface({ style, children, interactive = false, glassEffectStyle = 'regular', ...props }: Props) {
   const scheme = useColorScheme() ?? 'light';
   const colors = Colors[scheme];
   // 접근성 설정 조회 전에도 불투명 배경으로 안전하게 시작한다.
@@ -46,7 +47,7 @@ export default function GlassSurface({ style, children, interactive = false, ...
   // 실제 버튼을 효과의 contentView에 넣어 UIKit이 터치를 추적하게 한다.
   // 배경만 pointerEvents=none으로 두면 네이티브 상호작용이 터치를 받을 수 없다.
   if (glass && NativeGlass) return <NativeGlass {...props} colorScheme={scheme}
-    glassEffectStyle="regular" tintColor={scheme === 'dark' ? '#FFFFFF18' : '#FFFFFF50'}
+    glassEffectStyle={glassEffectStyle} tintColor={scheme === 'dark' ? '#FFFFFF18' : '#FFFFFF50'}
     isInteractive={interactive} style={surfaceStyle}>{content}</NativeGlass>;
   return <View {...props} style={surfaceStyle}>{content}</View>;
 }

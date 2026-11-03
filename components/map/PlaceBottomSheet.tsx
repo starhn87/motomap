@@ -16,6 +16,8 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import CloseIcon from '@/components/ui/CloseIcon';
+import GlassButton from '@/components/ui/GlassButton';
+import BackIcon from '@/components/ui/BackIcon';
 import PlaceSheetHeaderActions from '@/components/map/PlaceSheetHeaderActions';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TouchableOpacity } from 'react-native-gesture-handler';
@@ -414,8 +416,6 @@ function PlaceBottomSheet({
             </View>
             {!isExpanded && (
               <Animated.View
-                entering={FadeIn.duration(200)}
-                exiting={FadeOut.duration(150)}
                 style={styles.nameActions}>
                 {renderActions(false)}
               </Animated.View>
@@ -653,7 +653,6 @@ function PlaceBottomSheet({
       {isExpanded && (
         <Animated.View
           pointerEvents={headerReady ? 'auto' : 'box-only'}
-          entering={FadeIn.duration(200)}
           style={[
             styles.pageHeader,
             {
@@ -661,13 +660,13 @@ function PlaceBottomSheet({
               backgroundColor: colors.background,
             },
           ]}>
-          <TouchableOpacity
+          <GlassButton
             accessibilityLabel="뒤로"
             accessibilityRole="button"
             onPress={() => bottomSheetRef.current?.close()}
-            style={[styles.iconButton, styles.pageHeaderIconButton]}>
-            <Ionicons name="chevron-back" size={28} color={colors.text} />
-          </TouchableOpacity>
+            style={[styles.iconButton, styles.pageHeaderIconButton, { borderRadius: 22 }]}>
+            <BackIcon size={28} color={colors.text} />
+          </GlassButton>
           <View style={styles.nameActions}>{renderActions(true)}</View>
         </Animated.View>
       )}
