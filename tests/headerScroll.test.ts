@@ -26,7 +26,7 @@ test('헤더는 스크롤 경계를 넘을 때만 갱신하고 숨긴 목록은 
   offset(track, 40); assert.equal(scrolled, false);
 });
 
-test('지도 검색 진입은 clear Glass이며 불투명 배경 없이 검색·마이크 터치를 분리한다', () => {
+test('지도 검색 진입은 regular Glass이며 불투명 배경 없이 검색·마이크 터치를 분리한다', () => {
   const calls: string[] = [];
   const module = loadModule<any>('components/search/SearchEntry.tsx', {
     'react/jsx-runtime': { jsx, jsxs: jsx },
@@ -38,7 +38,7 @@ test('지도 검색 진입은 clear Glass이며 불투명 배경 없이 검색·
     '@/components/ui/GlassSurface': exported('Glass'),
   });
   const tree = module.default(); assert.equal(tree.type, 'Glass');
-  assert.equal(tree.props.glassEffectStyle, 'clear'); assert.equal(tree.props.interactive, true);
+  assert.equal(tree.props.glassEffectStyle, 'regular'); assert.equal(tree.props.interactive, true);
   assert.equal(tree.props.style.backgroundColor, undefined);
   const [search, voice] = tree.props.children(true).props.children;
   assert.equal(search.type, 'Button'); assert.equal(voice.type, 'Button');

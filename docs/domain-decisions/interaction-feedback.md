@@ -582,7 +582,7 @@ Apple의 `UITabBarAppearance.selectionIndicatorTintColor`는 공식 API이지만
 ## INTERACTION-019 — iOS 하단 탭은 본문과 독립된 다크 외형으로 통일한다
 
 - 날짜: 2026-11-04
-- 상태: 활성 / 사용자 선택
+- 상태: 대체됨(INTERACTION-020) — 실제 외형 사용자 거절, 본문 테마 연동으로 복원
 - 대체: INTERACTION-017·018의 본문 테마를 따르는 iOS 탭 외형·라이트 파랑 선택색
 
 사용자는 라이트의 활성 탭도 다크와 같은 모습으로 요청했다. 별도 UIKit iOS27 테스트에서
@@ -608,3 +608,27 @@ Apple 가이드는 regular의 배경 대비 적응을 기본으로 권장하고 
 별도 미디어 맥락에서 검토한다. 이는 제안으로, 현재 공통 clear 기본값을 바꾸지 않는다.
 
 근거: [Apple Meet Liquid Glass — Variants/Principles](https://developer.apple.com/videos/play/wwdc2025/219/).
+
+## INTERACTION-020 — 탭은 테마별 네이티브 외형, 지도 세 조작부는 무틴트 regular
+
+- 날짜: 2026-11-04
+- 상태: 활성 / 사용자 선택
+- 대체: INTERACTION-019의 항상 다크 탭, INTERACTION-018의 지도 세 조작부 clear
+
+사용자는 라이트 모드에서도 다크로 고정한 탭 외형을 거절했다. 처음에는 활성 탭의 채움만
+다크와 같게 요청했으나, UIKit iOS27 별도 테스트에서 selectionIndicatorTintColor뿐 아니라
+selectionIndicatorImage도 tab bar/각 item의 standard·scroll-edge에 적용해도 기본 선택 배경이
+유지됐다. 선택 글자색만 바꾸는 것으로 이 요구를 처리했다고 보고하지 않는다.
+네이티브 유지/커스텀 Glass 대안을 설명한 뒤 사용자가 **네이티브 탭 유지, 기본 선택 배경 사용**을
+최종 선택했다. 공개 API로 작동하지 않는 패치나 private view 조작은 추가하지 않는다.
+
+iOS host와 각 trigger는 앱 라이트/다크를 따른다. 강제 다크 배경·blur·scroll-edge 고정을 제거한다.
+선택 배경은 UIKit 기본값이며 아이콘/글자는 테마별 본문 tint(라이트 검정·다크 흰색)를 사용한다.
+본문 테마·상태·탭 경로·Android/웹 탭은 유지한다.
+
+지도 검색·길찾기·내 위치 세 조작부만 `regular`로 맞추고 강제 흰 tint 없이 시스템 재질을 사용한다.
+같은 앱 테마를 GlassView에도 전달해 네이티브 탭과 라이트/다크 방향을 맞춘다. 크기·배경에
+따라 적응하는 네이티브 재질이라 탭 바와 픽셀 단위 외형이 같다고 보장하지 않는다.
+다른 Glass 조작부의 기존 clear·tint는 유지하며 미지원/투명도 줄이기 폴백도 바꾸지 않는다.
+검색/음성·길찾기·내 위치의 터치 동작과 위치·키보드·시트·로고 배치는 그대로다.
+새 네이티브·의존성·계약 변경은 없고 실기기 외형은 수정본에서 확인한다.

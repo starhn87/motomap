@@ -1005,6 +1005,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           <View style={styles.searchRow}>
             <SearchEntry />
             <GlassButton
+              glassEffectStyle="regular"
               accessibilityLabel="길찾기"
               accessibilityRole="button"
               onPress={() => router.push('/directions')}
@@ -1096,7 +1097,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           styles.myLocationButton,
           myLocationFollowStyle,
         ]}>
-        <GlassButton accessibilityLabel="내 위치로 이동" accessibilityRole="button" onPress={handleMyLocation}
+        <GlassButton glassEffectStyle="regular" accessibilityLabel="내 위치로 이동" accessibilityRole="button" onPress={handleMyLocation}
           style={{ width: 48, height: 48, borderRadius: 24 }}>
         <View style={styles.myLocationIconContainer}>
           <View style={[styles.myLocationCrosshair, { borderColor: colors.tint }]}>

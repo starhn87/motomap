@@ -35,7 +35,7 @@ export default function SearchEntry() {
   return (
     // 검색 진입과 마이크는 형제로 둔다 — 중첩하면 바깥 Pressable이 하나의 접근성 요소로
     // 묶여 스크린리더에서 마이크에 닿을 수 없다.
-    <GlassSurface interactive glassEffectStyle="clear" style={styles.container}>
+    <GlassSurface interactive glassEffectStyle="regular" style={styles.container}>
       {native => <>
       <Pressable
         accessibilityLabel="장소, 라이딩 검색"

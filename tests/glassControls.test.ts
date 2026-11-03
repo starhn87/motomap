@@ -17,6 +17,9 @@ test('Glass 버튼은 native 상호작용을 켜고 폴백일 때만 눌림 투�
   assert.equal(tree.props.children(false).props.style({ pressed: true })[1].opacity, 0.7);
   button.props.onPress(); assert.equal(calls, 1);
   assert.equal(button.props.accessibilityLabel, '설정');
+  const regular = module.default({ children: 'icon', glassEffectStyle: 'regular' });
+  assert.equal(regular.props.glassEffectStyle, 'regular');
+  assert.equal(regular.props.children(true).props.glassEffectStyle, undefined);
   const disabled = module.default({ children: 'icon', disabled: true });
   assert.equal(disabled.props.interactive, false);
   assert.equal(disabled.props.children(false).props.disabled, true);

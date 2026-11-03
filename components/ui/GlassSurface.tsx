@@ -47,7 +47,8 @@ export default function GlassSurface({ style, children, interactive = false, gla
   // 실제 버튼을 효과의 contentView에 넣어 UIKit이 터치를 추적하게 한다.
   // 배경만 pointerEvents=none으로 두면 네이티브 상호작용이 터치를 받을 수 없다.
   if (glass && NativeGlass) return <NativeGlass {...props} colorScheme={scheme}
-    glassEffectStyle={glassEffectStyle} tintColor={scheme === 'dark' ? '#FFFFFF18' : '#FFFFFF50'}
+    glassEffectStyle={glassEffectStyle}
+    tintColor={glassEffectStyle === 'regular' ? undefined : scheme === 'dark' ? '#FFFFFF18' : '#FFFFFF50'}
     isInteractive={interactive} style={surfaceStyle}>{content}</NativeGlass>;
   return <View {...props} style={surfaceStyle}>{content}</View>;
 }
