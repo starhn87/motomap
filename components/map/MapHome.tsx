@@ -48,6 +48,7 @@ import { findGeneralFavorite } from '@/lib/api/favorites';
 import { useFavoritePlaces } from '@/hooks/useFavorites';
 import { useAuthStore } from '@/stores/useAuthStore';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
+import MapOverlayLayer from '@/components/map/MapOverlayLayer';
 import CourseReturnChip from '@/components/map/CourseReturnChip';
 import GasStationMarker from '@/components/map/GasStationMarker';
 import GasStationCard from '@/components/map/GasStationCard';
@@ -643,17 +644,12 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const tabOcclusionSv = useSharedValue(tabOcclusion);
   useEffect(() => { tabOcclusionSv.value = tabOcclusion; }, [tabOcclusion, tabOcclusionSv]);
 
-  // 내 위치 버튼이 장소 시트의 실시간 위치를 따라 위로 밀려난다 (시트 위 16px).
-  // 시트가 끝까지 올라가면 숨긴다. 닫히면 기본 위치로 자연 복귀한다.
+  // 시트/카드는 내 위치 버튼과 탭 위를 덮는다. 버튼을 따라 올리지 않는다.
   const sheetPosition = useSharedValue(999999);
   const containerHeight = useSharedValue(0);
   const myLocationFollowStyle = useAnimatedStyle(() => {
-    const h = containerHeight.value;
-    const fromSheet = h > 0 ? h - sheetPosition.value + 16 : 0;
     return {
-      bottom: Math.max(12 + tabOcclusionSv.value, fromSheet),
-      // Glass의 부모 opacity를 0으로 만들면 복귀 때 효과가 사라질 수 있다.
-      display: h > 0 && sheetPosition.value < h * 0.2 ? 'none' : 'flex',
+      bottom: 12 + tabOcclusionSv.value,
     };
   });
 
@@ -1115,19 +1111,16 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         </Pressable>
       )}
 
+      <MapOverlayLayer focused={isMapFocused}>
       <PlaceBottomSheet
         place={selectedPlace}
-        tabClearance={tabOcclusion}
         onClose={handleBottomSheetClose}
         animatedPosition={sheetPosition}
         highlightReview={highlightReview}
       />
 
-      <HazardSheet hazard={selectedHazard} onClose={() => setSelectedHazard(null)} />
-
       <TempPlaceSheet
         place={tempPlace}
-        tabClearance={tabOcclusion}
         onClose={handleBottomSheetClose}
         animatedPosition={sheetPosition}
       />
@@ -1153,6 +1146,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           onClose={() => setWeatherOpen(false)}
         />
       )}
+      </MapOverlayLayer>
+      <HazardSheet hazard={selectedHazard} onClose={() => setSelectedHazard(null)} />
     </View>
   );
 }

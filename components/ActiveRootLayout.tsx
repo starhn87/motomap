@@ -1,13 +1,14 @@
 import { initializeKakaoSDK } from '@react-native-kakao/core';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-navigation';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { PortalProvider } from '@gorhom/portal';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
 import { Stack, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +20,7 @@ import LegalConsentScreen from '@/components/auth/LegalConsentScreen';
 import GlassButton from '@/components/ui/GlassButton';
 import BackIcon from '@/components/ui/BackIcon';
 import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
+import { MapOverlayHost } from '@/components/map/MapOverlayLayer';
 import { HeaderScrollProvider } from '@/components/navigation/headerScroll';
 import ServiceLoadingScreen from '@/components/ServiceLoadingScreen';
 import ServiceResumeScreen from '@/components/ServiceResumeScreen';
@@ -106,6 +108,7 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
 
   const tree = (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onReady}>
+      <PortalProvider shouldAddRootHost={false}>
       <QueryClientProvider client={queryClient}>
         <PersonalPlaceRideSync />
         <PlaceCatalogSync />
@@ -144,10 +147,14 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
             <Stack.Screen name="navi" options={{ headerShown: false, animation: 'fade' }} />
             <Stack.Screen name="place-preview" options={{ headerShown: false }} />
           </Stack>
+          <MapOverlayHost />
           </HeaderScrollProvider>
         </ThemeProvider>
       </QueryClientProvider>
-      <Toast config={toastConfig} topOffset={insets.top + 8} />
+      </PortalProvider>
+      <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 200, elevation: 200 }]}>
+        <Toast config={toastConfig} topOffset={insets.top + 8} />
+      </View>
       <PendingAccountLinkPrompt />
       <DialogHost />
     </GestureHandlerRootView>

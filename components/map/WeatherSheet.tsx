@@ -9,7 +9,7 @@ import { coordToRegion } from '@/lib/api/kakaoLocal';
 import { fetchAirQuality, AIR_GRADE_LABEL, AIR_GRADE_COLOR } from '@/lib/api/air';
 import { sunEvents, type SunEvent } from '@/lib/sun';
 import Colors, { semantic } from '@/constants/Colors';
-import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import type { RidingWeather } from '@/lib/api/weather';
 import WarningDetailModal from '@/components/map/WarningDetailModal';
@@ -131,7 +131,7 @@ export default function WeatherSheet({
 }: Props) {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const didOpenRef = useRef(false);
-  const tabOcclusion = useTabOcclusion();
+  const insets = useSafeAreaInsets();
 
   // 시트 인스턴스는 닫힌 상태로 계속 유지한다. 이미 준비된 ref를 여는 방식이라
   // 버튼 탭과 마운트 타이밍이 경합해 snap 명령이 유실되지 않는다.
@@ -249,7 +249,6 @@ export default function WeatherSheet({
       animateOnMount={false}
       enableDynamicSizing={false}
       enablePanDownToClose
-      bottomInset={tabOcclusion}
       onChange={handleSheetChange}
       backdropComponent={renderBackdrop}
       backgroundStyle={{
@@ -262,7 +261,7 @@ export default function WeatherSheet({
         elevation: 8,
       }}
       handleIndicatorStyle={{ backgroundColor: colors.tabIconDefault }}>
-      <BottomSheetView style={styles.content}>
+      <BottomSheetView style={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
         {/* 등급 헤더 */}
         <View style={styles.gradeRow}>
           <WeatherEmoji

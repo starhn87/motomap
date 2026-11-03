@@ -50,6 +50,7 @@ test('iOS는 UIKit 탭 4개·시스템 아이콘·미읽음 배지를 쓰고 탭
   assert.equal(native.props.backgroundColor, undefined);
   assert.equal(native.props.blurEffect, undefined);
   assert.equal(native.props.disableTransparentOnScrollEdge, undefined);
+  assert.equal(native.props.unstable_nativeProps.tabBarHidden, undefined, '지도 시트 때문에 바를 숨기거나 레이아웃을 바꾸지 않는다');
   const tabs = nodes(tree).filter(node => node.type === trigger);
   assert.deepEqual(tabs.map(tab => tab.props.name), ['index', 'submit', 'courses', 'profile']);
   assert.ok(tabs.every(tab => tab.props.disableAutomaticContentInsets));
