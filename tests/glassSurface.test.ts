@@ -87,7 +87,7 @@ test('상호작용 표면은 실제 버튼을 native Glass 자식으로 두고 �
   app.render(); app.resolve(); await Promise.resolve();
   const tree = app.render({ interactive: true, children: (native: boolean) => jsx('Button', { native }) });
   assert.equal(tree.type, 'NativeGlass'); assert.equal(tree.props.isInteractive, true);
-  assert.equal(tree.props.glassEffectStyle, 'clear'); assert.equal(tree.props.tintColor, '#FFFFFF50');
+  assert.equal(tree.props.glassEffectStyle, 'regular'); assert.equal(tree.props.tintColor, undefined);
   assert.equal(tree.props.children.type, 'Button'); assert.equal(tree.props.children.props.native, true);
   const clear = app.render({ glassEffectStyle: 'clear' });
   assert.equal(clear.props.glassEffectStyle, 'clear');

@@ -78,7 +78,7 @@ test('Android·웹은 기존 JS 탭과 4개 경로를 유지하고 탭은 화면
   }
 });
 
-test('iOS 탭은 본문 테마를 따르고 대비에 맞는 단색 아이콘·글자를 사용한다', () => {
+test('iOS 탭은 host 테마를 상속하고 trigger에 이전 테마를 복사해 고정하지 않는다', () => {
   for (const scheme of ['light', 'dark']) {
     const { tree, NativeTabs, trigger } = layout('ios', 0, scheme);
     const native = nodes(tree).find(node => node.type === NativeTabs)!;
@@ -87,7 +87,7 @@ test('iOS 탭은 본문 테마를 따르고 대비에 맞는 단색 아이콘·�
     assert.equal(native.props.tintColor, selected);
     assert.equal(native.props.iconColor.selected, selected);
     const tabs = nodes(tree).filter(node => node.type === trigger);
-    assert.ok(tabs.every(tab => tab.props.unstable_nativeProps.ios.experimental_userInterfaceStyle === scheme));
+    assert.ok(tabs.every(tab => tab.props.unstable_nativeProps?.ios?.experimental_userInterfaceStyle === undefined));
   }
 });
 
@@ -100,6 +100,7 @@ test('Glass 이전 iOS도 라이트 외형에 다크 배경·흰 선택색을 �
   assert.equal(native.props.disableTransparentOnScrollEdge, undefined);
   assert.equal(native.props.iconColor.selected, 'black');
 });
+
 
 function frameFixture(os = 'ios') {
   let focused = false;

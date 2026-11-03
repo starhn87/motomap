@@ -189,24 +189,25 @@ function IosTabLayout() {
   const colors = Colors[scheme];
   const unreadCount = useUnreadCount();
   const deviceInsets = useSafeAreaInsets();
+  // 탭별 UIKit override는 테마 prop 변경 때 갱신되지 않는다. host의 테마만 상속한다.
   return (
     <NativeTabDeviceInsetsContext.Provider value={deviceInsets}>
       <NativeTabs unstable_nativeProps={{ colorScheme: scheme }} tintColor={colors.tint} iconColor={{ default: colors.textSecondary, selected: colors.tint }}
         badgeBackgroundColor={semantic.danger} minimizeBehavior="never" sidebarAdaptable={false}>
-        <NativeTabs.Trigger name="index" unstable_nativeProps={{ ios: { experimental_userInterfaceStyle: scheme } }} disableAutomaticContentInsets disableScrollToTop disablePopToTop>
+        <NativeTabs.Trigger name="index" disableAutomaticContentInsets disableScrollToTop disablePopToTop>
           <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} md="map" />
           <NativeTabs.Trigger.Label>지도</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="submit" unstable_nativeProps={{ ios: { experimental_userInterfaceStyle: scheme } }} disableAutomaticContentInsets disableScrollToTop>
+        <NativeTabs.Trigger name="submit" disableAutomaticContentInsets disableScrollToTop>
           <NativeTabs.Trigger.Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} md="add_circle" />
           <NativeTabs.Trigger.Label>제보</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="courses" unstable_nativeProps={{ ios: { experimental_userInterfaceStyle: scheme } }} disableAutomaticContentInsets>
+        <NativeTabs.Trigger name="courses" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon sf={{ default: 'bell', selected: 'bell.fill' }} md="notifications" />
           <NativeTabs.Trigger.Label>활동</NativeTabs.Trigger.Label>
           {unreadCount > 0 && <NativeTabs.Trigger.Badge />}
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="profile" unstable_nativeProps={{ ios: { experimental_userInterfaceStyle: scheme } }} disableAutomaticContentInsets>
+        <NativeTabs.Trigger name="profile" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon sf={{ default: 'person', selected: 'person.fill' }} md="person" />
           <NativeTabs.Trigger.Label>내 정보</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>

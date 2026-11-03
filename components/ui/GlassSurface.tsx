@@ -21,7 +21,7 @@ type Props = Omit<ViewProps, 'children'> & {
   children?: ReactNode | ((nativeGlass: boolean) => ReactNode);
 };
 
-export default function GlassSurface({ style, children, interactive = false, glassEffectStyle = 'clear', ...props }: Props) {
+export default function GlassSurface({ style, children, interactive = false, glassEffectStyle = 'regular', ...props }: Props) {
   const scheme = useColorScheme() ?? 'light';
   const colors = Colors[scheme];
   // 접근성 설정 조회 전에도 불투명 배경으로 안전하게 시작한다.
@@ -48,7 +48,6 @@ export default function GlassSurface({ style, children, interactive = false, gla
   // 배경만 pointerEvents=none으로 두면 네이티브 상호작용이 터치를 받을 수 없다.
   if (glass && NativeGlass) return <NativeGlass {...props} colorScheme={scheme}
     glassEffectStyle={glassEffectStyle}
-    tintColor={glassEffectStyle === 'regular' ? undefined : scheme === 'dark' ? '#FFFFFF18' : '#FFFFFF50'}
     isInteractive={interactive} style={surfaceStyle}>{content}</NativeGlass>;
   return <View {...props} style={surfaceStyle}>{content}</View>;
 }

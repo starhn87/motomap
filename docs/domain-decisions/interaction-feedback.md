@@ -613,6 +613,7 @@ Apple 가이드는 regular의 배경 대비 적응을 기본으로 권장하고 
 
 - 날짜: 2026-11-04
 - 상태: 활성 / 사용자 선택
+- 일부 대체됨: 테마의 상속 경로·공통 재질은 INTERACTION-021을 따른다.
 - 대체: INTERACTION-019의 항상 다크 탭, INTERACTION-018의 지도 세 조작부 clear
 
 사용자는 라이트 모드에서도 다크로 고정한 탭 외형을 거절했다. 처음에는 활성 탭의 채움만
@@ -632,3 +633,26 @@ iOS host와 각 trigger는 앱 라이트/다크를 따른다. 강제 다크 배�
 다른 Glass 조작부의 기존 clear·tint는 유지하며 미지원/투명도 줄이기 폴백도 바꾸지 않는다.
 검색/음성·길찾기·내 위치의 터치 동작과 위치·키보드·시트·로고 배치는 그대로다.
 새 네이티브·의존성·계약 변경은 없고 실기기 외형은 수정본에서 확인한다.
+
+## INTERACTION-021 — 탭 테마는 host에서 상속하고 공통 Glass를 regular로 통일
+
+- 날짜: 2026-11-04
+- 상태: 활성 / 실기기·사용자 확인
+- 관련: `app/(tabs)/_layout.tsx`, `GlassSurface.tsx`
+
+사용자가 테마를 바꾼 뒤 탭만 재시작해야 갱신되는 것을 확인했다. 기존 설치본에서 실제 설정을
+다크→라이트로 바꾼 직후/콜드 시작을 캡처해 같은 현상을 재현했다. 비활성 글자까지 흰색으로
+남았으므로 선택 pill 색 문제와 구분한다. 이전 UIKit tint/image API 실험은 이 버그의 해결책이 아니다.
+
+RNScreens의 trigger userInterfaceStyle prop 갱신은 ivar만 바꾸고 탭 바 조상 override를
+즉시 갱신하지 않는다. 각 trigger의 experimental_userInterfaceStyle 명시값을 제거해
+기본 unspecified로 두고, host colorScheme만 앱 테마를 따른다. 복사된 자식 override 대신
+상위 controller의 테마를 상속한다. key remount·지도 상태 초기화·private API·native patch는 쓰지 않는다.
+같은 실기기에서 설정 다크→라이트 직후와 콜드 시작 캡처를 비교했다. 수정 전에는 즉시 전환에서
+회색 바·흰 글자가 남았고 수정 후에는 재시작 전후 모두 밝은 바·검정 아이콘으로 일치했다.
+사용자도 즉시 전환이 정상임을 확인했다. 테마/화면 smoke2개를 통과했다.
+
+공용 GlassSurface 기본은 regular이며 강제 흰 tint를 제거한다. 라이트/다크는 앱 테마를
+그대로 native Glass에 전달한다. 지도·검색·뒤로·설정·전체 확장 장소 헤더 등 같은 원칙이다.
+투명도 줄이기·모듈 없음·이전 OS 폴백과 기존 터치 반응은 유지한다.
+탭의 선택 pill은 UIKit 기본값을 유지한다.
