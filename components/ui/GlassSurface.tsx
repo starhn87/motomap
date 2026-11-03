@@ -21,7 +21,7 @@ type Props = Omit<ViewProps, 'children'> & {
   children?: ReactNode | ((nativeGlass: boolean) => ReactNode);
 };
 
-export default function GlassSurface({ style, children, interactive = false, glassEffectStyle = 'regular', ...props }: Props) {
+export default function GlassSurface({ style, children, interactive = false, glassEffectStyle = 'clear', ...props }: Props) {
   const scheme = useColorScheme() ?? 'light';
   const colors = Colors[scheme];
   // 접근성 설정 조회 전에도 불투명 배경으로 안전하게 시작한다.

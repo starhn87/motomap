@@ -15,7 +15,7 @@ export default {
     border: '#E4E4E7',
     tint: '#18181B',
     tabIconDefault: '#A1A1AA',
-    tabIconSelected: '#18181B',
+    tabIconSelected: '#007AFF',
     surface: '#F9FAFB',
     surfaceElevated: '#FFFFFF',
     surfaceMuted: '#F3F4F6',

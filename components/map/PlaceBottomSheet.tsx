@@ -667,7 +667,7 @@ function PlaceBottomSheet({
             style={[styles.iconButton, styles.pageHeaderIconButton, { borderRadius: 22 }]}>
             <BackIcon size={28} color={colors.text} />
           </GlassButton>
-          <View style={styles.nameActions}>{renderActions(true)}</View>
+          <View style={[styles.nameActions, { gap: 12 }]}>{renderActions(true)}</View>
         </Animated.View>
       )}
 

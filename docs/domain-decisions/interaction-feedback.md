@@ -525,6 +525,7 @@ top을 빼서, 헤더가 가리는 높이와 본문이 피하는 높이가 달�
 
 - 날짜: 2026-11-04
 - 상태: 사용자 후속 수정 / 소스·기기 검증 후보
+- 일부 대체됨: 공용 재질·장소 compact 액션·활성 탭 색은 INTERACTION-018을 따른다.
 - 대체: INTERACTION-016의 지도 검색 불투명 시도
 
 지도 검색은 GlassSurface의 native `clear` 재질을 사용한다. 검정/흰색 불투명 View로
@@ -545,3 +546,34 @@ Glass 뒤로가기는 표준 Ionicons chevron-back을 쓰는 공용 BackIcon으�
 compact GlassButton은 내부 최소 크기도36으로 맞춰 헤더가 늘지 않게 한다.
 새 Glass의 부모를 opacity0으로 시작시키는 액션/페이지 헤더 FadeIn·FadeOut은 제거한다.
 지도 검색/카테고리 사이에는4pt를 더하며 로고와 지도 포커스·시트 동작은 바꾸지 않는다.
+
+## INTERACTION-018 — 공용 clear 재질과 풀 확장 전용 장소 Glass
+
+- 날짜: 2026-11-04
+- 상태: 활성 / 로컬 외형 검증 후속
+- 대체: INTERACTION-015·017의 regular 기본값, compact Glass, 검정 활성 탭 색
+
+공용 GlassSurface 기본 재질은 `clear`다. 검색·길찾기·내 위치·뒤로·설정 등 직접 그리는
+Glass 조작부에 같은 재질/tint를 적용한다. 지원 여부·투명도 줄이기 폴백은 유지한다.
+UIKit NativeTabs의 시스템 재질은 OS가 결정하며 Expo API로 `clear`를 지정할 수 없다.
+임의 뷰 중첩이나 private API로 네이티브 탭을 흉내 내지 않는다.
+
+등록/일반 장소는 풀 확장 헤더에서만 뒤로·즐겨찾기·X에 Glass를 사용한다. 접힌 상태는
+기존36pt 일반 버튼이고 풀 확장은44pt이며, 즐겨찾기와X 사이 간격을4→12pt로 늘린다.
+즐겨찾기 노랑·애니메이션·콜백·타이틀 터치 영역은 보존한다.
+
+앱 테마 동기화만으로 활성 탭이 어둡다는 사용자 피드백이 해결되지 않았다. 라이트의
+활성 아이콘/글자 전용 색은 검정에서 iOS 파랑 `#007AFF`로 바꾸며 일반 본문 tint는 유지한다.
+다크 활성은 기존 `#FAFAFA`다. NativeTabs와 JS 폴백 모두 같은 선택색을 사용한다.
+
+Apple의 `UITabBarAppearance.selectionIndicatorTintColor`는 공식 API이지만 별도 UIKit
+테스트 앱의 iOS27 시뮬레이터에서 standard/scroll-edge 양쪽에 빨강을 주어도 선택 pill은
+회색이었다. tint 변경은 아이콘/글자에 반영됐다. 따라서 효과가 검증되지 않은 RN Screens
+네이티브 패치를 추가하지 않으며, 선택 배경까지 바뀐 것으로 보고하지 않는다. 모토맵의
+실제 기기 외형은 별도로 확인한다. 네이티브·의존성·브리지 계약 변경은 없다.
+
+다크 카테고리 칩의 차콜 배경·밝은 테두리·부드러운 선택 tint는 제안 단계다. 사용자 선택 전에는
+기존 카테고리 색을 바꾸지 않는다.
+
+공식 근거: [Apple selectionIndicatorTintColor](https://developer.apple.com/documentation/uikit/uitabbarappearance/selectionindicatortintcolor),
+[Expo NativeTabs 외형](https://docs.expo.dev/tutorial/add-navigation/).

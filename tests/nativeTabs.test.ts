@@ -8,7 +8,7 @@ import { loadModule } from './helpers/loadModule';
 type Element = { type: any; props: any };
 const jsx = (type: any, props: any) => ({ type, props });
 const exported = (value: any) => ({ __esModule: true, default: value });
-const colors = { text: 'black', textSecondary: 'gray', tint: 'black', background: 'white', surfaceElevated: 'elevated', border: 'gray' };
+const colors = { text: 'black', textSecondary: 'gray', tint: 'black', tabIconSelected: '#007AFF', background: 'white', surfaceElevated: 'elevated', border: 'gray' };
 const nodes = (node: any): Element[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
 
 function layout(os: string, unread: number, scheme = 'light') {
@@ -23,7 +23,7 @@ function layout(os: string, unread: number, scheme = 'light') {
     'expo-router/unstable-native-tabs': { NativeTabs },
     'react-native-safe-area-context': { useSafeAreaInsets: () => insets },
     'react-native-reanimated': { ...exported({ View: 'AnimatedView' }), useSharedValue: () => ({ value: 1 }) },
-    '@/constants/Colors': { ...exported({ light: colors, dark: colors }), semantic: { danger: 'red' } },
+    '@/constants/Colors': { ...exported({ light: colors, dark: { ...colors, tabIconSelected: '#FAFAFA' } }), semantic: { danger: 'red' } },
     '@/components/useColorScheme': { useColorScheme: () => scheme },
     '@/hooks/useNotifications': { useUnreadCount: () => unread },
     '@/components/navigation/SettingsButton': exported('Settings'),
@@ -69,6 +69,7 @@ test('Android·웹은 기존 JS 탭과 4개 경로를 유지하고 탭은 화면
     const tabs = tree.props.children;
     assert.deepEqual(nodes(tabs).filter(node => node.type === 'LegacyScreen').map(node => node.props.name), ['index', 'submit', 'courses', 'profile']);
     assert.equal(tabs.props.screenOptions.tabBarStyle.position, 'absolute');
+    assert.equal(tabs.props.screenOptions.tabBarActiveTintColor, '#007AFF');
     assert.equal(tabs.props.screenOptions.tabBarStyle.height, 56);
     assert.equal(tabs.props.screenOptions.tabBarStyle.bottom, 44);
     assert.equal(tabs.props.screenOptions.headerTitleStyle.fontWeight, '700');
@@ -79,7 +80,11 @@ test('Android·웹은 기존 JS 탭과 4개 경로를 유지하고 탭은 화면
 test('앱에서 선택한 라이트·다크를 native host와 네 탭의 UIKit 외형에 동기화한다', () => {
   for (const scheme of ['light', 'dark']) {
     const { tree, NativeTabs, trigger } = layout('ios', 0, scheme);
-    assert.equal(nodes(tree).find(node => node.type === NativeTabs)?.props.unstable_nativeProps.colorScheme, scheme);
+    const native = nodes(tree).find(node => node.type === NativeTabs)!;
+    assert.equal(native.props.unstable_nativeProps.colorScheme, scheme);
+    const selected = scheme === 'light' ? '#007AFF' : '#FAFAFA';
+    assert.equal(native.props.tintColor, selected);
+    assert.equal(native.props.iconColor.selected, selected);
     const tabs = nodes(tree).filter(node => node.type === trigger);
     assert.ok(tabs.every(tab => tab.props.unstable_nativeProps.ios.experimental_userInterfaceStyle === scheme));
   }

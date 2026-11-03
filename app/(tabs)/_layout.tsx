@@ -100,7 +100,7 @@ function LegacyTabLayout() {
     <TabOcclusionContext.Provider value={occlusion}>
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.tint,
+        tabBarActiveTintColor: colors.tabIconSelected,
         tabBarInactiveTintColor: colors.tabIconDefault,
         // 레이아웃 높이를 먹지 않는 떠 있는 바. 화면 끝보다 조금 위에 둔다.
         tabBarStyle: {
@@ -191,7 +191,7 @@ function IosTabLayout() {
   const deviceInsets = useSafeAreaInsets();
   return (
     <NativeTabDeviceInsetsContext.Provider value={deviceInsets}>
-      <NativeTabs unstable_nativeProps={{ colorScheme: scheme }} tintColor={colors.tint} iconColor={{ default: colors.textSecondary, selected: colors.tint }}
+      <NativeTabs unstable_nativeProps={{ colorScheme: scheme }} tintColor={colors.tabIconSelected} iconColor={{ default: colors.textSecondary, selected: colors.tabIconSelected }}
         badgeBackgroundColor={semantic.danger} minimizeBehavior="never" sidebarAdaptable={false}>
         <NativeTabs.Trigger name="index" unstable_nativeProps={{ ios: { experimental_userInterfaceStyle: scheme } }} disableAutomaticContentInsets disableScrollToTop disablePopToTop>
           <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} md="map" />
