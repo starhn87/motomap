@@ -24,15 +24,16 @@ import { registerPushToken } from '@/lib/push';
 import { toast } from '@/lib/toast';
 import { track } from '@/lib/analytics';
 import LoginPrompt from '@/components/auth/LoginPrompt';
-import SubmitRidingGuide from '@/components/submit/SubmitRidingGuide';
 import SubmitFeedback from '@/components/submit/SubmitFeedback';
 import SubmitHazard from '@/components/submit/SubmitHazard';
 import AddressSearchModal from '@/components/submit/AddressSearchModal';
 import { withNativeTabScreen } from '@/components/navigation/NativeTabScreen';
 import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
+import { HeaderInsetContext, useContentHeaderInset } from '@/components/navigation/headerInset';
+import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
 import type { PlaceCategory } from '@/types';
 
-type SubmitType = 'place' | 'riding' | 'hazard' | 'feedback';
+type SubmitType = 'place' | 'hazard' | 'feedback';
 type PlaceSubmissionSource = 'tab' | 'arrival' | 'temp_place' | 'search_empty';
 
 function placeSubmissionSource(source: string | undefined): PlaceSubmissionSource {
@@ -53,7 +54,6 @@ function SubmitTypeTab({
   const isActive = current === type;
   const labels: Record<SubmitType, string> = {
     place: '장소',
-    riding: '라이딩',
     hazard: '위험',
     feedback: '건의',
   };
@@ -84,6 +84,7 @@ function SubmitTypeTab({
 }
 
 function SubmitPlace() {
+  const headerInset = useContentHeaderInset();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -241,7 +242,7 @@ function SubmitPlace() {
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: headerInset + 20 }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
         <Text style={[styles.sectionTitle, { color: colors.text }]}>카테고리 *</Text>
@@ -330,6 +331,7 @@ function SubmitPlace() {
 }
 
 function SubmitScreen() {
+  const headerInset = useContentHeaderInset();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -357,14 +359,13 @@ function SubmitScreen() {
   useEffect(() => {
     if (
       requestedType === 'place' ||
-      requestedType === 'riding' ||
       requestedType === 'hazard' ||
       requestedType === 'feedback'
     ) {
       setSubmitType(requestedType);
-    } else if (requestedType === 'course') {
-      // 이전 OTA에서 만든 제보 CTA도 새 라이딩 제안 폼으로 이어준다.
-      setSubmitType('riding');
+    } else if (requestedType === 'course' || requestedType === 'riding') {
+      // 구버전 링크가 제거된 메뉴나 빈 화면을 열지 않도록 장소 제보로 안내한다.
+      setSubmitType('place');
     }
   }, [requestedType, submitTs]);
 
@@ -374,17 +375,17 @@ function SubmitScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.tabRow}>
+      <HeaderInsetContext.Provider value={headerInset + 60}>
+        {submitType === 'place' && <SubmitPlace />}
+        {submitType === 'hazard' && <SubmitHazard />}
+        {submitType === 'feedback' && <SubmitFeedback />}
+      </HeaderInsetContext.Provider>
+      <View style={[styles.tabRow, { top: headerInset }]}>
+        <HeaderBackdrop />
         <SubmitTypeTab type="place" current={submitType} onPress={setSubmitType} />
-        <SubmitTypeTab type="riding" current={submitType} onPress={setSubmitType} />
         <SubmitTypeTab type="hazard" current={submitType} onPress={setSubmitType} />
         <SubmitTypeTab type="feedback" current={submitType} onPress={setSubmitType} />
       </View>
-
-      {submitType === 'place' && <SubmitPlace />}
-      {submitType === 'riding' && <SubmitRidingGuide />}
-      {submitType === 'hazard' && <SubmitHazard />}
-      {submitType === 'feedback' && <SubmitFeedback />}
     </View>
   );
 }
@@ -394,6 +395,7 @@ export default withNativeTabScreen(SubmitScreen, { title: '제보' });
 const styles = StyleSheet.create({
   container: { flex: 1 },
   tabRow: {
+    position: 'absolute', left: 0, right: 0, zIndex: 5, overflow: 'hidden',
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 20,

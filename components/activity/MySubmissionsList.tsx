@@ -20,16 +20,16 @@ import {
   fetchMySubmissions,
   type MySubmission,
 } from '@/lib/api/mydata';
-import {
-  fetchMyRidingGuideProposals,
-  type MyRidingGuideProposal,
-} from '@/lib/api/ridingGuideSubmissions';
 import { fetchMyFeedback, type MyFeedback, type FeedbackType } from '@/lib/api/feedback';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/useAuthStore';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
+import { useContentHeaderInset } from '@/components/navigation/headerInset';
+import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
+import SwipeDeleteRow from './SwipeDeleteRow';
+import { useActivityDismissals, useDismissSubmission } from '@/hooks/useActivityActions';
 
 const FEEDBACK_LABEL: Record<FeedbackType, string> = {
   bug: '버그 신고',
@@ -38,8 +38,9 @@ const FEEDBACK_LABEL: Record<FeedbackType, string> = {
 };
 
 function SubmissionSkeletonList() {
+  const headerInset = useContentHeaderInset();
   return (
-    <View style={styles.list}>
+    <View style={[styles.list, { paddingTop: headerInset + 60 + 16 }]}>
       {Array.from({ length: 5 }).map((_, i) => (
         <SkeletonContainer key={i}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -60,28 +61,19 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const bottomInset = useTabOcclusion();
-  const [tab, setTab] = useState<'places' | 'riding' | 'feedback'>('places');
+  const [tab, setTab] = useState<'places' | 'feedback'>('places');
+  const headerInset = useContentHeaderInset();
+  const dismissals = useActivityDismissals(active);
+  const dismissal = useDismissSubmission();
 
-  const { data: places, isLoading, isError, refetch, isRefetching } = useQuery({
+  const { data: allPlaces, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['my-submissions', user?.id],
     queryFn: fetchMySubmissions,
     enabled: !!user && active && tab === 'places',
   });
 
   const {
-    data: ridingProposals,
-    isLoading: ridingLoading,
-    isError: ridingError,
-    refetch: refetchRiding,
-    isRefetching: ridingRefetching,
-  } = useQuery({
-    queryKey: ['my-riding-guide-proposals', user?.id],
-    queryFn: fetchMyRidingGuideProposals,
-    enabled: !!user && active && tab === 'riding',
-  });
-
-  const {
-    data: feedback,
+    data: allFeedback,
     isLoading: feedbackLoading,
     isError: feedbackError,
     refetch: refetchFeedback,
@@ -92,6 +84,9 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
     enabled: !!user && active && tab === 'feedback',
   });
 
+  const places = allPlaces?.filter(row => !dismissals.data?.some(hidden => hidden.kind === 'place_submission' && hidden.target_id === row.id));
+  const feedback = allFeedback?.filter(row => !dismissals.data?.some(hidden => hidden.kind === 'feedback' && hidden.target_id === row.id));
+
   const renderItem = ({ item }: { item: MySubmission }) => {
     const category = CATEGORIES[item.category];
     const status = item.rejected
@@ -101,7 +96,12 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
         : { label: '대기중', color: '#71717A' };
 
     return (
+      <SwipeDeleteRow label="제보 목록에서 삭제" message="내 목록에서만 숨겨요. 제보 내용과 검토·승인 결과는 그대로 유지돼요." busy={dismissal.isPending}
+        onDelete={() => { if (user) dismissal.mutate({ userId: user.id, kind: 'place_submission', id: item.id }); }}>
+      {confirmDelete =>
       <Pressable
+        accessibilityActions={[{ name: 'delete', label: '제보 목록에서 삭제' }]}
+        onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'delete') confirmDelete(); }}
         onPress={() => {
           if (item.rejected) {
             toast.info('반려된 제보예요', item.rejectedReason ?? undefined);
@@ -148,80 +148,18 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
         <Text style={[styles.date, { color: colors.textSecondary }]}>
           {new Date(item.createdAt).toLocaleDateString('ko-KR')}
         </Text>
-      </Pressable>
-    );
-  };
-
-  const renderRidingProposal = ({ item }: { item: MyRidingGuideProposal }) => {
-    const status =
-      item.status === 'rejected'
-        ? { label: '반려', color: semantic.danger }
-        : item.status === 'published' || item.status === 'merged'
-          ? { label: '반영됨', color: semantic.success }
-          : item.status === 'editing'
-            ? { label: '추천 준비 중', color: colors.tint }
-            : { label: '검토 중', color: '#71717A' };
-
-    return (
-      <Pressable
-        onPress={() => {
-          if (item.status === 'rejected') {
-            toast.info('반려된 라이딩 추천이에요', item.rejectedReason ?? undefined);
-          } else if (
-            (item.status === 'published' || item.status === 'merged') &&
-            item.resultGuideId
-          ) {
-            router.push(`/riding/${item.resultGuideId}`);
-          } else if (item.status === 'editing') {
-            toast.info('라이딩 추천을 준비하고 있어요', '다듬어 공개되면 알려드릴게요.');
-          } else {
-            toast.info('아직 검토 중인 추천이에요', '검토 결과가 정해지면 알려드릴게요.');
-          }
-        }}
-        style={({ pressed }) => [
-          styles.card,
-          {
-            backgroundColor: colors.surfaceElevated,
-            borderColor: colors.border,
-            opacity: pressed ? 0.85 : 1,
-          },
-        ]}>
-        <View style={styles.cardHeader}>
-          <View style={[styles.categoryBadge, { backgroundColor: `${colors.tint}18` }]}>
-            <Text style={[styles.categoryLabel, { color: colors.tint }]}>라이딩 추천</Text>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: `${status.color}20` }]}>
-            <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
-          </View>
-        </View>
-        <Text style={[styles.placeName, { color: colors.text }]}>
-          {item.title || `${item.destinationName}로 가는 라이딩`}
-        </Text>
-        <Text style={[styles.placeAddress, { color: colors.textSecondary }]}>
-          대표 목적지 · {item.destinationName}
-        </Text>
-        <Text style={[styles.proposalReason, { color: colors.textSecondary }]} numberOfLines={2}>
-          {item.reason}
-        </Text>
-        {item.status === 'rejected' && !!item.rejectedReason && (
-          <View
-            style={[
-              styles.replyBox,
-              { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
-            ]}>
-            <Text style={[styles.replyLabel, { color: colors.textSecondary }]}>반려 사유</Text>
-            <Text style={[styles.replyText, { color: colors.text }]}>{item.rejectedReason}</Text>
-          </View>
-        )}
-        <Text style={[styles.date, { color: colors.textSecondary }]}>
-          {new Date(item.createdAt).toLocaleDateString('ko-KR')}
-        </Text>
-      </Pressable>
+      </Pressable>}
+      </SwipeDeleteRow>
     );
   };
 
   const renderFeedback = ({ item }: { item: MyFeedback }) => (
+    <SwipeDeleteRow label="건의 목록에서 삭제" message="내 목록에서만 숨겨요. 보낸 내용과 답변은 보존돼요." busy={dismissal.isPending}
+      onDelete={() => { if (user) dismissal.mutate({ userId: user.id, kind: 'feedback', id: item.id }); }}>
+    {confirmDelete =>
     <View
+      accessible accessibilityActions={[{ name: 'delete', label: '건의 목록에서 삭제' }]}
+      onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'delete') confirmDelete(); }}
       style={[
         styles.card,
         { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
@@ -260,52 +198,20 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
       <Text style={[styles.date, { color: colors.textSecondary }]}>
         {new Date(item.createdAt).toLocaleDateString('ko-KR')}
       </Text>
-    </View>
+    </View>}
+    </SwipeDeleteRow>
   );
 
   const showLoading =
-    tab === 'places' ? isLoading : tab === 'riding' ? ridingLoading : feedbackLoading;
-  const failed = tab === 'places' ? isError : tab === 'riding' ? ridingError : feedbackError;
-  const retry = tab === 'places' ? refetch : tab === 'riding' ? refetchRiding : refetchFeedback;
-  const hasItems = (tab === 'places' ? places : tab === 'riding' ? ridingProposals : feedback)?.length;
-  const listStyle = [styles.list, { paddingBottom: 16 + bottomInset }];
+    (tab === 'places' ? isLoading : feedbackLoading) || dismissals.isLoading;
+  const failed = (tab === 'places' ? isError : feedbackError) || dismissals.isError;
+  const retry = () => { void dismissals.refetch(); return tab === 'places' ? refetch() : refetchFeedback(); };
+  const hasItems = dismissals.isError && !dismissals.data ? 0 : (tab === 'places' ? places : feedback)?.length;
+  const listStyle = [styles.list, { paddingTop: headerInset + 60 + 16, paddingBottom: 16 + bottomInset }];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.segmentRow}>
-        {(
-          [
-            ['places', '장소'],
-            ['riding', '라이딩'],
-            ['feedback', '건의'],
-          ] as const
-        ).map(([key, label]) => {
-          const active = tab === key;
-          return (
-            <Pressable
-              key={key}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-              onPress={() => setTab(key)}
-              style={({ pressed }) => [
-                styles.segment,
-                {
-                  backgroundColor: active ? colors.tint : colors.surfaceMuted,
-                  borderColor: active ? colors.tint : colors.border,
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}>
-              <Text
-                style={[
-                  styles.segmentLabel,
-                  { color: active ? colors.background : colors.text },
-                ]}>
-                {label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+
 
       {failed && !!hasItems && <Text style={{ color: colors.textSecondary, paddingHorizontal: 16, marginTop: 8, fontSize: 13 }}>
         새로 불러오지 못해 이전 목록을 보여줘요.
@@ -340,36 +246,6 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
             }
           />
         )
-      ) : tab === 'riding' ? (
-        !ridingProposals?.length ? (
-          <EmptyState
-            icon={<Ionicons name="map-outline" size={44} color={colors.textSecondary} />}
-            title="보낸 라이딩 추천이 없습니다"
-            hint="목적지와 달리기 좋은 이유를 라이더들과 나눠보세요!"
-            actionLabel="추천 보내기"
-            onAction={() =>
-              router.navigate({
-                pathname: '/submit',
-                params: { submitType: 'riding', submitTs: String(Date.now()) },
-              })
-            }
-          />
-        ) : (
-          <FlatList
-            data={ridingProposals}
-            keyExtractor={(item) => item.id}
-            renderItem={renderRidingProposal}
-            contentContainerStyle={listStyle}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={ridingRefetching}
-                onRefresh={refetchRiding}
-                tintColor={colors.tint}
-              />
-            }
-          />
-        )
       ) : !feedback?.length ? (
         <EmptyState
           icon={
@@ -396,6 +272,39 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
           }
         />
       )}
+      <View style={[styles.segmentRow, { top: headerInset }]}><HeaderBackdrop />
+        {(
+          [
+            ['places', '장소'],
+            ['feedback', '건의'],
+          ] as const
+        ).map(([key, label]) => {
+          const active = tab === key;
+          return (
+            <Pressable
+              key={key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              onPress={() => setTab(key)}
+              style={({ pressed }) => [
+                styles.segment,
+                {
+                  backgroundColor: active ? colors.tint : colors.surfaceMuted,
+                  borderColor: active ? colors.tint : colors.border,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.segmentLabel,
+                  { color: active ? colors.background : colors.text },
+                ]}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -403,10 +312,12 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   segmentRow: {
+    position: 'absolute', left: 0, right: 0, zIndex: 5, overflow: 'hidden',
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   segment: {
     flex: 1,

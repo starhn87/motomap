@@ -50,14 +50,14 @@ test('iOS는 UIKit 탭 4개·시스템 아이콘·미읽음 배지를 쓰고 탭
   assert.equal(native.props.backgroundColor, undefined);
   assert.equal(native.props.blurEffect, undefined);
   const tabs = nodes(tree).filter(node => node.type === trigger);
-  assert.deepEqual(tabs.map(tab => tab.props.name), ['index', 'courses', 'submit', 'profile']);
+  assert.deepEqual(tabs.map(tab => tab.props.name), ['index', 'submit', 'courses', 'profile']);
   assert.ok(tabs.every(tab => tab.props.disableAutomaticContentInsets));
   assert.equal(tabs[0].props.disablePopToTop, true);
   assert.equal(tabs[0].props.disableScrollToTop, true);
-  assert.deepEqual(nodes(tree).filter(node => node.type === 'NativeLabel').map(node => node.props.children), ['지도', '활동', '제보', '내 정보']);
-  assert.equal(nodes(tabs[1]).some(node => node.type === 'NativeBadge'), true);
+  assert.deepEqual(nodes(tree).filter(node => node.type === 'NativeLabel').map(node => node.props.children), ['지도', '제보', '활동', '내 정보']);
+  assert.equal(nodes(tabs[2]).some(node => node.type === 'NativeBadge'), true);
   assert.equal(nodes(tabs[3]).some(node => node.type === 'NativeBadge'), false);
-  assert.equal(nodes(tree).find(node => node.type === 'NativeBadge')?.props.children, '9+');
+  assert.equal(nodes(tree).find(node => node.type === 'NativeBadge')?.props.children, undefined);
   assert.ok(nodes(tree).filter(node => node.type === 'NativeIcon').every(node => node.props.sf.default && node.props.sf.selected));
   assert.equal(nodes(layout('ios', 0).tree).some(node => node.type === 'NativeBadge'), false);
 });
@@ -67,7 +67,7 @@ test('Android·웹은 기존 JS 탭과 4개 경로를 유지하고 탭은 화면
     const { tree } = layout(os, 0);
     assert.equal(tree.type, 'TabOcclusion');
     const tabs = tree.props.children;
-    assert.deepEqual(nodes(tabs).filter(node => node.type === 'LegacyScreen').map(node => node.props.name), ['index', 'courses', 'submit', 'profile']);
+    assert.deepEqual(nodes(tabs).filter(node => node.type === 'LegacyScreen').map(node => node.props.name), ['index', 'submit', 'courses', 'profile']);
     assert.equal(tabs.props.screenOptions.tabBarStyle.position, 'absolute');
     assert.equal(tabs.props.screenOptions.tabBarStyle.height, 56);
     assert.equal(tabs.props.screenOptions.tabBarStyle.bottom, 44);
@@ -96,6 +96,8 @@ function frameFixture(os = 'ios') {
     'react-native': { Platform: { OS: os }, Text: 'Text', View: 'View', StyleSheet: { create: (style: any) => style, hairlineWidth: 0.5 } },
     'react-native-screens/experimental': { SafeAreaView: 'NativeSafeArea' },
     'react-native-safe-area-context': { SafeAreaInsetsContext: { Provider: 'DeviceEdges' }, useSafeAreaInsets: () => insets },
+    './headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' } },
+    '@/components/ui/HeaderBackdrop': exported('Backdrop'),
     './tabOcclusion': { TabOcclusionContext: { Provider: 'TabOcclusion' } },
     '@/constants/Colors': exported({ light: colors }), '@/components/useColorScheme': { useColorScheme: () => 'light' }, './SettingsButton': exported('Settings'),
   });
@@ -123,8 +125,10 @@ test('iOS 화면은 첫 포커스 전까지 본체를 미루고 이후에는 탭
   assert.equal(nodes(tree).find(node => node.type === app.Screen)?.type, app.Screen);
   assert.equal(nodes(tree).find(node => node.type === 'Text')?.props.children, '내 정보');
   assert.equal(nodes(tree).some(node => node.type === 'Settings'), true);
-  const header = nodes(tree).find(node => node.type === 'View' && Array.isArray(node.props.style) && node.props.style[1]?.borderBottomColor);
-  assert.equal(header?.props.style[1].backgroundColor, colors.background);
+  const header = nodes(tree).find(node => node.type === 'View' && Array.isArray(node.props.style) && node.props.style[0]?.zIndex === 10);
+  assert.equal(header?.props.style[0].borderBottomWidth, undefined);
+  assert.equal(nodes(header).some(node => node.type === 'Backdrop'), true);
+  assert.equal(nodes(tree).find(node => node.type === 'HeaderInset')?.props.value, 52);
   assert.equal(tree.props.value, app.insets, '전체화면 모달에는 탭 높이가 섞이지 않은 기기 inset을 전달');
   assert.deepEqual({ ...nodes(tree).find(node => node.type === 'NativeSafeArea')?.props.edges }, { top: true, bottom: false, left: true, right: true });
 });
@@ -147,15 +151,13 @@ test('설정은 로그인과 무관하게 텍스트 없는 44pt Glass 아이콘�
     'react-native': { Pressable: 'Button', Text: 'Text', View: 'View', StyleSheet: { create: (style: any) => style } },
     '@/constants/Colors': { ...exported({ light: colors }), semantic: { danger: 'red' } },
     '@/components/useColorScheme': { useColorScheme: () => 'light' },
-    '@/components/ui/GlassSurface': exported('Glass'),
+    '@/components/ui/GlassButton': exported('Glass'),
   });
   const tree = module.default();
   assert.equal(tree.props.accessibilityLabel, '설정');
   assert.equal(nodes(tree).some(node => node.type === 'Text'), false);
   const glass = nodes(tree).find(node => node.type === 'Glass')!;
   assert.equal(glass.props.style.width, 44); assert.equal(glass.props.style.height, 44);
-  assert.equal(tree.props.style({ pressed: true }).opacity, 0.7);
-  assert.equal(tree.props.style({ pressed: false }).opacity, 1);
   tree.props.onPress(); assert.equal(pushed, '/settings');
 });
 

@@ -24,8 +24,8 @@ function fixture({ os = 'ios', native = null as any, reduced = false, scheme = '
     '@/constants/Colors': { __esModule: true, default: { light: { surfaceElevated: 'white', border: 'gray' }, dark: { surfaceElevated: 'dark', border: 'dark-border' } } },
     '@/components/useColorScheme': { useColorScheme: () => scheme },
   });
-  const render = () => {
-    const tree = module.default({ style: { width: 44, height: 44, borderRadius: 22 }, children: jsx('Button', { accessibilityLabel: '설정' }) });
+  const render = (props: any = {}) => {
+    const tree = module.default({ style: { width: 44, height: 44, borderRadius: 22 }, children: jsx('Button', { accessibilityLabel: '설정' }), ...props });
     if (!started) { started = true; cleanup = pendingEffect?.(); }
     return tree;
   };
@@ -56,7 +56,9 @@ test('실제 API가 있어도 투명도 설정 확인 전에는 단색이며 해
   let tree = app.render();
   const glass = nodes(tree).find(node => node.type === 'NativeGlass')!;
   assert.ok(glass); assert.equal(glass.props.colorScheme, 'dark');
-  assert.equal(glass.props.pointerEvents, 'none');
+  assert.equal(glass.props.pointerEvents, undefined);
+  assert.equal(glass.props.isInteractive, false);
+  assert.equal(nodes(glass).some(node => node.type === 'Button'), true);
   assert.equal(flatten(tree.props.style).backgroundColor, 'transparent');
   app.change(true); tree = app.render();
   assert.equal(nodes(tree).some(node => node.type === 'NativeGlass'), false);
@@ -72,4 +74,13 @@ test('늦은 접근성 조회 결과가 더 최신 설정 이벤트를 덮어쓰
   const tree = app.render();
   assert.equal(nodes(tree).some(node => node.type === 'NativeGlass'), false);
   assert.equal(flatten(tree.props.style).backgroundColor, 'white');
+});
+
+test('상호작용 표면은 실제 버튼을 native Glass 자식으로 두고 같은 재질/tint를 쓴다', async () => {
+  const app = fixture({ native: { isLiquidGlassAvailable: true, isGlassEffectAPIAvailable: true } });
+  app.render(); app.resolve(); await Promise.resolve();
+  const tree = app.render({ interactive: true, children: (native: boolean) => jsx('Button', { native }) });
+  assert.equal(tree.type, 'NativeGlass'); assert.equal(tree.props.isInteractive, true);
+  assert.equal(tree.props.glassEffectStyle, 'regular'); assert.equal(tree.props.tintColor, '#FFFFFF50');
+  assert.equal(tree.props.children.type, 'Button'); assert.equal(tree.props.children.props.native, true);
 });

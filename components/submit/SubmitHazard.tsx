@@ -28,11 +28,13 @@ import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { toast } from '@/lib/toast';
 import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
+import { useContentHeaderInset } from '@/components/navigation/headerInset';
 import { registerPushToken } from '@/lib/push';
 import type { HazardType } from '@/types';
 
 // 노면 위험 제보 — 지금 서 있는 자리를 찍는 게 기본 시나리오라 현재 위치를 쓴다.
 export default function SubmitHazard() {
+  const headerInset = useContentHeaderInset();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -120,7 +122,7 @@ export default function SubmitHazard() {
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: headerInset + 20 }]} keyboardShouldPersistTaps="handled">
         <Text style={[styles.sectionTitle, { color: colors.text }]}>위험 유형 *</Text>
         <View style={styles.typeGrid}>
           {HAZARD_LIST.map((h) => {

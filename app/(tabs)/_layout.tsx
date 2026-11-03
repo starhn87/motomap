@@ -132,8 +132,6 @@ function LegacyTabLayout() {
         },
         headerStyle: {
           backgroundColor: colors.background,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.border,
         },
         headerTintColor: colors.text,
       }}>
@@ -149,18 +147,6 @@ function LegacyTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="courses"
-        options={{
-          title: '활동',
-          tabBarBadge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount) : undefined,
-          tabBarBadgeStyle: { backgroundColor: semantic.danger, color: '#FFFFFF' },
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="reader-outline" color={color} scale={coursesTab.scale} />
-          ),
-          tabBarButton: (props) => <TabButton tab={coursesTab} props={props} />,
-        }}
-      />
-      <Tabs.Screen
         name="submit"
         options={{
           title: '제보',
@@ -168,6 +154,18 @@ function LegacyTabLayout() {
             <TabBarIcon name="add-circle" color={color} scale={submitTab.scale} />
           ),
           tabBarButton: (props) => <TabButton tab={submitTab} props={props} />,
+        }}
+      />
+      <Tabs.Screen
+        name="courses"
+        options={{
+          title: '활동',
+          tabBarBadge: unreadCount > 0 ? '' : undefined,
+          tabBarBadgeStyle: { backgroundColor: semantic.danger, minWidth: 7, width: 7, height: 7 },
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="notifications-outline" color={color} scale={coursesTab.scale} />
+          ),
+          tabBarButton: (props) => <TabButton tab={coursesTab} props={props} />,
         }}
       />
       <Tabs.Screen
@@ -198,14 +196,14 @@ function IosTabLayout() {
           <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} md="map" />
           <NativeTabs.Trigger.Label>지도</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="courses" disableAutomaticContentInsets>
-          <NativeTabs.Trigger.Icon sf={{ default: 'list.bullet.rectangle', selected: 'list.bullet.rectangle.fill' }} md="receipt_long" />
-          <NativeTabs.Trigger.Label>활동</NativeTabs.Trigger.Label>
-          {unreadCount > 0 && <NativeTabs.Trigger.Badge>{unreadCount > 9 ? '9+' : String(unreadCount)}</NativeTabs.Trigger.Badge>}
-        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="submit" disableAutomaticContentInsets disableScrollToTop>
           <NativeTabs.Trigger.Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} md="add_circle" />
           <NativeTabs.Trigger.Label>제보</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="courses" disableAutomaticContentInsets>
+          <NativeTabs.Trigger.Icon sf={{ default: 'bell', selected: 'bell.fill' }} md="notifications" />
+          <NativeTabs.Trigger.Label>활동</NativeTabs.Trigger.Label>
+          {unreadCount > 0 && <NativeTabs.Trigger.Badge />}
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon sf={{ default: 'person', selected: 'person.fill' }} md="person" />

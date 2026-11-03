@@ -15,10 +15,14 @@ import type { AppNotification } from '@/lib/api/notifications';
 import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useContentHeaderInset } from '@/components/navigation/headerInset';
+import SwipeDeleteRow from './SwipeDeleteRow';
+import { useDeleteActivityNotification } from '@/hooks/useActivityActions';
 
 function NotificationSkeletonList() {
+  const headerInset = useContentHeaderInset();
   return (
-    <View style={styles.list}>
+    <View style={[styles.list, { paddingTop: headerInset + 16 }]}>
       {Array.from({ length: 5 }).map((_, index) => (
         <SkeletonContainer key={index} style={styles.notificationSkeleton}>
           <Skeleton width={26} height={26} radius={13} />
@@ -49,6 +53,8 @@ function timeAgo(iso: string): string {
 }
 
 export default function NotificationsList({ active = true }: { active?: boolean }) {
+  const headerInset = useContentHeaderInset();
+  const deletion = useDeleteActivityNotification();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore(state => state.user);
@@ -136,7 +142,7 @@ export default function NotificationsList({ active = true }: { active?: boolean 
         <EmptyState
           icon={<Ionicons name="notifications-outline" size={44} color={colors.textSecondary} />}
           title="아직 알림이 없습니다"
-          hint="제보하신 장소나 라이딩 추천이 반영되면 여기서 알려드려요."
+          hint="제보 처리 결과와 새로운 소식을 여기서 알려드려요."
           actionLabel="제보하러 가기"
           onAction={() => router.navigate('/submit')}
         />
@@ -146,7 +152,8 @@ export default function NotificationsList({ active = true }: { active?: boolean 
           data={notifications}
           ListHeaderComponent={isError ? <Text style={{ color: colors.textSecondary }}>새로 불러오지 못해 이전 알림을 보여줘요.</Text> : null}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.list, { paddingBottom: 16 + bottomInset }]}
+          contentContainerStyle={[styles.list, { paddingTop: headerInset + 16, paddingBottom: 16 + bottomInset }]}
+          scrollIndicatorInsets={{ top: headerInset }}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} tintColor={colors.tint} />}
           onScrollToIndexFailed={(info) => {
             // 가변 높이 카드라 미측정 구간은 근사 오프셋으로 이동 후 재시도
@@ -163,12 +170,17 @@ export default function NotificationsList({ active = true }: { active?: boolean 
             }, 350);
           }}
           renderItem={({ item }) => (
+            <SwipeDeleteRow label="알림 삭제" message="이 알림을 삭제할까요?" busy={deletion.isPending}
+              onDelete={() => { if (user) deletion.mutate({ id: item.id, userId: user.id }); }}>
+            {confirmDelete =>
             <HighlightPulse
               pulseKey={item.id === highlightId ? (highlightKey ?? undefined) : undefined}
               delay={800}
               tint={colors.tint}
               borderRadius={14}>
               <Pressable
+                accessibilityActions={[{ name: 'delete', label: '알림 삭제' }]}
+                onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'delete') confirmDelete(); }}
                 onPress={() => handlePress(item)}
                 style={({ pressed }) => [
                   styles.item,
@@ -207,7 +219,8 @@ export default function NotificationsList({ active = true }: { active?: boolean 
                   </Text>
                 </View>
               </Pressable>
-            </HighlightPulse>
+            </HighlightPulse>}
+            </SwipeDeleteRow>
           )}
         />
       )}

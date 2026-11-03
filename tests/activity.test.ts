@@ -31,6 +31,10 @@ test('활동은 로그인 전 개인 목록을 만들지 않고 방문한 세 �
   const state = hooks();
   const module = loadModule<any>('components/activity/ActivityScreen.tsx', {
     react: state.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
+    '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
+    '@/components/ui/HeaderBackdrop': exported('Backdrop'),
+    './SwipeDeleteRow': exported('SwipeDelete'),
+    '@/hooks/useActivityActions': { useActivityDismissals: () => ({ data: [], refetch() {} }), useDismissSubmission: () => ({ mutate() {} }), useDeleteActivityNotification: () => ({ mutate() {} }), useDeleteActivityReview: () => ({ mutate() {} }) },
     'expo-router': { useIsFocused: () => focused },
     '@/constants/Colors': exported({ light: colors }), '@/components/useColorScheme': { useColorScheme: () => 'light' },
     '@/stores/useAuthStore': { useAuthStore: (select: any) => select({ user }) }, '@/hooks/useNotifications': { useUnreadCount: () => 2 },
@@ -65,6 +69,10 @@ function notificationFixture() {
   const markAllRead = () => marks++;
   const module = loadModule<any>('components/activity/NotificationsList.tsx', {
     react: state.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
+    '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
+    '@/components/ui/HeaderBackdrop': exported('Backdrop'),
+    './SwipeDeleteRow': exported('SwipeDelete'),
+    '@/hooks/useActivityActions': { useActivityDismissals: () => ({ data: [], refetch() {} }), useDismissSubmission: () => ({ mutate() {} }), useDeleteActivityNotification: () => ({ mutate() {} }), useDeleteActivityReview: () => ({ mutate() {} }) },
     '@expo/vector-icons/MaterialCommunityIcons': exported('Icon'), '@expo/vector-icons/Ionicons': exported('Icon'),
     'expo-router': { router: { push: (url: string) => pushed.push(url), navigate() {} }, useIsFocused: () => focused, useFocusEffect: state.focusEffect, useLocalSearchParams: () => ({}) },
     '@/constants/Colors': exported({ light: colors }), '@/components/useColorScheme': { useColorScheme: () => 'light' },
@@ -95,7 +103,7 @@ test('알림의 장소·기존 코스·라이딩·앱 내 링크 진입과 하�
   assert.equal(list.props.contentContainerStyle[1].paddingBottom, 96);
   for (const data of [{ placeId: 'place-a' }, { courseId: 'course-a' }, { guideId: 'guide-a' }, { url: '/settings' }]) {
     const highlight = list.props.renderItem({ item: { ...app.query.data[0], data } });
-    nodes(highlight).find(node => node.type === 'Button')!.props.onPress();
+    nodes(highlight.props.children(() => {})).find(node => node.type === 'Button')!.props.onPress();
   }
   assert.equal(app.selected[0][0], 'place-a');
   assert.equal(app.selected[0][1].source, 'notification');
@@ -107,7 +115,11 @@ test('알림의 장소·기존 코스·라이딩·앱 내 링크 진입과 하�
 test('리뷰 목록은 사용자별 키·페이지 연결을 유지하고 숨긴 동안 추가 페이지를 요청하지 않는다', () => {
   let user: any = { id: 'actor-a' }, config: any, fetches = 0;
   const module = loadModule<any>('components/activity/MyReviewsList.tsx', {
-    'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native, '@expo/vector-icons/Ionicons': exported('Icon'),
+    'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
+    '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
+    '@/components/ui/HeaderBackdrop': exported('Backdrop'),
+    './SwipeDeleteRow': exported('SwipeDelete'),
+    '@/hooks/useActivityActions': { useActivityDismissals: () => ({ data: [], refetch() {} }), useDismissSubmission: () => ({ mutate() {} }), useDeleteActivityNotification: () => ({ mutate() {} }), useDeleteActivityReview: () => ({ mutate() {} }) }, '@expo/vector-icons/Ionicons': exported('Icon'),
     '@tanstack/react-query': { useInfiniteQuery: (options: any) => { config = options; return { data: { pages: [[{ id: 'r1' }], [{ id: 'r2' }]] }, refetch() {}, fetchNextPage: () => fetches++, hasNextPage: true }; } },
     'expo-router': { router: { navigate() {} } }, '@/components/ui/EmptyState': exported('Empty'),
     '@/constants/Colors': exported({ light: colors }), '@/components/useColorScheme': { useColorScheme: () => 'light' },
@@ -131,6 +143,10 @@ test('내 제보는 선택한 종류만 조회하고 사용자별 키·숨김 �
   const state = hooks(); let configs: any[] = [];
   const module = loadModule<any>('components/activity/MySubmissionsList.tsx', {
     react: state.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
+    '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
+    '@/components/ui/HeaderBackdrop': exported('Backdrop'),
+    './SwipeDeleteRow': exported('SwipeDelete'),
+    '@/hooks/useActivityActions': { useActivityDismissals: () => ({ data: [], refetch() {} }), useDismissSubmission: () => ({ mutate() {} }), useDeleteActivityNotification: () => ({ mutate() {} }), useDeleteActivityReview: () => ({ mutate() {} }) },
     '@expo/vector-icons/Ionicons': exported('Icon'), '@/components/ui/CategoryIcon': exported('Category'),
     '@tanstack/react-query': { useQuery: (options: any) => { configs.push(options); return { data: [], refetch() {} }; } },
     'expo-router': { router: { navigate() {}, push() {} } }, '@/components/ui/EmptyState': exported('Empty'),
@@ -142,11 +158,12 @@ test('내 제보는 선택한 종류만 조회하고 사용자별 키·숨김 �
   });
   const render = (active: boolean) => { configs = []; return state.render(() => module.default({ active })); };
   let tree = render(true);
-  assert.deepEqual(configs.map(config => config.enabled), [true, false, false]);
+  assert.deepEqual(configs.map(config => config.enabled), [true, false]);
   assert.ok(configs.every(config => config.queryKey[1] === 'actor-a'));
-  const riding = nodes(tree).find(node => node.type === 'Button' && node.props.children?.props?.children === '라이딩')!;
-  riding.props.onPress(); tree = render(true);
-  assert.deepEqual(configs.map(config => config.enabled), [false, true, false]);
-  assert.equal(nodes(tree).find(node => node.type === 'Empty')?.props.title, '보낸 라이딩 추천이 없습니다');
+  assert.equal(nodes(tree).some(node => node.type === 'Button' && node.props.children?.props?.children === '라이딩'), false);
+  const feedback = nodes(tree).find(node => node.type === 'Button' && node.props.children?.props?.children === '건의')!;
+  feedback.props.onPress(); tree = render(true);
+  assert.deepEqual(configs.map(config => config.enabled), [false, true]);
+  assert.equal(nodes(tree).find(node => node.type === 'Empty')?.props.title, '보낸 건의가 없습니다');
   render(false); assert.ok(configs.every(config => !config.enabled));
 });

@@ -79,7 +79,7 @@ import { useSharedGeneralPlaces } from '@/hooks/useCommunityPlaceSignals';
 import { usePlaceOperationalStatuses } from '@/hooks/usePlaceOperationalStatus';
 import type { Place, RoadHazard } from '@/types';
 import { haptics } from '@/lib/haptics';
-import GlassSurface from '@/components/ui/GlassSurface';
+import GlassButton from '@/components/ui/GlassButton';
 import {
   getLastMapCamera,
   setMainMapFocused,
@@ -643,12 +643,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const tabOcclusionSv = useSharedValue(tabOcclusion);
   useEffect(() => { tabOcclusionSv.value = tabOcclusion; }, [tabOcclusion, tabOcclusionSv]);
 
-  // 누르는 동안만 살짝 줄이고 손을 떼는 즉시 원래 크기로 돌아온다.
-  const myLocationScale = useSharedValue(1);
-  const myLocationStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: myLocationScale.value }],
-  }));
-
   // 내 위치 버튼이 장소 시트의 실시간 위치를 따라 위로 밀려난다 (시트 위 16px).
   // 시트가 끝까지 올라가면 숨긴다. 닫히면 기본 위치로 자연 복귀한다.
   const sheetPosition = useSharedValue(999999);
@@ -662,12 +656,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       display: h > 0 && sheetPosition.value < h * 0.2 ? 'none' : 'flex',
     };
   });
-  const handleMyLocationPressIn = () => {
-    myLocationScale.value = withTiming(0.96, { duration: 90 });
-  };
-  const handleMyLocationPressOut = () => {
-    myLocationScale.value = 1;
-  };
 
   // 안내 종료 후 "내 위치 따라가기" — 위치 갱신마다 카메라가 따라가고,
   // 사용자가 지도를 드래그하면 풀린다. SDK 트래킹 모드는 쓰지 않는다(유령
@@ -1016,15 +1004,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           style={styles.searchAndFilter}>
           <View style={styles.searchRow}>
             <SearchEntry />
-            <Pressable
+            <GlassButton
               accessibilityLabel="길찾기"
               accessibilityRole="button"
               onPress={() => router.push('/directions')}
-              style={({ pressed }) => [
-                styles.directionsButton,
-                pressed && styles.controlPressed,
-              ]}>
-              <GlassSurface pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
+              style={styles.directionsButton}>
               {/* 글리프의 세로 줄기가 왼쪽에 있어 시각 무게가 좌측으로 쏠린다 — 살짝 보정 */}
               <MaterialCommunityIcons
                 name="arrow-right-top-bold"
@@ -1032,7 +1016,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
                 color={colors.tint}
                 style={{ marginLeft: 2 }}
               />
-            </Pressable>
+            </GlassButton>
           </View>
           <CategoryFilter />
         </Animated.View>
@@ -1107,24 +1091,20 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         </Animated.View>
       )}
 
-      <AnimatedPressable
-        accessibilityLabel="내 위치로 이동"
-        accessibilityRole="button"
-        onPress={handleMyLocation}
-        onPressIn={handleMyLocationPressIn}
-        onPressOut={handleMyLocationPressOut}
+      <Animated.View
         style={[
           styles.myLocationButton,
-          myLocationStyle,
           myLocationFollowStyle,
         ]}>
-        <GlassSurface pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: 24 }]} />
+        <GlassButton accessibilityLabel="내 위치로 이동" accessibilityRole="button" onPress={handleMyLocation}
+          style={{ width: 48, height: 48, borderRadius: 24 }}>
         <View style={styles.myLocationIconContainer}>
           <View style={[styles.myLocationCrosshair, { borderColor: colors.tint }]}>
             <View style={[styles.myLocationCenter, { backgroundColor: colors.tint }]} />
           </View>
         </View>
-      </AnimatedPressable>
+        </GlassButton>
+      </Animated.View>
 
       {guideReturnFailed && pendingGuideReturn != null && (
         <Pressable accessibilityRole="button" accessibilityLabel="진행 중인 길안내 화면으로 복귀"

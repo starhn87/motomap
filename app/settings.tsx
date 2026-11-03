@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -168,6 +169,7 @@ function LoginMethods({ initialProviders }: { initialProviders: string[] }) {
 
 
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const { current, hasUpdate, openStore } = useAppUpdate();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -220,8 +222,8 @@ export default function SettingsScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}>
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>사용 환경</Text>
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 48 + 20, paddingBottom: insets.bottom + 32 }]}>
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 0 }]}>사용 환경</Text>
       <Text style={[styles.environmentLabel, { color: colors.text }]}>테마</Text>
       <View style={styles.themeRow}>
         <ThemeOption label="시스템" value="system" current={mode} onPress={setMode} />
@@ -302,7 +304,7 @@ export default function SettingsScreen() {
         </Pressable>
       )}
 
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 20 }]}>
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
         약관 및 정책
       </Text>
       <Pressable accessibilityRole="button" onPress={() => router.push('/location-privacy' as any)}
@@ -349,7 +351,7 @@ export default function SettingsScreen() {
 
       {user && (
         <>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 20 }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             계정
           </Text>
           <Pressable
@@ -377,28 +379,26 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 40,
+    gap: 12,
   },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    marginBottom: 10,
-    marginTop: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    marginTop: 20,
   },
   themeRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 12,
   },
   environmentLabel: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 8,
   },
   themeOption: {
     flex: 1,
     paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
@@ -415,7 +415,6 @@ const styles = StyleSheet.create({
   loginMethodsCard: {
     borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 32,
     overflow: 'hidden',
   },
   settingCard: {
@@ -424,7 +423,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginBottom: 32,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -444,10 +442,10 @@ const styles = StyleSheet.create({
   settingHint: {
     fontSize: 12,
     lineHeight: 18,
-    marginTop: 5,
+    marginTop: 4,
   },
   loginMethodRow: {
-    minHeight: 52,
+    minHeight: 56,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
@@ -471,7 +469,7 @@ const styles = StyleSheet.create({
   },
   linkMethodButton: {
     minWidth: 54,
-    minHeight: 34,
+    minHeight: 44,
     paddingHorizontal: 12,
     borderRadius: 9,
     alignItems: 'center',
@@ -482,6 +480,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   infoRow: {
+    minHeight: 24,
+    alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
@@ -508,7 +508,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    marginTop: 12,
   },
   linkText: {
     fontSize: 14,

@@ -16,6 +16,8 @@ import { PostHogProvider } from 'posthog-react-native';
 
 import PendingAccountLinkPrompt from '@/components/auth/PendingAccountLinkPrompt';
 import LegalConsentScreen from '@/components/auth/LegalConsentScreen';
+import GlassButton from '@/components/ui/GlassButton';
+import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
 import ServiceLoadingScreen from '@/components/ServiceLoadingScreen';
 import ServiceResumeScreen from '@/components/ServiceResumeScreen';
 import { APP_STORE_URL } from '@/constants/app';
@@ -63,20 +65,24 @@ if (sentryDsn) {
   });
 }
 
-function AppHeader({ title, colorScheme }: { title: string; colorScheme: 'light' | 'dark' }) {
+function AppHeader({ title, colorScheme, glass = false }: { title: string; colorScheme: 'light' | 'dark'; glass?: boolean }) {
   const insets = useSafeAreaInsets();
   const colors = Colors[colorScheme];
   return (
     <View
       style={{
         paddingTop: insets.top,
-        backgroundColor: colors.background,
-        borderBottomWidth: 0.5,
+        backgroundColor: glass ? 'transparent' : colors.background,
+        borderBottomWidth: glass ? 0 : 0.5,
         borderBottomColor: colors.border,
       }}>
+      {glass && <HeaderBackdrop />}
       <View style={{ height: 48, alignItems: 'center', justifyContent: 'center' }}>
         {router.canGoBack() && (
-          <Pressable
+          glass ? <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()}
+            style={{ position: 'absolute', left: 16, width: 44, height: 44, borderRadius: 22 }}>
+            <Ionicons name="chevron-back" size={26} color={colors.text} />
+          </GlassButton> : <Pressable
             onPress={() => router.back()}
             hitSlop={12}
             style={{ position: 'absolute', left: 12 }}>
@@ -104,10 +110,11 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack
             screenOptions={{
-              header: ({ options }) => (
+              header: ({ options, route }) => (
                 <AppHeader
                   title={typeof options.title === 'string' ? options.title : ''}
                   colorScheme={colorScheme === 'dark' ? 'dark' : 'light'}
+                  glass={route.name === 'settings'}
                 />
               ),
             }}>
@@ -118,7 +125,7 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
             <Stack.Screen name="directions" options={{ title: '길찾기' }} />
             <Stack.Screen name="chat" options={{ headerShown: false }} />
             <Stack.Screen name="notifications" options={{ title: '알림' }} />
-            <Stack.Screen name="settings" options={{ title: '설정' }} />
+            <Stack.Screen name="settings" options={{ title: '설정', headerTransparent: true, headerShadowVisible: false }} />
             <Stack.Screen name="recommended-places" options={{ title: '추천 목적지' }} />
             <Stack.Screen name="location-privacy" options={{ title: '위치정보 관리' }} />
             <Stack.Screen name="edit-nickname" options={{ title: '닉네임 변경' }} />

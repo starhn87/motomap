@@ -1,5 +1,5 @@
 import { requireOptionalNativeModule } from 'expo';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, View, type ViewProps } from 'react-native';
 
 import Colors from '@/constants/Colors';
@@ -15,7 +15,12 @@ const NativeGlass = native?.isLiquidGlassAvailable === true && native.isGlassEff
   ? (require('expo-glass-effect') as typeof import('expo-glass-effect')).GlassView : null;
 
 /** 조작 요소의 바탕만 Glass로 그린다. 자식의 터치·접근성·배치는 바꾸지 않는다. */
-export default function GlassSurface({ style, children, ...props }: ViewProps) {
+type Props = Omit<ViewProps, 'children'> & {
+  interactive?: boolean;
+  children?: ReactNode | ((nativeGlass: boolean) => ReactNode);
+};
+
+export default function GlassSurface({ style, children, interactive = false, ...props }: Props) {
   const scheme = useColorScheme() ?? 'light';
   const colors = Colors[scheme];
   // 접근성 설정 조회 전에도 불투명 배경으로 안전하게 시작한다.
@@ -34,16 +39,18 @@ export default function GlassSurface({ style, children, ...props }: ViewProps) {
     return () => { alive = false; subscription.remove(); };
   }, []);
   const glass = !!NativeGlass && !reduceTransparency;
-  const radius = StyleSheet.flatten(style)?.borderRadius ?? 12;
-  return <View {...props} style={[styles.surface, style,
+  const content = typeof children === 'function' ? children(glass) : children;
+  const surfaceStyle = [styles.surface, style,
     { backgroundColor: glass ? 'transparent' : colors.surfaceElevated,
-      borderColor: glass ? 'transparent' : colors.border }]}>
-    {glass && NativeGlass && <NativeGlass pointerEvents="none" colorScheme={scheme} glassEffectStyle="regular"
-      style={[StyleSheet.absoluteFill, { borderRadius: radius }]} />}
-    {children}
-  </View>;
+      borderColor: glass ? 'transparent' : colors.border }];
+  // 실제 버튼을 효과의 contentView에 넣어 UIKit이 터치를 추적하게 한다.
+  // 배경만 pointerEvents=none으로 두면 네이티브 상호작용이 터치를 받을 수 없다.
+  if (glass && NativeGlass) return <NativeGlass {...props} colorScheme={scheme}
+    glassEffectStyle="regular" tintColor={scheme === 'dark' ? '#FFFFFF18' : '#FFFFFF50'}
+    isInteractive={interactive} style={surfaceStyle}>{content}</NativeGlass>;
+  return <View {...props} style={surfaceStyle}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
-  surface: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+  surface: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth },
 });

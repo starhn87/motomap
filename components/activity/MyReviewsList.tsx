@@ -21,10 +21,14 @@ import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import StarRating from '@/components/review/StarRating';
 import PhotoStrip from '@/components/map/PhotoStrip';
 import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
+import { useContentHeaderInset } from '@/components/navigation/headerInset';
+import SwipeDeleteRow from './SwipeDeleteRow';
+import { useDeleteActivityReview } from '@/hooks/useActivityActions';
 
 function ReviewSkeletonList() {
+  const headerInset = useContentHeaderInset();
   return (
-    <View style={styles.list}>
+    <View style={[styles.list, { paddingTop: headerInset + 16 }]}>
       {Array.from({ length: 5 }).map((_, i) => (
         <SkeletonContainer key={i}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -41,6 +45,8 @@ function ReviewSkeletonList() {
 }
 
 export default function MyReviewsList({ active = true }: { active?: boolean }) {
+  const headerInset = useContentHeaderInset();
+  const deletion = useDeleteActivityReview();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -67,7 +73,12 @@ export default function MyReviewsList({ active = true }: { active?: boolean }) {
 
   // 탭하면 지도의 해당 장소 시트가 펼쳐지고 이 리뷰로 스크롤·강조된다
   const renderItem = ({ item }: { item: MyReview }) => (
+    <SwipeDeleteRow label="리뷰 삭제" message="이 리뷰와 첨부 사진을 장소 상세에서도 삭제할까요?" busy={deletion.isPending}
+      onDelete={() => { if (user) deletion.mutate({ review: item, userId: user.id }); }}>
+    {confirmDelete =>
     <Pressable
+      accessibilityActions={[{ name: 'delete', label: '리뷰 삭제' }]}
+      onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'delete') confirmDelete(); }}
       onPress={() => {
         if (item.targetKind === 'place') {
           focusPlaceOnMap(item.placeId, { reviewId: item.id, source: 'favorite' });
@@ -105,7 +116,8 @@ export default function MyReviewsList({ active = true }: { active?: boolean }) {
       <Text style={[styles.date, { color: colors.textSecondary }]}>
         {new Date(item.createdAt).toLocaleDateString('ko-KR')}
       </Text>
-    </Pressable>
+    </Pressable>}
+    </SwipeDeleteRow>
   );
 
   return (
@@ -129,7 +141,8 @@ export default function MyReviewsList({ active = true }: { active?: boolean }) {
           ListHeaderComponent={isError ? <Text style={{ color: colors.textSecondary }}>새로 불러오지 못해 이전 리뷰를 보여줘요.</Text> : null}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={[styles.list, { paddingBottom: 16 + bottomInset }]}
+          contentContainerStyle={[styles.list, { paddingTop: headerInset + 16, paddingBottom: 16 + bottomInset }]}
+          scrollIndicatorInsets={{ top: headerInset }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

@@ -22,6 +22,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { submitFeedback } from '@/lib/api/feedback';
 import { toast } from '@/lib/toast';
 import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
+import { useContentHeaderInset } from '@/components/navigation/headerInset';
 import { registerPushToken } from '@/lib/push';
 import type { FeedbackType } from '@/lib/api/feedback';
 
@@ -34,6 +35,7 @@ const FEEDBACK_TYPES = [
 ];
 
 export default function SubmitFeedback() {
+  const headerInset = useContentHeaderInset();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -81,7 +83,7 @@ export default function SubmitFeedback() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: headerInset + 20 }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
         <Text style={[styles.sectionTitle, { color: colors.text }]}>유형 *</Text>

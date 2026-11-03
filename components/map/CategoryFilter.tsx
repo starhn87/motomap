@@ -59,9 +59,7 @@ function FilterChip({
         {
           backgroundColor: isActive
             ? color
-            : colorScheme === 'dark'
-              ? '#1A1A1A'
-              : '#FFFFFF',
+            : colors.background,
           borderColor: isActive ? color : colors.border,
         },
       ]}>
@@ -102,9 +100,7 @@ function RiderShareFilterChip({ isActive, onPress }: { isActive: boolean; onPres
         {
           backgroundColor: isActive
             ? colors.text
-            : colorScheme === 'dark'
-              ? '#1A1A1A'
-              : '#FFFFFF',
+            : colors.background,
           borderColor: isActive ? colors.text : colors.border,
         },
       ]}>
@@ -213,11 +209,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.06,
     shadowRadius: 2,
     elevation: 2,
   },

@@ -54,6 +54,7 @@ import {
 import type { Place, RidingGuideSearchResult } from '@/types';
 import { useUnifiedPlaceSearch } from '@/hooks/useUnifiedPlaceSearch';
 import GlassSurface from '@/components/ui/GlassSurface';
+import GlassButton from '@/components/ui/GlassButton';
 
 // 검색 전용 화면 — 입력 전에는 최근 검색·즐겨찾기·추천 목적지를 모아 보여주고,
 // 2자 이상 입력하면 통합 검색 결과로 전환된다. 장소 선택은 지도 탭의
@@ -449,12 +450,10 @@ export default function SearchScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* 검색 입력 바 */}
       <View style={styles.searchBarRow}>
-        <Pressable accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()}
-          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-          <GlassSurface style={styles.backButton}>
+        <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()}
+          style={styles.backButton}>
             <Ionicons name="chevron-back" size={24} color={colors.text} />
-          </GlassSurface>
-        </Pressable>
+        </GlassButton>
         <GlassSurface style={styles.inputContainer}>
           <TextInput
             accessibilityLabel="장소, 라이딩 검색"

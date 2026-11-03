@@ -5,6 +5,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { HeaderInsetContext, useContentHeaderInset } from '@/components/navigation/headerInset';
+import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
 import { useUnreadCount } from '@/hooks/useNotifications';
 import LoginPrompt from '@/components/auth/LoginPrompt';
 import MySubmissionsList from './MySubmissionsList';
@@ -19,13 +21,25 @@ const SECTIONS: { key: Section; label: string; Content: typeof MyReviewsList }[]
 ];
 
 function ActivityContent() {
+  const headerInset = useContentHeaderInset();
   const colors = Colors[useColorScheme() ?? 'light'];
   const focused = useIsFocused();
   const unread = useUnreadCount();
   const [section, setSection] = useState<Section>('submissions');
   const [visited, setVisited] = useState<Section[]>(['submissions']);
+  const [sectionHeight, setSectionHeight] = useState(48);
   return <View style={[styles.container, { backgroundColor: colors.background }]}>
-    <View accessibilityRole="tablist" style={[styles.sections, { borderBottomColor: colors.border }]}>
+    {SECTIONS.filter(item => visited.includes(item.key)).map(({ key, Content }) => (
+      <View key={key} style={{ flex: 1, display: section === key ? 'flex' : 'none' }}
+        accessibilityElementsHidden={section !== key} importantForAccessibility={section === key ? 'auto' : 'no-hide-descendants'}>
+        <HeaderInsetContext.Provider value={headerInset + sectionHeight}>
+          <Content active={focused && section === key} />
+        </HeaderInsetContext.Provider>
+      </View>
+    ))}
+    <View accessibilityRole="tablist" style={[styles.sections, { top: headerInset }]}
+      onLayout={event => setSectionHeight(event.nativeEvent.layout.height)}>
+      <HeaderBackdrop />
       {SECTIONS.map(item => <Pressable key={item.key} accessibilityRole="tab"
         accessibilityState={{ selected: section === item.key }}
         accessibilityLabel={item.key === 'notifications' && unread > 0 ? `알림, 읽지 않은 알림 ${unread}개` : item.label}
@@ -39,12 +53,6 @@ function ActivityContent() {
         </Text>
       </Pressable>)}
     </View>
-    {SECTIONS.filter(item => visited.includes(item.key)).map(({ key, Content }) => (
-      <View key={key} style={{ flex: 1, display: section === key ? 'flex' : 'none' }}
-        accessibilityElementsHidden={section !== key} importantForAccessibility={section === key ? 'auto' : 'no-hide-descendants'}>
-        <Content active={focused && section === key} />
-      </View>
-    ))}
   </View>;
 }
 
@@ -57,7 +65,7 @@ export default function ActivityScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  sections: { flexDirection: 'row', gap: 24, paddingHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth },
-  section: { minHeight: 48, justifyContent: 'center', borderBottomWidth: 2 },
+  sections: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', zIndex: 5, overflow: 'hidden' },
+  section: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 2 },
   label: { fontSize: 15, fontWeight: '600' },
 });

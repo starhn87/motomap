@@ -20,6 +20,7 @@
 3. 지도 위 플로팅 버튼처럼 독립된 작은 컨트롤은 탭 아이콘과 같은 짧은 timing 축소 피드백을
    우선하되 손을 떼는 순간 원래 크기로 즉시 복귀한다. 카드·텍스트 버튼은 투명도 또는 테두리
    변화로 레이아웃을 움직이지 않게 한다.
+   네이티브 Glass 버튼은 INTERACTION-015의 UIKit 상호작용을 쓰며 JS 축소·오버슛을 겹치지 않는다.
 4. 햅틱은 시각 피드백을 대체하지 않는다. 사용자가 햅틱을 꺼도 눌렀다는 사실을 알 수 있어야 한다.
 5. 즐겨찾기·저장·읽음처럼 되돌릴 수 있고 최종 상태가 명확한 서버 액션은 낙관적으로 반영한다.
    서버 명령은 현재 상태를 뒤집지 않고 원하는 최종 상태를 멱등적으로 설정하며, 실패하면 모든
@@ -462,3 +463,31 @@ GlassView 또는 부모를 opacity 0으로 숨기는 효과는 복귀 시 native
 공개 배포/OTA를 하지 않는다.
 
 공식 API·제약: [Expo SDK57 GlassEffect](https://docs.expo.dev/versions/v57.0.0/sdk/glass-effect/).
+
+## INTERACTION-015 — Glass는 실제 터치 계층에서 반응하고 고정 헤더는 얇게 흐린다
+
+- 날짜: 2026-11-04
+- 상태: 소스 구현·검증 / 네이티브 외형 실기기 확인 전
+- 대체: INTERACTION-014의 배경 전용 Glass 구조, INTERACTION-013의 헤더 구분선
+
+GlassView를 표면 루트로 두고 실제 Pressable을 native contentView 안에 둔다. 버튼은
+`isInteractive`를 켜 UIKit의 터치 반응을 사용한다. `pointerEvents=none` 배경 위에 별도 버튼을
+놓거나 JS scale/opacity를 함께 적용하지 않는다. 네이티브 미지원·접근성 폴백일 때만 눌림 opacity를
+쓴다. 입력 필드 표면은 비상호작용으로 유지하고 입력·마이크 터치 영역을 분리한다.
+지도 상단·내 위치·검색 뒤로·설정은 공용 regular 재질·테마별 같은 밝은 tint를 사용한다.
+카테고리는 선택된 색 의미를 유지하면서 중립 배경·얇은 테두리·둥근 칩으로 맞춘다.
+Glass의 실제 팽창과 배경에 따른 밝기는 UIKit 결정이므로 JS 검사만으로 기기 외형을 보증하지 않는다.
+
+지도·제보·활동·내 정보 순서를 사용하고 활동은 bell/bell.fill이다. 미읽음이 있으면 숫자 없는
+NativeTabs Badge를 사용한다(SDK가 공백 badgeValue로 UIKit 점을 표시). Android/웹도 점만 표시한다.
+활동 분류 세 개는 각 1/3 너비다. 제보·활동·내 정보 제목과 설정 제목 아래 구분선을 없앤다.
+
+제목·분류는 목록 뒤에 그리는 고정 overlay로 두며 콘텐츠는 헤더 뒤를 스크롤한다. 첫 항목은
+헤더 가림 높이만큼 패딩을 두고, 탭 제목·활동 분류는 레이아웃 높이를 측정한다. 안전 영역·기존
+탭 가림/키보드 회피는 유지한다. `expo-blur@57.0.3`의 얇은 system material을 사용하며
+모듈 없음·Android/웹·투명도 줄이기에서는 불투명 테마 배경으로 대체한다. 새 Blur 모듈은
+다음 네이티브 설치본에 포함해야 하며 기존 바이너리에 OTA만 해서는 블러가 생기지 않는다.
+설정은 섹션 간32pt/내부12pt를 기준으로 정리하고 뒤로는44pt GlassButton을 쓴다.
+
+[Expo GlassEffect](https://docs.expo.dev/versions/v57.0.0/sdk/glass-effect/),
+[Expo BlurView](https://docs.expo.dev/versions/v57.0.0/sdk/blur-view/).
