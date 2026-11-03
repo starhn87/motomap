@@ -46,6 +46,8 @@
     명시한 경우는 기존 화면 도형을 재사용한다(NAV-045/046).
 13. iOS의 기본 탭은 시스템 NativeTabs로 제공한다. iOS 26 이상에서는 UIKit Liquid Glass를
     사용하며 JS 탭의 축소·오버슛 애니메이션을 덧씌우지 않는다. Android·웹은 기존 JS 탭을 유지한다.
+14. 개별 조작 요소의 유리 표면은 공용 `GlassSurface`를 사용한다. native 모듈·API 가용성과
+    투명도 줄이기를 확인하며, 미지원/확인 전에는 테마의 불투명 표면으로 대체한다(INTERACTION-014).
 
 ## INTERACTION-001 — 공유 아이콘과 눌림 상태를 앱 공통 규칙으로 둔다
 
@@ -433,3 +435,30 @@ SafeAreaView 실측 중 큰 값으로만 알고, 기기별 상수를 두지 않�
 버튼·시트·스크롤 맨 끝만 그 높이만큼 비운다. 전체화면 모달과 탭 밖 화면은 탭 높이를
 더하지 않는다. 탐색·제보·내 정보 헤더는 같은 18pt 굵은 제목과 헤어라인 구분선을 쓴다.
 지도에는 헤더를 추가하지 않는다.
+
+## INTERACTION-014 — 개별 조작 요소의 Glass는 가용성과 접근성 설정을 먼저 확인한다
+
+- 날짜: 2026-11-04
+- 상태: 공용 표면 구현 / 개별 화면 통합·기기 검증 후속
+- 관련: `components/ui/GlassSurface.tsx`, `tests/glassSurface.test.ts`, `package.json`
+
+사용자는 지도·검색·설정 조작부에도 Liquid Glass를 요청했다. 이미 SDK57 트리에 설치된
+`expo-glass-effect@57.0.4`를 같은 버전의 직접 의존성으로 고정한다. 새로운 SDK 버전을 내려받거나
+네이티브 코드를 바꾸는 작업은 아니다. 네이티브 계약·API1·runtime1.2.11은 유지한다.
+
+공용 표면은 먼저 `requireOptionalNativeModule`로 ExpoGlassEffect가 있는지 확인하고,
+컴파일된 앱의 Glass 지원과 런타임 API가 모두 확인된 경우에만 GlassView 모듈을 지연 평가한다.
+기존 바이너리에 모듈이 없거나 Android·웹·이전 iOS이면 일반 View 배경과 경계선을 사용한다.
+OS 버전 숫자만으로 native view를 호출하거나, 없는 모듈을 무조건 import하지 않는다.
+
+투명도 줄이기 설정 조회 전/조회 실패에도 불투명 표면을 유지한다. 설정 변경 이벤트를 구독하고,
+더 늦은 초기 조회가 최신 이벤트를 덮어쓰지 않으며 언마운트 시 구독을 해제한다. Glass의 배경은
+터치를 가로채지 않고, 버튼의 이름·44pt 터치 영역·본문 배치는 자식이 계속 담당한다.
+앱이 선택한 라이트/다크 테마를 native Glass에도 전달한다. 목록·긴 본문 전체에는 적용하지 않는다.
+
+GlassView 또는 부모를 opacity 0으로 숨기는 효과는 복귀 시 native 유리가 사라질 수 있어 쓰지 않는다.
+일반 Pressable의 눌림 opacity는 0보다 큰 값만 쓴다. 지도 내 위치·상단 검색/길찾기·검색 입력/뒤로·
+헤더 설정은 이 공용 표면을 사용하는 후속 통합 대상이다. 실제 native 외형·회전·접근성 기기 QA 전에는
+공개 배포/OTA를 하지 않는다.
+
+공식 API·제약: [Expo SDK57 GlassEffect](https://docs.expo.dev/versions/v57.0.0/sdk/glass-effect/).
