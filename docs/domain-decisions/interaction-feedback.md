@@ -551,6 +551,7 @@ compact GlassButton은 내부 최소 크기도36으로 맞춰 헤더가 늘지 �
 
 - 날짜: 2026-11-04
 - 상태: 활성 / 로컬 외형 검증 후속
+- 일부 대체됨: iOS 탭 테마·활성색은 INTERACTION-019를 따른다.
 - 대체: INTERACTION-015·017의 regular 기본값, compact Glass, 검정 활성 탭 색
 
 공용 GlassSurface 기본 재질은 `clear`다. 검색·길찾기·내 위치·뒤로·설정 등 직접 그리는
@@ -577,3 +578,33 @@ Apple의 `UITabBarAppearance.selectionIndicatorTintColor`는 공식 API이지만
 
 공식 근거: [Apple selectionIndicatorTintColor](https://developer.apple.com/documentation/uikit/uitabbarappearance/selectionindicatortintcolor),
 [Expo NativeTabs 외형](https://docs.expo.dev/tutorial/add-navigation/).
+
+## INTERACTION-019 — iOS 하단 탭은 본문과 독립된 다크 외형으로 통일한다
+
+- 날짜: 2026-11-04
+- 상태: 활성 / 사용자 선택
+- 대체: INTERACTION-017·018의 본문 테마를 따르는 iOS 탭 외형·라이트 파랑 선택색
+
+사용자는 라이트의 활성 탭도 다크와 같은 모습으로 요청했다. 별도 UIKit iOS27 테스트에서
+흰 아이콘/글자만 넣으면 밝은 회색 선택 배경에 묻히는 것을 확인해, 두 대안을 제시했다.
+사용자가 **탭 바 전체를 다크 외형으로 통일**하는 안을 선택했다.
+
+iOS 각 trigger의 탭 바 전용 `experimental_userInterfaceStyle`을 `dark`로 고정하고
+탭 색도 Colors.dark를 사용한다. host `colorScheme`은 본문 테마를 유지한다. host까지
+dark로 고정하면 전체 자식 컨트롤러의 UIKit trait까지 바뀌기 때문이다.
+활성 아이콘/글자는 `#FAFAFA`, 비활성은
+다크 보조 색이다. 본문 useColorScheme·테마 저장·지도/화면 배경·StatusBar 선택은 바꾸지 않는다.
+Android/웹의 JS 탭은 기존 테마별 색을 유지한다. 네이티브 탭의 public 외형 옵션만 사용하며
+선택 pill 조작용 native patch·의존성·계약 변경은 없다.
+탭 바 전용 스타일 override가 없는 iOS26 미만에서는 dark 배경/blur를 명시해 흰 선택색이
+밝은 기본 탭 배경에 묻히지 않도록 한다. scroll-edge 투명화도 이 구버전에서만 꺼서
+짧은 목록/스크롤 끝에서도 dark 배경을 유지한다. iOS26 이상은 배경·blur를 강제하지 않는다.
+
+### Glass 재질 후속 제안 (미적용)
+
+Apple 가이드는 regular의 배경 대비 적응을 기본으로 권장하고 clear는 미디어 위의 밝고
+두꺼운 콘텐츠·배경 dimming을 마련한 경우로 제한한다. 같은 조작 그룹에 두 재질을 섞지 않는다.
+현재 강제 흰 tint를 제거한 regular를 지도/일반 조작부 공통 후보로 제안하며, clear는 사진 등
+별도 미디어 맥락에서 검토한다. 이는 제안으로, 현재 공통 clear 기본값을 바꾸지 않는다.
+
+근거: [Apple Meet Liquid Glass — Variants/Principles](https://developer.apple.com/videos/play/wwdc2025/219/).

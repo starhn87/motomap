@@ -185,28 +185,33 @@ function LegacyTabLayout() {
 }
 
 function IosTabLayout() {
+  // 본문 테마와 독립적으로 하단 시스템 탭의 외형만 다크로 통일한다.
   const scheme = useColorScheme() ?? 'light';
-  const colors = Colors[scheme];
+  const colors = Colors.dark;
+  const legacyBar = Number.parseInt(String(Platform.Version), 10) < 26;
   const unreadCount = useUnreadCount();
   const deviceInsets = useSafeAreaInsets();
   return (
     <NativeTabDeviceInsetsContext.Provider value={deviceInsets}>
       <NativeTabs unstable_nativeProps={{ colorScheme: scheme }} tintColor={colors.tabIconSelected} iconColor={{ default: colors.textSecondary, selected: colors.tabIconSelected }}
+        backgroundColor={legacyBar ? colors.surfaceElevated : undefined}
+        blurEffect={legacyBar ? 'systemMaterialDark' : undefined}
+        disableTransparentOnScrollEdge={legacyBar}
         badgeBackgroundColor={semantic.danger} minimizeBehavior="never" sidebarAdaptable={false}>
-        <NativeTabs.Trigger name="index" unstable_nativeProps={{ ios: { experimental_userInterfaceStyle: scheme } }} disableAutomaticContentInsets disableScrollToTop disablePopToTop>
+        <NativeTabs.Trigger name="index" unstable_nativeProps={{ ios: { experimental_userInterfaceStyle: 'dark' } }} disableAutomaticContentInsets disableScrollToTop disablePopToTop>
           <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} md="map" />
           <NativeTabs.Trigger.Label>지도</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="submit" unstable_nativeProps={{ ios: { experimental_userInterfaceStyle: scheme } }} disableAutomaticContentInsets disableScrollToTop>
+        <NativeTabs.Trigger name="submit" unstable_nativeProps={{ ios: { experimental_userInterfaceStyle: 'dark' } }} disableAutomaticContentInsets disableScrollToTop>
           <NativeTabs.Trigger.Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} md="add_circle" />
           <NativeTabs.Trigger.Label>제보</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="courses" unstable_nativeProps={{ ios: { experimental_userInterfaceStyle: scheme } }} disableAutomaticContentInsets>
+        <NativeTabs.Trigger name="courses" unstable_nativeProps={{ ios: { experimental_userInterfaceStyle: 'dark' } }} disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon sf={{ default: 'bell', selected: 'bell.fill' }} md="notifications" />
           <NativeTabs.Trigger.Label>활동</NativeTabs.Trigger.Label>
           {unreadCount > 0 && <NativeTabs.Trigger.Badge />}
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="profile" unstable_nativeProps={{ ios: { experimental_userInterfaceStyle: scheme } }} disableAutomaticContentInsets>
+        <NativeTabs.Trigger name="profile" unstable_nativeProps={{ ios: { experimental_userInterfaceStyle: 'dark' } }} disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon sf={{ default: 'person', selected: 'person.fill' }} md="person" />
           <NativeTabs.Trigger.Label>내 정보</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>

@@ -11,13 +11,13 @@ const exported = (value: any) => ({ __esModule: true, default: value });
 const colors = { text: 'black', textSecondary: 'gray', tint: 'black', tabIconSelected: '#007AFF', background: 'white', surfaceElevated: 'elevated', border: 'gray' };
 const nodes = (node: any): Element[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
 
-function layout(os: string, unread: number, scheme = 'light') {
+function layout(os: string, unread: number, scheme = 'light', version = 27) {
   const trigger = Object.assign(() => null, { Icon: 'NativeIcon', Label: 'NativeLabel', Badge: 'NativeBadge' });
   const NativeTabs = Object.assign(() => null, { Trigger: trigger });
   const insets = { top: 59, bottom: 34, left: 0, right: 0 };
   const module = loadModule<{ default: () => Element }>('app/(tabs)/_layout.tsx', {
     react: exported({}), 'react/jsx-runtime': { jsx, jsxs: jsx },
-    'react-native': { Platform: { OS: os }, Pressable: 'Button', StyleSheet: { hairlineWidth: 0.5 } },
+    'react-native': { Platform: { OS: os, Version: version }, Pressable: 'Button', StyleSheet: { hairlineWidth: 0.5 } },
     '@expo/vector-icons/Ionicons': exported('Icon'),
     'expo-router': { Tabs: Object.assign(() => null, { Screen: 'LegacyScreen' }) },
     'expo-router/unstable-native-tabs': { NativeTabs },
@@ -49,6 +49,7 @@ test('iOS는 UIKit 탭 4개·시스템 아이콘·미읽음 배지를 쓰고 탭
   assert.equal(native.props.style, undefined);
   assert.equal(native.props.backgroundColor, undefined);
   assert.equal(native.props.blurEffect, undefined);
+  assert.equal(native.props.disableTransparentOnScrollEdge, false);
   const tabs = nodes(tree).filter(node => node.type === trigger);
   assert.deepEqual(tabs.map(tab => tab.props.name), ['index', 'submit', 'courses', 'profile']);
   assert.ok(tabs.every(tab => tab.props.disableAutomaticContentInsets));
@@ -77,17 +78,27 @@ test('Android·웹은 기존 JS 탭과 4개 경로를 유지하고 탭은 화면
   }
 });
 
-test('앱에서 선택한 라이트·다크를 native host와 네 탭의 UIKit 외형에 동기화한다', () => {
+test('본문 테마와 무관하게 iOS 탭은 다크 외형·흰 선택색을 유지한다', () => {
   for (const scheme of ['light', 'dark']) {
     const { tree, NativeTabs, trigger } = layout('ios', 0, scheme);
     const native = nodes(tree).find(node => node.type === NativeTabs)!;
     assert.equal(native.props.unstable_nativeProps.colorScheme, scheme);
-    const selected = scheme === 'light' ? '#007AFF' : '#FAFAFA';
+    const selected = '#FAFAFA';
     assert.equal(native.props.tintColor, selected);
     assert.equal(native.props.iconColor.selected, selected);
     const tabs = nodes(tree).filter(node => node.type === trigger);
-    assert.ok(tabs.every(tab => tab.props.unstable_nativeProps.ios.experimental_userInterfaceStyle === scheme));
+    assert.ok(tabs.every(tab => tab.props.unstable_nativeProps.ios.experimental_userInterfaceStyle === 'dark'));
   }
+});
+
+test('Glass 이전 iOS도 다크 바탕을 지정해 흰 선택색이 밝은 배경에 묻히지 않는다', () => {
+  const { tree, NativeTabs } = layout('ios', 0, 'light', 18);
+  const native = nodes(tree).find(node => node.type === NativeTabs)!;
+  assert.equal(native.props.unstable_nativeProps.colorScheme, 'light');
+  assert.equal(native.props.backgroundColor, colors.surfaceElevated);
+  assert.equal(native.props.blurEffect, 'systemMaterialDark');
+  assert.equal(native.props.disableTransparentOnScrollEdge, true);
+  assert.equal(native.props.iconColor.selected, '#FAFAFA');
 });
 
 function frameFixture(os = 'ios') {
