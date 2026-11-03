@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_dismissals: {
+        Row: {
+          created_at: string
+          kind: string
+          target_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          kind: string
+          target_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          kind?: string
+          target_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tmap_poi_cache: {
         Row: {
           cell_lat: number
