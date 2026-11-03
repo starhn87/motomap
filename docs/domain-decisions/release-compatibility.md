@@ -22,6 +22,20 @@
 
 ### 후속 후보: 터치 반응·블러 헤더·활동 목록 삭제
 
+#### 2026-11-04 로컬 설치 기록
+
+사용자 승인으로 소스9f2b4aa를 기존 생성 iOS 프로젝트·개발용 서명으로 Release 빌드했다.
+pod install 뒤 ExpoBlur57.0.3의 native provider 등록, 빌드 성공과 codesign 검증, 수정 UI10개
+모듈의 sourcemap/작업 소스 일치를 확인했다. app/runtime1.2.11·native38/API1,
+내부 채널 `internal-testflight`다. 연결된 iPhone16에 기존 앱을 지우지 않고 덮어써 설치하고
+devicectl 실행 성공을 확인했다. bundle SHA256:
+`2ebda1f79551c6cabac4d14241736496ee2f6745ca71393d0a1e9aa874d47d60`.
+NAVER 로고는 사용자 결정대로 현재 위치를 유지했다(MAP-061 후속). 이는 설치·실행 확인이며
+Glass 팽창/밝기·블러·스와이프 외형의 사용자 확인 완료를 뜻하지 않는다. 푸시·OTA·TestFlight·
+Apple 심사/판매·추가 운영 DB 변경은 하지 않았다. 아래 준비 시점의 이력은 보존한다.
+
+#### 준비 시점 기록
+
 INTERACTION-015/NOTIFY-004로 탭 순서·종/점 배지·Glass 터치 계층과 헤더/설정 간격을 정리한다.
 새 `expo-blur@57.0.3` native 모듈은 다음 설치 빌드가 필요하다. 모듈 없는 구설치본에서는
 불투명 헤더로 폴백하며, 앱/runtime1.2.11·브리지38/API1은 유지한다(기존 wire 메서드 변경 없음).

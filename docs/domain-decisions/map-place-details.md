@@ -1703,3 +1703,10 @@ SDK가 컨트롤 배치에 native safe area를 반영할 수 있어 이 설정�
 
 [NAVER 공식 UI 규칙](https://navermaps.github.io/ios-map-sdk/guide-ko/4-1.html)은 위치 조정을
 허용하지만 앱 UI로 로고를 가리지 말 것을 요구한다. 앱의 탭·장소 카메라·마커 정책은 유지한다.
+
+### 2026-11-04 후속 결정 — NAVER 로고는 현재 위치를 유지한다
+
+사용자가 실제 설치본을 확인하고 현재 위치가 낫다고 결정했다. 위의 '탭 아래로 이동' 희망은
+이 결정으로 대체하며 `BottomLeft`/좌측8·하단0 설정을 그대로 둔다. 로고를 더 내리기 위한
+native safe-area 무시·음수 margin·탭 겹침 보정은 추가하지 않는다. INTERACTION-015의
+Glass/블러 로컬 검증 빌드에서도 로고 위치는 바꾸지 않는다.
