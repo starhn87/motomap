@@ -94,7 +94,7 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
       </View>)}
       {showProvidersInline ? providerChoices : <>
         <Text style={styles.body}>현재 위치는 네이버 지도에 표시하고 선택한 기능에 사용해요.{'\n'}
-          {providers.length ? `위치 전달: ${providers.map(provider => RECIPIENT_LABELS[provider]).join(', ')}` : '외부로 위치를 전달하지 않아요.'}
+          {providers.length ? `위치 전달: ${providers.map(provider => RECIPIENT_LABELS[provider]).join(', ')}` : '선택한 추가 전달 대상이 없어요.'}
         </Text>
         <Pressable accessibilityRole="checkbox" accessibilityLabel="방문·주행 기록 저장 (선택)"
           accessibilityState={{ checked: historyAllowed, disabled: loading || !state.actor }}

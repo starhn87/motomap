@@ -198,3 +198,11 @@ test('위치 전달 범위만 바꿀 때 기존 기록 저장 동의는 유지�
   checkAll(f); await submit(f).props.onPress(); await new Promise(done=>setTimeout(done,0));
   assert.equal(f.consentArgs()[2],true);
 });
+
+
+test('추가 전달 대상을 비워도 기본 지도 이용까지 전달이 없다고 안내하지 않는다', () => {
+  const f=fixture();
+  elements(f.render()).find(n=>n.props.accessibilityLabel==='기능별 위치 전달 선택')!.props.onPress();
+  visibleElements(f.render()).filter(n=>n.props.accessibilityRole==='checkbox' && n.props.accessibilityState.checked).forEach(n=>n.props.onPress());
+  assert.ok(visibleElements(f.render()).some(n=>typeof n.props.children==='object' && Array.isArray(n.props.children) && n.props.children.includes('선택한 추가 전달 대상이 없어요.')));
+});
