@@ -18,6 +18,23 @@
 - 네이티브 브리지 계약: **38**
 - 백엔드 API 계약: **1**
 
+## 2026-11-04 TestFlight 전달: 1.2.11(69), 정보 위계·지도 조작부 정리
+
+사용자 승인으로 `3c01083`까지 main에 푸시하고 커밋된 소스만 clean clone해 production iOS로
+빌드했다. EAS build `7a4bd869-4fae-4735-8a9d-7b1fabf7e012`가 `FINISHED`, 앱/런타임1.2.11,
+build69·production 채널·native38/API1·소스 커밋 일치를 확인했다. 아카이브는41.1MB다.
+
+내 바이크 사진/사양·로딩 UI, 날씨의 주요 수치와 보조 정보·스크롤, 장소 태그를 정리하고
+정보 중앙점·중복 설명을 줄인 후보(INTERACTION-024/025, MAP-065)가 포함된다. 지도 즐겨찾기
+아이콘의 내부44pt 정렬과 나침반 숨김(MAP-066)도 포함한다. 509개 테스트·타입·iOS 번들 검증,
+마지막 지도 수정의 관련20개 테스트와 최종 리뷰를 통과했고 소스 커밋의 GitHub CI도 성공했다.
+69번 UI의 수정 후 실기기 외형은 아직 확인하지 않았다.
+
+EAS submission `2ad6f318-c4b4-4b54-9cc0-f8dcea7b33a9`는 **App Store Connect 업로드 성공**으로
+끝났다. 확인 시점은 Apple 처리 단계이며 TestFlight 설치 가능 상태를 확인한 것은 아니다.
+이전 요금제 제한을 반복하지 않도록 `--what-to-test` 없이 제출했다. App Store 심사·판매
+변경·OTA 발행·새 DB 변경은 하지 않았다.
+
 ## 2026-11-04 TestFlight 전달: 1.2.11(68), 활동 탭·Liquid Glass UI
 
 사용자 승인으로 `b01ee42`까지 main에 푸시하고 커밋된 파일만 clean clone해 production iOS로
@@ -34,6 +51,8 @@ build68·production 채널·native38/API1·소스 커밋 일치를 확인했다.
 EAS submission `d19bf6dc-b910-4ae0-bc5b-0aa9af7d325d`는 **App Store Connect 업로드 성공**으로
 끝났다. 확인 시점은 Apple 처리 단계이며 TestFlight 설치 가능 상태나 심사 제출을 확인한 것은
 아니다. App Store 심사·판매 변경·OTA 발행은 하지 않았다.
+
+후속 사용자 확인: 68번을 TestFlight에서 직접 설치해 정상 동작함을 확인했다.
 
 첫 제출은 `--what-to-test`의 changelog 등록이 EAS Enterprise 전용이라 예약 전에 실패했다.
 같은 빌드를 재빌드하지 않고 해당 옵션 없이 제출해 성공했다. 이 환경에서는 테스트 메모 옵션을
