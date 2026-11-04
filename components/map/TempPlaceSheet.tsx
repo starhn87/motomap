@@ -520,18 +520,16 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
                       </View>
                     );
                   })}
-              {(gasLoading || fuelPrices.length > 0) && <Text style={[styles.tradeAt, { color: colors.textSecondary }]}>
-                {gasLoading
-                  ? ''
-                  : [
-                      tankCost
-                        ? `가득 약 ${tankCost.toLocaleString()}원 (${myBike!.tankL}L)`
-                        : null,
-                      fuelPrices[0] ? formatTradeAt(fuelPrices[0].tradeAt) : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-              </Text>}
+              {(gasLoading || fuelPrices.length > 0) && <View style={styles.priceMetadata}>
+                {(tankCost != null || (gasLoading && !!myBike?.tankL)) && (
+                  <Text style={[styles.tradeAt, { color: colors.textSecondary }]}>
+                    {tankCost != null ? `가득 약 ${tankCost.toLocaleString()}원 (${myBike!.tankL}L)` : ''}
+                  </Text>
+                )}
+                <Text style={[styles.tradeAt, { color: colors.textSecondary }]}>
+                  {!gasLoading && fuelPrices[0] ? formatTradeAt(fuelPrices[0].tradeAt) : ''}
+                </Text>
+              </View>}
               {gasFailed && (
                 <Pressable
                   accessibilityRole="button"
@@ -795,7 +793,8 @@ const styles = StyleSheet.create({
   },
   fuelMine: { fontWeight: '700' },
   skeleton: { height: 14, borderRadius: 7 },
-  tradeAt: { fontSize: 11, lineHeight: 14, textAlign: 'right' },
+  tradeAt: { fontSize: 11, lineHeight: 14, minHeight: 14, textAlign: 'right' },
+  priceMetadata: { gap: 4 },
   infoCard: {
     flexBasis: '48%',
     flexGrow: 1,

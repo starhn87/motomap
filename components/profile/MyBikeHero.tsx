@@ -13,17 +13,6 @@ import { track } from '@/lib/analytics';
 import { useMyBike } from '@/lib/bike';
 import Skeleton from '@/components/ui/Skeleton';
 
-function SpecChip({ label }: { label: string }) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-
-  return (
-    <View style={[styles.chip, { backgroundColor: colors.background }]}>
-      <Text style={[styles.chipText, { color: colors.textSecondary }]}>{label}</Text>
-    </View>
-  );
-}
-
 /** 프로필의 정체성 카드 — 등록과 기록을 한 자리에서 보여준다. */
 export default function MyBikeHero() {
   const colorScheme = useColorScheme();
@@ -38,17 +27,18 @@ export default function MyBikeHero() {
     return (
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.headingRow}>
-          <Skeleton width={58} height={58} radius={29} />
+          <Skeleton width={88} height={88} radius={18} />
           <View style={styles.titleBody}>
             <Skeleton width={72} height={11} />
             <Skeleton width="75%" height={24} style={{ marginTop: 7 }} />
           </View>
           <Skeleton width={36} height={36} radius={18} />
         </View>
-        <View style={styles.loadingChips}>
-          <Skeleton width={72} height={28} radius={14} />
-          <Skeleton width={58} height={28} radius={14} />
-          <Skeleton width={82} height={28} radius={14} />
+        <View style={styles.specs}>
+          <Skeleton width={72} height={18} radius={4} />
+          <Skeleton width={96} height={18} radius={4} />
+          <Skeleton width={54} height={18} radius={4} />
+          <Skeleton width={72} height={18} radius={4} />
         </View>
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <View style={styles.passportRow}>
@@ -69,8 +59,7 @@ export default function MyBikeHero() {
         </View>
         <View style={styles.emptyBody}>
           <Text style={[styles.eyebrow, { color: colors.tint }]}>내 바이크</Text>
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>내 라이더 프로필을 완성해보세요</Text>
-          <Text style={[styles.description, { color: colors.textSecondary }]}>기종을 등록하면 리뷰와 주행 기록에 내 바이크의 이야기가 쌓여요.</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>등록된 바이크가 없어요</Text>
         </View>
         <Pressable
           onPress={() => router.push('/edit-bike')}
@@ -85,7 +74,7 @@ export default function MyBikeHero() {
     );
   }
 
-  const chips = [
+  const details = [
     activeBike?.modelYear ? `${activeBike.modelYear}년식` : null,
     activeBike?.color,
     spec?.cc ? `${spec.cc}cc` : null,
@@ -100,11 +89,11 @@ export default function MyBikeHero() {
           {activeBike?.photoUrl ? (
             <Image source={{ uri: activeBike.photoUrl }} style={styles.bikeImage} contentFit="cover" />
           ) : (
-            <BikeIcon size={38} color={colors.tint} />
+            <BikeIcon size={48} color={colors.tint} />
           )}
         </View>
         <View style={styles.titleBody}>
-          <Text style={[styles.eyebrow, { color: colors.tint }]}>내 바이크{garage?.length ? ` · ${garage.length}` : ''}</Text>
+          <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>내 바이크{garage?.length ? ` ${garage.length}대` : ''}</Text>
           <Text style={[styles.model, { color: colors.text }]} numberOfLines={2}>
             {activeBike?.nickname || displayModel}
           </Text>
@@ -123,9 +112,11 @@ export default function MyBikeHero() {
         </Pressable>
       </View>
 
-      {chips.length > 0 && (
-        <View style={styles.chips}>
-          {chips.map((chip) => <SpecChip key={chip} label={chip} />)}
+      {details.length > 0 && (
+        <View style={styles.specs}>
+          {details.map((detail, index) => (
+            <Text key={`${index}-${detail}`} style={[styles.specText, { color: colors.textSecondary }]}>{detail}</Text>
+          ))}
         </View>
       )}
 
@@ -140,11 +131,12 @@ export default function MyBikeHero() {
         <View>
           <Text style={[styles.passportLabel, { color: colors.textSecondary }]}>나의 주행 기록</Text>
           {rides.rides > 0 ? (
-            <Text style={[styles.passportValue, { color: colors.text }]}>
-              {rides.places}곳 · {rides.rides}번 주행
-            </Text>
+            <View style={styles.rideSummary}>
+              <Text style={[styles.passportValue, { color: colors.text }]}>{rides.places}곳 방문</Text>
+              <Text style={[styles.passportValue, { color: colors.text }]}>{rides.rides}번 주행</Text>
+            </View>
           ) : (
-            <Text style={[styles.passportValue, { color: colors.text }]}>첫 주행을 기다리고 있어요</Text>
+            <Text style={[styles.passportValue, { color: colors.text }]}>기록 없음</Text>
           )}
         </View>
         {rides.rides > 0 && <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />}
@@ -170,9 +162,9 @@ const styles = StyleSheet.create({
     gap: 13,
   },
   iconCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 88,
+    height: 88,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -183,17 +175,17 @@ const styles = StyleSheet.create({
   },
   titleBody: {
     flex: 1,
+    minWidth: 0,
     gap: 3,
   },
   eyebrow: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
+    fontSize: 12,
+    fontWeight: '600',
   },
   model: {
-    fontSize: 21,
-    lineHeight: 27,
-    fontWeight: '800',
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '700',
   },
   modelDetail: {
     fontSize: 12.5,
@@ -204,23 +196,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chips: {
+  specs: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 7,
+    columnGap: 12,
+    rowGap: 4,
+    minHeight: 40,
   },
-  loadingChips: {
-    flexDirection: 'row',
-    gap: 7,
-  },
-  chip: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  chipText: {
+  specText: {
     fontSize: 12,
-    fontWeight: '600',
+    lineHeight: 18,
+  },
+  rideSummary: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: 12,
+    rowGap: 4,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
@@ -247,10 +238,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 24,
     fontWeight: '800',
-  },
-  description: {
-    fontSize: 13,
-    lineHeight: 19,
   },
   primaryButton: {
     minHeight: 44,

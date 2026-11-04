@@ -513,29 +513,13 @@ function PlaceBottomSheet({
             <View style={styles.tags}>
               {sortedTags.map((tag) => {
                 const highlight = HIGHLIGHT_TAGS.has(tag);
-                if (highlight) {
-                  return (
-                    <View
-                      key={tag}
-                      style={[styles.highlightTag, { backgroundColor: colors.tint }]}>
-                      <Text
-                        style={[
-                          styles.highlightTagText,
-                          { color: colors.background },
-                        ]}>
-                        {tag}
-                      </Text>
-                    </View>
-                  );
-                }
                 return (
-                  <View
+                  <Text
                     key={tag}
-                    style={[styles.tag, { backgroundColor: colors.surfaceMuted }]}>
-                    <Text style={[styles.tagText, { color: colors.text }]}>
-                      #{tag}
-                    </Text>
-                  </View>
+                    style={[styles.tagText, { color: highlight ? colors.text : colors.textSecondary },
+                      highlight && styles.highlightTagText]}>
+                    {tag}
+                  </Text>
                 );
               })}
             </View>
@@ -781,26 +765,16 @@ const styles = StyleSheet.create({
   tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    columnGap: 12,
+    rowGap: 4,
     marginBottom: 16,
-  },
-  tag: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
   },
   tagText: {
     fontSize: 12,
-    fontWeight: '500',
-  },
-  highlightTag: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
+    lineHeight: 18,
   },
   highlightTagText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   infoGrid: {
     flexDirection: 'row',
