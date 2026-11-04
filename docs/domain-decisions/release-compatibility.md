@@ -18,6 +18,31 @@
 - 네이티브 브리지 계약: **41**
 - 백엔드 API 계약: **1**
 
+## 2026-11-04 native41 로컬 빌드·실기기 검증
+
+사용자가 새 빌드→실기기 설치/검증을 승인했다. source `71cee95`에서 Expo57 prebuild와 pod install,
+Xcode27 Release 빌드가 성공했다. 앱은 **1.2.11(로컬1)/native41/API1**, runtime1.2.11,
+internal-testflight 채널이다. 서명된 앱의 UIAppFonts9개 OTF와 로컬 WebView의3개 WOFF2가
+원본 해시와 일치하고 새 세그먼트 JS도 포함됨을 확인했다. 앱 디렉터리는154.7MiB이며
+압축 IPA/스토어 다운로드 크기나 기존 앱 대비 증가량으로 해석하지 않는다.
+
+iPhone16/iOS27.0.1에 무선 설치했다. 잠금으로 첫 실행이 거절됐고 사용자 해제 후 검증했다.
+`testNativeRefinement41`59.144초와 `testNativeUIControls`293.649초가 모두 통과했다.
+활동4회 왕복·제보3분류·세그먼트 실제44pt 이상·설정 행56pt 이상·서체 라이선스·
+전체/장소/건의 메뉴·접근성 이름 중복 제거·테마 변경/원복·약관 행 빈 여백 탭·지도 복귀를 확인했다.
+캡처에서 행 간격·새 서체·세그먼트·메뉴 외형을 확인했다. 메뉴 라벨의 기기 접근성 프레임은
+20.33pt였다. 기존 계정의 알림 선택/읽음·리뷰/즐겨찾기/제보/로그인 연결은 변경하지 않았다.
+
+두 번째 검사에는 XCTest의 `App animations complete notification not received` 대기4회가
+포함됐다. 테스트 경과 시간을 탭 응답속도로 해석하지 않는다. 목록 첫 행 좌표 수집은 해당
+접근성 ScrollView를 찾지 못해 값이 없으므로 프레임 단위 점프/지연 측정으로 기록하지 않는다.
+설정 Glass의 누르는 중 확대는 부모 clip 제거를 적용했지만 누르는 순간의 영상 검증은 별도다.
+큰 글자·VoiceOver 실제 발화·길안내 WebView의 실화면 서체 확인도 아직 남아 있다.
+
+앱을 다시 실행해두었다. 이번 승인은 로컬 빌드/설치/검증이며 main 푸시·OTA·TestFlight·
+App Store 제출은 하지 않았다. 기존 TestFlight70/native39와 구분한다. 아래 후보 기록은 당시
+상태로 보존한다.
+
 ## 2026-11-04 조작 반응·앱 서체 후속 후보(native41)
 
 INTERACTION-028/TYPE-001에 따라 UIKit UISegmentedControl2.5.7과 Pretendard1.3.9 원본9굵기를

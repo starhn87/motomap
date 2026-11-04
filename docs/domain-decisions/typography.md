@@ -3,7 +3,7 @@
 ## TYPE-001 — 앱이 소유한 글자에는 Pretendard를 사용한다
 
 - 날짜: 2026-11-04
-- 상태: 활성(소스 후보, 새 바이너리 검증 전)
+- 상태: 활성(로컬 native41 설치·선택/설정 UI 검증, 외부 배포 전)
 - 관련 구현: `components/ui/AppText.tsx`, `lib/typography.ts`, `app.config.js`,
   `components/ui/NativeSettingsGroup.tsx`, `components/ui/NativeChoiceControl.tsx`
 
@@ -39,3 +39,9 @@ OS가 소유하는 시스템 메뉴·키보드·알림·공유/사진 선택기,
 지도/시트 레이아웃을 확인한다. 이전 바이너리의 폴백과 원본 해시는 소스 검사로 확인한다.
 새 기기 검증 전에는 서체 적용·성능·최종 다운로드 크기를 확인했다고 기록하지 않는다. 소스 검증에서 타입·523개
 JS 테스트·릴리스 계약·diff와 production iOS JS export를 통과했다. 네이티브 앱 빌드는 아직이다.
+
+
+2026-11-04 후속: source71cee95의 native41을 빌드·무선 설치하고9OTF/3WOFF2 원본과
+UIAppFonts 등록을 산출물에서 확인했다. 활동/제보/설정 캡처와 라이선스 화면을 확인했다.
+두 XCUITest는 통과했지만 큰 글자/VoiceOver·길안내 WebView 실화면은 별도 확인 대상이다.
+자세한 검증 범위와 자동화 애니메이션 대기 한계는 release-compatibility.md를 따른다.
