@@ -139,7 +139,7 @@ export default function MyRidesScreen() {
     const detail = [
       breakdown.goals > 0 ? `도착 ${breakdown.goals}` : null,
       breakdown.vias > 0 ? `경유 ${breakdown.vias}` : null,
-    ].filter(Boolean).join(' · ');
+    ].filter(Boolean);
 
     const openOnMap = () => {
       if (item.placeId) {
@@ -169,9 +169,10 @@ export default function MyRidesScreen() {
         )}
         <View style={styles.rowBody}>
           <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
-          <Text style={[styles.rowDetail, { color: colors.textSecondary }]}>
-            {detail} · 마지막 {shortDate(breakdown.lastAt)}
-          </Text>
+          <View style={styles.metadataRow}>
+            {detail.map((value, index) => <Text key={index} style={[styles.rowDetail, { color: colors.textSecondary }]}>{value}</Text>)}
+            <Text style={[styles.rowDetail, { color: colors.textSecondary }]}>마지막 {shortDate(breakdown.lastAt)}</Text>
+          </View>
         </View>
         <Text style={[styles.rowCount, { color: colors.text }]}>{breakdown.total}회</Text>
         <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
@@ -267,7 +268,7 @@ export default function MyRidesScreen() {
                       <Text
                         style={[styles.filterText, { color: selected ? colors.background : colors.text }]}
                         numberOfLines={1}>
-                        {bike.model} · {bike.rides}
+                        {bike.model} ({bike.rides}회)
                       </Text>
                     </Pressable>
                   );
@@ -294,6 +295,7 @@ export default function MyRidesScreen() {
 }
 
 const styles = StyleSheet.create({
+  metadataRow: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4 },
   center: {
     flex: 1,
     alignItems: 'center',

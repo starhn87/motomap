@@ -65,9 +65,10 @@ export default function NearbyPlaces({ place }: { place: Place }) {
                   {near.name}
                 </Text>
               </View>
-              <Text style={[styles.cardSub, { color: colors.textSecondary }]}>
-                {CATEGORIES[near.category].label} · {formatMeters(haversine(place, near))}
-              </Text>
+              <View style={{ flexDirection: 'row', columnGap: 12, flexWrap: 'wrap' }}>
+                <Text style={[styles.cardSub, { color: colors.textSecondary }]}>{CATEGORIES[near.category].label}</Text>
+                <Text style={[styles.cardSub, { color: colors.textSecondary }]}>{formatMeters(haversine(place, near))}</Text>
+              </View>
             </Pressable>
           ))}
         </View>

@@ -290,7 +290,7 @@ export default function ChatScreen() {
                   </Text>
                   <Text style={[styles.cardSub, { color: colors.textSecondary }]} numberOfLines={1}>
                     {guide.primaryPlaceName}
-                    {guide.distanceKm !== null ? ` · ${guide.distanceKm}km` : ''}
+                    {guide.distanceKm !== null ? ` (${guide.distanceKm}km)` : ''}
                   </Text>
                 </View>
                 <Text style={[styles.cardBadge, { color: colors.tint }]}>라이딩</Text>
@@ -331,9 +331,6 @@ export default function ChatScreen() {
             <BikeIcon size={72} color={colors.tint} />
             <Text style={[styles.welcomeTitle, { color: colors.text }]}>
               어디로 달려볼까요?
-            </Text>
-            <Text style={[styles.welcomeSub, { color: colors.textSecondary }]}>
-              모토맵에 등록된 장소와 라이딩 추천 중에서{'\n'}딱 맞는 곳을 찾아드려요.
             </Text>
             <View style={styles.suggestions}>
               {SUGGESTIONS.map((s) => (

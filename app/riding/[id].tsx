@@ -157,7 +157,7 @@ export default function RidingGuideDetailScreen() {
 
       {guide.regions.length > 0 && (
         <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>
-          {guide.regions.join(' · ')}
+          {guide.regions.join(', ')}
         </Text>
       )}
       <View style={styles.titleRow}>

@@ -77,7 +77,7 @@ export default function OpenBadge({
       </Text>
       {!!note && (
         <Text style={[styles.note, { color: colors.textSecondary }]} numberOfLines={1}>
-          · {note}
+          {note}
         </Text>
       )}
     </View>

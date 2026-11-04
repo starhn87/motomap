@@ -975,7 +975,7 @@ export default function SearchResultsScreen() {
                     </View>
                     <Text
                       style={[styles.rowBadge, { color: CATEGORIES[item.place.category].color }]}>
-                      {isFavorite(item) ? '즐겨찾기 · ' : ''}{CATEGORIES[item.place.category].label}
+                      {isFavorite(item) ? '즐겨찾기 ' : ''}{CATEGORIES[item.place.category].label}
                     </Text>
                   </Pressable>
                 );
@@ -999,7 +999,7 @@ export default function SearchResultsScreen() {
                     {item.guide.summary}
                   </Text>
                   <Text style={[styles.rowMetaText, { color: colors.textSecondary }]}>
-                    {[...item.guide.regions, ...item.guide.tags.slice(0, 2)].join(' · ')}
+                    {[...item.guide.regions, ...item.guide.tags.slice(0, 2)].join(', ')}
                   </Text>
                 </View>
                 <Text style={[styles.rowBadge, { color: colors.tint }]}>라이딩</Text>

@@ -165,7 +165,7 @@ export default function GasStationCard({ station, fuelCode = 'B027', onClose }: 
           if (!cost) return null;
           return (
             <Text style={[styles.tankCost, { color: colors.textSecondary }]}>
-              가득 약 {cost.toLocaleString()}원 · 탱크 {myBike!.tankL}L 기준
+              가득 약 {cost.toLocaleString()}원 ({myBike!.tankL}L 기준)
             </Text>
           );
         })()}
@@ -182,9 +182,9 @@ export default function GasStationCard({ station, fuelCode = 'B027', onClose }: 
             accessibilityState={{ disabled: isFetching, busy: isFetching }}
             disabled={isFetching}
             onPress={() => { void refetch(); }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={[styles.meta, { color: colors.textSecondary, flex: 0, flexShrink: 1 }]} numberOfLines={1}>
-                {detail ? '이전 유가' : '유가 조회 실패'}{' · '}
+                {detail ? '이전 유가' : '유가 조회 실패'}
               </Text>
               <View>
                 <Text accessible={false} style={[styles.meta, { flex: 0, color: colors.tint, opacity: isFetching ? 0 : 1 }]}>다시 시도</Text>

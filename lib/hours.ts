@@ -94,10 +94,10 @@ export function getOpenState(hours: Hours | null | undefined, now = new Date()):
 /** 카드에 한 줄로 띄울 문구. 표시할 게 없으면 null. */
 export function describeOpenState(state: OpenState): { text: string; open: boolean } | null {
   if (state.status === 'unknown') return null;
-  if (state.status === 'open') return { text: `영업중 · ${state.until} 마감`, open: true };
+  if (state.status === 'open') return { text: `영업중 ${state.until} 마감`, open: true };
   if (state.dayOff) return { text: '오늘 휴무', open: false };
   return {
-    text: state.opensAt ? `영업 전 · ${state.opensAt} 오픈` : '영업 종료',
+    text: state.opensAt ? `영업 전 ${state.opensAt} 오픈` : '영업 종료',
     open: false,
   };
 }

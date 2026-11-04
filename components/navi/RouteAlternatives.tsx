@@ -34,7 +34,7 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
   const selected = options.find((option) => option.value === priority);
   const excludedViaCount = selected?.route ? Math.max(0, requestedViaCount - (selected.vias?.length ?? 0) / 2) : 0;
   let viaSummary = '경로를 선택하면 경유지를 확인할 수 있어요.';
-  if (excludedViaCount > 0) viaSummary = `경유지 ${excludedViaCount}개 제외 · 표시된 경유지로 안내해요.`;
+  if (excludedViaCount > 0) viaSummary = `경유지 ${excludedViaCount}개를 제외하고 안내해요.`;
   else if (selected?.route) viaSummary = '지도에 표시된 경유지로 안내해요.';
   else if (selected?.loading) viaSummary = '경유지 포함 여부를 확인 중이에요.';
   else if (selected?.error) viaSummary = '다른 경로를 선택하거나 다시 시도해 주세요.';
@@ -92,7 +92,7 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
                       accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">경유 0개</Text>
                     {option.route && (
                       <Text style={[styles.detail, styles.content, { color }]} numberOfLines={1}>
-                        경유 {viaCount}개{viaCount < requestedViaCount ? ` · ${requestedViaCount - viaCount}개 제외` : ''}
+                        경유 {viaCount}개{viaCount < requestedViaCount ? ` (${requestedViaCount - viaCount}개 제외)` : ''}
                       </Text>
                     )}
                   </View>

@@ -144,7 +144,6 @@ export default function NotificationsList({ active = true }: { active?: boolean 
         <EmptyState
           icon={<Ionicons name="notifications-outline" size={44} color={colors.textSecondary} />}
           title="아직 알림이 없습니다"
-          hint="제보 처리 결과와 새로운 소식을 여기서 알려드려요."
           actionLabel="제보하러 가기"
           onAction={() => router.navigate('/submit')}
         />

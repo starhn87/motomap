@@ -68,13 +68,13 @@ function ReviewPhotoOverlay({ review }: { review: Review }) {
       <View style={styles.photoOverlayHeader}>
         <Text style={styles.photoOverlayName} numberOfLines={1}>
           {review.userName}
-          {review.bikeModel ? `  ·  ${review.bikeModel}` : ''}
         </Text>
         <Text style={styles.photoOverlayStars}>
           {'★'.repeat(review.rating)}
           {'☆'.repeat(Math.max(0, 5 - review.rating))}
         </Text>
       </View>
+      {!!review.bikeModel && <Text style={styles.photoOverlayBike} numberOfLines={1}>{review.bikeModel}</Text>}
       {review.content ? (
         <Text style={styles.photoOverlayContent} numberOfLines={3}>
           {review.content}
@@ -536,6 +536,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  photoOverlayBike: { color: '#D4D4D8', fontSize: 12, marginTop: 4 },
   photoOverlayStars: {
     color: '#FACC15',
     fontSize: 13,

@@ -73,7 +73,9 @@ test('독립 운영시간 행은 실제 영업 상태와 마감 시각을 보여
   const allDay = Object.fromEntries(hours.WEEK.map(day => [day, [{ open: '00:00', close: '24:00' }]]));
   const tree = mod.PlaceHoursToggle({ hours: allDay, expanded: false, onToggle() {} });
   const badge = nodes(tree).find(n => typeof n.type === 'function' && n.props.inlineStart);
-  assert.ok(text(badge.type(badge.props)).includes('영업중 · 24:00 마감'));
+  const status = text(badge.type(badge.props));
+  assert.ok(status.includes('영업중') && status.includes('24:00 마감'));
+  assert.ok(!status.includes('·'));
   const closed = mod.PlaceHoursRow({ businessStatus: 'CLOSED_PERMANENTLY', expanded: false, onToggle() {} });
   assert.ok(closed);
   assert.ok(!nodes(closed).some(n => n.type === 'Pressable'));

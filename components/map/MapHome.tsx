@@ -1073,7 +1073,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             </View>
             <Text numberOfLines={1} style={[styles.gasRefreshText, { color: colors.text }]}>
               {gasFetching ? '검색 중' : gasError
-                ? stations.length ? '이전 유가 · 재시도' : '검색 실패 · 재시도'
+                ? stations.length ? '이전 유가 재시도' : '검색 실패 재시도'
                 : '이 지역 재검색'}
             </Text>
           </Pressable>

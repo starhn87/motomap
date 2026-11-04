@@ -431,11 +431,11 @@ export default function SearchScreen() {
             {near
               ? // 정렬 기준(지도 중심)과 같은 기준으로 — 내 위치 거리를 쓰면
                 // 목록이 뒤죽박죽으로 보인다(정렬은 지도, 숫자는 내 위치였던 버그)
-                `${formatDistance(haversine(near, place) / 1000)} · ${place.address}`
+                `${formatDistance(haversine(near, place) / 1000)}  ${place.address}`
               : place.address}
           </Text>
         </View>
-        <Text style={[styles.rowBadge, { color: cat.color }]}>{isFavorite({ kind: 'place', place }) ? '즐겨찾기 · ' : ''}{cat.label}</Text>
+        <Text style={[styles.rowBadge, { color: cat.color }]}>{isFavorite({ kind: 'place', place }) ? '즐겨찾기 ' : ''}{cat.label}</Text>
       </Pressable>
     );
   };
@@ -675,9 +675,6 @@ export default function SearchScreen() {
             <MaterialCommunityIcons name="robot-outline" size={26} color={colors.tint} />
             <View style={styles.rowInfo}>
               <Text style={[styles.rowName, { color: colors.text }]}>AI에게 추천받기</Text>
-              <Text style={[styles.rowSub, { color: colors.textSecondary }]}>
-                장소와 라이딩 추천을 대화로 골라보세요
-              </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.tint} />
           </Pressable>

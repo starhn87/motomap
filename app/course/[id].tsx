@@ -271,7 +271,7 @@ function LegacyCourseDetailScreen({ id }: { id: string }) {
         {course.sectionFrom && course.sectionTo && (
           <Text style={[styles.sectionLine, { color: colors.textSecondary }]}>
             {course.sectionFrom} → {course.sectionTo}
-            {course.routeName ? ` · ${course.routeName}` : ''}
+            {course.routeName ? `\n${course.routeName}` : ''}
           </Text>
         )}
         {course.description ? (
@@ -370,7 +370,7 @@ function LegacyCourseDetailScreen({ id }: { id: string }) {
                     <View style={styles.hazardBody}>
                       <Text style={[styles.hazardLabel, { color: colors.text }]}>
                         {meta.label}
-                        {hazard.note ? ` · ${hazard.note}` : ''}
+                        {hazard.note ? `\n${hazard.note}` : ''}
                       </Text>
                       <Text style={[styles.hazardMeta, { color: colors.textSecondary }]}>
                         {hazardFreshness(hazard.lastConfirmedAt, hazard.staleness)}
@@ -416,7 +416,7 @@ function LegacyCourseDetailScreen({ id }: { id: string }) {
                       </Text>
                     </View>
                     <Text style={[styles.nearbyCardSub, { color: colors.textSecondary }]}>
-                      {CATEGORIES[place.category].label} · 코스{' '}
+                      {CATEGORIES[place.category].label}{'\n'}코스{' '}
                       {routeFraction < 0.33 ? '초반' : routeFraction < 0.67 ? '중반' : '후반'}
                     </Text>
                   </Pressable>

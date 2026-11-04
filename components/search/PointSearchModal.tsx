@@ -557,7 +557,7 @@ export default function PointSearchModal({
                   )}
                 </View>
                 <Text style={[styles.resultBadge, { color: CATEGORIES[item.place.category].color }]}>
-                  {isFavorite(item) ? '즐겨찾기 · ' : ''}{CATEGORIES[item.place.category].label}
+                  {isFavorite(item) ? '즐겨찾기 ' : ''}{CATEGORIES[item.place.category].label}
                 </Text>
               </Pressable>
             ) : (

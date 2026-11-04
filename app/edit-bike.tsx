@@ -104,8 +104,7 @@ function GarageCard({
   const colors = Colors[colorScheme ?? 'light'];
   const spec = getBikeSpec(bike.model);
   const details = [bike.modelYear ? `${bike.modelYear}년식` : null, bike.color, spec?.category]
-    .filter(Boolean)
-    .join(' · ');
+    .filter(Boolean);
 
   return (
     <View style={[styles.bikeCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -134,7 +133,9 @@ function GarageCard({
             </View>
           )}
         </View>
-        {!!details && <Text style={[styles.bikeDetails, { color: colors.textSecondary }]}>{details}</Text>}
+        {details.length > 0 && <View style={styles.metadataRow}>
+          {details.map((detail, index) => <Text key={index} style={[styles.bikeDetails, { color: colors.textSecondary }]}>{detail}</Text>)}
+        </View>}
         <View style={styles.cardActions}>
           {!bike.isActive && (
             <Pressable
@@ -590,7 +591,10 @@ export default function EditBikeScreen() {
           ]}>
           <View>
             <Text style={[styles.passportLabel, { color: colors.textSecondary }]}>나의 주행 기록</Text>
-            <Text style={[styles.passportValue, { color: colors.text }]}>{rideStats.places}곳 · {rideStats.rides}번 주행</Text>
+            <View style={styles.metadataRow}>
+              <Text style={[styles.passportValue, { color: colors.text }]}>{rideStats.places}곳 방문</Text>
+              <Text style={[styles.passportValue, { color: colors.text }]}>{rideStats.rides}번 주행</Text>
+            </View>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
         </Pressable>
@@ -600,6 +604,7 @@ export default function EditBikeScreen() {
 }
 
 const styles = StyleSheet.create({
+  metadataRow: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4 },
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   errorText: { fontSize: 14 },

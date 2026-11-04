@@ -229,7 +229,6 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
           <EmptyState
             icon={<Ionicons name="location-outline" size={44} color={colors.textSecondary} />}
             title="제보한 장소가 없습니다"
-            hint="라이더들과 나누고 싶은 장소를 알려주세요!"
             actionLabel="제보하러 가기"
             onAction={() => router.navigate('/submit')}
           />
@@ -257,7 +256,6 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
             <Ionicons name="chatbubble-ellipses-outline" size={44} color={colors.textSecondary} />
           }
           title="보낸 건의가 없습니다"
-          hint="불편한 점이나 아이디어를 들려주세요. 답변도 여기서 볼 수 있어요."
           actionLabel="건의하러 가기"
           onAction={() => router.navigate('/submit')}
         />

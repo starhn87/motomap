@@ -69,7 +69,8 @@ test('경유지 결과·실패 안내는 유지하고 크기 예약용 값은 �
       assert.ok(content(tree).includes('60초'));
       assert.ok(content(tree).includes('300m'));
       assert.ok(nodes(tree).some(n => n.props.accessibilityLabel?.includes('60초, 300m')));
-      assert.ok(content(tree).includes('경유 1개 · 1개 제외'));
+      assert.ok(content(tree).includes('경유 1개 (1개 제외)'));
+      assert.ok(!content(tree).includes('·'));
       assert.ok(nodes(tree).some(n => n.props.accessibilityLabel?.includes('도로가 연결되지 않아 경유지 1개를 제외')));
     }
   }
