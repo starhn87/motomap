@@ -18,6 +18,27 @@
 - 네이티브 브리지 계약: **38**
 - 백엔드 API 계약: **1**
 
+## 2026-11-04 TestFlight 전달: 1.2.11(68), 활동 탭·Liquid Glass UI
+
+사용자 승인으로 `b01ee42`까지 main에 푸시하고 커밋된 파일만 clean clone해 production iOS로
+빌드했다. EAS build `e5ef66e3-e164-46d7-8d9e-4e63328f440d`가 `FINISHED`, 앱/런타임1.2.11,
+build68·production 채널·native38/API1·소스 커밋 일치를 확인했다. 아카이브는41.1MB이며
+로컬 생성 iOS 프로젝트·무관한 미추적 파일은 포함하지 않았다.
+
+활동 탭의 제보·리뷰·알림과 스와이프 삭제/숨기기, 테마 즉시 반영, 공용 regular Glass 조작부,
+지도 하단 UI를 고정하는 루트 시트 레이어, 다크 카테고리 차콜 색상이 포함된다
+(NOTIFY-003/004, INTERACTION-021~023, MAP-064). 제출 전509개 테스트·타입/릴리스 검사와
+최종 코드 리뷰를 통과했고, 소스 커밋의 GitHub CI도 성공했다. 로컬 실기기 확인 범위는 각
+도메인 기록을 따른다. expo-blur native 모듈을 포함한 전체 UI 후보를 전달하는 새 바이너리다.
+
+EAS submission `d19bf6dc-b910-4ae0-bc5b-0aa9af7d325d`는 **App Store Connect 업로드 성공**으로
+끝났다. 확인 시점은 Apple 처리 단계이며 TestFlight 설치 가능 상태나 심사 제출을 확인한 것은
+아니다. App Store 심사·판매 변경·OTA 발행은 하지 않았다.
+
+첫 제출은 `--what-to-test`의 changelog 등록이 EAS Enterprise 전용이라 예약 전에 실패했다.
+같은 빌드를 재빌드하지 않고 해당 옵션 없이 제출해 성공했다. 이 환경에서는 테스트 메모 옵션을
+무조건 붙이지 않는다. 필요한 메모는 App Store Connect 로그인 후 별도로 등록한다.
+
 ## 2026-11-04 후속 후보 — 즉시 테마 전환·상단 Glass·지도 루트 오버레이
 
 INTERACTION-021의 탭 테마 상속 수정은 실기기 재시작 없는 전환과 사용자 확인을 통과했고
