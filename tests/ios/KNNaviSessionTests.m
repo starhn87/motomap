@@ -4,6 +4,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <objc/runtime.h>
 #import "KNNaviArrivalRecovery.h"
+#import "KNNaviArrivalPrompt.h"
 #import "KNNaviPresenter.h"
 #import "KNSDKBridge.h"
 #import "KNNaviRouteView.h"
@@ -29,6 +30,9 @@
 - (BOOL)canRefreshFooterPosition;
 - (void)refreshFooterPosition;
 - (void)pauseFooterPosition;
+- (void)pauseForInactive;
+- (void)cancelArrivalPrompt;
+- (void)considerArrivalPromptWithGPS:(KNGPSData *)gps;
 - (void)requestFooterPosition:(void (^)(CLLocation *))completion;
 - (void)requestManualPosition:(void (^)(CLLocation *))completion;
 - (void)lookupRegionAt:(IntPoint)point completion:(void (^)(NSString *))completion;
@@ -106,6 +110,7 @@
 @end
 @implementation PreviewTripProbe @end
 @interface PreviewGuidanceProbe : NSObject
+@property(nonatomic) KNGuideState guideState;
 @property(nonatomic, strong) PreviewTripProbe *trip;
 @property(nonatomic) NSUInteger refreshCalls;
 @property(nonatomic, strong) LocationGuideProbe *locationGuide;
@@ -131,6 +136,19 @@
 - (void)viewDidAppear:(BOOL)animated {}
 - (void)viewWillDisappear:(BOOL)animated {}
 - (void)dismissViewControllerAnimated:(BOOL)animated completion:(void (^)(void))completion { if (completion) completion(); }
+@end
+
+@interface ArrivalControllerProbe : SessionControllerProbe
+@property(nonatomic) NSUInteger promptPresentations;
+@property(nonatomic) NSUInteger finishCalls;
+@property(nonatomic, strong) UIViewController *capturedPrompt;
+@end
+@implementation ArrivalControllerProbe
+- (void)presentViewController:(UIViewController *)controller animated:(BOOL)animated completion:(void (^)(void))completion {
+  self.capturedPrompt = controller; self.promptPresentations++;
+  if (completion) completion();
+}
+- (void)finish { self.finishCalls++; [self setValue:@YES forKey:@"finished"]; }
 @end
 
 // 재안내의 실제 GPS 선택 경계만 대역으로 바꾸고 SDK 네트워크 요청은 하지 않는다.
@@ -290,6 +308,38 @@ int RunKNNaviSessionTests(void) {
     if (arrivalEvents!=1) { NSLog(@"FAIL held guidance arrival was not recorded exactly once"); failures++; }
   } else { NSLog(@"FAIL held guidance has no arrival event before dismissal"); failures++; }
   [arrivalController setValue:@YES forKey:@"finished"]; [arrivalController updateBottomPanel];
+  // SDK의 실제 종료만 프롬프트를 예약한다. 300m 기록·합성 안전운행 종료는 제외한다.
+  ArrivalControllerProbe *promptController = [ArrivalControllerProbe new];
+  promptController.naviView = (id)[SessionViewProbe new];
+  [promptController setValue:arrivalTrip forKey:@"trip"];
+  [promptController setValue:arrivalGuide forKey:@"guidance"];
+  UIWindow *promptWindow = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+  promptWindow.rootViewController = promptController; promptWindow.hidden = NO;
+  [promptController loadViewIfNeeded];
+  arrivalGuide.guideState = KNGuideState_OnSafetyGuide;
+  arrivalGPS.posTrust = YES;
+  [promptController guidanceGuideEnded:nil];
+  [promptController considerArrivalPromptWithGPS:(id)arrivalGPS];
+  if (promptController.promptPresentations) { NSLog(@"FAIL synthetic guide end opened arrival prompt"); failures++; }
+  arrivalGPS.posTrust = NO;
+  [promptController guidanceGuideEnded:(id)arrivalGuide];
+  if (promptController.promptPresentations) { NSLog(@"FAIL untrusted GPS opened arrival prompt"); failures++; }
+  arrivalGPS.posTrust = YES;
+  [promptController considerArrivalPromptWithGPS:(id)arrivalGPS];
+  [promptController guidanceGuideEnded:(id)arrivalGuide];
+  if (promptController.promptPresentations != 1) { NSLog(@"FAIL real arrival did not open exactly one prompt"); failures++; }
+  void (^lateYes)(BOOL) = [promptController.capturedPrompt valueForKey:@"onChoice"];
+  [promptController pauseForInactive];
+  if ([promptController valueForKey:@"arrivalPrompt"]) { NSLog(@"FAIL inactive arrival prompt retained"); failures++; }
+  lateYes(YES);
+  if (promptController.finishCalls) { NSLog(@"FAIL stale arrival yes ended guide after cancellation"); failures++; }
+  [promptController setValue:@NO forKey:@"arrivalPromptShown"];
+  [promptController guidanceGuideEnded:(id)arrivalGuide];
+  void (^yesChoice)(BOOL) = [promptController.capturedPrompt valueForKey:@"onChoice"];
+  yesChoice(YES);
+  if (promptController.finishCalls != 1) { NSLog(@"FAIL explicit arrival yes did not end guide"); failures++; }
+  [promptController cancelArrivalPrompt];
+  promptWindow.hidden = YES; promptWindow.rootViewController = nil;
   // 실제 미리보기 진입 분기: GPS가 없어도 목적지 편집을 열고 새 좌표는 비워둔다.
   [KNSDKBridge setLocationUseAllowed:YES];
   KNPOI *goal = [[KNPOI alloc] initWithName:@"목적지" x:300000 y:400000];

@@ -3,6 +3,7 @@
 #import "KNSDKBridge.h"
 #import "KNNaviAudioFocus.h"
 #import "KNNaviArrivalRecovery.h"
+#import "KNNaviArrivalPrompt.h"
 #import "KNNaviRouteView.h"
 #import "KNNaviBottomPanel.h"
 #import "KNNaviHiddenViews.h"
@@ -397,6 +398,10 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, assign) BOOL previewNoticed;
 @property(nonatomic, assign) BOOL finished;
 @property(nonatomic, strong) KNNaviArrivalRecovery *arrivalRecovery;
+@property(nonatomic, strong) KNNaviArrivalPrompt *arrivalPrompt;
+@property(nonatomic) BOOL arrivalPromptShown;
+@property(nonatomic) BOOL arrivalPromptPending;
+@property(nonatomic) NSUInteger arrivalPromptGeneration;
 @property(nonatomic, strong) UIStackView *arrivalBanner;
 @property(nonatomic, strong) UILabel *arrivalLabel;
 @property(nonatomic, strong) UIButton *arrivalRetryButton;
@@ -428,7 +433,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)viewDidLoad {
   [super viewDidLoad];
   if (![KNSDKBridge isLocationUseAllowed]) { [self finish]; return; }
-  [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(pauseFooterPosition)
+  [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(pauseForInactive)
       name:UIApplicationWillResignActiveNotification object:nil];
   [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(refreshFooterPosition)
       name:UIApplicationDidBecomeActiveNotification object:nil];
@@ -841,6 +846,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)dealloc {
+  [self.arrivalPrompt invalidate];
   [NSNotificationCenter.defaultCenter removeObserver:self];
   [self.footerPositionTimer invalidate];
   [self.footerPositionRequest cancel];
@@ -1036,8 +1042,11 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (self.suspended && self.changingDestination && !self.resumeCommitting) {
     [self.naviView guidanceGuideStarted:aGuidance]; return;
   }
+  [self cancelArrivalPrompt];
   self.resumeCommitting = NO;
   if (self.changingDestination && self.pendingDestinationTrip) {
+    [self cancelArrivalPrompt];
+    self.arrivalPromptShown = NO;
     [self.gasLayer resetSearch];
     self.arrivalEmitted = NO;
     self.trip = self.pendingDestinationTrip;
@@ -1146,6 +1155,46 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self emitArrivalIfNear:gps];
   [self showArrivalUIWithMessage:@"목적지 주변입니다.\n지나치면 복귀 경로를 안내합니다."];
   [self applyCarTheme];
+  // 안전운행 화면 차단에서 사용하는 합성 콜백(nil)은 도착 판정이 아니다.
+  if (aGuidance && !self.changingDestination) self.arrivalPromptPending = YES;
+  [self considerArrivalPromptWithGPS:gps];
+}
+
+- (KNNaviArrivalPrompt *)detachArrivalPrompt {
+  self.arrivalPromptGeneration++;
+  self.arrivalPromptPending = NO;
+  KNNaviArrivalPrompt *prompt = self.arrivalPrompt;
+  self.arrivalPrompt = nil;
+  [prompt invalidate];
+  return prompt;
+}
+
+- (void)cancelArrivalPrompt {
+  KNNaviArrivalPrompt *prompt = [self detachArrivalPrompt];
+  [prompt cancel];
+}
+
+- (void)considerArrivalPromptWithGPS:(KNGPSData *)gps {
+  if (!self.arrivalPromptPending || self.arrivalPromptShown || self.arrivalPrompt ||
+      self.finished || self.preview || self.suspended || self.changingDestination ||
+      !self.arrivalRecovery.waiting || ![KNSDKBridge isLocationUseAllowed] ||
+      UIApplication.sharedApplication.applicationState != UIApplicationStateActive ||
+      !self.viewIfLoaded.window || self.presentedViewController || self.isBeingDismissed || self.isBeingPresented) return;
+  double distance = [self distanceToDestinationWithGPS:gps];
+  // SDK 안내 종료가 먼저 발생한 경우에만, 신선하고 신뢰할 수 있는 목적지 주변 위치로 확인한다.
+  if (!isfinite(distance) || distance > 300) return;
+  self.arrivalPromptPending = NO;
+  self.arrivalPromptShown = YES;
+  NSUInteger generation = self.arrivalPromptGeneration;
+  __weak typeof(self) weakSelf = self;
+  KNNaviArrivalPrompt *prompt = [[KNNaviArrivalPrompt alloc] initWithCompletion:^(BOOL endGuide) {
+    KNNaviViewController *controller = weakSelf;
+    if (!controller || generation != controller.arrivalPromptGeneration) return;
+    controller.arrivalPrompt = nil;
+    if (endGuide && !controller.finished && !controller.suspended && !controller.changingDestination) [controller finish];
+  }];
+  self.arrivalPrompt = prompt;
+  [self presentViewController:prompt animated:YES completion:nil];
 }
 
 - (BOOL)usableRecoveryGPS:(KNGPSData *)gps {
@@ -1397,6 +1446,11 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.regionRequestGeneration++; self.regionRequestInFlight = NO;
 }
 
+- (void)pauseForInactive {
+  [self cancelArrivalPrompt];
+  [self pauseFooterPosition];
+}
+
 - (void)requestFooterPosition:(void (^)(CLLocation *))completion {
   self.footerPositionRequest = [KNNaviManualPositionRequest new];
   [self.footerPositionRequest start:completion];
@@ -1470,6 +1524,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (!self.preview) [self.gasLayer updateGPS:aLocationGuide.gpsOrigin];
   [self updateBottomPanel];
   if (self.arrivalRecovery.waiting) [self emitArrivalIfNear:aLocationGuide.gpsOrigin];
+  [self considerArrivalPromptWithGPS:aLocationGuide.gpsOrigin];
   if (self.arrivalRecovery.waiting && !self.preview && !self.suspended && !self.changingDestination && [self usableRecoveryGPS:aLocationGuide.gpsOrigin]) {
     double distance = [self distanceToDestinationWithGPS:aLocationGuide.gpsOrigin];
     if ([self.arrivalRecovery shouldRecoverAtDistance:distance time:NSDate.timeIntervalSinceReferenceDate]) {
@@ -1527,9 +1582,32 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self.audioFocus endVoice:aVoiceGuide];
 }
 
+- (void)dismissGuideWithCompletion:(void (^)(void))completion {
+  UIViewController *child = self.presentedViewController;
+  if (child.isBeingDismissed) {
+    // 선택·만료로 이미 닫히는 모달은 전환 완료를 기다려 중복 dismiss를 피한다.
+    id<UIViewControllerTransitionCoordinator> transition = child.transitionCoordinator ?: self.transitionCoordinator;
+    __weak typeof(self) weakSelf = self;
+    if (transition && [transition animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+      [weakSelf dismissGuideWithCompletion:completion];
+    }]) return;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+      [weakSelf dismissGuideWithCompletion:completion];
+    });
+    return;
+  }
+  if (child) {
+    [child dismissViewControllerAnimated:NO completion:^{ [self dismissGuideWithCompletion:completion]; }];
+  } else {
+    [self dismissViewControllerAnimated:YES completion:completion];
+  }
+}
+
 - (void)finish {
   if (self.finished) return;
   self.finished = YES;
+  // 모달 해제는 아래 기존 종료 체인에서 한 번만 실행한다.
+  [self detachArrivalPrompt];
   [self pauseFooterPosition];
   [self.footerPositionTimer invalidate]; self.footerPositionTimer = nil;
   [self.manualPositionRequest cancel]; self.manualPositionRequest = nil;
@@ -1561,11 +1639,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.onDismiss = nil;
   if (done != nil) done();
   KNNaviHazardSheet *sheet = self.hazardSheet; self.hazardSheet = nil;
-  if (sheet) [sheet cancelForNavigationEnd:^{ [self dismissViewControllerAnimated:YES completion:nil]; }];
-  else if (self.presentedViewController) [self dismissViewControllerAnimated:NO completion:^{
-    [self dismissViewControllerAnimated:YES completion:nil];
-  }];
-  else [self dismissViewControllerAnimated:YES completion:nil];
+  if (sheet) [sheet cancelForNavigationEnd:^{ [self dismissGuideWithCompletion:nil]; }];
+  else [self dismissGuideWithCompletion:nil];
 }
 
 @end
@@ -1743,13 +1818,14 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   }
   vc.previewRemainingVias = [remainingPoints copy];
   vc.previewPassedVias = passedPoints;
+  [vc detachArrivalPrompt];
   [vc pauseFooterPosition];
   vc.suspended = YES; vc.previewToken = ++gPreviewToken;
   vc.routeRequestGeneration++; [vc.arrivalRecovery requestFailed];
   gSuspendedNavi = vc;
   NSDictionary *snapshot = @{@"token":@(vc.previewToken), @"start":startPoint,
       @"goal":[self pointSnapshot:vc.trip.goal], @"vias":remainingPoints, @"passedVias":passedPoints, @"priority":@(vc.priority)};
-  [vc dismissViewControllerAnimated:YES completion:^{ completion(snapshot,nil); }];
+  [vc dismissGuideWithCompletion:^{ completion(snapshot,nil); }];
 }
 
 + (void)returnToGuide:(NSInteger)token completion:(void (^)(BOOL))completion {
@@ -1986,6 +2062,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     }
 
     NSUInteger generation = ++navi.routeRequestGeneration;
+    [navi cancelArrivalPrompt];
     [navi.arrivalRecovery requestFailed];
 
     // 출발점은 현 위치 — SDK 가 KATEC 으로 들고 있어 변환이 필요 없다

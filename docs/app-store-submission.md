@@ -1,3 +1,11 @@
+## 2026-11-04 최신 후속 후보 — 도착 확인(native39)
+
+현재 후보는 app/runtime1.2.11·native39/API1이다. NAV-063의 예/아니오 도착 확인과10초 무응답
+안내 유지, SEARCH-025 검색 Glass, INTERACTION-026 미리보기 일반 X, NOTIFY-005 스크롤 필터를
+포함한다. 사용자 요청 범위는 main 푸시·production 빌드·TestFlight 업로드까지다. App Store 심사나
+공개 판매는 진행하지 않는다. 실제 도착 시점·주행 중 가독성은 새 TestFlight 확인 대상이다.
+아래 과거 후보와 완료 기록은 각 시점의 사실로 보존한다.
+
 ## 2026-11-04 현재 소스 후보 — 활동·지도/검색/설정 Glass
 
 후속 INTERACTION-015/NOTIFY-004: 탭은 지도/제보/활동/내 정보이며 활동은 종/숫자 없는 점이다.
