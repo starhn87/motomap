@@ -28,7 +28,6 @@ import Skeleton, { SkeletonContainer } from '@/components/ui/Skeleton';
 import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
 import { useContentHeaderInset } from '@/components/navigation/headerInset';
 import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
-import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
 import SwipeDeleteRow from './SwipeDeleteRow';
 import { useActivityDismissals, useDismissSubmission } from '@/hooks/useActivityActions';
 
@@ -38,10 +37,9 @@ const FEEDBACK_LABEL: Record<FeedbackType, string> = {
   general: '기타 의견',
 };
 
-function SubmissionSkeletonList({ segmentHeight = 52 }: { segmentHeight?: number }) {
-  const headerInset = useContentHeaderInset();
+function SubmissionSkeletonList() {
   return (
-    <View style={[styles.list, { paddingTop: headerInset + segmentHeight + 16 }]}>
+    <View style={{ gap: 12 }}>
       {Array.from({ length: 5 }).map((_, i) => (
         <SkeletonContainer key={i}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -63,7 +61,6 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
   const user = useAuthStore((s) => s.user);
   const bottomInset = useTabOcclusion();
   const [tab, setTab] = useState<'places' | 'feedback'>('places');
-  const [segmentHeight, setSegmentHeight] = useState(52);
   const headerInset = useContentHeaderInset();
   const dismissals = useActivityDismissals(active);
   const dismissal = useDismissSubmission();
@@ -210,133 +207,107 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
   const failed = (tab === 'places' ? isError : feedbackError) || dismissals.isError;
   const retry = () => { void dismissals.refetch(); return tab === 'places' ? refetch() : refetchFeedback(); };
   const hasItems = dismissals.isError && !dismissals.data ? 0 : (tab === 'places' ? places : feedback)?.length;
-  const listStyle = [styles.list, { paddingTop: headerInset + segmentHeight + 16, paddingBottom: 16 + bottomInset }];
+  const listStyle = [styles.list, { paddingTop: headerInset + 8, paddingBottom: 16 + bottomInset, flexGrow: 1 }];
+  const filterHeader = (
+    <View style={styles.filterHeader}>
+      <View style={styles.filterRow}>
+        {([
+          ['places', '장소'],
+          ['feedback', '건의'],
+        ] as const).map(([key, label]) => {
+          const selected = tab === key;
+          return (
+            <Pressable
+              key={key}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              hitSlop={4}
+              onPress={() => setTab(key)}
+              style={({ pressed }) => [styles.filterChip, {
+                backgroundColor: selected ? colors.tint : colors.surfaceMuted,
+                borderColor: selected ? colors.tint : colors.border,
+                opacity: pressed ? 0.7 : 1,
+              }]}>
+              <Text style={[styles.filterLabel, { color: selected ? colors.background : colors.text }]}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {failed && !!hasItems && <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+        새로 불러오지 못해 이전 목록을 보여줘요.
+      </Text>}
+    </View>
+  );
+  const emptyContent = showLoading ? (
+    <SubmissionSkeletonList />
+  ) : failed && !hasItems ? (
+    <EmptyState title="제보 목록을 불러오지 못했어요" hint="연결 상태를 확인하고 다시 시도해 주세요."
+      actionLabel="다시 시도" onAction={() => { void retry(); }} />
+  ) : tab === 'places' ? (
+    <EmptyState
+      icon={<Ionicons name="location-outline" size={44} color={colors.textSecondary} />}
+      title="제보한 장소가 없습니다"
+      actionLabel="제보하러 가기"
+      onAction={() => router.navigate('/submit')}
+    />
+  ) : (
+    <EmptyState
+      icon={<Ionicons name="chatbubble-ellipses-outline" size={44} color={colors.textSecondary} />}
+      title="보낸 건의가 없습니다"
+      actionLabel="건의하러 가기"
+      onAction={() => router.navigate('/submit')}
+    />
+  );
+  const hideRows = showLoading || (failed && !hasItems);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-
-
-      {failed && !!hasItems && <Text style={{ color: colors.textSecondary, paddingHorizontal: 16, marginTop: 8, fontSize: 13 }}>
-        새로 불러오지 못해 이전 목록을 보여줘요.
-      </Text>}
-      {showLoading ? (
-        <SubmissionSkeletonList segmentHeight={segmentHeight} />
-      ) : failed && !hasItems ? (
-        <EmptyState title="제보 목록을 불러오지 못했어요" hint="연결 상태를 확인하고 다시 시도해 주세요."
-          actionLabel="다시 시도" onAction={() => { void retry(); }} />
-      ) : tab === 'places' ? (
-        !places?.length ? (
-          <EmptyState
-            icon={<Ionicons name="location-outline" size={44} color={colors.textSecondary} />}
-            title="제보한 장소가 없습니다"
-            actionLabel="제보하러 가기"
-            onAction={() => router.navigate('/submit')}
-          />
-        ) : (
-          <FlatList
-            key="places"
-            onScroll={trackHeaderScroll} scrollEventThrottle={16}
-            data={places}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            contentContainerStyle={listStyle}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefetching}
-                onRefresh={refetch}
-                tintColor={colors.tint}
-              />
-            }
-          />
-        )
-      ) : !feedback?.length ? (
-        <EmptyState
-          icon={
-            <Ionicons name="chatbubble-ellipses-outline" size={44} color={colors.textSecondary} />
-          }
-          title="보낸 건의가 없습니다"
-          actionLabel="건의하러 가기"
-          onAction={() => router.navigate('/submit')}
+      {tab === 'places' ? (
+        <FlatList
+          key="places"
+          onScroll={trackHeaderScroll} scrollEventThrottle={16}
+          data={hideRows ? [] : places ?? []}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          ListHeaderComponent={filterHeader}
+          ListEmptyComponent={emptyContent}
+          contentContainerStyle={listStyle}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.tint} />}
         />
       ) : (
         <FlatList
           key="feedback"
           onScroll={trackHeaderScroll} scrollEventThrottle={16}
-          data={feedback}
+          data={hideRows ? [] : feedback ?? []}
           keyExtractor={(item) => item.id}
           renderItem={renderFeedback}
+          ListHeaderComponent={filterHeader}
+          ListEmptyComponent={emptyContent}
           contentContainerStyle={listStyle}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={feedbackRefetching}
-              onRefresh={refetchFeedback}
-              tintColor={colors.tint}
-            />
-          }
+          refreshControl={<RefreshControl refreshing={feedbackRefetching} onRefresh={refetchFeedback} tintColor={colors.tint} />}
         />
       )}
-      <View style={[styles.segmentRow, { top: headerInset }]} onLayout={event => setSegmentHeight(event.nativeEvent.layout.height)}><HeaderBackdrop />
-        {(
-          [
-            ['places', '장소'],
-            ['feedback', '건의'],
-          ] as const
-        ).map(([key, label]) => {
-          const active = tab === key;
-          return (
-            <Pressable
-              key={key}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-              onPress={() => setTab(key)}
-              style={({ pressed }) => [
-                styles.segment,
-                {
-                  backgroundColor: active ? colors.tint : colors.surfaceMuted,
-                  borderColor: active ? colors.tint : colors.border,
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}>
-              <Text
-                style={[
-                  styles.segmentLabel,
-                  { color: active ? colors.background : colors.text },
-                ]}>
-                {label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  segmentRow: {
-    position: 'absolute', left: 0, right: 0, zIndex: 5, overflow: 'hidden',
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 4,
-  },
-  segment: {
-    flex: 1,
-    minHeight: 44,
+  filterHeader: { gap: 12, marginBottom: 4 },
+  filterRow: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
+  filterChip: {
+    minHeight: 36,
+    minWidth: 64,
     justifyContent: 'center',
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
   },
-  segmentLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
+  filterLabel: { fontSize: 13, fontWeight: '600' },
   list: { padding: 16, gap: 12 },
   card: { padding: 16, borderRadius: 14, borderWidth: 1 },
   cardHeader: {

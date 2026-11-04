@@ -5,7 +5,8 @@ import { loadModule } from './helpers/loadModule';
 type Element = { type: any; props: any; key?: string };
 const jsx = (type: any, props: any, key?: string) => ({ type, props, key });
 const exported = (value: any) => ({ __esModule: true, default: value });
-const nodes = (node: any): Element[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
+const nodes = (node: any): Element[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node,
+  ...nodes(node.props.children), ...nodes(node.props.ListHeaderComponent), ...nodes(node.props.ListEmptyComponent)] : [];
 const colors = { text: 'black', tint: 'black', textSecondary: 'gray', background: 'white', surface: 'surface', surfaceElevated: 'white', border: 'gray', surfaceMuted: 'muted' };
 const native = { View: 'View', Text: 'Text', FlatList: 'List', Pressable: 'Button', RefreshControl: 'Refresh', ActivityIndicator: 'Spinner', StyleSheet: { create: (s: any) => s, hairlineWidth: 0.5 } };
 
@@ -163,6 +164,10 @@ test('내 제보는 선택한 종류만 조회하고 사용자별 키·숨김 �
   const render = (active: boolean) => { configs = []; return state.render(() => module.default({ active })); };
   let tree = render(true);
   assert.deepEqual(configs.map(config => config.enabled), [true, false]);
+  const list = nodes(tree).find(node => node.type === 'List')!;
+  assert.ok(list.props.ListHeaderComponent, '분류 필터는 목록과 함께 스크롤되는 헤더다');
+  assert.equal(list.props.stickyHeaderIndices, undefined);
+  assert.equal(list.props.ListHeaderComponent.props.style.position, undefined);
   assert.ok(configs.every(config => config.queryKey[1] === 'actor-a'));
   assert.equal(nodes(tree).some(node => node.type === 'Button' && node.props.children?.props?.children === '라이딩'), false);
   const feedback = nodes(tree).find(node => node.type === 'Button' && node.props.children?.props?.children === '건의')!;
