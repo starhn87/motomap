@@ -20,6 +20,8 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
   const [agreed, setAgreed] = useState<Partial<Record<LegalDocType, boolean>>>({});
   const [providers, setProviders] = useState<LocationRecipient[]>(() => state.version === LOCATION_CONSENT_VERSION
     ? state.providers.filter(p => p !== 'naver') : LOCATION_PROVIDERS.filter(p => p !== 'tmap'));
+  const [historyAllowed, setHistoryAllowed] = useState(() => state.historyAllowed);
+  const [providersExpanded, setProvidersExpanded] = useState(false);
   const [viewing, setViewing] = useState<LegalDocType | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,8 +36,8 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
     const session = useAuthStore.getState().session;
     try {
       if (actor !== (useAuthStore.getState().session?.user.id ?? null)) throw new Error('계정이 변경됐어요. 다시 확인해 주세요.');
-      // 최초 저장 선택은 꺼둔다. 이미 선택한 이용자의 기록 설정은 그대로 보존한다.
-      await state.consent(true, true, state.historyAllowed, providers);
+      // 저장은 별도 선택이다. 전달 범위만 편집할 때는 기존 기록 선택을 유지한다.
+      await state.consent(true, true, showProvidersInline ? state.historyAllowed : historyAllowed && !!actor, providers);
       if (actor !== (useAuthStore.getState().session?.user.id ?? null)) throw new Error('계정이 변경됐어요. 다시 확인해 주세요.');
       if (needsLegal) {
         if (!session || session.user.id !== actor) throw new Error('로그인 상태를 다시 확인해 주세요.');
@@ -90,8 +92,26 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
         <Pressable accessibilityRole="button" accessibilityLabel={`${LEGAL_DOCS[type].title} 보기`}
           style={styles.viewLink} onPress={() => setViewing(type)}><Text style={styles.link}>보기</Text></Pressable>
       </View>)}
-      {showProvidersInline ? providerChoices : <Text style={styles.body}>현재 위치는 네이버 지도와 카카오 길안내·날씨·유가·AI 추천에 사용될 수 있어요.
-        {'\n'}위치 동의의 자세히 보기에서 전달 범위를 선택할 수 있어요. 방문 기록 저장은 설정에서 따로 켤 수 있어요.</Text>}
+      {showProvidersInline ? providerChoices : <>
+        <Text style={styles.body}>현재 위치는 네이버 지도에 표시하고 선택한 기능에 사용해요.{'\n'}
+          {providers.length ? `위치 전달: ${providers.map(provider => RECIPIENT_LABELS[provider]).join(', ')}` : '외부로 위치를 전달하지 않아요.'}
+        </Text>
+        <Pressable accessibilityRole="checkbox" accessibilityLabel="방문·주행 기록 저장 (선택)"
+          accessibilityState={{ checked: historyAllowed, disabled: loading || !state.actor }}
+          disabled={loading || !state.actor} style={styles.agreement}
+          onPress={() => setHistoryAllowed(old => !old)}>
+          <View style={[styles.checkbox, historyAllowed && styles.checked]}>{historyAllowed && <Text style={styles.checkmark}>✓</Text>}</View>
+          <Text style={styles.label}>방문·주행 기록 저장 (선택)</Text>
+        </Pressable>
+        <Text style={styles.body}>{state.actor ? '방문한 장소와 주행 기록을 저장해요. 선택하지 않아도 길안내를 이용할 수 있어요.' : '기록 저장은 로그인 후 선택할 수 있어요.'}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="기능별 위치 전달 선택"
+          accessibilityState={{ expanded: providersExpanded, disabled: loading }} disabled={loading}
+          style={styles.scopeButton} onPress={() => setProvidersExpanded(old => !old)}>
+          <Text style={styles.link}>기능별 위치 전달 선택</Text>
+          <Text style={styles.link}>{providersExpanded ? '접기' : '보기'}</Text>
+        </Pressable>
+        {providersExpanded && providerChoices}
+      </>}
       <Pressable accessibilityRole="button" accessibilityLabel={submitLabel} disabled={!accepted || loading}
         accessibilityState={{ disabled: !accepted || loading, busy: loading }}
         onPress={() => void accept()} style={({ pressed }) => [styles.button, (!accepted || loading || pressed) && styles.dimmed]}>
@@ -125,6 +145,7 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#0A0A0A' }, content: { padding: 24, paddingBottom: 40, gap: 18 },
   title: { color: '#F5F5F2', fontWeight: '700', fontSize: 25, lineHeight: 34 }, body: { color: '#C4C5C8', fontSize: 14, lineHeight: 22 },
+  scopeButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 }, agreement: { flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12 },
   checkbox: { width: 24, height: 24, borderWidth: 1.5, borderColor: '#8E8E93', borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   checked: { backgroundColor: '#F5F5F2', borderColor: '#F5F5F2' }, checkmark: { color: '#0A0A0A', fontSize: 17, fontWeight: '700' },
