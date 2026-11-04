@@ -18,6 +18,28 @@
 - 네이티브 브리지 계약: **41**
 - 백엔드 API 계약: **1**
 
+## 2026-11-05 TestFlight 업로드: 1.2.11(71), native41 UI 후속
+
+사용자 승인으로 설정 제목을 `테마` 하나로 정리하고 앱 정보의 버전을 첫 행에 배치했다.
+앞서 확인한 native41 UI·초기 동의 선택·햅틱 제거·낙관삭제 애니메이션·헤더 구분선 제거와 함께
+source `4e35c584a996c6949cd45dbcc471d34798deb68d`를 main에 푸시했다.
+532개 테스트·타입/릴리스/diff 검사·코드 리뷰와 main GitHub checks가 통과했다.
+
+커밋된 소스만 clean clone한 EAS production iOS build
+`6eb6a895-965b-45a7-b894-0e385d5ec382`가 FINISHED다. IPA에서도 com.ridemap.app,
+앱1.2.11(71)·runtime1.2.11·production 채널을 확인했다. native41/API1이며 IPA는80.6MiB다.
+로컬 개발용 앱 디렉터리 크기나 App Store의 최종 다운로드 크기와 혼동하지 않는다.
+
+EAS submission `311c0820-77d2-4350-9d61-95d26c7160e2`는 IN_QUEUE에 장시간 머물렀다.
+기존 ASC 인증으로71번 빌드 미존재를 조회하고, 공식 submit:cancel 후 CANCELED를 확인했다.
+Apple 미존재를 다시 확인한 뒤 같은 IPA를 공식 altool로 업로드했다.
+2026-11-05 00:02 KST `UPLOAD SUCCEEDED with no errors`, delivery
+`8a4d8812-2368-4844-bc10-27c73879636c`를 확인했다. 기존 EAS 등록 인증만 재사용했고 새 키나
+권한을 만들지 않았다. 임시0600 개인 키는 전용0700 디렉터리에서 사용한 뒤 삭제했다.
+
+이 기록은 Apple 업로드 성공이며 처리 완료·TestFlight 설치 가능 상태까지 확인했다는 뜻은
+아니다. App Store 심사·판매 변경·공개 OTA·DB 변경·전체 알림은 하지 않았다.
+
 ## 2026-11-04 native41 후속 검증·TestFlight 전달 승인
 
 운영자가 설정의 `사용 환경`/`테마`를 다른 섹션 제목과 같은 색의 `테마` 하나로 정리하고,
