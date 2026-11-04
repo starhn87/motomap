@@ -1,0 +1,2 @@
+# Unified diff context retains upstream spaces and tab indentation.
+patches/*.patch whitespace=-blank-at-eol,-space-before-tab
