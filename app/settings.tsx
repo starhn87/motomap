@@ -227,8 +227,7 @@ export default function SettingsScreen() {
       onScroll={trackHeaderScroll} scrollEventThrottle={16}
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 44 + 16, paddingBottom: insets.bottom + 32 }]}>
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 0 }]}>사용 환경</Text>
-      <Text style={[styles.environmentLabel, { color: colors.text }]}>테마</Text>
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 0 }]}>테마</Text>
       <View style={styles.themeRow}>
         {nativeUI ? <NativeChoiceControl label="테마" presentation="segmented" value={mode} onChange={setMode}
           options={[{ value: 'system', label: '시스템' }, { value: 'light', label: '라이트' }, { value: 'dark', label: '다크' }]} /> : <>
@@ -251,12 +250,11 @@ export default function SettingsScreen() {
         앱 정보
       </Text>
       {nativeUI ? <NativeSettingsGroup rows={[
-        { key: 'font-license', label: '서체 라이선스', onPress: () => router.push('/font-license' as any), chevron: true },
         { key: 'version', label: '버전', value: current + (hasUpdate ? ' 업데이트 있음' : ''),
           onPress: hasUpdate ? openStore : undefined, chevron: hasUpdate },
+        { key: 'font-license', label: '서체 라이선스', onPress: () => router.push('/font-license' as any), chevron: true },
         ...(user ? [{ key: 'blocked-users', label: '차단 관리', onPress: () => router.push('/blocked-users' as any), chevron: true }] : []),
       ]} /> : <>
-      <Pressable onPress={() => router.push('/font-license' as any)} style={[styles.linkButton, { backgroundColor: colors.surface, borderColor: colors.border }]}><Text style={[styles.linkText, { color: colors.text }]}>서체 라이선스</Text><Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text></Pressable>
       <View
         style={[
           styles.infoCard,
@@ -284,6 +282,7 @@ export default function SettingsScreen() {
           </View>
         </Pressable>
       </View>
+      <Pressable onPress={() => router.push('/font-license' as any)} style={[styles.linkButton, { backgroundColor: colors.surface, borderColor: colors.border }]}><Text style={[styles.linkText, { color: colors.text }]}>서체 라이선스</Text><Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text></Pressable>
 
       {user && (
         <Pressable
@@ -395,10 +394,6 @@ const styles = StyleSheet.create({
   themeRow: {
     flexDirection: 'row',
     gap: 8,
-  },
-  environmentLabel: {
-    fontSize: 14,
-    fontWeight: '600',
   },
   themeOption: {
     flex: 1,
