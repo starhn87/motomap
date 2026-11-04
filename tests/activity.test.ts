@@ -27,7 +27,7 @@ function hooks() {
   };
 }
 
-test('활동은 로그인 전 개인 목록을 만들지 않고 방문한 세 목록만 보존하며 계정 키를 분리한다', () => {
+for (const nativeEnabled of [false, true]) test(`활동은 로그인·방문·포커스 경계를 지킨다 (native=${nativeEnabled})`, () => {
   let user: any = null, focused = true;
   const state = hooks();
   const module = loadModule<any>('components/activity/ActivityScreen.tsx', {
@@ -35,6 +35,7 @@ test('활동은 로그인 전 개인 목록을 만들지 않고 방문한 세 �
     '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
     '@/components/ui/HeaderBackdrop': exported('Backdrop'),
+    '@/lib/nativeUI': { nativeUI: nativeEnabled ? {} : null }, '@/components/ui/NativeChoiceControl': exported('NativeChoice'),
     './SwipeDeleteRow': exported('SwipeDelete'),
     '@/hooks/useActivityActions': { useActivityDismissals: () => ({ data: [], refetch() {} }), useDismissSubmission: () => ({ mutate() {} }), useDeleteActivityNotification: () => ({ mutate() {} }), useDeleteActivityReview: () => ({ mutate() {} }) },
     'expo-router': { useIsFocused: () => focused },
@@ -49,7 +50,13 @@ test('활동은 로그인 전 개인 목록을 만들지 않고 방문한 세 �
   let tree = render();
   assert.equal(nodes(tree).some(node => node.type === 'Submissions'), true);
   assert.equal(nodes(tree).some(node => node.type === 'Notifications'), false, '숨긴 알림 사전 마운트 금지');
-  const select = (label: string) => nodes(tree).find(node => node.type === 'Button' && node.props.accessibilityLabel.startsWith(label))!.props.onPress();
+  const select = (label: string) => {
+    if (nativeEnabled) {
+      const control = nodes(tree).find(node => node.type === 'NativeChoice')!;
+      const key = control.props.options.find((option: any) => option.label.startsWith(label)).value;
+      control.props.onChange(key);
+    } else nodes(tree).find(node => node.type === 'Button' && node.props.accessibilityLabel.startsWith(label))!.props.onPress();
+  };
   select('리뷰'); tree = render();
   assert.equal(nodes(tree).find(node => node.type === 'Submissions')?.props.active, false);
   assert.equal(nodes(tree).find(node => node.type === 'Reviews')?.props.active, true);
@@ -74,6 +81,7 @@ function notificationFixture() {
     '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
     '@/components/ui/HeaderBackdrop': exported('Backdrop'),
+    '@/lib/nativeUI': { nativeUI: null }, '@/components/ui/NativeChoiceControl': exported('NativeChoice'),
     './SwipeDeleteRow': exported('SwipeDelete'),
     '@/hooks/useActivityActions': { useActivityDismissals: () => ({ data: [], refetch() {} }), useDismissSubmission: () => ({ mutate() {} }), useDeleteActivityNotification: () => ({ mutate() {} }), useDeleteActivityReview: () => ({ mutate() {} }) },
     '@expo/vector-icons/MaterialCommunityIcons': exported('Icon'), '@expo/vector-icons/Ionicons': exported('Icon'),
@@ -122,6 +130,7 @@ test('리뷰 목록은 사용자별 키·페이지 연결을 유지하고 숨긴
     '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
     '@/components/ui/HeaderBackdrop': exported('Backdrop'),
+    '@/lib/nativeUI': { nativeUI: null }, '@/components/ui/NativeChoiceControl': exported('NativeChoice'),
     './SwipeDeleteRow': exported('SwipeDelete'),
     '@/hooks/useActivityActions': { useActivityDismissals: () => ({ data: [], refetch() {} }), useDismissSubmission: () => ({ mutate() {} }), useDeleteActivityNotification: () => ({ mutate() {} }), useDeleteActivityReview: () => ({ mutate() {} }) }, '@expo/vector-icons/Ionicons': exported('Icon'),
     '@tanstack/react-query': { useInfiniteQuery: (options: any) => { config = options; return { data: { pages: [[{ id: 'r1' }], [{ id: 'r2' }]] }, refetch() {}, fetchNextPage: () => fetches++, hasNextPage: true }; } },
@@ -152,6 +161,7 @@ test('내 제보 전체는 최신순으로 합치고 드롭다운 분류·계정
     '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
     '@/components/ui/HeaderBackdrop': exported('Backdrop'),
+    '@/lib/nativeUI': { nativeUI: null }, '@/components/ui/NativeChoiceControl': exported('NativeChoice'),
     './SwipeDeleteRow': exported('SwipeDelete'),
     './SubmissionFilterMenu': exported('FilterMenu'),
     '@/hooks/useActivityActions': { useActivityDismissals: () => ({ data: hidden, refetch() {} }), useDismissSubmission: () => ({ mutate() {} }), useDeleteActivityNotification: () => ({ mutate() {} }), useDeleteActivityReview: () => ({ mutate() {} }) },

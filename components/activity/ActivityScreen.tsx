@@ -12,6 +12,8 @@ import LoginPrompt from '@/components/auth/LoginPrompt';
 import MySubmissionsList from './MySubmissionsList';
 import MyReviewsList from './MyReviewsList';
 import NotificationsList from './NotificationsList';
+import { nativeUI } from '@/lib/nativeUI';
+import NativeChoiceControl from '@/components/ui/NativeChoiceControl';
 
 type Section = 'submissions' | 'reviews' | 'notifications';
 const SECTIONS: { key: Section; label: string; Content: typeof MyReviewsList }[] = [
@@ -27,7 +29,11 @@ function ActivityContent() {
   const unread = useUnreadCount();
   const [section, setSection] = useState<Section>('submissions');
   const [visited, setVisited] = useState<Section[]>(['submissions']);
-  const [sectionHeight, setSectionHeight] = useState(44);
+  const [sectionHeight, setSectionHeight] = useState(nativeUI ? 48 : 44);
+  const selectSection = (key: Section) => {
+    setSection(key);
+    setVisited(current => current.includes(key) ? current : [...current, key]);
+  };
   return <View style={[styles.container, { backgroundColor: colors.background }]}>
     {SECTIONS.filter(item => visited.includes(item.key)).map(({ key, Content }) => (
       <View key={key} style={{ flex: 1, display: section === key ? 'flex' : 'none' }}
@@ -40,13 +46,15 @@ function ActivityContent() {
     <View accessibilityRole="tablist" style={[styles.sections, { top: headerInset }]}
       onLayout={event => setSectionHeight(event.nativeEvent.layout.height)}>
       <HeaderBackdrop />
-      {SECTIONS.map(item => <Pressable key={item.key} accessibilityRole="tab"
+      {nativeUI ? <View style={styles.nativeSections}>
+        <NativeChoiceControl label="활동 종류" presentation="segmented" value={section} onChange={selectSection} enabled={focused}
+          options={SECTIONS.map(item => ({ value: item.key,
+            label: item.label + (item.key === 'notifications' && unread > 0 ? ` ${unread > 9 ? '9+' : unread}` : ''),
+            accessibilityLabel: item.key === 'notifications' && unread > 0 ? `알림, 읽지 않은 알림 ${unread}개` : item.label }))} />
+      </View> : SECTIONS.map(item => <Pressable key={item.key} accessibilityRole="tab"
         accessibilityState={{ selected: section === item.key }}
         accessibilityLabel={item.key === 'notifications' && unread > 0 ? `알림, 읽지 않은 알림 ${unread}개` : item.label}
-        onPress={() => {
-          setSection(item.key);
-          setVisited(current => current.includes(item.key) ? current : [...current, item.key]);
-        }}
+        onPress={() => selectSection(item.key)}
         style={({ pressed }) => [styles.section, { borderBottomColor: section === item.key ? colors.text : 'transparent', opacity: pressed ? 0.7 : 1 }]}>
         <Text style={[styles.label, { color: section === item.key ? colors.text : colors.textSecondary }]}>
           {item.label}{item.key === 'notifications' && unread > 0 ? ` ${unread > 9 ? '9+' : unread}` : ''}
@@ -67,5 +75,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   sections: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', zIndex: 5, overflow: 'hidden' },
   section: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 2 },
+  nativeSections: { flex: 1, paddingHorizontal: 16, paddingBottom: 4 },
   label: { fontSize: 15, fontWeight: '600' },
 });

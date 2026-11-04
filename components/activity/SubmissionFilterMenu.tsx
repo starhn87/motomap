@@ -4,6 +4,8 @@ import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import { nativeUI } from '@/lib/nativeUI';
+import NativeChoiceControl from '@/components/ui/NativeChoiceControl';
 
 const FILTERS = [
   { value: 'all', label: '전체' },
@@ -43,6 +45,9 @@ export default function SubmissionFilterMenu({ value, onChange, active }: {
       });
     });
   };
+
+  if (nativeUI && active) return <NativeChoiceControl value={value} options={FILTERS} label="제보 종류"
+    presentation="menu" onChange={onChange} enabled={active} />;
 
   return <>
     <Pressable ref={trigger} collapsable={false} onPress={open}

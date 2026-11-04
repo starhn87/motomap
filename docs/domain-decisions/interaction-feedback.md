@@ -739,3 +739,32 @@ Hallmark audit의2·3·4번을 사용자가 승인했다. 내 바이크 사진�
 뒤로가기·검색 취소·사진 모달 X 등 다른 상단 조작부의 regular Glass 정책은 유지한다.
 코스 X의 onLayout은 실제 배치 좌표를 측정해 지도 padding으로 전달한다. 안쪽 상대좌표로
 옮겨서 지도 가용 높이를 깨뜨리는 회귀를 반복하지 않는다.
+
+
+## INTERACTION-027 — iOS의 짧은 선택·설정 행은 기능 확인 후 SwiftUI를 사용한다
+
+- 날짜: 2026-11-04
+- 상태: 로컬 소스 후보 / 새 빌드·기기 QA 전
+- 관련: `lib/nativeUI.ts`, `NativeChoiceControl.tsx`, `NativeSettingsGroup.tsx`, `app/settings.tsx`
+
+사용자가 네이티브 UI 전환을 승인했다. Expo UI의 menu Picker로 내 제보 필터를, segmented
+Picker로 활동3분류와 시스템/라이트/다크 선택을 표시한다. 선택값은 기존 React 상태/스토어가
+소유하며 유효한 실제 변경만 전달한다. 초기 동일 값·알 수 없는 tag·비활성 이벤트는 무시한다.
+Host는 앱 colorScheme을 직접 받아 테마 변경을 즉시 반영하며 key remount로 상태를 비우지 않는다.
+
+설정의 로그인 연결·버전·차단·약관·계정 행은 SwiftUI HStack/Button/Text/ProgressView로
+묶는다. 바깥 RN ScrollView·Glass 헤더/스크롤 흐림은 유지한다. 전체 Form/List를 중첩하면 독립
+스크롤·콘텐츠 높이·상단 인셋의 계약을 바꾸므로 이번에는 가변 높이 행만 Host한다.
+이 구현을 시스템 Form/List 전체 화면으로 표현하지 않는다. 최소44pt와 큰 글자에 따른 자연스러운
+높이를 허용하며 초기 Host 측정 전에도 실제 존재하는 행/분류의 최소 슬롯을 둔다.
+VoiceOver에서 행의 텍스트를 묶고 장식용 체크/화살표는 따로 읽지 않는다.
+
+로그인 수단은 기존 연결 상태 조회/연결 함수와 연결 중 잠금을 사용한다. 연결된 수단은 표시만,
+미연결 수단은 행으로 연결한다. 최신 버전에는 스토어 버튼을 만들지 않으며 업데이트가 있을 때만
+기존 openStore를 호출한다. 회원 탈퇴의 기존2단계 앱 확인은 그대로다. 햅틱 Switch·공유창·지도/
+날씨/위험 시트·공통 DialogHost·기존 Glass 뒤로가기와 헤더를 추가 전환하지 않는다.
+
+지원은 iOS+native40+`native_ui_controls`+ExpoUI 모듈로 확인한다. optional 확인 전에는
+SwiftUI JS의 requireNativeView를 평가하지 않아 이전 빌드에서 앱 시작 오류를 만들지 않는다.
+Android/기존 바이너리 폴백은 기존 UI이며 SDK 자체 업그레이드나 운영시간 입력 복원은 하지 않는다.
+검증은 순수 JS/번들 단계와 실제 새 네이티브 화면 검증을 분리해 기록한다.

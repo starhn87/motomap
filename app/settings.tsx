@@ -29,6 +29,9 @@ import { friendlySocialAuthError } from '@/lib/socialAuthError';
 import type { SocialLoginProvider } from '@/lib/socialAuth';
 import { useHapticsStore } from '@/stores/useHapticsStore';
 import { haptics } from '@/lib/haptics';
+import { nativeUI } from '@/lib/nativeUI';
+import NativeChoiceControl from '@/components/ui/NativeChoiceControl';
+import NativeSettingsGroup from '@/components/ui/NativeSettingsGroup';
 
 type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -116,6 +119,16 @@ function LoginMethods({ initialProviders }: { initialProviders: string[] }) {
   const methods = Platform.OS === 'ios'
     ? LOGIN_METHODS
     : LOGIN_METHODS.filter((method) => method.provider !== 'apple');
+
+  if (nativeUI) return <NativeSettingsGroup rows={[
+    ...(identities.has('email') ? [{ key: 'email', label: '이메일', value: '연결됨', connected: true }] : []),
+    ...methods.map(method => {
+      const connected = identities.has(method.identity);
+      return { key: method.provider, label: method.label, value: connected ? '연결됨' : '연결', connected,
+        onPress: connected ? undefined : () => { void handleLink(method.provider); },
+        disabled: linking !== null, loading: linking === method.provider };
+    }),
+  ]} />;
 
   return (
     <View style={[styles.loginMethodsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -229,9 +242,12 @@ export default function SettingsScreen() {
       <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 0 }]}>사용 환경</Text>
       <Text style={[styles.environmentLabel, { color: colors.text }]}>테마</Text>
       <View style={styles.themeRow}>
+        {nativeUI ? <NativeChoiceControl label="테마" presentation="segmented" value={mode} onChange={setMode}
+          options={[{ value: 'system', label: '시스템' }, { value: 'light', label: '라이트' }, { value: 'dark', label: '다크' }]} /> : <>
         <ThemeOption label="시스템" value="system" current={mode} onPress={setMode} />
         <ThemeOption label="라이트" value="light" current={mode} onPress={setMode} />
         <ThemeOption label="다크" value="dark" current={mode} onPress={setMode} />
+        </>}
       </View>
 
       <View
@@ -264,6 +280,11 @@ export default function SettingsScreen() {
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
         앱 정보
       </Text>
+      {nativeUI ? <NativeSettingsGroup rows={[
+        { key: 'version', label: '버전', value: current + (hasUpdate ? ' 업데이트 있음' : ''),
+          onPress: hasUpdate ? openStore : undefined, chevron: hasUpdate },
+        ...(user ? [{ key: 'blocked-users', label: '차단 관리', onPress: () => router.push('/blocked-users' as any), chevron: true }] : []),
+      ]} /> : <>
       <View
         style={[
           styles.infoCard,
@@ -306,10 +327,17 @@ export default function SettingsScreen() {
           <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
         </Pressable>
       )}
+      </>}
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
         약관 및 정책
       </Text>
+      {nativeUI ? <NativeSettingsGroup rows={[
+        { key: 'location-privacy', label: '위치정보 동의·기록 관리', onPress: () => router.push('/location-privacy' as any), chevron: true },
+        { key: 'terms', label: '서비스 이용약관', onPress: () => router.push('/legal/terms' as any), chevron: true },
+        { key: 'privacy', label: '개인정보 처리방침', onPress: () => router.push('/legal/privacy' as any), chevron: true },
+        { key: 'location', label: '위치기반 서비스 이용약관', onPress: () => router.push('/legal/location' as any), chevron: true },
+      ]} /> : <>
       <Pressable accessibilityRole="button" onPress={() => router.push('/location-privacy' as any)}
         style={[styles.linkButton,{ backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={[styles.linkText,{ color: colors.text }]}>위치정보 동의·기록 관리</Text>
@@ -351,13 +379,16 @@ export default function SettingsScreen() {
         <Text style={[styles.linkText, { color: colors.text }]}>위치기반 서비스 이용약관</Text>
         <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
       </Pressable>
+      </>}
 
       {user && (
         <>
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             계정
           </Text>
-          <Pressable
+          {nativeUI ? <NativeSettingsGroup rows={[
+            { key: 'delete-account', label: '회원 탈퇴', onPress: handleDeleteAccount, destructive: true },
+          ]} /> : <Pressable
             onPress={handleDeleteAccount}
             style={[
               styles.linkButton,
@@ -368,7 +399,7 @@ export default function SettingsScreen() {
             ]}>
             <Text style={[styles.linkText, { color: semantic.danger }]}>회원 탈퇴</Text>
             <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
-          </Pressable>
+          </Pressable>}
         </>
       )}
     </ScrollView>
