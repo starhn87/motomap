@@ -1,4 +1,5 @@
-import { Image, Linking, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 
 const PRIVACY_URL = 'https://motomap.kr/privacy';
 const SUPPORT_EMAIL_URL =

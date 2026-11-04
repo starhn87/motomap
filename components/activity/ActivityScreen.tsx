@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { startTransition, useState } from 'react';
 import { useIsFocused } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -9,9 +10,9 @@ import { HeaderInsetContext, useContentHeaderInset } from '@/components/navigati
 import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
 import { useUnreadCount } from '@/hooks/useNotifications';
 import LoginPrompt from '@/components/auth/LoginPrompt';
-import MySubmissionsList from './MySubmissionsList';
-import MyReviewsList from './MyReviewsList';
-import NotificationsList from './NotificationsList';
+import MySubmissionsList, { SubmissionSkeletonList } from './MySubmissionsList';
+import MyReviewsList, { ReviewSkeletonList } from './MyReviewsList';
+import NotificationsList, { NotificationSkeletonList } from './NotificationsList';
 import { nativeUI } from '@/lib/nativeUI';
 import NativeChoiceControl from '@/components/ui/NativeChoiceControl';
 
@@ -32,9 +33,12 @@ function ActivityContent() {
   const [sectionHeight, setSectionHeight] = useState(nativeUI ? 48 : 44);
   const selectSection = (key: Section) => {
     setSection(key);
-    setVisited(current => current.includes(key) ? current : [...current, key]);
+    startTransition(() => setVisited(current => current.includes(key) ? current : [...current, key]));
   };
   return <View style={[styles.container, { backgroundColor: colors.background }]}>
+    {!visited.includes(section) && <HeaderInsetContext.Provider value={headerInset + sectionHeight}>
+      {section === 'reviews' ? <ReviewSkeletonList /> : section === 'notifications' ? <NotificationSkeletonList /> : <SubmissionSkeletonList />}
+    </HeaderInsetContext.Provider>}
     {SECTIONS.filter(item => visited.includes(item.key)).map(({ key, Content }) => (
       <View key={key} style={{ flex: 1, display: section === key ? 'flex' : 'none' }}
         accessibilityElementsHidden={section !== key} importantForAccessibility={section === key ? 'auto' : 'no-hide-descendants'}>

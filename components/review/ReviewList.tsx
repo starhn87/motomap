@@ -1,13 +1,14 @@
+import { APP_FONT_STYLE } from '@/lib/typography';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import BikeIcon from '@/components/ui/BikeIcon';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { Image as RNImage } from 'expo-image';
 import { TouchableOpacity } from 'react-native-gesture-handler';
@@ -342,6 +343,7 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
                 <StarRating rating={editRating} onRate={setEditRating} size={24} />
                 <BottomSheetTextInput
                   style={[
+                    APP_FONT_STYLE,
                     styles.editInput,
                     {
                       backgroundColor: colors.surfaceElevated,

@@ -3,13 +3,12 @@ import GlassButton from '@/components/ui/GlassButton';
 import {
   Modal,
   View,
-  Text,
-  TextInput,
   FlatList,
   Pressable,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 

@@ -5,9 +5,9 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 
 import RiderShareCard from '@/components/profile/RiderShareCard';
 import CategoryIcon from '@/components/ui/CategoryIcon';

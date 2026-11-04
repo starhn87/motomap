@@ -33,6 +33,7 @@ function fixture(options: { needsLegal?: boolean; showProvidersInline?: boolean;
     '@/stores/useAuthStore':{useAuthStore:{getState:()=>({session:{access_token:`test-token-${actor}`,user:{id:actor}},refreshOnboardingStatus:async()=>{calls.push('refresh');},signOut:async()=>{}})}},
   };
   new Script(code).runInNewContext({module,exports:module.exports,require:(name:string)=>{
+    if (name === '@/components/ui/AppText') return dependencies['react-native'];
     if(!(name in dependencies)) throw new Error(`미지정 약관 UI 의존성: ${name}`); return dependencies[name];
   }});
   return {render:()=>{cursor=0;return module.exports.default({needsLegal:options.needsLegal ?? true,showProvidersInline:options.showProvidersInline ?? false});},

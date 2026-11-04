@@ -35,6 +35,7 @@ function weatherButton() {
     '@/components/weather/WeatherEmoji': 'WeatherEmoji',
   };
   new Script(code).runInNewContext({ module, exports: module.exports, require: (name: string) => {
+    if (name === '@/components/ui/AppText') return dependencies['react-native'];
     if (!(name in dependencies)) throw new Error(`미지정 날씨 버튼 의존성: ${name}`);
     return dependencies[name];
   } });

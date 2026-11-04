@@ -1,3 +1,4 @@
+#import "KNNaviTypography.h"
 #import "KNNaviGasLayer.h"
 #import <KNSDK/KNSDK.h>
 #import <math.h>
@@ -67,7 +68,7 @@
 - (UIButton *)button:(NSString *)title action:(SEL)action {
   UIButton *button=[UIButton buttonWithType:UIButtonTypeCustom];
   [button setTitle:title forState:UIControlStateNormal]; [button setTitleColor:UIColor.labelColor forState:UIControlStateNormal];
-  button.titleLabel.font=[UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
+  button.titleLabel.font=MMPreferredAppFont(UIFontTextStyleHeadline);
   button.titleLabel.adjustsFontForContentSizeCategory=YES;
   button.backgroundColor=[self surface:0.94 dark:0.10]; button.layer.cornerRadius=12;
   [button.heightAnchor constraintGreaterThanOrEqualToConstant:48].active=YES;
@@ -88,7 +89,7 @@
   [header addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(dragged:)]];
   UIView *handle=[UIView new]; handle.backgroundColor=UIColor.systemGray3Color; handle.layer.cornerRadius=2;
   handle.translatesAutoresizingMaskIntoConstraints=NO; [header addSubview:handle];
-  UILabel *title=[UILabel new]; title.text=@"주유소"; title.font=[UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
+  UILabel *title=[UILabel new]; title.text=@"주유소"; title.font=MMPreferredAppFont(UIFontTextStyleHeadline);
   title.adjustsFontForContentSizeCategory=YES; title.accessibilityTraits=UIAccessibilityTraitHeader;
   self.backButton=[self button:@"닫기" action:@selector(back)];
   self.refreshButton=[self button:@"새로고침" action:@selector(refresh)];
@@ -111,7 +112,7 @@
   self.sort=[[UISegmentedControl alloc] initWithItems:@[@"거리순",@"가격 낮은 순"]];
   self.sort.accessibilityIdentifier=@"gas-sort"; self.sort.selectedSegmentIndex=0;
   [self.sort addTarget:self action:@selector(changeSort:) forControlEvents:UIControlEventValueChanged];
-  self.status=[UILabel new]; self.status.font=[UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+  self.status=[UILabel new]; self.status.font=MMPreferredAppFont(UIFontTextStyleFootnote);
   self.status.adjustsFontForContentSizeCategory=YES; self.status.textColor=UIColor.secondaryLabelColor; self.status.numberOfLines=0;
   self.table=[[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
   self.table.backgroundColor=UIColor.clearColor; self.table.separatorStyle=UITableViewCellSeparatorStyleNone;
@@ -185,7 +186,7 @@
   NSDictionary *station=self.station ?: self.owner.stations[indexPath.row];
   cell.backgroundColor=UIColor.clearColor; cell.selectionStyle=UITableViewCellSelectionStyleNone;
   UIListContentConfiguration *config=[UIListContentConfiguration subtitleCellConfiguration];
-  config.text=station[@"name"]; config.textProperties.font=[UIFont preferredFontForTextStyle:UIFontTextStyleHeadline]; config.textProperties.numberOfLines=2;
+  config.text=station[@"name"]; config.textProperties.font=MMPreferredAppFont(UIFontTextStyleHeadline); config.textProperties.numberOfLines=2;
   config.secondaryText=[NSString stringWithFormat:@"%@  ·  %@원/L  ·  %.1fkm",station[@"brand"],
     [NSNumberFormatter localizedStringFromNumber:station[@"price"] numberStyle:NSNumberFormatterDecimalStyle],[station[@"distance"] doubleValue]/1000];
   config.secondaryTextProperties.numberOfLines=0; config.directionalLayoutMargins=NSDirectionalEdgeInsetsMake(16,12,16,12); cell.contentConfiguration=config;

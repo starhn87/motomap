@@ -3,11 +3,11 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   StyleSheet,
   View,
-  Text,
   Pressable,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { router } from 'expo-router';

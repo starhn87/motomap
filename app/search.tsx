@@ -4,8 +4,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import CloseIcon from '@/components/ui/CloseIcon';
 import {
   View,
-  Text,
-  TextInput,
   Pressable,
   StyleSheet,
   ScrollView,
@@ -14,6 +12,7 @@ import {
   Keyboard,
   InteractionManager,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

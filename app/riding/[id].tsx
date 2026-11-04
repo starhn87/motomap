@@ -5,9 +5,9 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { Image } from 'expo-image';
 import { useEffect, useRef } from 'react';
 import { useLocalSearchParams } from 'expo-router';

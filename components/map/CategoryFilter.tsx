@@ -1,5 +1,6 @@
 import CategoryIcon from '@/components/ui/CategoryIcon';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,

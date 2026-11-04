@@ -5,13 +5,13 @@ import {
   AppState,
   StyleSheet,
   View,
-  Text,
   Pressable,
   Keyboard,
   ActivityIndicator,
   useWindowDimensions,
   type PressableStateCallbackType,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { memo, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { NaverMapView, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';

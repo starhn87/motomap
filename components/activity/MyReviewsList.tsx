@@ -2,12 +2,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   StyleSheet,
   View,
-  Text,
   FlatList,
   ActivityIndicator,
   Pressable,
   RefreshControl,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import EmptyState from '@/components/ui/EmptyState';
@@ -25,8 +25,9 @@ import { useContentHeaderInset } from '@/components/navigation/headerInset';
 import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 import SwipeDeleteRow from './SwipeDeleteRow';
 import { useDeleteActivityReview } from '@/hooks/useActivityActions';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
-function ReviewSkeletonList() {
+export function ReviewSkeletonList() {
   const headerInset = useContentHeaderInset();
   return (
     <View style={[styles.list, { paddingTop: headerInset + 16 }]}>
@@ -57,7 +58,6 @@ export default function MyReviewsList({ active = true }: { active?: boolean }) {
     isLoading,
     isError,
     refetch,
-    isRefetching,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -71,6 +71,7 @@ export default function MyReviewsList({ active = true }: { active?: boolean }) {
       last.length === MY_REVIEWS_PAGE_SIZE ? all.length : undefined,
   });
   const reviews = data?.pages.flat();
+  const pull = usePullToRefresh(refetch, user?.id);
   const trackHeaderScroll = useTrackHeaderScroll(active, { hasContent: !!reviews?.length });
 
   // 탭하면 지도의 해당 장소 시트가 펼쳐지고 이 리뷰로 스크롤·강조된다
@@ -138,6 +139,7 @@ export default function MyReviewsList({ active = true }: { active?: boolean }) {
         />
       ) : (
         <FlatList
+          contentInsetAdjustmentBehavior="never" automaticallyAdjustContentInsets={false}
           onScroll={trackHeaderScroll} scrollEventThrottle={16}
           data={reviews}
           ListHeaderComponent={isError ? <Text style={{ color: colors.textSecondary }}>새로 불러오지 못해 이전 리뷰를 보여줘요.</Text> : null}
@@ -148,8 +150,8 @@ export default function MyReviewsList({ active = true }: { active?: boolean }) {
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={refetch}
+              refreshing={pull.refreshing}
+              onRefresh={pull.onRefresh}
               tintColor={colors.tint}
             />
           }

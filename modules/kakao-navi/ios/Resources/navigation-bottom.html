@@ -213,11 +213,14 @@ License: Apache-2.0 (Pictogrammers Free License, icons).
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src 'self'">
   <style>
     :root { color-scheme: light dark; --bg: #fff; --floating-bg: rgba(255,255,255,.8); --bar-bg: #fafafa; --toast-bg: #18181b; --ink: #18181b; --muted: #71717a; --line: #e4e4e7; --brand: #18181b; --on-brand: #fff; --volume-blue: #1268fa; --track: #e4e4e7; --safe: 0px; --route-inactive: #b8bbc0; }
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, sans-serif; -webkit-user-select: none; user-select: none; }
+    @font-face { font-family: 'Pretendard'; src: url('Pretendard-Regular.woff2') format('woff2'); font-weight: 100 499; font-display: swap; }
+    @font-face { font-family: 'Pretendard'; src: url('Pretendard-SemiBold.woff2') format('woff2'); font-weight: 500 699; font-display: swap; }
+    @font-face { font-family: 'Pretendard'; src: url('Pretendard-Bold.woff2') format('woff2'); font-weight: 700 900; font-display: swap; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; color: var(--ink); font-family: Pretendard, -apple-system, BlinkMacSystemFont, sans-serif; -webkit-user-select: none; user-select: none; }
     button, input { font: inherit; }
     button { border: 0; background: none; color: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     button:active { background: #71717a18; }

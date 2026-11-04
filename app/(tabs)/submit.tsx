@@ -1,9 +1,9 @@
+import { nativeUI } from '@/lib/nativeUI';
+import NativeChoiceControl from '@/components/ui/NativeChoiceControl';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   StyleSheet,
   View,
-  Text,
-  TextInput,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
@@ -11,6 +11,7 @@ import {
   Keyboard,
   ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 import { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 
@@ -386,9 +387,14 @@ function SubmitScreen() {
       </HeaderInsetContext.Provider>
       <View style={[styles.tabRow, { top: headerInset }]} onLayout={event => setTabHeight(event.nativeEvent.layout.height)}>
         <HeaderBackdrop />
+        {nativeUI ? <View style={{ flex: 1 }}><NativeChoiceControl label="제보 종류" presentation="segmented"
+          value={submitType} onChange={setSubmitType} options={[
+            { value: 'place', label: '장소' }, { value: 'hazard', label: '위험' }, { value: 'feedback', label: '건의' },
+          ]} /></View> : <>
         <SubmitTypeTab type="place" current={submitType} onPress={setSubmitType} />
         <SubmitTypeTab type="hazard" current={submitType} onPress={setSubmitType} />
         <SubmitTypeTab type="feedback" current={submitType} onPress={setSubmitType} />
+        </>}
       </View>
     </View>
   );

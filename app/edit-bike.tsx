@@ -12,10 +12,9 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 import { useQueryClient } from '@tanstack/react-query';
 
 import BikeIcon from '@/components/ui/BikeIcon';

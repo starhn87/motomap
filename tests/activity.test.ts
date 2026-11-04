@@ -14,14 +14,18 @@ function hooks() {
   let cursor = 0;
   const states: any[] = [], effectDeps: any[] = [], callbacks: any[] = [], refs: any[] = [];
   let queued: (() => any)[] = [], focusCallback: unknown;
+  let deferred = false; const transitions: (() => void)[] = [];
   const equal = (a: any[], b: any[]) => a && b && a.length === b.length && a.every((value, i) => Object.is(value, b[i]));
   return {
     react: {
+      startTransition: (fn: () => void) => deferred ? transitions.push(fn) : fn(),
       useState: (initial: any) => { const i = cursor++; if (!(i in states)) states[i] = initial; return [states[i], (value: any) => { states[i] = typeof value === 'function' ? value(states[i]) : value; }]; },
       useRef: (initial: any) => { const i = cursor++; return refs[i] ??= { current: initial }; },
       useCallback: (fn: any, deps: any[]) => { const i = cursor++; if (!equal(callbacks[i]?.deps, deps)) callbacks[i] = { fn, deps }; return callbacks[i].fn; },
       useEffect: (fn: () => any, deps: any[]) => { const i = cursor++; if (!equal(effectDeps[i], deps)) { queued.push(fn); effectDeps[i] = deps; } },
     },
+    deferTransitions() { deferred = true; },
+    flushTransitions() { transitions.splice(0).forEach(fn => fn()); },
     focusEffect: (fn: () => void) => { if (fn !== focusCallback) { queued.push(fn); focusCallback = fn; } },
     render<T>(fn: () => T): T { cursor = 0; const tree = fn(); const effects = queued; queued = []; effects.forEach(effect => effect()); return tree; },
   };
@@ -31,6 +35,7 @@ for (const nativeEnabled of [false, true]) test(`활동은 로그인·방문·�
   let user: any = null, focused = true;
   const state = hooks();
   const module = loadModule<any>('components/activity/ActivityScreen.tsx', {
+    '@/hooks/usePullToRefresh': { usePullToRefresh: (refresh: any) => ({ refreshing: false, onRefresh: refresh }) },
     react: state.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
     '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
@@ -41,7 +46,7 @@ for (const nativeEnabled of [false, true]) test(`활동은 로그인·방문·�
     'expo-router': { useIsFocused: () => focused },
     '@/constants/Colors': exported({ light: colors }), '@/components/useColorScheme': { useColorScheme: () => 'light' },
     '@/stores/useAuthStore': { useAuthStore: (select: any) => select({ user }) }, '@/hooks/useNotifications': { useUnreadCount: () => 2 },
-    '@/components/auth/LoginPrompt': exported('Login'), './MySubmissionsList': exported('Submissions'), './MyReviewsList': exported('Reviews'), './NotificationsList': exported('Notifications'),
+    '@/components/auth/LoginPrompt': exported('Login'), './MySubmissionsList': { ...exported('Submissions'), SubmissionSkeletonList: 'SubmissionSkeleton' }, './MyReviewsList': { ...exported('Reviews'), ReviewSkeletonList: 'ReviewSkeleton' }, './NotificationsList': { ...exported('Notifications'), NotificationSkeletonList: 'NotificationSkeleton' },
   });
   assert.equal(module.default().type, 'Login');
   user = { id: 'actor-a' };
@@ -57,10 +62,14 @@ for (const nativeEnabled of [false, true]) test(`활동은 로그인·방문·�
       control.props.onChange(key);
     } else nodes(tree).find(node => node.type === 'Button' && node.props.accessibilityLabel.startsWith(label))!.props.onPress();
   };
+  state.deferTransitions();
   select('리뷰'); tree = render();
+  assert.equal(nodes(tree).some(node => node.type === 'ReviewSkeleton'), true, '첫 목록 준비보다 선택·스켈레톤을 먼저 반영한다');
+  assert.equal(nodes(tree).some(node => node.type === 'Reviews'), false);
+  state.flushTransitions(); tree = render();
   assert.equal(nodes(tree).find(node => node.type === 'Submissions')?.props.active, false);
   assert.equal(nodes(tree).find(node => node.type === 'Reviews')?.props.active, true);
-  select('알림'); tree = render();
+  select('알림'); state.flushTransitions(); tree = render();
   assert.equal(nodes(tree).find(node => node.type === 'Notifications')?.props.active, true);
   assert.equal(nodes(tree).find(node => node.type === 'Reviews')?.props.active, false);
   assert.equal(nodes(tree).filter(node => ['Submissions', 'Reviews', 'Notifications'].includes(node.type)).length, 3);
@@ -77,6 +86,7 @@ function notificationFixture() {
   const query = { data: [{ id: 'n1', type: 'place_approved', title: '승인', body: '반영', createdAt: '2026-11-03T10:00:00Z', readAt: null }], isLoading: false, isError: false, refetch() {}, isRefetching: false };
   const markAllRead = () => marks++;
   const module = loadModule<any>('components/activity/NotificationsList.tsx', {
+    '@/hooks/usePullToRefresh': { usePullToRefresh: (refresh: any) => ({ refreshing: false, onRefresh: refresh }) },
     react: state.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
     '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
@@ -126,6 +136,7 @@ test('알림의 장소·기존 코스·라이딩·앱 내 링크 진입과 하�
 test('리뷰 목록은 사용자별 키·페이지 연결을 유지하고 숨긴 동안 추가 페이지를 요청하지 않는다', () => {
   let user: any = { id: 'actor-a' }, config: any, fetches = 0;
   const module = loadModule<any>('components/activity/MyReviewsList.tsx', {
+    '@/hooks/usePullToRefresh': { usePullToRefresh: (refresh: any) => ({ refreshing: false, onRefresh: refresh }) },
     'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
     '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
@@ -157,6 +168,7 @@ test('내 제보 전체는 최신순으로 합치고 드롭다운 분류·계정
   const fixtures: Record<string, any[]> = { 'my-submissions': [], 'my-feedback': [] };
   let hidden: any[] = [];
   const module = loadModule<any>('components/activity/MySubmissionsList.tsx', {
+    '@/hooks/usePullToRefresh': { usePullToRefresh: (refresh: any) => ({ refreshing: false, onRefresh: refresh }) },
     react: state.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
     '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },

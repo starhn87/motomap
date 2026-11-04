@@ -26,9 +26,9 @@ import {
   Pressable,
   Share,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors, { semantic } from '@/constants/Colors';

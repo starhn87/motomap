@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import GlassButton from '@/components/ui/GlassButton';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { ActivityIndicator, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { LEGAL_DOCS, type LegalDocType } from '@/constants/legal';
 import { acceptCurrentLegalDocuments } from '@/lib/legalConsent';
 import { LOCATION_CONSENT_VERSION, LOCATION_PROVIDERS, LOCATION_PROVIDER_DETAILS, RECIPIENT_LABELS,

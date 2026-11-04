@@ -3,12 +3,12 @@ import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   StyleSheet,
   View,
-  Text,
   FlatList,
   Pressable,
   RefreshControl,
 } from 'react-native';
-import { useState } from 'react';
+import { Text } from '@/components/ui/AppText';
+import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import EmptyState from '@/components/ui/EmptyState';
@@ -31,6 +31,7 @@ import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 import SwipeDeleteRow from './SwipeDeleteRow';
 import SubmissionFilterMenu, { type SubmissionFilter } from './SubmissionFilterMenu';
 import { useActivityDismissals, useDismissSubmission } from '@/hooks/useActivityActions';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 type SubmissionRow = { kind: 'place'; item: MySubmission } | { kind: 'feedback'; item: MyFeedback };
 
@@ -40,7 +41,7 @@ const FEEDBACK_LABEL: Record<FeedbackType, string> = {
   general: '기타 의견',
 };
 
-function SubmissionSkeletonList() {
+export function SubmissionSkeletonList() {
   return (
     <View style={{ gap: 12 }}>
       {Array.from({ length: 5 }).map((_, i) => (
@@ -64,13 +65,14 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
   const user = useAuthStore((s) => s.user);
   const bottomInset = useTabOcclusion();
   const [tab, setTab] = useState<SubmissionFilter>('all');
+  const listRef = useRef<FlatList<SubmissionRow>>(null);
   const includePlaces = tab !== 'feedback';
   const includeFeedback = tab !== 'places';
   const headerInset = useContentHeaderInset();
   const dismissals = useActivityDismissals(active);
   const dismissal = useDismissSubmission();
 
-  const { data: allPlaces, isLoading, isError, refetch, isRefetching } = useQuery({
+  const { data: allPlaces, isLoading, isError, refetch } = useQuery({
     queryKey: ['my-submissions', user?.id],
     queryFn: fetchMySubmissions,
     enabled: !!user && active && includePlaces,
@@ -81,7 +83,6 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
     isLoading: feedbackLoading,
     isError: feedbackError,
     refetch: refetchFeedback,
-    isRefetching: feedbackRefetching,
   } = useQuery({
     queryKey: ['my-feedback', user?.id],
     queryFn: fetchMyFeedback,
@@ -213,18 +214,19 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
 
   const showLoading = (includePlaces && isLoading) || (includeFeedback && feedbackLoading) || dismissals.isLoading;
   const failed = (includePlaces && isError) || (includeFeedback && feedbackError) || dismissals.isError;
-  const retry = () => {
-    void dismissals.refetch();
-    if (includePlaces) void refetch();
-    if (includeFeedback) void refetchFeedback();
-  };
+  const retry = () => Promise.allSettled([
+    dismissals.refetch(), ...(includePlaces ? [refetch()] : []), ...(includeFeedback ? [refetchFeedback()] : []),
+  ]);
+  const pull = usePullToRefresh(retry, `${user?.id}:${tab}`);
   const hasItems = !(dismissals.isError && !dismissals.data) && rows.length > 0;
-  const refreshing = !!((includePlaces && isRefetching) || (includeFeedback && feedbackRefetching));
   const listStyle = [styles.list, { paddingTop: headerInset + 8, paddingBottom: 16 + bottomInset, flexGrow: 1 }];
   const filterHeader = (
     <View style={styles.filterHeader}>
       <View style={styles.filterRow}>
-        <SubmissionFilterMenu value={tab} onChange={setTab} active={active} />
+        <SubmissionFilterMenu value={tab} onChange={next => {
+          listRef.current?.scrollToOffset({ offset: 0, animated: false });
+          setTab(next);
+        }} active={active} />
       </View>
       {failed && hasItems && <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
         일부 내역을 불러오지 못했어요.
@@ -259,7 +261,8 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList<SubmissionRow>
-        key={tab}
+        ref={listRef}
+        contentInsetAdjustmentBehavior="never" automaticallyAdjustContentInsets={false}
         onScroll={trackHeaderScroll} scrollEventThrottle={16}
         data={hideRows ? [] : rows}
         keyExtractor={(row) => `${row.kind}:${row.item.id}`}
@@ -269,7 +272,7 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
         ListEmptyComponent={emptyContent}
         contentContainerStyle={listStyle}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={retry} tintColor={colors.tint} />}
+        refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={colors.tint} />}
       />
     </View>
   );

@@ -8,7 +8,8 @@ import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
 import { Stack, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -127,7 +128,8 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
             <Stack.Screen name="directions" options={{ title: '길찾기' }} />
             <Stack.Screen name="chat" options={{ headerShown: false }} />
             <Stack.Screen name="notifications" options={{ title: '알림' }} />
-            <Stack.Screen name="settings" options={{ title: '설정', headerTransparent: true, headerShadowVisible: false }} />
+            <Stack.Screen name="font-license" options={{ title: '서체 라이선스' }} />
+          <Stack.Screen name="settings" options={{ title: '설정', headerTransparent: true, headerShadowVisible: false }} />
             <Stack.Screen name="recommended-places" options={{ title: '추천 목적지' }} />
             <Stack.Screen name="location-privacy" options={{ title: '위치정보 관리' }} />
             <Stack.Screen name="edit-nickname" options={{ title: '닉네임 변경' }} />

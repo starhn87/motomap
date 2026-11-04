@@ -1,4 +1,6 @@
-import { View, Text, StyleSheet, ActivityIndicator, Keyboard, Pressable } from 'react-native';
+import { APP_FONT_STYLE } from '@/lib/typography';
+import { View, StyleSheet, ActivityIndicator, Keyboard, Pressable } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { router } from 'expo-router';
 import { TouchableOpacity } from 'react-native-gesture-handler';
@@ -110,6 +112,7 @@ export default function ReviewForm({ target }: Props) {
 
       <BottomSheetTextInput
         style={[
+          APP_FONT_STYLE,
           styles.input,
           {
             backgroundColor: colors.surface,

@@ -1,3 +1,4 @@
+#import "KNNaviTypography.h"
 #import "KNNaviArrivalPrompt.h"
 #import <math.h>
 
@@ -21,7 +22,7 @@
 - (UIButton *)buttonWithTitle:(NSString *)title action:(SEL)action {
   UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
   [button setTitle:title forState:UIControlStateNormal];
-  button.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
+  button.titleLabel.font = MMPreferredAppFont(UIFontTextStyleHeadline);
   button.titleLabel.adjustsFontForContentSizeCategory = YES;
   button.titleLabel.numberOfLines = 0;
   button.titleLabel.textAlignment = NSTextAlignmentCenter;
@@ -42,7 +43,7 @@
   [self.view addSubview:card];
   UILabel *title = [UILabel new];
   title.text = @"길안내를 종료할까요?";
-  title.font = [UIFont preferredFontForTextStyle:UIFontTextStyleTitle3];
+  title.font = MMPreferredAppFont(UIFontTextStyleTitle3);
   title.adjustsFontForContentSizeCategory = YES;
   title.textColor = UIColor.labelColor;
   title.textAlignment = NSTextAlignmentCenter;
@@ -50,7 +51,7 @@
   title.accessibilityTraits = UIAccessibilityTraitHeader;
   UILabel *detail = [UILabel new];
   detail.text = @"선택하지 않으면 길안내를 유지해요.";
-  detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
+  detail.font = MMPreferredAppFont(UIFontTextStyleSubheadline);
   detail.adjustsFontForContentSizeCategory = YES;
   detail.textColor = UIColor.secondaryLabelColor;
   detail.textAlignment = NSTextAlignmentCenter;

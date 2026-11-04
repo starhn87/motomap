@@ -1,4 +1,5 @@
-import { ActivityIndicator, View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';

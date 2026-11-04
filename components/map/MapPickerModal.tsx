@@ -1,4 +1,5 @@
-import { View, Text, Pressable, Modal, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Pressable, Modal, StyleSheet, ActivityIndicator } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { NaverMapView, NaverMapMarkerOverlay, type NaverMapViewRef } from '@mj-studio/react-native-naver-map';

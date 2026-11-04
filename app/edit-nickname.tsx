@@ -1,13 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   View,
-  Text,
-  TextInput,
   StyleSheet,
   ActivityIndicator,
   Keyboard,
   Pressable,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';

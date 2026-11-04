@@ -1,5 +1,6 @@
 import { useRef, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import Swipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { semantic } from '@/constants/Colors';

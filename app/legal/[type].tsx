@@ -1,4 +1,5 @@
-import { StyleSheet, View, Text, ScrollView } from 'react-native';
+import { StyleSheet, View, ScrollView } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { useLocalSearchParams, Stack, router } from 'expo-router';
 
 import Colors from '@/constants/Colors';

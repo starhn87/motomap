@@ -7,10 +7,9 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { NaverMapMarkerOverlay, NaverMapView } from '@mj-studio/react-native-naver-map';

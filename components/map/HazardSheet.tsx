@@ -1,4 +1,5 @@
-import { View, Text, Pressable, Modal, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Pressable, Modal, StyleSheet, ActivityIndicator } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { useState } from 'react';
 import { Image } from 'expo-image';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';

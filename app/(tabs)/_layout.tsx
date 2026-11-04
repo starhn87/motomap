@@ -1,3 +1,4 @@
+import { APP_FONT_FAMILY } from '@/lib/typography';
 import React from 'react';
 import { Platform, Pressable, StyleSheet } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -120,6 +121,7 @@ function LegacyTabLayout() {
           elevation: 8,
         },
         tabBarLabelStyle: {
+          fontFamily: APP_FONT_FAMILY,
           marginTop: 2,
           fontSize: 11,
           fontWeight: '600',
@@ -127,6 +129,7 @@ function LegacyTabLayout() {
         headerTitleAlign: 'center',
         headerShadowVisible: false,
         headerTitleStyle: {
+          fontFamily: APP_FONT_FAMILY,
           fontSize: 18,
           fontWeight: '700',
         },
@@ -192,7 +195,7 @@ function IosTabLayout() {
   // 탭별 UIKit override는 테마 prop 변경 때 갱신되지 않는다. host의 테마만 상속한다.
   return (
     <NativeTabDeviceInsetsContext.Provider value={deviceInsets}>
-      <NativeTabs unstable_nativeProps={{ colorScheme: scheme }} tintColor={colors.tint} iconColor={{ default: colors.textSecondary, selected: colors.tint }}
+      <NativeTabs labelStyle={{ fontFamily: APP_FONT_FAMILY }} unstable_nativeProps={{ colorScheme: scheme }} tintColor={colors.tint} iconColor={{ default: colors.textSecondary, selected: colors.tint }}
         badgeBackgroundColor={semantic.danger} minimizeBehavior="never" sidebarAdaptable={false}>
         <NativeTabs.Trigger name="index" disableAutomaticContentInsets disableScrollToTop disablePopToTop>
           <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} md="map" />
@@ -202,7 +205,7 @@ function IosTabLayout() {
           <NativeTabs.Trigger.Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} md="add_circle" />
           <NativeTabs.Trigger.Label>제보</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="courses" disableAutomaticContentInsets>
+        <NativeTabs.Trigger name="courses" disableAutomaticContentInsets disableScrollToTop>
           <NativeTabs.Trigger.Icon sf={{ default: 'bell', selected: 'bell.fill' }} md="notifications" />
           <NativeTabs.Trigger.Label>활동</NativeTabs.Trigger.Label>
           {unreadCount > 0 && <NativeTabs.Trigger.Badge />}

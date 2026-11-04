@@ -2674,3 +2674,11 @@ UIKit 버튼을 사용해 아니오의 남은 시간을 직접 갱신한다. UIA
 사용하지 않는다. 상대 tick 누적이 아닌 systemUptime 마감 시각을 쓰며 만료 뒤의 예도 무시한다.
 시뮬레이터 네이티브 하네스는 예·아니오·만료·취소와 presenter 조건·중복·늦은 응답을 검증한다.
 실제 SDK의 주행 도착 시점은 이 하네스로 검증할 수 없으므로 새 TestFlight의 실주행 확인 대상이다.
+
+
+## 2026-11-04 앱 소유 조작부의 서체 후보
+
+TYPE-001/native41: 모토맵이 직접 만든 도착 확인·위험·주유소 조작부와 종료/제보 버튼,
+하단 WebView만 Pretendard로 맞춘다. UIKit의 기존 Dynamic Type은 UIFontMetrics로 유지한다.
+SDK KNNaviView의 지도/안내 라벨·시스템 UIAlertController·사진/공유 UI에는 서체를 강제하지 않는다.
+WKWebView는 기존 로컬 resource bundle 안의 WOFF2만 읽고 file read access는 유지하고 CSP에는 font-src 'self'만 허용한다. 원격 도메인은 허용하지 않는다. 새 native41 앱 빌드·실기기 검증은 승인 전이며 기존 설치본 반영으로 보지 않는다.

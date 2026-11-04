@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ComponentType } from 'react';
 import { useIsFocused } from 'expo-router';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { SafeAreaView } from 'react-native-screens/experimental';
 import { SafeAreaInsetsContext, useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
 
@@ -82,7 +83,7 @@ const styles = StyleSheet.create({
   probe: { position: 'absolute', left: 0, right: 0, opacity: 0 },
   header: {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
-    overflow: 'hidden',
+    overflow: 'visible',
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',

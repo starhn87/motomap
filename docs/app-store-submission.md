@@ -1,3 +1,14 @@
+## 2026-11-04 최신 소스 후보 — 1.2.11/native41
+
+활동 선택을 먼저 반영하고 초기 목록은 스켈레톤으로 준비한다. 배경 재조회가 당겨서 새로고침
+UI를 움직이지 않도록 분리했다. 설정 Glass 확대의 부모 잘림을 없애고 드롭다운은 시각 높이를
+줄인다. 앱 소유 RN/SwiftUI·탭 글꼴을 Pretendard로 맞추고 설정 행을56pt 이상, UIKit 선택을44pt
+이상으로 조정한다. 제보의 장소/위험/건의만 같은 세그먼트를 사용한다.
+앱/runtime1.2.11·API1은 유지한다. 새 native41 빌드·실기기 검증·푸시·TestFlight/OTA·심사는
+사용자 승인 전이며 기존 설치본/native40·TestFlight70/native39와 구분한다. TYPE-001 및
+release-compatibility.md를 기준으로 서체·큰 글자·선택/테마·새로고침·기존 기록 보존을 확인한다.
+아래 기록은 당시 상태로 보존한다.
+
 ## 2026-11-04 후속 로컬 검증 완료 — native40
 
 사용자 승인으로 Xcode27 Release1.2.11(로컬 build1)/internal-testflight를 물리 기기에 설치했다.

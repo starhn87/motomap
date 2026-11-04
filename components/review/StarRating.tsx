@@ -1,4 +1,5 @@
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { semantic } from '@/constants/Colors';
 

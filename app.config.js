@@ -1,4 +1,7 @@
 const releasePolicy = require('./config/release-policy.json');
+const pretendardFonts = [
+  'Thin', 'ExtraLight', 'Light', 'Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold', 'Black',
+].map((name, index) => ({ path: `./assets/fonts/Pretendard-${name}.otf`, weight: (index + 1) * 100 }));
 // 운영 중단처럼 구버전까지 즉시 막아야 하는 비상 OTA에만 사용한다. 일반 빌드와
 // OTA에서는 비워 두어 release-policy.json이 계속 단일 기준이 되게 한다.
 const emergencyRuntimeVersion = process.env.MOTOMAP_EMERGENCY_RUNTIME_VERSION;
@@ -91,6 +94,10 @@ export default {
     },
     plugins: [
       'expo-router',
+      ['expo-font', {
+        ios: { fonts: pretendardFonts.map(font => font.path) },
+        android: { fonts: [{ fontFamily: 'Pretendard', fontDefinitions: pretendardFonts }] },
+      }],
       [
         'expo-splash-screen',
         {

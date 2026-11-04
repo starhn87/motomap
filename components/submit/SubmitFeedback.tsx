@@ -2,14 +2,13 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   StyleSheet,
   View,
-  Text,
-  TextInput,
   Pressable,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Keyboard,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 import { useState } from 'react';
 import Animated, {
   useAnimatedStyle,

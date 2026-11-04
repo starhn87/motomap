@@ -1,8 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   View,
-  Text,
-  TextInput,
   Pressable,
   StyleSheet,
   ActivityIndicator,
@@ -11,6 +9,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 import { Image } from 'expo-image';
 import { useState, useEffect } from 'react';
 import { TouchableOpacity } from 'react-native-gesture-handler';

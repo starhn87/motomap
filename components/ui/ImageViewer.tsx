@@ -3,7 +3,8 @@ import GlassButton from '@/components/ui/GlassButton';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useEffect, useState } from 'react';
-import { Modal, View, Text, useWindowDimensions, StyleSheet } from 'react-native';
+import { Modal, View, useWindowDimensions, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {

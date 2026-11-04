@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, Text, StyleSheet } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Animated, {
   cancelAnimation,

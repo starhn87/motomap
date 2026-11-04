@@ -4,8 +4,6 @@ import CloseIcon from '@/components/ui/CloseIcon';
 import {
   StyleSheet,
   View,
-  Text,
-  TextInput,
   Pressable,
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +11,7 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 

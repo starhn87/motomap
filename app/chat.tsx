@@ -5,14 +5,13 @@ import BikeIcon from '@/components/ui/BikeIcon';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   View,
-  Text,
-  TextInput,
   Pressable,
   StyleSheet,
   FlatList,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 // eslint 참고: TypingDots 의 훅은 고정 3개 점에만 쓰여 순서가 안정적이다
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Image } from 'expo-image';

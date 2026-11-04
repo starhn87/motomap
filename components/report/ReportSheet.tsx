@@ -1,8 +1,6 @@
 import {
   Modal,
   View,
-  Text,
-  TextInput,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,6 +8,7 @@ import {
   Platform,
   Keyboard,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 import { useState } from 'react';
 
 import Colors from '@/constants/Colors';

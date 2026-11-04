@@ -3,11 +3,11 @@ import {
   Platform,
   StyleSheet,
   View,
-  Text,
   Pressable,
   ScrollView,
   Switch,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -281,10 +281,12 @@ export default function SettingsScreen() {
         앱 정보
       </Text>
       {nativeUI ? <NativeSettingsGroup rows={[
+        { key: 'font-license', label: '서체 라이선스', onPress: () => router.push('/font-license' as any), chevron: true },
         { key: 'version', label: '버전', value: current + (hasUpdate ? ' 업데이트 있음' : ''),
           onPress: hasUpdate ? openStore : undefined, chevron: hasUpdate },
         ...(user ? [{ key: 'blocked-users', label: '차단 관리', onPress: () => router.push('/blocked-users' as any), chevron: true }] : []),
       ]} /> : <>
+      <Pressable onPress={() => router.push('/font-license' as any)} style={[styles.linkButton, { backgroundColor: colors.surface, borderColor: colors.border }]}><Text style={[styles.linkText, { color: colors.text }]}>서체 라이선스</Text><Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text></Pressable>
       <View
         style={[
           styles.infoCard,

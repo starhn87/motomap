@@ -2,8 +2,6 @@ import BikeIcon from '@/components/ui/BikeIcon';
 import {
   StyleSheet,
   View,
-  Text,
-  TextInput,
   Pressable,
   ScrollView,
   ActivityIndicator,
@@ -12,6 +10,7 @@ import {
   Platform,
   Share,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 import { useState } from 'react';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { NaverMapView, NaverMapPathOverlay, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';

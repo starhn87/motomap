@@ -9,11 +9,12 @@ const nodes = (node: any): any[] => Array.isArray(node) ? node.flatMap(nodes) : 
 const views = Object.fromEntries(['Host', 'Picker', 'Text', 'VStack', 'HStack', 'Image', 'Spacer', 'Button', 'Divider', 'ProgressView']
   .map(name => [name, name]));
 const modifiers: Record<string, any> = Object.fromEntries(['accessibilityLabel', 'disabled', 'frame', 'labelsHidden', 'pickerStyle', 'tag', 'contentShape',
-  'accessibilityIdentifier', 'accessibilityElement', 'accessibilityHidden', 'buttonStyle', 'font', 'foregroundStyle', 'padding'].map(name => [name, (value: any) => ({ name, value })]));
+  'accessibilityIdentifier', 'accessibilityElement', 'accessibilityHidden', 'buttonStyle', 'controlSize', 'font', 'foregroundStyle', 'padding'].map(name => [name, (value: any) => ({ name, value })]));
 modifiers.shapes = { rectangle: () => ({ shape: 'rectangle' }) };
 const colors = { text: 'black', textSecondary: 'gray', surface: 'white' };
 const deps = {
-  react: { Fragment: 'Fragment' }, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': { View: 'View' },
+  '@/lib/typography': { APP_FONT_FAMILY: 'Pretendard' },
+  react: { Fragment: 'Fragment' }, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': { View: 'View', useWindowDimensions: () => ({ fontScale: 1 }) },
   '@/lib/nativeUI': { nativeUI: { views, modifiers } }, '@/constants/Colors': { ...exported({ light: colors, dark: colors }), semantic: { danger: 'red', success: 'green' } },
   '@/components/useColorScheme': { useColorScheme: () => 'light' },
 };
@@ -118,4 +119,45 @@ test('설정 화면은 네이티브 행에서도 업데이트·테마·로그인
   assert.equal(methods.find((row: any) => row.key === 'kakao').onPress, undefined);
   assert.equal(methods.find((row: any) => row.key === 'kakao').connected, true);
   assert.equal(typeof methods.find((row: any) => row.key === 'naver').onPress, 'function');
+});
+
+test('UIKit 선택 모듈은 native41 capability와 실제 view가 모두 있을 때만 로드한다', () => {
+  for (const [version, features, installed, expected] of [
+    [40, ['native_ui_controls', 'native_segmented_controls'], true, false],
+    [41, ['native_ui_controls'], true, false],
+    [41, ['native_ui_controls', 'native_segmented_controls'], false, false],
+    [41, ['native_ui_controls', 'native_segmented_controls'], true, true],
+  ] as const) {
+    const control = () => null;
+    const module = loadModule<any>('lib/nativeUI.ts', {
+      'react-native': { Platform: { OS: 'ios' }, UIManager: { getViewManagerConfig: () => installed ? {} : null } },
+      expo: { requireOptionalNativeModule: (name: string) => name === 'KakaoNavi' ? { bridgeVersion: version, features } : {} },
+      '@expo/ui/swift-ui': views, '@expo/ui/swift-ui/modifiers': modifiers,
+      ...(expected ? { '@react-native-segmented-control/segmented-control': { default: control } } : {}),
+    });
+    assert.equal(module.NativeSegmentedControl, expected ? control : null);
+  }
+});
+
+test('UIKit 세그먼트는 실제44pt·큰 글자 높이를 갖고 잘못된 선택과 비활성을 무시한다', () => {
+  const Control = () => null; let changes = 0;
+  const module = loadModule<any>('components/ui/NativeChoiceControl.tsx', {
+    ...deps, 'react-native': { useWindowDimensions: () => ({ fontScale: 1.5 }) },
+    '@/lib/nativeUI': { nativeUI: { views, modifiers }, NativeSegmentedControl: Control },
+  });
+  const props = { presentation: 'segmented', value: 'a', label: '활동 종류', options: [
+    { value: 'a', label: '내 제보' }, { value: 'b', label: '알림 2', accessibilityLabel: '읽지 않은 알림2개' },
+  ], onChange: () => changes++ };
+  const tree = module.default(props);
+  assert.equal(tree.type, Control); assert.equal(tree.props.style.height, 54);
+  assert.equal(tree.props.fontStyle.fontFamily, 'Pretendard-Medium');
+  assert.equal(tree.props.activeFontStyle.fontFamily, 'Pretendard-SemiBold');
+  assert.equal(tree.props.accessibilityHint, '읽지 않은 알림2개');
+  assert.deepEqual(Array.from(tree.props.values), ['내 제보', '알림 2'], '접근성 설명을 보이는 라벨로 늘이지 않는다');
+  tree.props.onChange({ nativeEvent: { selectedSegmentIndex: -1 } });
+  tree.props.onChange({ nativeEvent: { selectedSegmentIndex: 0 } });
+  assert.equal(changes, 0);
+  tree.props.onChange({ nativeEvent: { selectedSegmentIndex: 1 } }); assert.equal(changes, 1);
+  module.default({ ...props, enabled: false }).props.onChange({ nativeEvent: { selectedSegmentIndex: 1 } });
+  assert.equal(changes, 1);
 });

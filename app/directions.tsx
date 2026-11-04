@@ -8,9 +8,9 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import * as Location from 'expo-location';
 
 import SearchPlaceIcon, { RoutePointIcon } from '@/components/search/SearchPlaceIcon';

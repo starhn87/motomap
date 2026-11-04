@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ActivityIndicator, View, Text, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, Pressable, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import Animated, { Keyframe } from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';

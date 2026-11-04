@@ -1,3 +1,4 @@
+#import "KNNaviTypography.h"
 #import "KNNaviPresenter.h"
 #import "KNNaviTheme.h"
 #import "KNSDKBridge.h"
@@ -543,7 +544,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     endButton.translatesAutoresizingMaskIntoConstraints = NO;
     [endButton setTitle:@"종료" forState:UIControlStateNormal];
     [endButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-    endButton.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
+    endButton.titleLabel.font = MMAppSemiboldFont(15);
     endButton.backgroundColor = [UIColor colorWithWhite:0 alpha:0.55];
     endButton.layer.cornerRadius = 18;
     [endButton addTarget:self action:@selector(finish) forControlEvents:UIControlEventTouchUpInside];
@@ -570,7 +571,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     hazardButton.translatesAutoresizingMaskIntoConstraints = NO;
     [hazardButton setTitle:@"위험 제보" forState:UIControlStateNormal];
     [hazardButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-    hazardButton.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
+    hazardButton.titleLabel.font = MMAppSemiboldFont(15);
     hazardButton.backgroundColor = [UIColor colorWithWhite:0 alpha:0.55];
     hazardButton.layer.cornerRadius = 18;
     [hazardButton addTarget:self
@@ -1260,7 +1261,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     self.arrivalLabel = [UILabel new];
     self.arrivalLabel.numberOfLines = 0;
     self.arrivalLabel.textAlignment = NSTextAlignmentCenter;
-    self.arrivalLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
+    self.arrivalLabel.font = MMPreferredAppFont(UIFontTextStyleSubheadline);
     self.arrivalLabel.adjustsFontForContentSizeCategory = YES;
     self.arrivalLabel.textColor = UIColor.labelColor;
     self.arrivalRetryButton = [UIButton buttonWithType:UIButtonTypeSystem];

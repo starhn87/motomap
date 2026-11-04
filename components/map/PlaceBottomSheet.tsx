@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { View, Text, StyleSheet, Share, ActivityIndicator, Pressable } from 'react-native';
+import { View, StyleSheet, Share, ActivityIndicator, Pressable } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import Animated, {
   FadeIn,
   FadeOut,

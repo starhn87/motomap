@@ -16,6 +16,7 @@ function layout(os: string, unread: number, scheme = 'light', version = 27) {
   const NativeTabs = Object.assign(() => null, { Trigger: trigger });
   const insets = { top: 59, bottom: 34, left: 0, right: 0 };
   const module = loadModule<{ default: () => Element }>('app/(tabs)/_layout.tsx', {
+    '@/lib/typography': { APP_FONT_FAMILY: 'Pretendard' },
     react: exported({}), 'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { Platform: { OS: os, Version: version }, Pressable: 'Button', StyleSheet: { hairlineWidth: 0.5 } },
     '@expo/vector-icons/Ionicons': exported('Icon'),

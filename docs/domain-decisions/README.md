@@ -45,6 +45,7 @@
 | 활동 탭·내 제보·리뷰·알림·푸시 토큰 수명주기 | [notifications.md](notifications.md) | `components/activity/`, `lib/push.ts`, `lib/pushTokens.ts`, `components/ActiveRootLayout.tsx` |
 | Jev 판단 관찰 | [jev-observation.md](jev-observation.md) | `supabase/functions/_shared/jevChat.ts`, `jevSubmission.ts` |
 | 릴리스·버전 호환성 | [release-compatibility.md](release-compatibility.md) | `config/release-policy.json`, `lib/appCompatibility.ts`, `modules/kakao-navi/`, `.github/workflows/checks.yml` |
+| 앱 서체 | [typography.md](typography.md) | `components/ui/AppText.tsx`, `lib/typography.ts`, `assets/fonts/` |
 
 새 도메인 문서를 추가할 때 이 표에도 반드시 연결한다.
 

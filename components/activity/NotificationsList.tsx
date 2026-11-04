@@ -1,6 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { View, Text, FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
+import { View, FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { router, useFocusEffect, useIsFocused, useLocalSearchParams } from 'expo-router';
 
@@ -9,6 +10,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { focusPlaceOnMap } from '@/lib/mapFocus';
 import { useNotifications, useMarkAllRead } from '@/hooks/useNotifications';
 import { registerPushToken } from '@/lib/push';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import EmptyState from '@/components/ui/EmptyState';
 import HighlightPulse from '@/components/ui/HighlightPulse';
 import type { AppNotification } from '@/lib/api/notifications';
@@ -20,7 +22,7 @@ import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 import SwipeDeleteRow from './SwipeDeleteRow';
 import { useDeleteActivityNotification } from '@/hooks/useActivityActions';
 
-function NotificationSkeletonList() {
+export function NotificationSkeletonList() {
   const headerInset = useContentHeaderInset();
   return (
     <View style={[styles.list, { paddingTop: headerInset + 16 }]}>
@@ -61,7 +63,8 @@ export default function NotificationsList({ active = true }: { active?: boolean 
   const user = useAuthStore(state => state.user);
   const visible = useIsFocused() && active && !!user;
   const bottomInset = useTabOcclusion();
-  const { data: notifications, isLoading, isError, refetch, isRefetching } = useNotifications(visible);
+  const { data: notifications, isLoading, isError, refetch } = useNotifications(visible);
+  const pull = usePullToRefresh(refetch, user?.id);
   const trackHeaderScroll = useTrackHeaderScroll(visible, { hasContent: !!notifications?.length });
   const { mutate: markAllRead } = useMarkAllRead();
   // 들어온 순간 안 읽었던 알림들. 곧바로 읽음 처리하면 목록이 다시 조회되면서
@@ -149,6 +152,7 @@ export default function NotificationsList({ active = true }: { active?: boolean 
         />
       ) : (
         <FlatList
+          contentInsetAdjustmentBehavior="never" automaticallyAdjustContentInsets={false}
           onScroll={trackHeaderScroll} scrollEventThrottle={16}
           ref={listRef}
           data={notifications}
@@ -156,7 +160,7 @@ export default function NotificationsList({ active = true }: { active?: boolean 
           keyExtractor={(item) => item.id}
           contentContainerStyle={[styles.list, { paddingTop: headerInset + 16, paddingBottom: 16 + bottomInset }]}
           scrollIndicatorInsets={{ top: headerInset }}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} tintColor={colors.tint} />}
+          refreshControl={<RefreshControl refreshing={pull.refreshing} onRefresh={pull.onRefresh} tintColor={colors.tint} />}
           onScrollToIndexFailed={(info) => {
             // 가변 높이 카드라 미측정 구간은 근사 오프셋으로 이동 후 재시도
             listRef.current?.scrollToOffset({

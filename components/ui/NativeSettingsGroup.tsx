@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import { View } from 'react-native';
 import { nativeUI } from '@/lib/nativeUI';
+import { APP_FONT_FAMILY } from '@/lib/typography';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 
@@ -25,20 +26,19 @@ export default function NativeSettingsGroup({ rows }: { rows: SettingsRow[] }) {
   const { Host, VStack, HStack, Text, Image, Spacer, Button, Divider, ProgressView } = nativeUI.views;
   const { accessibilityElement, accessibilityHidden, accessibilityIdentifier, buttonStyle, contentShape, disabled, font, foregroundStyle, frame, padding, shapes } = nativeUI.modifiers;
   return <View style={{ borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surface }}>
-    <Host matchContents={{ vertical: true }} colorScheme={scheme} seedColor={colors.text} ignoreSafeArea="container" style={{ minHeight: rows.length * 44 }}>
+    <Host matchContents={{ vertical: true }} colorScheme={scheme} seedColor={colors.text} ignoreSafeArea="container" style={{ minHeight: rows.length * 56 }}>
       <VStack spacing={0}>
         {rows.map((row, index) => {
-          const content = <HStack spacing={12} modifiers={[padding({ horizontal: 16, vertical: 12 }), frame({ minHeight: 44, alignment: 'leading' }), contentShape(shapes.rectangle()), accessibilityElement('combine')]}>
-            <Text modifiers={[font({ textStyle: 'body' }), foregroundStyle(row.destructive ? semantic.danger : colors.text)]}>{row.label}</Text>
+          const content = <HStack spacing={12} modifiers={[padding({ horizontal: 16, vertical: 17 }), frame({ minHeight: 56, alignment: 'leading' }), contentShape(shapes.rectangle()), accessibilityElement('combine')]}>
+            <Text modifiers={[font({ textStyle: 'body', family: APP_FONT_FAMILY ? 'Pretendard-Regular' : undefined, size: 16 }), foregroundStyle(row.destructive ? semantic.danger : colors.text)]}>{row.label}</Text>
             <Spacer minLength={8} />
             {row.loading ? <ProgressView /> : <>
-              {row.connected && <Image systemName="checkmark.circle.fill" size={17} color={semantic.success} modifiers={[accessibilityHidden()]} />}
-              {row.value && <Text modifiers={[font({ textStyle: 'subheadline' }), foregroundStyle(colors.textSecondary)]}>{row.value}</Text>}
+              {row.value && <Text modifiers={[font({ textStyle: 'subheadline', family: APP_FONT_FAMILY ? 'Pretendard-Regular' : undefined, size: 14 }), foregroundStyle(colors.textSecondary)]}>{row.value}</Text>}
               {row.chevron && <Image systemName="chevron.right" size={12} color={colors.textSecondary} modifiers={[accessibilityHidden()]} />}
             </>}
           </HStack>;
           return <Fragment key={row.key}>
-            {index > 0 && <Divider />}
+            {index > 0 && <Divider modifiers={[padding({ leading: 16 })]} />}
             {row.onPress ? <Button onPress={() => { if (!row.disabled && !row.loading) row.onPress?.(); }} role={row.destructive ? 'destructive' : 'default'}
               modifiers={[buttonStyle('plain'), disabled(!!row.disabled || !!row.loading), accessibilityIdentifier(`settings-${row.key}`)]}>
               {content}
