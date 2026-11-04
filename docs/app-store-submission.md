@@ -1,3 +1,9 @@
+## 2026-11-04 선택·필터 후속 후보(native41 계약 유지)
+
+INTERACTION-029의 네이티브 내부 선택 보완과 고정 크기 필터를 준비했다. 새 바이너리·
+실기기 영상 비교는 아직이며 기존 설치본/70번 TestFlight에 적용된 것으로 표기하지 않는다.
+이번 범위는 소스 검증·커밋까지다. 상세는 release-compatibility.md를 따른다.
+
 ## 2026-11-04 native41 로컬 검증 완료
 
 source71cee95의1.2.11(로컬1)/internal-testflight 빌드를 iPhone16에 무선 설치하고 두 UI

@@ -1,0 +1,36 @@
+diff --git a/node_modules/@react-native-segmented-control/segmented-control/ios/RNCSegmentedControl.m b/node_modules/@react-native-segmented-control/segmented-control/ios/RNCSegmentedControl.m
+index 4a1bfea..1118ef9 100644
+--- a/node_modules/@react-native-segmented-control/segmented-control/ios/RNCSegmentedControl.m
++++ b/node_modules/@react-native-segmented-control/segmented-control/ios/RNCSegmentedControl.m
+@@ -11,6 +11,10 @@
+ #import <React/RCTEventDispatcher.h>
+ #import <React/UIView+React.h>
+ 
++@interface RNCSegmentedControl ()
++@property(nonatomic, copy) NSArray *renderedValues;
++@end
++
+ @implementation RNCSegmentedControl
+ 
+ - (instancetype)initWithFrame:(CGRect)frame {
+@@ -24,6 +28,9 @@ - (instancetype)initWithFrame:(CGRect)frame {
+ }
+ 
+ - (void)setValues:(NSArray *)values {
++  // 같은 props의 재전달로 시스템 선택 애니메이션을 끊지 않는다.
++  if ([self.renderedValues isEqualToArray:values]) return;
++  self.renderedValues = values;
+ 	[self removeAllSegments];
+ 	for (id segment in values) {
+ 		if ([segment isKindOfClass:[NSMutableDictionary class]]){
+@@ -42,7 +49,9 @@ - (void)setValues:(NSArray *)values {
+ 
+ - (void)setSelectedIndex:(NSInteger)selectedIndex {
+   _selectedIndex = selectedIndex;
+-  super.selectedSegmentIndex = selectedIndex;
++  if (super.selectedSegmentIndex != selectedIndex) {
++    super.selectedSegmentIndex = selectedIndex;
++  }
+ }
+ 
+ - (void)setBackgroundColor:(UIColor *)backgroundColor {

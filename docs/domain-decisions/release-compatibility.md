@@ -18,6 +18,16 @@
 - 네이티브 브리지 계약: **41**
 - 백엔드 API 계약: **1**
 
+## 2026-11-04 native41 후속 선택·필터 보완 후보
+
+INTERACTION-029: 기존 segmented-control2.5.7의 중복 values 재생성/선택 인덱스 재지정을
+막는 patch-package 파일과 고정 크기 Menu label을 준비했다. 기존 ABI·호출·이벤트는 같아
+REL-003에 따라 native41/API1·앱/runtime1.2.11을 유지한다. 새 기능 capability는 추가하지 않는다.
+이 패치의 실제 iOS compile flags syntax-only는 통과했지만 새 앱 빌드·설치·영상 비교는 아직이다.
+현재 설치 source71cee95 및 TestFlight70과 구분하며 candidate OTA 보호를 유지한다.
+이번 작업은 검증/커밋까지이며 새 앱 빌드·main 푸시·OTA·TestFlight는 별도 승인 전이다.
+아래 로컬 검증은 수정 전 source의 기록이며 새 패치의 실기기 통과로 재해석하지 않는다.
+
 ## 2026-11-04 native41 로컬 빌드·실기기 검증
 
 사용자가 새 빌드→실기기 설치/검증을 승인했다. source `71cee95`에서 Expo57 prebuild와 pod install,

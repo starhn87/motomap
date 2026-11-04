@@ -219,7 +219,7 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
   ]);
   const pull = usePullToRefresh(retry, `${user?.id}:${tab}`);
   const hasItems = !(dismissals.isError && !dismissals.data) && rows.length > 0;
-  const listStyle = [styles.list, { paddingTop: headerInset + 8, paddingBottom: 16 + bottomInset, flexGrow: 1 }];
+  const listStyle = [styles.list, { paddingTop: headerInset + 2, paddingBottom: 16 + bottomInset, flexGrow: 1 }];
   const filterHeader = (
     <View style={styles.filterHeader}>
       <View style={styles.filterRow}>
@@ -280,7 +280,7 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  filterHeader: { gap: 12, marginBottom: 4 },
+  filterHeader: { gap: 4, marginBottom: 0 },
   filterRow: { flexDirection: 'row', justifyContent: 'flex-end' },
   list: { padding: 16, gap: 12 },
   card: { padding: 16, borderRadius: 14, borderWidth: 1 },

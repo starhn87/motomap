@@ -93,6 +93,7 @@ export default function SubmitFeedback() {
           {FEEDBACK_TYPES.map((ft) => (
             <Pressable
               key={ft.key}
+              accessibilityRole="radio" accessibilityState={{ selected: type === ft.key }}
               onPress={() => setType(ft.key)}
               style={[
                 styles.typeChip,
@@ -106,7 +107,7 @@ export default function SubmitFeedback() {
                   borderColor: type === ft.key ? colors.tint : colors.border,
                 },
               ]}>
-              <Ionicons name={ft.icon} size={18} color={type === ft.key ? colors.tint : colors.textSecondary} />
+              <Ionicons name={ft.icon} size={18} color={type === ft.key ? colors.background : colors.textSecondary} />
               <Text
                 style={[
                   styles.typeLabel,

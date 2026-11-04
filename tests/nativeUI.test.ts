@@ -6,9 +6,9 @@ const jsx = (type: any, props: any) => ({ type, props });
 const exported = (value: any) => ({ __esModule: true, default: value });
 const nodes = (node: any): any[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props
   ? [node, ...nodes(node.props.children)] : [];
-const views = Object.fromEntries(['Host', 'Picker', 'Text', 'VStack', 'HStack', 'Image', 'Spacer', 'Button', 'Divider', 'ProgressView']
+const views = Object.fromEntries(['Host', 'Menu', 'Picker', 'Text', 'VStack', 'HStack', 'Image', 'Spacer', 'Button', 'Divider', 'ProgressView']
   .map(name => [name, name]));
-const modifiers: Record<string, any> = Object.fromEntries(['accessibilityLabel', 'disabled', 'frame', 'labelsHidden', 'pickerStyle', 'tag', 'contentShape',
+const modifiers: Record<string, any> = Object.fromEntries(['accessibilityLabel', 'accessibilityValue', 'disabled', 'frame', 'labelsHidden', 'pickerStyle', 'tag', 'contentShape',
   'accessibilityIdentifier', 'accessibilityElement', 'accessibilityHidden', 'buttonStyle', 'controlSize', 'font', 'foregroundStyle', 'padding'].map(name => [name, (value: any) => ({ name, value })]));
 modifiers.shapes = { rectangle: () => ({ shape: 'rectangle' }) };
 const colors = { text: 'black', textSecondary: 'gray', surface: 'white' };
@@ -48,15 +48,17 @@ test('네이티브 선택은 유효한 변경만 전달하고 비활성·초기 
   const tree = module.default(props);
   assert.equal(tree.props.colorScheme, 'light');
   assert.equal(tree.props.ignoreSafeArea, 'container', '화면 safe area는 부모 RN 레이아웃이 관리한다');
-  const picker = tree.props.children;
+  const menu = nodes(tree).find(node => node.type === 'Menu');
+  const picker = nodes(tree).find(node => node.type === 'Picker');
+  assert.equal(tree.props.style.width, 72); assert.equal(tree.props.style.height, 32);
   assert.equal(picker.props.label, '제보 종류');
   assert.equal(picker.props.modifiers.some((modifier: any) => modifier.name === 'accessibilityLabel'), false,
     'Picker 자체 label을 다시 덮어 VoiceOver 이름을 중복하지 않는다');
-  assert.ok(picker.props.modifiers.some((modifier: any) => modifier.name === 'accessibilityIdentifier' && modifier.value === 'native-choice-제보 종류'));
+  assert.ok(menu.props.modifiers.some((modifier: any) => modifier.name === 'accessibilityIdentifier' && modifier.value === 'native-choice-제보 종류'));
   picker.props.onSelectionChange('all'); picker.props.onSelectionChange(null); picker.props.onSelectionChange('unknown');
   assert.equal(changes, 0);
   picker.props.onSelectionChange('places'); assert.equal(changes, 1);
-  module.default({ ...props, enabled: false }).props.children.props.onSelectionChange('places');
+  nodes(module.default({ ...props, enabled: false })).find(node => node.type === 'Picker').props.onSelectionChange('places');
   assert.equal(changes, 1);
   assert.deepEqual(module.default({ ...props, presentation: 'segmented' }).props.style.width, '100%');
 });

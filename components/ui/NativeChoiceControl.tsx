@@ -31,17 +31,34 @@ export default function NativeChoiceControl<T extends string>({ value, options, 
       if (enabled && option && option.value !== value) onChange(option.value);
     }} />;
   if (!nativeUI) return null;
-  const { Host, Picker, Text } = nativeUI.views;
-  const { accessibilityIdentifier, accessibilityLabel, disabled, font, controlSize, frame, labelsHidden, pickerStyle, tag } = nativeUI.modifiers;
+  const { Host, Picker, Text, HStack, Image, Menu } = nativeUI.views;
+  const { accessibilityIdentifier, accessibilityLabel, accessibilityValue, accessibilityHidden, disabled, font, controlSize, frame, contentShape, shapes, foregroundStyle, buttonStyle, labelsHidden, pickerStyle, tag } = nativeUI.modifiers;
+  const menuWidth = Math.max(72, Math.ceil(56 * fontScale) + 16);
+  const menuHeight = Math.max(32, Math.ceil(24 * fontScale));
+  if (presentation === 'menu') return <Host colorScheme={scheme} ignoreSafeArea="container"
+    style={{ width: menuWidth, height: menuHeight }}>
+    <Menu label={<HStack spacing={4} modifiers={[frame({ width: menuWidth, minHeight: menuHeight }), contentShape(shapes.rectangle())]}>
+      <Text modifiers={[font({ family: APP_FONT_FAMILY ? 'Pretendard-Medium' : undefined, size: 13, textStyle: 'caption' }), foregroundStyle(Colors[scheme].text)]}>
+        {options.find(option => option.value === value)?.label ?? ''}
+      </Text>
+      <Image systemName="chevron.down" size={10} color={Colors[scheme].textSecondary} modifiers={[accessibilityHidden()]} />
+    </HStack>} modifiers={[buttonStyle('plain'), controlSize('mini'), disabled(!enabled),
+      accessibilityIdentifier(`native-choice-${label}`), accessibilityLabel(label), accessibilityValue(options.find(option => option.value === value)?.label ?? '')]}>
+      <Picker label={label} selection={value} onSelectionChange={(selected: T) => {
+        if (enabled && selected !== value && options.some(option => option.value === selected)) onChange(selected);
+      }} modifiers={[pickerStyle('inline'), labelsHidden()]}>
+        {options.map(option => <Text key={option.value} modifiers={[tag(option.value)]}>{option.label}</Text>)}
+      </Picker>
+    </Menu>
+  </Host>;
   return <Host colorScheme={scheme} seedColor={Colors[scheme].text} ignoreSafeArea="container"
-    matchContents={presentation === 'menu' ? true : { vertical: true }}
-    style={presentation === 'segmented' ? { width: '100%', minHeight: 44 } : { minHeight: 44 }}>
+    matchContents={{ vertical: true }}
+    style={{ width: '100%', minHeight: 44 }}>
     <Picker label={label} selection={value}
       onSelectionChange={(selected: T) => {
         if (enabled && selected !== value && options.some(option => option.value === selected)) onChange(selected);
       }}
       modifiers={[pickerStyle(presentation), labelsHidden(), frame({ minHeight: 44 }),
-        ...(presentation === 'menu' ? [controlSize('small'), font({ family: APP_FONT_FAMILY ? 'Pretendard-Regular' : undefined, textStyle: 'subheadline', size: 14 })] : []),
         accessibilityIdentifier(`native-choice-${label}`), disabled(!enabled)]}>
       {options.map(option => <Text key={option.value}
         modifiers={[tag(option.value), ...(option.accessibilityLabel ? [accessibilityLabel(option.accessibilityLabel)] : [])]}>

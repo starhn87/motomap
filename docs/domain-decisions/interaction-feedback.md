@@ -789,7 +789,7 @@ Picker 자체 label과 별도 accessibilityLabel을 중복 지정하면 기기 �
 ## INTERACTION-028 — 선택 반응·실제 컨트롤 높이와 Glass 확대를 보존한다
 
 - 날짜: 2026-11-04
-- 상태: 활성(소스 후보)
+- 상태: 활성(메뉴 크기·재진입 보완은 INTERACTION-029로 부분 대체)
 - 관련 구현: `NativeChoiceControl`, `NativeSettingsGroup`, `ActivityScreen`, `NativeTabScreen`
 
 SwiftUI Picker의 외부44pt frame은 실제 세그먼트 pill 높이를 늘리지 않았다. 새 native41에서는
@@ -810,3 +810,32 @@ FlatList key 변경으로 전체 목록을 다시 만들지 않는다. 계정 �
 사용자가 말한 설정 하단 잘림은 화면 전환/내용이 아니라 누를 때 확대되는 Glass 버튼이었다.
 부모 헤더의 overflow:hidden을 제거하고 HeaderBackdrop 자체만 clip한다. 설정 버튼 크기나
 전환 애니메이션을 줄여 가리지 않으며 별도 탭바 숨김/모달 전환으로 우회하지 않는다.
+
+
+## INTERACTION-029 — 네이티브 선택 재전달과 필터 재생성으로 생기는 흔들림을 줄인다
+
+- 날짜: 2026-11-04
+- 상태: 소스 후보(028의 메뉴 크기·재진입 부분 대체, 새 바이너리 검증 전)
+- 관련: `NativeChoiceControl`, `SubmissionFilterMenu`, `MySubmissionsList`, segmented-control2.5.7 patch
+
+사용자 영상에서 세그먼트 선택 표시가 잠시 없어졌다 돌아오는 모습과 탭 재진입 때 필터가
+바뀌는 모습을 확인했다. 필터는 `nativeUI && active` 때문에 비활성일 때 RN으로 교체되고
+활성화 때 SwiftUI Host를 새로 만들었다. 같은 native 컨트롤을 유지하고 disabled만 변경한다.
+이 회귀 검사는 수정 전 실패·수정 후 통과했다. 가변 intrinsic 측정에 의존하지 않는72×32pt
+메뉴와 직접 그린13pt label/아래 화살표를 쓰고 큰 글자에서는 슬롯도 함께 늘린다. 필터 상하
+여백을 줄이며 목록과 함께 스크롤하는 원칙은 유지한다. 컴팩트 기본 높이는32pt이며 이 슬롯을
+44pt로 검증했다고 표현하지 않는다. RN 폴백에는6pt hitSlop을 둔다.
+
+UIKit 라이브러리는 같은 values에도 모든 세그먼트를 다시 만들고, JS가 확인 차 돌려준 같은
+selectedIndex도 다시 지정했다. 기존 렌더값 캐시·동일 선택 가드를 patch-package로 추가한다.
+실제 선택과 라벨이 달라질 때는 그대로 갱신한다. 이 코드는 선택 애니메이션을 끊을 수 있는
+중복 네이티브 작업을 제거하는 보완이며, 사용자 영상의 원인이 확정됐거나 실제 증상이
+해소됐다고 기록하지 않는다. 실제 iOS 컴파일 인자로 syntax-only 검사는 통과했지만 시각
+회귀를 잠글 단위 테스트 seam은 없으며 새 바이너리의 동일 동작/영상 비교가 필요하다.
+
+JS/이벤트/기능 계약이 같아 REL-003에 따라 native41·API1·runtime1.2.11을 유지한다.
+패치 포함 새 바이너리는 필요하며 현재 설치본71cee95에 자동 반영되지 않는다.
+
+선택된 제보 유형의 아이콘은 선택 배경(tint) 위에 같은 tint를 쓰던 버그를 수정해 라벨과 같은
+background 전경색을 사용한다. 라이트/다크·세 유형 모두 실제 렌더 props 대비를 검사한다.
+다른 선택 버튼도 확인했으나 동일한 단색 대비 충돌은 추가로 발견하지 못했다.

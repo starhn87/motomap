@@ -47,11 +47,11 @@ export default function SubmissionFilterMenu({ value, onChange, active }: {
     });
   };
 
-  if (nativeUI && active) return <NativeChoiceControl value={value} options={FILTERS} label="제보 종류"
+  if (nativeUI) return <NativeChoiceControl value={value} options={FILTERS} label="제보 종류"
     presentation="menu" onChange={onChange} enabled={active} />;
 
   return <>
-    <Pressable ref={trigger} collapsable={false} onPress={open}
+    <Pressable ref={trigger} collapsable={false} hitSlop={6} onPress={open}
       accessibilityRole="button" accessibilityLabel="제보 종류"
       accessibilityValue={{ text: selectedLabel }} accessibilityState={{ expanded: !!anchor }}
       style={({ pressed }) => [styles.trigger, { opacity: pressed ? 0.6 : 1 }]}>
@@ -80,8 +80,8 @@ export default function SubmissionFilterMenu({ value, onChange, active }: {
 }
 
 const styles = StyleSheet.create({
-  trigger: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, paddingLeft: 12 },
-  label: { fontSize: 14, fontWeight: '500' },
+  trigger: { minHeight: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, paddingLeft: 12 },
+  label: { fontSize: 13, fontWeight: '500' },
   overlay: { flex: 1 },
   menu: { position: 'absolute', padding: 4, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth,
     shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
