@@ -32,6 +32,7 @@ function FilterChip({
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const isDark = colorScheme === 'dark';
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -62,12 +63,14 @@ function FilterChip({
             : colors.background,
           borderColor: isActive ? color : colors.border,
         },
+        isDark && (isActive ? styles.darkChipSelected : styles.darkChip),
       ]}>
-      <CategoryIcon category={categoryKey} size={15} color={isActive ? '#FFFFFF' : color} />
+      <CategoryIcon category={categoryKey} size={15} color={isActive && !isDark ? '#FFFFFF' : color} />
       <Text
         style={[
           styles.chipLabel,
           { color: isActive ? '#FFFFFF' : colors.text },
+          isDark && (isActive ? styles.darkChipLabelSelected : styles.darkChipLabel),
         ]}>
         {label}
       </Text>
@@ -78,6 +81,8 @@ function FilterChip({
 function RiderShareFilterChip({ isActive, onPress }: { isActive: boolean; onPress: () => void }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const isDark = colorScheme === 'dark';
+  const labelColor = isDark ? (isActive ? '#FFFFFF' : '#E4E4E7') : (isActive ? colors.background : colors.text);
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -103,13 +108,14 @@ function RiderShareFilterChip({ isActive, onPress }: { isActive: boolean; onPres
             : colors.background,
           borderColor: isActive ? colors.text : colors.border,
         },
+        isDark && (isActive ? styles.darkChipSelected : styles.darkChip),
       ]}>
       <Ionicons
         name={isActive ? 'checkmark-circle' : 'checkmark-circle-outline'}
         size={16}
-        color={isActive ? colors.background : colors.text}
+        color={labelColor}
       />
-      <Text style={[styles.chipLabel, { color: isActive ? colors.background : colors.text }]}>
+      <Text style={[styles.chipLabel, { color: labelColor }]}>
         추천 장소
       </Text>
     </AnimatedPressable>
@@ -187,6 +193,16 @@ export default function CategoryFilter() {
 }
 
 const styles = StyleSheet.create({
+  darkChip: {
+    backgroundColor: '#24262B',
+    borderColor: '#41444B',
+  },
+  darkChipSelected: {
+    backgroundColor: '#3A3D44',
+    borderColor: '#62666E',
+  },
+  darkChipLabel: { color: '#E4E4E7' },
+  darkChipLabelSelected: { color: '#FFFFFF' },
   container: {
     paddingHorizontal: 16,
     paddingVertical: 4,
