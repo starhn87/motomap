@@ -143,17 +143,20 @@ test('리뷰 목록은 사용자별 키·페이지 연결을 유지하고 숨긴
   user = null; module.default({ active: true }); assert.equal(config.enabled, false);
 });
 
-test('내 제보는 선택한 종류만 조회하고 사용자별 키·숨김 조회 중단을 지킨다', () => {
+test('내 제보 전체는 최신순으로 합치고 드롭다운 분류·계정·숨김 조회 경계를 지킨다', () => {
   const state = hooks(); let configs: any[] = [];
+  const fixtures: Record<string, any[]> = { 'my-submissions': [], 'my-feedback': [] };
+  let hidden: any[] = [];
   const module = loadModule<any>('components/activity/MySubmissionsList.tsx', {
     react: state.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
     '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
     '@/components/navigation/headerInset': { HeaderInsetContext: { Provider: 'HeaderInset' }, useContentHeaderInset: () => 52 },
     '@/components/ui/HeaderBackdrop': exported('Backdrop'),
     './SwipeDeleteRow': exported('SwipeDelete'),
-    '@/hooks/useActivityActions': { useActivityDismissals: () => ({ data: [], refetch() {} }), useDismissSubmission: () => ({ mutate() {} }), useDeleteActivityNotification: () => ({ mutate() {} }), useDeleteActivityReview: () => ({ mutate() {} }) },
+    './SubmissionFilterMenu': exported('FilterMenu'),
+    '@/hooks/useActivityActions': { useActivityDismissals: () => ({ data: hidden, refetch() {} }), useDismissSubmission: () => ({ mutate() {} }), useDeleteActivityNotification: () => ({ mutate() {} }), useDeleteActivityReview: () => ({ mutate() {} }) },
     '@expo/vector-icons/Ionicons': exported('Icon'), '@/components/ui/CategoryIcon': exported('Category'),
-    '@tanstack/react-query': { useQuery: (options: any) => { configs.push(options); return { data: [], refetch() {} }; } },
+    '@tanstack/react-query': { useQuery: (options: any) => { configs.push(options); return { data: fixtures[options.queryKey[0]], refetch() {} }; } },
     'expo-router': { router: { navigate() {}, push() {} } }, '@/components/ui/EmptyState': exported('Empty'),
     '@/constants/Colors': { ...exported({ light: colors }), semantic: {} }, '@/constants/categories': { CATEGORIES: {} },
     '@/components/useColorScheme': { useColorScheme: () => 'light' },
@@ -163,15 +166,30 @@ test('내 제보는 선택한 종류만 조회하고 사용자별 키·숨김 �
   });
   const render = (active: boolean) => { configs = []; return state.render(() => module.default({ active })); };
   let tree = render(true);
-  assert.deepEqual(configs.map(config => config.enabled), [true, false]);
+  assert.deepEqual(configs.map(config => config.enabled), [true, true]);
   const list = nodes(tree).find(node => node.type === 'List')!;
   assert.ok(list.props.ListHeaderComponent, '분류 필터는 목록과 함께 스크롤되는 헤더다');
   assert.equal(list.props.stickyHeaderIndices, undefined);
   assert.equal(list.props.ListHeaderComponent.props.style.position, undefined);
   assert.ok(configs.every(config => config.queryKey[1] === 'actor-a'));
   assert.equal(nodes(tree).some(node => node.type === 'Button' && node.props.children?.props?.children === '라이딩'), false);
-  const feedback = nodes(tree).find(node => node.type === 'Button' && node.props.children?.props?.children === '건의')!;
-  feedback.props.onPress(); tree = render(true);
+  const filter = () => nodes(tree).find(node => node.type === 'FilterMenu')!;
+  assert.equal(filter().props.value, 'all');
+  assert.equal(nodes(tree).find(node => node.type === 'Empty')?.props.title, '아직 제보한 내역이 없습니다');
+  assert.equal(list.props.ListHeaderComponent.props.children[0].props.style.justifyContent, 'flex-end');
+  fixtures['my-submissions'] = [{ id: 'shared-id', createdAt: '2026-11-01T12:00:00Z' }];
+  fixtures['my-feedback'] = [{ id: 'shared-id', createdAt: '2026-11-02T12:00:00Z' }];
+  tree = render(true);
+  const combined = nodes(tree).find(node => node.type === 'List')!;
+  assert.deepEqual(Array.from(combined.props.data, (row: any) => row.kind), ['feedback', 'place']);
+  assert.equal(new Set(combined.props.data.map(combined.props.keyExtractor)).size, 2);
+  hidden = [{ kind: 'place_submission', target_id: 'shared-id' }];
+  tree = render(true);
+  assert.deepEqual(Array.from(nodes(tree).find(node => node.type === 'List')!.props.data, (row: any) => row.kind), ['feedback']);
+  filter().props.onChange('places'); tree = render(true);
+  assert.deepEqual(configs.map(config => config.enabled), [true, false]);
+  fixtures['my-feedback'] = [];
+  filter().props.onChange('feedback'); tree = render(true);
   assert.deepEqual(configs.map(config => config.enabled), [false, true]);
   assert.equal(nodes(tree).find(node => node.type === 'Empty')?.props.title, '보낸 건의가 없습니다');
   render(false); assert.ok(configs.every(config => !config.enabled));

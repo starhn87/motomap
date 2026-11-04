@@ -29,7 +29,10 @@ import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
 import { useContentHeaderInset } from '@/components/navigation/headerInset';
 import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 import SwipeDeleteRow from './SwipeDeleteRow';
+import SubmissionFilterMenu, { type SubmissionFilter } from './SubmissionFilterMenu';
 import { useActivityDismissals, useDismissSubmission } from '@/hooks/useActivityActions';
+
+type SubmissionRow = { kind: 'place'; item: MySubmission } | { kind: 'feedback'; item: MyFeedback };
 
 const FEEDBACK_LABEL: Record<FeedbackType, string> = {
   bug: '버그 신고',
@@ -60,7 +63,9 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const bottomInset = useTabOcclusion();
-  const [tab, setTab] = useState<'places' | 'feedback'>('places');
+  const [tab, setTab] = useState<SubmissionFilter>('all');
+  const includePlaces = tab !== 'feedback';
+  const includeFeedback = tab !== 'places';
   const headerInset = useContentHeaderInset();
   const dismissals = useActivityDismissals(active);
   const dismissal = useDismissSubmission();
@@ -68,7 +73,7 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
   const { data: allPlaces, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['my-submissions', user?.id],
     queryFn: fetchMySubmissions,
-    enabled: !!user && active && tab === 'places',
+    enabled: !!user && active && includePlaces,
   });
 
   const {
@@ -80,12 +85,16 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
   } = useQuery({
     queryKey: ['my-feedback', user?.id],
     queryFn: fetchMyFeedback,
-    enabled: !!user && active && tab === 'feedback',
+    enabled: !!user && active && includeFeedback,
   });
 
   const places = allPlaces?.filter(row => !dismissals.data?.some(hidden => hidden.kind === 'place_submission' && hidden.target_id === row.id));
   const feedback = allFeedback?.filter(row => !dismissals.data?.some(hidden => hidden.kind === 'feedback' && hidden.target_id === row.id));
-  const trackHeaderScroll = useTrackHeaderScroll(active, { resetKey: tab, hasContent: !!(tab === 'places' ? places : feedback)?.length });
+  const rows: SubmissionRow[] = [
+    ...(includePlaces ? (places ?? []).map(item => ({ kind: 'place' as const, item })) : []),
+    ...(includeFeedback ? (feedback ?? []).map(item => ({ kind: 'feedback' as const, item })) : []),
+  ].sort((a, b) => Date.parse(b.item.createdAt) - Date.parse(a.item.createdAt));
+  const trackHeaderScroll = useTrackHeaderScroll(active, { resetKey: tab, hasContent: rows.length > 0 });
 
   const renderItem = ({ item }: { item: MySubmission }) => {
     const category = CATEGORIES[item.category];
@@ -202,39 +211,23 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
     </SwipeDeleteRow>
   );
 
-  const showLoading =
-    (tab === 'places' ? isLoading : feedbackLoading) || dismissals.isLoading;
-  const failed = (tab === 'places' ? isError : feedbackError) || dismissals.isError;
-  const retry = () => { void dismissals.refetch(); return tab === 'places' ? refetch() : refetchFeedback(); };
-  const hasItems = dismissals.isError && !dismissals.data ? 0 : (tab === 'places' ? places : feedback)?.length;
+  const showLoading = (includePlaces && isLoading) || (includeFeedback && feedbackLoading) || dismissals.isLoading;
+  const failed = (includePlaces && isError) || (includeFeedback && feedbackError) || dismissals.isError;
+  const retry = () => {
+    void dismissals.refetch();
+    if (includePlaces) void refetch();
+    if (includeFeedback) void refetchFeedback();
+  };
+  const hasItems = !(dismissals.isError && !dismissals.data) && rows.length > 0;
+  const refreshing = !!((includePlaces && isRefetching) || (includeFeedback && feedbackRefetching));
   const listStyle = [styles.list, { paddingTop: headerInset + 8, paddingBottom: 16 + bottomInset, flexGrow: 1 }];
   const filterHeader = (
     <View style={styles.filterHeader}>
       <View style={styles.filterRow}>
-        {([
-          ['places', '장소'],
-          ['feedback', '건의'],
-        ] as const).map(([key, label]) => {
-          const selected = tab === key;
-          return (
-            <Pressable
-              key={key}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              hitSlop={4}
-              onPress={() => setTab(key)}
-              style={({ pressed }) => [styles.filterChip, {
-                backgroundColor: selected ? colors.tint : colors.surfaceMuted,
-                borderColor: selected ? colors.tint : colors.border,
-                opacity: pressed ? 0.7 : 1,
-              }]}>
-              <Text style={[styles.filterLabel, { color: selected ? colors.background : colors.text }]}>{label}</Text>
-            </Pressable>
-          );
-        })}
+        <SubmissionFilterMenu value={tab} onChange={setTab} active={active} />
       </View>
-      {failed && !!hasItems && <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-        새로 불러오지 못해 이전 목록을 보여줘요.
+      {failed && hasItems && <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+        일부 내역을 불러오지 못했어요.
       </Text>}
     </View>
   );
@@ -243,6 +236,9 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
   ) : failed && !hasItems ? (
     <EmptyState title="제보 목록을 불러오지 못했어요" hint="연결 상태를 확인하고 다시 시도해 주세요."
       actionLabel="다시 시도" onAction={() => { void retry(); }} />
+  ) : tab === 'all' ? (
+    <EmptyState title="아직 제보한 내역이 없습니다" actionLabel="제보하러 가기"
+      onAction={() => router.navigate('/submit')} />
   ) : tab === 'places' ? (
     <EmptyState
       icon={<Ionicons name="location-outline" size={44} color={colors.textSecondary} />}
@@ -262,33 +258,19 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {tab === 'places' ? (
-        <FlatList
-          key="places"
-          onScroll={trackHeaderScroll} scrollEventThrottle={16}
-          data={hideRows ? [] : places ?? []}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          ListHeaderComponent={filterHeader}
-          ListEmptyComponent={emptyContent}
-          contentContainerStyle={listStyle}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.tint} />}
-        />
-      ) : (
-        <FlatList
-          key="feedback"
-          onScroll={trackHeaderScroll} scrollEventThrottle={16}
-          data={hideRows ? [] : feedback ?? []}
-          keyExtractor={(item) => item.id}
-          renderItem={renderFeedback}
-          ListHeaderComponent={filterHeader}
-          ListEmptyComponent={emptyContent}
-          contentContainerStyle={listStyle}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={feedbackRefetching} onRefresh={refetchFeedback} tintColor={colors.tint} />}
-        />
-      )}
+      <FlatList<SubmissionRow>
+        key={tab}
+        onScroll={trackHeaderScroll} scrollEventThrottle={16}
+        data={hideRows ? [] : rows}
+        keyExtractor={(row) => `${row.kind}:${row.item.id}`}
+        renderItem={({ item: row }) => row.kind === 'place'
+          ? renderItem({ item: row.item }) : renderFeedback({ item: row.item })}
+        ListHeaderComponent={filterHeader}
+        ListEmptyComponent={emptyContent}
+        contentContainerStyle={listStyle}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={retry} tintColor={colors.tint} />}
+      />
     </View>
   );
 }
@@ -296,18 +278,7 @@ export default function MySubmissionsList({ active = true }: { active?: boolean 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   filterHeader: { gap: 12, marginBottom: 4 },
-  filterRow: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
-  filterChip: {
-    minHeight: 36,
-    minWidth: 64,
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-  },
-  filterLabel: { fontSize: 13, fontWeight: '600' },
+  filterRow: { flexDirection: 'row', justifyContent: 'flex-end' },
   list: { padding: 16, gap: 12 },
   card: { padding: 16, borderRadius: 14, borderWidth: 1 },
   cardHeader: {
