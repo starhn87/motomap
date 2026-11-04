@@ -69,7 +69,7 @@ if (sentryDsn) {
   });
 }
 
-function AppHeader({ title, colorScheme, glass = false, borderless = false }: { title: string; colorScheme: 'light' | 'dark'; glass?: boolean; borderless?: boolean }) {
+function AppHeader({ title, colorScheme, glass = false }: { title: string; colorScheme: 'light' | 'dark'; glass?: boolean }) {
   const insets = useSafeAreaInsets();
   const colors = Colors[colorScheme];
   return (
@@ -77,8 +77,6 @@ function AppHeader({ title, colorScheme, glass = false, borderless = false }: { 
       style={{
         paddingTop: insets.top,
         backgroundColor: glass ? 'transparent' : colors.background,
-        borderBottomWidth: glass || borderless ? 0 : 0.5,
-        borderBottomColor: colors.border,
       }}>
       {glass && <HeaderBackdrop />}
       <View style={{ height: glass ? 44 : 48, alignItems: 'center', justifyContent: 'center' }}>
@@ -111,12 +109,12 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
           <HeaderScrollProvider>
           <Stack
             screenOptions={{
+              headerShadowVisible: false,
               header: ({ options, route }) => (
                 <AppHeader
                   title={typeof options.title === 'string' ? options.title : ''}
                   colorScheme={colorScheme === 'dark' ? 'dark' : 'light'}
                   glass={route.name === 'settings'}
-                  borderless={route.name === 'directions'}
                 />
               ),
             }}>

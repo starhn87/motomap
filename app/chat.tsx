@@ -304,7 +304,7 @@ export default function ChatScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* 헤더 */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View style={styles.header}>
         <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()} hitSlop={10}
           style={[styles.backButton, { width: 44, height: 44, borderRadius: 22 }]}>
           <BackIcon size={24} color={colors.text} />
@@ -436,7 +436,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderBottomWidth: 1,
   },
   backButton: {
     width: 36,
