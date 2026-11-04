@@ -43,7 +43,6 @@ import { queryClient } from '@/lib/queryClient';
 import { checkStartupNotices } from '@/lib/updateCheck';
 import { getKakaoNaviCapabilities } from '@/modules/kakao-navi';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { useHapticsStore } from '@/stores/useHapticsStore';
 import { useMapStore } from '@/stores/useMapStore';
 import { useThemeStore } from '@/stores/useThemeStore';
 
@@ -212,7 +211,6 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
   useEffect(() => {
     initialize();
     loadMode();
-    void useHapticsStore.getState().load();
     void useMapStore.getState().loadShowFavorites();
     const appKey = Constants.expoConfig?.extra?.kakaoNativeAppKey as string | undefined;
     if (appKey) {

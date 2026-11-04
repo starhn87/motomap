@@ -48,7 +48,6 @@ import NearbyPlaces from '@/components/map/NearbyPlaces';
 import { useReviews } from '@/hooks/useReviews';
 import { toast } from '@/lib/toast';
 import type { Place } from '@/types';
-import { haptics } from '@/lib/haptics';
 import { usePlaceOperationalStatus } from '@/hooks/usePlaceOperationalStatus';
 import Skeleton from '@/components/ui/Skeleton';
 
@@ -147,7 +146,7 @@ function PlaceBottomSheet({
     }
     try {
       await toggleFav({ placeId: place.id, on: !isFavorite });
-      haptics.selection();
+
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }

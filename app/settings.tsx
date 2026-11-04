@@ -5,7 +5,6 @@ import {
   View,
   Pressable,
   ScrollView,
-  Switch,
 } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import { router } from 'expo-router';
@@ -27,8 +26,6 @@ import { appAlert } from '@/lib/dialog';
 import { supabase } from '@/lib/supabase';
 import { friendlySocialAuthError } from '@/lib/socialAuthError';
 import type { SocialLoginProvider } from '@/lib/socialAuth';
-import { useHapticsStore } from '@/stores/useHapticsStore';
-import { haptics } from '@/lib/haptics';
 import { nativeUI } from '@/lib/nativeUI';
 import NativeChoiceControl from '@/components/ui/NativeChoiceControl';
 import NativeSettingsGroup from '@/components/ui/NativeSettingsGroup';
@@ -190,15 +187,6 @@ export default function SettingsScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const { mode, setMode } = useThemeStore();
-  const hapticsEnabled = useHapticsStore((state) => state.enabled);
-  const setHapticsEnabled = useHapticsStore((state) => state.setEnabled);
-
-  const handleHapticsChange = (enabled: boolean) => {
-    if (hapticsEnabled) haptics.selection();
-    void setHapticsEnabled(enabled);
-    if (enabled) haptics.success();
-  };
-
   const handleDeleteAccount = () => {
     appAlert(
       '회원 탈퇴',
@@ -248,24 +236,6 @@ export default function SettingsScreen() {
         <ThemeOption label="라이트" value="light" current={mode} onPress={setMode} />
         <ThemeOption label="다크" value="dark" current={mode} onPress={setMode} />
         </>}
-      </View>
-
-      <View
-        style={[styles.settingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={styles.settingText}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>햅틱 피드백</Text>
-          <Text style={[styles.settingHint, { color: colors.textSecondary }]}>
-            켜면 진동을 테스트해요. 시스템 햅틱이 꺼져 있으면 동작하지 않을 수 있어요.
-          </Text>
-        </View>
-        <View style={styles.settingSwitchSlot}>
-          <Switch
-            accessibilityLabel="햅틱 피드백"
-            value={hapticsEnabled}
-            onValueChange={handleHapticsChange}
-            trackColor={{ false: colors.border, true: semantic.success }}
-          />
-        </View>
       </View>
 
       {user ? (
@@ -452,33 +422,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     overflow: 'hidden',
-  },
-  settingCard: {
-    minHeight: 64,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  settingText: {
-    flex: 1,
-    marginRight: 12,
-  },
-  settingSwitchSlot: {
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-  },
-  settingLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  settingHint: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
   },
   loginMethodRow: {
     minHeight: 56,

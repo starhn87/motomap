@@ -19,7 +19,6 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { APP_STORE_URL } from '@/constants/app';
 import { CATEGORIES } from '@/constants/categories';
-import { haptics } from '@/lib/haptics';
 import { track } from '@/lib/analytics';
 import { toast } from '@/lib/toast';
 import type { PlaceCategory } from '@/types';
@@ -70,7 +69,7 @@ export default function RiderShareCard({
           message: `모토맵에서 ${places}곳을 ${rides}번 달렸어요 🏍️\n${APP_STORE_URL}`,
         });
       }
-      haptics.success();
+
       track.bikePassportShared({ scope: bike ? 'bike' : 'all', places, rides });
     } catch (error) {
       toast.error('공유 카드를 만들지 못했습니다.', (error as Error).message);

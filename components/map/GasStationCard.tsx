@@ -14,7 +14,6 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
 import { toast } from '@/lib/toast';
-import { haptics } from '@/lib/haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Props {
@@ -66,7 +65,7 @@ export default function GasStationCard({ station, fuelCode = 'B027', onClose }: 
         on: !isFavorite,
         favoriteId: favorite?.id,
       });
-      haptics.selection();
+
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }

@@ -13,7 +13,6 @@ import Colors from '@/constants/Colors';
 import { useMapStore } from '@/stores/useMapStore';
 import { track } from '@/lib/analytics';
 import type { PlaceCategory } from '@/types';
-import { haptics } from '@/lib/haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -132,7 +131,6 @@ export default function CategoryFilter() {
   const showRiderShares = useMapStore((state) => state.showRiderShares);
   const toggleRiderShares = useMapStore((state) => state.toggleRiderShares);
   const handlePress = (key: PlaceCategory) => {
-    haptics.selection(50);
     // 끄는 동작은 세지 않는다 — 무엇을 보려 했는지가 관심사다
     if (activeFilter !== key) track.categoryFiltered({ category: key });
     setActiveFilter(activeFilter === key ? null : key);
@@ -157,7 +155,6 @@ export default function CategoryFilter() {
         <RiderShareFilterChip
           isActive={showRiderShares}
           onPress={() => {
-            haptics.selection(50);
             track.generalSharedLayerToggled({ on: !showRiderShares });
             toggleRiderShares();
           }}
@@ -170,7 +167,6 @@ export default function CategoryFilter() {
             accessibilityLabel="고급휘발유 판매 주유소만 보기"
             accessibilityState={{ checked: premiumGasOnly }}
             onPress={() => {
-              haptics.selection(50);
               togglePremiumGasOnly();
             }}
             style={({ pressed }) => [styles.chip, styles.subfilterChip, {

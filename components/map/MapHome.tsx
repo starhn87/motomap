@@ -79,7 +79,6 @@ import { toast } from '@/lib/toast';
 import { useSharedGeneralPlaces } from '@/hooks/useCommunityPlaceSignals';
 import { usePlaceOperationalStatuses } from '@/hooks/usePlaceOperationalStatus';
 import type { Place, RoadHazard } from '@/types';
-import { haptics } from '@/lib/haptics';
 import GlassButton from '@/components/ui/GlassButton';
 import {
   getLastMapCamera,
@@ -387,7 +386,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   );
   const handleMarkerPress = useCallback(
     (place: Place) => {
-      haptics.selection(90);
       followingRef.current = false;
       track.placeViewed({ place_id: place.id, category: place.category, source: 'map_marker' });
       setHighlightReview(null);
@@ -680,7 +678,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       return;
     }
     if (!userLocation || !mapRef.current) return;
-    haptics.selection(90);
+
     // 내 위치를 지도 중앙으로 이동(현재 줌 유지)
     mapRef.current.animateCameraTo({
       latitude: userLocation.latitude,
@@ -841,7 +839,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
                   haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
                 }}
                 onTap={() => {
-                  haptics.selection(90);
                   track.generalSharedPlaceSelected({ share_count: shared.shareCount });
                   handleTempPlaceSelect({
                     name: shared.name,

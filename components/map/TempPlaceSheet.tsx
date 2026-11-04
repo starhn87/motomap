@@ -44,7 +44,6 @@ import { PlaceHoursRow, showsPlaceHoursRow } from '@/components/place/PlaceHours
 import { PlaceAddressRow, PlacePhoneRow } from '@/components/place/PlaceContactRows';
 import { FUEL_LABELS, formatTradeAt, looksLikeGasStation } from '@/lib/api/gasStations';
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
-import { haptics } from '@/lib/haptics';
 import { track } from '@/lib/analytics';
 import {
   ensureGeneralPlace,
@@ -179,7 +178,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
     }
     try {
       await toggleFavorite({ place: resolvedPlace ?? place, on: !isFavorite, favoriteId: favorite?.id });
-      haptics.selection();
+
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }
@@ -231,7 +230,6 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
     }
     if (toggleCommunityShare.isPending) return;
     toggleCommunityShare.mutate(undefined, {
-      onSuccess: () => haptics.selection(),
       onError: (error) => toast.error('장소 추천을 반영하지 못했습니다.', error.message),
     });
   };
