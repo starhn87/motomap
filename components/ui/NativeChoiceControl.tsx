@@ -16,8 +16,8 @@ export default function NativeChoiceControl<T extends string>({ value, options, 
   const scheme = useColorScheme() ?? 'light';
   if (!nativeUI) return null;
   const { Host, Picker, Text } = nativeUI.views;
-  const { accessibilityLabel, disabled, frame, labelsHidden, pickerStyle, tag } = nativeUI.modifiers;
-  return <Host colorScheme={scheme} seedColor={Colors[scheme].text}
+  const { accessibilityIdentifier, accessibilityLabel, disabled, frame, labelsHidden, pickerStyle, tag } = nativeUI.modifiers;
+  return <Host colorScheme={scheme} seedColor={Colors[scheme].text} ignoreSafeArea="container"
     matchContents={presentation === 'menu' ? true : { vertical: true }}
     style={presentation === 'segmented' ? { width: '100%', minHeight: 44 } : { minHeight: 44 }}>
     <Picker label={label} selection={value}
@@ -25,7 +25,7 @@ export default function NativeChoiceControl<T extends string>({ value, options, 
         if (enabled && selected !== value && options.some(option => option.value === selected)) onChange(selected);
       }}
       modifiers={[pickerStyle(presentation), labelsHidden(), frame({ minHeight: 44 }),
-        accessibilityLabel(label), disabled(!enabled)]}>
+        accessibilityIdentifier(`native-choice-${label}`), disabled(!enabled)]}>
       {options.map(option => <Text key={option.value}
         modifiers={[tag(option.value), ...(option.accessibilityLabel ? [accessibilityLabel(option.accessibilityLabel)] : [])]}>
         {option.label}

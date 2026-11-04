@@ -1,3 +1,12 @@
+## 2026-11-04 후속 로컬 검증 완료 — native40
+
+사용자 승인으로 Xcode27 Release1.2.11(로컬 build1)/internal-testflight를 물리 기기에 설치했다.
+메뉴·분류·테마·설정 행·약관 진입을 검증했고 인라인 Host safe area/접근성 이름 보완도 반영했다.
+최종53.096초 XCUITest와 타입·JS514개·릴리스 검사가 통과했다. TestFlight70(native39)을 바꾼
+것이 아니며 새 TestFlight/App Store 업로드·OTA는 하지 않았다. 실제 큰 글자/VoiceOver 검증은
+남아 있다. 상세 근거는 release-compatibility.md의 로컬 native40 기록을 따른다.
+아래 문구는 각 시점의 후보/승인 상태로 보존한다.
+
 ## 2026-11-04 최신 로컬 후보 — 1.2.11/native40, iOS 기본 선택 UI
 
 직접 의존성 Expo UI57.0.26으로 내 제보 드롭다운·활동/테마 선택과 설정 행을 네이티브로 표시한다.

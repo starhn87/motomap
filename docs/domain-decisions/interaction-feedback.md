@@ -744,7 +744,7 @@ Hallmark audit의2·3·4번을 사용자가 승인했다. 내 바이크 사진�
 ## INTERACTION-027 — iOS의 짧은 선택·설정 행은 기능 확인 후 SwiftUI를 사용한다
 
 - 날짜: 2026-11-04
-- 상태: 로컬 소스 후보 / 새 빌드·기기 QA 전
+- 상태: 로컬 실기기 검증 완료 / TestFlight 후속 업로드 전
 - 관련: `lib/nativeUI.ts`, `NativeChoiceControl.tsx`, `NativeSettingsGroup.tsx`, `app/settings.tsx`
 
 사용자가 네이티브 UI 전환을 승인했다. Expo UI의 menu Picker로 내 제보 필터를, segmented
@@ -768,3 +768,19 @@ VoiceOver에서 행의 텍스트를 묶고 장식용 체크/화살표는 따로 
 SwiftUI JS의 requireNativeView를 평가하지 않아 이전 빌드에서 앱 시작 오류를 만들지 않는다.
 Android/기존 바이너리 폴백은 기존 UI이며 SDK 자체 업그레이드나 운영시간 입력 복원은 하지 않는다.
 검증은 순수 JS/번들 단계와 실제 새 네이티브 화면 검증을 분리해 기록한다.
+
+
+### INTERACTION-027 후속 — 인라인 Host의 컨테이너 여백은 RN이 관리한다
+
+물리 iPhone16/iOS27.0.1에서 RN ScrollView 아래의 SwiftUI Host가 화면 끝에 걸리면
+컨테이너 safe area를 다시 적용했다. 처음 보이는 약관 첫 행이 RN 카드보다17pt 위로 이동해
+글자 위쪽이 잘렸고, 같은 카드를 완전히 스크롤해 들여오면 정상으로 돌아왔다.
+최소 높이를 크게 늘려 가리는 대신 인라인 Host 두 곳에 `ignoreSafeArea="container"`를
+명시한다. 화면/스크롤 인셋은 부모 RN이 소유하고 SwiftUI는 키보드 영역만 계속 처리한다.
+A/B에서 첫 행 Y가785.67→802.67pt로17pt 내려와 카드와 일치했고 스크롤 후에도 정상이다.
+
+Picker 자체 label과 별도 accessibilityLabel을 중복 지정하면 기기 트리에서 같은 이름이
+두 번 붙었다. 자체 label과 옵션별 접근성 이름을 유지하고 자동화용 식별자는 별도로 지정한다.
+최종 실기기53초 검사에서 이름1회·네이티브3선택 메뉴·활동 내 제보/리뷰 전환·테마 즉시 반영과
+복원·약관 행 빈 공간 탭·지도 복귀를 확인했다. 알림 목록 진입에 따른 읽음 처리·계정 연결·삭제는
+기존 계정에서 실행하지 않았다. 큰 글자/실제 VoiceOver 음성은 이 검증 범위에 포함하지 않는다.

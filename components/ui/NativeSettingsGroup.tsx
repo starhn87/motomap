@@ -25,7 +25,7 @@ export default function NativeSettingsGroup({ rows }: { rows: SettingsRow[] }) {
   const { Host, VStack, HStack, Text, Image, Spacer, Button, Divider, ProgressView } = nativeUI.views;
   const { accessibilityElement, accessibilityHidden, accessibilityIdentifier, buttonStyle, contentShape, disabled, font, foregroundStyle, frame, padding, shapes } = nativeUI.modifiers;
   return <View style={{ borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surface }}>
-    <Host matchContents={{ vertical: true }} colorScheme={scheme} seedColor={colors.text} style={{ minHeight: rows.length * 44 }}>
+    <Host matchContents={{ vertical: true }} colorScheme={scheme} seedColor={colors.text} ignoreSafeArea="container" style={{ minHeight: rows.length * 44 }}>
       <VStack spacing={0}>
         {rows.map((row, index) => {
           const content = <HStack spacing={12} modifiers={[padding({ horizontal: 16, vertical: 12 }), frame({ minHeight: 44, alignment: 'leading' }), contentShape(shapes.rectangle()), accessibilityElement('combine')]}>

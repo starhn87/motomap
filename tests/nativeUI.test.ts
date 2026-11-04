@@ -46,7 +46,12 @@ test('네이티브 선택은 유효한 변경만 전달하고 비활성·초기 
     label: '제보 종류', presentation: 'menu', onChange: () => changes++ };
   const tree = module.default(props);
   assert.equal(tree.props.colorScheme, 'light');
+  assert.equal(tree.props.ignoreSafeArea, 'container', '화면 safe area는 부모 RN 레이아웃이 관리한다');
   const picker = tree.props.children;
+  assert.equal(picker.props.label, '제보 종류');
+  assert.equal(picker.props.modifiers.some((modifier: any) => modifier.name === 'accessibilityLabel'), false,
+    'Picker 자체 label을 다시 덮어 VoiceOver 이름을 중복하지 않는다');
+  assert.ok(picker.props.modifiers.some((modifier: any) => modifier.name === 'accessibilityIdentifier' && modifier.value === 'native-choice-제보 종류'));
   picker.props.onSelectionChange('all'); picker.props.onSelectionChange(null); picker.props.onSelectionChange('unknown');
   assert.equal(changes, 0);
   picker.props.onSelectionChange('places'); assert.equal(changes, 1);
@@ -65,6 +70,7 @@ test('설정 네이티브 행은 표시 전용·중복 잠금·파괴적 확인 
     { key: 'delete-account', label: '회원 탈퇴', destructive: true, onPress: () => calls.push('confirmation') },
   ] });
   const buttons = nodes(tree).filter(node => node.type === 'Button');
+  assert.equal(nodes(tree).find(node => node.type === 'Host').props.ignoreSafeArea, 'container');
   assert.equal(buttons.length, 3, '최신 버전 행에는 스토어 액션을 만들지 않는다');
   assert.ok(buttons.every(button => button.props.children.props.modifiers.some((modifier: any) =>
     modifier.name === 'contentShape' && modifier.value.shape === 'rectangle')), '글자 외의 행 여백도 같은 탭 영역이다');
