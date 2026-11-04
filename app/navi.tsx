@@ -13,7 +13,6 @@ import * as Location from 'expo-location';
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import CloseIcon from '@/components/ui/CloseIcon';
-import GlassButton from '@/components/ui/GlassButton';
 
 import KakaoNavi, {
   friendlyRouteError,
@@ -564,17 +563,18 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
 
       {isCourseMode ? (
         /* 코스 안내 — 편집할 지점이 없으니 닫기 버튼만 */
-        <GlassButton
+        <Pressable
           onLayout={(e) => setTopCardH(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}
           accessibilityRole="button"
           accessibilityLabel="경로 미리보기 닫기"
           onPress={() => router.back()}
-          style={[
+          hitSlop={8}
+          style={({ pressed }) => [
             styles.closeButton,
-            { top: insets.top + 8, borderRadius: 22 },
+            { top: insets.top + 8, backgroundColor: colors.background, opacity: pressed ? 0.65 : 1 },
           ]}>
           <CloseIcon size={22} color={colors.text} />
-        </GlassButton>
+        </Pressable>
       ) : (
         !guideStarted && (
           /* 경로 편집 카드 — 필드를 탭하면 그 지점을 바꾸고 경로를 다시 그린다 */
@@ -657,12 +657,12 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
             </View>
             {/* 오른쪽 열 — 닫기는 상단, 스왑은 최하단(닫기와 오터치 안 나게 멀리) */}
             <View style={styles.routeSide}>
-              <GlassButton compact accessibilityRole="button" accessibilityLabel="경로 미리보기 닫기"
+              <Pressable accessibilityRole="button" accessibilityLabel="경로 미리보기 닫기"
                 onPress={returnToMap}
                 hitSlop={8}
-                style={styles.routeClose}>
+                style={({ pressed }) => [styles.routeClose, { opacity: pressed ? 0.65 : 1 }]}>
                 <CloseIcon size={20} color={colors.text} />
-              </GlassButton>
+              </Pressable>
               {!continuation && <Pressable
                 onPress={swapEnds}
                 hitSlop={6}

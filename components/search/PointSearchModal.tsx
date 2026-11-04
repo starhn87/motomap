@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import GlassButton from '@/components/ui/GlassButton';
+import GlassSurface from '@/components/ui/GlassSurface';
 import {
   ActivityIndicator,
   FlatList,
@@ -333,11 +334,7 @@ export default function PointSearchModal({
         <View style={{ flex: 1 }} accessibilityElementsHidden={!!selectionConfirmation}
           importantForAccessibility={selectionConfirmation ? 'no-hide-descendants' : 'auto'}>
         <View style={styles.modalHeader}>
-          <View
-            style={[
-              styles.searchBox,
-              { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
-            ]}>
+          <GlassSurface style={styles.searchBox}>
             <Ionicons name="search" size={16} color={colors.textSecondary} />
             <TextInput
               value={query}
@@ -384,7 +381,7 @@ export default function PointSearchModal({
                 color={listening ? colors.tint : colors.textSecondary}
               />
             </Pressable>
-          </View>
+          </GlassSurface>
           <GlassButton
             accessibilityRole="button"
             onPress={onClose}
@@ -611,8 +608,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 22,
+    borderWidth: 0,
     paddingHorizontal: 12,
     height: 44,
   },

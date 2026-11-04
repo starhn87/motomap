@@ -43,6 +43,7 @@ function setup() {
     },
     '@expo/vector-icons/Ionicons': { __esModule: true, default: 'Ionicons' },
     '@/components/ui/GlassButton': { __esModule: true, default: 'GlassButton' },
+    '@/components/ui/GlassSurface': { __esModule: true, default: 'GlassSurface' },
     '@/constants/Colors': { __esModule: true, default: { light: {} } },
     '@/components/useColorScheme': { useColorScheme: () => 'light' },
     '@/components/map/MapPickerModal': { __esModule: true, default: 'MapPickerModal' },
