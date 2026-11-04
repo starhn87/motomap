@@ -4,22 +4,23 @@ import { loadModule } from './helpers/loadModule';
 
 function fixture() {
   const cache = new Map<string, any>();
-  const invalidations: any[] = [], errors: string[] = [];
+  const invalidations: any[] = [], errors: string[] = [], events: string[] = [];
   const key = (value: any) => JSON.stringify(value);
   const client = {
     cancelQueries: async () => {},
     getQueryData: (value: any) => cache.get(key(value)),
-    setQueryData: (value: any, update: any) => cache.set(key(value), typeof update === 'function' ? update(cache.get(key(value))) : update),
+    setQueryData: (value: any, update: any) => { events.push('cache'); return cache.set(key(value), typeof update === 'function' ? update(cache.get(key(value))) : update); },
     invalidateQueries: ({ queryKey }: any) => invalidations.push(queryKey),
   };
   const module = loadModule<any>('hooks/useActivityActions.ts', {
+    './useActivityLayoutAnimation': { useActivityLayoutAnimation: () => () => events.push('animation') },
     '@tanstack/react-query': { useQueryClient: () => client, useMutation: (options: any) => options, useQuery: (options: any) => options },
     '@/stores/useAuthStore': { useAuthStore: (select: any) => select({ user: { id: 'a' } }) },
     '@/lib/api/activity': { deleteNotification() {}, dismissSubmission() {}, fetchActivityDismissals() {} },
     '@/lib/api/reviews': { deleteReview() {} }, '@/lib/auth': { requireUser: async () => ({ id: 'a' }) },
     '@/lib/toast': { toast: { error: (message: string) => errors.push(message) } },
   });
-  return { module, client, invalidations, errors };
+  return { module, client, invalidations, errors, events };
 }
 
 test('알림 삭제는 즉시 반영하고 실패한 한 행만 복원해 다른 삭제를 되살리지 않는다', async () => {
@@ -87,4 +88,18 @@ test('숨김 API는 1000행 제한을 넘겨 조회하며 계정 변경 후 삭�
   await assert.rejects(module.dismissSubmission({ userId: 'a', kind: 'feedback', id: 'one' }), /계정/);
   await assert.rejects(module.deleteNotification({ userId: 'a', id: 'one' }), /계정/);
   assert.equal(writes, 1);
+});
+
+
+test('삭제·숨김은 캐시를 즉시 바꾸기 직전에만 애니메이션을 예약한다', async () => {
+  for (const kind of ['notification','submission','review']) {
+    const f=fixture();
+    const review={id:'one',targetKind:'place',placeId:'p'};
+    f.client.setQueryData(['notifications','a'],[{id:'one'}]);
+    f.client.setQueryData(['my-reviews','a'],{pages:[[review]],pageParams:[0]});
+    f.events.length=0;
+    const action=kind==='notification'?f.module.useDeleteActivityNotification():kind==='submission'?f.module.useDismissSubmission():f.module.useDeleteActivityReview();
+    await action.onMutate(kind==='review'?{userId:'a',review}:{userId:'a',id:'one',kind:'place_submission'});
+    assert.deepEqual(f.events,['animation','cache']);
+  }
 });
