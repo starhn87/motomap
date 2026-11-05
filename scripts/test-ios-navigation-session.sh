@@ -50,6 +50,8 @@ xcrun clang -fobjc-arc -fmodules -target "$arch-apple-ios16.4-simulator" -isysro
   "$root/modules/kakao-navi/ios/KNNaviHiddenViews.m" \
   "$root/modules/kakao-navi/ios/KNNaviHazardSheet.m" \
   "$root/modules/kakao-navi/ios/KNNaviGasLayer.m" \
+  "$root/modules/kakao-navi/ios/KNNaviTrafficBar.m" \
+  "$root/tests/ios/KNNaviTrafficBarTests.m" \
   "$root/tests/ios/KNNaviPoiSheetTests.m" \
   "$root/tests/ios/KNNaviArrivalPromptTests.m" \
   "$root/tests/ios/KNNaviSessionTests.m" "$root/tests/ios/NavigationSessionTestApp.m" \
@@ -105,6 +107,7 @@ container=$(xcrun simctl get_app_container "$simulator_id" com.ridemap.tests.nav
 for ((i=0; i<150; i++)); do
   if [[ -f "$container/Documents/session-result.txt" ]]; then
     if [[ -f "$container/Documents/arrival-prompt.png" ]]; then cp "$container/Documents/arrival-prompt.png" /tmp/motomap-arrival-prompt.png; fi
+    if [[ -f "$container/Documents/traffic-bar.png" ]]; then cp "$container/Documents/traffic-bar.png" /tmp/motomap-traffic-bar.png; fi
     if [[ -f "$container/Documents/bottom-expanded.png" ]]; then cp "$container/Documents/bottom-expanded.png" /tmp/motomap-bottom-expanded.png; fi
     if [[ -f "$container/Documents/bottom-collapsed.png" ]]; then cp "$container/Documents/bottom-collapsed.png" /tmp/motomap-bottom-collapsed.png; fi
     if [[ -f "$container/Documents/hazard-sheet.png" ]]; then cp "$container/Documents/hazard-sheet.png" /tmp/motomap-hazard-sheet.png; fi
