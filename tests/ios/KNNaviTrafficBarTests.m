@@ -31,11 +31,22 @@
 @property(nonatomic) SInt32 remainTime;
 @end
 @implementation TrafficTripProbe @end
+@interface TrafficRoadProbe : NSObject
+@property(nonatomic, strong) KNLocation *fromLocation;
+@end
+@implementation TrafficRoadProbe @end
 @interface TrafficRouteProbe : NSObject
 @property(nonatomic) SInt32 remaining;
+@property(nonatomic) SInt32 totalOverride;
+@property(nonatomic, strong) KNLocation *origin;
 @end
 @implementation TrafficRouteProbe
 - (SInt32)remainDistFromLocation:(KNLocation *)location { return self.remaining; }
+- (SInt32)totalDist { return self.totalOverride ?: self.remaining; }
+- (NSArray *)mainRoadList {
+  if (!self.origin) return @[];
+  TrafficRoadProbe *road = [TrafficRoadProbe new]; road.fromLocation = self.origin; return @[road];
+}
 @end
 @interface TrafficGuidanceProbe : NSObject
 @property(nonatomic) KNGuideState guideState;
@@ -219,6 +230,26 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   [KNSDKBridge setLocationUseAllowed:NO];
   setGuide(); [controller refreshTrafficBar];
   check(activeBar.hidden && !activeBar.states.count, @"consent suspension clears traffic");
+  [KNSDKBridge setLocationUseAllowed:YES];
+  route.origin = (KNLocation *)location;
+  guide.gpsOrigin.valid = NO; guide.gpsOrigin.posTrust = NO; guide.gpsOrigin.timestamp = nil;
+  setGuide(); [controller refreshTrafficBar];
+  check(!activeBar.hidden && activeBar.states.count == 48, @"stationary startup shows known route before first GPS fix");
+  check([activeBar.accessibilityValue containsString:@"GPS"], @"route overview does not claim a live current position");
+  check(!activeBar.positionAvailable, @"GPS waiting position indicator stays gray");
+  route.totalOverride = route.remaining + 20; [controller refreshTrafficBar];
+  check(activeBar.hidden && !activeBar.states.count, @"first main road inside route is not treated as the origin");
+  route.totalOverride = 0; [controller refreshTrafficBar];
+  check(!activeBar.hidden && !activeBar.positionAvailable, @"verified route origin restores waiting overview");
+  guide.gpsOrigin.valid = YES; guide.gpsOrigin.posTrust = YES; guide.gpsOrigin.timestamp = NSDate.date;
+  setGuide(); [controller refreshTrafficBar];
+  check(!activeBar.hidden && activeBar.positionAvailable && ![activeBar.accessibilityValue containsString:@"GPS"],
+        @"trusted fix transitions to live remaining profile");
+  guide.gpsOrigin.timestamp = [NSDate dateWithTimeIntervalSinceNow:-11]; [controller refreshTrafficBar];
+  check(!activeBar.hidden && !activeBar.positionAvailable && ![controller valueForKey:@"trafficLocationGuide"],
+        @"expired position is released while known whole route remains visible");
+  [KNSDKBridge setLocationUseAllowed:NO]; [controller refreshTrafficBar];
+  check(activeBar.hidden && !activeBar.states.count, @"location suspension still removes route overview");
   [KNSDKBridge setLocationUseAllowed:allowed];
   [controller willMoveToParentViewController:nil]; [controller.view removeFromSuperview]; [controller removeFromParentViewController];
 

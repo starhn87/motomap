@@ -45,6 +45,7 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
 - (instancetype)initWithFrame:(CGRect)frame {
   if ((self = [super initWithFrame:frame])) {
     self.states = @[];
+    _positionAvailable = YES;
     self.backgroundColor = UIColor.clearColor;
     self.opaque = NO;
     self.hidden = YES;
@@ -79,6 +80,18 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
   self.hidden = YES;
   [self setNeedsDisplay];
 }
+- (void)setPositionAvailable:(BOOL)available {
+  if (_positionAvailable == available) return;
+  _positionAvailable = available;
+  self.positionIcon.tintColor = available ?
+      [UIColor colorWithRed:0x22 / 255.0 green:0xC5 / 255.0 blue:0x5E / 255.0 alpha:1] :
+      [UIColor colorWithRed:0xA1 / 255.0 green:0xA1 / 255.0 blue:0xAA / 255.0 alpha:1];
+  self.accessibilityLabel = available ? @"남은 경로 교통 흐름" : @"경로 교통 흐름";
+  self.accessibilityHint = available ? @"아래가 현재 위치, 위가 목적지입니다. 구간별 평균 교통 상황입니다." :
+      @"GPS 수신 대기 중인 전체 경로의 평균 교통 상황입니다.";
+  [self updateAccessibilityValue];
+  [self setNeedsDisplay];
+}
 - (void)updateFromLocation:(KNLocation *)location remainingDistance:(SInt32)distance time:(NSTimeInterval)time {
   if (!location || distance <= 0 || !isfinite(time)) { [self reset]; return; }
   // GPS마다 전체 경로를 읽지 않는다. 최대48개 표본,10초 또는 한 칸 이상 이동할 때 갱신한다.
@@ -87,17 +100,24 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
   self.states = KNNaviTrafficStates(location, distance);
   self.remainingDistance = distance;
   self.sampledAt = time;
-  self.accessibilityValue = distance >= 1000 ? [NSString stringWithFormat:@"목적지까지 %.1f킬로미터", distance / 1000.0] :
-      [NSString stringWithFormat:@"목적지까지 %d미터", (int)distance];
+  [self updateAccessibilityValue];
+  [self setNeedsDisplay];
+}
+- (void)updateAccessibilityValue {
+  if (!self.states.count) { self.accessibilityValue = nil; return; }
+  SInt32 distance = self.remainingDistance;
+  NSString *label = self.positionAvailable ? @"목적지까지" : @"경로 길이";
+  NSString *length = distance >= 1000 ? [NSString stringWithFormat:@"%@ %.1f킬로미터", label, distance / 1000.0] :
+      [NSString stringWithFormat:@"%@ %d미터", label, (int)distance];
   NSArray<NSString *> *names = @[@"교통정보 없음", @"정체", @"지체", @"서행", @"원활", @"통행 불가"];
-  NSMutableArray<NSString *> *summary = [NSMutableArray arrayWithObject:self.accessibilityValue];
+  NSMutableArray<NSString *> *summary = [NSMutableArray arrayWithObject:length];
+  if (!self.positionAvailable) [summary insertObject:@"GPS 수신 대기" atIndex:0];
   for (NSUInteger state = 0; state < names.count; state++) {
     NSUInteger count = 0;
     for (NSNumber *value in self.states) if (value.unsignedIntegerValue == state) count++;
     if (count) [summary addObject:[NSString stringWithFormat:@"%@ 약 %.0f퍼센트", names[state], 100.0 * count / self.states.count]];
   }
   self.accessibilityValue = [summary componentsJoinedByString:@", "];
-  [self setNeedsDisplay];
 }
 - (UIColor *)colorForState:(KNTrafficState)state {
   switch (state) {

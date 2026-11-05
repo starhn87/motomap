@@ -345,6 +345,7 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong) KNNaviTrafficBar *trafficBar;
 @property(nonatomic, strong) KNGuide_Location *trafficLocationGuide;
 @property(nonatomic, strong) KNRoute *trafficMatchedRoute;
+@property(nonatomic, strong) KNRoute *trafficDisplayedRoute;
 @property(nonatomic) BOOL trafficRouteChanging;
 @property(nonatomic, strong) NSNumber *trafficDarkMode;
 @property(nonatomic, copy) void (^onArrival)(NSDictionary *);
@@ -782,6 +783,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)resetTrafficBar {
   self.trafficLocationGuide = nil;
   self.trafficMatchedRoute = nil;
+  self.trafficDisplayedRoute = nil;
   [self.trafficBar reset];
 }
 
@@ -794,17 +796,34 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
       !self.safetyScreenQuarantined && self.guidance.guideState == KNGuideState_OnRouteGuide &&
       [KNSDKBridge isLocationUseAllowed] && self.viewIfLoaded.window &&
       UIApplication.sharedApplication.applicationState == UIApplicationStateActive;
-  if (!active || ![self usableRecoveryGPS:guide.gpsOrigin] || !guide.locationForPrimaryRoute ||
-      !route || route != self.guidance.routesOnGuide.firstObject) {
+  KNRoute *currentRoute = self.guidance.routesOnGuide.firstObject;
+  if (!active || !currentRoute) {
     [self resetTrafficBar]; return;
   }
+  BOOL positionAvailable = [self usableRecoveryGPS:guide.gpsOrigin] && guide.locationForPrimaryRoute && route == currentRoute;
+  if (self.trafficDisplayedRoute != currentRoute || self.trafficBar.positionAvailable != positionAvailable) {
+    [self.trafficBar reset];
+    self.trafficDisplayedRoute = currentRoute;
+  }
+  if (!positionAvailable) {
+    self.trafficLocationGuide = nil;
+    self.trafficMatchedRoute = nil;
+  }
+  self.trafficBar.positionAvailable = positionAvailable;
   // SDK 조작부를 숨긴 정상 안내에서만 표시한다. 지도 탐색·시트에는 터치 없는 막대도 남기지 않는다.
   BOOL visible = self.bottomPanel.ready && self.mapControlsHidden && !self.bottomPanel.expanded && !self.mapDetached &&
       (!self.hasNaviScreenState || self.naviScreenState == DriveNormal) &&
       !CGRectIsEmpty(self.trafficBar.frame);
   if (visible) {
-    [self.trafficBar updateFromLocation:guide.locationForPrimaryRoute
-                    remainingDistance:[route remainDistFromLocation:guide.locationForPrimaryRoute]
+    KNLocation *origin = positionAvailable ? guide.locationForPrimaryRoute : currentRoute.mainRoadList.firstObject.fromLocation;
+    SInt32 distance = origin ? [currentRoute remainDistFromLocation:origin] : 0;
+    // 첫 GPS가 없어도 SDK가 경로 시작점임을 확인해 준 위치로 전체 교통 흐름을 보여준다.
+    // 마지막 위치를 현재 위치처럼 쓰거나 첫 주요 도로가 경로 중간인 경우를 시작점으로 추정하지 않는다.
+    if (!positionAvailable && (!origin || distance <= 0 || llabs((int64_t)distance - currentRoute.totalDist) > 3)) {
+      [self resetTrafficBar]; return;
+    }
+    [self.trafficBar updateFromLocation:origin
+                    remainingDistance:distance
                                  time:NSProcessInfo.processInfo.systemUptime];
   }
   self.trafficBar.hidden = !visible || self.trafficBar.states.count == 0;

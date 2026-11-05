@@ -9,6 +9,7 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom);
 
 @interface KNNaviTrafficBar : UIView
 @property(nonatomic, copy, readonly) NSArray<NSNumber *> *states;
+@property(nonatomic) BOOL positionAvailable;
 - (void)updateFromLocation:(KNLocation *)location remainingDistance:(SInt32)distance time:(NSTimeInterval)time;
 - (void)reset;
 @end
