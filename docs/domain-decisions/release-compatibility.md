@@ -18,6 +18,24 @@
 - 네이티브 브리지 계약: **41**
 - 백엔드 API 계약: **1**
 
+## 2026-11-05 TestFlight 업로드: 1.2.11(72), 길안내 교통 막대
+
+source `8e59bd14dd4b08bb838d91c601b906a27f175ad1`의 clean clone에서 EAS production iOS
+build `b5388533-bf0a-4970-9d94-ba5857825f8a`가 FINISHED다. 앱1.2.11(72), runtime1.2.11,
+production 채널, native41/API1이며 IPA는80.6MiB다. IPA의 버전·채널과 네이티브 실행 파일의
+`KNNaviTrafficBar` 클래스·접근성 식별자 포함도 확인했다. 무관한 미추적 파일은 제외했다.
+
+NAV-064~066의 우측 하단 교통 막대가 포함된다. 얇은 흰 외곽선·초록 현재 위치·실제 길안내
+테마의 원활 파랑을 사용한다. 532개 테스트·타입·릴리스·diff와 최종 리뷰를 통과했으며,
+네이티브 시뮬레이터 하네스는 실패0건이다. 새 바이너리의 실주행 데이터·표시 위치 검증은
+운영자의 TestFlight 확인 대상으로 남는다.
+
+EAS submission `1137e248-bbf0-4b6d-b130-7163b3835fb1`가 FINISHED이며
+`Submitted your app to Apple App Store Connect`와 업로드 성공을 확인했다.
+이번에는 EAS 제출이 완료돼 취소나 직접 업로드 우회는 하지 않았다. Apple 처리 완료나
+TestFlight 설치 가능 상태까지 확인한 것은 아니다. Git 푸시·공개 OTA·App Store 심사·판매
+변경·DB·전체 알림은 하지 않았다.
+
 ## 2026-11-05 길안내 교통 막대 새 빌드·TestFlight 전달 승인
 
 운영자가 NAV-064~066의 최종 교통 막대를 새 앱으로 빌드해 TestFlight에 올리도록 승인했다.
