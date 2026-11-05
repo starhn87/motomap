@@ -28,16 +28,15 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
   top = MAX(CGRectGetMinY(safeBounds), top) + 16;
   bottom = MIN(CGRectGetMaxY(safeBounds), bottom) - 16;
   CGFloat available = bottom - top;
-  if (available < 112 || safeBounds.size.width < 56) return CGRectZero;
+  if (available < 112 || safeBounds.size.width < 48) return CGRectZero;
   CGFloat height = MIN(240, available);
-  return CGRectMake(CGRectGetMaxX(safeBounds) - 44, top + (available - height) / 2, 32, height);
+  return CGRectMake(CGRectGetMaxX(safeBounds) - 36, bottom - height, 24, height);
 }
 
 @interface KNNaviTrafficBar ()
 @property(nonatomic, copy, readwrite) NSArray<NSNumber *> *states;
 @property(nonatomic) NSTimeInterval sampledAt;
 @property(nonatomic) SInt32 remainingDistance;
-@property(nonatomic, strong) UIImageView *goalIcon;
 @property(nonatomic, strong) UIImageView *positionIcon;
 @end
 
@@ -54,22 +53,17 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
     self.accessibilityLabel = @"남은 경로 교통 흐름";
     self.accessibilityHint = @"아래가 현재 위치, 위가 목적지입니다. 구간별 평균 교통 상황입니다.";
     self.accessibilityIdentifier = @"guide-route-traffic-bar";
-    self.goalIcon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"flag.checkered"]];
-    self.goalIcon.tintColor = UIColor.labelColor;
     self.positionIcon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"location.north.fill"]];
-    self.positionIcon.tintColor = [UIColor colorWithRed:0.12 green:0.75 blue:0.35 alpha:1];
-    for (UIImageView *icon in @[self.goalIcon, self.positionIcon]) {
-      icon.contentMode = UIViewContentModeScaleAspectFit;
-      icon.isAccessibilityElement = NO;
-      [self addSubview:icon];
-    }
+    self.positionIcon.tintColor = [UIColor colorWithRed:0 green:0.43 blue:1 alpha:1];
+    self.positionIcon.contentMode = UIViewContentModeScaleAspectFit;
+    self.positionIcon.isAccessibilityElement = NO;
+    [self addSubview:self.positionIcon];
   }
   return self;
 }
 - (void)layoutSubviews {
   [super layoutSubviews];
-  self.goalIcon.frame = CGRectMake(6, 6, 20, 20);
-  self.positionIcon.frame = CGRectMake(6, self.bounds.size.height - 26, 20, 20);
+  self.positionIcon.frame = CGRectMake(6, self.bounds.size.height - 18, 12, 12);
   [self setNeedsDisplay];
 }
 - (void)traitCollectionDidChange:(UITraitCollection *)previous {
@@ -106,25 +100,23 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
 }
 - (UIColor *)colorForState:(KNTrafficState)state {
   switch (state) {
-    case KNTrafficState_Red: return [UIColor colorWithRed:0.94 green:0.22 blue:0.20 alpha:1];
+    case KNTrafficState_Red: return [UIColor colorWithRed:0.97 green:0.25 blue:0.29 alpha:1];
     case KNTrafficState_Yellow: return [UIColor colorWithRed:1 green:0.60 blue:0.05 alpha:1];
-    case KNTrafficState_Green: return [UIColor colorWithRed:0.98 green:0.80 blue:0.12 alpha:1];
-    case KNTrafficState_Blue: return [UIColor colorWithRed:0.17 green:0.52 blue:0.95 alpha:1];
+    case KNTrafficState_Green: return [UIColor colorWithRed:1 green:0.85 blue:0.15 alpha:1];
+    case KNTrafficState_Blue: return [UIColor colorWithRed:0.03 green:0.77 blue:0.34 alpha:1];
     case KNTrafficState_Blocked: return [UIColor colorWithRed:0.52 green:0.12 blue:0.16 alpha:1];
     default: return UIColor.systemGray3Color;
   }
 }
 - (void)drawRect:(CGRect)rect {
-  [UIColor.secondarySystemBackgroundColor setFill];
-  [[UIBezierPath bezierPathWithRoundedRect:self.bounds cornerRadius:16] fill];
-  [UIColor.separatorColor setStroke];
-  UIBezierPath *outline = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(self.bounds, 0.5, 0.5) cornerRadius:15.5];
-  outline.lineWidth = 1;
-  [outline stroke];
-  CGRect track = CGRectMake(10, 32, 12, MAX(0, self.bounds.size.height - 64));
+  // 공개 네이버 안내 화면처럼 지도 위에 흰 외곽선의 얇은 막대만 둔다.
+  CGRect outer = CGRectMake(8, 0, 8, MAX(0, self.bounds.size.height - 12));
+  [UIColor.whiteColor setFill];
+  [[UIBezierPath bezierPathWithRoundedRect:outer cornerRadius:4] fill];
+  CGRect track = CGRectInset(outer, 1.5, 1.5);
   CGContextRef context = UIGraphicsGetCurrentContext();
   CGContextSaveGState(context);
-  [[UIBezierPath bezierPathWithRoundedRect:track cornerRadius:6] addClip];
+  [[UIBezierPath bezierPathWithRoundedRect:track cornerRadius:2.5] addClip];
   NSUInteger count = self.states.count;
   for (NSUInteger i = 0; i < count; i++) {
     CGRect segment = CGRectMake(track.origin.x, CGRectGetMaxY(track) - track.size.height * (i + 1) / count,
@@ -145,5 +137,15 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
     }
   }
   CGContextRestoreGState(context);
+  CGRect position = CGRectMake(1, self.bounds.size.height - 23, 22, 22);
+  UIBezierPath *circle = [UIBezierPath bezierPathWithOvalInRect:position];
+  CGContextSaveGState(context);
+  CGContextSetShadowWithColor(context, CGSizeMake(0, 1), 2, [UIColor colorWithWhite:0 alpha:0.2].CGColor);
+  [UIColor.whiteColor setFill];
+  [circle fill];
+  CGContextRestoreGState(context);
+  [self.positionIcon.tintColor setStroke];
+  circle.lineWidth = 1.5;
+  [circle stroke];
 }
 @end

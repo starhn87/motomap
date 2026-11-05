@@ -121,7 +121,7 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   states = KNNaviTrafficStates((KNLocation *)location, INT_MAX);
   check(states.count == 48 && location.lastOffset == INT_MAX, @"long distance uses64-bit interval arithmetic");
 
-  KNNaviTrafficBar *bar = [[KNNaviTrafficBar alloc] initWithFrame:CGRectMake(0, 0, 32, 240)];
+  KNNaviTrafficBar *bar = [[KNNaviTrafficBar alloc] initWithFrame:CGRectMake(0, 0, 24, 240)];
   NSUInteger before = location.reads;
   [bar updateFromLocation:(KNLocation *)location remainingDistance:4800 time:100];
   [bar updateFromLocation:(KNLocation *)location remainingDistance:4799 time:101];
@@ -137,7 +137,7 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   check(bar.states.count == 20, @"route replacement bypasses old cache");
 
   CGRect frame = KNNaviTrafficBarFrame(CGRectMake(0, 59, 393, 759), 200, 700);
-  check(frame.size.width == 32 && frame.size.height <= 240 && CGRectGetMinY(frame) >= 216 && CGRectGetMaxY(frame) <= 684 &&
+  check(frame.size.width == 24 && frame.size.height <= 240 && CGRectGetMinY(frame) >= 216 && CGRectGetMaxY(frame) == 684 &&
         CGRectGetMaxX(frame) <= 381, @"bar stays between maneuver and footer with right inset");
   check(CGRectIsEmpty(KNNaviTrafficBarFrame(CGRectMake(0, 0, 600, 250), 100, 200)), @"hide in cramped layout");
 
@@ -224,9 +224,12 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
 
   UIView *preview = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 240, 304)];
   preview.backgroundColor = UIColor.systemGray5Color;
+  UIView *darkMap = [[UIView alloc] initWithFrame:CGRectMake(120, 0, 120, 304)];
+  darkMap.backgroundColor = [UIColor colorWithWhite:0.15 alpha:1];
+  [preview addSubview:darkMap];
   location.previewProfile = YES;
   for (NSUInteger i = 0; i < 2; i++) {
-    KNNaviTrafficBar *sample = [[KNNaviTrafficBar alloc] initWithFrame:CGRectMake(56 + 96 * i, 32, 32, 240)];
+    KNNaviTrafficBar *sample = [[KNNaviTrafficBar alloc] initWithFrame:CGRectMake(56 + 96 * i, 32, 24, 240)];
     sample.overrideUserInterfaceStyle = i ? UIUserInterfaceStyleDark : UIUserInterfaceStyleLight;
     [sample updateFromLocation:(KNLocation *)location remainingDistance:4800 time:100];
     sample.hidden = NO;
