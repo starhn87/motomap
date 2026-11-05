@@ -18,6 +18,23 @@
 - 네이티브 브리지 계약: **41**
 - 백엔드 API 계약: **1**
 
+## 2026-11-05 TestFlight 업로드: 1.2.11(73), 첫 GPS 대기 막대 미노출 수정
+
+source `eddffb89df1002cd7766cc365b00453d486bec2e`의 clean clone에서 production iOS
+build `dd2e100e-dc72-461c-b0ce-cf2decad0b9a`가 FINISHED다. 앱1.2.11(73), runtime1.2.11,
+production 채널, native41/API1이다. IPA80.6MiB에서 번들 식별자·버전·채널과 GPS 대기 요약의
+새 selector/문구 포함을 확인했고, 격리 테스트 컨트롤러는 실행 파일에 없음을 확인했다.
+
+NAV-067을 포함한다. 실제 SDK의 GPS 대기·정지 조건에서 수정 전에는 INVISIBLE, 수정 후에는
+48개 구간으로 VISIBLE이었다. 사용자가 회색 자차였음을 확인해 재현 상태와 일치했다.
+532개 테스트·타입·릴리스·diff·최종 리뷰를 통과했고 기본 네이티브 실패0건과 실제 SDK
+`TRAFFIC_RENDER_RESULT visible=1`을 확인했다. 새 바이너리의 실기기 수신·실주행 검증과는 구분한다.
+
+EAS submission `775ad66c-a114-4abf-863d-6da68054cbeb`가 FINISHED이며 Apple 업로드
+성공을 확인했다. 제출 취소/직접 업로드는 하지 않았다. 확인 시점은 Apple 처리 단계이며
+TestFlight 설치 가능 상태까지 확인한 것은 아니다. Git 푸시·공개 OTA·App Store 심사·
+판매·DB·전체 알림은 하지 않았다.
+
 ## 2026-11-05 72번 교통 막대 미노출 수정 후보
 
 NAV-067은 실제 SDK의 첫 GPS 대기 상태에서 발생한 막대 미노출을 수정한다. GPS 대기에는
