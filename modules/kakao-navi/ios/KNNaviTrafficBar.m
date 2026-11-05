@@ -1,4 +1,5 @@
 #import "KNNaviTrafficBar.h"
+#import "KNNaviTheme.h"
 
 NSArray<NSNumber *> *KNNaviTrafficStates(KNLocation *location, SInt32 remainingDistance) {
   if (!location || remainingDistance <= 0) return @[];
@@ -54,7 +55,7 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
     self.accessibilityHint = @"아래가 현재 위치, 위가 목적지입니다. 구간별 평균 교통 상황입니다.";
     self.accessibilityIdentifier = @"guide-route-traffic-bar";
     self.positionIcon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"location.north.fill"]];
-    self.positionIcon.tintColor = [UIColor colorWithRed:0 green:0.43 blue:1 alpha:1];
+    self.positionIcon.tintColor = [UIColor colorWithRed:0x22 / 255.0 green:0xC5 / 255.0 blue:0x5E / 255.0 alpha:1];
     self.positionIcon.contentMode = UIViewContentModeScaleAspectFit;
     self.positionIcon.isAccessibilityElement = NO;
     [self addSubview:self.positionIcon];
@@ -103,7 +104,8 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
     case KNTrafficState_Red: return [UIColor colorWithRed:0.97 green:0.25 blue:0.29 alpha:1];
     case KNTrafficState_Yellow: return [UIColor colorWithRed:1 green:0.60 blue:0.05 alpha:1];
     case KNTrafficState_Green: return [UIColor colorWithRed:1 green:0.85 blue:0.15 alpha:1];
-    case KNTrafficState_Blue: return [UIColor colorWithRed:0.03 green:0.77 blue:0.34 alpha:1];
+    case KNTrafficState_Blue: return (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ?
+        [KNNaviTheme routeThemeNight] : [KNNaviTheme routeThemeDay]).lineColors.normal;
     case KNTrafficState_Blocked: return [UIColor colorWithRed:0.52 green:0.12 blue:0.16 alpha:1];
     default: return UIColor.systemGray3Color;
   }
