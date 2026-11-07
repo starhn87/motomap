@@ -99,6 +99,7 @@ async function handleModeration(
   table: string,
   id: string,
   baseContent: string,
+  draft = '',
 ): Promise<Response> {
   if (!['places', 'courses'].includes(table) || !UUID_RE.test(id)) {
     return ephemeral('잘못된 요청이에요.');
@@ -110,23 +111,30 @@ async function handleModeration(
   if (row.deleted_at) return ephemeral(`이미 반려된 제보예요 — ${row.name}`);
   if (row.approved) return ephemeral(`이미 승인된 제보예요 — ${row.name}`);
 
-  if (action === 'approve') {
-    const r = await sb(`${table}?id=eq.${id}`, {
+  if (action === 'approve' || action === 'approve-draft') {
+    if (action === 'approve-draft' && (table !== 'places' || !draft || draft.length > 200)) {
+      return ephemeral('승인할 설명 초안을 찾을 수 없어요.');
+    }
+    const r = await sb(`${table}?id=eq.${id}&approved=eq.false&deleted_at=is.null`, {
       method: 'PATCH',
-      body: JSON.stringify({ approved: true }),
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ approved: true, ...(action === 'approve-draft' ? { description: draft } : {}) }),
     });
     if (!r.ok) return ephemeral(`처리에 실패했어요 (HTTP ${r.status})`);
+    if (!(await r.json()).length) return ephemeral('이미 처리된 제보예요.');
     return updateMessage(baseContent, '🟢 **승인 완료** — 제보자에게 반영 알림이 발송됐어요.');
   }
 
-  const r = await sb(`${table}?id=eq.${id}`, {
+  const r = await sb(`${table}?id=eq.${id}&approved=eq.false&deleted_at=is.null`, {
     method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
       deleted_at: new Date().toISOString(),
       rejected_reason: row.ai_reject_reason ?? null,
     }),
   });
   if (!r.ok) return ephemeral(`처리에 실패했어요 (HTTP ${r.status})`);
+  if (!(await r.json()).length) return ephemeral('이미 처리된 제보예요.');
   return updateMessage(
     baseContent,
     '🔴 **반려 완료** — 제보자에게 사유와 함께 알림이 발송됐어요.',
@@ -400,7 +408,9 @@ Deno.serve(async (req) => {
   if (interaction.type === 3) {
     const parts = String(interaction.data?.custom_id ?? '').split(':');
     if (parts[0] === 'mod' && parts.length === 4) {
-      return handleModeration(parts[1], parts[2], parts[3], baseContent);
+      const draft = interaction.message?.embeds?.[0]?.description;
+      return handleModeration(parts[1], parts[2], parts[3], baseContent,
+        typeof draft === 'string' ? draft.trim() : '');
     }
     if (parts[0] === 'guide') {
       const actorId = String(

@@ -14,6 +14,9 @@ import {
 import { Text, TextInput } from '@/components/ui/AppText';
 import { useState, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
+import { digestStringAsync, CryptoDigestAlgorithm } from 'expo-crypto';
+import { pickImages, uploadImage, removeUploadedImage } from '@/lib/uploadImage';
+import PhotoDragList from '@/components/review/PhotoDragList';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import Colors from '@/constants/Colors';
@@ -104,6 +107,22 @@ function SubmitPlace() {
   } | null>(null);
   const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [pickingPhotos, setPickingPhotos] = useState(false);
+  const userId = useAuthStore((s) => s.user?.id);
+
+  async function addPhotos() {
+    if (pickingPhotos || submitting || photos.length >= 5) return;
+    setPickingPhotos(true);
+    try {
+      const picked = await pickImages(5 - photos.length);
+      setPhotos((current) => [...current, ...picked].slice(0, 5));
+    } catch {
+      toast.error('사진을 선택하지 못했어요.');
+    } finally {
+      setPickingPhotos(false);
+    }
+  }
   const scrollRef = useRef<ScrollView>(null);
 
   // 지도의 "일반 장소" 시트에서 넘어온 프리필 (이름·주소·좌표)
@@ -122,6 +141,7 @@ function SubmitPlace() {
   useEffect(() => {
     if (!prefillName || !prefillTs || handledPrefillRef.current === prefillTs) return;
     handledPrefillRef.current = prefillTs;
+    setPhotos([]);
     // 탭 화면은 라우팅 뒤에도 마운트 상태가 유지된다. 일반 장소 상세에서 다시
     // 들어오면 이전 제보 폼의 스크롤을 이어받지 않고 처음부터 보여준다.
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -152,6 +172,7 @@ function SubmitPlace() {
   }, [prefillName, prefillAddress, prefillLat, prefillLng, prefillProvider, prefillProviderId, prefillTs]);
 
   const handleSubmit = async () => {
+    if (submitting || pickingPhotos || !userId) return;
     Keyboard.dismiss();
     const source = placeSubmissionSource(prefillSource);
     if (!name.trim()) {
@@ -172,6 +193,7 @@ function SubmitPlace() {
 
     setSubmitting(true);
     let accepted = false;
+    const uploadedPhotos: string[] = [];
 
     try {
       // 같은 주소의 기존 장소/제보가 있으면 중복 제출을 막는다
@@ -190,7 +212,14 @@ function SubmitPlace() {
         return;
       }
 
+      if (photos.length) {
+        const folder = await digestStringAsync(CryptoDigestAlgorithm.SHA256, userId);
+        for (const uri of photos) {
+          uploadedPhotos.push(await uploadImage(uri, `place-submissions/${folder}`));
+        }
+      }
       await submitPlace({
+        photos: uploadedPhotos,
         name: name.trim(),
         description: description.trim(),
         category,
@@ -217,13 +246,17 @@ function SubmitPlace() {
 
       setName('');
       setDescription('');
+      setPhotos([]);
       setCategory(null);
       setAddress('');
       setCoords(null);
       setAddressDetail('');
       setSourceIdentity(null);
     } catch (error: any) {
-      if (!accepted) track.placeSubmissionAttempted({ source, result: 'error' });
+      if (!accepted) {
+        await Promise.all(uploadedPhotos.map(removeUploadedImage));
+        track.placeSubmissionAttempted({ source, result: 'error' });
+      }
       toast.error('제보에 실패했습니다.', error.message);
     } finally {
       setSubmitting(false);
@@ -298,12 +331,18 @@ function SubmitPlace() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>설명</Text>
         <TextInput style={[...inputStyle, styles.multiline]} placeholder="이 장소에 대해 알려주세요" placeholderTextColor={colors.textSecondary} value={description} onChangeText={setDescription} multiline numberOfLines={3} />
 
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>사진 (선택)</Text>
+        <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>첨부한 사진은 공개 링크로 업로드됩니다.</Text>
+        <View pointerEvents={submitting ? 'none' : 'auto'}>
+          <PhotoDragList uris={photos} onChange={setPhotos} onAdd={addPhotos} max={5} loading={pickingPhotos} />
+        </View>
+
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="장소 제보하기"
-          accessibilityState={{ disabled: submitting, busy: submitting }}
+          accessibilityState={{ disabled: submitting || pickingPhotos, busy: submitting }}
           onPress={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || pickingPhotos}
           style={({ pressed }) => [
             styles.submitButton,
             { backgroundColor: colors.tint, opacity: submitting ? 0.6 : pressed ? 0.7 : 1 },
@@ -320,6 +359,7 @@ function SubmitPlace() {
         visible={addressModalVisible}
         onClose={() => setAddressModalVisible(false)}
         onSelect={(r) => {
+          if (coords && (coords.latitude !== r.latitude || coords.longitude !== r.longitude)) setPhotos([]);
           setAddress(r.roadAddress || r.address);
           setCoords({ latitude: r.latitude, longitude: r.longitude });
           const identity = generalPlaceIdentity({ name: r.placeName, address: r.roadAddress || r.address,
