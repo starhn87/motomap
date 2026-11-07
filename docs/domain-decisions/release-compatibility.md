@@ -18,6 +18,33 @@
 - 네이티브 브리지 계약: **41**
 - 백엔드 API 계약: **1**
 
+## 2026-11-07 날씨 레이아웃 TestFlight 공통 OTA 승인
+
+사용자가 MAP-068의 main 푸시와 TestFlight OTA 적용을 명시 승인했다. 시간별 예보 양 끝
+여백8pt·셀56pt, 바람·습도/먼지2종의2열 정렬, 기온 오른쪽의 작은 체감을 포함하는
+`45db7ce`·`902f5cf`를 main에 푸시하고, source `902f5cf`의 커밋된 파일만 격리 복제해
+production/iOS/runtime1.2.11에 발행한다. 같은 채널·runtime의 TestFlight 빌드들이 함께
+받으며 특정 빌드 번호만 대상으로 삼지 않는다. 구 바이너리의 네이티브 기능은 바뀌지 않는다.
+
+일반 릴리스 검사는 통과했다. `check:release -- --ota`의 미출시 후보 차단은 예상대로
+실패했으며, 이번 명시 승인만 일회 예외로 처리한다. candidate1.2.11 및 보호 검사는
+유지한다. 앱/runtime·native41/API1·의존성·권한·DB 계약 변경이나 새 바이너리는 없다.
+타입·532개 테스트·최종 리뷰를 통과했고, 실기기 수신·큰 글자에서의 화면 확인은 남아 있다.
+실제 발행 ID와 runtime1.2.10/1.2.11 manifest 대조 결과는 완료 후 기록한다.
+
+### 발행 완료
+
+source `902f5cfb7d844eeb226dddf618dfe87c77c1c752`에서 OTA 그룹
+`e50c380f-fed6-4189-9f7a-0da422191acc`, iOS update
+`01a1b3e4-fec2-7a95-a283-86aa602baf9d`를 발행했다. production/iOS/runtime1.2.11의
+실제 manifest가 신규 ID를 반환하며 runtime1.2.10은 발행 전후
+`01a17594-175f-7e46-bd9e-f6b5dbd18ef8`로 동일하다. main GitHub checks도 통과했다.
+
+격리 소스의 iOS export·업로드·발행은 성공했다. 임시 디렉터리의 기본 Node25는
+시스템 공유 라이브러리 누락으로 CLI 실행 전에 종료돼 기존 설치된 Node22를 명시해
+진행했으며 전역 설치는 바꾸지 않았다. 실제 TestFlight 기기의 다운로드·적용·화면은
+아직 확인하지 않았고, 앱 완전 종료→재실행(다운로드)→다시 재실행(적용)으로 확인한다.
+
 ## 2026-11-05 TestFlight 업로드: 1.2.11(73), 첫 GPS 대기 막대 미노출 수정
 
 source `eddffb89df1002cd7766cc365b00453d486bec2e`의 clean clone에서 production iOS
