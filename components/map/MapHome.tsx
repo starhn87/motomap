@@ -57,6 +57,7 @@ import WeatherSheet from '@/components/map/WeatherSheet';
 import * as Location from 'expo-location';
 
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
+import { useGeneralPlace } from '@/hooks/useGeneralPlace';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import HazardMarker from '@/components/map/HazardMarker';
 import HazardSheet from '@/components/map/HazardSheet';
@@ -479,6 +480,19 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       setSelectedStation(null);
     },
   });
+
+  const selectedGeneralPlace = useGeneralPlace(tempPlace);
+  const promotedPlace = usePlace(selectedGeneralPlace.data?.promotedPlaceId ?? null);
+  useEffect(() => {
+    if (isMapFocused && tempPlace) void selectedGeneralPlace.refetch();
+  }, [isMapFocused, tempPlace, selectedGeneralPlace.refetch]);
+  useEffect(() => {
+    if (isMapFocused && tempPlace && promotedPlace.data && promotedPlace.data.id === selectedGeneralPlace.data?.promotedPlaceId) {
+      setTempPlace(null);
+      setSelectedPlaceId(promotedPlace.data.id);
+      setSelectedPlace(promotedPlace.data);
+    }
+  }, [isMapFocused, tempPlace, promotedPlace.data, selectedGeneralPlace.data?.promotedPlaceId, setTempPlace, setSelectedPlaceId]);
 
   const handleTempPlaceSelect = useCallback(
     (place: TempPlace) => {

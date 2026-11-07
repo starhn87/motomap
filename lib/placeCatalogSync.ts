@@ -5,7 +5,7 @@ import { replacePlaceCatalogSuppressions } from '@/lib/placeCatalogSuppression';
 
 const CATALOG_QUERY_PREFIXES = [
   'places', 'place', 'favorites', 'search', 'search-kakao',
-  'nearby-of', 'course-places', 'riding-guides',
+  'nearby-of', 'course-places', 'riding-guides', 'general-place', 'shared-general-places',
 ];
 
 /** 활성 화면에서만 실행한다. 최초 성공도 이미 채워진 캐시를 다시 확인한다. */
