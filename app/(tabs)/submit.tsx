@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { Text, TextInput } from '@/components/ui/AppText';
 import { useState, useEffect, useRef } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -341,13 +342,42 @@ function SubmitScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const [submitType, setSubmitType] = useState<SubmitType>('place');
-  const { submitType: requestedType, submitTs, prefillSource, prefillTs } = useLocalSearchParams<{
+  const { submitType: requestedType, submitTs, prefillSource, prefillTs, prefillName, prefillAddress,
+    prefillLat, prefillLng, returnPhone, returnProviderId, returnPlaceUrl, returnGeneralPlaceId } = useLocalSearchParams<{
     submitType?: string;
     submitTs?: string;
     prefillSource?: string;
     prefillTs?: string;
+    prefillName?: string; prefillAddress?: string; prefillLat?: string; prefillLng?: string;
+    returnPhone?: string; returnProviderId?: string; returnPlaceUrl?: string; returnGeneralPlaceId?: string;
   }>();
   const loginGateKey = useRef<string | null>(null);
+  const [canReturnToPlace, setCanReturnToPlace] = useState(false);
+  const handledReturnRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (prefillSource === 'temp_place' && prefillTs && handledReturnRef.current !== prefillTs) {
+      handledReturnRef.current = prefillTs;
+      setCanReturnToPlace(true);
+    } else if (prefillSource !== 'temp_place') {
+      setCanReturnToPlace(false);
+    }
+  }, [prefillSource, prefillTs]);
+
+  const backToPlace = canReturnToPlace && (
+    <Pressable accessibilityRole="button" accessibilityLabel="장소 상세로 돌아가기"
+      onPress={() => {
+        setCanReturnToPlace(false);
+        if (prefillName && prefillLat && prefillLng) router.navigate({ pathname: '/', params: {
+          kakaoName: prefillName, kakaoAddress: prefillAddress, kakaoLat: prefillLat, kakaoLng: prefillLng,
+          kakaoPhone: returnPhone, kakaoId: returnProviderId, kakaoUrl: returnPlaceUrl,
+          generalPlaceId: returnGeneralPlaceId, focusTs: String(Date.now()),
+        } });
+      }}
+      style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name="chevron-back" size={24} color={colors.text} />
+    </Pressable>
+  );
 
   // 도착·일반 장소·빈 검색에서 들어온 제보가 로그인 벽에 막히면 버튼 시도가 없다.
   useEffect(() => {
@@ -375,7 +405,10 @@ function SubmitScreen() {
   }, [requestedType, submitTs]);
 
   if (!user) {
-    return <LoginPrompt message="제보하려면 로그인이 필요합니다." />;
+    return <View style={{ flex: 1 }}>
+      {backToPlace && <View style={{ paddingTop: headerInset, paddingLeft: 12 }}>{backToPlace}</View>}
+      <LoginPrompt message="제보하려면 로그인이 필요합니다." />
+    </View>;
   }
 
   return (
@@ -387,6 +420,7 @@ function SubmitScreen() {
       </HeaderInsetContext.Provider>
       <View style={[styles.tabRow, { top: headerInset }]} onLayout={event => setTabHeight(event.nativeEvent.layout.height)}>
         <HeaderBackdrop />
+        {backToPlace}
         {nativeUI ? <View style={{ flex: 1 }}><NativeChoiceControl label="제보 종류" presentation="segmented"
           value={submitType} onChange={setSubmitType} options={[
             { value: 'place', label: '장소' }, { value: 'hazard', label: '위험' }, { value: 'feedback', label: '건의' },
