@@ -1,5 +1,6 @@
 const releasePolicy = require('./config/release-policy.json');
 const posthogErrorTracking = require('./config/posthog-error-tracking.json');
+const { probeConfigPlugins } = require('./config/errorTrackingProbe.cjs');
 const pretendardFonts = [
   'Thin', 'ExtraLight', 'Light', 'Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold', 'Black',
 ].map((name, index) => ({ path: `./assets/fonts/Pretendard-${name}.otf`, weight: (index + 1) * 100 }));
@@ -208,6 +209,7 @@ export default {
           releaseMode: posthogErrorTracking.releaseMode,
         },
       ],
+      ...probeConfigPlugins(),
     ],
     extra: {
       kakaoNativeAppKey: process.env.KAKAO_NATIVE_APP_KEY,

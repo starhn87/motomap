@@ -31,6 +31,7 @@ jobs:
         env:
           POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
           POSTHOG_CLI_PROJECT_ID: ${{ secrets.POSTHOG_CLI_PROJECT_ID }}
-          POSTHOG_CLI_HOST: ${{ secrets.POSTHOG_CLI_HOST }}
+          POSTHOG_CLI_HOST: https://eu.posthog.com
+          EXPO_PUBLIC_POSTHOG_HOST: https://eu.i.posthog.com
           HERMES_DIST_PATH: ${{ github.event.inputs.dist_path }}
         run: node scripts/upload-posthog-hermes.mjs "$HERMES_DIST_PATH"

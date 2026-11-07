@@ -11,11 +11,14 @@ import {
   scrubDiagnosticString,
 } from '../lib/errorTracking';
 import { errorTrackingProbeAllowed, runHandledErrorProbe } from '../lib/errorTrackingProbe';
+import { isPostHogCliHost, isPostHogIngestionHost, nativeCrashAutocaptureForPlatform } from '../lib/posthogProject';
 import {
   assertUploadCredentials,
+  assertUploadHost,
   resolveUploadDirectory,
   uploadBlockedReason,
 } from '../scripts/upload-posthog-hermes.mjs';
+import { probeConfigPlugins, probeHostModule } from '../config/errorTrackingProbe.cjs';
 
 const release = () => ({
   app_version: '1.2.11',
@@ -122,12 +125,47 @@ test('릴리스 예외 단계에는 버전 문맥만 담긴다', () => {
   attachErrorTrackingRuntime(null);
 });
 
-test('자동 수집은 미처리 예외와 네이티브 크래시만 켜고 콘솔은 비운다', () => {
+test('자동 수집은 미처리 예외만 기본으로 켜고 네이티브 크래시는 iOS에서만 켠다', () => {
   assert.equal(ERROR_TRACKING_OPTIONS.autocapture.uncaughtExceptions, true);
   assert.equal(ERROR_TRACKING_OPTIONS.autocapture.unhandledRejections, true);
-  assert.equal(ERROR_TRACKING_OPTIONS.autocapture.nativeCrashes, true);
   assert.deepEqual(ERROR_TRACKING_OPTIONS.autocapture.console, []);
+  assert.equal('nativeCrashes' in ERROR_TRACKING_OPTIONS.autocapture, false);
   assert.equal('androidNdkCrashes' in ERROR_TRACKING_OPTIONS.autocapture, false);
+  assert.equal(nativeCrashAutocaptureForPlatform('ios'), true);
+  assert.equal(nativeCrashAutocaptureForPlatform('android'), false);
+});
+
+test('scrub은 큐와 네트워크 전송보다 먼저 실행되는 before_send다', () => {
+  const sdk = readFileSync(new URL('../node_modules/@posthog/core/dist/posthog-core-stateless.js', import.meta.url), 'utf8');
+  const enqueue = sdk.slice(sdk.indexOf('enqueue(type'), sdk.indexOf('async sendImmediate'));
+  assert.ok(enqueue.indexOf('processBeforeEnqueue') < enqueue.indexOf('queue.push'));
+  const immediate = sdk.slice(sdk.indexOf('async sendImmediate'), sdk.indexOf('async sendImmediate') + 900);
+  const beforeSend = immediate.indexOf('processBeforeEnqueue');
+  const dropped = immediate.indexOf('null === message');
+  const batch = immediate.indexOf('sendBatch');
+  assert.ok(beforeSend !== -1 && dropped !== -1 && batch !== -1);
+  assert.ok(beforeSend < dropped && dropped < batch);
+  const analytics = readFileSync(new URL('../lib/analytics.ts', import.meta.url), 'utf8');
+  assert.match(analytics, /before_send: \(event\) => scrubCaptureEvent\(event\)/);
+});
+
+test('기존 EU 프로젝트가 아닌 호스트는 수집과 업로드를 거절한다', () => {
+  assert.equal(isPostHogIngestionHost('https://eu.i.posthog.com'), true);
+  assert.equal(isPostHogIngestionHost('https://eu.i.posthog.com/'), true);
+  assert.equal(isPostHogIngestionHost(undefined), false);
+  assert.equal(isPostHogIngestionHost('https://us.i.posthog.com'), false);
+  assert.equal(isPostHogCliHost('https://eu.posthog.com'), true);
+  assert.equal(isPostHogCliHost('https://us.posthog.com'), false);
+  const eu = {
+    POSTHOG_CLI_API_KEY: 'phx_personal',
+    POSTHOG_CLI_PROJECT_ID: '42',
+    EXPO_PUBLIC_POSTHOG_API_KEY: 'phc_project',
+    EXPO_PUBLIC_POSTHOG_HOST: 'https://eu.i.posthog.com',
+    POSTHOG_CLI_HOST: 'https://eu.posthog.com',
+  };
+  assert.equal(assertUploadHost(eu).ok, true);
+  assert.equal(assertUploadHost({ ...eu, POSTHOG_CLI_HOST: 'https://us.posthog.com' }).ok, false);
+  assert.equal(assertUploadHost({ ...eu, EXPO_PUBLIC_POSTHOG_HOST: '' }).ok, false);
 });
 
 test('프로브는 개발 빌드와 명시 변수가 함께 있을 때만 열린다', () => {
@@ -171,6 +209,14 @@ test('업로드 자격은 personal key만 받고 프로젝트 키 재사용과 P
     POSTHOG_CLI_PROJECT_ID: '42',
     EXPO_PUBLIC_POSTHOG_API_KEY: 'phc_project',
   }).ok, true);
+  const noProbe = {} as unknown as NodeJS.ProcessEnv;
+  const probeOn = { EXPO_PUBLIC_ERROR_TRACKING_PROBE: '1' } as unknown as NodeJS.ProcessEnv;
+  assert.equal(probeConfigPlugins(noProbe).length, 0);
+  assert.match(probeHostModule('/repo', noProbe), /errorTrackingProbeHost\.tsx$/);
+  assert.match(probeHostModule('/repo', probeOn), /errorTrackingProbeHost\.verify\.tsx$/);
+  const releaseHost = readFileSync(new URL('../lib/errorTrackingProbeHost.tsx', import.meta.url), 'utf8');
+  assert.equal(releaseHost.includes('triggerNativeCrash'), false);
+  assert.equal(releaseHost.includes('throw '), false);
   assert.match(uploadBlockedReason({ GITHUB_EVENT_NAME: 'pull_request' }) ?? '', /pull_request/);
   assert.match(uploadBlockedReason({ GITHUB_EVENT_NAME: 'push' }) ?? '', /push/);
   assert.equal(uploadBlockedReason({ GITHUB_EVENT_NAME: 'workflow_dispatch' }), null);
@@ -185,6 +231,8 @@ test('플러그인·메트로·수동 업로드 설정은 네이티브 빌드를
   assert.equal(plugin.includeSource, false);
   assert.equal(plugin.skipOnConflict, true);
   assert.equal(plugin.releaseMode, 'event');
+  assert.equal(plugin.ingestionHost, 'https://eu.i.posthog.com');
+  assert.equal(plugin.cliHost, 'https://eu.posthog.com');
   const appConfig = readFileSync(new URL('../app.config.js', import.meta.url), 'utf8');
   assert.match(appConfig, /posthog-react-native\/expo/);
   assert.equal(appConfig.includes('dotenvFile'), false);
@@ -198,6 +246,8 @@ test('플러그인·메트로·수동 업로드 설정은 네이티브 빌드를
   assert.equal(workflow.includes('eas build'), false);
   assert.equal(workflow.includes('eas update'), false);
   assert.match(workflow, /secrets\.POSTHOG_CLI_API_KEY/);
+  assert.match(workflow, /EXPO_PUBLIC_POSTHOG_HOST: https:\/\/eu\.i\.posthog\.com/);
+  assert.match(workflow, /POSTHOG_CLI_HOST: https:\/\/eu\.posthog\.com/);
   const checks = readFileSync(new URL('../.github/workflows/checks.yml', import.meta.url), 'utf8');
   assert.equal(checks.includes('upload-posthog-hermes'), false);
   assert.equal(checks.includes('eas build'), false);

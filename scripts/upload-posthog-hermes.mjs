@@ -1,7 +1,9 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+
+const project = JSON.parse(readFileSync(new URL('../config/posthog-error-tracking.json', import.meta.url), 'utf8'));
 
 export const POSTHOG_CLI_SPEC = '@posthog/cli@0.19.0';
 
@@ -34,6 +36,18 @@ export function assertUploadCredentials(env) {
   return { ok: true };
 }
 
+export function assertUploadHost(env, expected = project) {
+  const ingestion = (env.EXPO_PUBLIC_POSTHOG_HOST ?? '').trim().replace(/\/$/, '');
+  const cli = (env.POSTHOG_CLI_HOST ?? '').trim().replace(/\/$/, '');
+  if (!ingestion || !cli) {
+    return { ok: false, reason: 'EXPO_PUBLIC_POSTHOG_HOST and POSTHOG_CLI_HOST are required.' };
+  }
+  if (ingestion !== expected.ingestionHost || cli !== expected.cliHost) {
+    return { ok: false, reason: 'PostHog host does not match the configured project. Refusing upload.' };
+  }
+  return { ok: true };
+}
+
 function redactCliOutput(text) {
   return text
     .replace(/phx_[A-Za-z0-9_-]+/g, '[redacted]')
@@ -51,13 +65,14 @@ export function uploadHermesSourceMaps(directory, env = process.env) {
   if (blocked) return { ok: false, reason: blocked };
   const credentials = assertUploadCredentials(env);
   if (!credentials.ok) return credentials;
+  const hosts = assertUploadHost(env);
+  if (!hosts.ok) return hosts;
   const root = resolveUploadDirectory(directory);
   if (!root) return { ok: false, reason: 'Hermes source map directory must stay inside the workspace.' };
   if (!existsSync(root) || !statSync(root).isDirectory()) {
     return { ok: false, reason: 'Hermes source map directory was not found.' };
   }
   const childEnv = { ...env };
-  if (!childEnv.POSTHOG_CLI_HOST) delete childEnv.POSTHOG_CLI_HOST;
   const result = spawnSync(
     'npx',
     ['--yes', POSTHOG_CLI_SPEC, 'hermes', 'upload', '--directory', root, '--release-mode', 'event'],

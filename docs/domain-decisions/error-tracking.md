@@ -16,7 +16,9 @@
 3. 토큰·이메일·정밀 좌표·사용자 입력은 JS로 만드는 예외 페이로드에서 보낸다 전에 지운다.
 4. JS scrub은 네이티브 크래시 원문에 적용되지 않는다. 그 경로에 민감 값을 넣지 않는 것으로 보완하고, 지워졌다고 말하지 않는다.
 5. 심볼 업로드 키는 분석용 프로젝트 키와 다른 personal API key다. 저장소에 두지 않는다.
-6. 네이티브 빌드·OTA·심볼 업로드는 이 결정의 코드가 준비됐다고 실행된 것이 아니다.
+6. 기존 PostHog 프로젝트는 EU다. 수집 호스트와 CLI 호스트가 그 쌍과 다르면 보내지 않는다.
+7. `nativeCrashes`는 iOS 프로세스에서만 켠다. Android NDK 수집은 켜지 않는다.
+8. 네이티브 빌드·OTA·심볼 업로드는 이 결정의 코드가 준비됐다고 실행된 것이 아니다.
 
 ## ERR-001 — PostHog로 JS 예외와 iOS 네이티브 크래시를 수집
 
@@ -68,9 +70,10 @@ PostHog로 옮기기로 승인됐다. 회사 Sentry 프로젝트나 회사 자�
 3. 활성 트리의 렌더 오류는 `PostHogErrorBoundary`가 잡고, 라우트 경계는 그 바깥의 렌더 오류를
    처리된 예외로 남긴다. 화면에는 원문과 스택을 보여 주지 않는다.
 4. 모든 JS capture에 `before_send`로 이메일, 토큰, 소수점 4자리 이상의 좌표 쌍, 예외 속성의
-   검색어·주소·닉네임 같은 입력 키를 지운다. 제품 이벤트의 `query` 키 자체는 검색 계측 결정을
-   유지하고, 그 안의 이메일·토큰·좌표 패턴만 지운다. 수집용 `token` 필드는 지우면 이벤트가
-   버려지므로 유지한다.
+   검색어·주소·닉네임 같은 입력 키를 지운다. 이 콜백은 설치된 `@posthog/core`에서 큐에 넣기
+   전과 `sendImmediate`의 `sendBatch` 전에 실행된다. null을 반환하면 그 이벤트는 큐와 네트워크에
+   들어가지 않는다. 제품 이벤트의 `query` 키 자체는 검색 계측 결정을 유지하고, 그 안의
+   이메일·토큰·좌표 패턴만 지운다. 수집용 `token` 필드는 지우면 이벤트가 버려지므로 유지한다.
 5. `register`와 예외 단계 `app_release`에 앱 버전, 빌드 번호, 런타임, OTA update id, 임베디드/OTA
    구분, 네이티브 브리지, API 계약을 붙인다. JS 예외는 SDK가 추가로 `$app_version`, `$app_build`,
    `$expo_update_id`, `$expo_runtime_version`, `$expo_channel`, `$expo_is_embedded_launch`를 넣는다.
@@ -87,6 +90,47 @@ PostHog로 옮기기로 승인됐다. 회사 Sentry 프로젝트나 회사 자�
    `__DEV__`와 `EXPO_PUBLIC_ERROR_TRACKING_PROBE=1`이 함께일 때만 처리된 JS 예외를 보낸다.
    네이티브 크래시는 이 함수로 일으키지 않는다.
 
+## ERR-002 — EU 프로젝트에만 보내고 네이티브 크래시는 iOS로 제한
+
+- 날짜: 2026-11-07
+- 상태: 활성
+- 관련 구현: `config/posthog-error-tracking.json`, `lib/posthogProject.ts`, `lib/analytics.ts`, `scripts/upload-posthog-hermes.mjs`, `eas.json`
+
+### 배경
+
+`scripts/weekly-digest.mjs`는 기존 프로젝트를 EU 클라우드로 기록하고, 수집 호스트는
+`https://eu.i.posthog.com`, private API와 CLI 호스트는 `https://eu.posthog.com`이라고 적는다.
+앱 코드의 이전 폴백은 호스트가 비어 있으면 `https://us.i.posthog.com`이었고, 업로드 스크립트는
+`POSTHOG_CLI_HOST`가 없으면 CLI 기본값인 미국 앱 호스트를 썼다. 이 저장소의 클라우드 VM에는
+`.env`가 없어 그 값을 다시 읽지 않았다. 주간 다이제스트의 명시 호스트와 다르면 전송하지 않는다.
+
+`nativeCrashes`는 공식 SDK에서 iOS와 Android Java/Kotlin을 한 불리언으로 켠다. iOS만 승인됐다.
+별도의 iOS 전용 옵션은 문서와 4.81.0 구현에 없다.
+
+### 결정
+
+수집 클라이언트가 켜지는 조건에 `EXPO_PUBLIC_POSTHOG_HOST`가 `https://eu.i.posthog.com`인 경우를
+포함한다. 없거나 다른 호스트면 PostHog 클라이언트를 만들지 않는다. 업로드는
+`POSTHOG_CLI_HOST`가 `https://eu.posthog.com`이고 수집 호스트도 위의 값일 때만 진행한다.
+하나라도 다르면 업로드를 거절한다.
+
+`nativeCrashes`는 `Platform.OS === 'ios'`일 때만 true다. Android 프로세스는 네이티브 크래시
+자동 수집을 켜지 않고, `androidNdkCrashes`도 켜지 않는다. 공식 Expo 플러그인의
+`uploadNativeSymbols`는 iOS dSYM과 Android 심볼 업로드 단계를 함께 등록한다. iOS 전용 스위치는
+없다. `eas build -p ios`는 Android Gradle 단계를 실행하지 않는다. Android 빌드를 따로 만들지
+않는다.
+
+검증용 버튼과 `abort()` 네이티브 파일은 `EXPO_PUBLIC_ERROR_TRACKING_PROBE=1`인 번들·prebuild에만
+들어간다. 릴리스 번들은 빈 `ErrorTrackingProbeHost`만 포함하고, 프로덕션 프로필은 그 플러그인을
+넣지 않는다. 로그인 세션이 있으면 검증 버튼도 렌더하지 않는다.
+
+### 검토한 대안과 시행착오
+
+CLI 기본값인 미국 호스트를 유지하면 기존 EU 프로젝트와 다른 곳으로 심볼이 올라갈 수 있다.
+호스트를 추정해 채우지 않고 불일치를 실패로 둔다. Android까지 네이티브 크래시를 켜는 것은
+승인 범위를 넘는다고 보고 플랫폼 분기로 막는다. 플러그인에서 Android 심볼 단계만 제거하는
+포크는 공식 설정이 아니라 하지 않는다.
+
 ### 네이티브 경로의 개인정보 한계
 
 설치된 `@posthog/react-native-plugin` 2.12.5의 iOS `beforeSend`는 치명적인 JS 예외의 중복만
@@ -97,8 +141,11 @@ PostHog로 옮기기로 승인됐다. 회사 Sentry 프로젝트나 회사 자�
 
 - PostHog `identify`에는 계정 id만 넘긴다. 이메일은 넣지 않는다.
 - 예외 단계에는 릴리스 문맥만 넣는다. 검색어, 주소, 좌표, 토큰, 메일, 닉네임을 단계로 남기지 않는다.
+- 네이티브 크래시 페이로드는 기기 밖으로 나간다. posthog-ios가 EU 수집 호스트로 `$exception`을
+  직접 보내며, 그 전송은 JS `before_send`를 거치지 않는다.
 - 네이티브 예외 메시지, 시그널, 프레임에 크래시 시점의 네이티브 코드가 넣은 문자열은 JS scrub으로
-  제거되지 않는다. 지도·인증·푸시 네이티브 프레임이 그런 값을 포함하면 PostHog에 남을 수 있다.
+  제거되지 않는다. 지도·인증·푸시 네이티브 프레임이 토큰, 좌표, 계정 식별자를 포함하면 PostHog에
+  남을 수 있다. 이 잔여 위험은 코드로 지우지 못했다.
 
 JS scrub이 네이티브 크래시를 보호한다고 해석하지 않는다.
 
@@ -125,7 +172,8 @@ Android NDK 수집은 iOS 승인 범위 밖이고 추가 심볼이 필요해 끄
    이 실행에서는 GitHub 시크릿 목록이 403이라 존재 여부를 확인하지 못했다.
    - `POSTHOG_CLI_API_KEY`: `error tracking write`와 `organization read`가 있는 personal API key (`phx_`). `EXPO_PUBLIC_POSTHOG_API_KEY` 재사용 금지.
    - `POSTHOG_CLI_PROJECT_ID`: 숫자 프로젝트 ID.
-   - `POSTHOG_CLI_HOST`: 선택. 미국 클라우드 앱 호스트는 `https://us.posthog.com`. 수집 호스트 `https://us.i.posthog.com`가 아니다. 비우면 CLI 기본값을 쓴다.
+   - `POSTHOG_CLI_HOST`: `https://eu.posthog.com`. 수집 호스트 `https://eu.i.posthog.com`과 쌍이 아니면 업로드하지 않는다.
+   - `EXPO_PUBLIC_POSTHOG_HOST`: `https://eu.i.posthog.com`. 없거나 다른 값이면 클라이언트를 만들지 않는다.
 3. 승인된 iOS 네이티브 빌드에서 `eas-build-post-install`이 posthog-cli 0.19.0을 설치하고, Xcode 단계가
    Hermes 맵과 dSYM을 오류 없이 올렸는지 빌드 로그로 확인한다. 이 PR은 그 빌드를 시작하지 않는다.
 4. 그 빌드를 설치한 뒤 실제 JS 예외 하나의 스택이 파일·줄로 읽히고, 실제 iOS 네이티브 크래시 하나의

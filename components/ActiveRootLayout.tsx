@@ -32,6 +32,7 @@ import PersonalPlaceRideSync from '@/components/PersonalPlaceRideSync';
 import PlaceCatalogSync from '@/components/PlaceCatalogSync';
 import { useColorScheme } from '@/components/useColorScheme';
 import { ErrorFallback } from '@/components/ErrorFallback';
+import { ErrorTrackingProbeHost } from '@/lib/errorTrackingProbeHost';
 import DialogHost from '@/components/ui/DialogHost';
 import { toastConfig } from '@/components/ui/toastConfig';
 import Colors from '@/constants/Colors';
@@ -153,6 +154,7 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
       </View>
       <PendingAccountLinkPrompt />
       <DialogHost />
+      <ErrorTrackingProbeHost />
     </GestureHandlerRootView>
   );
 

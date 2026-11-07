@@ -1,4 +1,5 @@
 import type { AppReleaseContext } from '@/lib/appVersion';
+import { nativeCrashAutocaptureForPlatform } from '@/lib/posthogProject';
 
 /**
  * PostHog 오류 수집.
@@ -21,9 +22,18 @@ export const ERROR_TRACKING_OPTIONS = {
     unhandledRejections: true,
     // 렌더 경계와 콘솔 수집을 같이 켜면 같은 오류가 두 번 들어간다.
     console: [] as Array<'debug' | 'log' | 'info' | 'warn' | 'error'>,
-    nativeCrashes: true,
   },
 };
+
+export function errorTrackingOptionsForPlatform(os: string) {
+  return {
+    autocapture: {
+      ...ERROR_TRACKING_OPTIONS.autocapture,
+      // SDK 옵션은 iOS/Android 공용이다. 승인 범위인 iOS에서만 true로 넘긴다.
+      nativeCrashes: nativeCrashAutocaptureForPlatform(os),
+    },
+  };
+}
 
 export type ErrorTrackingClient = {
   captureException: (error: unknown, properties?: Record<string, unknown>) => void;

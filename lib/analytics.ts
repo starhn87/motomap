@@ -1,15 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'expo-router';
 import PostHog from 'posthog-react-native';
+import { Platform } from 'react-native';
 
 import type { RiderFactCode } from '@/constants/riderFacts';
 import { getAppReleaseContext } from '@/lib/appVersion';
 import {
   attachErrorTrackingRuntime,
-  ERROR_TRACKING_OPTIONS,
+  errorTrackingOptionsForPlatform,
   recordReleaseExceptionStep,
   scrubCaptureEvent,
 } from '@/lib/errorTracking';
+import { isPostHogIngestionHost } from '@/lib/posthogProject';
 import { getKakaoNaviCapabilities } from '@/modules/kakao-navi';
 
 // 제품 분석 — 어떤 경로로 장소를 찾아 실제로 달리는지, 어디서 이탈하는지.
@@ -19,11 +21,13 @@ import { getKakaoNaviCapabilities } from '@/modules/kakao-navi';
 // 키가 없으면(로컬 개발, 미설정) 전체가 조용히 무효화된다 — 계측 때문에 앱이
 // 깨지는 일은 없어야 한다.
 const apiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
-const host = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
+const configuredHost = process.env.EXPO_PUBLIC_POSTHOG_HOST;
+// 기존 프로젝트는 EU다. 호스트가 없거나 다른 클라우드면 미국 기본값으로 보내지 않는다.
+const host = isPostHogIngestionHost(configuredHost) ? configuredHost!.replace(/\/$/, '') : null;
 
 // 개발 빌드는 보내지 않는다 — Sentry 와 같은 이유로, 개발 중 이벤트가 섞이면
 // 퍼널 수치를 믿을 수 없게 된다.
-const enabled = !!apiKey && !__DEV__;
+const enabled = !!apiKey && !__DEV__ && host !== null;
 
 export const posthog = enabled
   ? new PostHog(apiKey!, {
@@ -39,7 +43,8 @@ export const posthog = enabled
         // 콘솔 로그는 리플레이에 싣지 않는다. 오류 콘솔 수집도 켜지 않는다.
         captureLog: false,
       },
-      errorTracking: ERROR_TRACKING_OPTIONS,
+      errorTracking: errorTrackingOptionsForPlatform(Platform.OS),
+      // SDK는 큐에 넣기 전과 즉시 전송 전에 before_send를 호출한다. null이면 전송하지 않는다.
       before_send: (event) => scrubCaptureEvent(event) as typeof event,
     })
   : null;

@@ -1,4 +1,6 @@
 {
+  "ingestionHost": "https://eu.i.posthog.com",
+  "cliHost": "https://eu.posthog.com",
   "uploadNativeSymbols": true,
   "includeSource": false,
   "skipOnConflict": true,
