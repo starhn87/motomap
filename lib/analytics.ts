@@ -1,23 +1,33 @@
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'expo-router';
 import PostHog from 'posthog-react-native';
+import { Platform } from 'react-native';
 
 import type { RiderFactCode } from '@/constants/riderFacts';
 import { getAppReleaseContext } from '@/lib/appVersion';
+import {
+  attachErrorTrackingRuntime,
+  errorTrackingOptionsForPlatform,
+  recordReleaseExceptionStep,
+  scrubCaptureEvent,
+} from '@/lib/errorTracking';
+import { isPostHogIngestionHost } from '@/lib/posthogProject';
 import { getKakaoNaviCapabilities } from '@/modules/kakao-navi';
 
 // 제품 분석 — 어떤 경로로 장소를 찾아 실제로 달리는지, 어디서 이탈하는지.
-// 설계와 금지 항목은 docs/analytics-events.md 참고. 크래시·성능은 Sentry 담당이라
-// 여기서 중복 수집하지 않는다.
+// 설계와 금지 항목은 docs/analytics-events.md 참고.
+// JS 예외와 iOS 네이티브 크래시는 PostHog가 수집한다. 성능 트레이스는 Sentry에 둔다.
 //
 // 키가 없으면(로컬 개발, 미설정) 전체가 조용히 무효화된다 — 계측 때문에 앱이
 // 깨지는 일은 없어야 한다.
 const apiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
-const host = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
+const configuredHost = process.env.EXPO_PUBLIC_POSTHOG_HOST;
+// 기존 프로젝트는 EU다. 호스트가 없거나 다른 클라우드면 미국 기본값으로 보내지 않는다.
+const host = isPostHogIngestionHost(configuredHost) ? configuredHost!.replace(/\/$/, '') : null;
 
 // 개발 빌드는 보내지 않는다 — Sentry 와 같은 이유로, 개발 중 이벤트가 섞이면
 // 퍼널 수치를 믿을 수 없게 된다.
-const enabled = !!apiKey && !__DEV__;
+const enabled = !!apiKey && !__DEV__ && host !== null;
 
 export const posthog = enabled
   ? new PostHog(apiKey!, {
@@ -30,19 +40,33 @@ export const posthog = enabled
         maskAllTextInputs: true,
         maskAllImages: true,
         maskAllSandboxedViews: true,
-        // 콘솔 로그까지 리플레이에 실을 이유가 없다 — 진단은 Sentry 담당
+        // 콘솔 로그는 리플레이에 싣지 않는다. 오류 콘솔 수집도 켜지 않는다.
         captureLog: false,
       },
+      errorTracking: errorTrackingOptionsForPlatform(Platform.OS),
+      // SDK는 큐에 넣기 전과 즉시 전송 전에 before_send를 호출한다. null이면 전송하지 않는다.
+      before_send: (event) => scrubCaptureEvent(event) as typeof event,
     })
   : null;
 
+const releaseContext = () => getAppReleaseContext(getKakaoNaviCapabilities().bridgeVersion);
+
+attachErrorTrackingRuntime(posthog ? {
+  captureException: (error, properties) => {
+    posthog.captureException(error, properties as Parameters<typeof posthog.captureException>[1]);
+  },
+  addExceptionStep: (message, properties) => posthog.addExceptionStep(message, properties),
+  getReleaseContext: releaseContext,
+} : null);
+
 if (posthog) {
-  // 모든 제품 이벤트를 같은 바이너리·OTA·네이티브 계약 축으로 나눈다.
+  // 모든 제품 이벤트와 JS 예외에 같은 바이너리·OTA·네이티브 계약 축을 붙인다.
   // register는 로컬 저장소에 보존되어 이후 capture에 자동으로 붙는다.
   void posthog
-    .register(getAppReleaseContext(getKakaoNaviCapabilities().bridgeVersion))
+    .register(releaseContext())
     // 잠금 상태의 저장소 등 진단 태그 실패가 앱 시작의 unhandled가 되면 안 된다.
     .catch(() => {});
+  recordReleaseExceptionStep();
 }
 
 // ── 이벤트 ────────────────────────────────────────────────────────────────

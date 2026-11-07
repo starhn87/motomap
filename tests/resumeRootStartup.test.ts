@@ -38,6 +38,8 @@ function rootFixture(settle: () => Promise<ResumeStartupOutcome>, available = fa
     '@/components/ServiceLoadingScreen': component,
     '@/components/ServiceResumeScreen': component,
     '@/components/ServiceSuspendedScreen': component,
+    '@/components/ErrorFallback': { ErrorFallback: component },
+    '@/lib/errorTracking': { captureHandledException() {} },
     '@/constants/app': { APP_STORE_URL: 'https://apps.apple.com/kr/app/id6773636183' },
     '@/lib/appVersion': { getInstalledAppVersion: () => '1.2.8' },
     '@/lib/serviceStatus': { fetchServiceStatus: async () => null, resolveServiceGate: () => 'check-update' },

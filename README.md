@@ -65,8 +65,8 @@
 | 백엔드 | Supabase (Postgres + PostGIS + RLS + Edge Functions) |
 | 상태와 데이터 | Zustand, @tanstack/react-query |
 | 소셜 | @react-native-kakao/core |
-| 모니터링 | Sentry (크래시·성능) |
-| 제품 분석 | PostHog (이벤트·퍼널·세션 리플레이, EU 리전) |
+| 모니터링 | PostHog 오류 수집 (JS 예외·iOS 네이티브 크래시). 성능 트레이스와 기존 진단은 Sentry |
+| 제품 분석 | PostHog (이벤트·퍼널·세션 리플레이) |
 | 배포 | EAS Build + Submit, expo-updates OTA |
 
 ## 🏗️ 아키텍처
@@ -149,7 +149,10 @@ npm run android
 | `EXPO_PUBLIC_KAKAO_REST_API_KEY` | 카카오 로컬 REST 키 (장소 검색과 지오코딩) |
 | `EXPO_PUBLIC_SENTRY_DSN` | Sentry DSN (선택) |
 | `EXPO_PUBLIC_POSTHOG_API_KEY` | PostHog 프로젝트 키 (선택: 없으면 계측 전체가 무효화된다) |
-| `EXPO_PUBLIC_POSTHOG_HOST` | PostHog 호스트 (기본 `https://us.i.posthog.com`) |
+| `EXPO_PUBLIC_POSTHOG_HOST` | 기존 EU 프로젝트 수집 호스트 `https://eu.i.posthog.com`. 다르거나 없으면 PostHog를 켜지 않는다 |
+| `POSTHOG_CLI_API_KEY` | 심볼 업로드용 personal API key. 앱과 저장소에 넣지 않는다. 프로젝트 키와 재사용하지 않는다 |
+| `POSTHOG_CLI_PROJECT_ID` | 심볼 업로드 프로젝트 ID. 앱과 저장소에 넣지 않는다 |
+| `POSTHOG_CLI_HOST` | 업로드 CLI 호스트 `https://eu.posthog.com`. 수집 호스트와 쌍이 아니면 업로드하지 않는다 |
 | `SUPABASE_SERVICE_ROLE_KEY` | 시드 스크립트 전용 (선택) |
 
 > 로컬 EAS 명령(`eas build`/`submit`)은 `.env`를 자동 로드하지 않으므로, 클라우드 빌드용 키는 EAS 환경 변수에 등록되어 있습니다 (`eas env:list --environment production`). 날씨·유가·AI·네이버 클라우드 키는 앱이 아닌 Supabase Edge Function secrets에 있습니다. 유료 API 호출 제한의 요청자 키 HMAC에는 별도 `RATE_LIMIT_SALT` secret을 사용합니다.
