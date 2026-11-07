@@ -334,8 +334,10 @@ export default function WeatherSheet({
         <View style={[styles.currentConditions, { borderBottomColor: colors.border }]}>
           <View style={styles.primaryCondition}>
             <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>기온</Text>
-            <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.temp}°</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>체감 {weather.current.feels}°</Text>
+            <View style={styles.temperatureRow}>
+              <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.temp}°</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>체감 {weather.current.feels}°</Text>
+            </View>
           </View>
           <View style={styles.primaryCondition}>
             <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>강수확률</Text>
@@ -484,6 +486,7 @@ const styles = StyleSheet.create({
   primaryCondition: { flex: 1, gap: 4 },
   primaryLabel: { fontSize: 12 },
   primaryValue: { fontSize: 32, lineHeight: 40, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  temperatureRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 },
   statsGrid: {
     gap: 12,
   },
