@@ -216,13 +216,14 @@ export default function WeatherSheet({
   const pm10 = airStat(air?.pm10Grade, air?.pm10);
   const pm25 = airStat(air?.pm25Grade, air?.pm25);
 
-  const stats: { label: string; value: string; color?: string; sub?: string; air?: boolean }[] = [
+  const conditions = [
     { label: '체감', value: `${weather.current.feels}°` },
     { label: '바람', value: `${weather.current.windMs}m/s` },
     { label: '습도', value: `${weather.current.humidity}%` },
-    { label: '상태', value: weather.current.condition },
-    { label: '미세먼지', value: pm10.text, color: pm10.color, sub: pm10.sub, air: true },
-    { label: '초미세먼지', value: pm25.text, color: pm25.color, sub: pm25.sub, air: true },
+  ];
+  const airStats = [
+    { label: '미세먼지', ...pm10 },
+    { label: '초미세먼지', ...pm25 },
   ];
 
   // 시간대별 셀 목록에 일출·일몰 카드를 시각 순서대로 삽입한다.
@@ -343,27 +344,32 @@ export default function WeatherSheet({
         </View>
 
         <View style={styles.statsGrid}>
-          {stats.map((s) => (
-            <View
-              key={s.label}
-              style={styles.statCell}>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{s.label}</Text>
-              <View style={[styles.statValueRow, s.air && styles.airValue]}>
-                <Text style={[styles.statValue, { color: s.color ?? colors.text }]}>{s.value}</Text>
-                {(s.air || !!s.sub) && (
-                  <Text style={[styles.statSub, { color: colors.textSecondary }]}>{s.sub ?? ' '}</Text>
-                )}
+          <View style={styles.statRow}>
+            {conditions.map((stat) => (
+              <View key={stat.label} style={styles.statCell}>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+                <Text style={[styles.statValue, { color: colors.text }]}>{stat.value}</Text>
               </View>
-            </View>
-          ))}
+            ))}
+          </View>
+          <View style={styles.statRow}>
+            {airStats.map((stat) => (
+              <View key={stat.label} style={styles.statCell}>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+                <View style={styles.airValue}>
+                  <Text style={[styles.statValue, { color: stat.color ?? colors.text }]}>{stat.text}</Text>
+                  <Text style={[styles.statSub, { color: colors.textSecondary }]}>{stat.sub ?? ' '}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
         </View>
 
-        {/* 12시간 예보 — 가로 스와이프. 시트 패딩을 상쇄해 끝까지 흘린다 */}
+        {/* 12시간 예보 — 다른 행과 같은 좌우 여백 안에서 가로 스와이프 */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={styles.hourlyScroll}
-          contentContainerStyle={styles.hourlyScrollContent}>
+          style={styles.hourlyScroll}>
           <View style={styles.hourlyRow}>
             {hourItems.map((item) =>
               item.kind === 'hour' ? (
@@ -480,28 +486,22 @@ const styles = StyleSheet.create({
   primaryLabel: { fontSize: 12 },
   primaryValue: { fontSize: 32, lineHeight: 40, fontWeight: '600', fontVariant: ['tabular-nums'] },
   statsGrid: {
+    gap: 12,
+  },
+  statRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    columnGap: 20,
-    rowGap: 12,
+    gap: 20,
   },
   statCell: {
-    flexBasis: '45%',
-    flexGrow: 1,
+    flex: 1,
+    minWidth: 0,
     gap: 4,
   },
   statLabel: {
     fontSize: 12,
   },
-  statValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    flexWrap: 'wrap',
-    gap: 4,
-    minHeight: 20,
-  },
   // 비동기 농도는 처음부터 별도 줄을 확보해 뒤의 예보를 밀지 않는다.
-  airValue: { flexDirection: 'column', alignItems: 'flex-start', gap: 2 },
+  airValue: { alignItems: 'flex-start', gap: 2, minHeight: 20 },
   statValue: {
     fontSize: 15,
     fontWeight: '600',
@@ -513,11 +513,7 @@ const styles = StyleSheet.create({
     minHeight: 16,
   },
   hourlyScroll: {
-    marginHorizontal: -20,
     flexGrow: 0,
-  },
-  hourlyScrollContent: {
-    paddingHorizontal: 20,
   },
   hourlyRow: {
     flexDirection: 'row',
