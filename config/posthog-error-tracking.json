@@ -1,0 +1,6 @@
+{
+  "uploadNativeSymbols": true,
+  "includeSource": false,
+  "skipOnConflict": true,
+  "releaseMode": "event"
+}

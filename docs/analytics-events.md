@@ -1,7 +1,9 @@
 # 이벤트 계측 설계
 
-제품 분석은 **PostHog**, 설치 전 유입은 **App Store Connect App Analytics**, 크래시·성능은 **Sentry**가 맡는다.
-세 도구의 질문이 겹치지 않게 나눈다 — 어떻게 왔나(ASC) / 무엇을 했나(PostHog) / 왜 실패했나(Sentry).
+제품 분석은 **PostHog**, 설치 전 유입은 **App Store Connect App Analytics**, 성능 트레이스는 **Sentry**가 맡는다.
+JS 예외와 iOS 네이티브 크래시도 PostHog가 수집한다. 이전의 "크래시·성능은 Sentry" 분담은
+[ERR-001](domain-decisions/error-tracking.md)로 대체됐다. 기존 Sentry 보고는 아직 제거하지 않는다.
+세 도구의 질문이 겹치지 않게 나눈다 — 어떻게 왔나(ASC) / 무엇을 했나(PostHog) / 왜 실패했나(PostHog 오류, 성능은 Sentry).
 
 iOS는 ATT 이후 개별 사용자 어트리뷰션이 불가능하다. 앱 스토어 유입 경로는 어떤 SDK로도 알 수 없으니
 ASC 를 보고, 자체 채널(디스코드 등)만 딥링크 파라미터로 직접 구분한다.
@@ -140,7 +142,8 @@ expo-router 는 `NavigationContainer` 를 노출하지 않아 PostHog 의 화면
 ## 넣지 않는 것
 
 - **버튼 클릭 전수** — 퍼널에 안 걸리는 클릭은 노이즈다. 필요해질 때 추가한다.
-- **크래시·성능** — Sentry 담당. 중복하면 양쪽 신뢰도가 떨어진다.
+- **성능 트레이스** — Sentry 담당. PostHog에 같은 trace를 중복으로 보내지 않는다.
+- **콘솔 로그를 오류로 수집** — 렌더 경계와 겹치고 리플레이 범위를 넓힌다. 오류 자동 수집의 콘솔 목록은 비운다.
 
 ## 절대 보내지 않는 것
 
@@ -162,7 +165,7 @@ RN 은 **스크린샷 모드만** 지원한다 — 화면이 통째로 찍히므
 
 **전역 설정**(`lib/analytics.ts`) — SDK 기본값도 true 지만 꺼지면 바로 유출이라 명시한다.
 `maskAllTextInputs` · `maskAllImages` · `maskAllSandboxedViews`.
-콘솔 로그(`captureLog`)는 끈다 — 진단은 Sentry 담당이라 리플레이에 실을 이유가 없다.
+콘솔 로그(`captureLog`)는 끈다. 오류 수집도 콘솔을 받지 않는다.
 
 **개별 마스킹**(`PostHogMaskView`) — 입력이 아닌 *표시* 텍스트는 위 설정으로 안 가려진다.
 

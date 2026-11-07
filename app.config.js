@@ -1,4 +1,5 @@
 const releasePolicy = require('./config/release-policy.json');
+const posthogErrorTracking = require('./config/posthog-error-tracking.json');
 const pretendardFonts = [
   'Thin', 'ExtraLight', 'Light', 'Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold', 'Black',
 ].map((name, index) => ({ path: `./assets/fonts/Pretendard-${name}.otf`, weight: (index + 1) * 100 }));
@@ -195,6 +196,16 @@ export default {
         {
           organization: process.env.SENTRY_ORG,
           project: process.env.SENTRY_PROJECT,
+        },
+      ],
+      [
+        'posthog-react-native/expo',
+        {
+          uploadNativeSymbols: posthogErrorTracking.includeSource
+            ? { includeSource: true }
+            : posthogErrorTracking.uploadNativeSymbols,
+          skipOnConflict: posthogErrorTracking.skipOnConflict,
+          releaseMode: posthogErrorTracking.releaseMode,
         },
       ],
     ],
