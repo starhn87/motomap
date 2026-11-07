@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 import test from 'node:test';
 import * as legal from '../constants/legal';
+import { securityHeaders } from '../website/src/securityHeaders.js';
 import { loadModule } from './helpers/loadModule';
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
@@ -13,6 +14,8 @@ test('AASA·앱 entitlement·라우트는 장소/구 코스/라이딩 추천 계
   } }>('website/src/index.js', {
     '../../constants/legal.ts': legal,
     './serviceStatus.js': { serviceStatus: { status: 'suspended' } },
+    './securityHeaders.js': { securityHeaders },
+    './admin/handle.js': { handleAdmin: async () => new Response(null, { status: 404 }) },
   }, { Response });
   const env = { ASSETS: { fetch: async () => new Response('asset') } };
   const response = await worker.default.fetch(new Request('https://motomap.kr/.well-known/apple-app-site-association'), env);
