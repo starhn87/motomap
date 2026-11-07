@@ -1,5 +1,7 @@
 import { LEGAL_DOCS, LEGAL_RELAUNCH_DOCS, LEGAL_RELAUNCH_READY, LEGAL_DRAFT_NOTICE,
   LEGAL_CHANGE_SUMMARY } from '../../constants/legal.ts';
+import { handleAdmin } from './admin/handle.js';
+import { securityHeaders } from './securityHeaders.js';
 import { serviceStatus } from './serviceStatus.js';
 
 const APP_IDENTIFIER = 'QD4486Q3L8.com.ridemap.app';
@@ -36,15 +38,6 @@ const LEGAL_UPCOMING_PATHS = {
   '/privacy/upcoming': 'privacy',
   '/location-terms/upcoming': 'location',
 };
-const securityHeaders = {
-  'Content-Security-Policy':
-    "default-src 'self'; img-src 'self'; style-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'; object-src 'none'",
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-};
-
 function escapeHtml(value) {
   return value
     .replaceAll('&', '&amp;')
@@ -314,6 +307,10 @@ export default {
       url.hostname = 'motomap.kr';
       url.protocol = 'https:';
       return Response.redirect(url, 308);
+    }
+
+    if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) {
+      return handleAdmin(request, env);
     }
 
     if (

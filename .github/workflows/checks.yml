@@ -37,3 +37,20 @@ jobs:
           cache: true
       - run: deno task check
       - run: deno task test:jev
+
+  website:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci
+        working-directory: website
+      - run: npm run build
+        working-directory: website
+      - run: npm run test:website
+      - run: sudo apt-get update && sudo apt-get install -y postgresql
+      - run: bash scripts/test-admin-sql.sh

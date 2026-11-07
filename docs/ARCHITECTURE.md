@@ -91,6 +91,7 @@ constants/             색·카테고리·포맷터·법무 문서·마커·태�
 types/index.ts         도메인 타입 (Place·RidingGuide·RidingCourse·Review)
 supabase/migrations/   스키마 마이그레이션 (001~004)
 scripts/               시드·정리·검증 (Node, .env 직접 로드)
+website/               motomap.kr Worker. 관리자 화면은 /admin
 plugins/               expo config 플러그인
 .maestro/              E2E·스토어 스크린샷 자동화
 ```
@@ -323,6 +324,7 @@ Sentry.wrap(
 | 구글 Places 영업시간 | `supabase/functions/place-hours` + `hooks/usePlaceHours.ts` | 영업시간 폴백(등록 데이터 우선) — 캐시는 place_id 무기한·콘텐츠 30일(약관 상한, 034). 등록 장소는 DB 원본으로 검증하고 일반 POI 키는 좌표+상호에서 서버가 재생성하며, 5분/일일 호출 제한으로 Google 비용·캐시 오염 방어 |
 | AI 추천 챗 | `supabase/functions/moto-chat-v2` + `app/chat.tsx` | 등록 장소·목적지 중심 라이딩 추천 안에서만 답하는 대화형 도우미. 구버전용 `moto-chat`의 코스 응답 계약은 유지 |
 | Sentry | `app/_layout.tsx`, `metro.config.js` | 에러·세션 추적 |
+| 운영 관리자 | `website/src/admin/`, `motomap.kr/admin` | 기존 Worker에서 지표·PR·TestFlight·제보를 서버만 조회. 배포는 수동 `wrangler deploy`이며 이 저장소 워크플로는 사이트를 배포하지 않는다 |
 | moto-kr 데이터셋 | `constants/bikes.ts` ← `scripts/sync-bike-models.mjs` (`npm run sync:bikes`) | 기종 자동완성 목록의 단일 원본은 [moto-kr](https://github.com/starhn87/moto-kr) (KENCIS 인증 기반) — bikes.ts 는 생성 파일이므로 직접 수정 금지, 기종 변경은 moto-kr mapping 에 기여 후 동기화 |
 
 ---
