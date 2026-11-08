@@ -1,4 +1,4 @@
-import { ActivityIndicator, View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, ScrollView, Pressable, useWindowDimensions } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
@@ -213,17 +213,16 @@ export default function WeatherSheet({
           sub: value != null ? `${value}㎍/m³` : undefined,
         }
       : { text: '-', color: undefined, sub: undefined };
-  const pm10 = airStat(air?.pm10Grade, air?.pm10);
-  const pm25 = airStat(air?.pm25Grade, air?.pm25);
-
-  const conditions = [
-    { label: '바람', value: `${weather.current.windMs}m/s` },
-    { label: '습도', value: `${weather.current.humidity}%` },
+  const stats: { label: string; text: string; color?: string; sub?: string }[] = [
+    { label: '바람', text: `${weather.current.windMs}m/s` },
+    { label: '습도', text: `${weather.current.humidity}%` },
+    { label: '미세먼지', ...airStat(air?.pm10Grade, air?.pm10) },
+    { label: '초미세먼지', ...airStat(air?.pm25Grade, air?.pm25) },
   ];
-  const airStats = [
-    { label: '미세먼지', ...pm10 },
-    { label: '초미세먼지', ...pm25 },
-  ];
+  const { width, fontScale } = useWindowDimensions();
+  // 좌우 여백과 열 간격을 제외하고 가장 긴 라벨이 들어갈 폭을 확보한다.
+  const singleStatRow = (width - 64) / fontScale >= 248;
+  const statRows = singleStatRow ? [stats] : [stats.slice(0, 2), stats.slice(2)];
 
   // 시간대별 셀 목록에 일출·일몰 카드를 시각 순서대로 삽입한다.
   const hourItems: (
@@ -346,25 +345,19 @@ export default function WeatherSheet({
         </View>
 
         <View style={styles.statsGrid}>
-          <View style={styles.statRow}>
-            {conditions.map((stat) => (
-              <View key={stat.label} style={styles.statCell}>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
-                <Text style={[styles.statValue, { color: colors.text }]}>{stat.value}</Text>
-              </View>
-            ))}
-          </View>
-          <View style={styles.statRow}>
-            {airStats.map((stat) => (
-              <View key={stat.label} style={styles.statCell}>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
-                <View style={styles.airValue}>
+          {statRows.map((row) => (
+            <View key={row[0].label} style={styles.statRow}>
+              {row.map((stat) => (
+                <View key={stat.label} style={styles.statCell}>
+                  <Text style={[styles.statLabel, styles.statCentered, { color: colors.textSecondary }]}>{stat.label}</Text>
                   <Text style={[styles.statValue, { color: stat.color ?? colors.text }]}>{stat.text}</Text>
-                  <Text style={[styles.statSub, { color: colors.textSecondary }]}>{stat.sub ?? ' '}</Text>
+                  {'sub' in stat && (
+                    <Text accessible={!!stat.sub} style={[styles.statSub, { color: colors.textSecondary }]}>{stat.sub ?? ' '}</Text>
+                  )}
                 </View>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          ))}
         </View>
 
         {/* 12시간 예보 — 본문 여백을 벗어나 좌우 8pt만 남기고 가로 스와이프 */}
@@ -492,24 +485,27 @@ const styles = StyleSheet.create({
   },
   statRow: {
     flexDirection: 'row',
-    gap: 24,
+    gap: 8,
   },
   statCell: {
     flex: 1,
     minWidth: 0,
-    gap: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
   },
+  statCentered: { textAlign: 'center' },
   statLabel: {
     fontSize: 12,
   },
-  // 비동기 농도는 처음부터 별도 줄을 확보해 뒤의 예보를 밀지 않는다.
-  airValue: { alignItems: 'flex-start', gap: 2, minHeight: 20 },
   statValue: {
+    textAlign: 'center',
     fontSize: 15,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
   statSub: {
+    textAlign: 'center',
     fontSize: 11,
     lineHeight: 16,
     minHeight: 16,
