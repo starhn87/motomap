@@ -266,7 +266,7 @@ export default function WeatherSheet({
       }}
       handleIndicatorStyle={{ backgroundColor: colors.tabIconDefault }}>
       <BottomSheetScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 6 }]}
         onContentSizeChange={(_width, height) => setContentHeight(height)}
         showsVerticalScrollIndicator={false}>
         {/* 등급 헤더 */}
@@ -338,17 +338,19 @@ export default function WeatherSheet({
         </View>
 
         <View style={[styles.currentConditions, { borderBottomColor: colors.border }]}>
-          <View style={[styles.primaryCondition, { flexBasis: 88 * fontScale }]}>
-            <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>기온</Text>
-            <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.temp}°</Text>
-          </View>
-          <View style={[styles.primaryCondition, { flexBasis: 88 * fontScale }]}>
-            <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>체감</Text>
-            {/* 32pt 줄의 기준선을 확보해 작은 체감 값도 같은 높이에 맞춘다. */}
-            <Text style={[styles.primaryValue, { color: colors.textSecondary }]}>
-              {'\u200B'}
-              <Text style={styles.feelsValue}>{weather.current.feels}°</Text>
-            </Text>
+          <View style={[styles.temperatureGroup, { flexBasis: 166 * fontScale }]}>
+            <View style={styles.primaryCondition}>
+              <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>기온</Text>
+              <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.temp}°</Text>
+            </View>
+            <View style={styles.primaryCondition}>
+              <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>체감</Text>
+              {/* 32pt 줄의 기준선을 확보해 작은 체감 값도 같은 높이에 맞춘다. */}
+              <Text style={[styles.primaryValue, { color: colors.textSecondary }]}>
+                {'\u200B'}
+                <Text style={styles.feelsValue}>{weather.current.feels}°</Text>
+              </Text>
+            </View>
           </View>
           <View style={[styles.primaryCondition, { flexBasis: 88 * fontScale }]}>
             <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>강수확률</Text>
@@ -436,7 +438,6 @@ export default function WeatherSheet({
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
-    paddingBottom: 24,
     gap: 16,
   },
   // absolute — 행 레이아웃에 참여하지 않아 늦게 나타나도 행 높이가 변할 수 없다
@@ -490,7 +491,15 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  primaryCondition: { flexGrow: 1, flexShrink: 1, gap: 4 },
+  temperatureGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    flexGrow: 1,
+    flexShrink: 1,
+    columnGap: 12,
+    rowGap: 8,
+  },
+  primaryCondition: { flexShrink: 1, gap: 4 },
   primaryLabel: { fontSize: 12 },
   primaryValue: { fontSize: 32, lineHeight: 40, fontWeight: '600', fontVariant: ['tabular-nums'] },
   feelsValue: { fontSize: 22 },
