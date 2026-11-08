@@ -19,17 +19,18 @@ type Alternative = {
   loading: boolean;
 };
 
-export default function RouteAlternatives({ options, priority, requestedViaCount, disabled, onSelect }: {
+export default function RouteAlternatives({ options, priority, requestedViaCount, horizontalInset, disabled, onSelect }: {
   options: Alternative[];
   priority: RoutePriority;
   requestedViaCount: number;
+  horizontalInset: number;
   disabled: boolean;
   onSelect: (priority: RoutePriority) => void;
 }) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const scroll = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
-  const cardWidth = width > CARD_GAP ? (width - CARD_GAP) / 2 : 136;
+  const cardWidth = width > 44 ? (width - 44) / 2 : 136;
   const cardStep = cardWidth + CARD_GAP;
   const maxOffset = Math.max(0, options.length * cardStep - CARD_GAP - width);
   const selectedIndex = options.findIndex(option => option.value === priority);
@@ -47,9 +48,9 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
   else if (selected?.error) viaSummary = '다른 경로를 선택하거나 다시 시도해 주세요.';
   return (
     <View style={styles.container} onLayout={({ nativeEvent }) => setWidth(nativeEvent.layout.width)}>
-      <ScrollView ref={scroll} style={styles.scroll} horizontal showsHorizontalScrollIndicator={false}
-        snapToInterval={cardStep} decelerationRate="fast"
-        contentContainerStyle={styles.row} accessibilityRole="radiogroup" accessibilityLabel="경로 비교">
+      <ScrollView ref={scroll} style={[styles.scroll, { marginHorizontal: -horizontalInset }]}
+        horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.row, { paddingHorizontal: horizontalInset }]} accessibilityRole="radiogroup" accessibilityLabel="경로 비교">
         {options.map((option) => {
           const active = option.value === priority;
           const color = active ? colors.background : colors.text;

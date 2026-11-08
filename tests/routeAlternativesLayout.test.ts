@@ -3,7 +3,7 @@ import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
 
 // 실제 카드의 onLayout/선택 handler를 실행해 화면 폭 변경 후에도 다음 카드가 보이는지 확인한다.
-test('경로 카드 두 장이 잘리지 않고 마지막 선택도 스크롤 범위 안에 들어온다', () => {
+test('가로 스크롤 영역만 패딩을 벗어나고 양 끝 콘텐츠 여백은 유지한다', () => {
   const slots: any[] = [], effects: (() => void)[] = [], offsets: number[] = [], selected: number[] = [];
   let cursor = 0;
   const react = {
@@ -25,7 +25,7 @@ test('경로 카드 두 장이 잘리지 않고 마지막 선택도 스크롤 �
   const render = () => {
     cursor = 0;
     const tree = Component({ options: [0, 1, 2, 3, 4].map(value => ({ value, label: String(value), loading: true })), priority,
-      requestedViaCount: 0, disabled: false, onSelect: (value: number) => selected.push(value) });
+      requestedViaCount: 0, horizontalInset: 20, disabled: false, onSelect: (value: number) => selected.push(value) });
     effects.splice(0).forEach(fn => fn());
     return tree;
   };
@@ -34,13 +34,15 @@ test('경로 카드 두 장이 잘리지 않고 마지막 선택도 스크롤 �
     tree.props.onLayout({ nativeEvent: { layout: { width } } }); tree = render();
     const cards = nodes(tree).filter(node => node.type === 'Pressable');
     const cardWidth = cards[0].props.style[1].width;
-    assert.equal(cardWidth * 2 + 8, width);
-    assert.equal(nodes(tree).find(node => node.type === 'ScrollView').props.snapToInterval, cardWidth + 8);
-    assert.equal(nodes(tree).find(node => node.type === 'ScrollView').props.horizontal, true);
+    const scroll = nodes(tree).find(node => node.type === 'ScrollView');
+    assert.equal(scroll.props.horizontal, true);
+    assert.equal(scroll.props.style[1].marginHorizontal, -20);
+    assert.equal(scroll.props.contentContainerStyle[1].paddingHorizontal, 20);
+    assert.equal(width - cardWidth * 2 - 16, 28);
     cards[2].props.onPress(); priority = 2; tree = render();
     assert.equal(offsets.at(-1), 2 * (cardWidth + 8));
     priority = 4; tree = render();
-    assert.equal(offsets.at(-1), 3 * (cardWidth + 8));
+    assert.equal(offsets.at(-1), 5 * (cardWidth + 8) - 8 - width);
   }
   assert.deepEqual(selected, [2, 2, 2]);
 });
@@ -58,7 +60,7 @@ test('경유지 결과·실패 안내는 유지하고 크기 예약용 값은 �
   });
   const nodes = (node: any): any[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
   const content = (node: any): string => Array.isArray(node) ? node.map(content).join('') : node?.props ? content(node.props.children) : typeof node === 'string' || typeof node === 'number' ? String(node) : '';
-  const render = (option: any) => Component({ options: [{ value: 0, label: '추천', ...option }], priority: 0, requestedViaCount: 2, disabled: false, onSelect() {} });
+  const render = (option: any) => Component({ options: [{ value: 0, label: '추천', ...option }], priority: 0, requestedViaCount: 2, horizontalInset: 20, disabled: false, onSelect() {} });
   for (const option of [{ loading: true }, { loading: false, error: 'fixture' }, { loading: false }, { loading: false, route: { duration: 60, distance: 300 }, vias: [127, 37] }]) {
     const tree = render(option);
     const reserved = nodes(tree).filter(n => n.type === 'Text' && ['0분', '0km', '경유 0개'].includes(content(n)));
