@@ -1687,3 +1687,13 @@ production iOS 빌드 `4b83da46-3ca3-413a-afe7-8069a53b5398`가 완료됐다. �
 
 제출 `9a0d3478-99ae-4fbf-817a-4ca89656725d`에서 App Store Connect 업로드 성공을
 확인했다. Apple 처리 완료, TestFlight 설치 가능 여부 및 실기기 화면은 확인 전이다.
+
+## 2026-11-08 TestFlight 업로드 — 1.2.11(76)
+
+사용자 승인으로 소스 `4c32907`의 production iOS 빌드
+`3b011589-4847-4d61-971c-b433706f5dfb`를 완료했다. 앱과 runtime은 1.2.11, 채널은 production,
+브리지 계약은 native41/API1이다. IPA에서 76번, SDK 하단 안내 전달 메서드, WebView 빈 상태
+표시 분기 및 도착 대기 문구 제거를 확인했다.
+
+제출 `95913277-24b1-4941-8f4f-0ae4fb5f4f57`에서 App Store Connect 업로드 성공을
+확인했다. Apple 처리 완료와 실기기 설치·표시는 확인 전이다. 이번 요청의 범위는 빌드와 제출이다.
