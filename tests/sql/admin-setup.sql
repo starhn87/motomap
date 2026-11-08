@@ -37,7 +37,7 @@ create trigger places_rejection_push after update of deleted_at on public.places
 for each row when (old.deleted_at is null and new.deleted_at is not null and new.approved = false)
 execute function public.notice_place('rejected');
 
-\ir ../../supabase/migrations/20261107013809_admin_dashboard_state.sql
+\ir ../../supabase/migrations/20261108095543_admin_dashboard_state.sql
 
 insert into public.places(id, approved, submitted_by, ai_reject_reason) values
   ('11111111-1111-4111-8111-111111111111', false, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', null),

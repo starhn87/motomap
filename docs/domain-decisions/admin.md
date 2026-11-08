@@ -15,7 +15,7 @@
 
 - 날짜: 2026-11-07
 - 상태: 활성. 원격 마이그레이션·Worker 배포·실연결 검증 전
-- 관련: `website/src/admin/`, `website/public/admin.html`, `scripts/posthog-metrics.mjs`, `supabase/migrations/20261107013809_admin_dashboard_state.sql`
+- 관련: `website/src/admin/`, `website/public/admin.html`, `scripts/posthog-metrics.mjs`, `supabase/migrations/20261108095543_admin_dashboard_state.sql`
 
 ### 결정
 
@@ -30,7 +30,7 @@
 
 ### 원격에 두기 전에
 
-`20261107013809_admin_dashboard_state.sql`은 저장소에만 있다. 적용 순서는 마이그레이션, 그 다음 Worker 배포다. 코드가 먼저 배포되면 쓰기는 실패로 남고 장소 행은 바뀌지 않는다. 롤백은 함수 3개와 테이블 3개를 drop 하는 것이다. 이미 승인·반려된 장소는 drop으로 되돌려지지 않는다. 이 함수는 security definer가 아니다. anon·authenticated 권한은 없다.
+`20261108095543_admin_dashboard_state.sql`은 저장소에만 있다. 식별자는 운영에 이미 적용된 `20261107142553`보다 뒤다. SQL 본문은 이전 파일 `20261107013809`과 같고, 그 파일은 제거했다. 적용 순서는 마이그레이션, 그 다음 Worker 배포다. 코드가 먼저 배포되면 쓰기는 실패로 남고 장소 행은 바뀌지 않는다. 롤백은 함수 3개와 테이블 3개를 drop 하는 것이다. 이미 승인·반려된 장소는 drop으로 되돌려지지 않는다. 이 함수는 security definer가 아니다. anon·authenticated 권한은 없다.
 
 ### 아직 하지 않은 검증
 
