@@ -12,14 +12,19 @@ import { useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 const TYPES: LegalDocType[] = ['terms', 'privacy', 'location'];
+const VISIBLE_LOCATION_PROVIDERS = LOCATION_PROVIDERS.filter(provider => provider !== 'tmap');
 
 export default function LegalConsentScreen({ needsLegal = true, showProvidersInline = false, onReady, onComplete }:
   { needsLegal?: boolean; showProvidersInline?: boolean; onReady?: () => void; onComplete?: () => void }) {
   const state = useLocationPrivacyStore();
-  const colors = Colors[useColorScheme() ?? 'light'];
-  const [agreed, setAgreed] = useState<Partial<Record<LegalDocType, boolean>>>({});
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[showProvidersInline ? colorScheme : 'dark'];
+  const styles = themedStyles[showProvidersInline ? colorScheme : 'dark'];
+  const [agreed, setAgreed] = useState<Partial<Record<LegalDocType, boolean>>>(() =>
+    showProvidersInline && !needsLegal && state.ready && !state.error && state.version === LOCATION_CONSENT_VERSION
+      && (state.status === 'active' || state.status === 'paused') ? { location: true } : {});
   const [providers, setProviders] = useState<LocationRecipient[]>(() => state.version === LOCATION_CONSENT_VERSION
-    ? state.providers.filter(p => p !== 'naver') : LOCATION_PROVIDERS.filter(p => p !== 'tmap'));
+    ? VISIBLE_LOCATION_PROVIDERS.filter(p => state.providers.includes(p)) : [...VISIBLE_LOCATION_PROVIDERS]);
   const [historyAllowed, setHistoryAllowed] = useState(() => state.historyAllowed);
   const [providersExpanded, setProvidersExpanded] = useState(false);
   const [viewing, setViewing] = useState<LegalDocType | null>(null);
@@ -37,7 +42,10 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
     try {
       if (actor !== (useAuthStore.getState().session?.user.id ?? null)) throw new Error('계정이 변경됐어요. 다시 확인해 주세요.');
       // 저장은 별도 선택이다. 전달 범위만 편집할 때는 기존 기록 선택을 유지한다.
-      await state.consent(true, true, showProvidersInline ? state.historyAllowed : historyAllowed && !!actor, providers);
+      // 종료된 제공자의 기존 동의·확인자료는 화면에서 숨겨도 보존한다.
+      const savedProviders: LocationRecipient[] = [...providers];
+      if (state.version === LOCATION_CONSENT_VERSION && state.providers.includes('tmap')) savedProviders.push('tmap');
+      await state.consent(true, true, showProvidersInline ? state.historyAllowed : historyAllowed && !!actor, savedProviders);
       if (actor !== (useAuthStore.getState().session?.user.id ?? null)) throw new Error('계정이 변경됐어요. 다시 확인해 주세요.');
       if (needsLegal) {
         if (!session || session.user.id !== actor) throw new Error('로그인 상태를 다시 확인해 주세요.');
@@ -66,7 +74,7 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
   const providerChoices = <>
     <Text style={styles.documentTitle}>위치 전달 범위</Text>
     <Text style={styles.body}>선택한 전달 범위에 동의해 주세요. 선택하지 않은 서비스에는 위치를 보내지 않아요.</Text>
-    {LOCATION_PROVIDERS.map(provider => <View key={provider} style={styles.provider}>
+    {VISIBLE_LOCATION_PROVIDERS.map(provider => <View key={provider} style={styles.provider}>
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: providers.includes(provider), disabled: loading }} disabled={loading}
         style={styles.agreement} onPress={() => setProviders(old => old.includes(provider) ? old.filter(p => p !== provider) : [...old, provider])}>
         <View style={[styles.checkbox, providers.includes(provider) && styles.checked]}>{providers.includes(provider) && <Text style={styles.checkmark}>✓</Text>}</View>
@@ -75,7 +83,9 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
     </View>)}
   </>;
 
-  const submitLabel = showProvidersInline ? '동의하고 저장' : '동의하고 시작하기';
+  const submitLabel = showProvidersInline
+    ? (state.status === 'paused' ? '동의 저장 및 위치 사용 재개' : '동의하고 저장')
+    : '동의하고 시작하기';
 
   return <SafeAreaView style={styles.screen} onLayout={onReady}>
     <ScrollView contentContainerStyle={styles.content}>
@@ -115,7 +125,7 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
       <Pressable accessibilityRole="button" accessibilityLabel={submitLabel} disabled={!accepted || loading}
         accessibilityState={{ disabled: !accepted || loading, busy: loading }}
         onPress={() => void accept()} style={({ pressed }) => [styles.button, (!accepted || loading || pressed) && styles.dimmed]}>
-        {loading ? <ActivityIndicator size="small" color="#0A0A0A" /> : <Text style={styles.buttonText}>{submitLabel}</Text>}
+        {loading ? <ActivityIndicator size="small" color={colors.background} /> : <Text style={styles.buttonText}>{submitLabel}</Text>}
       </Pressable>
       {!onComplete && <Pressable accessibilityRole="button" disabled={loading} style={styles.browse} onPress={() => void browse()}>
         <Text style={styles.link}>{needsLegal ? '로그아웃하고 둘러보기' : '현재 위치 없이 둘러보기'}</Text>
@@ -142,17 +152,19 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
   </SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#0A0A0A' }, content: { padding: 24, paddingBottom: 40, gap: 18 },
-  title: { color: '#F5F5F2', fontWeight: '700', fontSize: 25, lineHeight: 34 }, body: { color: '#C4C5C8', fontSize: 14, lineHeight: 22 },
+const makeStyles = (colors: typeof Colors.light) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background }, content: { padding: 24, paddingBottom: 40, gap: 18 },
+  title: { color: colors.text, fontWeight: '700', fontSize: 25, lineHeight: 34 }, body: { color: colors.textSecondary, fontSize: 14, lineHeight: 22 },
   scopeButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 }, agreement: { flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  checkbox: { width: 24, height: 24, borderWidth: 1.5, borderColor: '#8E8E93', borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  checked: { backgroundColor: '#F5F5F2', borderColor: '#F5F5F2' }, checkmark: { color: '#0A0A0A', fontSize: 17, fontWeight: '700' },
-  label: { flex: 1, color: '#F5F5F2', fontSize: 14, lineHeight: 21 }, provider: { gap: 6 },
-  viewLink: { minHeight: 48, minWidth: 44, justifyContent: 'center', alignItems: 'center' }, link: { color: '#C4C5C8', fontSize: 14 },
+  checkbox: { width: 24, height: 24, borderWidth: 1.5, borderColor: colors.textSecondary, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  checked: { backgroundColor: colors.text, borderColor: colors.text }, checkmark: { color: colors.background, fontSize: 17, fontWeight: '700' },
+  label: { flex: 1, color: colors.text, fontSize: 14, lineHeight: 21 }, provider: { gap: 6 },
+  viewLink: { minHeight: 48, minWidth: 44, justifyContent: 'center', alignItems: 'center' }, link: { color: colors.textSecondary, fontSize: 14 },
   documentHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 24 },
-  documentTitle: { flex: 1, color: '#F5F5F2', fontWeight: '700', fontSize: 18, lineHeight: 26 }, error: { color: '#F5F5F2', fontSize: 14, lineHeight: 22 },
-  button: { minHeight: 54, borderRadius: 14, backgroundColor: '#F5F5F2', alignItems: 'center', justifyContent: 'center' },
-  buttonText: { color: '#0A0A0A', fontSize: 16, fontWeight: '700' }, dimmed: { opacity: 0.5 }, browse: { minHeight: 48, justifyContent: 'center', alignItems: 'center' },
+  documentTitle: { flex: 1, color: colors.text, fontWeight: '700', fontSize: 18, lineHeight: 26 }, error: { color: colors.text, fontSize: 14, lineHeight: 22 },
+  button: { minHeight: 54, borderRadius: 14, backgroundColor: colors.text, alignItems: 'center', justifyContent: 'center' },
+  buttonText: { color: colors.background, fontSize: 16, fontWeight: '700' }, dimmed: { opacity: 0.5 }, browse: { minHeight: 48, justifyContent: 'center', alignItems: 'center' },
 });
+
+const themedStyles = { light: makeStyles(Colors.light), dark: makeStyles(Colors.dark) };

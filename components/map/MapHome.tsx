@@ -1,6 +1,6 @@
 import KakaoNavi from '@/modules/kakao-navi';
 import { useGuideSession } from '@/lib/guideSession';
-import { withLocationUse, locationUseAllowed } from '@/stores/useLocationPrivacyStore';
+import { withLocationUse, locationUseAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import {
   AppState,
   StyleSheet,
@@ -145,8 +145,10 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const mapRef = useRef<NaverMapViewRef>(null);
   const followingRef = useRef(false);
   const handledFocusTransitionRef = useRef<string | null>(null);
+  const locationRequestEpoch = useRef(0);
   const isMapFocusedRef = useRef(isMapFocused);
   isMapFocusedRef.current = isMapFocused;
+  useEffect(() => () => { locationRequestEpoch.current++; }, [isMapFocused]);
   const waitForRootAppearRef = useRef(!rootNavigation.isFocused());
   const firstRevealFrameRef = useRef<number | null>(null);
   const secondRevealFrameRef = useRef<number | null>(null);
@@ -159,8 +161,12 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') setGuideReturnAttempt((attempt) => attempt + 1);
+      else locationRequestEpoch.current++;
     });
-    return () => subscription.remove();
+    const unsubscribeGuide = useGuideSession.subscribe((state, previous) => {
+      if (state.goal !== previous.goal) locationRequestEpoch.current++;
+    });
+    return () => { subscription.remove(); unsubscribeGuide(); };
   }, []);
   useEffect(() => {
     if (overlay || !isMapFocused || !mapPresentationReady || pendingGuideReturn == null) return;
@@ -681,22 +687,71 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     });
   }, [isMapFocused, userLocation]);
 
-  const handleMyLocation = () => {
+  const locatingRef = useRef(false);
+  const [locating, setLocating] = useState(false);
+  const handleMyLocation = async () => {
     if (!locationUseAllowed()) {
       toast.info('위치 이용 설정이 필요해요', '현재 위치를 이용하려면 동의하고 다시 시작해 주세요.');
       router.push('/location-privacy' as Href);
       return;
     }
-    if (!userLocation) {
-      toast.info('현재 위치를 확인할 수 없어요', '기기의 위치 서비스와 권한을 확인해 주세요.');
-      return;
+    if (!mapRef.current || locatingRef.current) return;
+
+    let position = useMapStore.getState().userLocation;
+    if (!position) {
+      const revision = useLocationPrivacyStore.getState().revision;
+      const epoch = locationRequestEpoch.current;
+      const stillCurrent = () => isMapFocusedRef.current && AppState.currentState === 'active'
+        && epoch === locationRequestEpoch.current && !useGuideSession.getState().goal && locationUseAllowed()
+        && useLocationPrivacyStore.getState().revision === revision;
+      locatingRef.current = true;
+      setLocating(true);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let timedOut = false;
+      try {
+        const result = await Promise.race([
+          withLocationUse('map', 'device', async () => {
+            const [permission, enabled] = await Promise.all([
+              Location.getForegroundPermissionsAsync(), Location.hasServicesEnabledAsync(),
+            ]);
+            if (!permission.granted || !enabled) return { blocked: true } as const;
+            if (!stillCurrent() || timedOut) return null;
+            const fresh = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            return { coords: fresh.coords };
+          }),
+          new Promise<null>(resolve => {
+            timer = setTimeout(() => { timedOut = true; resolve(null); }, 10_000);
+          }),
+        ]);
+        if (!stillCurrent()) return;
+        position = useMapStore.getState().userLocation;
+        if (!position && result?.coords) {
+          const { latitude, longitude } = result.coords;
+          position = { latitude, longitude };
+          useMapStore.getState().setUserLocation(position);
+        }
+        if (!position && result && 'blocked' in result) {
+          toast.info('기기 위치 설정을 확인해 주세요', '기기 설정에서 위치 서비스와 모토맵 위치 권한을 확인해 주세요.');
+          return;
+        }
+      } catch {
+        if (!stillCurrent()) return;
+        position = useMapStore.getState().userLocation;
+      } finally {
+        clearTimeout(timer);
+        locatingRef.current = false;
+        setLocating(false);
+      }
+      if (!position) {
+        toast.info('아직 현재 위치를 받지 못했어요', '잠시 후 내 위치 버튼을 다시 눌러 주세요.');
+        return;
+      }
     }
-    if (!userLocation || !mapRef.current) return;
 
     // 내 위치를 지도 중앙으로 이동(현재 줌 유지)
-    mapRef.current.animateCameraTo({
-      latitude: userLocation.latitude,
-      longitude: userLocation.longitude,
+    mapRef.current?.animateCameraTo({
+      latitude: position.latitude,
+      longitude: position.longitude,
       zoom: mapCenter?.zoom ?? DEFAULT_ZOOM,
       duration: 600,
     });
@@ -1097,12 +1152,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           myLocationFollowStyle,
         ]}>
         <GlassButton glassEffectStyle="regular" accessibilityLabel="내 위치로 이동" accessibilityRole="button" onPress={handleMyLocation}
+          disabled={locating} accessibilityState={{ busy: locating }}
           style={{ width: 48, height: 48, borderRadius: 24 }}>
+        {locating ? <ActivityIndicator size="small" color={colors.tint} /> :
         <View style={styles.myLocationIconContainer}>
           <View style={[styles.myLocationCrosshair, { borderColor: colors.tint }]}>
             <View style={[styles.myLocationCenter, { backgroundColor: colors.tint }]} />
           </View>
-        </View>
+        </View>}
         </GlassButton>
       </Animated.View>
 

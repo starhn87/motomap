@@ -259,7 +259,7 @@ test('위치 관리 화면 전체를 마스킹하고 최초 동의는 별도 단
   const panel=readFileSync(new URL('../components/LocationPrivacyPanel.tsx',import.meta.url),'utf8');
   assert.match(panel,/<PostHogMaskView/); assert.match(panel,/<\/PostHogMaskView>/);
   const consent=readFileSync(new URL('../components/auth/LegalConsentScreen.tsx',import.meta.url),'utf8');
-  assert.match(consent,/useState<Partial<Record<LegalDocType, boolean>>>\(\{\}\)/);
+  assert.match(consent,/showProvidersInline && !needsLegal && state.ready/);
   assert.doesNotMatch(panel,/intro/);
 });
 test('기록 저장 스위치는 기존 자료·공급자·길안내를 건드리지 않는다', async()=>{

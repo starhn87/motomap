@@ -7,6 +7,8 @@ import { useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { locationPrivacyRpc, privacyObject, PURPOSE_LABELS, RECIPIENT_LABELS, LOCATION_CONSENT_VERSION,
   type LocationUsageEvent, type LocationRideRecord } from '@/lib/locationPrivacy';
+import Colors from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
 import { LEGAL_OPERATOR } from '@/constants/legal';
 import type { Json } from '@/lib/database.types';
 
@@ -18,6 +20,7 @@ function listFrom<T>(value: Json, key: string, valid: (item: Record<string, Json
 }
 export default function LocationPrivacyPanel() {
   const state = useLocationPrivacyStore();
+  const styles = themedStyles[useColorScheme() ?? 'light'];
   const [view, setView] = useState<'overview' | 'consent' | 'records'>('overview');
   const [recordType, setRecordType] = useState<'visits' | 'usage' | null>(null);
   const [busy, setBusy] = useState(false);
@@ -94,7 +97,7 @@ export default function LocationPrivacyPanel() {
         <Switch accessibilityLabel="방문 기록 저장" value={state.historyAllowed} disabled={busy || !active}
           onValueChange={value=>{void run(()=>state.setHistoryAllowed(value));}} />
       </View>}
-      {button(active || state.status==='paused' ? '동의 범위 변경' : '위치정보 이용 동의',()=>setView('consent'))}
+      {button(active || state.status==='paused' ? '동의 범위 변경' : '위치정보 이용 동의',()=>setView('consent'), !state.ready)}
       {button('내 기록 열람·삭제',()=>{setView('records'); setRecordType(null);})}
       {button('위치정보 동의 철회',()=>confirm('위치정보 동의를 철회할까요?',
         '위치 이용·길안내를 중지하고 방문·완주 기록 및 이용·제공 내역을 삭제해요. 리뷰·즐겨찾기는 유지돼요. 삭제 자료는 복구할 수 없어요.',async()=>{
@@ -146,10 +149,12 @@ export default function LocationPrivacyPanel() {
     {!!error && <Text accessibilityRole="alert" style={styles.body}>{error}</Text>}
   </ScrollView></PostHogMaskView>;
 }
-const styles = StyleSheet.create({
-  screen:{flex:1,backgroundColor:'#0A0A0A'},content:{padding:24,paddingBottom:48,gap:16},
-  title:{fontSize:23,color:'#F5F5F2',fontWeight:'700'},label:{color:'#F5F5F2',fontSize:15,lineHeight:23},
-  body:{color:'#C4C5C8',fontSize:14,lineHeight:22},button:{minHeight:48,padding:12,backgroundColor:'#222225',borderRadius:10,justifyContent:'center'},
-  disabled:{opacity:0.45},card:{padding:14,gap:8,borderWidth:1,borderColor:'#333',borderRadius:12},
+const makeStyles = (colors: typeof Colors.light) => StyleSheet.create({
+  screen:{flex:1,backgroundColor:colors.background},content:{padding:24,paddingBottom:48,gap:16},
+  title:{fontSize:23,color:colors.text,fontWeight:'700'},label:{color:colors.text,fontSize:15,lineHeight:23},
+  body:{color:colors.textSecondary,fontSize:14,lineHeight:22},button:{minHeight:48,padding:12,backgroundColor:colors.surface,borderRadius:10,justifyContent:'center'},
+  disabled:{opacity:0.45},card:{padding:14,gap:8,borderWidth:1,borderColor:colors.border,borderRadius:12},
   setting:{flexDirection:'row',alignItems:'center',gap:16,paddingVertical:12},settingText:{flex:1,gap:6},recordTabs:{gap:8},
 });
+
+const themedStyles = { light: makeStyles(Colors.light), dark: makeStyles(Colors.dark) };
