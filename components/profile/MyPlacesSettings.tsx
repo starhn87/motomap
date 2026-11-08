@@ -67,5 +67,5 @@ export default function MyPlacesSettings() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 54, padding: 16, borderRadius: 12, borderWidth: 1, marginTop: 0 },
-  label: { flex: 1, fontSize: 14, fontWeight: '500' },
+  label: { flex: 1, fontSize: 15, fontWeight: '600' },
 });
