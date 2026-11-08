@@ -2,7 +2,7 @@ import { requireOptionalNativeModule } from 'expo-modules-core';
 
 export { friendlyRouteError, routeErrorCode } from '@/lib/kakaoRouteErrors';
 
-// 카카오내비 SDK(KNSDK) 네이티브 브리지. iOS 전용.
+// 카카오내비 SDK(KNSDK) 네이티브 브리지. 플랫폼별 제공 기능은 capability로 확인한다.
 export interface BikeRoute {
   /** 미터 */
   distance: number;
@@ -53,6 +53,7 @@ export const KAKAO_NAVI_FEATURES = [
   'app_lifecycle_forwarding',
   'accessibility_nil_guard',
   'location_privacy_stop',
+  'android_live_guidance',
   'guide_web_bottom',
   'guide_route_editing',
   'guide_hazard_sheet',
@@ -128,6 +129,15 @@ interface KakaoNaviModule {
     vias: number[],
     priority: RoutePriority,
     preview: boolean,
+  ): Promise<void>;
+  /** Android 안내 화면에서만 SDK를 초기화하고 화면을 닫을 때 해제한다. */
+  startAndroidGuide?(
+    appKey: string,
+    start: [number, number],
+    goal: [number, number],
+    goalName: string,
+    vias: number[],
+    priority: RoutePriority,
   ): Promise<void>;
   addListener<E extends keyof GuideEventPayload>(
     event: E,

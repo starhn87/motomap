@@ -46,6 +46,7 @@ export function canFallbackToCourseStart(error: unknown): boolean {
 /** 공급자 원문을 노출하지 않는 길안내 오류 안내. */
 export function friendlyRouteError(error: unknown, knCode?: string | null): string {
   const rawCode = (error as {code?:unknown} | null)?.code;
+  if (rawCode === 'GUIDE_LOCATION_PERMISSION') return '안드로이드 앱 설정의 위치 권한에서 정확한 위치를 켜 주세요.';
   // 원문/좌표를 읽지 않고 재안내에서 정의한 단계 코드만 안내한다.
   if (rawCode === 'E_KNSDK_RESUME_GPS') return '현재 위치를 확인하지 못했어요. GPS 수신 후 다시 시도해 주세요.';
   if (rawCode === 'E_KNSDK_RESUME_STATE') return '안내 상태가 변경됐어요. 기존 길안내로 돌아가 다시 선택해 주세요.';

@@ -1,0 +1,14 @@
+diff --git a/node_modules/@react-native-kakao/core/android/package-json.gradle b/node_modules/@react-native-kakao/core/android/package-json.gradle
+--- a/node_modules/@react-native-kakao/core/android/package-json.gradle
++++ b/node_modules/@react-native-kakao/core/android/package-json.gradle
+@@ -20,7 +20,9 @@ Object corePkg, pkg
+
+ try {
+     corePkg = new JsonSlurper().parse(_corePkg)
+-    ext.RNCKakaoSdkVersions = corePkg.sdkVersions.android
++    // 내비 SDK가 사용하는 v2-common과 로그인 모듈의 Android 버전을 맞춘다.
++    // 혼용하면 앱 시작 시 KakaoJson.getBase()를 찾지 못한다.
++    ext.RNCKakaoSdkVersions = corePkg.sdkVersions.android + [core: '2.23.0', user: '2.23.0']
+     ext.RNCKakaoCorePkg = corePkg
+ } catch (Exception ignored) {
+     throw new GradleException(":${project.name} failed to parse ${fileName} found at ${_corePkg}.")

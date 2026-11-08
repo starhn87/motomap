@@ -42,7 +42,7 @@ import { toast } from '@/lib/toast';
 import { useGuideSession, type GuidePreviewContext } from '@/lib/guideSession';
 import { guidePreviewInitial, continuedViaPlaces, continuedGoal } from '@/lib/guidePreview';
 import { markGuideStarted } from '@/lib/guideEvents';
-import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
+import { ensureKakaoNaviReady, startAndroidGuide } from '@/lib/kakaoNaviInit';
 import { createAnalyticsId, track } from '@/lib/analytics';
 import {
   parseNaviParams,
@@ -63,7 +63,7 @@ type EditingField = 'start' | 'goal' | number;
 
 // 길안내 진입 화면 — 경로 미리보기와 옵션 선택을 겸한다.
 // 옵션별 경로를 지도에 그려 보여주고, 고르면 그 옵션으로 KNSDK 안내를 시작한다.
-// 미리보기도 안내와 같은 KNSDK 엔진을 쓰므로 여기서 본 경로가 곧 안내 경로다.
+// iOS 미리보기는 KNSDK, Android 미리보기는 카카오 REST 경로를 사용한다.
 // 코스 안내가 아니면 상단 카드에서 출발지·경유지·도착지를 바로 바꿀 수 있다
 // (코스 경유지는 지오메트리 좌표 수십 개라 편집 대상이 아니다).
 export default function NaviScreen() {
@@ -93,7 +93,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
   const resumedRef = useRef(false);
   const privacyRevision = useLocationPrivacyStore((s) => s.revision);
   const locationBlocked = !providerLocationAllowed('kakao');
-  const previewOnly = Platform.OS === 'android';
+  const previewOnly = Platform.OS === 'android' && !supportsKakaoNaviFeature('android_live_guidance');
   const router = useRouter();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
@@ -354,7 +354,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
   // 처리는 이 화면이 언마운트된 뒤에도 살아 있도록 전역(lib/guideEvents)이 맡는다.
   useEffect(() => {
     const started = KakaoNavi.addListener('onGuideStarted', () => {
-      if (continuationRef.current) return;
+      if (continuationRef.current || !providerLocationAllowed('kakao')) return;
       if (startTrackRef.current) {
         const startTrack = startTrackRef.current;
         startTrackRef.current = null;
@@ -388,7 +388,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
       navigation.setOptions({ animation: 'none' });
       // navigate 는 이 화면을 스택에 남긴다 — 미리보기 지도(출발지 도트)가
       // 살아남아 안내 종료 후 지도 위에 비쳤다(실측). replace 로 스택에서 뗀다.
-      router.replace('/');
+      if (Platform.OS !== 'android') router.replace('/');
     });
     // 경로 탐색 실패 시 시작 스피너만 되돌린다 (토스트는 전역 리스너가 띄운다)
     const failed = KakaoNavi.addListener('onGuideFailed', () => { startingRef.current = false; setStarting(false); });
@@ -509,18 +509,23 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
       via_count: pairsFromFlat(activeVias ?? flatVias).length,
       distance_m: route?.distance,
     };
-    ensureKakaoNaviReady().then(() => withLocationUse('navigation','kakao',() => KakaoNavi.startGuide(
-      start[0], start[1], goal.longitude, goal.latitude, goal.name,
-      activeVias ?? flatVias, priority, false,
-    ))).catch((err) => {
+    const vias = activeVias ?? flatVias;
+    const opening = Platform.OS === 'android'
+      ? startAndroidGuide(start, goal, vias, priority)
+      : ensureKakaoNaviReady().then(() => withLocationUse('navigation', 'kakao', () => KakaoNavi.startGuide(
+          start[0], start[1], goal.longitude, goal.latitude, goal.name, vias, priority, false,
+        )));
+    void opening.catch((err) => {
       startingRef.current = false; setStarting(false);
-      toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(err));
+      if ((err as { code?: string } | null)?.code !== 'GUIDE_CANCELLED') {
+        toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(err));
+      }
     });
   };
 
-  usePreventRemove(!!continuation && starting && !guideStarted, () => {});
+  usePreventRemove((!!continuation || Platform.OS === 'android') && starting && !guideStarted, () => {});
   useEffect(() => {
-    if (continuation && guideStarted) router.replace('/');
+    if ((continuation || Platform.OS === 'android') && guideStarted) router.replace('/');
   }, [continuation, guideStarted, router]);
   useEffect(() => {
     if (continuation) navigation.setOptions({ gestureEnabled: !starting });
@@ -762,10 +767,11 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
 
         {previewOnly ? (
           <Text style={[styles.previewOnly, { color: colors.textSecondary }]}>
-            앱 내 주행 안내는 iOS에서 지원해요.
+            앱 내 주행 안내를 지원하는 새 버전이 필요해요.
           </Text>
         ) : (
           <Pressable
+            accessibilityRole="button"
             onPress={() => startGuide()}
             disabled={locationBlocked || !start || !route || starting || courseOnly || waitingForStartLocation || distantStart}
             style={({ pressed }) => [
