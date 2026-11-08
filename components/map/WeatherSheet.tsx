@@ -119,6 +119,8 @@ const glyph = StyleSheet.create({
 });
 
 const WEATHER_SHEET_HANDLE_HEIGHT = 24;
+const CONTENT_HORIZONTAL_PADDING = 16;
+const STAT_COLUMN_GAP = 8;
 
 // 라이딩 날씨 상세 바텀시트 — 적합도 등급·점수, 현재 조건, 시간별 예보
 export default function WeatherSheet({
@@ -229,7 +231,7 @@ export default function WeatherSheet({
     { label: '초미세먼지', ...airStat(air?.pm25Grade, air?.pm25) },
   ];
   // 좌우 여백과 열 간격을 제외하고 가장 긴 라벨이 들어갈 폭을 확보한다.
-  const singleStatRow = (width - 64) / fontScale >= 248;
+  const singleStatRow = (width - CONTENT_HORIZONTAL_PADDING * 2 - STAT_COLUMN_GAP * 3) / fontScale >= 248;
   const statRows = singleStatRow ? [stats] : [stats.slice(0, 2), stats.slice(2)];
 
   // 시간대별 셀 목록에 일출·일몰 카드를 시각 순서대로 삽입한다.
@@ -340,7 +342,7 @@ export default function WeatherSheet({
         </View>
 
         <View style={[styles.currentConditions, { borderBottomColor: colors.border }]}>
-          <View style={[styles.temperatureGroup, !daily && { flexBasis: 166 * fontScale }]}>
+          <View style={styles.temperatureGroup}>
             <View style={styles.primaryCondition}>
               <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>기온</Text>
               <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.temp}°</Text>
@@ -350,24 +352,24 @@ export default function WeatherSheet({
               {/* 32pt 줄의 기준선을 확보해 작은 체감 값도 같은 높이에 맞춘다. */}
               <Text style={[styles.primaryValue, { color: colors.textSecondary }]}>
                 {'\u200B'}
-                <Text style={styles.feelsValue}>{weather.current.feels}°</Text>
+                <Text style={styles.secondaryValue}>{weather.current.feels}°</Text>
               </Text>
             </View>
           </View>
           {daily && (
-            <View style={styles.dailyGroup}>
+            <View style={styles.temperatureGroup}>
               {[{ label: '최저', value: daily.min }, { label: '최고', value: daily.max }].map((stat) => (
                 <View key={stat.label} style={styles.primaryCondition}>
                   <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
                   <Text style={[styles.primaryValue, { color: colors.textSecondary }]}>
                     {'\u200B'}
-                    <Text style={styles.feelsValue}>{stat.value}°</Text>
+                    <Text style={styles.secondaryValue}>{stat.value}°</Text>
                   </Text>
                 </View>
               ))}
             </View>
           )}
-          <View style={[styles.primaryCondition, { flexBasis: 88 * fontScale }]}>
+          <View style={styles.primaryCondition}>
             <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>강수확률</Text>
             <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.pop}%</Text>
           </View>
@@ -452,7 +454,7 @@ export default function WeatherSheet({
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: CONTENT_HORIZONTAL_PADDING,
     gap: 16,
   },
   // absolute — 행 레이아웃에 참여하지 않아 늦게 나타나도 행 높이가 변할 수 없다
@@ -501,7 +503,8 @@ const styles = StyleSheet.create({
   currentConditions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    columnGap: 16,
+    justifyContent: 'space-between',
+    columnGap: 18,
     rowGap: 8,
     paddingBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -509,22 +512,20 @@ const styles = StyleSheet.create({
   temperatureGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    flexGrow: 1,
     flexShrink: 1,
-    columnGap: 12,
+    columnGap: 8,
     rowGap: 8,
   },
-  dailyGroup: { flexDirection: 'row', flexWrap: 'wrap', flexShrink: 1, columnGap: 12, rowGap: 8 },
   primaryCondition: { flexShrink: 1, gap: 4 },
   primaryLabel: { fontSize: 12 },
   primaryValue: { fontSize: 32, lineHeight: 40, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  feelsValue: { fontSize: 22 },
+  secondaryValue: { fontSize: 22 },
   statsGrid: {
     gap: 12,
   },
   statRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: STAT_COLUMN_GAP,
   },
   statCell: {
     flex: 1,
@@ -551,7 +552,7 @@ const styles = StyleSheet.create({
   },
   hourlyScroll: {
     flexGrow: 0,
-    marginHorizontal: -20,
+    marginHorizontal: -CONTENT_HORIZONTAL_PADDING,
   },
   hourlyRow: {
     flexDirection: 'row',
