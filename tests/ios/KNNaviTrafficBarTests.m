@@ -186,7 +186,7 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   check(!activeBar.hidden && activeBar.states.count == 48, @"presenter normal active guidance shows profile");
   check([activeBar.accessibilityValue containsString:@"4.8"], @"remaining distance belongs to matched primary route not trip");
   [controller setValue:@YES forKey:@"mapDetached"]; [controller refreshTrafficBar];
-  check(activeBar.hidden, @"map pan hides strip");
+  check((activeBar.hidden || activeBar.alpha == 0) && !activeBar.isAccessibilityElement, @"map pan hides strip");
   [controller setValue:@NO forKey:@"mapDetached"]; [controller refreshTrafficBar];
   check(!activeBar.hidden, @"map recenter restores strip");
   panel.expanded = YES; [controller refreshTrafficBar]; check(activeBar.hidden, @"menu hides strip");

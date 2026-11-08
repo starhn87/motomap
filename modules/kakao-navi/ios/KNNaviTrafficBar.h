@@ -11,6 +11,7 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom);
 @property(nonatomic, copy, readonly) NSArray<NSNumber *> *states;
 @property(nonatomic) BOOL positionAvailable;
 - (void)updateFromLocation:(KNLocation *)location remainingDistance:(SInt32)distance time:(NSTimeInterval)time;
+- (void)setVisible:(BOOL)visible animated:(BOOL)animated;
 - (void)reset;
 @end
 

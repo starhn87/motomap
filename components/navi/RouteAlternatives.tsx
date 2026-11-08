@@ -8,6 +8,8 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { formatMeters, formatSeconds } from '@/lib/api/directions';
 import type { BikeRoute, RoutePriority } from '@/modules/kakao-navi';
 
+const CARD_GAP = 8;
+
 type Alternative = {
   value: RoutePriority;
   label: string;
@@ -27,11 +29,15 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
   const colors = Colors[useColorScheme() ?? 'light'];
   const scroll = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
-  const cardWidth = width > 0 ? (width - 44) / 2 : 136;
+  const cardWidth = width > CARD_GAP ? (width - CARD_GAP) / 2 : 136;
+  const cardStep = cardWidth + CARD_GAP;
+  const maxOffset = Math.max(0, options.length * cardStep - CARD_GAP - width);
   const selectedIndex = options.findIndex(option => option.value === priority);
   useEffect(() => {
-    if (selectedIndex >= 0) scroll.current?.scrollTo({ x: selectedIndex * (cardWidth + 8), animated: true });
-  }, [selectedIndex, cardWidth]);
+    if (selectedIndex >= 0 && width > 0) {
+      scroll.current?.scrollTo({ x: Math.min(selectedIndex * cardStep, maxOffset), animated: true });
+    }
+  }, [selectedIndex, width, cardStep, maxOffset]);
   const selected = options.find((option) => option.value === priority);
   const excludedViaCount = selected?.route ? Math.max(0, requestedViaCount - (selected.vias?.length ?? 0) / 2) : 0;
   let viaSummary = '경로를 선택하면 경유지를 확인할 수 있어요.';
@@ -42,6 +48,7 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
   return (
     <View style={styles.container} onLayout={({ nativeEvent }) => setWidth(nativeEvent.layout.width)}>
       <ScrollView ref={scroll} style={styles.scroll} horizontal showsHorizontalScrollIndicator={false}
+        snapToInterval={cardStep} decelerationRate="fast"
         contentContainerStyle={styles.row} accessibilityRole="radiogroup" accessibilityLabel="경로 비교">
         {options.map((option) => {
           const active = option.value === priority;
@@ -129,7 +136,7 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
 const styles = StyleSheet.create({
   container: { gap: 8 },
   scroll: { flexGrow: 0 },
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: CARD_GAP },
   option: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, gap: 4 },
   summary: { gap: 4 },
   placeholder: { opacity: 0 },

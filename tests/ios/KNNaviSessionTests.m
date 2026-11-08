@@ -609,9 +609,15 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
   WKWebView *menuWeb = (id)panel.menuView;
   WaitAsync(^BOOL{ return panel.ready || panel.failed; }, NSDate.timeIntervalSinceReferenceDate + 15, ^(BOOL loaded) {
     if (!loaded || !panel.ready) { NSLog(@"FAIL WK not ready"); [panel invalidate]; completion(failures+1); return; }
+    [controller.view layoutIfNeeded];
+    CGRect beforePan = panel.frame;
+    if ([panel pointInside:CGPointMake(panel.bounds.size.width/2,10) withEvent:nil]) {
+      NSLog(@"FAIL empty recenter area intercepted map"); failures++;
+    }
     [sdkView naviMapView:(id)map mapState:MapState_Panning];
     [controller.view layoutIfNeeded];
-    if (height != KNNaviBottomCollapsedHeight + KNNaviBottomRecenterHeight ||
+    if (!CGRectEqualToRect(beforePan, panel.frame) ||
+        height != KNNaviBottomCollapsedHeight + KNNaviBottomRecenterHeight ||
         [panel pointInside:CGPointMake(0,10) withEvent:nil] ||
         [panel pointInside:CGPointMake(panel.bounds.size.width/2+70,10) withEvent:nil] ||
         [panel pointInside:CGPointMake(panel.bounds.size.width/2,50) withEvent:nil] ||
@@ -672,13 +678,14 @@ void RunKNNaviBottomTests(UIWindow *window, void (^completion)(int)) {
         NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"bottom-collapsed.png"];
         if (image) [UIImagePNGRepresentation(image) writeToFile:path atomically:YES];
         [web evaluateJavaScript:@"document.getElementById('recenter').click()" completionHandler:nil];
-        WaitAsync(^BOOL{ return height == 68 && mapAction.calls == 1; },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL centered) {
+        WaitAsync(^BOOL{ return height == KNNaviBottomCollapsedHeight + KNNaviBottomRecenterHeight &&
+            mapAction.calls == 1 && ![[controller valueForKey:@"mapDetached"] boolValue]; },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL centered) {
           if (!centered) { NSLog(@"FAIL recenter did not restore footer"); failures++; }
           CGRect footerFrame = panel.frame;
           NSTimeInterval openedAt = NSDate.timeIntervalSinceReferenceDate;
           [web evaluateJavaScript:@"document.getElementById('menuButton').click()" completionHandler:nil];
           WaitAsync(^BOOL{ return NSDate.timeIntervalSinceReferenceDate - openedAt >= 0.3 && panel.expanded && !panel.menuView.hidden && CGAffineTransformIsIdentity(panel.menuView.transform); },NSDate.timeIntervalSinceReferenceDate+2,^(BOOL expanded) {
-            if (!expanded || !panel.menuView.accessibilityViewIsModal || height != 68 ||
+            if (!expanded || !panel.menuView.accessibilityViewIsModal || height != KNNaviBottomCollapsedHeight + KNNaviBottomRecenterHeight ||
                 !CGRectEqualToRect(footerFrame,panel.frame) || menuWeb == web ||
                 fabs(CGRectGetMaxY(panel.menuView.frame) - controller.view.bounds.size.height) > 0.5 ||
                 CGRectGetMinX(panel.menuView.frame) != 0 || panel.menuView.bounds.size.width != controller.view.bounds.size.width) { NSLog(@"FAIL separate native sheet"); failures++; }

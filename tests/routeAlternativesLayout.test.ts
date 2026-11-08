@@ -3,7 +3,7 @@ import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
 
 // 실제 카드의 onLayout/선택 handler를 실행해 화면 폭 변경 후에도 다음 카드가 보이는지 확인한다.
-test('경로 카드는 두 장 뒤 세번째가 28pt 보이고 선택 스크롤도 실측 폭을 따른다', () => {
+test('경로 카드 두 장이 잘리지 않고 마지막 선택도 스크롤 범위 안에 들어온다', () => {
   const slots: any[] = [], effects: (() => void)[] = [], offsets: number[] = [], selected: number[] = [];
   let cursor = 0;
   const react = {
@@ -34,10 +34,13 @@ test('경로 카드는 두 장 뒤 세번째가 28pt 보이고 선택 스크롤�
     tree.props.onLayout({ nativeEvent: { layout: { width } } }); tree = render();
     const cards = nodes(tree).filter(node => node.type === 'Pressable');
     const cardWidth = cards[0].props.style[1].width;
-    assert.equal(width - cardWidth * 2 - 16, 28);
+    assert.equal(cardWidth * 2 + 8, width);
+    assert.equal(nodes(tree).find(node => node.type === 'ScrollView').props.snapToInterval, cardWidth + 8);
     assert.equal(nodes(tree).find(node => node.type === 'ScrollView').props.horizontal, true);
     cards[2].props.onPress(); priority = 2; tree = render();
     assert.equal(offsets.at(-1), 2 * (cardWidth + 8));
+    priority = 4; tree = render();
+    assert.equal(offsets.at(-1), 3 * (cardWidth + 8));
   }
   assert.deepEqual(selected, [2, 2, 2]);
 });

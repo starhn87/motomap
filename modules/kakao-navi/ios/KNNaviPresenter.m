@@ -776,7 +776,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.naviView.frame = self.view.bounds;
   if (self.bottomPanel) {
     [self.bottomPanel setBottomInset:0];
-    CGFloat height = MIN(self.panelHeight ?: KNNaviBottomCollapsedHeight, self.view.bounds.size.height - self.view.safeAreaInsets.top - gap);
+    CGFloat height = MIN(self.panelHeight ?: (KNNaviBottomCollapsedHeight + KNNaviBottomRecenterHeight), self.view.bounds.size.height - self.view.safeAreaInsets.top - gap);
     self.bottomPanel.frame = CGRectMake(12, self.view.bounds.size.height - gap - height, MAX(0, self.view.bounds.size.width - 24), height);
     self.bottomPanel.hidden = !web;
   }
@@ -793,7 +793,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self refreshHiddenViews];
   CGRect safe = UIEdgeInsetsInsetRect(self.view.bounds, self.view.safeAreaInsets);
   CGRect banner = [self.naviView.curDirView convertRect:self.naviView.curDirView.bounds toView:self.view];
-  self.trafficBar.frame = KNNaviTrafficBarFrame(safe, CGRectGetMaxY(banner), CGRectGetMinY(self.bottomPanel.frame));
+  self.trafficBar.frame = KNNaviTrafficBarFrame(safe, CGRectGetMaxY(banner), CGRectGetMaxY(self.bottomPanel.frame) - KNNaviBottomCollapsedHeight);
   [self refreshTrafficBar];
 }
 
@@ -843,7 +843,10 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
                     remainingDistance:distance
                                  time:NSProcessInfo.processInfo.systemUptime];
   }
-  self.trafficBar.hidden = !visible || self.trafficBar.states.count == 0;
+  BOOL browsing = self.mapDetached || (self.hasNaviScreenState && self.naviScreenState == DriveTouch);
+  BOOL animate = self.bottomPanel.ready && !self.bottomPanel.expanded &&
+      !CGRectIsEmpty(self.trafficBar.frame) && (browsing || visible);
+  [self.trafficBar setVisible:visible && self.trafficBar.states.count > 0 animated:animate];
 }
 
 - (void)updateBottomPanel {

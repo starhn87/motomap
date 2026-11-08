@@ -72,12 +72,35 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
   [super traitCollectionDidChange:previous];
   [self setNeedsDisplay];
 }
+- (void)setVisible:(BOOL)visible animated:(BOOL)animated {
+  CGFloat target = visible ? 1 : 0;
+  self.isAccessibilityElement = visible;
+  if (!animated || UIAccessibilityIsReduceMotionEnabled()) {
+    [self.layer removeAllAnimations];
+    self.alpha = target;
+    self.hidden = !visible;
+    return;
+  }
+  if (!visible && self.hidden) return;
+  if (!self.hidden && self.alpha == target) return;
+  if (visible && self.hidden) {
+    self.alpha = 0;
+    self.hidden = NO;
+  }
+  [UIView animateWithDuration:0.18 delay:0
+      options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
+      animations:^{ self.alpha = target; }
+      completion:^(BOOL finished) {
+        if (finished && self.alpha == 0) self.hidden = YES;
+      }];
+}
+
 - (void)reset {
   self.states = @[];
   self.sampledAt = 0;
   self.remainingDistance = 0;
   self.accessibilityValue = nil;
-  self.hidden = YES;
+  [self setVisible:NO animated:NO];
   [self setNeedsDisplay];
 }
 - (void)setPositionAvailable:(BOOL)available {
