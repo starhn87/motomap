@@ -118,7 +118,9 @@ const glyph = StyleSheet.create({
   },
 });
 
-// 라이딩 날씨 상세 바텀시트 — 적합도 등급·점수, 현재 조건, 6시간 예보
+const WEATHER_SHEET_HANDLE_HEIGHT = 24;
+
+// 라이딩 날씨 상세 바텀시트 — 적합도 등급·점수, 현재 조건, 시간별 예보
 export default function WeatherSheet({
   open,
   closeImmediately = false,
@@ -133,6 +135,11 @@ export default function WeatherSheet({
   const bottomSheetRef = useRef<BottomSheet>(null);
   const didOpenRef = useRef(false);
   const insets = useSafeAreaInsets();
+  const { width, height, fontScale } = useWindowDimensions();
+  const [contentHeight, setContentHeight] = useState(0);
+  const snapHeight = contentHeight > 0
+    ? Math.min(Math.ceil(contentHeight) + WEATHER_SHEET_HANDLE_HEIGHT, Math.floor(height * 0.62))
+    : '62%';
 
   // 시트 인스턴스는 닫힌 상태로 계속 유지한다. 이미 준비된 ref를 여는 방식이라
   // 버튼 탭과 마운트 타이밍이 경합해 snap 명령이 유실되지 않는다.
@@ -219,7 +226,6 @@ export default function WeatherSheet({
     { label: '미세먼지', ...airStat(air?.pm10Grade, air?.pm10) },
     { label: '초미세먼지', ...airStat(air?.pm25Grade, air?.pm25) },
   ];
-  const { width, fontScale } = useWindowDimensions();
   // 좌우 여백과 열 간격을 제외하고 가장 긴 라벨이 들어갈 폭을 확보한다.
   const singleStatRow = (width - 64) / fontScale >= 248;
   const statRows = singleStatRow ? [stats] : [stats.slice(0, 2), stats.slice(2)];
@@ -243,7 +249,7 @@ export default function WeatherSheet({
     <BottomSheet
       ref={bottomSheetRef}
       index={-1}
-      snapPoints={['62%']}
+      snapPoints={[snapHeight]}
       animateOnMount={false}
       enableDynamicSizing={false}
       enablePanDownToClose
@@ -261,6 +267,7 @@ export default function WeatherSheet({
       handleIndicatorStyle={{ backgroundColor: colors.tabIconDefault }}>
       <BottomSheetScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
+        onContentSizeChange={(_width, height) => setContentHeight(height)}
         showsVerticalScrollIndicator={false}>
         {/* 등급 헤더 */}
         <View style={styles.gradeRow}>
@@ -331,14 +338,19 @@ export default function WeatherSheet({
         </View>
 
         <View style={[styles.currentConditions, { borderBottomColor: colors.border }]}>
-          <View style={styles.primaryCondition}>
+          <View style={[styles.primaryCondition, { flexBasis: 88 * fontScale }]}>
             <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>기온</Text>
-            <View style={styles.temperatureRow}>
-              <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.temp}°</Text>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>체감 {weather.current.feels}°</Text>
-            </View>
+            <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.temp}°</Text>
           </View>
-          <View style={styles.primaryCondition}>
+          <View style={[styles.primaryCondition, { flexBasis: 88 * fontScale }]}>
+            <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>체감</Text>
+            {/* 32pt 줄의 기준선을 확보해 작은 체감 값도 같은 높이에 맞춘다. */}
+            <Text style={[styles.primaryValue, { color: colors.textSecondary }]}>
+              {'\u200B'}
+              <Text style={styles.feelsValue}>{weather.current.feels}°</Text>
+            </Text>
+          </View>
+          <View style={[styles.primaryCondition, { flexBasis: 88 * fontScale }]}>
             <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>강수확률</Text>
             <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.pop}%</Text>
           </View>
@@ -472,14 +484,16 @@ const styles = StyleSheet.create({
   },
   currentConditions: {
     flexDirection: 'row',
-    gap: 24,
+    flexWrap: 'wrap',
+    columnGap: 24,
+    rowGap: 8,
     paddingBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  primaryCondition: { flex: 1, gap: 4 },
+  primaryCondition: { flexGrow: 1, flexShrink: 1, gap: 4 },
   primaryLabel: { fontSize: 12 },
   primaryValue: { fontSize: 32, lineHeight: 40, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  temperatureRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 },
+  feelsValue: { fontSize: 22 },
   statsGrid: {
     gap: 12,
   },
