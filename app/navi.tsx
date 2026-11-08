@@ -3,7 +3,7 @@ import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
 import { withLocationUse, providerLocationAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import { useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, usePreventRemove } from 'expo-router/react-navigation';
@@ -35,6 +35,7 @@ import { useArrivalHours } from '@/hooks/useArrivalHours';
 import { describeArrivalClosure } from '@/lib/hours';
 import { appAlert } from '@/lib/dialog';
 import { useUserLocation } from '@/hooks/useUserLocation';
+import { getOrRequestLocationPermission } from '@/lib/userLocationTracking';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { toast } from '@/lib/toast';
@@ -92,11 +93,10 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
   const resumedRef = useRef(false);
   const privacyRevision = useLocationPrivacyStore((s) => s.revision);
   const locationBlocked = !providerLocationAllowed('kakao');
+  const previewOnly = Platform.OS === 'android';
   const router = useRouter();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
-  // 가려진 홈 센서에 의존하지 않고 이 화면이 최신 위치를 소유한다. 방향 센서는 필요 없다.
-  useUserLocation(isFocused, false);
   const startGuideSession = useGuideSession((st) => st.start);
   const userLocation = useMapStore((st) => st.userLocation);
   const insets = useSafeAreaInsets();
@@ -114,6 +114,8 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
   const [locationAttempt, setLocationAttempt] = useState(0);
   // 지정 출발지의 이름 — null 이면 현재 위치 출발
   const [startName, setStartName] = useState<string | null>(initial.startName);
+  // 직접 출발지를 지정한 Android 미리보기는 기기 위치 구독이 필요 없다.
+  useUserLocation(isFocused && (!previewOnly || !startName), false);
   // 길찾기 경유지(편집 가능) — 코스 경유지(vias 파라미터)와 별개.
   // null 은 + 로 만든 빈 줄: 탭해서 채우기 전까지 경로에는 안 들어간다.
   const [userVias, setUserVias] = useState<(NavTarget | null)[]>(
@@ -423,7 +425,9 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
     let cancelled = false;
     let permissionDenied = false;
     withLocationUse('route','device',async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      const { status } = await getOrRequestLocationPermission(
+        Location.getForegroundPermissionsAsync, Location.requestForegroundPermissionsAsync,
+      );
       if (status !== 'granted') {
         permissionDenied = true;
         throw new Error('위치 권한을 허용해 주세요.');
@@ -452,7 +456,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
       toast.error('안내 중 경로 변경은 이번 버전에서 지원하지 않습니다', GUIDE_MENU_UNAVAILABLE_MESSAGE);
       return;
     }
-    if (!start || !route || locationBlocked || startingRef.current || courseOnly) return;
+    if (previewOnly || !start || !route || locationBlocked || startingRef.current || courseOnly) return;
     // 영업 확인창에서 늦게 누른 경우에도 현재 위치로 출발 가능 여부를 다시 확인한다.
     if (hasExplicitStart) {
       const location = useMapStore.getState().userLocation;
@@ -756,30 +760,36 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
           </View>
         ) : null}
 
-        <Pressable
-          onPress={() => startGuide()}
-          disabled={locationBlocked || !start || !route || starting || courseOnly || waitingForStartLocation || distantStart}
-          style={({ pressed }) => [
-            styles.startButton,
-            {
-              backgroundColor: colors.tint,
-              opacity: locationBlocked || !start || !route || starting || courseOnly || waitingForStartLocation || distantStart ? 0.5 : pressed ? 0.85 : 1,
-            },
-          ]}>
-          {starting ? (
-            <ActivityIndicator size="small" color={colors.background} />
-          ) : (
-            <Text style={[styles.startLabel, { color: colors.background }]}>
-              {courseOnly
-                ? '코스 근처에서 시작할 수 있어요'
-                : waitingForStartLocation
-                  ? '현재 위치 확인 중'
-                  : distantStart
-                    ? '출발지 근처에서 시작할 수 있어요'
-                    : '안내 시작'}
-            </Text>
-          )}
-        </Pressable>
+        {previewOnly ? (
+          <Text style={[styles.previewOnly, { color: colors.textSecondary }]}>
+            앱 내 주행 안내는 iOS에서 지원해요.
+          </Text>
+        ) : (
+          <Pressable
+            onPress={() => startGuide()}
+            disabled={locationBlocked || !start || !route || starting || courseOnly || waitingForStartLocation || distantStart}
+            style={({ pressed }) => [
+              styles.startButton,
+              {
+                backgroundColor: colors.tint,
+                opacity: locationBlocked || !start || !route || starting || courseOnly || waitingForStartLocation || distantStart ? 0.5 : pressed ? 0.85 : 1,
+              },
+            ]}>
+            {starting ? (
+              <ActivityIndicator size="small" color={colors.background} />
+            ) : (
+              <Text style={[styles.startLabel, { color: colors.background }]}>
+                {courseOnly
+                  ? '코스 근처에서 시작할 수 있어요'
+                  : waitingForStartLocation
+                    ? '현재 위치 확인 중'
+                    : distantStart
+                      ? '출발지 근처에서 시작할 수 있어요'
+                      : '안내 시작'}
+              </Text>
+            )}
+          </Pressable>
+        )}
       </View>
 
       <PointSearchModal
@@ -935,6 +945,7 @@ const styles = StyleSheet.create({
   routeErrorMessage: { fontSize: 13, lineHeight: 19 },
   routeErrorActions: { flexDirection: 'row', gap: 22, marginTop: 4 },
   routeErrorAction: { fontSize: 13, fontWeight: '700' },
+  previewOnly: { textAlign: 'center', paddingVertical: 8, fontSize: 13 },
   startButton: {
     height: 50,
     borderRadius: 14,

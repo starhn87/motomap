@@ -11,7 +11,7 @@ const arrivals: number[] = [];
 const goal = { name: '기존 목적지', latitude: 37.5, longitude: 127.1, placeId: 'original' };
 const nextGoal = { name: '새 목적지', latitude: 37.6, longitude: 127.2, placeId: 'new' };
 
-function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading = false, previousPriority = 2, enabled = true) {
+function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading = false, previousPriority = 2, enabled = true, os = 'ios') {
   let dirty = false, cursor = 0;
   let slots: any[] = [];
   const rootSlots: any[] = [], contentSlots: any[] = [];
@@ -51,7 +51,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
     '@/lib/guideMenuPolicy': { GUIDE_ROUTE_EDITING_ENABLED: enabled, GUIDE_MENU_UNAVAILABLE_MESSAGE: '안내 종료 후 다시 설정해 주세요.' },
     '@/stores/useMyPlacesStore': { useMyPlacesStore: (select: any) => select({ places: {}, load() {} }) },
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },
-    'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'Spinner', StyleSheet: { create: (x: any) => x } },
+    'react-native': { Platform: { OS: os }, View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'Spinner', StyleSheet: { create: (x: any) => x } },
     'expo-router': { useLocalSearchParams: () => ({ resume: '7' }), useRouter: () => router, useNavigation: () => navigation },
     'expo-router/react-navigation': { useIsFocused: () => true, usePreventRemove(blocked: boolean) { calls.blocked = blocked; } },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
@@ -65,6 +65,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
     '@/lib/navigation': {}, '@/lib/mapFocus': { hasMapOverlayInStack: () => false },
     '@/stores/useMapStore': { useMapStore: Object.assign((s: any) => s({ userLocation: null, requestMapReset() {} }), { getState: () => ({ userLocation: null, requestMapReset() {} }) }) },
     '@/hooks/useUserLocation': { useUserLocation() {} },
+    '@/lib/userLocationTracking': { getOrRequestLocationPermission: async () => ({ status: 'granted' }) },
     '@/hooks/useBikeRoutes': { useBikeRoutes: () => ({ priority: selectedPriority, setPriority(value: number) { selectedPriority = value; dirty = true; }, route: routesLoading ? undefined : { distance: 1200, duration: 600 }, alternatives: [], mapRoutes: [], trafficParts: [], loading: routesLoading, courseOnly: false, flatVias: [], effVias: [], resetRoutes() {} }) },
     '@/lib/recentSearches': { loadRecentSearches: async () => [], recentTargets: () => [] },
     '@/lib/guideEvents': { markGuideStarted() { calls.marker++; } },
@@ -231,4 +232,14 @@ test('확인창을 취소하면 안내를 바꾸지 않고 다시 시작할 수 
     assert.equal(dialogs.length, 2);
     f.unmount();
   } finally { arrivalHours = {}; }
+});
+
+
+test('Android 경로 화면은 미리보기를 표시하고 iOS 안내 시작 버튼은 제공하지 않는다', () => {
+  const f = setup(false, null, false, 2, true, 'android');
+  assert.ok(f.nodes().some(node => node.type === '@/components/navi/PreviewMap'));
+  assert.ok(f.nodes().some(node => node.props.children === '앱 내 주행 안내는 iOS에서 지원해요.'));
+  assert.ok(!f.nodes().some(node => node.props.children === '안내 시작'));
+  assert.equal(f.calls.started, 0);
+  f.unmount();
 });

@@ -25,7 +25,8 @@ export function kakaoNaviProviderError(error: unknown, operation: string): Provi
 /** KNSDK의 reject 코드에서 경로 실패 숫자만 꺼낸다. 메시지는 분기에 사용하지 않는다. */
 export function routeErrorCode(error: unknown): number | null {
   if (error instanceof ProviderError) {
-    return /^\d{5}$/.test(error.vendorCode ?? '') ? Number(error.vendorCode) : null;
+    const pattern = error.provider === 'kakao-directions' ? /^\d{1,3}$/ : /^\d{5}$/;
+    return pattern.test(error.vendorCode ?? '') ? Number(error.vendorCode) : null;
   }
   const raw = (error as { code?: unknown } | null)?.code;
   const match = typeof raw === 'string' ? raw.match(/_(\d+)$/) : null;
@@ -33,12 +34,13 @@ export function routeErrorCode(error: unknown): number | null {
 }
 
 export function shouldReduceRouteVias(error: unknown): boolean {
-  return routeErrorCode(error) === 20412;
+  const code = routeErrorCode(error);
+  return code === 20412 || code === 101;
 }
 
 export function canFallbackToCourseStart(error: unknown): boolean {
   const code = routeErrorCode(error);
-  return code === 20410 || code === 20412 || code === 20413;
+  return code === 20410 || code === 20412 || code === 20413 || code === 1 || code === 101 || code === 102;
 }
 
 /** 공급자 원문을 노출하지 않는 길안내 오류 안내. */
@@ -54,12 +56,14 @@ export function friendlyRouteError(error: unknown, knCode?: string | null): stri
   if (code === 20413) {
     return '자동차 전용도로를 빼면 이어지는 도로가 없어요. 바다 건너나 도로가 끊긴 곳은 안내할 수 없어요.';
   }
-  if (code === 20412) {
+  if (code === 20412 || code === 101) {
     return '경유지가 도로와 이어지지 않아요.';
   }
+  if (code === 104) return '출발지와 도착지가 너무 가까워요. 다른 지점을 선택해 주세요.';
+  if (code === 1) return '이륜차가 통행할 수 있는 경로를 찾지 못했어요.';
   const failure = kakaoNaviProviderError(error, 'route');
   if (failure.vendorCode === 'UNSUPPORTED') return '이 기기에서는 앱 내 길안내를 지원하지 않습니다.';
-  if (failure.kind === 'configuration') return friendlyProviderError(failure);
+  if (failure.kind === 'configuration' || failure.kind === 'rate_limited') return friendlyProviderError(failure);
   if (typeof rawCode === 'string' && /^E_KNSDK_RESUME_TRIP_(?:[CG]\d{3}|\d{5}|UNKNOWN)$/.test(rawCode)) {
     return '새 경로를 만들지 못했어요. 기존 길안내로 돌아가 다시 시도해 주세요.';
   }

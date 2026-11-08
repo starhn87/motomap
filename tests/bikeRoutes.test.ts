@@ -7,10 +7,12 @@ import type * as Errors from '../lib/kakaoRouteErrors';
 import type { BikeRoute, RoutePriority } from '../modules/kakao-navi';
 import type { useBikeRoutes } from '../hooks/useBikeRoutes';
 
+class LocationUsageLimitError extends Error {}
+
 const route: BikeRoute = { distance: 1200, duration: 100, polyline: [127, 37, 128, 38] };
 
 // 실제 훅의 effect·상태를 실행한다. 자동화 SDK·서버·계정 데이터는 사용하지 않는다.
-function setup(request: (vias: number[], priority: RoutePriority) => Promise<BikeRoute>, course = true, allowed = true) {
+function setup(request: (vias: number[], priority: RoutePriority) => Promise<BikeRoute>, course = true, allowed = true, os = 'ios') {
   const provider = loadModule<typeof Provider>('lib/providerErrors.ts', {});
   const errors = loadModule<typeof Errors>('lib/kakaoRouteErrors.ts', { '@/lib/providerErrors': provider });
   const values: unknown[] = [];
@@ -21,7 +23,11 @@ function setup(request: (vias: number[], priority: RoutePriority) => Promise<Bik
   let stateIndex = 0;
   let effectIndex = 0;
   let calls = 0;
+  let nativeCalls = 0;
+  let extraTrafficCalls = 0;
+  const trafficParts = [{ state: 4, coords: [{ longitude: 127, latitude: 37 }, { longitude: 128, latitude: 38 }] }];
   const module = loadModule<{ useBikeRoutes: typeof useBikeRoutes }>('hooks/useBikeRoutes.ts', {
+    'react-native': { Platform: { OS: os } },
     '@/stores/useLocationPrivacyStore': { ...allowedLocationPrivacy,providerLocationAllowed: () => allowed },
     react: {
       useMemo: (calculate: () => unknown) => calculate(),
@@ -45,6 +51,7 @@ function setup(request: (vias: number[], priority: RoutePriority) => Promise<Bik
     '@/modules/kakao-navi': {
       __esModule: true, default: { requestBikeRoute: async (_a: number, _b: number, _c: number, _d: number, vias: number[], priority: RoutePriority) => {
         calls += 1;
+        nativeCalls += 1;
         return request(vias, priority);
       } },
       ROUTE_PRIORITIES: [{ value: 0, label: '추천' }, { value: 1, label: '시간 우선' }, { value: 2, label: '거리 우선' }, { value: 4, label: '큰길 우선' }],
@@ -52,13 +59,24 @@ function setup(request: (vias: number[], priority: RoutePriority) => Promise<Bik
       pairsFromFlat: (flat: number[]) => Array.from({ length: flat.length / 2 }, (_, i) => [flat[i * 2], flat[i * 2 + 1]]),
     },
     '@/lib/navigation': { sampleWaypoints: (pairs: number[][], count: number) => pairs.slice(0, count) },
-    '@/lib/kakaoNaviInit': { ensureKakaoNaviReady: async () => provider.requireProviderAvailable('kakao-navi') },
-    '@/lib/api/directions': { fetchBikeTraffic: async () => [] },
+    '@/lib/locationPrivacy': { LocationUsageLimitError },
+    '@/lib/kakaoNaviInit': { ensureKakaoNaviReady: async () => {
+      if (os === 'android') throw new Error('Android cannot initialize the iOS module');
+      provider.requireProviderAvailable('kakao-navi');
+    } },
+    '@/lib/api/directions': {
+      fetchBikeTraffic: async () => { extraTrafficCalls += 1; return []; },
+      fetchBikePreview: async (_start: number[], _goal: number[], vias: number[][], priority: RoutePriority) => {
+        calls += 1;
+        return { route: await request(vias.flat(), priority), trafficParts };
+      },
+    },
     '@/lib/toast': { toast: { info() {} } },
     '@/lib/analytics': { track: { navigationPreviewed() {}, routeFailed() {} } },
     '@/lib/kakaoRouteErrors': errors,
     '@/lib/providerErrors': provider,
   }, {
+    AbortController,
     setTimeout: (callback: () => void) => { const id = ++nextTimer; timers.set(id, callback); return id; },
     clearTimeout: (id: number) => timers.delete(id),
   });
@@ -79,7 +97,7 @@ function setup(request: (vias: number[], priority: RoutePriority) => Promise<Bik
   };
   render();
   return {
-    render, settle, calls: () => calls,
+    render, settle, calls: () => calls, nativeCalls: () => nativeCalls, extraTrafficCalls: () => extraTrafficCalls, trafficParts,
     args,
     timeout: () => { for (const timer of [...timers.values()]) timer(); },
     unmount: () => effects.forEach((effect) => effect.cleanup?.()),
@@ -237,5 +255,26 @@ test('지점 변경 즉시 이전 경로를 숨기고 늦게 끝난 비교 응�
   await hook.settle();
   assert.equal(hook.calls(), calls);
   assert.ok(view.alternatives.every((option) => !option.loading));
+  hook.unmount();
+});
+
+
+test('Android 미리보기는 iOS SDK 없이 REST 경로와 같은 응답의 교통을 표시한다', async () => {
+  const hook = setup(async () => route, false, true, 'android');
+  const view = await hook.settle();
+  assert.equal(view.route, route);
+  assert.equal(view.trafficParts, hook.trafficParts);
+  assert.equal(hook.nativeCalls(), 0);
+  assert.equal(hook.extraTrafficCalls(), 0);
+  hook.unmount();
+});
+
+
+test('Android 위치 이용 한도에 도달하면 일반 경로 오류 대신 제한 안내를 표시한다', async () => {
+  const hook = setup(async () => { throw new LocationUsageLimitError('위치 이용 요청이 잠시 제한됐어요.'); }, false, true, 'android');
+  const view = await hook.settle();
+  assert.match(view.routeError ?? '', /위치 이용 요청이 잠시 제한/);
+  assert.equal(view.canRetryRoute, true);
+  assert.equal(hook.calls(), 1);
   hook.unmount();
 });
