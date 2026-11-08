@@ -117,7 +117,7 @@ function LegacyTabLayout() {
           borderRadius: 28,
           borderTopWidth: 0,
           paddingTop: android ? 2 : 4,
-          ...(android ? { paddingBottom: 2 } : {}),
+          ...(android ? { paddingBottom: 6 } : {}),
           backgroundColor: colors.surfaceElevated,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 6 },

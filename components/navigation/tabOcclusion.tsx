@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // NativeTabScreen의 실측값을 TabOcclusionContext로 넘긴다.
 export const FLOATING_TAB_BAR_HEIGHT = 56;
 export const FLOATING_TAB_LIFT = 10;
-export const ANDROID_TAB_BAR_HEIGHT = 54;
+export const ANDROID_TAB_BAR_HEIGHT = 58;
 export const ANDROID_TAB_LIFT = 8;
 export const ANDROID_TAB_SIDE_INSET = 20;
 
