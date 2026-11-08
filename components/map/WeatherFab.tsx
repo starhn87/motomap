@@ -25,7 +25,7 @@ interface Props {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-// 지도 좌측(카테고리 필터 아래)의 라이딩 날씨 플로팅 버튼 — 상태·기온 요약,
+// 지도 좌측(카테고리 필터 아래)의 라이딩 날씨 플로팅 버튼 — 날씨 아이콘,
 // 테두리 색이 라이딩 적합도 등급을 나타낸다. 탭하면 상세 바텀시트.
 export default function WeatherFab({ weather, failed = false, refreshing = false, onRetry, open, onPress, top = 158 }: Props) {
   const colorScheme = useColorScheme();
@@ -61,14 +61,14 @@ export default function WeatherFab({ weather, failed = false, refreshing = false
         },
       ]}>
       {weather ? (
-        <WeatherEmoji emoji={weather.current.emoji} size={18} lineHeight={20} />
+        <WeatherEmoji emoji={weather.current.emoji} size={failed ? 18 : 24} lineHeight={failed ? 20 : 28} />
       ) : refreshing ? (
         <ActivityIndicator size="small" color={colors.textSecondary} />
       ) : (
         <Ionicons name="cloud-offline-outline" size={18} color={colors.textSecondary} />
       )}
-      {(weather || !refreshing) && <Text style={[styles.temp, { color: colors.text }]}>
-        {weather ? failed ? '이전 예보' : `${weather.current.temp}°` : '재시도'}
+      {(weather ? failed : !refreshing) && <Text style={[styles.status, { color: colors.text }]}>
+        {weather ? '이전 예보' : '재시도'}
       </Text>}
     </AnimatedPressable>
   );
@@ -92,10 +92,9 @@ const styles = StyleSheet.create({
     elevation: 4,
     zIndex: 5,
   },
-  temp: {
+  status: {
     fontSize: 11,
     lineHeight: 13,
     fontWeight: '700',
-    fontVariant: ['tabular-nums'],
   },
 });

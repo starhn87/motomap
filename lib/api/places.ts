@@ -35,6 +35,7 @@ interface NearbyParams {
 }
 
 interface SubmitPlaceParams {
+  photos?: string[];
   name: string;
   description: string;
   category: PlaceCategory;
@@ -140,6 +141,7 @@ export async function submitPlace(params: SubmitPlaceParams): Promise<void> {
     location: `POINT(${params.longitude} ${params.latitude})`,
     address: params.address,
     submitted_by: user.id,
+    ...(params.photos?.length ? { photos: params.photos } : {}),
     source_provider: params.sourceProvider ?? null,
     source_place_id: params.sourcePlaceId ?? null,
   });

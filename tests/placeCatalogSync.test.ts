@@ -37,10 +37,12 @@ const flush = async () => { for (let i = 0; i < 15; i++) await Promise.resolve()
 
 test('first revision refreshes warm cache, same revision does not, changed revision does', async () => {
   const f = fixture(); await flush();
-  assert.equal(f.invalidated.length, 8);
-  f.tick(); await flush(); assert.equal(f.invalidated.length, 8);
+  assert.equal(f.invalidated.length, 10);
+  assert.ok(f.invalidated.includes('general-place'));
+  assert.ok(f.invalidated.includes('shared-general-places'));
+  f.tick(); await flush(); assert.equal(f.invalidated.length, 10);
   f.setResult({ data: '9007199254740993', error: null });
-  f.tick(); await flush(); assert.equal(f.invalidated.length, 16);
+  f.tick(); await flush(); assert.equal(f.invalidated.length, 20);
   f.stop();
 });
 test('background pauses requests; foreground refreshes; disposal removes subscription', async () => {
@@ -57,15 +59,15 @@ test('missing RPC and invalid values retain cache and retry later', async () => 
   }
   assert.equal(f.invalidated.length, 0);
   f.setResult({ data: '2', error: null }); f.tick(); await flush();
-  assert.equal(f.invalidated.length, 8); f.stop();
+  assert.equal(f.invalidated.length, 10); f.stop();
 });
 
 test('failed active refetch is retried even when catalog revision stays unchanged', async () => {
   const f = fixture(); await flush(); f.invalidated.length = 0;
   f.setResult({ data: '2', error: null }); f.setFailRefresh(true);
-  f.tick(); await flush(); assert.equal(f.invalidated.length, 8);
-  f.setFailRefresh(false); f.tick(); await flush(); assert.equal(f.invalidated.length, 16);
-  f.tick(); await flush(); assert.equal(f.invalidated.length, 16); f.stop();
+  f.tick(); await flush(); assert.equal(f.invalidated.length, 10);
+  f.setFailRefresh(false); f.tick(); await flush(); assert.equal(f.invalidated.length, 20);
+  f.tick(); await flush(); assert.equal(f.invalidated.length, 20); f.stop();
 });
 
 test('revision refreshes an active warm detail with the installed React Query client', async () => {

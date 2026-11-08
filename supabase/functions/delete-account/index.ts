@@ -70,6 +70,30 @@ Deno.serve(async (req) => {
       if (path) paths.add(path);
     }
 
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(user.id));
+    const folder = `place-submissions/${Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, '0')).join('')}`;
+    const bucket = admin.storage.from(MEDIA_BUCKET);
+    const { data: places, error: placesError } = await admin.from('places')
+      .select('id,photos').eq('submitted_by', user.id);
+    if (placesError) throw placesError;
+    for (const place of places ?? []) {
+      const remaining = (place.photos ?? []).filter((url: string) => !mediaPath(url)?.startsWith(`${folder}/`));
+      if (remaining.length === place.photos?.length) continue;
+      const { error } = await admin.from('places').update({ photos: remaining })
+        .eq('id', place.id).eq('submitted_by', user.id);
+      if (error) throw error;
+    }
+    // 매번 첫 페이지를 지워 실패한 업로드까지 남김없이 정리한다.
+    while (true) {
+      const { data: photos, error } = await bucket.list(folder, { limit: 100 });
+      if (error) throw error;
+      if (!photos?.length) break;
+      const removed = await bucket.remove(photos.map((photo) => `${folder}/${photo.name}`));
+      if (removed.error) throw removed.error;
+      if (photos.length < 100) break;
+    }
+
     if (paths.size > 0) {
       const { error } = await admin.storage.from(MEDIA_BUCKET).remove([...paths]);
       if (error) throw error;

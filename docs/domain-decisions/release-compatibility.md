@@ -18,6 +18,96 @@
 - 네이티브 브리지 계약: **41**
 - 백엔드 API 계약: **1**
 
+## 2026-11-07 날씨 레이아웃 TestFlight 공통 OTA 승인
+
+사용자가 MAP-068의 main 푸시와 TestFlight OTA 적용을 명시 승인했다. 시간별 예보 양 끝
+여백8pt·셀56pt, 바람·습도/먼지2종의2열 정렬, 기온 오른쪽의 작은 체감을 포함하는
+`45db7ce`·`902f5cf`를 main에 푸시하고, source `902f5cf`의 커밋된 파일만 격리 복제해
+production/iOS/runtime1.2.11에 발행한다. 같은 채널·runtime의 TestFlight 빌드들이 함께
+받으며 특정 빌드 번호만 대상으로 삼지 않는다. 구 바이너리의 네이티브 기능은 바뀌지 않는다.
+
+일반 릴리스 검사는 통과했다. `check:release -- --ota`의 미출시 후보 차단은 예상대로
+실패했으며, 이번 명시 승인만 일회 예외로 처리한다. candidate1.2.11 및 보호 검사는
+유지한다. 앱/runtime·native41/API1·의존성·권한·DB 계약 변경이나 새 바이너리는 없다.
+타입·532개 테스트·최종 리뷰를 통과했고, 실기기 수신·큰 글자에서의 화면 확인은 남아 있다.
+실제 발행 ID와 runtime1.2.10/1.2.11 manifest 대조 결과는 완료 후 기록한다.
+
+### 발행 완료
+
+source `902f5cfb7d844eeb226dddf618dfe87c77c1c752`에서 OTA 그룹
+`e50c380f-fed6-4189-9f7a-0da422191acc`, iOS update
+`01a1b3e4-fec2-7a95-a283-86aa602baf9d`를 발행했다. production/iOS/runtime1.2.11의
+실제 manifest가 신규 ID를 반환하며 runtime1.2.10은 발행 전후
+`01a17594-175f-7e46-bd9e-f6b5dbd18ef8`로 동일하다. main GitHub checks도 통과했다.
+
+격리 소스의 iOS export·업로드·발행은 성공했다. 임시 디렉터리의 기본 Node25는
+시스템 공유 라이브러리 누락으로 CLI 실행 전에 종료돼 기존 설치된 Node22를 명시해
+진행했으며 전역 설치는 바꾸지 않았다. 실제 TestFlight 기기의 다운로드·적용·화면은
+아직 확인하지 않았고, 앱 완전 종료→재실행(다운로드)→다시 재실행(적용)으로 확인한다.
+
+## 2026-11-05 TestFlight 업로드: 1.2.11(73), 첫 GPS 대기 막대 미노출 수정
+
+source `eddffb89df1002cd7766cc365b00453d486bec2e`의 clean clone에서 production iOS
+build `dd2e100e-dc72-461c-b0ce-cf2decad0b9a`가 FINISHED다. 앱1.2.11(73), runtime1.2.11,
+production 채널, native41/API1이다. IPA80.6MiB에서 번들 식별자·버전·채널과 GPS 대기 요약의
+새 selector/문구 포함을 확인했고, 격리 테스트 컨트롤러는 실행 파일에 없음을 확인했다.
+
+NAV-067을 포함한다. 실제 SDK의 GPS 대기·정지 조건에서 수정 전에는 INVISIBLE, 수정 후에는
+48개 구간으로 VISIBLE이었다. 사용자가 회색 자차였음을 확인해 재현 상태와 일치했다.
+532개 테스트·타입·릴리스·diff·최종 리뷰를 통과했고 기본 네이티브 실패0건과 실제 SDK
+`TRAFFIC_RENDER_RESULT visible=1`을 확인했다. 새 바이너리의 실기기 수신·실주행 검증과는 구분한다.
+
+EAS submission `775ad66c-a114-4abf-863d-6da68054cbeb`가 FINISHED이며 Apple 업로드
+성공을 확인했다. 제출 취소/직접 업로드는 하지 않았다. 확인 시점은 Apple 처리 단계이며
+TestFlight 설치 가능 상태까지 확인한 것은 아니다. Git 푸시·공개 OTA·App Store 심사·
+판매·DB·전체 알림은 하지 않았다.
+
+## 2026-11-05 72번 교통 막대 미노출 수정 후보
+
+NAV-067은 실제 SDK의 첫 GPS 대기 상태에서 발생한 막대 미노출을 수정한다. GPS 대기에는
+확인된 경로 시작점의 전체 요약·회색 위치, 신뢰 매칭 수신 후에는 남은 경로·초록 위치를
+표시한다. 내부 네이티브 표시 개선이며 앱/runtime1.2.11·native41/API1·candidate 보호를 유지한다.
+기존 교통 막대의 새 빌드·TestFlight 전달 요청에 대한 후속 회귀 수정으로 검증·커밋 후
+수정 바이너리를 전달한다. Git 푸시·공개 OTA·App Store 심사·판매·DB 변경은 포함하지 않는다.
+72번 바이너리가 변경된 것으로 해석하지 않으며 다음 실제 빌드 번호/업로드 결과는 후속 기록한다.
+
+## 2026-11-05 TestFlight 업로드: 1.2.11(72), 길안내 교통 막대
+
+source `8e59bd14dd4b08bb838d91c601b906a27f175ad1`의 clean clone에서 EAS production iOS
+build `b5388533-bf0a-4970-9d94-ba5857825f8a`가 FINISHED다. 앱1.2.11(72), runtime1.2.11,
+production 채널, native41/API1이며 IPA는80.6MiB다. IPA의 버전·채널과 네이티브 실행 파일의
+`KNNaviTrafficBar` 클래스·접근성 식별자 포함도 확인했다. 무관한 미추적 파일은 제외했다.
+
+NAV-064~066의 우측 하단 교통 막대가 포함된다. 얇은 흰 외곽선·초록 현재 위치·실제 길안내
+테마의 원활 파랑을 사용한다. 532개 테스트·타입·릴리스·diff와 최종 리뷰를 통과했으며,
+네이티브 시뮬레이터 하네스는 실패0건이다. 새 바이너리의 실주행 데이터·표시 위치 검증은
+운영자의 TestFlight 확인 대상으로 남는다.
+
+EAS submission `1137e248-bbf0-4b6d-b130-7163b3835fb1`가 FINISHED이며
+`Submitted your app to Apple App Store Connect`와 업로드 성공을 확인했다.
+이번에는 EAS 제출이 완료돼 취소나 직접 업로드 우회는 하지 않았다. Apple 처리 완료나
+TestFlight 설치 가능 상태까지 확인한 것은 아니다. Git 푸시·공개 OTA·App Store 심사·판매
+변경·DB·전체 알림은 하지 않았다.
+
+## 2026-11-05 길안내 교통 막대 새 빌드·TestFlight 전달 승인
+
+운영자가 NAV-064~066의 최종 교통 막대를 새 앱으로 빌드해 TestFlight에 올리도록 승인했다.
+네이버 참고 화면의 얇은 막대와 우측 하단 배치를 유지하고, 원활은 실제 길안내 테마의 파랑,
+현재 위치는 앱 초록으로 표시한다. 앱/runtime1.2.11·native41/API1·candidate 보호를 유지한다.
+커밋된 소스만 격리 복제해 production iOS로 빌드하고 실제 빌드 번호·산출물·Apple 업로드
+결과를 후속 기록한다. App Store 심사·판매 변경·공개 OTA·DB·전체 알림은 범위에 없다.
+이번 요청은 빌드·TestFlight 전달이며 Git 푸시는 하지 않는다. 아래 후보 기록은 당시 상태로 남긴다.
+
+## 2026-11-05 길안내 교통 막대 소스 후보
+
+NAV-064는 기존 KNSDK 공개 경로/매칭 위치 API를 소비하는 네이티브 표시 개선이다.
+외형은 NAV-065에서 이전 네이버 공개 참고 화면의 얇은 막대·원형 현재 위치·우측 하단 정렬로 맞췄다.
+원활·현재 위치 색상은 NAV-066에서 길안내의 파랑·앱 초록에 맞췄다.
+새 JS 메서드·이벤트·capability·권한·백엔드 계약을 추가하지 않아 앱/runtime1.2.11·
+native41/API1을 유지한다. candidate OTA 차단도 유지한다. 기존 TestFlight71번에는
+포함되지 않으며 새 바이너리가 필요하다. 이번 요청은 구현·검증·커밋 범위이고 새 빌드·
+기기 설치·푸시·TestFlight 전달은 승인 전이다. 새 상태를 기존71번의 전달 기록으로 읽지 않는다.
+
 ## 2026-11-05 TestFlight 업로드: 1.2.11(71), native41 UI 후속
 
 사용자 승인으로 설정 제목을 `테마` 하나로 정리하고 앱 정보의 버전을 첫 행에 배치했다.
@@ -1586,3 +1676,35 @@ production/iOS/runtime1.2.10 그룹 `98b64db8-de89-4eab-b302-239c2f386fc2`, upda
 유지하고 이미 진행 중인 장소 UI 후속 OTA로 처리했다. 별도 준비 중인 ExpoClipboard
 의존성은 포함하지 않았으며 네이티브/API/버전 변경·새 빌드·Apple 제출은 하지 않았다.
 실제 기기 표시와 터치는 확인 전이다.
+
+## 2026-11-08 TestFlight 업로드 — 1.2.11(75)
+
+사용자 승인으로 NAV-068 소스 `5f58c71`을 main에 푸시했다. 격리한 커밋 소스에서
+production iOS 빌드 `4b83da46-3ca3-413a-afe7-8069a53b5398`가 완료됐다. 앱과 runtime은
+1.2.11, 채널은 production, 브리지 계약은 native41/API1이다. IPA에서 빌드 75와 새로고침
+아이콘의 SVG 선 굵기 변경을 확인했다. 타입 검사, 테스트 532개, 릴리스 검사와 GitHub 검사를
+통과했다.
+
+제출 `9a0d3478-99ae-4fbf-817a-4ca89656725d`에서 App Store Connect 업로드 성공을
+확인했다. Apple 처리 완료, TestFlight 설치 가능 여부 및 실기기 화면은 확인 전이다.
+
+## 2026-11-08 TestFlight 업로드 — 1.2.11(76)
+
+사용자 승인으로 소스 `4c32907`의 production iOS 빌드
+`3b011589-4847-4d61-971c-b433706f5dfb`를 완료했다. 앱과 runtime은 1.2.11, 채널은 production,
+브리지 계약은 native41/API1이다. IPA에서 76번, SDK 하단 안내 전달 메서드, WebView 빈 상태
+표시 분기 및 도착 대기 문구 제거를 확인했다.
+
+제출 `95913277-24b1-4941-8f4f-0ae4fb5f4f57`에서 App Store Connect 업로드 성공을
+확인했다. Apple 처리 완료와 실기기 설치·표시는 확인 전이다. 이번 요청의 범위는 빌드와 제출이다.
+
+## 2026-11-08 TestFlight 업로드 — 1.2.11(77)
+
+사용자 승인으로 `9939d91`까지 main에 푸시했다. 경로 미리보기 가로 목록의 스크롤
+영역 확장과 실제 안내 조작부 전환 개선을 담아 production iOS 빌드
+`5e4f29e7-fa53-4a3f-b016-eb2e679dbf74`가 완료됐다. 앱과 runtime은 1.2.11, 채널은
+production, 계약은 native41/API1이다. IPA에서 77번과 현재 위치 버튼의 페이드 리소스를
+확인했다. 타입, 테스트 532개, iOS 네이티브 세션, 릴리스 검사와 GitHub 검사를 통과했다.
+
+제출 `43141e8a-5daf-4555-bb8b-0bc0f3f13c55`에서 App Store Connect 업로드 성공을
+확인했다. Apple 처리 완료와 실기기 설치·화면 확인은 아직 하지 않았다.

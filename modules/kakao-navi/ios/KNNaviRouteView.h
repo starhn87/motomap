@@ -8,6 +8,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly) BOOL didBlockSafetyMode;
 @property(nonatomic, copy, nullable) void (^onMapTrackingChanged)(BOOL detached);
 @property(nonatomic, readonly) BOOL mapDetached;
+@property(nonatomic, copy, nullable) void (^onBottomNotice)(NSString *message);
+- (void)refreshBottomNotice;
 + (BOOL)isSDKMapStateBoundaryCompatible;
 + (BOOL)isSDKModeBoundaryCompatible;
 - (void)resumeRouteModeForPreview:(BOOL)preview;

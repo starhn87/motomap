@@ -85,17 +85,16 @@ const CGFloat KNNaviBottomRecenterHeight = 54;
 - (void)publishHeight {
   self.accessibilityElementsHidden = self.expanded;
   self.menuWebView.accessibilityViewIsModal = self.expanded && self.ready;
-  if (self.onHeight) self.onHeight(KNNaviBottomCollapsedHeight + ([self.state[@"showRecenter"] boolValue] ? KNNaviBottomRecenterHeight : 0) + self.bottomInset);
+  if (self.onHeight) self.onHeight(KNNaviBottomCollapsedHeight + KNNaviBottomRecenterHeight + self.bottomInset);
 }
 - (void)updateState:(NSDictionary *)state {
-  BOOL heightChanged = [self.state[@"showRecenter"] boolValue] != [state[@"showRecenter"] boolValue];
   self.state = [state copy];
-  if (heightChanged) [self publishHeight];
   [self publish];
 }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
-  if ([self.state[@"showRecenter"] boolValue] && point.y < KNNaviBottomRecenterHeight &&
-      (point.y >= 44 || fabs(point.x - self.bounds.size.width / 2) > 66)) return NO;
+  CGFloat barTop = MAX(0, self.bounds.size.height - KNNaviBottomCollapsedHeight - self.bottomInset);
+  if (point.y < barTop && (![self.state[@"showRecenter"] boolValue] ||
+      point.y >= 44 || fabs(point.x - self.bounds.size.width / 2) > 66)) return NO;
   return [super pointInside:point withEvent:event];
 }
 - (void)publishTo:(WKWebView *)web menu:(BOOL)menu {
@@ -126,7 +125,8 @@ const CGFloat KNNaviBottomRecenterHeight = 54;
   if (!self.ready || self.invalidated || self.failed) return;
   NSData *data = [NSJSONSerialization dataWithJSONObject:@[message] options:0 error:nil];
   NSString *json = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-  if (json) [self.webView evaluateJavaScript:[NSString stringWithFormat:@"window.MotoMapBottom.toast(%@[0])", json] completionHandler:nil];
+  WKWebView *target = self.expanded ? self.menuWebView : self.webView;
+  if (json) [target evaluateJavaScript:[NSString stringWithFormat:@"window.MotoMapBottom.toast(%@[0])", json] completionHandler:nil];
 }
 - (void)collapse { [self setMenuOpen:NO]; }
 - (void)receiveMessage:(WKScriptMessage *)message {

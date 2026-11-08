@@ -216,13 +216,13 @@ export default function WeatherSheet({
   const pm10 = airStat(air?.pm10Grade, air?.pm10);
   const pm25 = airStat(air?.pm25Grade, air?.pm25);
 
-  const stats: { label: string; value: string; color?: string; sub?: string; air?: boolean }[] = [
-    { label: '체감', value: `${weather.current.feels}°` },
+  const conditions = [
     { label: '바람', value: `${weather.current.windMs}m/s` },
     { label: '습도', value: `${weather.current.humidity}%` },
-    { label: '상태', value: weather.current.condition },
-    { label: '미세먼지', value: pm10.text, color: pm10.color, sub: pm10.sub, air: true },
-    { label: '초미세먼지', value: pm25.text, color: pm25.color, sub: pm25.sub, air: true },
+  ];
+  const airStats = [
+    { label: '미세먼지', ...pm10 },
+    { label: '초미세먼지', ...pm25 },
   ];
 
   // 시간대별 셀 목록에 일출·일몰 카드를 시각 순서대로 삽입한다.
@@ -334,7 +334,10 @@ export default function WeatherSheet({
         <View style={[styles.currentConditions, { borderBottomColor: colors.border }]}>
           <View style={styles.primaryCondition}>
             <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>기온</Text>
-            <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.temp}°</Text>
+            <View style={styles.temperatureRow}>
+              <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.temp}°</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>체감 {weather.current.feels}°</Text>
+            </View>
           </View>
           <View style={styles.primaryCondition}>
             <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>강수확률</Text>
@@ -343,70 +346,74 @@ export default function WeatherSheet({
         </View>
 
         <View style={styles.statsGrid}>
-          {stats.map((s) => (
-            <View
-              key={s.label}
-              style={styles.statCell}>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{s.label}</Text>
-              <View style={[styles.statValueRow, s.air && styles.airValue]}>
-                <Text style={[styles.statValue, { color: s.color ?? colors.text }]}>{s.value}</Text>
-                {(s.air || !!s.sub) && (
-                  <Text style={[styles.statSub, { color: colors.textSecondary }]}>{s.sub ?? ' '}</Text>
-                )}
+          <View style={styles.statRow}>
+            {conditions.map((stat) => (
+              <View key={stat.label} style={styles.statCell}>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+                <Text style={[styles.statValue, { color: colors.text }]}>{stat.value}</Text>
               </View>
-            </View>
-          ))}
+            ))}
+          </View>
+          <View style={styles.statRow}>
+            {airStats.map((stat) => (
+              <View key={stat.label} style={styles.statCell}>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+                <View style={styles.airValue}>
+                  <Text style={[styles.statValue, { color: stat.color ?? colors.text }]}>{stat.text}</Text>
+                  <Text style={[styles.statSub, { color: colors.textSecondary }]}>{stat.sub ?? ' '}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
         </View>
 
-        {/* 12시간 예보 — 가로 스와이프. 시트 패딩을 상쇄해 끝까지 흘린다 */}
+        {/* 12시간 예보 — 본문 여백을 벗어나 좌우 8pt만 남기고 가로 스와이프 */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.hourlyScroll}
-          contentContainerStyle={styles.hourlyScrollContent}>
-          <View style={styles.hourlyRow}>
-            {hourItems.map((item) =>
-              item.kind === 'hour' ? (
-                <View
-                  key={item.h.at}
-                  style={styles.hourCell}>
-                  <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>{item.h.hour}</Text>
-                  <WeatherEmoji
-                    emoji={item.h.emoji}
-                    size={26}
-                    lineHeight={31}
+          contentContainerStyle={styles.hourlyRow}>
+          {hourItems.map((item) =>
+            item.kind === 'hour' ? (
+              <View
+                key={item.h.at}
+                style={styles.hourCell}>
+                <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>{item.h.hour}</Text>
+                <WeatherEmoji
+                  emoji={item.h.emoji}
+                  size={26}
+                  lineHeight={31}
+                />
+                <Text style={[styles.hourTemp, { color: colors.text }]}>{item.h.temp}°</Text>
+                {/* 강수확률 0%는 표기 자체를 비운다 (자리는 유지해 셀 높이 정렬) */}
+                <Text style={[styles.hourPop, { color: colors.tint }]}>
+                  {item.h.pop > 0 ? `💧${item.h.pop}%` : ' '}
+                </Text>
+              </View>
+            ) : (
+              <View
+                key={`${item.e.type}-${item.e.time}`}
+                style={styles.hourCell}>
+                <Text
+                  style={[styles.hourLabel, styles.sunTime, { color: colors.text }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit>
+                  {toShortTime(item.e.time)}
+                </Text>
+                <View style={styles.sunIcon}>
+                  <SunGlyph
+                    type={item.e.type}
+                    lineColor={colors.textSecondary}
+                    arrowColor={colors.text}
                   />
-                  <Text style={[styles.hourTemp, { color: colors.text }]}>{item.h.temp}°</Text>
-                  {/* 강수확률 0%는 표기 자체를 비운다 (자리는 유지해 셀 높이 정렬) */}
-                  <Text style={[styles.hourPop, { color: colors.tint }]}>
-                    {item.h.pop > 0 ? `💧${item.h.pop}%` : ' '}
-                  </Text>
                 </View>
-              ) : (
-                <View
-                  key={`${item.e.type}-${item.e.time}`}
-                  style={styles.hourCell}>
-                  <Text
-                    style={[styles.hourLabel, styles.sunTime, { color: colors.text }]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit>
-                    {toShortTime(item.e.time)}
-                  </Text>
-                  <View style={styles.sunIcon}>
-                    <SunGlyph
-                      type={item.e.type}
-                      lineColor={colors.textSecondary}
-                      arrowColor={colors.text}
-                    />
-                  </View>
-                  <Text style={[styles.hourTemp, { color: colors.text }]}>
-                    {item.e.type === 'sunrise' ? '일출' : '일몰'}
-                  </Text>
-                  <Text style={styles.hourPop}> </Text>
-                </View>
-              ),
-            )}
-          </View>
+                <Text style={[styles.hourTemp, { color: colors.text }]}>
+                  {item.e.type === 'sunrise' ? '일출' : '일몰'}
+                </Text>
+                <Text style={styles.hourPop}> </Text>
+              </View>
+            ),
+          )}
         </ScrollView>
 
         <View style={styles.source}>
@@ -479,29 +486,24 @@ const styles = StyleSheet.create({
   primaryCondition: { flex: 1, gap: 4 },
   primaryLabel: { fontSize: 12 },
   primaryValue: { fontSize: 32, lineHeight: 40, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  temperatureRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 },
   statsGrid: {
+    gap: 12,
+  },
+  statRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    columnGap: 20,
-    rowGap: 12,
+    gap: 24,
   },
   statCell: {
-    flexBasis: '45%',
-    flexGrow: 1,
+    flex: 1,
+    minWidth: 0,
     gap: 4,
   },
   statLabel: {
     fontSize: 12,
   },
-  statValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    flexWrap: 'wrap',
-    gap: 4,
-    minHeight: 20,
-  },
   // 비동기 농도는 처음부터 별도 줄을 확보해 뒤의 예보를 밀지 않는다.
-  airValue: { flexDirection: 'column', alignItems: 'flex-start', gap: 2 },
+  airValue: { alignItems: 'flex-start', gap: 2, minHeight: 20 },
   statValue: {
     fontSize: 15,
     fontWeight: '600',
@@ -513,20 +515,17 @@ const styles = StyleSheet.create({
     minHeight: 16,
   },
   hourlyScroll: {
-    marginHorizontal: -20,
     flexGrow: 0,
-  },
-  hourlyScrollContent: {
-    paddingHorizontal: 20,
+    marginHorizontal: -20,
   },
   hourlyRow: {
     flexDirection: 'row',
-    gap: 4,
+    paddingHorizontal: 8,
   },
   hourCell: {
     alignItems: 'center',
     gap: 4,
-    width: 62,
+    width: 56,
     paddingVertical: 8,
   },
   hourLabel: {
@@ -535,7 +534,7 @@ const styles = StyleSheet.create({
   },
   sunTime: {
     fontWeight: '700',
-    maxWidth: 58,
+    maxWidth: 52,
   },
   sunIcon: {
     height: 31,
