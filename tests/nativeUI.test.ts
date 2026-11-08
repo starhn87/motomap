@@ -117,10 +117,13 @@ test('설정 화면은 네이티브 행에서도 업데이트·테마·로그인
   assert.equal(alerts.length, 1); assert.equal(deletes, 0);
   alerts[0][2][1].onPress(); assert.equal(alerts.length, 2); assert.equal(deletes, 0);
   const login = nodes(tree).find(node => typeof node.type === 'function');
-  const methods = login.type(login.props).props.rows;
-  assert.equal(methods.find((row: any) => row.key === 'kakao').onPress, undefined);
-  assert.equal(methods.find((row: any) => row.key === 'kakao').connected, true);
-  assert.equal(typeof methods.find((row: any) => row.key === 'naver').onPress, 'function');
+  const methods = nodes(login.type(login.props));
+  assert.equal(methods.filter(node => node.type === 'Icon' && node.props.name === 'checkmark-circle').length, 2);
+  const actions = methods.filter(node => node.type === 'Pressable');
+  assert.ok(actions.length > 0);
+  assert.ok(actions.every(node => node.props.accessibilityRole === 'button' &&
+    nodes(node).some(child => child.props.children === '연결')));
+
 });
 
 test('UIKit 선택 모듈은 native41 capability와 실제 view가 모두 있을 때만 로드한다', () => {

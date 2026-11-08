@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, View, Share } from 'react-native';
 import { Text } from '@/components/ui/AppText';
+import { router, useNavigation } from 'expo-router';
 import { PostHogMaskView } from 'posthog-react-native';
 import LegalConsentScreen from '@/components/auth/LegalConsentScreen';
 import { useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
@@ -18,10 +19,16 @@ function listFrom<T>(value: Json, key: string, valid: (item: Record<string, Json
   return values.map(item => { const row = privacyObject(item);
     if (!valid(row)) throw new Error('자료를 확인하지 못했어요.'); return row as T; });
 }
-export default function LocationPrivacyPanel() {
+type PrivacyView = 'overview' | 'consent' | 'records';
+
+function openPrivacyView(view: Exclude<PrivacyView, 'overview'>) {
+  router.push({ pathname: '/location-privacy', params: { view } });
+}
+
+export default function LocationPrivacyPanel({ view }: { view: PrivacyView }) {
+  const navigation = useNavigation();
   const state = useLocationPrivacyStore();
   const styles = themedStyles[useColorScheme() ?? 'light'];
-  const [view, setView] = useState<'overview' | 'consent' | 'records'>('overview');
   const [recordType, setRecordType] = useState<'visits' | 'usage' | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -77,8 +84,11 @@ export default function LocationPrivacyPanel() {
     style={({pressed})=>[styles.button,(busy || disabled || pressed) && styles.disabled]}><Text style={styles.label}>{label}</Text></Pressable>;
 
   if (view==='consent') return <PostHogMaskView style={styles.screen}>
-    {button('위치정보 관리로 돌아가기',()=>setView('overview'))}
-    <LegalConsentScreen needsLegal={false} showProvidersInline onComplete={()=>setView('overview')} />
+    <LegalConsentScreen needsLegal={false} showProvidersInline onComplete={() => {
+      if (!navigation.isFocused()) return;
+      if (router.canGoBack()) router.back();
+      else router.replace('/location-privacy');
+    }} />
   </PostHogMaskView>;
   const active = state.status==='active' && state.version===LOCATION_CONSENT_VERSION;
   return <PostHogMaskView style={styles.screen}><ScrollView contentContainerStyle={styles.content}>
@@ -88,7 +98,7 @@ export default function LocationPrivacyPanel() {
         <View style={styles.settingText}><Text style={styles.label}>현재 위치 사용</Text>
           <Text style={styles.body}>끄면 위치 이용과 길안내를 중지해요.</Text></View>
         <Switch accessibilityLabel="현재 위치 사용" value={active} disabled={busy || !state.ready}
-          onValueChange={value=>{ if(value && (state.status==='unknown' || state.status==='withdrawn')) setView('consent');
+          onValueChange={value=>{ if(value && (state.status==='unknown' || state.status==='withdrawn')) openPrivacyView('consent');
             else void run(()=>state.change(value ? 'resume' : 'pause')); }} />
       </View>
       {state.actor && <View style={styles.setting}>
@@ -97,14 +107,13 @@ export default function LocationPrivacyPanel() {
         <Switch accessibilityLabel="방문 기록 저장" value={state.historyAllowed} disabled={busy || !active}
           onValueChange={value=>{void run(()=>state.setHistoryAllowed(value));}} />
       </View>}
-      {button(active || state.status==='paused' ? '동의 범위 변경' : '위치정보 이용 동의',()=>setView('consent'), !state.ready)}
-      {button('내 기록 열람·삭제',()=>{setView('records'); setRecordType(null);})}
+      {button(active || state.status==='paused' ? '동의 범위 변경' : '위치정보 이용 동의',()=>openPrivacyView('consent'), !state.ready)}
+      {button('내 기록 열람·삭제',()=>openPrivacyView('records'))}
       {button('위치정보 동의 철회',()=>confirm('위치정보 동의를 철회할까요?',
         '위치 이용·길안내를 중지하고 방문·완주 기록 및 이용·제공 내역을 삭제해요. 리뷰·즐겨찾기는 유지돼요. 삭제 자료는 복구할 수 없어요.',async()=>{
           await state.change('withdraw'); setEvents([]); setRides([]);
         }))}
     </> : <>
-      {button('위치정보 관리로 돌아가기',()=>setView('overview'))}
       <View style={styles.recordTabs}>
         {state.actor && button('방문 기록',()=>{setRecordType('visits'); void run(()=>loadRides());})}
         {button('이용·제공 내역',()=>{setRecordType('usage'); void run(()=>loadEvents());})}

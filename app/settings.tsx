@@ -117,16 +117,6 @@ function LoginMethods({ initialProviders }: { initialProviders: string[] }) {
     ? LOGIN_METHODS
     : LOGIN_METHODS.filter((method) => method.provider !== 'apple');
 
-  if (nativeUI) return <NativeSettingsGroup rows={[
-    ...(identities.has('email') ? [{ key: 'email', label: '이메일', value: '연결됨', connected: true }] : []),
-    ...methods.map(method => {
-      const connected = identities.has(method.identity);
-      return { key: method.provider, label: method.label, value: connected ? '연결됨' : '연결', connected,
-        onPress: connected ? undefined : () => { void handleLink(method.provider); },
-        disabled: linking !== null, loading: linking === method.provider };
-    }),
-  ]} />;
-
   return (
     <View style={[styles.loginMethodsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       {identities.has('email') ? (
@@ -158,6 +148,7 @@ function LoginMethods({ initialProviders }: { initialProviders: string[] }) {
             ) : (
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel={`${method.label} 연결`}
                 disabled={linking !== null}
                 onPress={() => void handleLink(method.provider)}
                 style={({ pressed }) => [
