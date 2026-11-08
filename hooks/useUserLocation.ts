@@ -4,7 +4,6 @@ import * as Location from 'expo-location';
 
 import { useMapStore } from '@/stores/useMapStore';
 import { useGuideSession } from '@/lib/guideSession';
-import { toast } from '@/lib/toast';
 import { shouldTrackUserLocation, startUserLocationTracking } from '@/lib/userLocationTracking';
 import { useLocationPrivacyStore, locationUseAllowed, withLocationUse } from '@/stores/useLocationPrivacyStore';
 
@@ -56,9 +55,7 @@ export function useUserLocation(enabled = true, trackHeading = true) {
       },
       (coords) => { if (currentLease()) setUserLocation(coords); },
       (value) => { if (currentLease()) setHeading(value); },
-      () => {
-        if (currentLease()) toast.info('현재 위치를 확인할 수 없습니다.', '위치 서비스와 권한을 확인해주세요.');
-      },
+      undefined,
       trackHeading,
     );
   }, [setUserLocation, tracking, trackHeading, revision]);

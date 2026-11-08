@@ -20,7 +20,7 @@ export function startUserLocationTracking(
   source: UserLocationSource,
   onPosition: (position: Position['coords']) => void,
   onHeading: (heading: number) => void,
-  onUnavailable: () => void,
+  onUnavailable: (() => void) | undefined,
   trackHeading = true,
 ): () => void {
   let stopped = false;
@@ -43,11 +43,18 @@ export function startUserLocationTracking(
       } catch {}
       if (stopped) return;
 
-      const current = await source.current();
-      if (stopped) return;
-      updatePosition(current);
-
-      const position = await source.watchPosition(updatePosition);
+      let receivedLivePosition = false;
+      // 단건 조회가 지연되거나 실패해도 위치 구독으로 계속 받을 수 있다.
+      void (async () => {
+        try {
+          const current = await source.current();
+          if (!receivedLivePosition) updatePosition(current);
+        } catch {}
+      })();
+      const position = await source.watchPosition((value) => {
+        receivedLivePosition = true;
+        updatePosition(value);
+      });
       if (stopped) {
         position.remove();
         return;
@@ -56,16 +63,15 @@ export function startUserLocationTracking(
       // 경로 미리보기는 최신 위치만 필요하고 방향 센서는 사용하지 않는다.
       if (!trackHeading) return;
 
-      const heading = await source.watchHeading((value) => {
-        if (!stopped) onHeading(value.trueHeading >= 0 ? value.trueHeading : value.magHeading);
-      });
-      if (stopped) {
-        heading.remove();
-        return;
-      }
-      headingSub = heading;
+      try {
+        const heading = await source.watchHeading((value) => {
+          if (!stopped) onHeading(value.trueHeading >= 0 ? value.trueHeading : value.magHeading);
+        });
+        if (stopped) heading.remove();
+        else headingSub = heading;
+      } catch {}
     } catch {
-      if (!stopped) onUnavailable();
+      if (!stopped) onUnavailable?.();
     }
   })();
 

@@ -27,7 +27,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
       tasks.push(() => { previous?.cleanup?.(); effects[i] = { deps, cleanup: fn() }; }); },
   };
   react.useLayoutEffect = react.useEffect;
-  const calls = { resumed: [] as any[], started: 0, tracked: 0, marker: 0, replace: [] as string[], errors: [] as string[], blocked: false, backed: 0 };
+  const calls = { resumed: [] as any[], started: 0, tracked: 0, marker: 0, replace: [] as string[], errors: [] as string[], blocked: false, backed: 0, gps: 0 };
   let selectedPriority = 0;
   const listeners: Record<string, () => void> = {};
   let resolveResume!: (value: any) => void, rejectResume!: (error: Error) => void, finishAudit!: () => void;
@@ -57,8 +57,8 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
     'react-native-gesture-handler': { Gesture: { Pan: () => chain } },
     'react-native-reanimated': { runOnJS: (fn: any) => fn, useSharedValue: (value: any) => react.useRef({ value }).current },
-    'expo-location': { requestForegroundPermissionsAsync: async () => ({ status: 'granted' }), getCurrentPositionAsync: async () => { throw Error('GPS unavailable'); }, Accuracy: { Balanced: 3 } },
-    '@/stores/useLocationPrivacyStore': { providerLocationAllowed: () => true, useLocationPrivacyStore: (s: any) => s({ revision: 0 }),
+    'expo-location': { requestForegroundPermissionsAsync: async () => ({ status: 'granted' }), getCurrentPositionAsync: async () => { calls.gps++; throw Error('GPS unavailable'); }, Accuracy: { Balanced: 3 } },
+    '@/stores/useLocationPrivacyStore': { providerLocationAllowed: () => true, useLocationPrivacyStore: Object.assign((s: any) => s({ revision: 0 }), { getState: () => ({ revision: 0 }) }),
       async withLocationUse(_purpose: any, _provider: any, work: any) { await work(); await new Promise<void>((resolve) => { finishAudit = resolve; }); } },
     '@/lib/guideSession': { useGuideSession: useSession }, '@/lib/guidePreview': previewHelpers,
     '@/lib/naviParams': { parseNaviParams() { throw Error('continuation must use native snapshot'); } },
@@ -152,7 +152,8 @@ test('GPS 재확인 실패해도 안내 편집을 닫지 않고 목적지 편집
   assert.ok(retry);
   retry.props.onPress(); f.render(); await f.flush();
   assert.equal(f.calls.backed, 0);
-  assert.equal(f.calls.errors.length, 2);
+  assert.equal(f.calls.gps, 2);
+  assert.deepEqual(f.calls.errors, []);
   f.unmount();
 });
 

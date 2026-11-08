@@ -89,7 +89,7 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
 
   return <SafeAreaView style={styles.screen} onLayout={onReady}>
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{showProvidersInline ? '위치 전달 범위 변경' : '모토맵 시작하기'}</Text>
+      {!showProvidersInline && <Text style={styles.title}>모토맵 시작하기</Text>}
       <Text style={styles.body}>필요한 동의를 확인해 주세요. 설정에서 언제든 바꿀 수 있어요.</Text>
       {types.map(type => <View key={type} style={styles.row}>
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: !!agreed[type], disabled: loading }}

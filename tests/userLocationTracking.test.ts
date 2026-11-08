@@ -77,7 +77,7 @@ test('권한 응답 대기 중 종료하면 위치·센서를 시작하지 않�
   assert.deepEqual(f.positions, []);
 });
 
-test('현재 위치 대기 중 종료하면 늦은 위치를 반영하거나 센서를 시작하지 않는다', async () => {
+test('현재 위치가 지연돼도 구독을 시작하고 종료 후 늦은 위치는 무시한다', async () => {
   const f = fixture();
   const current = deferred<{ coords: typeof coords }>();
   f.source.current = () => current.promise;
@@ -86,7 +86,8 @@ test('현재 위치 대기 중 종료하면 늦은 위치를 반영하거나 센
   stop();
   current.resolve({ coords });
   await flush();
-  assert.deepEqual(f.calls, ['permission', 'cached']);
+  assert.deepEqual(f.calls, ['permission', 'cached', 'position', 'heading']);
+  assert.deepEqual(f.counts(), { errors: 0, positionRemoved: 1, headingRemoved: 1 });
   assert.equal(f.positions.length, 1);
 });
 
@@ -180,7 +181,7 @@ test('종료된 첫 세션의 늦은 위치가 새 세션으로 새지 않는다
   await flush();
   assert.equal(old.positions.length, 1);
   assert.equal(next.positions.length, 2);
-  assert.ok(!old.calls.includes('position'));
+  assert.equal(old.counts().positionRemoved, 1);
   stopNext();
 });
 
@@ -208,4 +209,29 @@ test('경로 미리보기는 위치 구독을 유지하고 방향 센서를 생�
   assert.deepEqual(f.headings, []);
   stop();
   assert.deepEqual(f.counts(), { errors: 0, positionRemoved: 1, headingRemoved: 0 });
+});
+
+test('단건 위치 조회와 방향 구독이 실패해도 위치 구독으로 계속 표시한다', async () => {
+  const f = fixture();
+  f.source.current = async () => { throw new Error('current unavailable'); };
+  f.source.watchHeading = async () => { throw new Error('heading unavailable'); };
+  const stop = f.start();
+  await flush();
+  f.emit();
+  assert.equal(f.positions.length, 2);
+  assert.equal(f.counts().errors, 0);
+  stop();
+});
+
+test('구독에서 받은 위치를 늦은 단건 조회가 덮어쓰지 않는다', async () => {
+  const f = fixture();
+  const current = deferred<{ coords: typeof coords }>();
+  f.source.current = () => current.promise;
+  const stop = f.start();
+  await flush();
+  f.emit();
+  current.resolve({ coords: { latitude: 38, longitude: 128 } });
+  await flush();
+  assert.deepEqual(f.positions, [coords, coords]);
+  stop();
 });

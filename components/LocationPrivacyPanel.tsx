@@ -92,7 +92,6 @@ export default function LocationPrivacyPanel({ view }: { view: PrivacyView }) {
   </PostHogMaskView>;
   const active = state.status==='active' && state.version===LOCATION_CONSENT_VERSION;
   return <PostHogMaskView style={styles.screen}><ScrollView contentContainerStyle={styles.content}>
-    <Text style={styles.title}>{view==='overview' ? '위치정보 관리' : '내 기록 열람·삭제'}</Text>
     {view==='overview' ? <>
       <View style={styles.setting}>
         <View style={styles.settingText}><Text style={styles.label}>현재 위치 사용</Text>
@@ -114,10 +113,8 @@ export default function LocationPrivacyPanel({ view }: { view: PrivacyView }) {
           await state.change('withdraw'); setEvents([]); setRides([]);
         }))}
     </> : <>
-      <View style={styles.recordTabs}>
-        {state.actor && button('방문 기록',()=>{setRecordType('visits'); void run(()=>loadRides());})}
-        {button('이용·제공 내역',()=>{setRecordType('usage'); void run(()=>loadEvents());})}
-      </View>
+      {state.actor && button('방문 기록',()=>{setRecordType('visits'); void run(()=>loadRides());})}
+      {button('이용·제공 내역',()=>{setRecordType('usage'); void run(()=>loadEvents());})}
       {recordType==='usage' && <>
         <Text style={styles.body}>처리 시각·목적·공급자·결과만 6개월 보관 후 정리해요. GPS 좌표·주소·검색어는 이 내역에 저장하지 않아요.</Text>
         {loadedEvents && !events.length && <Text style={styles.body}>보관 중인 내역이 없어요.</Text>}
@@ -160,10 +157,10 @@ export default function LocationPrivacyPanel({ view }: { view: PrivacyView }) {
 }
 const makeStyles = (colors: typeof Colors.light) => StyleSheet.create({
   screen:{flex:1,backgroundColor:colors.background},content:{padding:24,paddingBottom:48,gap:16},
-  title:{fontSize:23,color:colors.text,fontWeight:'700'},label:{color:colors.text,fontSize:15,lineHeight:23},
+  label:{color:colors.text,fontSize:15,lineHeight:23},
   body:{color:colors.textSecondary,fontSize:14,lineHeight:22},button:{minHeight:48,padding:12,backgroundColor:colors.surface,borderRadius:10,justifyContent:'center'},
   disabled:{opacity:0.45},card:{padding:14,gap:8,borderWidth:1,borderColor:colors.border,borderRadius:12},
-  setting:{flexDirection:'row',alignItems:'center',gap:16,paddingVertical:12},settingText:{flex:1,gap:6},recordTabs:{gap:8},
+  setting:{flexDirection:'row',alignItems:'center',gap:16,paddingVertical:12},settingText:{flex:1,gap:6},
 });
 
 const themedStyles = { light: makeStyles(Colors.light), dark: makeStyles(Colors.dark) };

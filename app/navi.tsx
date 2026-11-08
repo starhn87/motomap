@@ -407,45 +407,42 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
   // 출발지 확보 — 지정돼 있으면 그대로(초기값), 아니면 현재 위치.
   // 화면의 위치 구독과 지도에서 가져온 캐시로 대개는 즉시 시작하고,
   // 없을 때만(권한 전 딥링크 등) 새 픽스를 기다린다. 상단 카드에서 출발지를
+  const previewLocation = continuation ? null : userLocation;
   // '현재 위치'로 되돌리면 start 가 null 이 되어 여기가 다시 돈다.
   useEffect(() => {
     if (locationBlocked && !startName) setStart(null);
   },[locationBlocked,startName]);
   useEffect(() => {
-    if (start) return;
-    if (locationBlocked) return;
+    if (start || locationBlocked || !isFocused) return;
     setLocationError(false);
-    const cached = useMapStore.getState().userLocation;
-    if (cached && !continuation) {
-      setStart([cached.longitude, cached.latitude]);
+    if (previewLocation) {
+      setStart([previewLocation.longitude, previewLocation.latitude]);
       return;
     }
     let cancelled = false;
-    let permissionDenied = false;
+    const canReadLocation = () => !cancelled && providerLocationAllowed('kakao')
+      && privacyRevision === useLocationPrivacyStore.getState().revision;
+    const timer = setTimeout(() => {
+      if (canReadLocation()) setLocationError(true);
+    }, 10_000);
     withLocationUse('route','device',async () => {
+      if (!canReadLocation()) throw new Error('위치 이용이 중지됐어요.');
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        permissionDenied = true;
-        throw new Error('위치 권한을 허용해 주세요.');
-      }
+      if (status !== 'granted') throw new Error('위치 권한을 허용해 주세요.');
+      if (!canReadLocation()) throw new Error('위치 이용이 중지됐어요.');
       return Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
     }).then((current) => {
-      if (!cancelled) {
-        setStart([current.coords.longitude, current.coords.latitude]);
-      }
+      if (canReadLocation()) setStart([current.coords.longitude, current.coords.latitude]);
     }).catch(() => {
-      if (!cancelled) {
-        toast.error(permissionDenied ? '위치 권한이 필요합니다' : '현재 위치를 확인할 수 없습니다');
-        if (continuation) setLocationError(true);
-        else router.back();
-      }
-    });
+      if (canReadLocation()) setLocationError(true);
+    }).finally(() => clearTimeout(timer));
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, [router, start, locationBlocked, privacyRevision, locationAttempt, continuation]);
+  }, [start, locationBlocked, isFocused, privacyRevision, locationAttempt, previewLocation]);
 
   const startGuide = (closureConfirmed = false) => {
     if (continuationRef.current && (!GUIDE_ROUTE_EDITING_ENABLED || !supportsKakaoNaviFeature('guide_route_editing'))) {
@@ -727,8 +724,10 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
           </View>
         ) : locationError && !start ? (
           <View style={[styles.routeError, { borderColor: colors.border }]}>
-            <Text style={[styles.routeErrorTitle, { color: colors.text }]}>현재 위치를 기다리고 있어요</Text>
-            <Text style={[styles.routeErrorMessage, { color: colors.textSecondary }]}>목적지와 경유지는 편집할 수 있어요. 위치가 확인되면 경로를 선택해 주세요.</Text>
+            <Text style={[styles.routeErrorTitle, { color: colors.text }]}>현재 위치를 확인하지 못했어요</Text>
+            <Text style={[styles.routeErrorMessage, { color: colors.textSecondary }]}>{continuation || isCourseMode
+                ? '기기의 위치 서비스와 앱 권한을 확인한 뒤 다시 시도해 주세요.'
+                : '기기의 위치 서비스와 앱 권한을 확인한 뒤 다시 시도하거나 출발지를 직접 선택해 주세요.'}</Text>
             <Pressable accessibilityRole="button" onPress={() => setLocationAttempt(value => value + 1)}>
               <Text style={[styles.routeErrorAction, { color: colors.tint }]}>현재 위치 다시 확인</Text>
             </Pressable>
