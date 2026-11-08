@@ -119,7 +119,7 @@ const glyph = StyleSheet.create({
 });
 
 const WEATHER_SHEET_HANDLE_HEIGHT = 24;
-const CONTENT_HORIZONTAL_PADDING = 16;
+const CONTENT_HORIZONTAL_PADDING = 22;
 const STAT_COLUMN_GAP = 8;
 
 // 라이딩 날씨 상세 바텀시트 — 적합도 등급·점수, 현재 조건, 시간별 예보
@@ -342,7 +342,7 @@ export default function WeatherSheet({
         </View>
 
         <View style={[styles.currentConditions, { borderBottomColor: colors.border }]}>
-          <View style={styles.temperatureGroup}>
+          <View style={[styles.primaryGroup, styles.temperatureGroup, daily && styles.beforeDailyGroup]}>
             <View style={styles.primaryCondition}>
               <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>기온</Text>
               <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.temp}°</Text>
@@ -357,7 +357,7 @@ export default function WeatherSheet({
             </View>
           </View>
           {daily && (
-            <View style={styles.temperatureGroup}>
+            <View style={[styles.primaryGroup, styles.temperatureGroup]}>
               {[{ label: '최저', value: daily.min }, { label: '최고', value: daily.max }].map((stat) => (
                 <View key={stat.label} style={styles.primaryCondition}>
                   <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
@@ -366,7 +366,7 @@ export default function WeatherSheet({
               ))}
             </View>
           )}
-          <View style={styles.primaryCondition}>
+          <View style={[styles.primaryGroup, styles.primaryCondition]}>
             <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>강수확률</Text>
             <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.pop}%</Text>
           </View>
@@ -500,22 +500,23 @@ const styles = StyleSheet.create({
   currentConditions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    columnGap: 18,
+    columnGap: 16,
     rowGap: 8,
     paddingBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  primaryGroup: { flexGrow: 1, flexShrink: 1 },
   temperatureGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    flexShrink: 1,
+    justifyContent: 'center',
     columnGap: 8,
     rowGap: 8,
   },
-  primaryCondition: { flexShrink: 1, gap: 4 },
-  primaryLabel: { fontSize: 12 },
-  primaryValue: { fontSize: 32, lineHeight: 40, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  beforeDailyGroup: { marginEnd: 4 },
+  primaryCondition: { flexShrink: 1, alignItems: 'center', gap: 4 },
+  primaryLabel: { fontSize: 12, textAlign: 'center' },
+  primaryValue: { fontSize: 32, lineHeight: 40, fontWeight: '600', fontVariant: ['tabular-nums'], textAlign: 'center' },
   secondaryValue: { fontSize: 22 },
   statsGrid: {
     gap: 12,
