@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { Modal, View, useWindowDimensions, StyleSheet } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import { Image } from 'expo-image';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -183,7 +183,7 @@ export default function ImageViewer({
       animationType="fade"
       statusBarTranslucent
       onRequestClose={onClose}>
-      <View style={styles.root}>
+      <GestureHandlerRootView style={styles.root}>
         <Animated.View style={[styles.backdrop, backdropStyle]} />
         <GestureDetector gesture={gesture}>
           <Animated.View style={[styles.strip, { width: width * photos.length }, stripStyle]}>
@@ -235,7 +235,7 @@ export default function ImageViewer({
             {renderFooter(index)}
           </View>
         )}
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

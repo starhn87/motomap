@@ -17,6 +17,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { digestStringAsync, CryptoDigestAlgorithm } from 'expo-crypto';
 import { pickImages, uploadImage, removeUploadedImage } from '@/lib/uploadImage';
 import PhotoDragList from '@/components/review/PhotoDragList';
+import ImageViewer from '@/components/ui/ImageViewer';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import Colors from '@/constants/Colors';
@@ -108,6 +109,7 @@ function SubmitPlace() {
   const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [photoPreviewIndex, setPhotoPreviewIndex] = useState<number | null>(null);
   const [pickingPhotos, setPickingPhotos] = useState(false);
   const userId = useAuthStore((s) => s.user?.id);
 
@@ -142,6 +144,7 @@ function SubmitPlace() {
     if (!prefillName || !prefillTs || handledPrefillRef.current === prefillTs) return;
     handledPrefillRef.current = prefillTs;
     setPhotos([]);
+    setPhotoPreviewIndex(null);
     // 탭 화면은 라우팅 뒤에도 마운트 상태가 유지된다. 일반 장소 상세에서 다시
     // 들어오면 이전 제보 폼의 스크롤을 이어받지 않고 처음부터 보여준다.
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -331,10 +334,10 @@ function SubmitPlace() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>설명</Text>
         <TextInput style={[...inputStyle, styles.multiline]} placeholder="이 장소에 대해 알려주세요" placeholderTextColor={colors.textSecondary} value={description} onChangeText={setDescription} multiline numberOfLines={3} />
 
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>사진 (선택)</Text>
-        <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>첨부한 사진은 공개 링크로 업로드됩니다.</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>사진</Text>
         <View pointerEvents={submitting ? 'none' : 'auto'}>
-          <PhotoDragList uris={photos} onChange={setPhotos} onAdd={addPhotos} max={5} loading={pickingPhotos} />
+          <PhotoDragList uris={photos} onChange={setPhotos} onAdd={addPhotos} max={5}
+            loading={pickingPhotos} showReorderHint={false} onPreview={setPhotoPreviewIndex} />
         </View>
 
         <Pressable
@@ -355,6 +358,8 @@ function SubmitPlace() {
         </Pressable>
         <TabScrollSpacer />
       </ScrollView>
+      <ImageViewer photos={photos} visible={photoPreviewIndex !== null}
+        initialIndex={photoPreviewIndex ?? 0} onClose={() => setPhotoPreviewIndex(null)} />
       <AddressSearchModal
         visible={addressModalVisible}
         onClose={() => setAddressModalVisible(false)}

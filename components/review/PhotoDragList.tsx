@@ -28,6 +28,7 @@ interface ThumbProps {
   targetIndex: SharedValue<number>;
   onMove: (from: number, to: number) => void;
   onRemove: (index: number) => void;
+  onPreview?: (index: number) => void;
   setDragging: (v: boolean) => void;
 }
 
@@ -42,6 +43,7 @@ function Thumb({
   targetIndex,
   onMove,
   onRemove,
+  onPreview,
   setDragging,
 }: ThumbProps) {
   const tx = useSharedValue(0);
@@ -116,8 +118,15 @@ function Thumb({
   return (
     <GestureDetector gesture={pan}>
       <Animated.View style={[styles.thumb, style]}>
-        <Image source={{ uri }} style={styles.image} />
-        <Pressable onPress={() => onRemove(index)} hitSlop={6} style={styles.remove}>
+        {/* 길게 누른 뒤 손을 떼는 동작은 확대 탭으로 처리하지 않는다. */}
+        {onPreview ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={`사진 ${index + 1} 크게 보기`}
+            onPress={() => onPreview(index)} onLongPress={() => {}} delayLongPress={180}>
+            <Image source={{ uri }} style={styles.image} />
+          </Pressable>
+        ) : <Image source={{ uri }} style={styles.image} />}
+        <Pressable accessibilityRole="button" accessibilityLabel={`사진 ${index + 1} 삭제`}
+          onPress={() => onRemove(index)} hitSlop={6} style={styles.remove}>
           <CloseIcon size={13} color="#FFFFFF" />
         </Pressable>
       </Animated.View>
@@ -132,10 +141,12 @@ interface Props {
   max: number;
   /** 사진 선택·불러오기 진행 중 — 썸네일 자리에 스피너를 보여준다 */
   loading?: boolean;
+  showReorderHint?: boolean;
+  onPreview?: (index: number) => void;
 }
 
 // 리뷰 사진 썸네일 목록 (작성·수정 공용) — 다중 추가 버튼 + 길게 눌러 드래그로 순서 변경
-export default function PhotoDragList({ uris, onChange, onAdd, max, loading }: Props) {
+export default function PhotoDragList({ uris, onChange, onAdd, max, loading, showReorderHint = true, onPreview }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [dragging, setDragging] = useState(false);
@@ -158,7 +169,8 @@ export default function PhotoDragList({ uris, onChange, onAdd, max, loading }: P
 
   return (
     <View style={styles.container}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollEnabled={!dragging}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled" scrollEnabled={!dragging}>
         <View style={styles.row}>
           {uris.map((uri, i) => (
             <Thumb
@@ -170,28 +182,25 @@ export default function PhotoDragList({ uris, onChange, onAdd, max, loading }: P
               targetIndex={targetIndex}
               onMove={move}
               onRemove={remove}
+              onPreview={onPreview}
               setDragging={setDragging}
             />
           ))}
-          {loading && (
-            <View
-              style={[
-                styles.add,
-                { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
-              ]}>
-              <ActivityIndicator size="small" color={colors.textSecondary} />
-            </View>
-          )}
           {uris.length < max && (
             <Pressable
               onPress={onAdd}
               disabled={loading}
+              accessibilityRole="button"
+              accessibilityLabel="사진 추가"
+              accessibilityState={{ disabled: loading, busy: loading }}
               style={[
                 styles.add,
                 { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
                 loading && { opacity: 0.5 },
               ]}>
-              <Ionicons name="add" size={24} color={colors.textSecondary} />
+              {loading
+                ? <ActivityIndicator size="small" color={colors.textSecondary} />
+                : <Ionicons name="add" size={24} color={colors.textSecondary} />}
               <Text style={[styles.addText, { color: colors.textSecondary }]}>
                 {uris.length}/{max}
               </Text>
@@ -199,7 +208,7 @@ export default function PhotoDragList({ uris, onChange, onAdd, max, loading }: P
           )}
         </View>
       </ScrollView>
-      {uris.length >= 2 && (
+      {showReorderHint && uris.length >= 2 && (
         <Text style={[styles.hint, { color: colors.textSecondary }]}>
           사진을 길게 눌러 순서를 바꿀 수 있어요
         </Text>
