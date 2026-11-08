@@ -78,7 +78,7 @@ export default {
     android: {
       package: 'com.ridemap.app',
       adaptiveIcon: {
-        foregroundImage: './assets/images/icon-v2.png',
+        foregroundImage: './assets/images/android-adaptive-foreground.png',
         backgroundColor: '#0A0A0A',
       },
       predictiveBackGestureEnabled: false,

@@ -1708,3 +1708,12 @@ production, 계약은 native41/API1이다. IPA에서 77번과 현재 위치 버�
 
 제출 `43141e8a-5daf-4555-bb8b-0bc0f3f13c55`에서 App Store Connect 업로드 성공을
 확인했다. Apple 처리 완료와 실기기 설치·화면 확인은 아직 하지 않았다.
+
+## 2026-11-08 Android 적응형 런처 아이콘
+
+Galaxy S22 One UI 앱 목록에서 공통 `icon-v2.png`를 적응형 전경에 그대로 사용한 결과 위치 핀의
+하단이 마스크에 잘렸다. 같은 흰 핀·오토바이 도안을 투명한 Android 전경에 넣고 중앙 안전 영역에
+맞춘다. 배경색은 기존 `#0A0A0A`를 사용한다. 전경은 네이티브 리소스라 새 Android APK에 반영된다.
+앱/runtime 1.2.11과 네이티브 브리지·백엔드 API 계약은 유지한다.
+
+[Android 적응형 아이콘 안전 영역](https://developer.android.com/develop/ui/compose/system/icon_design_adaptive)
