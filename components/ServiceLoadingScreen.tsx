@@ -1,4 +1,4 @@
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, Platform, StyleSheet, View } from 'react-native';
 
 export default function ServiceLoadingScreen() {
   return (
@@ -8,12 +8,13 @@ export default function ServiceLoadingScreen() {
         accessibilityElementsHidden
         source={require('../assets/images/splash-icon.png')}
         resizeMode="contain"
-        style={StyleSheet.absoluteFill}
+        style={Platform.OS === 'android' ? styles.androidImage : StyleSheet.absoluteFill}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0A' },
+  container: { flex: 1, backgroundColor: '#0A0A0A', alignItems: 'center', justifyContent: 'center' },
+  androidImage: { width: '100%', maxWidth: 288, aspectRatio: 1 },
 });

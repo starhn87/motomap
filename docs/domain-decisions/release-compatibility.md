@@ -1717,3 +1717,12 @@ Galaxy S22 One UI 앱 목록에서 공통 `icon-v2.png`를 적응형 전경에 �
 앱/runtime 1.2.11과 네이티브 브리지·백엔드 API 계약은 유지한다.
 
 [Android 적응형 아이콘 안전 영역](https://developer.android.com/develop/ui/compose/system/icon_design_adaptive)
+
+### 2026-11-09 Android 아이콘·인트로 크기 조정
+
+Galaxy One UI에서 런처 아이콘의 핀·바이크 전경 크기를 약 17% 줄인다. 인트로는 원본 바이크의
+투명 영역을 고려해 Android 네이티브와 JS 대기 화면 모두 288dp 정사각 영역에 원본을 배치한다.
+실제 바이크 문양은 약 144dp다. iOS는 기존 전체 화면 원본 설정을 쓴다. Android 아이콘과 시스템
+인트로는 새 APK가 필요하며 1.2.11 앱/runtime과 네이티브/API 계약은 유지한다.
+
+[Android 스플래시 이미지 규격](https://developer.android.com/develop/ui/views/launch/splash-screen)
