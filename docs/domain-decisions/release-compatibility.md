@@ -24,7 +24,10 @@
 리뷰 사진 동작을 포함한 main 소스를 1.3.0 iOS 바이너리로 묶는다. 앱 버전과
 appVersion 기반 Expo 런타임은 모두 1.3.0, 채널은 production, native41/API1이다.
 1.2.11은 TestFlight 후보였으므로 공식 지원 직전 공개 버전은 1.2.10을 유지한다.
-App Store Connect 업로드 결과는 빌드 완료 뒤 기록한다.
+source `b6a272b`의 EAS iOS 빌드 `87cf97f9-66cc-451f-a069-f2a5034c7ebd`가 완료됐다.
+IPA에서 1.3.0(78), runtime 1.3.0, production 채널과 날씨·사진 관련 번들 문자열을
+확인했다. 제출 `40c220e5-7a68-4536-ae5a-f7e6558d81dd`에서 App Store Connect
+업로드 성공을 확인했다. Apple 처리와 심사 제출은 별개다.
 
 ## 2026-11-07 날씨 레이아웃 TestFlight 공통 OTA 승인
 
