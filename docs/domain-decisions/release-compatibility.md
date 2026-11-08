@@ -1676,3 +1676,14 @@ production/iOS/runtime1.2.10 그룹 `98b64db8-de89-4eab-b302-239c2f386fc2`, upda
 유지하고 이미 진행 중인 장소 UI 후속 OTA로 처리했다. 별도 준비 중인 ExpoClipboard
 의존성은 포함하지 않았으며 네이티브/API/버전 변경·새 빌드·Apple 제출은 하지 않았다.
 실제 기기 표시와 터치는 확인 전이다.
+
+## 2026-11-08 TestFlight 업로드 — 1.2.11(75)
+
+사용자 승인으로 NAV-068 소스 `5f58c71`을 main에 푸시했다. 격리한 커밋 소스에서
+production iOS 빌드 `4b83da46-3ca3-413a-afe7-8069a53b5398`가 완료됐다. 앱과 runtime은
+1.2.11, 채널은 production, 브리지 계약은 native41/API1이다. IPA에서 빌드 75와 새로고침
+아이콘의 SVG 선 굵기 변경을 확인했다. 타입 검사, 테스트 532개, 릴리스 검사와 GitHub 검사를
+통과했다.
+
+제출 `9a0d3478-99ae-4fbf-817a-4ca89656725d`에서 App Store Connect 업로드 성공을
+확인했다. Apple 처리 완료, TestFlight 설치 가능 여부 및 실기기 화면은 확인 전이다.
