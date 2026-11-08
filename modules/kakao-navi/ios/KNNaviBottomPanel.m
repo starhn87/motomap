@@ -126,7 +126,8 @@ const CGFloat KNNaviBottomRecenterHeight = 54;
   if (!self.ready || self.invalidated || self.failed) return;
   NSData *data = [NSJSONSerialization dataWithJSONObject:@[message] options:0 error:nil];
   NSString *json = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-  if (json) [self.webView evaluateJavaScript:[NSString stringWithFormat:@"window.MotoMapBottom.toast(%@[0])", json] completionHandler:nil];
+  WKWebView *target = self.expanded ? self.menuWebView : self.webView;
+  if (json) [target evaluateJavaScript:[NSString stringWithFormat:@"window.MotoMapBottom.toast(%@[0])", json] completionHandler:nil];
 }
 - (void)collapse { [self setMenuOpen:NO]; }
 - (void)receiveMessage:(WKScriptMessage *)message {

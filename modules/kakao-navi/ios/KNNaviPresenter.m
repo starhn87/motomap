@@ -660,6 +660,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.bottomPanel.onFailure = ^{
     KNNaviViewController *vc = weakSelf;
     [vc.webHiddenViews restore];
+    [vc stopForwardingBottomNotice];
     [vc.mapHiddenViews restore]; vc.mapControlsHidden = NO;
     vc.bottomPanel.hidden = YES;
     [vc.bottomPanel.menuView.layer removeAllAnimations];
@@ -736,10 +737,26 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self closeBottomMenu]; return YES;
 }
 
+- (void)stopForwardingBottomNotice {
+  if (![self.naviView isKindOfClass:KNNaviRouteView.class]) return;
+  KNNaviRouteView *routeView = (id)self.naviView;
+  routeView.onBottomNotice = nil;
+  [routeView refreshBottomNotice];
+}
+
 - (void)refreshHiddenViews {
   if (self.finished) return;
   [self.auxiliaryHiddenViews hideAuxiliaryViewsIn:self.naviView];
   if (self.bottomPanel.ready) {
+    KNNaviRouteView *routeView = [self.naviView isKindOfClass:KNNaviRouteView.class] ? (id)self.naviView : nil;
+    if (routeView && !routeView.onBottomNotice) {
+      __weak KNNaviViewController *weakSelf = self;
+      routeView.onBottomNotice = ^(NSString *message) {
+        KNNaviViewController *vc = weakSelf;
+        if (!vc.finished && !vc.suspended) [vc.bottomPanel showToast:message];
+      };
+    }
+    [routeView refreshBottomNotice];
     [self.webHiddenViews hideView:self.naviView.bottomView];
     [self.webHiddenViews hideView:self.naviView.menuView];
     BOOL hidden = [KNNaviRouteView isSDKMapStateBoundaryCompatible] && [self.mapHiddenViews hideMapControlsIn:self.naviView.mapView];
@@ -1715,6 +1732,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.onResumeError = nil;
   if (gSuspendedNavi == self) gSuspendedNavi = nil;
   [self.bottomPanel invalidate];
+  [self stopForwardingBottomNotice];
   [self.webHiddenViews restore];
   [self.auxiliaryHiddenViews restore];
   [self stopObservingBottomView];

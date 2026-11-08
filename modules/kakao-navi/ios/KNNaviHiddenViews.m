@@ -19,6 +19,10 @@ static char kHiddenContext;
   view.hidden = YES;
   self.settingHidden = NO;
 }
+- (BOOL)isRequestedHidden:(UIView *)view {
+  NSNumber *requested = [self.views objectForKey:view];
+  return requested ? requested.boolValue : view.hidden;
+}
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
   if (context == &kHiddenContext) {
     if (self.settingHidden) return;
