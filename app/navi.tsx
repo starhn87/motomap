@@ -54,7 +54,7 @@ const MAX_USER_VIAS = 3;
 
 // 정한 출발지가 이보다 멀면 실주행이 아니라 경로 미리보기로 본다.
 // 걸어서 갈 만한 거리면 곧 그 자리에 서게 되므로 실주행이 맞다.
-const PREVIEW_MIN_METERS = 300;
+const GUIDE_START_MAX_DISTANCE_METERS = 300;
 
 // 검색 모달이 어느 필드를 채우는 중인지 — 숫자는 경유지 인덱스
 type EditingField = 'start' | 'goal' | number;
@@ -395,13 +395,12 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
     };
   }, [router, navigation, courseId, goal, priority, userVias]);
 
-  // 정한 출발지가 지금 있는 곳에서 멀면 실주행 안내가 아니라 경로 미리보기다.
-  // 실주행 안내(KNGuidance)는 차량 위치를 늘 실제 GPS 에 매칭해서, 멀리 잡은
-  // 출발지는 무시되고 현재 위치에서 시작돼 버린다. 가까우면 그냥 실주행으로 —
-  // 어차피 출발지가 곧 현재 위치라 자연스럽게 맞는다.
-  const previewOnly =
-    !continuation && !!startName && !!start && !!userLocation
-      ? haversine(userLocation, { latitude: start[1], longitude: start[0] }) > PREVIEW_MIN_METERS
+  // 지정 출발지가 멀면 경로 비교만 제공한다. 실주행은 실제 GPS에서 시작한다.
+  const hasExplicitStart = !continuation && !!startName && !!start;
+  const waitingForStartLocation = hasExplicitStart && !userLocation;
+  const distantStart =
+    hasExplicitStart && start && userLocation
+      ? haversine(userLocation, { latitude: start[1], longitude: start[0] }) > GUIDE_START_MAX_DISTANCE_METERS
       : false;
 
   // 출발지 확보 — 지정돼 있으면 그대로(초기값), 아니면 현재 위치.
@@ -453,9 +452,14 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
       return;
     }
     if (!start || !route || locationBlocked || startingRef.current || courseOnly) return;
+    // 영업 확인창에서 늦게 누른 경우에도 현재 위치로 출발 가능 여부를 다시 확인한다.
+    if (hasExplicitStart) {
+      const location = useMapStore.getState().userLocation;
+      if (!location || haversine(location, { latitude: start[1], longitude: start[0] }) > GUIDE_START_MAX_DISTANCE_METERS) return;
+    }
     // 도착 예정 시각에 목적지가 문을 닫았으면 한 번 묻는다. 시간표를 아직 못 받았으면
-    // 기다리지 않고 그냥 시작한다. 모의 주행 미리보기는 실제로 가는 게 아니라 묻지 않는다.
-    const closure = !closureConfirmed && !previewOnly && route.duration
+    // 기다리지 않고 그냥 시작한다.
+    const closure = !closureConfirmed && route.duration
       ? describeArrivalClosure(arrivalHours, new Date(Date.now() + route.duration * 1000))
       : null;
     if (closure) {
@@ -495,14 +499,14 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
     // 렌더 시점이 달라 속성은 ref 로 넘긴다.
     startTrackRef.current = {
       guide_session_id: createAnalyticsId('guide'),
-      mode: previewOnly ? 'preview' : 'live',
+      mode: 'live',
       priority,
       via_count: pairsFromFlat(activeVias ?? flatVias).length,
       distance_m: route?.distance,
     };
     ensureKakaoNaviReady().then(() => withLocationUse('navigation','kakao',() => KakaoNavi.startGuide(
       start[0], start[1], goal.longitude, goal.latitude, goal.name,
-      activeVias ?? flatVias, priority, previewOnly,
+      activeVias ?? flatVias, priority, false,
     ))).catch((err) => {
       startingRef.current = false; setStarting(false);
       toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(err));
@@ -752,12 +756,12 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
 
         <Pressable
           onPress={() => startGuide()}
-          disabled={locationBlocked || !start || !route || starting || courseOnly}
+          disabled={locationBlocked || !start || !route || starting || courseOnly || waitingForStartLocation || distantStart}
           style={({ pressed }) => [
             styles.startButton,
             {
               backgroundColor: colors.tint,
-              opacity: locationBlocked || !start || !route || starting || courseOnly ? 0.5 : pressed ? 0.85 : 1,
+              opacity: locationBlocked || !start || !route || starting || courseOnly || waitingForStartLocation || distantStart ? 0.5 : pressed ? 0.85 : 1,
             },
           ]}>
           {starting ? (
@@ -766,9 +770,11 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
             <Text style={[styles.startLabel, { color: colors.background }]}>
               {courseOnly
                 ? '코스 근처에서 시작할 수 있어요'
-                : previewOnly
-                  ? '경로 미리보기'
-                  : '안내 시작'}
+                : waitingForStartLocation
+                  ? '현재 위치 확인 중'
+                  : distantStart
+                    ? '출발지 근처에서 시작할 수 있어요'
+                    : '안내 시작'}
             </Text>
           )}
         </Pressable>

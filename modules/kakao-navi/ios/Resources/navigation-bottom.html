@@ -237,6 +237,7 @@ License: Apache-2.0 (Pictogrammers Free License, icons).
     .bar { height: 68px; display: grid; grid-template-columns: 48px minmax(0, 1fr) 56px; align-items: center; gap: 2px; padding: 0 8px; }
     .bar button { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 24px; }
     .bar button svg { width: 23px; height: 23px; }
+    .bar #refreshButton svg { stroke-width: 2.8; }
     .bar #menuButton { width: 56px; height: 56px; border-radius: 28px; }
     .bar #menuButton svg { width: 32px; height: 32px; stroke-width: 2; }
     .summary { text-align: center; min-width: 0; touch-action: pan-x; }
@@ -298,7 +299,7 @@ License: Apache-2.0 (Pictogrammers Free License, icons).
     </section>
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
     <footer class="bar">
-      <button data-action="refresh" aria-label="현재 경로 새로고침"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 8a8 8 0 1 0 1 7M19 3v5h-5"/></svg></button>
+      <button id="refreshButton" data-action="refresh" aria-label="현재 경로 새로고침"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 8a8 8 0 1 0 1 7M19 3v5h-5"/></svg></button>
       <div class="summary dragArea" aria-live="off">
         <div class="destination" id="destination" aria-label="현재 위치">
           <svg class="placeIcon" id="currentIcon" aria-hidden="true" viewBox="0 0 24 24"><path d="m20 4-6 16-3-7-7-3z" fill="currentColor" stroke-linejoin="round"/></svg>
