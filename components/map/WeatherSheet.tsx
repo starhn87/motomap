@@ -361,10 +361,7 @@ export default function WeatherSheet({
               {[{ label: '최저', value: daily.min }, { label: '최고', value: daily.max }].map((stat) => (
                 <View key={stat.label} style={styles.primaryCondition}>
                   <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
-                  <Text style={[styles.primaryValue, { color: colors.textSecondary }]}>
-                    {'\u200B'}
-                    <Text style={styles.secondaryValue}>{stat.value}°</Text>
-                  </Text>
+                  <Text style={[styles.primaryValue, { color: colors.text }]}>{stat.value}°</Text>
                 </View>
               ))}
             </View>
