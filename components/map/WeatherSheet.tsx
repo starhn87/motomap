@@ -220,6 +220,8 @@ export default function WeatherSheet({
           sub: value != null ? `${value}㎍/m³` : undefined,
         }
       : { text: '-', color: undefined, sub: undefined };
+  const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replaceAll('-', '');
+  const daily = weather.daily?.date === today ? weather.daily : undefined;
   const stats: { label: string; text: string; color?: string; sub?: string }[] = [
     { label: '바람', text: `${weather.current.windMs}m/s` },
     { label: '습도', text: `${weather.current.humidity}%` },
@@ -338,7 +340,7 @@ export default function WeatherSheet({
         </View>
 
         <View style={[styles.currentConditions, { borderBottomColor: colors.border }]}>
-          <View style={[styles.temperatureGroup, { flexBasis: 166 * fontScale }]}>
+          <View style={[styles.temperatureGroup, !daily && { flexBasis: 166 * fontScale }]}>
             <View style={styles.primaryCondition}>
               <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>기온</Text>
               <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.temp}°</Text>
@@ -352,6 +354,19 @@ export default function WeatherSheet({
               </Text>
             </View>
           </View>
+          {daily && (
+            <View style={styles.dailyGroup}>
+              {[{ label: '최저', value: daily.min }, { label: '최고', value: daily.max }].map((stat) => (
+                <View key={stat.label} style={styles.primaryCondition}>
+                  <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+                  <Text style={[styles.primaryValue, { color: colors.textSecondary }]}>
+                    {'\u200B'}
+                    <Text style={styles.feelsValue}>{stat.value}°</Text>
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
           <View style={[styles.primaryCondition, { flexBasis: 88 * fontScale }]}>
             <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>강수확률</Text>
             <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.pop}%</Text>
@@ -486,7 +501,7 @@ const styles = StyleSheet.create({
   currentConditions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    columnGap: 24,
+    columnGap: 16,
     rowGap: 8,
     paddingBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -499,6 +514,7 @@ const styles = StyleSheet.create({
     columnGap: 12,
     rowGap: 8,
   },
+  dailyGroup: { flexDirection: 'row', flexWrap: 'wrap', flexShrink: 1, columnGap: 12, rowGap: 8 },
   primaryCondition: { flexShrink: 1, gap: 4 },
   primaryLabel: { fontSize: 12 },
   primaryValue: { fontSize: 32, lineHeight: 40, fontWeight: '600', fontVariant: ['tabular-nums'] },
