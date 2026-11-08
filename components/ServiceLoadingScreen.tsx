@@ -6,7 +6,7 @@ export default function ServiceLoadingScreen() {
       {/* 네이티브 스플래시와 같은 전체 화면·원본 이미지를 이어서 보여준다. */}
       <Image
         accessibilityElementsHidden
-        source={require('../assets/images/splash-icon.png')}
+        source={Platform.OS === 'android' ? require('../assets/images/android-splash-bike.png') : require('../assets/images/splash-icon.png')}
         resizeMode="contain"
         style={Platform.OS === 'android' ? styles.androidImage : StyleSheet.absoluteFill}
       />

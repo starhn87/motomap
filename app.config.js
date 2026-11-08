@@ -106,8 +106,8 @@ export default {
           backgroundColor: '#0A0A0A',
           // Expo 57에서도 기존 전체 화면 바이크 이미지의 크기·배치를 유지한다.
           ios: { enableFullScreenImage_legacy: true },
-          // 원본 바이크가 정사각 이미지 너비의 절반이라 실제 문양은 약 144dp다.
-          android: { imageWidth: 288 },
+          // Android 마스크 안에서 바이크가 화면 너비의 절반에 가깝게 보인다.
+          android: { image: './assets/images/android-splash-bike.png', imageWidth: 288 },
         },
       ],
       [

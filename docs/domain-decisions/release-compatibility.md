@@ -1726,3 +1726,9 @@ Galaxy One UI에서 런처 아이콘의 핀·바이크 전경 크기를 약 17% 
 인트로는 새 APK가 필요하며 1.2.11 앱/runtime과 네이티브/API 계약은 유지한다.
 
 [Android 스플래시 이미지 규격](https://developer.android.com/develop/ui/views/launch/splash-screen)
+
+### 2026-11-09 Android 인트로 바이크 크기 후속
+
+갤럭시에서 이전 약 144dp 바이크가 작다는 피드백을 받아 같은 원본의 Android 전용 크롭을 사용한다.
+288dp 시스템 캔버스와 중앙 마스크 안에서 바이크 너비를 약 179dp로 키운다. Galaxy S22에서는
+화면 너비의 절반에 가깝다. 네이티브 시작 화면과 JS 대기 화면이 같은 전용 이미지를 사용한다.
