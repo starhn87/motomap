@@ -403,7 +403,7 @@ License: Apache-2.0 (Pictogrammers Free License, icons).
           const seconds = state.remainingTime;
           const meters = state.remainingDistance;
           const valid = Number.isFinite(seconds) && Number.isFinite(meters) && seconds >= 0 && meters >= 0;
-          if (state.status) {
+          if (typeof state.status === 'string') {
             $('arrival').className = 'status';
             $('arrival').textContent = state.status;
             $('arrival').removeAttribute('aria-label');

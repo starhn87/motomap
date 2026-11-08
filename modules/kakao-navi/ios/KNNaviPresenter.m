@@ -854,8 +854,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   KNTrip *trip = self.guidance.trip;
   NSMutableDictionary *state = [@{@"volume":@(self.volume), @"busy":@(self.changingDestination || self.arrivalRecovery.requesting)} mutableCopy];
   if (self.arrivalRecovery.waiting || self.arrivalMessage) {
-    state[@"status"] = self.arrivalRecovery.requesting ? @"복귀 경로를 찾고 있어요" : @"왼쪽 새로고침으로 다시 안내";
-    state[@"detail"] = @"왼쪽 새로고침으로 다시 안내";
+    state[@"status"] = self.arrivalRecovery.requesting ? @"복귀 경로를 찾고 있어요" : @"";
   } else if (trip) {
     state[@"remainingDistance"] = @(trip.remainDist);
     state[@"remainingTime"] = @(trip.remainTime);
