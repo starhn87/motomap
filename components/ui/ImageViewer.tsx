@@ -3,7 +3,7 @@ import GlassButton from '@/components/ui/GlassButton';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useEffect, useState } from 'react';
-import { Modal, View, useWindowDimensions, StyleSheet } from 'react-native';
+import { Modal, Platform, View, useWindowDimensions, StyleSheet } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -38,7 +38,9 @@ export default function ImageViewer({
   renderFooter,
 }: Props) {
   const colorScheme = useColorScheme() ?? 'light';
-  const { width, height } = useWindowDimensions();
+  const window = useWindowDimensions();
+  const [viewport, setViewport] = useState<{ width: number; height: number } | null>(null);
+  const { width, height } = viewport ?? window;
   const insets = useSafeAreaInsets();
   const [index, setIndex] = useState(initialIndex);
 
@@ -98,6 +100,7 @@ export default function ImageViewer({
       imageStartY.value = imageY.value;
     })
     .onUpdate((e) => {
+      if (e.numberOfPointers !== 1) return;
       if (scale.value > 1.01) {
         mode.value = 'zoom';
         // 확대 중에는 한 손가락으로 사진을 살펴보고, 페이지 이동·닫기는 막는다.
@@ -116,7 +119,7 @@ export default function ImageViewer({
         // 양 끝에서는 고무줄 저항
         const min = -(photos.length - 1) * width;
         translateX.value = base > 0 ? base * 0.3 : base < min ? min + (base - min) * 0.3 : base;
-      } else {
+      } else if (mode.value === 'v') {
         // 위쪽은 저항만 주고 닫지 않는다
         translateY.value = e.translationY > 0 ? e.translationY : e.translationY * 0.2;
       }
@@ -128,18 +131,28 @@ export default function ImageViewer({
         snapToPage(index + delta);
       } else if (mode.value === 'v') {
         if (e.translationY > 110 || e.velocityY > 900) {
-          translateY.value = withTiming(height, { duration: 180 });
-          runOnJS(onClose)();
+          translateY.value = withTiming(height, { duration: 180 }, (finished) => {
+            if (finished) runOnJS(onClose)();
+          });
         } else {
           translateY.value = withTiming(0, { duration: 180, easing: Easing.out(Easing.cubic) });
         }
       }
       mode.value = 'idle';
+    })
+    .onFinalize((_event, success) => {
+      if (success || mode.value === 'zoom') return;
+      translateX.value = withTiming(-index * width);
+      translateY.value = withTiming(0);
+      mode.value = 'idle';
     });
 
   const pinch = Gesture.Pinch()
-    .onBegin(() => {
+    .onStart(() => {
+      // 한 손가락으로 대기 중인 핀치는 스와이프 모드를 차지하지 않는다.
       mode.value = 'zoom';
+      translateX.value = -index * width;
+      translateY.value = 0;
     })
     .onUpdate((e) => {
       scale.value = Math.max(1, Math.min(4, savedScale.value * e.scale));
@@ -179,14 +192,22 @@ export default function ImageViewer({
   return (
     <Modal
       visible={visible}
-      transparent
+      transparent={Platform.OS !== 'android'}
       animationType="fade"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={onClose}>
-      <GestureHandlerRootView style={styles.root}>
+      <GestureHandlerRootView
+        style={[styles.root, Platform.OS === 'android' && styles.androidRoot]}
+        onLayout={({ nativeEvent: { layout } }) => {
+          if (layout.width > 0 && layout.height > 0) {
+            setViewport(previous => previous?.width === layout.width && previous.height === layout.height
+              ? previous : { width: layout.width, height: layout.height });
+          }
+        }}>
         <Animated.View style={[styles.backdrop, backdropStyle]} />
         <GestureDetector gesture={gesture}>
-          <Animated.View style={[styles.strip, { width: width * photos.length }, stripStyle]}>
+          <Animated.View style={[styles.strip, { width: width * photos.length, height }, stripStyle]}>
             {photos.map((uri, photoIndex) => {
               // 제스처 계산용 페이지 폭은 전부 유지하되 원본 이미지는 현재 장과
               // 앞뒤 한 장만 마운트한다. 리뷰를 더 불러와도 메모리가 선형 증가하지 않는다.
@@ -243,13 +264,19 @@ export default function ImageViewer({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    overflow: 'hidden',
+  },
+  androidRoot: {
+    backgroundColor: '#000000',
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
     backgroundColor: '#000000',
   },
   strip: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
     flexDirection: 'row',
   },
   page: {
