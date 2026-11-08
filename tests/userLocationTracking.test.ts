@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { shouldTrackUserLocation, startUserLocationTracking, type UserLocationSource } from '../lib/userLocationTracking';
+import { getOrRequestLocationPermission, shouldTrackUserLocation, startUserLocationTracking, type UserLocationSource } from '../lib/userLocationTracking';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -208,4 +208,17 @@ test('경로 미리보기는 위치 구독을 유지하고 방향 센서를 생�
   assert.deepEqual(f.headings, []);
   stop();
   assert.deepEqual(f.counts(), { errors: 0, positionRemoved: 1, headingRemoved: 0 });
+});
+
+
+test('권한을 받은 상태로 지도를 반복해서 열어도 Android 권한 요청을 다시 띄우지 않는다', async () => {
+  for (const status of ['granted', 'denied', 'undetermined']) {
+    let requested = 0;
+    const permission = await getOrRequestLocationPermission(
+      async () => ({ status }),
+      async () => { requested += 1; return { status: 'granted' }; },
+    );
+    assert.equal(requested, status === 'undetermined' ? 1 : 0);
+    assert.equal(permission.status, status === 'undetermined' ? 'granted' : status);
+  }
 });

@@ -2,6 +2,15 @@ type Position = { coords: { latitude: number; longitude: number } };
 type Heading = { trueHeading: number; magHeading: number };
 type Subscription = { remove(): void };
 
+// 이미 결정된 Android 권한을 다시 요청하면 Activity가 잠깐 비활성화될 수 있다.
+export async function getOrRequestLocationPermission<T extends { status: string }>(
+  read: () => Promise<T>,
+  request: () => Promise<T>,
+): Promise<T> {
+  const permission = await read();
+  return permission.status === 'undetermined' ? request() : permission;
+}
+
 // 지도 노출, 앱 활성, 길안내 소유권이 모두 맞을 때만 지도 센서를 사용한다.
 export function shouldTrackUserLocation(enabled: boolean, appState: string | null, guiding: boolean): boolean {
   return enabled && appState === 'active' && !guiding;
@@ -20,7 +29,7 @@ export function startUserLocationTracking(
   source: UserLocationSource,
   onPosition: (position: Position['coords']) => void,
   onHeading: (heading: number) => void,
-  onUnavailable: () => void,
+  onUnavailable: (error: unknown) => void,
   trackHeading = true,
 ): () => void {
   let stopped = false;
@@ -64,8 +73,8 @@ export function startUserLocationTracking(
         return;
       }
       headingSub = heading;
-    } catch {
-      if (!stopped) onUnavailable();
+    } catch (error) {
+      if (!stopped) onUnavailable(error);
     }
   })();
 

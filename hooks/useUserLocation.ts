@@ -5,7 +5,8 @@ import * as Location from 'expo-location';
 import { useMapStore } from '@/stores/useMapStore';
 import { useGuideSession } from '@/lib/guideSession';
 import { toast } from '@/lib/toast';
-import { shouldTrackUserLocation, startUserLocationTracking } from '@/lib/userLocationTracking';
+import { getOrRequestLocationPermission, shouldTrackUserLocation, startUserLocationTracking } from '@/lib/userLocationTracking';
+import { LocationUsageLimitError } from '@/lib/locationPrivacy';
 import { useLocationPrivacyStore, locationUseAllowed, withLocationUse } from '@/stores/useLocationPrivacyStore';
 
 /**
@@ -17,7 +18,7 @@ import { useLocationPrivacyStore, locationUseAllowed, withLocationUse } from '@/
  * 쓰이지도 않으면서 위치·나침반 콜백마다 리렌더를 일으켜 발열만 보탠다.
  * 특히 heading 은 필터가 없어 주행 중 초당 수십 번 들어온다.
  */
-export function useUserLocation(enabled = true, trackHeading = true) {
+export function useUserLocation(enabled = true, trackHeading = true, retry = 0) {
   const setUserLocation = useMapStore((s) => s.setUserLocation);
   const [heading, setHeading] = useState(0);
   const guiding = useGuideSession((s) => !!s.goal);
@@ -38,7 +39,16 @@ export function useUserLocation(enabled = true, trackHeading = true) {
     const assertLease = () => { if (!currentLease()) throw new Error('위치 이용이 중지됐어요.'); };
     return startUserLocationTracking(
       {
-        requestPermission: () => withLocationUse('map', 'naver', () => Location.requestForegroundPermissionsAsync()),
+        requestPermission: async () => {
+          const permission = await getOrRequestLocationPermission(Location.getForegroundPermissionsAsync, () => {
+            assertLease();
+            return Location.requestForegroundPermissionsAsync();
+          });
+          assertLease();
+          if (permission.status !== 'granted') return permission;
+          // OS 권한 자체는 위치 접근이 아니다. 실제 위치 조회 전에만 확인자료를 기록한다.
+          return withLocationUse('map', 'naver', async () => permission);
+        },
         lastKnown: () => { assertLease(); return Location.getLastKnownPositionAsync(); },
         current: () => { assertLease(); return Location.getCurrentPositionAsync({}); },
         watchPosition: async (callback) => {
@@ -56,12 +66,17 @@ export function useUserLocation(enabled = true, trackHeading = true) {
       },
       (coords) => { if (currentLease()) setUserLocation(coords); },
       (value) => { if (currentLease()) setHeading(value); },
-      () => {
-        if (currentLease()) toast.info('현재 위치를 확인할 수 없습니다.', '위치 서비스와 권한을 확인해주세요.');
+      (error) => {
+        if (!currentLease()) return;
+        if (error instanceof LocationUsageLimitError) {
+          toast.info(error.message, '잠시 후 내 위치 버튼으로 다시 확인해 주세요.');
+          return;
+        }
+        toast.info('현재 위치를 확인할 수 없어요', '잠시 후 내 위치 버튼으로 다시 확인해 주세요.');
       },
       trackHeading,
     );
-  }, [setUserLocation, tracking, trackHeading, revision]);
+  }, [setUserLocation, tracking, trackHeading, revision, retry]);
 
   return { heading };
 }

@@ -3,6 +3,8 @@ import { useGuideSession } from '@/lib/guideSession';
 import { withLocationUse, locationUseAllowed } from '@/stores/useLocationPrivacyStore';
 import {
   AppState,
+  Linking,
+  Platform,
   StyleSheet,
   View,
   Pressable,
@@ -22,7 +24,9 @@ import Animated, { FadeOut,
   FadeIn,
 } from 'react-native-reanimated';
 
-import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
+import { ANDROID_TAB_SIDE_INSET, useTabOcclusion } from '@/components/navigation/tabOcclusion';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { appAlert } from '@/lib/dialog';
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { track } from '@/lib/analytics';
@@ -153,6 +157,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const [mapReady, setMapReady] = useState(false);
   const [mapPresentationReady, setMapPresentationReady] = useState(false);
   const didCenterOnUserRef = useRef(false);
+  const [locationRetry, setLocationRetry] = useState(0);
   const pendingGuideReturn = useGuideSession((s) => s.preview?.returnPending ? s.preview.snapshot.token : null);
   const [guideReturnAttempt, setGuideReturnAttempt] = useState(0);
   const [guideReturnFailed, setGuideReturnFailed] = useState(false);
@@ -653,6 +658,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 떠 있는 탭이 레이아웃을 먹지 않으므로, 탭 위 버튼만 그 높이만큼 올린다.
   // 오버레이 지도에는 탭이 없다.
   const tabOcclusion = useTabOcclusion(!overlay);
+  const insets = useSafeAreaInsets();
   const tabOcclusionSv = useSharedValue(tabOcclusion);
   useEffect(() => { tabOcclusionSv.value = tabOcclusion; }, [tabOcclusion, tabOcclusionSv]);
 
@@ -681,17 +687,35 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     });
   }, [isMapFocused, userLocation]);
 
-  const handleMyLocation = () => {
+  const handleMyLocation = async () => {
     if (!locationUseAllowed()) {
       toast.info('위치 이용 설정이 필요해요', '현재 위치를 이용하려면 동의하고 다시 시작해 주세요.');
       router.push('/location-privacy' as Href);
       return;
     }
     if (!userLocation) {
-      toast.info('현재 위치를 확인할 수 없어요', '기기의 위치 서비스와 권한을 확인해 주세요.');
+      try {
+        if (!await Location.hasServicesEnabledAsync()) {
+          toast.info('기기의 위치 서비스가 꺼져 있어요', '기기 설정에서 위치를 켜 주세요.');
+          return;
+        }
+        const permission = await Location.getForegroundPermissionsAsync();
+        if (permission.status === 'denied') {
+          appAlert('위치 권한이 필요해요', '모토맵 앱의 위치 권한을 허용해 주세요.', [
+            { text: '설정 열기', onPress: () => { void Linking.openSettings().catch(() => {}); } },
+            { text: '취소', style: 'cancel' },
+          ]);
+          return;
+        }
+        if (!locationUseAllowed()) return;
+        setLocationRetry(previous => previous + 1);
+        toast.info('현재 위치를 확인 중이에요');
+      } catch {
+        toast.info('현재 위치를 확인할 수 없어요', '잠시 후 다시 시도해 주세요.');
+      }
       return;
     }
-    if (!userLocation || !mapRef.current) return;
+    if (!mapRef.current) return;
 
     // 내 위치를 지도 중앙으로 이동(현재 줌 유지)
     mapRef.current.animateCameraTo({
@@ -764,7 +788,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         isNightModeEnabled={colorScheme === 'dark'}
         isShowLocationButton={false}
         logoAlign="BottomLeft"
-        logoMargin={{ left: 8, right: 0, top: 0, bottom: 0 }}
+        logoMargin={Platform.OS === 'android'
+          ? { left: ANDROID_TAB_SIDE_INSET, bottom: Math.max(tabOcclusion, insets.bottom) + 8 }
+          : { left: 8, right: 0, top: 0, bottom: 0 }}
         // SDK 자체 위치 오버레이 차단 — 커스텀 마커와 별개의 유령 마커가 뜬다.
         // 다른 지도 화면들과 같은 방어인데 여기만 빠져 있었다.
         locationOverlay={{ isVisible: false }}
@@ -806,7 +832,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         }}>
         {/* 가려진 홈과 장소 지도 오버레이가 센서를 동시에 소유하지 않게 한다.
             지도·카메라는 그대로 유지하고 실제 노출 완료 뒤 구독만 재개한다. */}
-        <TrackedUserLocationMarker enabled={isMapFocused && (overlay || mapPresentationReady)} />
+        <TrackedUserLocationMarker enabled={isMapFocused && (overlay || mapPresentationReady)} retry={locationRetry} />
 
         {/* 등록 장소는 모든 줌에서 개별 원형 마커로 그린다. 아이콘은 숨기지 않고,
             겹치는 기본 심벌과 장소명 캡션만 SDK가 정리한다. */}

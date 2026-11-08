@@ -20,7 +20,10 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { useUnreadCount } from '@/hooks/useNotifications';
 import SettingsButton from '@/components/navigation/SettingsButton';
 import { NativeTabDeviceInsetsContext } from '@/components/navigation/NativeTabScreen';
-import { FLOATING_TAB_BAR_HEIGHT, FLOATING_TAB_LIFT, TabOcclusionContext, useJsTabOcclusion } from '@/components/navigation/tabOcclusion';
+import {
+  ANDROID_TAB_BAR_HEIGHT, ANDROID_TAB_LIFT, ANDROID_TAB_SIDE_INSET,
+  FLOATING_TAB_BAR_HEIGHT, FLOATING_TAB_LIFT, TabOcclusionContext, useJsTabOcclusion,
+} from '@/components/navigation/tabOcclusion';
 
 // 누르는 동안 움츠리고(pressIn) 떼는 순간 한 번만 튕기며 복귀(pressOut).
 // tabPress 는 손을 뗀 뒤에야 발생해 이 구분이 불가능하므로 tabBarButton 을 커스텀해
@@ -90,6 +93,7 @@ function LegacyTabLayout() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const occlusion = useJsTabOcclusion();
+  const android = Platform.OS === 'android';
 
   const unreadCount = useUnreadCount();
   const mapTab = useTabPressScale();
@@ -106,13 +110,14 @@ function LegacyTabLayout() {
         // 레이아웃 높이를 먹지 않는 떠 있는 바. 화면 끝보다 조금 위에 둔다.
         tabBarStyle: {
           position: 'absolute',
-          left: 16,
-          right: 16,
-          bottom: insets.bottom + FLOATING_TAB_LIFT,
-          height: FLOATING_TAB_BAR_HEIGHT,
+          // 내비게이터의 기본 start/end가 물리적 left/right보다 우선한다.
+          ...(android ? { start: ANDROID_TAB_SIDE_INSET, end: ANDROID_TAB_SIDE_INSET } : { left: 16, right: 16 }),
+          bottom: insets.bottom + (android ? ANDROID_TAB_LIFT : FLOATING_TAB_LIFT),
+          height: android ? ANDROID_TAB_BAR_HEIGHT : FLOATING_TAB_BAR_HEIGHT,
           borderRadius: 28,
           borderTopWidth: 0,
-          paddingTop: 4,
+          paddingTop: android ? 2 : 4,
+          ...(android ? { paddingBottom: 2 } : {}),
           backgroundColor: colors.surfaceElevated,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 6 },

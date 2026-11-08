@@ -33,7 +33,10 @@ function layout(os: string, unread: number, scheme = 'light', version = 27) {
       TabOcclusionContext: { Provider: 'TabOcclusion' },
       FLOATING_TAB_BAR_HEIGHT: 56,
       FLOATING_TAB_LIFT: 10,
-      useJsTabOcclusion: () => insets.bottom + 10 + 56,
+      ANDROID_TAB_BAR_HEIGHT: 54,
+      ANDROID_TAB_LIFT: 8,
+      ANDROID_TAB_SIDE_INSET: 20,
+      useJsTabOcclusion: () => insets.bottom + (os === 'android' ? 8 + 54 : 10 + 56),
     },
   });
   const entry = module.default();
@@ -73,8 +76,15 @@ test('Android·웹은 기존 JS 탭과 4개 경로를 유지하고 탭은 화면
     assert.deepEqual(nodes(tabs).filter(node => node.type === 'LegacyScreen').map(node => node.props.name), ['index', 'submit', 'courses', 'profile']);
     assert.equal(tabs.props.screenOptions.tabBarStyle.position, 'absolute');
     assert.equal(tabs.props.screenOptions.tabBarActiveTintColor, '#007AFF');
-    assert.equal(tabs.props.screenOptions.tabBarStyle.height, 56);
-    assert.equal(tabs.props.screenOptions.tabBarStyle.bottom, 44);
+    const bar = tabs.props.screenOptions.tabBarStyle;
+    assert.equal(bar.height, os === 'android' ? 54 : 56);
+    assert.equal(bar.bottom, os === 'android' ? 42 : 44);
+    assert.equal(tree.props.value, bar.height + bar.bottom);
+    if (os === 'android') {
+      assert.equal(bar.start, 20);
+      assert.equal(bar.end, 20);
+      assert.equal(bar.paddingBottom, 2);
+    }
     assert.equal(tabs.props.screenOptions.headerTitleStyle.fontWeight, '700');
     assert.equal(tabs.props.screenOptions.headerStyle.backgroundColor, colors.background);
   }
