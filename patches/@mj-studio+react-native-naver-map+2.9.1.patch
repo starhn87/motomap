@@ -84,7 +84,7 @@ index 40f7571..b7be5d0 100644
  
      // Set up a parent view for triggering visibility in subviews that depend on it.
 diff --git a/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/mapview/RNCNaverMapViewManager.kt b/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/mapview/RNCNaverMapViewManager.kt
-index c92093f..ebe21e3 100644
+index c92093f..b99c200 100644
 --- a/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/mapview/RNCNaverMapViewManager.kt
 +++ b/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/mapview/RNCNaverMapViewManager.kt
 @@ -21,6 +21,7 @@ import com.mjstudio.reactnativenavermap.event.NaverMapInitializeEvent
@@ -103,6 +103,15 @@ index c92093f..ebe21e3 100644
        registerDirectEvent(this, NaverMapScreenToCoordinateEvent.EVENT_NAME)
        registerDirectEvent(this, NaverMapCoordinateToScreenEvent.EVENT_NAME)
        registerDirectEvent(this, NaverMapClusterLeafTapEvent.EVENT_NAME)
+@@ -156,7 +158,7 @@
+   override fun getChildAt(
+     parent: RNCNaverMapViewWrapper,
+     index: Int,
+-  ): View? = parent.mapView?.overlays?.get(index)
++  ): View? = parent.mapView?.overlays?.getOrNull(index)
+ 
+   override fun removeViewAt(
+     parent: RNCNaverMapViewWrapper,
 diff --git a/node_modules/@mj-studio/react-native-naver-map/ios/RNCNaverMapViewImpl.mm b/node_modules/@mj-studio/react-native-naver-map/ios/RNCNaverMapViewImpl.mm
 index 3083528..60ecbce 100644
 --- a/node_modules/@mj-studio/react-native-naver-map/ios/RNCNaverMapViewImpl.mm
