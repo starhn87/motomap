@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
 import { Stack, router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/AppText';
@@ -101,6 +102,7 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
 
   const tree = (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onReady}>
+      {Platform.OS === 'android' && <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />}
       <PortalProvider shouldAddRootHost={false}>
       <QueryClientProvider client={queryClient}>
         <PersonalPlaceRideSync />

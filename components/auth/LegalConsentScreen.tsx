@@ -3,6 +3,7 @@ import GlassButton from '@/components/ui/GlassButton';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { ActivityIndicator, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView as InsetView } from 'react-native-safe-area-context';
 import { Text } from '@/components/ui/AppText';
 import { LEGAL_DOCS, type LegalDocType } from '@/constants/legal';
 import { acceptCurrentLegalDocuments } from '@/lib/legalConsent';
@@ -77,7 +78,7 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
 
   const submitLabel = showProvidersInline ? '동의하고 저장' : '동의하고 시작하기';
 
-  return <SafeAreaView style={styles.screen} onLayout={onReady}>
+  return <InsetView style={styles.screen} onLayout={onReady}>
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.title}>{showProvidersInline ? '위치 전달 범위 변경' : '모토맵 시작하기'}</Text>
       <Text style={styles.body}>필요한 동의를 확인해 주세요. 설정에서 언제든 바꿀 수 있어요.</Text>
@@ -98,7 +99,7 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
         </Text>
         <Pressable accessibilityRole="checkbox" accessibilityLabel="방문·주행 기록 저장 (선택)"
           accessibilityState={{ checked: historyAllowed, disabled: loading || !state.actor }}
-          disabled={loading || !state.actor} style={styles.agreement}
+          disabled={loading || !state.actor} style={[styles.agreement, !state.actor && styles.dimmed]}
           onPress={() => setHistoryAllowed(old => !old)}>
           <View style={[styles.checkbox, historyAllowed && styles.checked]}>{historyAllowed && <Text style={styles.checkmark}>✓</Text>}</View>
           <Text style={styles.label}>방문·주행 기록 저장 (선택)</Text>
@@ -139,7 +140,7 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
         </ScrollView>
       </SafeAreaView>
     </Modal>
-  </SafeAreaView>;
+  </InsetView>;
 }
 
 const styles = StyleSheet.create({

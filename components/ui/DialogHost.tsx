@@ -1,4 +1,4 @@
-import { View, StyleSheet, Modal, Pressable } from 'react-native';
+import { View, StyleSheet, Modal, Pressable, ScrollView } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import { PostHogMaskView } from 'posthog-react-native';
 
@@ -50,19 +50,18 @@ export function DialogCard({ dialog, onPress, onDismiss }: {
   const MessageWrap = dialog.maskMessage ? PostHogMaskView : View;
 
   return (
-      <Pressable style={styles.backdrop} onPress={onDismiss} accessible={false}>
-        {/* 카드 자체 탭은 닫히지 않게 — 내부 Pressable 이 이벤트를 삼킨다 */}
-        <Pressable
-          accessible={false}
-          style={[styles.card, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-          onPress={() => {}}>
-          <Text style={[styles.title, { color: colors.text }]}>{dialog.title}</Text>
+      <View style={styles.backdrop}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} accessible={false} />
+        <View style={[styles.card, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+          <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{dialog.title}</Text>
           {!!dialog.message && (
-            <MessageWrap>
-              <Text style={[styles.message, { color: colors.textSecondary }]}>
-                {dialog.message}
-              </Text>
-            </MessageWrap>
+            <ScrollView style={styles.messageScroll}>
+              <MessageWrap>
+                <Text style={[styles.message, { color: colors.textSecondary }]}>
+                  {dialog.message}
+                </Text>
+              </MessageWrap>
+            </ScrollView>
           )}
 
           <View style={styles.buttons}>
@@ -98,8 +97,8 @@ export function DialogCard({ dialog, onPress, onDismiss }: {
               );
             })}
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
   );
 }
 
@@ -114,6 +113,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 340,
+    maxHeight: '100%',
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 20,
@@ -122,6 +122,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 17,
     fontWeight: '800',
+  },
+  messageScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
   },
   message: {
     fontSize: 14,

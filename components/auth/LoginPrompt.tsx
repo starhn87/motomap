@@ -45,7 +45,6 @@ import {
 } from '@/lib/pendingAccountLink';
 import { appAlert } from '@/lib/dialog';
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 function AgreementRow({
@@ -64,7 +63,12 @@ function AgreementRow({
 
   return (
     <View style={styles.agreementRow}>
-      <Pressable onPress={onToggle} style={styles.agreementCheckArea}>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityLabel={label}
+        accessibilityState={{ checked }}
+        onPress={onToggle}
+        style={({ pressed }) => [styles.agreementCheckArea, styles.agreementOption, pressed && styles.pressed]}>
         <View
           style={[
             styles.checkbox,
@@ -77,7 +81,11 @@ function AgreementRow({
         </View>
         <Text style={[styles.agreementText, { color: colors.text }]}>{label}</Text>
       </Pressable>
-      <Pressable onPress={onView}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label} 보기`}
+        onPress={onView}
+        style={({ pressed }) => [styles.agreementViewButton, pressed && styles.pressed]}>
         <Text style={[styles.agreementView, { color: colors.textSecondary }]}>보기 ›</Text>
       </Pressable>
     </View>
@@ -266,10 +274,8 @@ export default function LoginPrompt({ message }: { message?: string }) {
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <AnimatedPressable
+        <Animated.View
           entering={FadeInDown.duration(400)}
-          onPress={Keyboard.dismiss}
-          accessible={false}
           style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>
         {needsOnboarding ? '프로필 완성' : isSignUp ? '회원가입' : '로그인이 필요합니다'}
@@ -409,11 +415,14 @@ export default function LoginPrompt({ message }: { message?: string }) {
           {showProfileForm && (
             <View style={styles.agreements}>
               <Pressable
+                accessibilityRole="checkbox"
+                accessibilityLabel="모든 약관에 동의"
+                accessibilityState={{ checked: agreedTerms && agreedPrivacy && agreedLocation }}
                 onPress={() => {
                   const all = !(agreedTerms && agreedPrivacy && agreedLocation);
                   setAgreedTerms(all); setAgreedPrivacy(all); setAgreedLocation(all);
                 }}
-                style={styles.agreementRow}>
+                style={({ pressed }) => [styles.agreementCheckArea, pressed && styles.pressed]}>
                 <View style={[
                   styles.checkbox,
                   { borderColor: colors.border, backgroundColor: (agreedTerms && agreedPrivacy && agreedLocation) ? colors.tint : 'transparent' },
@@ -482,7 +491,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
           )}
         </View>
       )}
-        </AnimatedPressable>
+        </Animated.View>
       </AnimatedScrollView>
     </KeyboardAvoidingView>
   );
@@ -669,20 +678,31 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   agreements: {
-    gap: 10,
     marginTop: 4,
     marginBottom: 4,
   },
   agreementRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
   },
   agreementCheckArea: {
-    flex: 1,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  agreementOption: {
+    flex: 1,
+  },
+  agreementViewButton: {
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.65,
   },
   checkbox: {
     width: 20,
@@ -693,13 +713,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   agreementText: {
+    flexShrink: 1,
     fontSize: 13,
     fontWeight: '500',
   },
   agreementTextAll: {
     fontSize: 14,
     fontWeight: '700',
-    marginLeft: 8,
   },
   agreementView: {
     fontSize: 12,
