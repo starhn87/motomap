@@ -36,7 +36,7 @@ test('버전을 모르면 서비스를 열지 않는다', () => {
 });
 
 test('접수·준비·구버전에서는 정상 앱을 마운트하지 않는다', () => {
-  assert.equal(resolveServiceGate(null, '1.2.8'), 'suspended');
+  assert.equal(resolveServiceGate(null, '1.2.8'), 'status-unavailable');
   assert.equal(resolveServiceGate(suspended, '1.2.8'), 'suspended');
   assert.equal(
     resolveServiceGate({ ...suspended, status: 'preparing' }, '1.2.8'),
@@ -59,11 +59,26 @@ test('준비 중에는 별도 내부 TestFlight 채널의 새 버전만 열린�
   assert.equal(resolveServiceGate(suspended, '1.2.8', true), 'suspended');
 });
 
-test('네트워크 오류와 503 응답은 중단으로 닫는다', async () => {
+test('네트워크 오류와 503 응답은 운영 중단과 구분하고 진입을 막는다', async () => {
   const unavailable = await fetchServiceStatus(async () => {
     throw new Error('offline');
   });
   const maintenance = await fetchServiceStatus(async () => new Response('maintenance', { status: 503 }));
-  assert.equal(unavailable, null);
-  assert.equal(maintenance, null);
+  assert.equal(resolveServiceGate(unavailable, '1.2.8'), 'status-unavailable');
+  assert.equal(resolveServiceGate(maintenance, '1.2.8'), 'status-unavailable');
+});
+
+test('일시적인 조회 실패 뒤 한 번 재시도하고 명시된 서버 상태는 즉시 반영한다', async () => {
+  let calls = 0;
+  const active = { ...suspended, status: 'active' };
+  assert.deepEqual(await fetchServiceStatus(async () =>
+    ++calls === 1 ? new Response('maintenance', { status: 503 }) : Response.json(active),
+  ), active);
+  assert.equal(calls, 2);
+  calls = 0;
+  assert.deepEqual(await fetchServiceStatus(async () => {
+    calls++;
+    return Response.json(suspended);
+  }), suspended);
+  assert.equal(calls, 1);
 });

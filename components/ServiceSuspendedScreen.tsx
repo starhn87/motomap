@@ -20,17 +20,10 @@ export default function ServiceSuspendedScreen({ preparing, onCheckStatus }: Pro
           style={styles.brandIcon}
         />
 
-        <Text style={styles.eyebrow}>운영 일시 중단</Text>
-        <Text style={styles.title}>모토맵을 잠시 멈춥니다</Text>
-        <Text style={styles.description}>
-          준비가 늦어져 죄송합니다.{'\n'}필수적인 운영 절차와 서비스 정비를 마무리하고 있어요.
+        <Text style={styles.eyebrow}>서비스 이용 안내</Text>
+        <Text style={styles.title}>
+          {preparing ? '운영 재개를 준비하고 있어요' : '서비스 운영이 중단됐어요'}
         </Text>
-
-        <View style={styles.resumeStatus}>
-          <Text style={styles.resumeStatusText}>
-            {preparing ? '운영 재개를 준비하고 있어요' : '2026년 10월 중 운영을 재개하겠습니다'}
-          </Text>
-        </View>
 
         <View style={styles.notice}>
           <Text style={styles.noticeText}>
@@ -97,29 +90,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 40,
     letterSpacing: -1.1,
-  },
-  description: {
-    marginTop: 18,
-    color: '#ABADB3',
-    fontSize: 17,
-    lineHeight: 27,
-    letterSpacing: -0.35,
-  },
-  resumeStatus: {
-    alignSelf: 'flex-start',
-    marginTop: 22,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(121, 207, 255, 0.3)',
-    borderRadius: 999,
-    backgroundColor: 'rgba(121, 207, 255, 0.08)',
-  },
-  resumeStatusText: {
-    color: '#79CFFF',
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: -0.2,
   },
   notice: {
     marginTop: 18,

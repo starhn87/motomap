@@ -2,38 +2,43 @@ import { Image, Linking, Pressable, SafeAreaView, StyleSheet, View } from 'react
 import { Text } from '@/components/ui/AppText';
 
 interface Props {
-  mode: 'update' | 'retry';
+  mode: 'update' | 'retry' | 'status-unavailable';
   onRetry: () => void;
   storeUrl: string;
 }
 
 export default function ServiceResumeScreen({ mode, onRetry, storeUrl }: Props) {
   const updateRequired = mode === 'update';
+  const statusUnavailable = mode === 'status-unavailable';
+  const title = statusUnavailable ? '모토맵에 연결할 수 없어요'
+    : updateRequired ? '새 버전으로 다시 만나요' : '업데이트를 확인하지 못했어요';
+  const description = statusUnavailable ? '네트워크 연결을 확인한 뒤 다시 시도해 주세요.'
+    : updateRequired ? '모토맵을 다시 사용하려면 App Store에서 최신 버전으로 업데이트해 주세요.'
+      : '연결 상태를 확인한 뒤 다시 시도해 주세요. 계속 안 된다면 App Store에서 최신 버전으로 업데이트할 수 있어요.';
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Image source={require('../assets/images/icon.png')} style={styles.icon} />
-        <Text style={styles.eyebrow}>운영 재개 안내</Text>
-        <Text style={styles.title}>
-          {updateRequired ? '새 버전으로 다시 만나요' : '업데이트를 확인하지 못했어요'}
-        </Text>
-        <Text style={styles.description}>
-          {updateRequired
-            ? '모토맵을 다시 사용하려면 App Store에서 최신 버전으로 업데이트해 주세요.'
-            : '연결 상태를 확인한 뒤 다시 시도해 주세요. 계속 안 된다면 App Store에서 최신 버전으로 업데이트할 수 있어요.'}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => void Linking.openURL(storeUrl)}
-          style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-          <Text style={styles.primaryButtonText}>App Store에서 업데이트</Text>
-        </Pressable>
+        {!statusUnavailable && <Text style={styles.eyebrow}>운영 재개 안내</Text>}
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.description}>{description}</Text>
+        {!statusUnavailable && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void Linking.openURL(storeUrl)}
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+            <Text style={styles.primaryButtonText}>App Store에서 업데이트</Text>
+          </Pressable>
+        )}
         {!updateRequired && (
           <Pressable
             accessibilityRole="button"
             onPress={onRetry}
-            style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-            <Text style={styles.secondaryButtonText}>다시 시도</Text>
+            style={({ pressed }) => [
+              statusUnavailable ? styles.primaryButton : styles.secondaryButton,
+              pressed && styles.pressed,
+            ]}>
+            <Text style={statusUnavailable ? styles.primaryButtonText : styles.secondaryButtonText}>다시 시도</Text>
           </Pressable>
         )}
       </View>

@@ -39,10 +39,12 @@ export function parseServiceStatus(value: unknown): ServiceStatus | null {
   return candidate as unknown as ServiceStatus;
 }
 
-/** 상태를 읽지 못하면 호출자는 서비스를 열지 않는다. */
-export async function fetchServiceStatus(
-  fetcher: typeof fetch = fetch,
-): Promise<ServiceStatus | null> {
+/** 첫 연결이 일시적으로 실패하면 한 번 더 조회한다. 둘 다 실패하면 진입을 막는다. */
+export async function fetchServiceStatus(fetcher: typeof fetch = fetch): Promise<ServiceStatus | null> {
+  return (await requestServiceStatus(fetcher)) ?? requestServiceStatus(fetcher);
+}
+
+async function requestServiceStatus(fetcher: typeof fetch): Promise<ServiceStatus | null> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -87,8 +89,9 @@ export function resolveServiceGate(
   status: ServiceStatus | null,
   installedVersion: string | null,
   internalTestFlight = false,
-): 'suspended' | 'preparing' | 'update' | 'check-update' {
-  if (!status || status.status === 'suspended') return 'suspended';
+): 'status-unavailable' | 'suspended' | 'preparing' | 'update' | 'check-update' {
+  if (!status) return 'status-unavailable';
+  if (status.status === 'suspended') return 'suspended';
   // 공개 채널은 준비 중에 열지 않고, 별도 내부 TestFlight 채널만 실기기 검증에 사용한다.
   if (status.status === 'preparing' && !internalTestFlight) return 'preparing';
   return isVersionAtLeast(installedVersion, status.minimumAppVersion) ? 'check-update' : 'update';

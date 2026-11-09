@@ -24,7 +24,7 @@ SplashScreen.setOptions({ fade: true, duration: STARTUP_SPLASH_FADE_MS });
 // 중단 화면에서는 이 모듈을 평가하지 않는다. 지도·인증·분석은 진입 후에만 시작한다.
 const ActiveRootLayout = lazy(() => import('@/components/ActiveRootLayout'));
 
-type GateStage = 'checking' | 'suspended' | 'preparing' | 'update' | 'retry' | 'active';
+type GateStage = 'checking' | 'status-unavailable' | 'suspended' | 'preparing' | 'update' | 'retry' | 'active';
 
 export default function RootLayout() {
   const [stage, setStage] = useState<GateStage>('checking');
@@ -130,7 +130,7 @@ export default function RootLayout() {
     );
   } else if (stage === 'checking') {
     content = <ServiceLoadingScreen />;
-  } else if (stage === 'update' || stage === 'retry') {
+  } else if (stage === 'update' || stage === 'retry' || stage === 'status-unavailable') {
     content = (
       <ServiceResumeScreen
         mode={stage}
