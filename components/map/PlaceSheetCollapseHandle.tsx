@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 
@@ -12,7 +12,7 @@ export default function PlaceSheetCollapseHandle({ color, onCollapse }: { color:
 
   return <GestureDetector gesture={pan}>
     <Pressable accessibilityRole="button" accessibilityLabel="장소 상세 접기" onPress={onCollapse} style={styles.target}>
-      <View style={[styles.indicator, { backgroundColor: color }]} />
+      {Platform.OS !== 'android' && <View style={[styles.indicator, { backgroundColor: color }]} />}
     </Pressable>
   </GestureDetector>;
 }
