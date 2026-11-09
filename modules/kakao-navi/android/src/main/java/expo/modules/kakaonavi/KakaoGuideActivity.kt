@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
@@ -51,6 +52,8 @@ import com.kakaomobility.knsdk.trip.knrouteconfiguration.KNRouteConfiguration
 import com.kakaomobility.knsdk.trip.kntrip.KNTrip
 import com.kakaomobility.knsdk.trip.kntrip.knroute.KNRoute
 import com.kakaomobility.knsdk.ui.view.KNNaviView
+import com.kakaomobility.knsdk.map.knmaprenderer.objects.KNMapCameraUpdate
+import com.kakaomobility.knsdk.ui.component.KNComponentCurPositionView
 import com.kakaomobility.knsdk.ui.component.MapViewCameraMode
 import com.kakaomobility.knsdk.ui.view.KNNaviView_GuideStateDelegate
 import com.kakaomobility.knsdk.ui.view.KNNaviView_StateDelegate
@@ -320,6 +323,20 @@ internal class KakaoGuideController(
     screen.setContentView(root)
     if (arrival == null) naviView.initWithGuidance(engine, trip, activePriority, avoidOptions)
     else naviView.guidance = engine
+    val guideMap = naviView.mapComponent.mapView
+    guideMap.setOnTouchListener { _, event ->
+      if (event.actionMasked != MotionEvent.ACTION_UP || !guideMap.usePanningGesture) {
+        return@setOnTouchListener false
+      }
+      // 드래그는 유지하고 손을 뗄 때 SDK의 관성 이동만 시작하지 않게 한다.
+      // 관성 이동 중에는 SDK가 현재 위치로 옮긴 카메라를 계속 덮어쓴다.
+      guideMap.usePanningGesture = false
+      try {
+        guideMap.onTouchEvent(event)
+      } finally {
+        guideMap.usePanningGesture = true
+      }
+    }
     viewState = naviView.viewState
     try {
       val bottom = MotoGuidePanel(root, ::setPanelReady, ::handlePanelAction, ::updateTraffic)
@@ -389,7 +406,7 @@ internal class KakaoGuideController(
         view?.sndVolume = value
         updatePanel()
       }
-      "recenter" -> view?.findViewById<View>(NaviResources.id.cur_position_btn_layout)?.performClick()
+      "recenter" -> recenterGuide()
       "routeEdit" -> if (previewToken == null && remainingVias().size <= 3) {
         request?.emit?.invoke("onGuideMenu", Bundle().apply { putInt("id", 107) })
       }
@@ -409,6 +426,19 @@ internal class KakaoGuideController(
         }
       }
     }
+  }
+
+  private fun recenterGuide() {
+    val naviView = view ?: return
+    // 숨겨 둔 SDK 버튼의 800ms 클릭 제한 없이 주행 추적 모드를 복구한다.
+    naviView.findViewById<KNComponentCurPositionView>(NaviResources.id.component_cur_position)
+      ?.delegate?.curPositionViewToCurLocation()
+    val map = naviView.mapComponent.mapView
+    val coordinate = map.userLocation?.coordinate?.takeIf {
+      it.x.isFinite() && it.y.isFinite() && it.x > 0f && it.y > 0f
+    } ?: return
+    // 다음 GPS 갱신을 기다리지 않고 지도에 표시 중인 자차 위치로 카메라를 복귀시킨다.
+    map.moveCamera(KNMapCameraUpdate().targetTo(coordinate), false, false)
   }
 
   private fun updatePanel(target: MotoGuidePanel? = panel) {
