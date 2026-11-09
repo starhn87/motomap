@@ -157,7 +157,7 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     canvas.save()
     canvas.clipPath(path)
     // 캐시된 색 구간은 경로의 같은 거리에 두고 현재 위치 아래를 가린다.
-    paint.color = 0xFF787F88.toInt()
+    paint.color = 0xFFA1A8B1.toInt()
     canvas.drawRect(outline, paint)
     val liveBottom = outline.top + outline.height() * displayedFraction
     canvas.clipRect(outline.left, outline.top, outline.right, liveBottom)
@@ -173,10 +173,10 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     canvas.drawCircle(x, y, 9 * unit, paint)
     paint.color = accent
     path.reset()
-    path.moveTo(x, y - 5 * unit)
-    path.lineTo(x + 4 * unit, y + 3 * unit)
-    path.lineTo(x, y + unit)
-    path.lineTo(x - 4 * unit, y + 3 * unit)
+    path.moveTo(x, y - 7.5f * unit)
+    path.lineTo(x + 6 * unit, y + 4.5f * unit)
+    path.lineTo(x, y + 1.5f * unit)
+    path.lineTo(x - 6 * unit, y + 4.5f * unit)
     path.close()
     canvas.drawPath(path, paint)
   }
