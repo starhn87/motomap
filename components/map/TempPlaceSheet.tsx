@@ -4,6 +4,9 @@ import CloseIcon from '@/components/ui/CloseIcon';
 import GlassButton from '@/components/ui/GlassButton';
 import BackIcon from '@/components/ui/BackIcon';
 import PlaceSheetHeaderActions from '@/components/map/PlaceSheetHeaderActions';
+import PlaceSheetCollapseHandle from '@/components/map/PlaceSheetCollapseHandle';
+import { ANDROID_TOP_CONTROL_GAP } from '@/components/navigation/headerSpacing';
+import { usePlaceReviewFocus } from '@/hooks/usePlaceReviewFocus';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, {
@@ -24,6 +27,7 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
   ActivityIndicator,
   Pressable,
+  Platform,
   Share,
   StyleSheet,
   View,
@@ -71,6 +75,8 @@ interface Props {
   place: TempPlace | null;
   onClose: () => void;
   animatedPosition?: SharedValue<number>;
+  highlightReview?: { id: string; key: string } | null;
+  openExpanded?: boolean;
   /** 지도에서 선택 화면에서 열 때 — 출발·도착·공유 대신 이 버튼 하나와 장소 정보만 보인다. */
   pickAction?: { label: string; onPress: () => void };
 }
@@ -84,15 +90,18 @@ const DETAIL_CARD_GAP = 10;
 
 // 일반 장소도 등록 장소와 같은 확장형 상세 경험을 쓴다. 차이는 카테고리·라이더
 // 집계처럼 모토맵이 검증한 정보 대신 카카오 정보와 라이더 리뷰가 중심이라는 점이다.
-export default function TempPlaceSheet({ place, onClose, animatedPosition, pickAction }: Props) {
+export default function TempPlaceSheet({ place, onClose, animatedPosition, highlightReview, openExpanded = false, pickAction }: Props) {
   const [hoursExpanded, setHoursExpanded] = useState(false);
   useEffect(() => { setHoursExpanded(false); }, [place?.name, place?.latitude, place?.longitude]);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  const headerTop = insets.top + (Platform.OS === 'android' ? ANDROID_TOP_CONTROL_GAP : 0);
+  const initialIndex = openExpanded || highlightReview ? 2 : 1;
   const bottomSheetRef = useRef<BottomSheet>(null);
   const scrollRef = useRef<any>(null);
   const [currentIndex, setCurrentIndex] = useState(-1);
+  const [settledIndex, setSettledIndex] = useState(-1);
   const animatedIndex = useSharedValue(-1);
   const currentIndexRef = useRef(-1);
 
@@ -157,12 +166,15 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
       // 데이터와 시트를 함께 마운트하면 초기 index 적용과 snap 명령이 경합해
       // 열림 애니메이션이 생략되는 경우가 있다.
       scrollRef.current?.scrollTo({ y: 0, animated: false });
-      bottomSheetRef.current?.snapToIndex(1);
+      bottomSheetRef.current?.snapToIndex(initialIndex);
     } else {
       bottomSheetRef.current?.close();
     }
-  }, [place?.name, place?.latitude, place?.longitude]);
+  }, [place?.name, place?.latitude, place?.longitude, initialIndex, highlightReview?.key]);
 
+  const onReviewLayout = usePlaceReviewFocus(
+    highlightReview?.key, settledIndex === 2 && !generalPlaceLoading && !reviewsLoading, headerTop + PAGE_HEADER_HEIGHT + HEADER_CONTENT_GAP, scrollRef,
+  );
 
   const handleFavorite = async () => {
     if (!place) return;
@@ -275,16 +287,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
   );
 
   const navigating = resolvingNavigation || navLaunching;
-  const [headerReady, setHeaderReady] = useState(false);
-
-  useEffect(() => {
-    if (!isExpanded) {
-      setHeaderReady(false);
-      return;
-    }
-    const timer = setTimeout(() => setHeaderReady(true), 300);
-    return () => clearTimeout(timer);
-  }, [isExpanded]);
+  const headerReady = settledIndex === 2;
 
   const handleIndicatorStyle = useAnimatedStyle(() => ({
     backgroundColor:
@@ -300,7 +303,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
       [
         0,
         Math.max(
-          insets.top +
+          headerTop +
             PAGE_HEADER_HEIGHT +
             HEADER_CONTENT_GAP -
             HANDLE_HEIGHT -
@@ -352,6 +355,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
         keyboardBlurBehavior="restore"
         enableBlurKeyboardOnGesture
         onChange={(index) => {
+          setSettledIndex(index);
           if (index === -1 && place) onClose();
         }}
         containerStyle={styles.sheetContainer}
@@ -630,7 +634,8 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
             </View>
           ) : null}
 
-          <View style={[styles.reviewSection, { borderTopColor: colors.border }]}>
+          <View key={highlightReview?.key ?? generalPlaceId} style={[styles.reviewSection, { borderTopColor: colors.border }]}
+            onLayout={onReviewLayout}>
             <View style={styles.reviewSectionHeader}>
               <Text style={[styles.reviewSectionTitle, { color: colors.text }]}>리뷰</Text>
               {(generalPlace?.rating ?? 0) > 0 && (
@@ -648,7 +653,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
             {!pickAction && <ReviewForm target={{ kind: 'general', place: resolvedPlace ?? place }} />}
             <View style={styles.reviewDivider} />
             {reviewTarget ? (
-              <ReviewList target={reviewTarget} />
+              <ReviewList target={reviewTarget} highlight={highlightReview} />
             ) : generalPlaceLoading ? (
               <ReviewListSkeleton />
             ) : (
@@ -664,11 +669,11 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
       </BottomSheet>
 
       {place && isExpanded && (
-        <Animated.View
-          pointerEvents={headerReady ? 'auto' : 'box-only'}
+        <View
+          pointerEvents={headerReady ? 'box-none' : 'none'}
           style={[
             styles.pageHeader,
-            { paddingTop: insets.top, backgroundColor: colors.background },
+            { paddingTop: headerTop, backgroundColor: colors.background },
           ]}>
           <GlassButton
             accessibilityLabel="뒤로"
@@ -677,8 +682,9 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
             style={[styles.iconButton, styles.pageHeaderIconButton, { borderRadius: 22 }]}>
             <BackIcon size={28} color={colors.text} />
           </GlassButton>
+          <PlaceSheetCollapseHandle color={colors.tabIconDefault} onCollapse={() => bottomSheetRef.current?.snapToIndex(1)} />
           <View style={[styles.nameActions, { gap: 12 }]}>{renderActions(true)}</View>
-        </Animated.View>
+        </View>
       )}
     </>
   );

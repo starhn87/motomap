@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { View, StyleSheet, Share, ActivityIndicator, Pressable } from 'react-native';
+import { View, StyleSheet, Share, ActivityIndicator, Pressable, Platform } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import Animated, {
   FadeIn,
@@ -20,6 +20,9 @@ import CloseIcon from '@/components/ui/CloseIcon';
 import GlassButton from '@/components/ui/GlassButton';
 import BackIcon from '@/components/ui/BackIcon';
 import PlaceSheetHeaderActions from '@/components/map/PlaceSheetHeaderActions';
+import PlaceSheetCollapseHandle from '@/components/map/PlaceSheetCollapseHandle';
+import { ANDROID_TOP_CONTROL_GAP } from '@/components/navigation/headerSpacing';
+import { usePlaceReviewFocus } from '@/hooks/usePlaceReviewFocus';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import BottomSheet, {
@@ -56,8 +59,9 @@ interface Props {
   onClose: () => void;
   /** 시트 상단의 컨테이너 기준 y — 내 위치 버튼이 시트를 따라 움직이도록 밖에 노출 */
   animatedPosition?: SharedValue<number>;
-  /** 내 리뷰에서 진입 — 시트를 끝까지 펼치고 이 리뷰로 스크롤·강조한다. key(nonce)마다 재실행 */
+  /** 내 리뷰에서 진입 — 시트를 펼쳐 리뷰 영역으로 이동하고 선택한 리뷰를 강조한다. */
   highlightReview?: { id: string; key: string } | null;
+  openExpanded?: boolean;
   /** 지도에서 선택 화면에서 열 때 — 출발·도착·공유 대신 이 버튼 하나와 장소 정보만 보인다. */
   pickAction?: { label: string; onPress: () => void };
 }
@@ -78,6 +82,7 @@ function PlaceBottomSheet({
   onClose,
   animatedPosition,
   highlightReview,
+  openExpanded = false,
   pickAction,
 }: Props) {
   const [hoursExpanded, setHoursExpanded] = useState(false);
@@ -86,8 +91,11 @@ function PlaceBottomSheet({
   const colors = Colors[colorScheme ?? 'light'];
   const navLaunching = useNavLaunching((st) => st.launching);
   const insets = useSafeAreaInsets();
+  const headerTop = insets.top + (Platform.OS === 'android' ? ANDROID_TOP_CONTROL_GAP : 0);
+  const initialIndex = openExpanded ? 2 : 1;
   const bottomSheetRef = useRef<BottomSheet>(null);
   const [currentIndex, setCurrentIndex] = useState(1);
+  const [settledIndex, setSettledIndex] = useState(1);
   const [changeReportOpen, setChangeReportOpen] = useState(false);
   const animatedIndex = useSharedValue(1);
   const currentIndexRef = useRef(1);
@@ -153,57 +161,35 @@ function PlaceBottomSheet({
   };
 
   const scrollRef = useRef<any>(null);
-  const didInitRef = useRef(false);
-  // place(장소)가 바뀔 때만 시트 위치를 리셋한다.
-  // - 의존성을 [place] 참조로 두면 드래그 확장 중 참조 변경마다 snapToIndex(1)이
-  //   호출돼 확장이 취소되므로 [place?.id]로 둔다.
-  // - 첫 마운트는 index={1}이 초기 위치를 잡으므로 snapToIndex를 생략한다. 마운트 때
-  //   index와 effect가 둘 다 애니메이션을 걸면 열림 도중 드래그가 꼬이기 때문.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const mountedPlaceId = useRef<string | null>(null);
+  const visiblePlaceId = place && displayPlace ? place.id : null;
   useEffect(() => {
-    if (!didInitRef.current) {
-      didInitRef.current = true;
-      return;
-    }
-    if (place) {
-      // 같은 시트 인스턴스가 다음 장소를 표시하므로 이전 장소에서 내린 스크롤을
-      // 먼저 지운다. 스냅 위치만 바꾸면 콘텐츠 y는 그대로 남아 중간부터 보인다.
+    const previous = mountedPlaceId.current;
+    mountedPlaceId.current = visiblePlaceId;
+    if (!visiblePlaceId) return;
+    if (previous && previous !== visiblePlaceId) {
       scrollRef.current?.scrollTo({ y: 0, animated: false });
-      bottomSheetRef.current?.snapToIndex(1);
-    } else {
-      bottomSheetRef.current?.close();
+      bottomSheetRef.current?.snapToIndex(highlightReview ? 2 : initialIndex);
+    } else if (!previous) {
+      // 실제 시트가 마운트되는 순간에는 index prop만 스냅을 소유한다.
+      setSettledIndex(initialIndex);
     }
-  }, [place?.id]);
+  }, [visiblePlaceId, initialIndex, highlightReview]);
+
+  useEffect(() => {
+    if (highlightReview?.key && initialIndex !== 2 && visiblePlaceId) bottomSheetRef.current?.expand();
+  }, [highlightReview?.key, initialIndex, visiblePlaceId]);
 
   useEffect(() => {
     setChangeReportOpen(false);
   }, [place?.id]);
 
-  // 강조 리뷰로 스크롤: 콘텐츠 기준 y = 리뷰섹션 y + 리스트 wrapper y + 카드 y (onLayout 합산)
-  const reviewSectionYRef = useRef(0);
-  const reviewListYRef = useRef(0);
-  const highlightItemYRef = useRef(0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!highlightReview) return;
-    // place 리셋 effect의 snapToIndex(1)과 겹치지 않게 살짝 늦춰 끝까지 편다
-    const t1 = setTimeout(() => bottomSheetRef.current?.snapToIndex(2), 200);
-    // 확장 애니메이션과 리뷰 렌더가 끝날 즈음 스크롤 (카드 미측정이면 리뷰 섹션 상단으로)
-    const t2 = setTimeout(() => {
-      const y =
-        reviewSectionYRef.current + reviewListYRef.current + highlightItemYRef.current;
-      scrollRef.current?.scrollTo({
-        y: Math.max(0, y - insets.top - PAGE_HEADER_HEIGHT - HEADER_CONTENT_GAP - 8),
-        animated: true,
-      });
-    }, 950);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [highlightReview?.key]);
+  const onReviewLayout = usePlaceReviewFocus(
+    highlightReview?.key, settledIndex === 2 && !reviewsLoading, headerTop + PAGE_HEADER_HEIGHT + HEADER_CONTENT_GAP, scrollRef,
+  );
 
   const handleSheetChanges = (index: number) => {
+    setSettledIndex(index);
     if (index === -1) onClose();
   };
 
@@ -211,16 +197,8 @@ function PlaceBottomSheet({
 
   // 드래그로 확장(스와이프)이 끝나는 순간 헤더 바가 손가락 위치에 나타나면서
   // 손가락 떼는 동작이 헤더 버튼(✕/뒤로) 탭으로 처리돼 시트가 닫히는 문제가 있었다.
-  // 헤더가 나타난 뒤 잠깐 동안 터치를 비활성화해 우발적 탭을 막는다.
-  const [headerReady, setHeaderReady] = useState(false);
-  useEffect(() => {
-    if (!isExpanded) {
-      setHeaderReady(false);
-      return;
-    }
-    const t = setTimeout(() => setHeaderReady(true), 300);
-    return () => clearTimeout(t);
-  }, [isExpanded]);
+  // 스냅이 끝날 때까지 헤더 터치를 비활성화해 우발적 탭을 막는다.
+  const headerReady = settledIndex === 2;
 
   // 핸들 인디케이터 색: 확장(페이지) 상태에 가까워지면 투명 처리.
   // currentIndex(state) 대신 animatedIndex로 계산해 renderHandle을 안정 참조로 유지한다.
@@ -240,7 +218,7 @@ function PlaceBottomSheet({
       [
         0,
         Math.max(
-          insets.top +
+          headerTop +
             PAGE_HEADER_HEIGHT +
             HEADER_CONTENT_GAP -
             HANDLE_HEIGHT -
@@ -349,7 +327,7 @@ function PlaceBottomSheet({
         ref={bottomSheetRef}
         // 시트 전체를 하나로 묶으면 사진·헤더·리뷰 버튼이 접근성 트리에서 숨는다.
         accessible={false}
-        index={1}
+        index={initialIndex}
         animateOnMount={false}
         snapPoints={SNAP_POINTS}
         enableDynamicSizing={false}
@@ -590,9 +568,8 @@ function PlaceBottomSheet({
 
           <View
             style={[styles.reviewSection, { borderTopColor: colors.border }]}
-            onLayout={(e) => {
-              reviewSectionYRef.current = e.nativeEvent.layout.y;
-            }}>
+            key={highlightReview?.key ?? place.id}
+            onLayout={onReviewLayout}>
             <View style={styles.reviewSectionHeader}>
               <Text style={[styles.reviewSectionTitle, { color: colors.text }]}>
                 리뷰
@@ -612,30 +589,19 @@ function PlaceBottomSheet({
             </View>
             {!pickAction && <ReviewForm target={{ kind: 'place', id: place.id }} />}
             <View style={styles.reviewDivider} />
-            <View
-              onLayout={(e) => {
-                reviewListYRef.current = e.nativeEvent.layout.y;
-              }}>
-              <ReviewList
-                target={{ kind: 'place', id: place.id }}
-                highlight={highlightReview}
-                onHighlightLayout={(y) => {
-                  highlightItemYRef.current = y;
-                }}
-              />
-            </View>
+            <ReviewList target={{ kind: 'place', id: place.id }} highlight={highlightReview} />
           </View>
         </BottomSheetScrollView>
       </BottomSheet>
 
       {/* 헤더 바: 바텀시트와 별개의 레이어. 확장(페이지) 시에만 화면 상단에 고정 표시 */}
       {isExpanded && (
-        <Animated.View
-          pointerEvents={headerReady ? 'auto' : 'box-only'}
+        <View
+          pointerEvents={headerReady ? 'box-none' : 'none'}
           style={[
             styles.pageHeader,
             {
-              paddingTop: insets.top,
+              paddingTop: headerTop,
               backgroundColor: colors.background,
             },
           ]}>
@@ -646,8 +612,9 @@ function PlaceBottomSheet({
             style={[styles.iconButton, styles.pageHeaderIconButton, { borderRadius: 22 }]}>
             <BackIcon size={28} color={colors.text} />
           </GlassButton>
+          <PlaceSheetCollapseHandle color={colors.tabIconDefault} onCollapse={() => bottomSheetRef.current?.snapToIndex(1)} />
           <View style={[styles.nameActions, { gap: 12 }]}>{renderActions(true)}</View>
-        </Animated.View>
+        </View>
       )}
 
       <PlaceChangeReportSheet

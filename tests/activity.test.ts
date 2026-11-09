@@ -18,9 +18,11 @@ function hooks() {
   const equal = (a: any[], b: any[]) => a && b && a.length === b.length && a.every((value, i) => Object.is(value, b[i]));
   return {
     react: {
+      memo: (component: any) => component,
       startTransition: (fn: () => void) => deferred ? transitions.push(fn) : fn(),
       useState: (initial: any) => { const i = cursor++; if (!(i in states)) states[i] = initial; return [states[i], (value: any) => { states[i] = typeof value === 'function' ? value(states[i]) : value; }]; },
       useRef: (initial: any) => { const i = cursor++; return refs[i] ??= { current: initial }; },
+      useMemo: (fn: () => any) => fn(),
       useCallback: (fn: any, deps: any[]) => { const i = cursor++; if (!equal(callbacks[i]?.deps, deps)) callbacks[i] = { fn, deps }; return callbacks[i].fn; },
       useEffect: (fn: () => any, deps: any[]) => { const i = cursor++; if (!equal(effectDeps[i], deps)) { queued.push(fn); effectDeps[i] = deps; } },
     },
@@ -34,7 +36,14 @@ function hooks() {
 for (const nativeEnabled of [false, true]) test(`활동은 로그인·방문·포커스 경계를 지킨다 (native=${nativeEnabled})`, () => {
   let user: any = null, focused = true;
   const state = hooks();
+  const animations: [number, number][] = [];
   const module = loadModule<any>('components/activity/ActivityScreen.tsx', {
+    'react-native-reanimated': {
+      ...exported({ View: 'AnimatedView', Text: 'AnimatedText' }),
+      useSharedValue: (initial: number) => state.react.useRef({ value: initial }).current,
+      useAnimatedStyle: (fn: () => any) => fn(),
+      withTiming: (value: number, options: { duration: number }) => { animations.push([value, options.duration]); return value; },
+    },
     '@/hooks/usePullToRefresh': { usePullToRefresh: (refresh: any) => ({ refreshing: false, onRefresh: refresh }) },
     react: state.react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
     '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
@@ -73,6 +82,18 @@ for (const nativeEnabled of [false, true]) test(`활동은 로그인·방문·�
   assert.equal(nodes(tree).find(node => node.type === 'Notifications')?.props.active, true);
   assert.equal(nodes(tree).find(node => node.type === 'Reviews')?.props.active, false);
   assert.equal(nodes(tree).filter(node => ['Submissions', 'Reviews', 'Notifications'].includes(node.type)).length, 3);
+  select('리뷰'); tree = render();
+  assert.equal(nodes(tree).find(node => node.type === 'Reviews')?.props.active, false, '방문한 목록도 선택 표시 이후에 갱신한다');
+  assert.equal(nodes(tree).find(node => node.type === 'Notifications')?.props.active, false);
+  if (nativeEnabled) assert.equal(nodes(tree).find(node => node.type === 'NativeChoice')?.props.value, 'reviews');
+  else {
+    assert.deepEqual(animations.map(([index]) => index), [1, 2, 1]);
+    assert.ok(animations.every(([, duration]) => duration > 0));
+    assert.equal(nodes(tree).filter(node => node.type === 'AnimatedView').length, 1);
+    assert.ok(nodes(tree).find(node => node.props.accessibilityLabel === '리뷰')?.props.accessibilityState.selected);
+  }
+  state.flushTransitions(); tree = render();
+  assert.equal(nodes(tree).find(node => node.type === 'Reviews')?.props.active, true);
   focused = false; tree = render();
   assert.ok(nodes(tree).filter(node => ['Submissions', 'Reviews', 'Notifications'].includes(node.type)).every(node => !node.props.active));
   user = { id: 'actor-b' }; assert.equal(module.default().key, 'actor-b');
@@ -215,4 +236,48 @@ test('내 제보 전체는 최신순으로 합치고 드롭다운 분류·계정
   assert.deepEqual(configs.map(config => config.enabled), [false, true]);
   assert.equal(nodes(tree).find(node => node.type === 'Empty')?.props.title, '보낸 건의가 없습니다');
   render(false); assert.ok(configs.every(config => !config.enabled));
+});
+
+test('승인 제보·등록 장소 리뷰·일반 장소 리뷰는 활동 목록 위에 상세를 연다', () => {
+  const pushed: any[] = [];
+  const map = loadModule<any>('lib/mapFocus.ts', {
+    'expo-router': { router: { push: (route: unknown) => pushed.push(route) } },
+    '@/lib/analytics': { track: { placeViewed() {} } }, '@/lib/mapCamera': {},
+    '@/lib/queryClient': {}, '@/lib/queryKeys': {},
+  });
+  map.focusPlaceOnMap('approved', { source: 'submission', preview: true });
+  map.focusPlaceOnMap('registered', { reviewId: 'review-a', preview: true });
+  map.focusPointOnMap({ name: '일반 장소', latitude: 37.5, longitude: 127, generalPlaceId: 'general' },
+    { reviewId: 'review-b', preview: true });
+  assert.deepEqual(pushed.map(route => route.pathname), ['/place-preview', '/place-preview', '/place-preview']);
+  assert.ok(pushed.every(route => route.params.detailExpanded === '1'));
+  assert.equal(pushed[0].params.focusPlaceId, 'approved');
+  assert.equal(pushed[0].params.focusReviewId, undefined);
+  assert.equal(pushed[1].params.focusPlaceId, 'registered');
+  assert.equal(pushed[1].params.focusReviewId, 'review-a');
+  assert.equal(pushed[2].params.generalPlaceId, 'general');
+  assert.equal(pushed[2].params.focusReviewId, 'review-b');
+});
+
+test('리뷰 영역은 확장과 현재 요청의 레이아웃을 기다린 뒤 한 번만 스크롤한다', () => {
+  const state = hooks();
+  const frames = new Map<number, () => void>();
+  let id = 0, key = 'first', expanded = false;
+  const positions: number[] = [];
+  const scrollRef = { current: { scrollTo: ({ y }: { y: number }) => positions.push(y) } };
+  const module = loadModule<any>('hooks/usePlaceReviewFocus.ts', { react: state.react }, {
+    requestAnimationFrame: (fn: () => void) => { frames.set(++id, fn); return id; },
+    cancelAnimationFrame: (frame: number) => frames.delete(frame),
+  });
+  const render = () => state.render(() => module.usePlaceReviewFocus(key, expanded, 100, scrollRef));
+  const layout = (y: number) => render()({ nativeEvent: { layout: { y } } });
+  const flush = () => { frames.forEach(run => run()); frames.clear(); };
+  layout(450); render(); flush();
+  assert.deepEqual(positions, []);
+  key = 'next'; expanded = true; render(); flush();
+  assert.deepEqual(positions, [], '이전 장소의 레이아웃을 사용하지 않는다');
+  layout(510); render(); flush();
+  assert.deepEqual(positions, [402]);
+  layout(540); render(); flush();
+  assert.deepEqual(positions, [402], '늦게 표시된 정보가 스크롤을 다시 당기지 않는다');
 });

@@ -84,9 +84,9 @@ export default function MyReviewsList({ active = true }: { active?: boolean }) {
       onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'delete') confirmDelete(); }}
       onPress={() => {
         if (item.targetKind === 'place') {
-          focusPlaceOnMap(item.placeId, { reviewId: item.id, source: 'favorite' });
+          focusPlaceOnMap(item.placeId, { reviewId: item.id, source: 'favorite', preview: true });
         } else if (item.generalPlace) {
-          focusPointOnMap(item.generalPlace);
+          focusPointOnMap(item.generalPlace, { reviewId: item.id, preview: true });
         }
       }}
       style={({ pressed }) => [

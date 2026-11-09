@@ -66,6 +66,10 @@ export function useMapDeepLinks({
     onFollow();
   }, [followTs, mapReady, isMapFocused, isMapPresented, onFollow]);
 
+  const [highlightReview, setHighlightReview] = useState<{
+    id: string; key: string; kind: 'place' | 'general';
+  } | null>(null);
+
   // 검색의 "일반 장소"(카카오 로컬) 선택 — DB 에 없는 임시 목적지
   const [tempPlace, setTempPlace] = useState<TempPlace | null>(null);
   const handledKakaoRef = useRef<string | null>(null);
@@ -92,6 +96,7 @@ export function useMapDeepLinks({
       generalPlaceId: generalPlaceId || undefined,
     };
     clearSelection();
+    setHighlightReview(focusReviewId ? { id: focusReviewId, key, kind: 'general' } : null);
     setTempPlace(place);
     // 주소 없이 오는 경우가 있다(미리보기의 기본 POI 탭) — 역지오코딩으로 채운다
     if (!place.address) {
@@ -106,11 +111,8 @@ export function useMapDeepLinks({
     }
     onSelectPoint(place);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, kakaoId, kakaoUrl, generalPlaceId, focusTs, mapReady, isMapFocused, isMapPresented]);
+  }, [kakaoName, kakaoAddress, kakaoLat, kakaoLng, kakaoPhone, kakaoId, kakaoUrl, generalPlaceId, focusReviewId, focusTs, mapReady, isMapFocused, isMapPresented]);
 
-  const [highlightReview, setHighlightReview] = useState<{ id: string; key: string } | null>(
-    null
-  );
   // 코스 상세의 근처 장소에서 넘어온 경우 — 돌아갈 코스와 그 장소를 기억해
   // 시트가 열려 있는 동안 "코스로 돌아가기" 칩을 띄운다
   const [courseReturn, setCourseReturn] = useState<{ courseId: string; placeId: string } | null>(
@@ -130,7 +132,8 @@ export function useMapDeepLinks({
       });
       if (!cancelled) handledFocusIdRef.current = focusKey;
       if (place && !cancelled) {
-        setHighlightReview(focusReviewId ? { id: focusReviewId, key: focusKey } : null);
+        setTempPlace(null);
+        setHighlightReview(focusReviewId ? { id: focusReviewId, key: focusKey, kind: 'place' } : null);
         setCourseReturn(fromCourseId ? { courseId: fromCourseId, placeId: place.id } : null);
         onSelectPlace(place);
       }

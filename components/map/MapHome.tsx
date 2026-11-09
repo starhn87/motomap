@@ -110,14 +110,18 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     kakaoLng?: string;
     focusPlaceId?: string;
     focusTs?: string;
+    detailExpanded?: string;
   }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const userLocation = useMapStore((state) => state.userLocation);
-  const selectedPlaceId = useMapStore((state) => state.selectedPlaceId);
+  const tabSelectedPlaceId = useMapStore((state) => state.selectedPlaceId);
+  const [overlaySelectedPlaceId, setOverlaySelectedPlaceId] = useState<string | null>(null);
+  const selectedPlaceId = overlay ? overlaySelectedPlaceId : tabSelectedPlaceId;
   const activeFilter = useMapStore((state) => state.activeFilter);
   const premiumGasOnly = useMapStore((state) => state.premiumGasOnly);
-  const setSelectedPlaceId = useMapStore((state) => state.setSelectedPlaceId);
+  const setTabSelectedPlaceId = useMapStore((state) => state.setSelectedPlaceId);
+  const setSelectedPlaceId = overlay ? setOverlaySelectedPlaceId : setTabSelectedPlaceId;
   const showRiderShares = useMapStore((state) => state.showRiderShares);
   const isMapFocused = useIsFocused();
   const rootNavigation = useNavigation<NativeStackNavigationProp<ParamListBase>>('/');
@@ -487,12 +491,12 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     if (isMapFocused && tempPlace) void selectedGeneralPlace.refetch();
   }, [isMapFocused, tempPlace, selectedGeneralPlace.refetch]);
   useEffect(() => {
-    if (isMapFocused && tempPlace && promotedPlace.data && promotedPlace.data.id === selectedGeneralPlace.data?.promotedPlaceId) {
+    if (isMapFocused && tempPlace && highlightReview?.kind !== 'general' && promotedPlace.data && promotedPlace.data.id === selectedGeneralPlace.data?.promotedPlaceId) {
       setTempPlace(null);
       setSelectedPlaceId(promotedPlace.data.id);
       setSelectedPlace(promotedPlace.data);
     }
-  }, [isMapFocused, tempPlace, promotedPlace.data, selectedGeneralPlace.data?.promotedPlaceId, setTempPlace, setSelectedPlaceId]);
+  }, [isMapFocused, tempPlace, highlightReview?.kind, promotedPlace.data, selectedGeneralPlace.data?.promotedPlaceId, setTempPlace, setSelectedPlaceId]);
 
   const handleTempPlaceSelect = useCallback(
     (place: TempPlace) => {
@@ -538,6 +542,13 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     sheetPosition.value = withTiming(containerHeight.value + 100, { duration: 250 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setSelectedPlaceId, setTempPlace]);
+
+  const closePlaceDetail = overlay && overlayParams.detailExpanded === '1'
+    ? () => {
+        handleBottomSheetClose();
+        if (isMapFocused && router.canGoBack()) router.back();
+      }
+    : handleBottomSheetClose;
 
   const selectedPlaceQuery = usePlace(selectedPlace?.id ?? null);
   useEffect(() => {
@@ -643,8 +654,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       router.setParams({
         focusPlaceId: placeId,
         focusTs: String(Date.now()),
-        ...(opts?.reviewId ? { focusReviewId: opts.reviewId } : {}),
-        ...(opts?.fromCourseId ? { fromCourseId: opts.fromCourseId } : {}),
+        focusReviewId: opts?.reviewId ?? '',
+        fromCourseId: opts?.fromCourseId ?? '',
+        kakaoName: '',
+        kakaoLat: '',
+        kakaoLng: '',
       });
     });
     return () => setMapFocusOverride(null);
@@ -704,8 +718,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   // 오버레이는 딥링크 좌표를 이미 안다 — 기본 위치에서 800ms 카메라 이동을
   // 기다리지 말고 처음부터 그 자리에서 뜬다(전환 체감의 대부분이 이 이동이었다)
-  const overlayLat = Number(overlayParams.lat ?? overlayParams.kakaoLat);
-  const overlayLng = Number(overlayParams.lng ?? overlayParams.kakaoLng);
+  const overlayLat = Number((overlayParams.lat ?? overlayParams.kakaoLat) || NaN);
+  const overlayLng = Number((overlayParams.lng ?? overlayParams.kakaoLng) || NaN);
   const overlayTarget =
     overlay && Number.isFinite(overlayLat) && Number.isFinite(overlayLng)
       ? {
@@ -1114,18 +1128,21 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         </Pressable>
       )}
 
-      <MapOverlayLayer focused={isMapFocused}>
+      <MapOverlayLayer focused={isMapFocused} inline={overlay}>
       <PlaceBottomSheet
         place={selectedPlace}
-        onClose={handleBottomSheetClose}
+        onClose={closePlaceDetail}
         animatedPosition={sheetPosition}
-        highlightReview={highlightReview}
+        highlightReview={highlightReview?.kind === 'place' ? highlightReview : null}
+        openExpanded={overlay && overlayParams.detailExpanded === '1'}
       />
 
       <TempPlaceSheet
         place={tempPlace}
-        onClose={handleBottomSheetClose}
+        onClose={closePlaceDetail}
         animatedPosition={sheetPosition}
+        highlightReview={highlightReview?.kind === 'general' ? highlightReview : null}
+        openExpanded={overlay && overlayParams.detailExpanded === '1'}
       />
 
       {selectedStation && (

@@ -53,17 +53,28 @@ function openMapRoute(params: MapRouteParams) {
 // 만드는 규약 — 호출처마다 흩어져 있던 것을 여기 한 곳으로 모은다.
 export function focusPlaceOnMap(
   placeId: string,
-  opts?: { reviewId?: string; fromCourseId?: string; source?: PlaceSource; place?: Place }
+  opts?: { reviewId?: string; fromCourseId?: string; source?: PlaceSource; place?: Place; preview?: boolean }
 ) {
   // 장소에 닿은 경로를 남긴다 — 어느 발견 경로가 주행까지 이어지는지 가르는 축
   track.placeViewed({ place_id: placeId, source: opts?.source ?? 'search' });
-  if (focusOverride) {
+  if (focusOverride && !opts?.preview) {
     focusOverride(placeId, opts);
     return;
   }
   // 장소를 들고 있으면 usePlace 캐시를 채워 복귀 즉시 이동을 시작한다.
   if (opts?.place) {
     queryClient.setQueryData(queryKeys.places.detail(placeId), opts.place);
+  }
+  if (opts?.preview) {
+    router.push({ pathname: '/place-preview', params: {
+      focusPlaceId: placeId,
+      focusReviewId: opts.reviewId,
+      focusTs: String(Date.now()),
+      detailExpanded: '1',
+      lat: opts.place?.latitude ? String(opts.place.latitude) : undefined,
+      lng: opts.place?.longitude ? String(opts.place.longitude) : undefined,
+    } });
+    return;
   }
   // 기존 지도 탭까지 스택을 되감아 같은 네이티브 지도 인스턴스와 카메라를
   // 그대로 살린다. navigate('/')는 새 탭 route를 쌓아 지도를 재생성할 수 있다.
@@ -95,10 +106,10 @@ export function focusPointOnMap(point: {
   providerId?: string;
   placeUrl?: string;
   generalPlaceId?: string;
-}) {
-  openMapRoute({
+}, opts?: { reviewId?: string; preview?: boolean }) {
+  const params = {
     focusPlaceId: undefined,
-    focusReviewId: undefined,
+    focusReviewId: opts?.reviewId,
     fromCourseId: undefined,
     kakaoName: point.name,
     kakaoAddress: point.address ?? '',
@@ -109,7 +120,12 @@ export function focusPointOnMap(point: {
     kakaoUrl: point.placeUrl ?? '',
     generalPlaceId: point.generalPlaceId ?? '',
     focusTs: String(Date.now()),
-  });
+  };
+  if (opts?.preview) {
+    router.push({ pathname: '/place-preview', params: { ...params, detailExpanded: '1' } });
+  } else {
+    openMapRoute(params);
+  }
 }
 
 // 지도 탭에서 내 위치 따라가기 모드를 켠다 — 안내가 끝나도 라이더는 계속
