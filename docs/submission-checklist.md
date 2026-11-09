@@ -1,3 +1,7 @@
+## 2026-11-09 TestFlight — 1.3.1
+
+1.3.1 마케팅 버전, 빌드 번호, Expo 런타임 1.3.1과 production 채널을 대조하고 App Store Connect 업로드 결과를 확인한다.
+
 ## 2026-11-08 App Store 제출 후보 — 1.3.0
 
 1.3.0 iOS 빌드의 마케팅 버전과 Expo 런타임, production 채널을 확인한다. App Store Connect 업로드와 실제 심사 제출은 별도로 확인한다.
