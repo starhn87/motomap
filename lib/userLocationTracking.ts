@@ -24,16 +24,26 @@ export interface UserLocationSource {
   watchHeading(callback: (heading: Heading) => void): Promise<Subscription>;
 }
 
-// 북쪽 경계를 가로질러도 최단 방향으로 보간한다. 작은 센서 잡음은 마커에 보내지 않는다.
-export function smoothMapHeading(previous: number | null, sample: Heading): number | null {
-  if (sample.accuracy === 0) return previous;
+function readHeading(sample: Heading): number | null {
+  if (sample.accuracy === 0) return null;
   const angle = Number.isFinite(sample.trueHeading) && sample.trueHeading >= 0
     ? sample.trueHeading : sample.magHeading;
-  if (!Number.isFinite(angle) || angle < 0) return previous;
-  const normalized = angle % 360;
-  if (previous === null) return normalized;
-  const delta = (normalized - previous + 540) % 360 - 180;
+  return Number.isFinite(angle) && angle >= 0 ? angle % 360 : null;
+}
+
+const headingDelta = (from: number, to: number) => (to - from + 540) % 360 - 180;
+
+// 북쪽을 최단 방향으로 지나고, 큰 회전은 연속 두 샘플이 맞을 때부터 표시한다.
+export function smoothMapHeading(previous: number | null, sample: Heading, preceding?: Heading): number | null {
+  const angle = readHeading(sample);
+  if (angle === null) return previous;
+  if (previous === null) return angle;
+  const delta = headingDelta(previous, angle);
   if (Math.abs(delta) < 4) return previous;
+  if (Math.abs(delta) > 55) {
+    const last = preceding ? readHeading(preceding) : null;
+    if (last === null || Math.abs(headingDelta(last, angle)) > 25) return previous;
+  }
   const weight = Math.min(0.55, 0.20 + Math.abs(delta) / 180);
   return (previous + delta * weight + 360) % 360;
 }
@@ -50,6 +60,7 @@ export function startUserLocationTracking(
   let positionSub: Subscription | null = null;
   let headingSub: Subscription | null = null;
   let shownHeading: number | null = null;
+  let precedingHeading: Heading | undefined;
 
   const updatePosition = (position: Position) => {
     if (!stopped) onPosition({ latitude: position.coords.latitude, longitude: position.coords.longitude });
@@ -82,7 +93,8 @@ export function startUserLocationTracking(
 
       const heading = await source.watchHeading((value) => {
         if (stopped) return;
-        const next = smoothMapHeading(shownHeading, value);
+        const next = smoothMapHeading(shownHeading, value, precedingHeading);
+        precedingHeading = value;
         if (next !== null && next !== shownHeading) {
           shownHeading = next;
           onHeading(next);

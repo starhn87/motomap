@@ -229,6 +229,8 @@ test('지도 방위는 낮은 신뢰도와 작은 흔들림을 무시하고 북�
   assert.equal(smoothMapHeading(359, { trueHeading: 1, magHeading: 8 }), 359);
   const acrossNorth = smoothMapHeading(358, { trueHeading: -1, magHeading: 12 });
   assert.ok(acrossNorth !== null && acrossNorth < 6);
-  const turn = smoothMapHeading(0, { trueHeading: 90, magHeading: 99 });
+  const right = { trueHeading: 90, magHeading: 99 };
+  assert.equal(smoothMapHeading(0, right, { trueHeading: 0, magHeading: 0 }), 0);
+  const turn = smoothMapHeading(0, right, { trueHeading: 88, magHeading: 91 });
   assert.ok(turn !== null && turn > 40 && turn < 60);
 });
