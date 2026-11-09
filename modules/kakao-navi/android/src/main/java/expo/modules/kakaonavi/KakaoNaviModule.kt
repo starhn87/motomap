@@ -24,7 +24,7 @@ class KakaoNaviModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("KakaoNavi")
-    Constant("bridgeVersion") { 43 }
+    Constant("bridgeVersion") { 44 }
     Constant("features") {
       listOf("android_live_guidance", "location_privacy_stop", "guide_web_bottom", "guide_arrival_record", "guide_route_editing")
     }
@@ -42,21 +42,17 @@ class KakaoNaviModule : Module() {
       else session.cancel(completion)
     }.runOnQueue(Queues.MAIN)
 
-    OnDestroy {
-      Handler(Looper.getMainLooper()).post {
-        KakaoGuideActivity.session?.takeIf { it.owner === this@KakaoNaviModule }?.cancel()
-      }
-    }
+    OnDestroy { cancelOwnedGuide() }
+    OnActivityDestroys { cancelOwnedGuide() }
 
     OnActivityEntersForeground {
-      // 홈에서 앱을 다시 열면 진행 중인 안내를 복원한다. 편집 화면은 자체 복귀 토큰을 쓴다.
-      Handler(Looper.getMainLooper()).post {
-        if (locationAllowed) KakaoGuideActivity.session?.activity?.restoreFromLauncher()
-      }
+      Handler(Looper.getMainLooper()).postDelayed({
+        if (locationAllowed) KakaoGuideActivity.session?.controller?.restoreFromLauncher()
+      }, 100)
     }
 
     AsyncFunction("showGuideNotice") { message: String ->
-      val guide = KakaoGuideActivity.session?.activity
+      val guide = KakaoGuideActivity.session?.controller
       if (guide?.hasWindowFocus() == true) guide.showNotice(message)
       else appContext.currentActivity?.let { Toast.makeText(it, message, Toast.LENGTH_SHORT).show() }
     }.runOnQueue(Queues.MAIN)
@@ -66,7 +62,7 @@ class KakaoNaviModule : Module() {
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("returnToGuide") { token: Int ->
-      locationAllowed && KakaoGuideActivity.session?.activity?.returnToGuide(token) == true
+      locationAllowed && KakaoGuideActivity.session?.controller?.returnToGuide(token) == true
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("resumeGuide") {
@@ -100,17 +96,21 @@ class KakaoNaviModule : Module() {
         goalName, vias, routePriority(priorityValue), opening, ::sendEvent,
       )
       KakaoGuideActivity.session = session
-      try {
-        activity.startActivity(session.guideIntent(activity))
-      } catch (error: RuntimeException) {
-        KakaoGuideActivity.session = null
-        throw error
+      KakaoGuideController(session, activity.application).also {
+        session.controller = it
+        it.prepare()
       }
     }.runOnQueue(Queues.MAIN)
   }
 
-  private fun requireGuide(): KakaoGuideActivity =
-    KakaoGuideActivity.session?.activity?.takeIf { locationAllowed }
+  private fun cancelOwnedGuide() {
+    Handler(Looper.getMainLooper()).post {
+      KakaoGuideActivity.session?.takeIf { it.owner === this }?.cancel()
+    }
+  }
+
+  private fun requireGuide(): KakaoGuideController =
+    KakaoGuideActivity.session?.controller?.takeIf { locationAllowed }
       ?: throw CodedException("E_KNSDK_RESUME_STATE", "현재 길안내를 확인할 수 없습니다.", null)
 
   private fun validCoordinates(values: List<Double>): Boolean =
@@ -140,17 +140,16 @@ internal class KakaoGuideSession(
   val emit: (String, Bundle) -> Unit,
 ) {
   val id: String = UUID.randomUUID().toString()
-  var activity: KakaoGuideActivity? = null
+  var controller: KakaoGuideController? = null
   private val stopRequests = mutableListOf<Promise>()
 
   fun guideIntent(context: Activity) = Intent(context, KakaoGuideActivity::class.java).apply {
-    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     putExtra(KakaoGuideActivity.EXTRA_SESSION_ID, id)
   }
 
   fun cancel(completion: Promise? = null) {
     if (completion != null) stopRequests += completion
-    val screen = activity
+    val screen = controller
     if (screen != null) {
       screen.cancelGuide()
     } else {
@@ -160,7 +159,7 @@ internal class KakaoGuideSession(
   }
 
   fun closed() {
-    activity = null
+    controller = null
     if (KakaoGuideActivity.session === this) KakaoGuideActivity.session = null
     stopRequests.forEach { it.resolve() }
     stopRequests.clear()

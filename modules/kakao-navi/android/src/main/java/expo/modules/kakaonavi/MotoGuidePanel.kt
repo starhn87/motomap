@@ -1,6 +1,8 @@
 package expo.modules.kakaonavi
 
+import android.animation.ValueAnimator
 import android.graphics.Color
+import android.view.animation.DecelerateInterpolator
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -23,6 +25,7 @@ internal class MotoGuidePanel(
   private val root: FrameLayout,
   private val onReady: (Boolean) -> Unit,
   private val onAction: (String, Float?) -> Unit,
+  private val onExpanded: () -> Unit,
 ) {
   private companion object {
     const val ORIGIN = "https://appassets.androidplatform.net"
@@ -38,6 +41,7 @@ internal class MotoGuidePanel(
   private var lastRendered: String? = null
   private var ready = false
   private var closed = false
+  private var collapsing = false
   var expanded = false
     private set
 
@@ -51,7 +55,8 @@ internal class MotoGuidePanel(
   private val web = object : WebView(root.context) {
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
       if (!expanded && event.actionMasked == MotionEvent.ACTION_DOWN && event.y < height - dp(68)) {
-        if (event.y > dp(44) || kotlin.math.abs(event.x - width / 2f) > dp(66)) return false
+        if (state["showRecenter"] != true || event.y > dp(44) ||
+          kotlin.math.abs(event.x - width / 2f) > dp(66)) return false
       }
       return super.dispatchTouchEvent(event)
     }
@@ -136,10 +141,33 @@ internal class MotoGuidePanel(
   }
 
   fun setExpanded(expand: Boolean) {
-    if (!ready || expanded == expand) return
-    expanded = expand
-    backdrop.visibility = if (expand) View.VISIBLE else View.GONE
+    if (!ready || expanded == expand || collapsing) return
+    if (expand) {
+      expanded = true
+      render()
+      backdrop.visibility = View.VISIBLE
+      onExpanded()
+      if (ValueAnimator.areAnimatorsEnabled()) {
+        web.translationY = (web.layoutParams.height + dp(8)).toFloat()
+        backdrop.alpha = 0f
+        web.animate().translationY(0f).setInterpolator(DecelerateInterpolator()).setDuration(220).start()
+        backdrop.animate().alpha(1f).setDuration(180).start()
+      } else backdrop.alpha = 1f
+    } else if (ValueAnimator.areAnimatorsEnabled()) {
+      collapsing = true
+      backdrop.animate().alpha(0f).setDuration(160).start()
+      web.animate().translationY((web.height + dp(8)).toFloat()).setDuration(180)
+        .withEndAction { finishCollapse() }.start()
+    } else finishCollapse()
+  }
+
+  private fun finishCollapse() {
+    collapsing = false
+    expanded = false
+    web.translationY = 0f
+    backdrop.visibility = View.GONE
     render()
+    onExpanded()
   }
 
   fun update(values: Map<String, Any?>) {
@@ -164,15 +192,16 @@ internal class MotoGuidePanel(
   private fun layout() {
     val height = when {
       expanded -> minOf(dp(238), (root.height - dp(44)).takeIf { it > 0 } ?: dp(238))
-      state["showRecenter"] == true -> dp(120)
-      else -> dp(68)
+      else -> dp(120)
     }
     val params = web.layoutParams as? FrameLayout.LayoutParams
-    if (params?.height == height) return
+    val inset = if (expanded) 0 else dp(12)
+    val bottom = if (expanded) 0 else dp(8)
+    if (params?.height == height && params.marginStart == inset && params.bottomMargin == bottom) return
     web.layoutParams = FrameLayout.LayoutParams(-1, height, Gravity.BOTTOM).apply {
-      marginStart = dp(12)
-      marginEnd = dp(12)
-      bottomMargin = dp(8)
+      marginStart = inset
+      marginEnd = inset
+      bottomMargin = bottom
     }
   }
 
@@ -182,6 +211,8 @@ internal class MotoGuidePanel(
     ready = false
     expanded = false
     handler.removeCallbacks(timeout)
+    web.animate().cancel()
+    backdrop.animate().cancel()
     root.removeView(web)
     root.removeView(backdrop)
     web.destroy()

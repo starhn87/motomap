@@ -1,6 +1,6 @@
 package expo.modules.kakaonavi
 
-import android.content.Intent
+import android.app.Application
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -9,12 +9,10 @@ import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import android.view.WindowManager
-import android.widget.LinearLayout
-import android.widget.ProgressBar
-import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.gms.location.CurrentLocationRequest
@@ -63,8 +61,39 @@ import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 
-class KakaoGuideActivity : AppCompatActivity(),
-  KNNaviView_GuideStateDelegate,
+class KakaoGuideActivity : AppCompatActivity() {
+  companion object {
+    internal const val EXTRA_SESSION_ID = "expo.modules.kakaonavi.session_id"
+    internal var session: KakaoGuideSession? = null
+  }
+
+  private var guide: KakaoGuideController? = null
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    val current = session?.takeIf { it.id == intent.getStringExtra(EXTRA_SESSION_ID) }
+    val controller = current?.controller
+    if (controller == null || !controller.attach(this)) {
+      finish()
+      return
+    }
+    guide = controller
+    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+      override fun handleOnBackPressed() = controller.handleBack()
+    })
+  }
+
+  override fun onDestroy() {
+    guide?.detach(this)
+    super.onDestroy()
+  }
+}
+
+internal class KakaoGuideController(
+  initial: KakaoGuideSession,
+  private val application: Application,
+) : KNNaviView_GuideStateDelegate,
   KNNaviView_StateDelegate,
   KNGuidance_GuideStateDelegate,
   KNGuidance_LocationGuideDelegate,
@@ -73,16 +102,20 @@ class KakaoGuideActivity : AppCompatActivity(),
   KNGuidance_VoiceGuideDelegate,
   KNGuidance_CitsGuideDelegate {
 
-  companion object {
-    // 모듈과 Activity 모두 메인 스레드에서 접근한다. 위치 좌표를 Intent에 저장하지 않는다.
-    internal const val EXTRA_SESSION_ID = "expo.modules.kakaonavi.session_id"
-    internal var session: KakaoGuideSession? = null
-    private val avoidOptions = KNRouteAvoidOption.KNRouteAvoidOption_MotorWay.value
+  private val avoidOptions = KNRouteAvoidOption.KNRouteAvoidOption_MotorWay.value
+  private var host: KakaoGuideActivity? = null
+  private var parked = false
+  private var restoring = false
+  private fun onMain(work: () -> Unit) {
+    if (Looper.myLooper() == Looper.getMainLooper()) work() else handler.post(work)
   }
 
   private val handler = Handler(Looper.getMainLooper())
   private val timeout = Runnable { finishGuide("카카오내비 응답이 늦어지고 있어요. 다시 시도해 주세요.") }
-  private var request: KakaoGuideSession? = null
+  private val closeOrphanedGuide = Runnable {
+    if (host == null && !parked) finishGuide()
+  }
+  private var request: KakaoGuideSession? = initial
   private var installed = false
   private var view: KNNaviView? = null
   private var guidance: KNGuidance? = null
@@ -91,12 +124,24 @@ class KakaoGuideActivity : AppCompatActivity(),
   private var panel: MotoGuidePanel? = null
   private var panelReady = false
   private var guideRoot: FrameLayout? = null
+  private var traffic: MotoTrafficRail? = null
+  private var viewState = KNNaviViewState.NONE
+  private var directionPopup: View? = null
+  private var fallback: android.widget.Button? = null
+  private var manualRefresh = false
+  private var lastMatched: KNLocation? = null
+  private var trafficStartRoute: KNRoute? = null
+  private var trafficStart: KNLocation? = null
+  private val expireTraffic = Runnable { updateTraffic() }
   private var nativeControls = emptyList<View>()
-  private val hiddenControls = mutableSetOf<View>()
   private val keepNativeControlsHidden = ViewTreeObserver.OnPreDrawListener {
-    nativeControls.filter { it.visibility == View.VISIBLE }.forEach {
-      hiddenControls.add(it)
-      it.visibility = View.GONE
+    nativeControls.forEach {
+      if (it.visibility == View.VISIBLE) it.visibility = View.GONE
+    }
+    if (arrival != null || isSafetyScreen()) {
+      view?.curDirComponent?.visibility = View.INVISIBLE
+      view?.nextDirComponent?.visibility = View.INVISIBLE
+      directionPopup?.visibility = View.INVISIBLE
     }
     true
   }
@@ -120,47 +165,23 @@ class KakaoGuideActivity : AppCompatActivity(),
   private var recoveryPassed = emptyList<KNPOI>()
   private val arrivalGpsReceiver = object : KNGPSReceiver {
     override fun didReceiveGpsData(data: KNGPSData) {
-      runOnUiThread { handleArrivalLocation(data) }
+      onMain { handleArrivalLocation(data) }
     }
   }
 
 
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    val request = session
-    if (request == null || request.activity != null || request.id != intent.getStringExtra(EXTRA_SESSION_ID)) {
-      finish()
-      return
-    }
-    this.request = request
-    request.activity = this
-
-    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-    onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-      override fun handleOnBackPressed() {
-        if (!started) {
-          cancelGuide()
-          return
-        }
-        if (panel?.expanded == true) panel?.setExpanded(false) else confirmEnd()
-      }
-    })
-    setContentView(LinearLayout(this).apply {
-      orientation = LinearLayout.VERTICAL
-      gravity = Gravity.CENTER
-      addView(ProgressBar(context))
-      addView(TextView(context).apply { text = "카카오내비 안내를 준비하고 있어요" })
-    })
+  fun prepare() {
+    val request = request ?: return
     handler.postDelayed(timeout, 60_000)
     try {
-      KNSDK.install(application, filesDir.resolve("kakao-navi").absolutePath)
+      KNSDK.install(application, application.filesDir.resolve("kakao-navi").absolutePath)
       installed = true
-      val appVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "1"
+      val appVersion = application.packageManager.getPackageInfo(application.packageName, 0).versionName ?: "1"
       KNSDK.initializeWithAppKey(
         request.appKey, appVersion, null, null, KNLanguageType.KNLanguageType_KOREAN,
       ) { error ->
-        runOnUiThread {
-          if (ended) return@runOnUiThread
+        onMain {
+          if (ended) return@onMain
           if (error != null) {
             finishGuide("카카오내비 초기화에 실패했습니다.", "E_KNSDK_INIT_${error.code}")
           } else requestRoute(request)
@@ -178,18 +199,28 @@ class KakaoGuideActivity : AppCompatActivity(),
       poi("경유지 ${index + 1}", pair[0], pair[1])
     }.toMutableList()
     KNSDK.makeTripWithStart(origin, destination, vias.ifEmpty { null }) { error, trip ->
-      runOnUiThread {
-        if (ended) return@runOnUiThread
+      onMain {
+        if (ended) return@onMain
         if (error != null || trip == null) {
           fail(error)
-          return@runOnUiThread
+          return@onMain
         }
         trip.setRouteConfig(KNRouteConfiguration(KNCarType.KNCarType_Bike))
         trip.routeWithPriority(request.priority, avoidOptions) { routeError, routes ->
-          runOnUiThread {
-            if (ended) return@runOnUiThread
+          onMain {
+            if (ended) return@onMain
             if (routeError != null || routes.isNullOrEmpty()) fail(routeError)
-            else showGuide(request, trip)
+            else {
+              guideTrip = trip
+              activePriority = request.priority
+              val main = request.appActivity.get()
+              if (main == null || main.isFinishing || !main.hasWindowFocus()) cancelGuide()
+              else try {
+                main.startActivity(request.guideIntent(main))
+              } catch (_: RuntimeException) {
+                finishGuide("카카오내비 안내 화면을 열지 못했어요.")
+              }
+            }
           }
         }
       }
@@ -201,28 +232,39 @@ class KakaoGuideActivity : AppCompatActivity(),
     return KNPOI(name, coordinate.x.roundToInt(), coordinate.y.roundToInt())
   }
 
+  fun hasWindowFocus() = host?.hasWindowFocus() == true
+
+  fun handleBack() {
+    if (!started) cancelGuide()
+    else if (panel?.expanded == true) panel?.setExpanded(false)
+    else confirmEnd()
+  }
+
   private fun confirmEnd() {
-    AlertDialog.Builder(this)
+    val host = host ?: return
+    AlertDialog.Builder(host)
       .setTitle("길안내를 종료할까요?")
       .setNegativeButton("계속 안내", null)
       .setPositiveButton("안내 종료") { _, _ -> finishGuide() }
       .show()
   }
 
-  private fun showGuide(request: KakaoGuideSession, trip: KNTrip) {
-    val engine = KNSDK.sharedGuidance()
-    if (engine == null) {
-      finishGuide("카카오내비 안내 화면을 열지 못했어요.")
-      return
-    }
-    val naviView = KNNaviView(this).apply {
+  fun attach(screen: KakaoGuideActivity): Boolean {
+    val trip = guideTrip ?: return false
+    val engine = guidance ?: KNSDK.sharedGuidance() ?: return false
+    if (ended || (host != null && !parked && !restoring)) return false
+    if (host != null) destroyView()
+    host = screen
+    parked = false
+    restoring = false
+    handler.removeCallbacks(closeOrphanedGuide)
+    val naviView = KNNaviView(screen).apply {
       // SDK UI에서 경로 설정을 다시 만들 때도 이륜차 차종을 사용한다.
       carType = KNCarType.KNCarType_Bike
-      guideStateDelegate = this@KakaoGuideActivity
-      stateDelegate = this@KakaoGuideActivity
+      sndVolume = volume
+      guideStateDelegate = this@KakaoGuideController
+      stateDelegate = this@KakaoGuideController
     }
-    guideTrip = trip
-    activePriority = request.priority
     view = naviView
     guidance = engine
     engine.guideStateDelegate = this
@@ -231,8 +273,39 @@ class KakaoGuideActivity : AppCompatActivity(),
     engine.safetyGuideDelegate = this
     engine.voiceGuideDelegate = this
     engine.citsGuideDelegate = this
-    val root = FrameLayout(this).apply { addView(naviView, FrameLayout.LayoutParams(-1, -1)) }
+    val root = FrameLayout(screen).apply { addView(naviView, FrameLayout.LayoutParams(-1, -1)) }
     guideRoot = root
+    viewState = KNNaviViewState.NONE
+    directionPopup = naviView.findViewById<View>(NaviResources.id.component_cur_direction_popup)?.apply {
+      val params = layoutParams as ConstraintLayout.LayoutParams
+      params.width = dp(160)
+      params.height = dp(134)
+      params.topToBottom = ConstraintLayout.LayoutParams.UNSET
+      params.bottomToTop = ConstraintLayout.LayoutParams.UNSET
+      params.topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+      params.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+      params.verticalBias = .45f
+      layoutParams = params
+      findViewById<View>(NaviResources.id.cur_direction_img_layout)?.let { image ->
+        image.layoutParams = image.layoutParams.apply { width = dp(80); height = dp(80) }
+      }
+      findViewById<android.widget.TextView>(NaviResources.id.cur_direction_popup_distance)?.apply {
+        maxLines = 1
+        minHeight = dp(44)
+      }
+    }
+    traffic = MotoTrafficRail(screen).also { rail ->
+      root.addView(rail, FrameLayout.LayoutParams(dp(24), dp(240), Gravity.BOTTOM or Gravity.END).apply {
+        marginEnd = dp(12)
+        bottomMargin = dp(92)
+      })
+      root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+        val height = (root.height - root.paddingTop - root.paddingBottom - dp(240)).coerceIn(0, dp(240))
+        if (rail.layoutParams.height != height) rail.layoutParams = rail.layoutParams.apply { this.height = height }
+        updateTraffic()
+      }
+    }
+    root.viewTreeObserver.addOnPreDrawListener(keepNativeControlsHidden)
     nativeControls = listOfNotNull(
       naviView.bottomComponent,
       naviView.bottomMenuComponent,
@@ -244,28 +317,67 @@ class KakaoGuideActivity : AppCompatActivity(),
       target.setPadding(bars.left, bars.top, bars.right, bars.bottom)
       insets
     }
-    setContentView(root)
-    naviView.initWithGuidance(engine, trip, request.priority, avoidOptions)
+    screen.setContentView(root)
+    if (arrival == null) naviView.initWithGuidance(engine, trip, activePriority, avoidOptions)
+    else naviView.guidance = engine
+    viewState = naviView.viewState
     try {
-      val bottom = MotoGuidePanel(root, ::setPanelReady, ::handlePanelAction)
+      val bottom = MotoGuidePanel(root, ::setPanelReady, ::handlePanelAction, ::updateTraffic)
       panel = bottom
       updatePanel(bottom)
       bottom.load()
     } catch (_: RuntimeException) {
-      panel?.destroy()
+      if (panel == null) setPanelReady(false) else panel?.destroy()
     }
+    return true
   }
+
+  private fun dp(value: Int) = (application.resources.displayMetrics.density * value).roundToInt()
 
   private fun setPanelReady(ready: Boolean) {
     panelReady = ready
-    val observer = guideRoot?.viewTreeObserver ?: return
-    if (ready) {
-      observer.addOnPreDrawListener(keepNativeControlsHidden)
-    } else {
-      observer.removeOnPreDrawListener(keepNativeControlsHidden)
-      hiddenControls.filter { it.visibility == View.GONE }.forEach { it.visibility = View.VISIBLE }
-      hiddenControls.clear()
+    val root = guideRoot ?: return
+    if (!ready && !ended && fallback == null) {
+      fallback = android.widget.Button(root.context).apply {
+        text = "길안내 종료"
+        setOnClickListener { confirmEnd() }
+        root.addView(this, FrameLayout.LayoutParams(-2, dp(48), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
+      }
     }
+    updateTraffic()
+  }
+
+  private fun isSafetyScreen() =
+    viewState == KNNaviViewState.SafetyNormal || viewState == KNNaviViewState.SafetyTouch
+
+  private fun updateTraffic() {
+    val rail = traffic ?: return
+    val engine = guidance
+    val route = engine?.routesOnGuide?.firstOrNull()
+    if (viewState == KNNaviViewState.DriveTouch || viewState == KNNaviViewState.DriveFullRoute) {
+      rail.show(false)
+      return
+    }
+    if (ended || arrival != null || refreshing || route == null) {
+      rail.clear()
+      return
+    }
+    val matched = lastMatched?.takeIf {
+      lastGps?.let { gps -> gps.isFresh() && gps.posTrust } == true && it.route === route
+    }
+    if (trafficStartRoute !== route) {
+      trafficStartRoute = route
+      val first = route.mainRoadList().orEmpty().firstOrNull()?.fromLocation
+      val poi = guideTrip?.start?.let { route.locationOfPoi(it) }
+      trafficStart = listOfNotNull(first, poi).firstOrNull {
+        it.route === route && abs(route.totalDist - route.remainDistFromLocation(it)) <= 3
+      }
+    }
+    val start = matched ?: trafficStart
+    if (start == null) rail.unknown(route)
+    else rail.sample(route, start, matched != null)
+    rail.show(panelReady && panel?.expanded != true && rail.layoutParams.height >= dp(80) &&
+      (viewState == KNNaviViewState.DriveNormal || viewState == KNNaviViewState.NONE))
   }
 
   private fun handlePanelAction(action: String, value: Float?) {
@@ -282,11 +394,16 @@ class KakaoGuideActivity : AppCompatActivity(),
         request?.emit?.invoke("onGuideMenu", Bundle().apply { putInt("id", 107) })
       }
       "refresh" -> if (!refreshing) {
+        panel?.toast("경로 새로고침을 요청했어요")
+        manualRefresh = true
         val recovery = arrival
         if (recovery != null) {
           val gps = lastGps
           if (gps != null && gps.isFresh()) recoverRoute(recovery, gps)
-          else panel?.toast("현재 위치를 확인하고 있어요.")
+          else {
+            manualRefresh = false
+            panel?.toast("현재 위치를 확인하고 있어요.")
+          }
         } else {
           (guidance as? KNDriveGuidance)?.reRouteWithPriority(activePriority, avoidOptions)
         }
@@ -296,7 +413,8 @@ class KakaoGuideActivity : AppCompatActivity(),
 
   private fun updatePanel(target: MotoGuidePanel? = panel) {
     val trip = guidance?.trip ?: guideTrip
-    val state = view?.viewState
+    val state = viewState
+    updateTraffic()
     target?.update(mapOf(
       "goalName" to guideTrip?.goal?.name,
       "currentLocationName" to roadName?.takeIf { lastGps?.isFresh() == true },
@@ -307,6 +425,7 @@ class KakaoGuideActivity : AppCompatActivity(),
         arrival != null -> "목적지 주변입니다"
         else -> null
       },
+      "fullWidthStatus" to if (manualRefresh && refreshing) "경로를 다시 찾고 있어요" else null,
       "showRecenter" to (state == KNNaviViewState.DriveTouch || state == KNNaviViewState.DriveFullRoute || state == KNNaviViewState.SafetyTouch),
       "canRouteEdit" to (started && previewToken == null && remainingVias().size <= 3),
       "busy" to refreshing,
@@ -350,7 +469,8 @@ class KakaoGuideActivity : AppCompatActivity(),
 
   private fun showArrivalPrompt() {
     arrivalPromptShown = true
-    val prompt = AlertDialog.Builder(this)
+    val screen = host ?: return
+    val prompt = AlertDialog.Builder(screen)
       .setTitle("목적지 주변입니다")
       .setMessage("지나치면 복귀 경로를 안내합니다.")
       .setNegativeButton("계속 안내", null)
@@ -373,16 +493,16 @@ class KakaoGuideActivity : AppCompatActivity(),
     val passed = passedVias()
     val vias = remainingVias().toMutableList()
     KNSDK.makeTripWithStart(origin, trip.goal, vias.ifEmpty { null }) { error, next ->
-      runOnUiThread {
-        if (ended || arrival !== recovery) return@runOnUiThread
+      onMain {
+        if (ended || arrival !== recovery) return@onMain
         if (error != null || next == null) {
           recoveryFailed()
-          return@runOnUiThread
+          return@onMain
         }
         next.setRouteConfig(KNRouteConfiguration(KNCarType.KNCarType_Bike))
         next.routeWithPriority(activePriority, avoidOptions) { routeError, routes ->
-          runOnUiThread {
-            if (ended || arrival !== recovery) return@runOnUiThread
+          onMain {
+            if (ended || arrival !== recovery) return@onMain
             if (routeError != null || routes.isNullOrEmpty()) recoveryFailed()
             else {
               recoveryPassed = passed
@@ -397,7 +517,7 @@ class KakaoGuideActivity : AppCompatActivity(),
 
   fun showNotice(message: String) {
     if (panelReady) panel?.toast(message)
-    else android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show()
+    else android.widget.Toast.makeText(application, message, android.widget.Toast.LENGTH_SHORT).show()
   }
 
   private fun remainingVias(): List<KNPOI> =
@@ -412,10 +532,11 @@ class KakaoGuideActivity : AppCompatActivity(),
 
   fun openPreview(token: Int): Map<String, Any?> {
     val trip = guideTrip
+    val screen = host
     val activity = request?.appActivity?.get()
     val vias = remainingVias()
     if (ended || !started || !hasWindowFocus() || previewToken != null || trip == null ||
-      activity == null || activity.isFinishing || vias.size > 3
+      screen == null || activity == null || activity.isFinishing || vias.size > 3
     ) throw CodedException("E_KNSDK_RESUME_STATE", "경로 미리보기를 열 수 없습니다.", null)
     val gps = latestManualGps()
     val start = gps?.let {
@@ -425,14 +546,8 @@ class KakaoGuideActivity : AppCompatActivity(),
     previewPassed = passedVias()
     previewToken = token
     updatePanel()
-    try {
-      startActivity(Intent(this, activity.javaClass).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    } catch (error: RuntimeException) {
-      previewToken = null
-      previewPassed = emptyList()
-      updatePanel()
-      throw error
-    }
+    parked = true
+    screen.finish()
     return mapOf(
       "token" to token, "start" to start, "goal" to point(trip.goal),
       "vias" to vias.map(::point), "passedVias" to previewPassed.map(::point), "priority" to activePriority.value,
@@ -440,10 +555,15 @@ class KakaoGuideActivity : AppCompatActivity(),
   }
 
   fun restoreFromLauncher() {
-    if (previewToken != null || ended || !started || hasWindowFocus()) return
+    if (!started || ended || parked || restoring || host?.isFinishing == false) return
     val current = request ?: return
-    val main = current.appActivity.get()?.takeUnless { it.isFinishing } ?: return
-    main.startActivity(current.guideIntent(main))
+    val main = current.appActivity.get()?.takeIf { !it.isFinishing && it.hasWindowFocus() } ?: return
+    restoring = true
+    try {
+      main.startActivity(current.guideIntent(main))
+    } catch (_: RuntimeException) {
+      restoring = false
+    }
   }
 
   fun returnToGuide(token: Int): Boolean {
@@ -462,7 +582,7 @@ class KakaoGuideActivity : AppCompatActivity(),
     priority: KNRoutePriority, completion: Promise,
   ) {
     val engine = guidance
-    if (ended || previewToken != token || pendingEdit != null || engine == null || view == null) {
+    if (ended || previewToken != token || pendingEdit != null || engine == null) {
       throw CodedException("E_KNSDK_RESUME_STATE", "안내 상태가 변경됐어요.", null)
     }
     val passed = passedVias()
@@ -482,16 +602,16 @@ class KakaoGuideActivity : AppCompatActivity(),
     handler.postDelayed(editRouteTimeout, 25_000)
     requestEditOrigin(edit) { origin ->
       KNSDK.makeTripWithStart(origin, poi(name, lng, lat), nativeVias.ifEmpty { null }) { error, next ->
-        runOnUiThread {
-          if (ended || pendingEdit !== edit) return@runOnUiThread
+        onMain {
+          if (ended || pendingEdit !== edit) return@onMain
           if (error != null || next == null) {
             rejectEdit("E_KNSDK_RESUME_TRIP_${error?.code ?: "UNKNOWN"}")
-            return@runOnUiThread
+            return@onMain
           }
           next.setRouteConfig(KNRouteConfiguration(KNCarType.KNCarType_Bike))
           next.routeWithPriority(priority, avoidOptions) { routeError, routes ->
-            runOnUiThread {
-              if (ended || pendingEdit !== edit) return@runOnUiThread
+            onMain {
+              if (ended || pendingEdit !== edit) return@onMain
               if (routeError != null || routes.isNullOrEmpty()) {
                 rejectEdit("E_KNSDK_RESUME_TRIP_${routeError?.code ?: "UNKNOWN"}")
               } else {
@@ -531,7 +651,7 @@ class KakaoGuideActivity : AppCompatActivity(),
       .setDurationMillis(8_000)
       .build()
     try {
-      LocationServices.getFusedLocationProviderClient(applicationContext)
+      LocationServices.getFusedLocationProviderClient(application)
         .getCurrentLocation(locationRequest, token.token)
         .addOnCompleteListener { task ->
           if (ended || pendingEdit !== edit) return@addOnCompleteListener
@@ -557,6 +677,7 @@ class KakaoGuideActivity : AppCompatActivity(),
     previousPassed = edit.passed
     activePriority = edit.priority
     refreshing = false
+    manualRefresh = false
     pendingEdit = null
     view?.initWithGuidance(engine, trip, activePriority, avoidOptions)
     edit.completion.resolve(mapOf("vias" to edit.vias, "passedVias" to edit.passed.map(::point)))
@@ -568,6 +689,7 @@ class KakaoGuideActivity : AppCompatActivity(),
     handler.removeCallbacks(editRouteTimeout)
     edit.gpsCancellation?.cancel()
     refreshing = false
+    manualRefresh = false
     edit.completion.reject(code, "경로를 변경할 수 없습니다.", null)
     updatePanel()
   }
@@ -586,6 +708,7 @@ class KakaoGuideActivity : AppCompatActivity(),
     recoveryTrip = null
     recoveryPassed = emptyList()
     refreshing = false
+    manualRefresh = false
     updatePanel()
     panel?.toast("복귀 경로를 찾지 못했어요.")
   }
@@ -597,7 +720,8 @@ class KakaoGuideActivity : AppCompatActivity(),
 
   private fun finishGuide(message: String? = null, code: String? = null) {
     completeGuide(message, code)
-    finish()
+    val screen = host
+    if (screen == null) release() else screen.finish()
   }
 
   private fun completeGuide(message: String?, code: String?) {
@@ -612,13 +736,40 @@ class KakaoGuideActivity : AppCompatActivity(),
     guidance?.stop()
   }
 
-  override fun onStop() {
-    super.onStop()
-    if (!started && !ended && request != null) cancelGuide()
+  fun detach(screen: KakaoGuideActivity) {
+    if (host !== screen) return
+    destroyView()
+    host = null
+    if (!parked && !ended && started) {
+      // 메인 singleTask가 런처 복귀 때 위 Activity를 제거한다. 실제 포커스 복귀 뒤 다시 연결한다.
+      handler.postDelayed({ restoreFromLauncher() }, 100)
+      handler.postDelayed({ restoreFromLauncher() }, 350)
+      handler.postDelayed(closeOrphanedGuide, 2_500)
+    } else if (!parked || ended) {
+      completeGuide(null, null)
+      release()
+    }
   }
 
-  override fun onDestroy() {
-    completeGuide(null, null)
+  private fun destroyView() {
+    arrivalPrompt?.dismiss()
+    guideRoot?.viewTreeObserver?.removeOnPreDrawListener(keepNativeControlsHidden)
+    guideRoot = null
+    panel?.destroy()
+    panel = null
+    panelReady = false
+    traffic = null
+    fallback = null
+    directionPopup = null
+    view?.stateDelegate = null
+    view?.guideStateDelegate = null
+    view?.let { (it.parent as? android.view.ViewGroup)?.removeView(it) }
+    view = null
+    guideRoot = null
+    nativeControls = emptyList()
+  }
+
+  private fun release() {
     guidance?.apply {
       guideStateDelegate = null
       locationGuideDelegate = null
@@ -627,24 +778,27 @@ class KakaoGuideActivity : AppCompatActivity(),
       voiceGuideDelegate = null
       citsGuideDelegate = null
     }
-    panel?.destroy()
-    view?.stateDelegate = null
-    view?.guideStateDelegate = null
-    view?.let { (it.parent as? android.view.ViewGroup)?.removeView(it) }
-    super.onDestroy()
+    guidance = null
     if (installed) KNSDK.KNSDKRelease()
+    installed = false
     request?.closed()
     request = null
   }
 
-  override fun naviViewGuideState(state: KNGuideState) = Unit
+  override fun naviViewGuideState(state: KNGuideState) {
+    if (state == KNGuideState.KNGuideState_OnSafetyGuide) holdDestination()
+  }
   override fun naviViewGuideEnded() = finishGuide()
   override fun naviViewDidUpdateStatusBarColor(color: Int) = Unit
   override fun naviViewDidUpdateSndVolume(volume: Float) {
     this.volume = volume
     updatePanel()
   }
-  override fun naviViewScreenState(state: KNNaviViewState) = updatePanel()
+  override fun naviViewScreenState(state: KNNaviViewState) {
+    viewState = state
+    if (isSafetyScreen()) holdDestination()
+    updatePanel()
+  }
   override fun naviViewIsArrival(isArrival: Boolean) = Unit
   override fun naviViewDidUpdateCustomButton(id: Int, toggleOn: Boolean?) = Unit
   override fun naviViewDidUpdateMapCameraMode(mode: MapViewCameraMode) = Unit
@@ -670,6 +824,7 @@ class KakaoGuideActivity : AppCompatActivity(),
       arrivalPromptShown = false
     }
     refreshing = false
+    manualRefresh = false
     updatePanel()
     if (!started) {
       started = true
@@ -681,15 +836,21 @@ class KakaoGuideActivity : AppCompatActivity(),
 
   override fun guidanceGuideEnded(guidance: KNGuidance) {
     if (ended) return
-    if (!started || !panelReady) {
+    if (!started) {
       view?.guidanceGuideEnded(guidance)
       finishGuide()
       return
     }
-    if (guidance.guideState == KNGuideState.KNGuideState_OnRouteGuide || arrival != null || pendingEdit?.trip != null) return
+    holdDestination()
+  }
+
+  private fun holdDestination() {
+    if (ended || !started || guidance?.guideState == KNGuideState.KNGuideState_OnRouteGuide ||
+      arrival != null || pendingEdit?.trip != null) return
     val gps = lastGps?.takeIf { it.isFresh() && it.posTrust }
     arrival = GuideArrivalRecovery(gps?.let(::distanceToGoal) ?: Double.POSITIVE_INFINITY)
     refreshing = false
+    manualRefresh = false
     view?.curDirComponent?.visibility = View.INVISIBLE
     view?.nextDirComponent?.visibility = View.INVISIBLE
     updatePanel()
@@ -705,6 +866,7 @@ class KakaoGuideActivity : AppCompatActivity(),
 
   override fun guidanceRouteUnchanged(guidance: KNGuidance) {
     refreshing = false
+    manualRefresh = false
     view?.guidanceRouteUnchanged(guidance)
     updatePanel()
   }
@@ -717,6 +879,7 @@ class KakaoGuideActivity : AppCompatActivity(),
     } else if (arrival != null) recoveryFailed()
     else {
       refreshing = false
+      manualRefresh = false
       view?.guidanceRouteUnchangedWithError(guidance, error)
       updatePanel()
       panel?.toast("경로를 다시 찾지 못했어요.")
@@ -732,6 +895,7 @@ class KakaoGuideActivity : AppCompatActivity(),
     toRoute: KNRoute, toLocation: KNLocation, reason: KNGuideRouteChangeReason,
   ) {
     refreshing = false
+    manualRefresh = false
     confirmEdit(guidance)
     view?.guidanceRouteChanged(guidance)
     updatePanel()
@@ -750,6 +914,9 @@ class KakaoGuideActivity : AppCompatActivity(),
     view?.guidanceDidUpdateLocation(guidance, locationGuide)
     val gps = locationGuide.gpsOrigin
     lastGps = gps
+    lastMatched = locationGuide.locationForPrimaryRoute
+    handler.removeCallbacks(expireTraffic)
+    handler.postDelayed(expireTraffic, 10_100)
     roadName = locationGuide.location?.roadName?.trim()?.takeIf { it.isNotEmpty() }
     handler.removeCallbacks(expireRoadName)
     handler.postDelayed(expireRoadName, 10_100)
@@ -757,7 +924,7 @@ class KakaoGuideActivity : AppCompatActivity(),
   }
 
   override fun guidanceDidUpdateRouteGuide(guidance: KNGuidance, routeGuide: KNGuide_Route) {
-    if (arrival == null) view?.guidanceDidUpdateRouteGuide(guidance, routeGuide)
+    if (arrival == null && !isSafetyScreen()) view?.guidanceDidUpdateRouteGuide(guidance, routeGuide)
     updatePanel()
   }
 
