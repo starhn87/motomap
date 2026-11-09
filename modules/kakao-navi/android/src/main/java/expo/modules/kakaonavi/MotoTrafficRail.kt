@@ -15,6 +15,9 @@ import com.kakaomobility.knsdk.map.uicustomsupport.renewal.theme.base.KNMapRoute
 import com.kakaomobility.knsdk.trip.kntrip.knroute.KNRoute
 import kotlin.math.abs
 
+internal fun remainingTrafficFraction(remaining: Int, total: Int, hasPosition: Boolean): Float =
+  if (hasPosition && total > 0) remaining.coerceIn(0, total).toFloat() / total else 1f
+
 internal class MotoTrafficRail(context: Context) : View(context) {
   private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
   private val outline = RectF()
@@ -25,7 +28,9 @@ internal class MotoTrafficRail(context: Context) : View(context) {
   private var route: KNRoute? = null
   private var samples = emptyList<KNTrafficState>()
   private var sampledAt = 0L
-  private var remaining = 0
+  private var sampledRemaining = 0
+  private var remainingFraction = 1f
+  private var sampledFraction = 1f
   private var positioned = false
   private var visible = false
 
@@ -40,12 +45,18 @@ internal class MotoTrafficRail(context: Context) : View(context) {
       clear()
       return
     }
+    val fraction = remainingTrafficFraction(distance, route.totalDist, hasPosition)
+    if (remainingFraction != fraction) {
+      remainingFraction = fraction
+      invalidate()
+    }
     val now = SystemClock.elapsedRealtime()
     if (this.route === route && positioned == hasPosition && samples.isNotEmpty() &&
-      now - sampledAt < 10_000 && abs(distance - remaining) < maxOf(100, remaining / 48)
+      now - sampledAt < 10_000 && abs(distance - sampledRemaining) < maxOf(100, sampledRemaining / 48)
     ) return
     this.route = route
-    remaining = distance
+    sampledRemaining = distance
+    sampledFraction = fraction
     sampledAt = now
     positioned = hasPosition
     val count = minOf(48, maxOf(1, distance / 25))
@@ -71,6 +82,8 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     this.route = route
     positioned = false
     sampledAt = 0
+    remainingFraction = 1f
+    sampledFraction = 1f
     samples = listOf(KNTrafficState.KNTrafficState_Unknown)
     contentDescription = "경로 교통 흐름, 정보 없음"
     invalidate()
@@ -97,8 +110,9 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     if (samples.isEmpty()) return
     val unit = resources.displayMetrics.density
     val x = width / 2f
-    val y = height - 11 * unit
-    outline.set(x - 4 * unit, 0f, x + 4 * unit, y)
+    val radius = 11 * unit
+    outline.set(x - 4 * unit, radius, x + 4 * unit, height - radius)
+    val y = outline.top + outline.height() * remainingFraction
     paint.color = Color.WHITE
     canvas.drawRoundRect(outline, 4 * unit, 4 * unit, paint)
     outline.inset(1.5f * unit, 1.5f * unit)
@@ -106,7 +120,15 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     path.addRoundRect(outline, 2.5f * unit, 2.5f * unit, Path.Direction.CW)
     canvas.save()
     canvas.clipPath(path)
-    val step = outline.height() / samples.size
+    // 캐시된 색 구간은 경로의 같은 거리에 두고 현재 위치 아래를 가린다.
+    paint.color = 0xFF787F88.toInt()
+    canvas.drawRect(outline, paint)
+    val liveBottom = outline.top + outline.height() * remainingFraction
+    canvas.clipRect(outline.left, outline.top, outline.right, liveBottom)
+    paint.color = 0xFFB8BBC0.toInt()
+    canvas.drawRect(outline, paint)
+    val sampledBottom = outline.top + outline.height() * sampledFraction
+    val step = (sampledBottom - outline.top) / samples.size
     samples.forEachIndexed { index, state ->
       paint.color = when (state) {
         KNTrafficState.KNTrafficState_Red -> 0xFFF7404A.toInt()
@@ -116,7 +138,7 @@ internal class MotoTrafficRail(context: Context) : View(context) {
         KNTrafficState.KNTrafficState_Blocked -> 0xFF851F29.toInt()
         else -> 0xFFB8BBC0.toInt()
       }
-      segment.set(outline.left, outline.bottom - (index + 1) * step, outline.right, outline.bottom - index * step + .5f)
+      segment.set(outline.left, sampledBottom - (index + 1) * step, outline.right, sampledBottom - index * step + .5f)
       canvas.drawRect(segment, paint)
       if (state == KNTrafficState.KNTrafficState_Blocked) {
         canvas.save()
@@ -133,7 +155,7 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     canvas.restore()
     val accent = if (positioned) 0xFF22C55E.toInt() else 0xFFA1A1AA.toInt()
     paint.color = accent
-    canvas.drawCircle(x, y, 11 * unit, paint)
+    canvas.drawCircle(x, y, radius, paint)
     paint.color = Color.WHITE
     canvas.drawCircle(x, y, 9 * unit, paint)
     paint.color = accent

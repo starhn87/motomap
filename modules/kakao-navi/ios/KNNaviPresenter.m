@@ -841,6 +841,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     }
     [self.trafficBar updateFromLocation:origin
                     remainingDistance:distance
+                        totalDistance:currentRoute.totalDist
                                  time:NSProcessInfo.processInfo.systemUptime];
   }
   BOOL browsing = self.mapDetached || (self.hasNaviScreenState && self.naviScreenState == DriveTouch);
