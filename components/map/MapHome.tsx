@@ -787,7 +787,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     />
   );
   const favoritesAction = (
-    <GlassButton
+    <GlassButton homeMap
       accessibilityLabel={showFavorites ? '즐겨찾기 장소 숨기기' : '즐겨찾기 장소 보기'}
       accessibilityRole="button"
       onPress={() => {
@@ -1085,6 +1085,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           <View style={styles.searchRow}>
             <SearchEntry />
             <GlassButton
+              homeMap
               glassEffectStyle="regular"
               accessibilityLabel="길찾기"
               accessibilityRole="button"
@@ -1139,7 +1140,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           styles.myLocationButton,
           myLocationFollowStyle,
         ]}>
-        <GlassButton glassEffectStyle="regular" accessibilityLabel="내 위치로 이동" accessibilityRole="button" onPress={handleMyLocation}
+        <GlassButton homeMap={!overlay} glassEffectStyle="regular" accessibilityLabel="내 위치로 이동" accessibilityRole="button" onPress={handleMyLocation}
           style={{ width: 48, height: 48, borderRadius: 24 }}>
         <View style={styles.myLocationIconContainer}>
           <View style={[styles.myLocationCrosshair, { borderColor: colors.tint }]}>

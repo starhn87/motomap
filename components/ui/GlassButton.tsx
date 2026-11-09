@@ -2,11 +2,11 @@ import { Pressable, StyleSheet, type PressableProps, type StyleProp, type ViewSt
 import type { ReactNode } from 'react';
 import GlassSurface from './GlassSurface';
 
-type Props = Omit<PressableProps, 'style' | 'children'> & { style?: StyleProp<ViewStyle>; children: ReactNode; compact?: boolean; glassEffectStyle?: 'regular' | 'clear' };
+type Props = Omit<PressableProps, 'style' | 'children'> & { style?: StyleProp<ViewStyle>; children: ReactNode; compact?: boolean; homeMap?: boolean; glassEffectStyle?: 'regular' | 'clear' };
 
 /** 네이티브 글래스의 터치 반응을 사용하고, 미지원 환경에서만 투명도 피드백을 준다. */
-export default function GlassButton({ style, children, disabled, compact = false, glassEffectStyle, onLayout, ...props }: Props) {
-  return <GlassSurface interactive={!disabled} glassEffectStyle={glassEffectStyle} onLayout={onLayout} style={style}>
+export default function GlassButton({ style, children, disabled, compact = false, glassEffectStyle, homeMap, onLayout, ...props }: Props) {
+  return <GlassSurface interactive={!disabled} glassEffectStyle={glassEffectStyle} homeMap={homeMap} onLayout={onLayout} style={style}>
     {native => <Pressable {...props} disabled={disabled} style={({ pressed }) => [styles.content,
       { opacity: disabled ? 0.4 : pressed && !native ? 0.7 : 1 }, compact && styles.compact]}>{children}</Pressable>}
   </GlassSurface>;

@@ -6,11 +6,10 @@ export const semantic = {
   danger: '#EF4444',
 };
 
-// 흰 헤더나 밝은 지도에서 Android 조작부의 바탕과 윤곽을 구분한다.
+// 밝은 페이지에서 Android 조작부를 회색 면으로 구분한다.
 export const androidLightControl = {
-  backgroundColor: '#F2F2F4',
-  borderColor: '#8A8A94',
-  borderWidth: 1,
+  backgroundColor: '#E5E5EA',
+  borderWidth: 0,
 };
 
 export default {

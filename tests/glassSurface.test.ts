@@ -50,13 +50,16 @@ test('모듈 없는 구빌드·미지원 OS/API에서는 native view 모듈을 �
   }
 });
 
-test('Android 라이트 조작부만 회색 표면과 1dp 경계를 쓰고 크기를 유지한다', () => {
+test('Android 라이트 페이지 조작부는 회색 면만 쓰고 홈 지도는 기본 표면을 유지한다', () => {
   const light = flatten(fixture({ os: 'android' }).render().props.style);
   assert.equal(light.backgroundColor, androidLightControl.backgroundColor);
-  assert.equal(light.borderColor, androidLightControl.borderColor);
-  assert.equal(light.borderWidth, 1);
+  assert.equal(light.borderWidth, 0);
   assert.equal(light.width, 44);
   assert.equal(light.height, 44);
+  const home = fixture({ os: 'android' }).render({ homeMap: true });
+  assert.equal(flatten(home.props.style).backgroundColor, 'white');
+  assert.equal(flatten(home.props.style).borderWidth, 0.5);
+  assert.equal(home.props.homeMap, undefined);
   const dark = flatten(fixture({ os: 'android', scheme: 'dark' }).render().props.style);
   assert.equal(dark.backgroundColor, 'dark');
   assert.equal(dark.borderColor, 'dark-border');
