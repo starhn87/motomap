@@ -8,7 +8,7 @@ export const semantic = {
 
 // 밝은 페이지에서 Android 조작부를 회색 면으로 구분한다.
 export const androidLightControl = {
-  backgroundColor: '#EBEBEF',
+  backgroundColor: '#EFEFF2',
   borderWidth: 0,
 };
 
