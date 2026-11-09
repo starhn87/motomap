@@ -36,7 +36,7 @@ import { describeArrivalClosure } from '@/lib/hours';
 import { appAlert } from '@/lib/dialog';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { getOrRequestLocationPermission } from '@/lib/userLocationTracking';
-import Colors from '@/constants/Colors';
+import Colors, { androidLightControl } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { toast } from '@/lib/toast';
 import { useGuideSession, type GuidePreviewContext } from '@/lib/guideSession';
@@ -102,6 +102,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const closeSurface = Platform.OS === 'android' && colorScheme !== 'dark' ? androidLightControl : undefined;
   const { courseVias, courseId } = initial;
 
   // 도착지 — 파라미터는 초기값일 뿐, 상단 카드에서 바꿀 수 있다.
@@ -587,6 +588,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
           style={({ pressed }) => [
             styles.closeButton,
             { top: insets.top + 8, backgroundColor: colors.background, opacity: pressed ? 0.65 : 1 },
+            closeSurface,
           ]}>
           <CloseIcon size={22} color={colors.text} />
         </Pressable>
@@ -675,7 +677,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
               <Pressable accessibilityRole="button" accessibilityLabel="경로 미리보기 닫기"
                 onPress={returnToMap}
                 hitSlop={8}
-                style={({ pressed }) => [styles.routeClose, { opacity: pressed ? 0.65 : 1 }]}>
+                style={({ pressed }) => [styles.routeClose, closeSurface, { opacity: pressed ? 0.65 : 1 }]}>
                 <CloseIcon size={20} color={colors.text} />
               </Pressable>
               {!continuation && <Pressable

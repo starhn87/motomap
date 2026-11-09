@@ -75,7 +75,7 @@ test('Android·웹은 기존 JS 탭과 4개 경로를 유지하고 탭은 화면
     const tabs = tree.props.children;
     assert.deepEqual(nodes(tabs).filter(node => node.type === 'LegacyScreen').map(node => node.props.name), ['index', 'submit', 'courses', 'profile']);
     assert.equal(tabs.props.screenOptions.tabBarStyle.position, 'absolute');
-    assert.equal(tabs.props.screenOptions.tabBarActiveTintColor, '#007AFF');
+    assert.equal(tabs.props.screenOptions.tabBarActiveTintColor, os === 'android' ? colors.tint : colors.tabIconSelected);
     const bar = tabs.props.screenOptions.tabBarStyle;
     assert.equal(bar.height, os === 'android' ? 58 : 56);
     assert.equal(bar.bottom, os === 'android' ? 42 : 44);
@@ -87,6 +87,20 @@ test('Android·웹은 기존 JS 탭과 4개 경로를 유지하고 탭은 화면
     }
     assert.equal(tabs.props.screenOptions.headerTitleStyle.fontWeight, '700');
     assert.equal(tabs.props.screenOptions.headerStyle.backgroundColor, colors.background);
+  }
+});
+
+test('Android 탭은 테마의 강조색과 선택·미선택 아이콘 형태를 사용한다', () => {
+  const expected = [['map', 'map-outline'], ['add-circle', 'add-circle-outline'],
+    ['notifications', 'notifications-outline'], ['person', 'person-outline']];
+  for (const scheme of ['light', 'dark']) {
+    const tabs = layout('android', 0, scheme).tree.props.children;
+    const screens = nodes(tabs).filter(node => node.type === 'LegacyScreen');
+    assert.equal(tabs.props.screenOptions.tabBarActiveTintColor, scheme === 'light' ? colors.tint : '#FAFAFA');
+    screens.forEach((screen, index) => {
+      const icon = (focused: boolean) => screen.props.options.tabBarIcon({ color: 'black', focused }).props.name;
+      assert.deepEqual([icon(true), icon(false)], expected[index]);
+    });
   }
 });
 

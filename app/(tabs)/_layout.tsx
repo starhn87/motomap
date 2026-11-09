@@ -105,7 +105,7 @@ function LegacyTabLayout() {
     <TabOcclusionContext.Provider value={occlusion}>
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.tabIconSelected,
+        tabBarActiveTintColor: android ? colors.tint : colors.tabIconSelected,
         tabBarInactiveTintColor: colors.tabIconDefault,
         // 레이아웃 높이를 먹지 않는 떠 있는 바. 화면 끝보다 조금 위에 둔다.
         tabBarStyle: {
@@ -148,8 +148,8 @@ function LegacyTabLayout() {
         options={{
           title: '지도',
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="map" color={color} scale={mapTab.scale} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={android && !focused ? 'map-outline' : 'map'} color={color} scale={mapTab.scale} />
           ),
           tabBarButton: (props) => <TabButton tab={mapTab} props={props} />,
         }}
@@ -158,8 +158,8 @@ function LegacyTabLayout() {
         name="submit"
         options={{
           title: '제보',
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="add-circle" color={color} scale={submitTab.scale} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={android && !focused ? 'add-circle-outline' : 'add-circle'} color={color} scale={submitTab.scale} />
           ),
           tabBarButton: (props) => <TabButton tab={submitTab} props={props} />,
         }}
@@ -170,8 +170,8 @@ function LegacyTabLayout() {
           title: '활동',
           tabBarBadge: unreadCount > 0 ? '' : undefined,
           tabBarBadgeStyle: { backgroundColor: semantic.danger, minWidth: 7, width: 7, height: 7 },
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="notifications-outline" color={color} scale={coursesTab.scale} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={android && focused ? 'notifications' : 'notifications-outline'} color={color} scale={coursesTab.scale} />
           ),
           tabBarButton: (props) => <TabButton tab={coursesTab} props={props} />,
         }}
@@ -181,8 +181,8 @@ function LegacyTabLayout() {
         options={{
           title: '내 정보',
           headerRight: () => <SettingsButton />,
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="person" color={color} scale={profileTab.scale} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={android && !focused ? 'person-outline' : 'person'} color={color} scale={profileTab.scale} />
           ),
           tabBarButton: (props) => <TabButton tab={profileTab} props={props} />,
         }}

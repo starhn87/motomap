@@ -6,6 +6,13 @@ export const semantic = {
   danger: '#EF4444',
 };
 
+// 흰 헤더나 밝은 지도에서 Android 조작부의 바탕과 윤곽을 구분한다.
+export const androidLightControl = {
+  backgroundColor: '#F2F2F4',
+  borderColor: '#8A8A94',
+  borderWidth: 1,
+};
+
 export default {
   light: {
     text: '#18181B',
