@@ -7,14 +7,14 @@ import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
 import { Stack, router } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
-import { PostHogProvider } from 'posthog-react-native';
+import { PostHogErrorBoundary, PostHogProvider } from 'posthog-react-native';
 
 import PendingAccountLinkPrompt from '@/components/auth/PendingAccountLinkPrompt';
 import LegalConsentScreen from '@/components/auth/LegalConsentScreen';
@@ -31,6 +31,8 @@ import { LOCATION_CONSENT_VERSION } from '@/lib/locationPrivacy';
 import PersonalPlaceRideSync from '@/components/PersonalPlaceRideSync';
 import PlaceCatalogSync from '@/components/PlaceCatalogSync';
 import { useColorScheme } from '@/components/useColorScheme';
+import { ErrorFallback } from '@/components/ErrorFallback';
+import { ErrorTrackingProbeHost } from '@/lib/errorTrackingProbeHost';
 import DialogHost from '@/components/ui/DialogHost';
 import { toastConfig } from '@/components/ui/toastConfig';
 import Colors from '@/constants/Colors';
@@ -152,15 +154,24 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
       </View>
       <PendingAccountLinkPrompt />
       <DialogHost />
+      <ErrorTrackingProbeHost />
     </GestureHandlerRootView>
   );
 
-  if (!posthog) return tree;
+  return tree;
+}
+
+function TrackingShell({ children }: { children: ReactNode }) {
+  if (!posthog) return children;
   return (
     <PostHogProvider
       client={posthog}
       autocapture={{ captureScreens: false, captureTouches: false }}>
-      {tree}
+      <PostHogErrorBoundary
+        fallback={({ resetError }) => <ErrorFallback resetError={resetError} />}
+        additionalProperties={releaseContext}>
+        {children}
+      </PostHogErrorBoundary>
     </PostHogProvider>
   );
 }
@@ -248,4 +259,12 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
   return <ActiveRootLayoutNav onReady={onReady} />;
 }
 
-export default Sentry.wrap(ActiveRootLayout);
+function TrackedActiveRootLayout({ onReady }: { onReady?: () => void }) {
+  return (
+    <TrackingShell>
+      <ActiveRootLayout onReady={onReady} />
+    </TrackingShell>
+  );
+}
+
+export default Sentry.wrap(TrackedActiveRootLayout);

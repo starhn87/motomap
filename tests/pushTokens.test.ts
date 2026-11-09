@@ -132,6 +132,7 @@ function fixture() {
       captureMessage: (message: string, level: string) => reports.push({ message, level }),
     },
     '@/lib/supabase': { supabase },
+    '@/lib/errorTracking': { captureHandledException() {} },
   }, {
     AbortController,
     Date: class extends Date { static now() { return now; } },
@@ -328,6 +329,7 @@ test('실제 Auth store에서도 로그아웃 실패 시 복구된 토큰과 로
     zustand: { create: createStore }, '@sentry/react-native': { setUser() {} },
     '@/lib/supabase': { supabase: { auth: { signOut: async () => ({ error: new Error('offline') }) } } },
     '@/lib/authStorage': {}, '@/lib/authRestoreError': restoreErrors, '@/lib/queryClient': {}, '@/lib/analytics': {},
+    '@/lib/errorTracking': { captureHandledException() {} },
     '@/lib/pushTokens': f.api, '@/lib/legalConsent': {},
   });
   store.setState({ status: 'signed_in', user, session: { user } });

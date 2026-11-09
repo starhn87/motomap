@@ -3,6 +3,9 @@ import * as Updates from 'expo-updates';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 
+import { ErrorFallback } from '@/components/ErrorFallback';
+import { captureHandledException } from '@/lib/errorTracking';
+
 import ServiceLoadingScreen from '@/components/ServiceLoadingScreen';
 import ServiceResumeScreen from '@/components/ServiceResumeScreen';
 import ServiceSuspendedScreen from '@/components/ServiceSuspendedScreen';
@@ -12,7 +15,12 @@ import { fetchServiceStatus, resolveServiceGate } from '@/lib/serviceStatus';
 import { scheduleStartupSplashHide, STARTUP_SPLASH_FADE_MS } from '@/lib/startupSplash';
 import { setupResumeStoreLink } from '@/lib/setupServiceResumeNotification';
 
-export { ErrorBoundary } from 'expo-router';
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Promise<void> }) {
+  useEffect(() => {
+    captureHandledException(error, { area: 'route_render' });
+  }, [error]);
+  return <ErrorFallback resetError={() => { void retry(); }} />;
+}
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',

@@ -45,6 +45,7 @@
 | 활동 탭·내 제보·리뷰·알림·푸시 토큰 수명주기 | [notifications.md](notifications.md) | `components/activity/`, `lib/push.ts`, `lib/pushTokens.ts`, `components/ActiveRootLayout.tsx` |
 | Jev 판단 관찰 | [jev-observation.md](jev-observation.md) | `supabase/functions/_shared/jevChat.ts`, `jevSubmission.ts` |
 | 릴리스·버전 호환성 | [release-compatibility.md](release-compatibility.md) | `config/release-policy.json`, `lib/appCompatibility.ts`, `modules/kakao-navi/`, `.github/workflows/checks.yml` |
+| 오류 수집 | [error-tracking.md](error-tracking.md) | `lib/errorTracking.ts`, `lib/analytics.ts`, `metro.config.js`, `app.config.js` |
 | 의존성 업데이트 | [dependency-updates.md](dependency-updates.md) | `.github/dependabot.yml`, npm 락파일, GitHub Actions |
 | 앱 서체 | [typography.md](typography.md) | `components/ui/AppText.tsx`, `lib/typography.ts`, `assets/fonts/` |
 

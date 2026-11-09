@@ -19,6 +19,8 @@ async function startup(outcomes: ResumeStartupOutcome[]) {
     'react/jsx-runtime': { jsx: () => null, jsxs: () => null },
     'react-native': { View: 'View' }, 'expo-router': {},
     '@/components/ServiceLoadingScreen': {}, '@/components/ServiceResumeScreen': {}, '@/components/ServiceSuspendedScreen': {},
+    '@/components/ErrorFallback': { ErrorFallback: () => null },
+    '@/lib/errorTracking': { captureHandledException() {} },
     '@/constants/app': { APP_STORE_URL: 'https://apps.apple.com/kr/app/id6773636183' },
     '@/lib/appVersion': { getInstalledAppVersion: () => '1.2.8' },
     '@/lib/serviceStatus': { fetchServiceStatus: async () => ({}), resolveServiceGate: () => 'check-update' },

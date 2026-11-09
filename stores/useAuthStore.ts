@@ -8,6 +8,7 @@ import {
 } from '@/lib/authRestoreError';
 import { queryClient } from '@/lib/queryClient';
 import { identifyUser, resetUser } from '@/lib/analytics';
+import { captureHandledException } from '@/lib/errorTracking';
 import { signOutWithPushTokenCleanup } from '@/lib/pushTokens';
 import { hasCurrentLegalConsent } from '@/lib/legalConsent';
 import type { User, Session } from '@supabase/supabase-js';
@@ -70,6 +71,12 @@ function captureAuthRestoreError(error: unknown, stage: AuthRestoreStage) {
       });
     }
     Sentry.captureException(normalized);
+  });
+  // details·hint 는 행 값을 담을 수 있어 PostHog에는 단계와 코드만 남긴다.
+  captureHandledException(normalized, {
+    area: 'auth_restore',
+    auth_restore_stage: stage,
+    ...(code ? { error_code: code } : {}),
   });
 }
 
