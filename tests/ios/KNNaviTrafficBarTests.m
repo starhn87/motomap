@@ -1,6 +1,11 @@
 #import "KNNaviTrafficBar.h"
+#import "KNNaviTheme.h"
 #import <limits.h>
 #import "KNSDKBridge.h"
+
+@interface KNNaviTrafficBar (Tests)
+- (CGFloat)positionY;
+@end
 
 @interface KNNaviViewController : UIViewController
 - (void)refreshTrafficBar;
@@ -135,14 +140,14 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   KNNaviTrafficBar *bar = [[KNNaviTrafficBar alloc] initWithFrame:CGRectMake(0, 0, 24, 240)];
   NSUInteger before = location.reads;
   [bar updateFromLocation:(KNLocation *)location remainingDistance:4800 totalDistance:4800 time:100];
-  [bar setVisible:YES animated:NO];
-  [bar setNeedsLayout];
-  [bar layoutIfNeeded];
-  UIView *arrow = [bar valueForKey:@"positionIcon"];
-  CGFloat startY = arrow.center.y;
+  CGFloat startY = [bar positionY];
   [bar updateFromLocation:(KNLocation *)location remainingDistance:4760 totalDistance:4800 time:101];
-  [bar layoutIfNeeded];
-  check(arrow.center.y < startY, @"marker advances between traffic samples");
+  check([bar positionY] < startY, @"marker advances between traffic samples");
+  CGRect vehicleArrow = [KNNaviTheme vehicleArrowAtCenter:CGPointZero diameter:54].bounds;
+  CGRect railArrow = [KNNaviTheme vehicleArrowAtCenter:CGPointZero diameter:22].bounds;
+  check(fabs(vehicleArrow.size.width / 54 - railArrow.size.width / 22) < 0.001 &&
+        fabs(vehicleArrow.size.height / 54 - railArrow.size.height / 22) < 0.001,
+        @"vehicle and rail share the same arrow proportions");
   check(location.reads == before + 48, @"GPS cadence does not resample");
   [bar updateFromLocation:(KNLocation *)location remainingDistance:4799 totalDistance:4800 time:110];
   check(location.reads == before + 96, @"traffic refresh at10sec even stationary");

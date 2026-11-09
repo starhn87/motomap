@@ -40,7 +40,6 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
 @property(nonatomic) SInt32 remainingDistance;
 @property(nonatomic) CGFloat remainingFraction;
 @property(nonatomic) CGFloat sampledFraction;
-@property(nonatomic, strong) UIImageView *positionIcon;
 @end
 
 @implementation KNNaviTrafficBar
@@ -58,11 +57,6 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
     self.accessibilityLabel = @"남은 경로 교통 흐름";
     self.accessibilityHint = @"아래가 출발지, 위가 목적지입니다. 화살표는 현재 위치입니다. 구간별 평균 교통 상황입니다.";
     self.accessibilityIdentifier = @"guide-route-traffic-bar";
-    self.positionIcon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"location.north.fill"]];
-    self.positionIcon.tintColor = [UIColor colorWithRed:0x22 / 255.0 green:0xC5 / 255.0 blue:0x5E / 255.0 alpha:1];
-    self.positionIcon.contentMode = UIViewContentModeScaleAspectFit;
-    self.positionIcon.isAccessibilityElement = NO;
-    [self addSubview:self.positionIcon];
   }
   return self;
 }
@@ -71,7 +65,6 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
 }
 - (void)layoutSubviews {
   [super layoutSubviews];
-  self.positionIcon.frame = CGRectMake(6, [self positionY] - 6, 12, 12);
   [self setNeedsDisplay];
 }
 - (void)traitCollectionDidChange:(UITraitCollection *)previous {
@@ -107,7 +100,6 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
   self.remainingDistance = 0;
   self.remainingFraction = 1;
   self.sampledFraction = 1;
-  [self setNeedsLayout];
   self.accessibilityValue = nil;
   [self setVisible:NO animated:NO];
   [self setNeedsDisplay];
@@ -115,9 +107,6 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
 - (void)setPositionAvailable:(BOOL)available {
   if (_positionAvailable == available) return;
   _positionAvailable = available;
-  self.positionIcon.tintColor = available ?
-      [UIColor colorWithRed:0x22 / 255.0 green:0xC5 / 255.0 blue:0x5E / 255.0 alpha:1] :
-      [UIColor colorWithRed:0xA1 / 255.0 green:0xA1 / 255.0 blue:0xAA / 255.0 alpha:1];
   self.accessibilityLabel = available ? @"남은 경로 교통 흐름" : @"경로 교통 흐름";
   self.accessibilityHint = available ? @"아래가 출발지, 위가 목적지입니다. 화살표는 현재 위치입니다. 구간별 평균 교통 상황입니다." :
       @"GPS 수신 대기 중인 전체 경로의 평균 교통 상황입니다.";
@@ -129,7 +118,6 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
   CGFloat fraction = self.positionAvailable && total > 0 ? MIN(distance, total) / (CGFloat)total : 1;
   if (fraction != self.remainingFraction) {
     self.remainingFraction = fraction;
-    [self setNeedsLayout];
     [self setNeedsDisplay];
   }
   // 위치 화살표는 표본 재조회 간격과 별개로 매 GPS에서 움직인다.
@@ -179,7 +167,7 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
   CGContextSaveGState(context);
   [[UIBezierPath bezierPathWithRoundedRect:track cornerRadius:2.5] addClip];
   // 캐시된 색 구간을 경로 거리 기준으로 배치하고 통과한 부분은 가린다.
-  [[UIColor colorWithRed:0x78 / 255.0 green:0x7F / 255.0 blue:0x88 / 255.0 alpha:1] setFill];
+  [[UIColor colorWithRed:0xA1 / 255.0 green:0xA8 / 255.0 blue:0xB1 / 255.0 alpha:1] setFill];
   UIRectFill(track);
   CGRect live = track;
   live.size.height *= self.remainingFraction;
@@ -208,15 +196,21 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
     }
   }
   CGContextRestoreGState(context);
-  CGRect position = CGRectMake(1, [self positionY] - 11, 22, 22);
-  UIBezierPath *circle = [UIBezierPath bezierPathWithOvalInRect:position];
+  CGPoint center = CGPointMake(12, [self positionY]);
+  CGRect position = CGRectMake(center.x - 11, center.y - 11, 22, 22);
+  UIBezierPath *circle = [UIBezierPath bezierPathWithOvalInRect:CGRectInset(position, 0.75, 0.75)];
   CGContextSaveGState(context);
   CGContextSetShadowWithColor(context, CGSizeMake(0, 1), 2, [UIColor colorWithWhite:0 alpha:0.2].CGColor);
   [UIColor.whiteColor setFill];
   [circle fill];
   CGContextRestoreGState(context);
-  [self.positionIcon.tintColor setStroke];
+  UIColor *accent = self.positionAvailable ?
+      [UIColor colorWithRed:0x22 / 255.0 green:0xC5 / 255.0 blue:0x5E / 255.0 alpha:1] :
+      [UIColor colorWithRed:0xA1 / 255.0 green:0xA1 / 255.0 blue:0xAA / 255.0 alpha:1];
+  [accent setStroke];
   circle.lineWidth = 1.5;
   [circle stroke];
+  [accent setFill];
+  [[KNNaviTheme vehicleArrowAtCenter:center diameter:position.size.width] fill];
 }
 @end

@@ -173,10 +173,11 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     canvas.drawCircle(x, y, 9 * unit, paint)
     paint.color = accent
     path.reset()
-    path.moveTo(x, y - 7.5f * unit)
-    path.lineTo(x + 6 * unit, y + 4.5f * unit)
-    path.lineTo(x, y + 1.5f * unit)
-    path.lineTo(x - 6 * unit, y + 4.5f * unit)
+    // 지도 자차(navi_car_on_bike)의 원 대비 화살표 비율을 따른다.
+    path.moveTo(x, y - 4.6f * unit)
+    path.lineTo(x + 5.5f * unit, y + 4f * unit)
+    path.lineTo(x, y + 1.6f * unit)
+    path.lineTo(x - 5.5f * unit, y + 4f * unit)
     path.close()
     canvas.drawPath(path, paint)
   }
