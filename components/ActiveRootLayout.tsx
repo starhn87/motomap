@@ -23,6 +23,7 @@ import GlassButton from '@/components/ui/GlassButton';
 import BackIcon from '@/components/ui/BackIcon';
 import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
 import { MapOverlayHost } from '@/components/map/MapOverlayLayer';
+import { ANDROID_TOP_CONTROL_GAP, HEADER_CONTROL_SIZE } from '@/components/navigation/headerSpacing';
 import { HeaderScrollProvider } from '@/components/navigation/headerScroll';
 import ServiceLoadingScreen from '@/components/ServiceLoadingScreen';
 import ServiceResumeScreen from '@/components/ServiceResumeScreen';
@@ -73,17 +74,20 @@ if (sentryDsn) {
 function AppHeader({ title, colorScheme, glass = false }: { title: string; colorScheme: 'light' | 'dark'; glass?: boolean }) {
   const insets = useSafeAreaInsets();
   const colors = Colors[colorScheme];
+  const rowHeight = glass ? HEADER_CONTROL_SIZE : 48;
+  const centeredGap = (rowHeight - HEADER_CONTROL_SIZE) / 2;
+  const topPadding = Platform.OS === 'android' ? ANDROID_TOP_CONTROL_GAP - centeredGap : 0;
   return (
     <View
       style={{
-        paddingTop: insets.top,
+        paddingTop: insets.top + topPadding,
         backgroundColor: glass ? 'transparent' : colors.background,
       }}>
       {glass && <HeaderBackdrop />}
-      <View style={{ height: glass ? 44 : 48, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ height: rowHeight, alignItems: 'center', justifyContent: 'center' }}>
         {router.canGoBack() && (
           <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()}
-            style={{ position: 'absolute', left: 16, width: 44, height: 44, borderRadius: 22 }}>
+            style={{ position: 'absolute', left: 16, width: HEADER_CONTROL_SIZE, height: HEADER_CONTROL_SIZE, borderRadius: HEADER_CONTROL_SIZE / 2 }}>
             <BackIcon size={26} color={colors.text} />
           </GlassButton>
         )}

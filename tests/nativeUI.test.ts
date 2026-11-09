@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as headerSpacing from '../components/navigation/headerSpacing';
 import { loadModule } from './helpers/loadModule';
 
 const jsx = (type: any, props: any) => ({ type, props });
@@ -94,6 +95,7 @@ test('설정 화면은 네이티브 행에서도 업데이트·테마·로그인
     'expo-router': { router: { push: (path: string) => routes.push(path), replace() {} } },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 60, bottom: 30 }) },
     '@/components/navigation/headerScroll': { useTrackHeaderScroll: () => () => {} },
+    '@/components/navigation/headerSpacing': headerSpacing,
     '@expo/vector-icons/Ionicons': exported('Icon'),
     '@/hooks/useAppUpdate': { useAppUpdate: () => ({ current: '1.2.11', hasUpdate, openStore: () => storeOpens++ }) },
     '@/stores/useAuthStore': { useAuthStore: (select: any) => select({ user }) },

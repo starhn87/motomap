@@ -68,6 +68,7 @@ import HazardSheet from '@/components/map/HazardSheet';
 import { coordToAddress } from '@/lib/api/kakaoLocal';
 import { resolveSymbolPlace } from '@/lib/symbolPlace';
 import SearchEntry from '@/components/search/SearchEntry';
+import { ANDROID_TOP_CONTROL_GAP } from '@/components/navigation/headerSpacing';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import type { Href } from 'expo-router';
@@ -659,6 +660,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 오버레이 지도에는 탭이 없다.
   const tabOcclusion = useTabOcclusion(!overlay);
   const insets = useSafeAreaInsets();
+  const topControls = Platform.OS === 'android' ? insets.top + ANDROID_TOP_CONTROL_GAP : 60;
   const tabOcclusionSv = useSharedValue(tabOcclusion);
   useEffect(() => { tabOcclusionSv.value = tabOcclusion; }, [tabOcclusion, tabOcclusionSv]);
 
@@ -1026,14 +1028,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           style={[
             styles.backButton,
             styles.backButtonOverlay,
-            { borderRadius: 22 },
+            { top: topControls, borderRadius: 22 },
           ]}>
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </GlassButton>
       ) : (
         <Animated.View
           pointerEvents="box-none"
-          style={styles.searchAndFilter}>
+          style={[styles.searchAndFilter, { top: topControls }]}>
           <View style={styles.searchRow}>
             <SearchEntry />
             <GlassButton
@@ -1190,7 +1192,6 @@ const styles = StyleSheet.create({
   },
   searchAndFilter: {
     position: 'absolute',
-    top: 60,
     left: 0,
     right: 0,
     zIndex: 5,
@@ -1213,8 +1214,6 @@ const styles = StyleSheet.create({
   },
   backButtonOverlay: {
     position: 'absolute',
-    // 검색바와 같은 상단 기준(60) — 화면마다 눈높이가 안 바뀐다
-    top: 60,
     left: 16,
     zIndex: 5,
     elevation: 5,
