@@ -11,11 +11,19 @@ export function MapOverlayHost() {
   </View>;
 }
 
-export default function MapOverlayLayer({ focused, children }: { focused: boolean; children: ReactNode }) {
-  return <Portal hostName={HOST}>
+export default function MapOverlayLayer({ focused, inline = false, children }: {
+  focused: boolean;
+  inline?: boolean;
+  children: ReactNode;
+}) {
+  const layer = (
     <View collapsable={false} pointerEvents="box-none"
-      style={[StyleSheet.absoluteFill, { display: focused ? 'flex' : 'none' }]}>
+      style={[StyleSheet.absoluteFill, { display: focused ? 'flex' : 'none' }, inline && styles.stackLayer]}>
       {children}
     </View>
-  </Portal>;
+  );
+  // 스택 지도는 탭을 덮을 필요가 없고 Android에서 루트 포털이 스택 뒤에 가려질 수 있다.
+  return inline ? layer : <Portal hostName={HOST}>{layer}</Portal>;
 }
+
+const styles = StyleSheet.create({ stackLayer: { zIndex: 100, elevation: 100 } });
