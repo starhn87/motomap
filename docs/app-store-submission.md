@@ -2,6 +2,8 @@
 
 1.3.1 iOS 바이너리는 앱 버전과 Expo 런타임 1.3.1, production 채널로 TestFlight에 업로드한다. 활동에서 승인 제보·리뷰 진입, 장소 상세 시트, 길안내 교통 막대를 확인한다.
 
+1.3.1(81)의 서명된 IPA를 로컬 EAS production으로 만들었고, 제출 `bda8b064-fd3d-4f59-935d-7a37b0635e6f`로 App Store Connect 업로드가 완료됐다. Apple 처리 결과는 TestFlight에서 확인한다.
+
 ## 2026-11-08 App Store 제출 후보 — 1.3.0
 
 1.3.0에는 앱 버전과 런타임이 모두 1.3.0인 iOS 바이너리를 연결한다. 기존 1.2.11 TestFlight 빌드 77 이후 OTA의 날씨·사진 변경은 새 바이너리에 포함한다.
