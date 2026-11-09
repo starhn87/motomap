@@ -1,6 +1,11 @@
 #import "KNNaviTrafficBar.h"
+#import "KNNaviTheme.h"
 #import <limits.h>
 #import "KNSDKBridge.h"
+
+@interface KNNaviTrafficBar (Tests)
+- (CGFloat)positionY;
+@end
 
 @interface KNNaviViewController : UIViewController
 - (void)refreshTrafficBar;
@@ -134,17 +139,24 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
 
   KNNaviTrafficBar *bar = [[KNNaviTrafficBar alloc] initWithFrame:CGRectMake(0, 0, 24, 240)];
   NSUInteger before = location.reads;
-  [bar updateFromLocation:(KNLocation *)location remainingDistance:4800 time:100];
-  [bar updateFromLocation:(KNLocation *)location remainingDistance:4799 time:101];
+  [bar updateFromLocation:(KNLocation *)location remainingDistance:4800 totalDistance:4800 time:100];
+  CGFloat startY = [bar positionY];
+  [bar updateFromLocation:(KNLocation *)location remainingDistance:4760 totalDistance:4800 time:101];
+  check([bar positionY] < startY, @"marker advances between traffic samples");
+  CGRect vehicleArrow = [KNNaviTheme vehicleArrowAtCenter:CGPointZero diameter:54].bounds;
+  CGRect railArrow = [KNNaviTheme vehicleArrowAtCenter:CGPointZero diameter:22].bounds;
+  check(fabs(vehicleArrow.size.width / 54 - railArrow.size.width / 22) < 0.001 &&
+        fabs(vehicleArrow.size.height / 54 - railArrow.size.height / 22) < 0.001,
+        @"vehicle and rail share the same arrow proportions");
   check(location.reads == before + 48, @"GPS cadence does not resample");
-  [bar updateFromLocation:(KNLocation *)location remainingDistance:4799 time:110];
+  [bar updateFromLocation:(KNLocation *)location remainingDistance:4799 totalDistance:4800 time:110];
   check(location.reads == before + 96, @"traffic refresh at10sec even stationary");
-  [bar updateFromLocation:(KNLocation *)location remainingDistance:4600 time:111];
+  [bar updateFromLocation:(KNLocation *)location remainingDistance:4600 totalDistance:4800 time:111];
   check(location.reads == before + 144, @"distance advance refreshes profile");
   check(!bar.userInteractionEnabled && [bar.accessibilityValue containsString:@"원활"], @"noninteractive and accessible traffic summary");
   [bar reset];
   check(bar.hidden && !bar.states.count && !bar.accessibilityValue, @"reset removes profile and accessibility value");
-  [bar updateFromLocation:(KNLocation *)location remainingDistance:20 time:112];
+  [bar updateFromLocation:(KNLocation *)location remainingDistance:20 totalDistance:4800 time:112];
   check(bar.states.count == 20, @"route replacement bypasses old cache");
 
   CGRect frame = KNNaviTrafficBarFrame(CGRectMake(0, 59, 393, 759), 200, 700);
@@ -262,7 +274,7 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   for (NSUInteger i = 0; i < 2; i++) {
     KNNaviTrafficBar *sample = [[KNNaviTrafficBar alloc] initWithFrame:CGRectMake(56 + 96 * i, 32, 24, 240)];
     sample.overrideUserInterfaceStyle = i ? UIUserInterfaceStyleDark : UIUserInterfaceStyleLight;
-    [sample updateFromLocation:(KNLocation *)location remainingDistance:4800 time:100];
+    [sample updateFromLocation:(KNLocation *)location remainingDistance:4800 totalDistance:i ? 9600 : 4800 time:100];
     sample.hidden = NO;
     [preview addSubview:sample];
   }
