@@ -19,6 +19,9 @@ internal fun remainingTrafficFraction(remaining: Int, total: Int, hasPosition: B
   if (hasPosition && total > 0) remaining.coerceIn(0, total).toFloat() / total else 1f
 
 internal class MotoTrafficRail(context: Context) : View(context) {
+  private data class Profile(val states: List<KNTrafficState>, val fraction: Float)
+
+  private val unknown = 0xFFB8BBC0.toInt()
   private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
   private val outline = RectF()
   private val segment = RectF()
@@ -26,13 +29,22 @@ internal class MotoTrafficRail(context: Context) : View(context) {
   private val colors = KNTrafficState.entries.associateBy { it.value }
   private val smooth = KNMapRouteTheme.trafficDay().lineColors.normal
   private var route: KNRoute? = null
-  private var samples = emptyList<KNTrafficState>()
+  private var profile: Profile? = null
+  private var previousProfile: Profile? = null
   private var sampledAt = 0L
   private var sampledRemaining = 0
-  private var remainingFraction = 1f
-  private var sampledFraction = 1f
+  private var displayedFraction = 1f
+  private var targetFraction = 1f
   private var positioned = false
   private var visible = false
+  private val progressAnimator = ValueAnimator().apply {
+    duration = 300
+    addUpdateListener {
+      displayedFraction = it.animatedValue as Float
+      if (it.animatedFraction >= 1f) previousProfile = null
+      invalidate()
+    }
+  }
 
   init {
     alpha = 0f
@@ -46,22 +58,24 @@ internal class MotoTrafficRail(context: Context) : View(context) {
       return
     }
     val fraction = remainingTrafficFraction(distance, route.totalDist, hasPosition)
-    if (remainingFraction != fraction) {
-      remainingFraction = fraction
-      invalidate()
-    }
+    val samePositionMode = this.route === route && positioned == hasPosition
+    setProgress(fraction, visible && samePositionMode && hasPosition && ValueAnimator.areAnimatorsEnabled())
     val now = SystemClock.elapsedRealtime()
-    if (this.route === route && positioned == hasPosition && samples.isNotEmpty() &&
+    if (samePositionMode && profile != null &&
       now - sampledAt < 10_000 && abs(distance - sampledRemaining) < maxOf(100, sampledRemaining / 48)
     ) return
     this.route = route
     sampledRemaining = distance
-    sampledFraction = fraction
     sampledAt = now
     positioned = hasPosition
+    // 새 표본이 시작되는 곳까지 화살표가 갈 동안, 이미 그려 둔 색을 유지한다.
+    val oldProfile = profile
+    if (progressAnimator.isRunning && fraction < displayedFraction &&
+      oldProfile != null && oldProfile.fraction > (previousProfile?.fraction ?: fraction)
+    ) previousProfile = oldProfile
     val count = minOf(48, maxOf(1, distance / 25))
     var previous = from
-    samples = List(count) { index ->
+    val samples = List(count) { index ->
       val end = from.locationAfterDist(minOf(distance - 1, distance * (index + 1) / count))
       if (end == null || end.route !== route || end.distFromS <= previous.distFromS) {
         KNTrafficState.KNTrafficState_Unknown
@@ -72,9 +86,24 @@ internal class MotoTrafficRail(context: Context) : View(context) {
         status
       }
     }
+    profile = Profile(samples, fraction)
     contentDescription = if (hasPosition) "남은 경로 교통 흐름, ${distance / 1000.0}킬로미터"
       else "경로 교통 흐름, GPS 수신 대기"
     invalidate()
+  }
+
+  private fun setProgress(fraction: Float, animated: Boolean) {
+    if (fraction == targetFraction && (animated || !progressAnimator.isRunning)) return
+    progressAnimator.cancel()
+    targetFraction = fraction
+    if (animated && displayedFraction != fraction) {
+      progressAnimator.setFloatValues(displayedFraction, fraction)
+      progressAnimator.start()
+    } else {
+      displayedFraction = fraction
+      previousProfile = null
+      invalidate()
+    }
   }
 
   fun unknown(route: KNRoute) {
@@ -82,17 +111,17 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     this.route = route
     positioned = false
     sampledAt = 0
-    remainingFraction = 1f
-    sampledFraction = 1f
-    samples = listOf(KNTrafficState.KNTrafficState_Unknown)
+    setProgress(1f, false)
+    profile = Profile(listOf(KNTrafficState.KNTrafficState_Unknown), 1f)
     contentDescription = "경로 교통 흐름, 정보 없음"
     invalidate()
   }
 
   fun show(show: Boolean) {
-    val target = show && samples.isNotEmpty()
+    val target = show && profile != null
     if (visible == target) return
     visible = target
+    if (!target) setProgress(targetFraction, false)
     importantForAccessibility = if (target) IMPORTANT_FOR_ACCESSIBILITY_YES else IMPORTANT_FOR_ACCESSIBILITY_NO
     animate().cancel()
     if (ValueAnimator.areAnimatorsEnabled()) animate().alpha(if (target) 1f else 0f).setDuration(170).start()
@@ -101,18 +130,25 @@ internal class MotoTrafficRail(context: Context) : View(context) {
 
   fun clear() {
     route = null
-    samples = emptyList()
+    profile = null
+    previousProfile = null
+    setProgress(1f, false)
     show(false)
     invalidate()
   }
 
+  override fun onDetachedFromWindow() {
+    setProgress(targetFraction, false)
+    super.onDetachedFromWindow()
+  }
+
   override fun onDraw(canvas: Canvas) {
-    if (samples.isEmpty()) return
+    val currentProfile = profile ?: return
     val unit = resources.displayMetrics.density
     val x = width / 2f
     val radius = 11 * unit
     outline.set(x - 4 * unit, radius, x + 4 * unit, height - radius)
-    val y = outline.top + outline.height() * remainingFraction
+    val y = outline.top + outline.height() * displayedFraction
     paint.color = Color.WHITE
     canvas.drawRoundRect(outline, 4 * unit, 4 * unit, paint)
     outline.inset(1.5f * unit, 1.5f * unit)
@@ -123,20 +159,39 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     // 캐시된 색 구간은 경로의 같은 거리에 두고 현재 위치 아래를 가린다.
     paint.color = 0xFF787F88.toInt()
     canvas.drawRect(outline, paint)
-    val liveBottom = outline.top + outline.height() * remainingFraction
+    val liveBottom = outline.top + outline.height() * displayedFraction
     canvas.clipRect(outline.left, outline.top, outline.right, liveBottom)
-    paint.color = 0xFFB8BBC0.toInt()
+    paint.color = unknown
     canvas.drawRect(outline, paint)
-    val sampledBottom = outline.top + outline.height() * sampledFraction
-    val step = (sampledBottom - outline.top) / samples.size
-    samples.forEachIndexed { index, state ->
+    previousProfile?.let { drawProfile(canvas, it, unit) }
+    drawProfile(canvas, currentProfile, unit)
+    canvas.restore()
+    val accent = if (positioned) 0xFF22C55E.toInt() else 0xFFA1A1AA.toInt()
+    paint.color = accent
+    canvas.drawCircle(x, y, radius, paint)
+    paint.color = Color.WHITE
+    canvas.drawCircle(x, y, 9 * unit, paint)
+    paint.color = accent
+    path.reset()
+    path.moveTo(x, y - 5 * unit)
+    path.lineTo(x + 4 * unit, y + 3 * unit)
+    path.lineTo(x, y + unit)
+    path.lineTo(x - 4 * unit, y + 3 * unit)
+    path.close()
+    canvas.drawPath(path, paint)
+  }
+
+  private fun drawProfile(canvas: Canvas, profile: Profile, unit: Float) {
+    val sampledBottom = outline.top + outline.height() * profile.fraction
+    val step = (sampledBottom - outline.top) / profile.states.size
+    profile.states.forEachIndexed { index, state ->
       paint.color = when (state) {
         KNTrafficState.KNTrafficState_Red -> 0xFFF7404A.toInt()
         KNTrafficState.KNTrafficState_Orange -> 0xFFFF990D.toInt()
         KNTrafficState.KNTrafficState_Yellow -> 0xFFFFD926.toInt()
         KNTrafficState.KNTrafficState_Blue -> smooth
         KNTrafficState.KNTrafficState_Blocked -> 0xFF851F29.toInt()
-        else -> 0xFFB8BBC0.toInt()
+        else -> unknown
       }
       segment.set(outline.left, sampledBottom - (index + 1) * step, outline.right, sampledBottom - index * step + .5f)
       canvas.drawRect(segment, paint)
@@ -152,19 +207,5 @@ internal class MotoTrafficRail(context: Context) : View(context) {
         canvas.restore()
       }
     }
-    canvas.restore()
-    val accent = if (positioned) 0xFF22C55E.toInt() else 0xFFA1A1AA.toInt()
-    paint.color = accent
-    canvas.drawCircle(x, y, radius, paint)
-    paint.color = Color.WHITE
-    canvas.drawCircle(x, y, 9 * unit, paint)
-    paint.color = accent
-    path.reset()
-    path.moveTo(x, y - 5 * unit)
-    path.lineTo(x + 4 * unit, y + 3 * unit)
-    path.lineTo(x, y + unit)
-    path.lineTo(x - 4 * unit, y + 3 * unit)
-    path.close()
-    canvas.drawPath(path, paint)
   }
 }
