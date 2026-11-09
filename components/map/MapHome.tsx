@@ -1132,7 +1132,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       <PlaceBottomSheet
         place={selectedPlace}
         onClose={closePlaceDetail}
-        animatedPosition={sheetPosition}
+        animatedPosition={selectedPlace ? sheetPosition : undefined}
         highlightReview={highlightReview?.kind === 'place' ? highlightReview : null}
         openExpanded={overlay && overlayParams.detailExpanded === '1'}
       />
@@ -1140,7 +1140,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       <TempPlaceSheet
         place={tempPlace}
         onClose={closePlaceDetail}
-        animatedPosition={sheetPosition}
+        animatedPosition={tempPlace ? sheetPosition : undefined}
         highlightReview={highlightReview?.kind === 'general' ? highlightReview : null}
         openExpanded={overlay && overlayParams.detailExpanded === '1'}
       />
