@@ -16,7 +16,7 @@ import { useLocationPrivacyStore, locationUseAllowed, withLocationUse } from '@/
  * 안내 중에는 전부 멈춘다. 안내 화면은 OverFullScreen 이라 지도 탭이 뷰 계층에
  * 남아 살아 있는데, 그동안 KNSDK 가 자기 GPS 로 주행을 끌고 간다 — 우리 구독은
  * 쓰이지도 않으면서 위치·나침반 콜백마다 리렌더를 일으켜 발열만 보탠다.
- * 특히 heading 은 필터가 없어 주행 중 초당 수십 번 들어온다.
+ * 지도 마커의 방위는 수신 품질과 작은 각도 변화를 걸러서 표시한다.
  */
 export function useUserLocation(enabled = true, trackHeading = true, retry = 0) {
   const setUserLocation = useMapStore((s) => s.setUserLocation);

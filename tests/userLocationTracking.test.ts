@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getOrRequestLocationPermission, shouldTrackUserLocation, startUserLocationTracking, type UserLocationSource } from '../lib/userLocationTracking';
+import { getOrRequestLocationPermission, shouldTrackUserLocation, smoothMapHeading, startUserLocationTracking, type UserLocationSource } from '../lib/userLocationTracking';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -221,4 +221,14 @@ test('권한을 받은 상태로 지도를 반복해서 열어도 Android 권한
     assert.equal(requested, status === 'undetermined' ? 1 : 0);
     assert.equal(permission.status, status === 'undetermined' ? 'granted' : status);
   }
+});
+
+test('지도 방위는 낮은 신뢰도와 작은 흔들림을 무시하고 북쪽 경계를 최단 방향으로 지난다', () => {
+  assert.equal(smoothMapHeading(null, { trueHeading: 20, magHeading: 24, accuracy: 0 }), null);
+  assert.equal(smoothMapHeading(10, { trueHeading: NaN, magHeading: -1 }), 10);
+  assert.equal(smoothMapHeading(359, { trueHeading: 1, magHeading: 8 }), 359);
+  const acrossNorth = smoothMapHeading(358, { trueHeading: -1, magHeading: 12 });
+  assert.ok(acrossNorth !== null && acrossNorth < 6);
+  const turn = smoothMapHeading(0, { trueHeading: 90, magHeading: 99 });
+  assert.ok(turn !== null && turn > 40 && turn < 60);
 });

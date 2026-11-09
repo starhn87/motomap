@@ -1,5 +1,5 @@
 type Position = { coords: { latitude: number; longitude: number } };
-type Heading = { trueHeading: number; magHeading: number };
+type Heading = { trueHeading: number; magHeading: number; accuracy?: number };
 type Subscription = { remove(): void };
 
 // 이미 결정된 Android 권한을 다시 요청하면 Activity가 잠깐 비활성화될 수 있다.
@@ -24,6 +24,20 @@ export interface UserLocationSource {
   watchHeading(callback: (heading: Heading) => void): Promise<Subscription>;
 }
 
+// 북쪽 경계를 가로질러도 최단 방향으로 보간한다. 작은 센서 잡음은 마커에 보내지 않는다.
+export function smoothMapHeading(previous: number | null, sample: Heading): number | null {
+  if (sample.accuracy === 0) return previous;
+  const angle = Number.isFinite(sample.trueHeading) && sample.trueHeading >= 0
+    ? sample.trueHeading : sample.magHeading;
+  if (!Number.isFinite(angle) || angle < 0) return previous;
+  const normalized = angle % 360;
+  if (previous === null) return normalized;
+  const delta = (normalized - previous + 540) % 360 - 180;
+  if (Math.abs(delta) < 4) return previous;
+  const weight = Math.min(0.55, 0.20 + Math.abs(delta) / 180);
+  return (previous + delta * weight + 360) % 360;
+}
+
 // 화면 종료와 비동기 native 구독 생성의 경합을 한 수명 안에서 처리한다.
 export function startUserLocationTracking(
   source: UserLocationSource,
@@ -35,6 +49,7 @@ export function startUserLocationTracking(
   let stopped = false;
   let positionSub: Subscription | null = null;
   let headingSub: Subscription | null = null;
+  let shownHeading: number | null = null;
 
   const updatePosition = (position: Position) => {
     if (!stopped) onPosition({ latitude: position.coords.latitude, longitude: position.coords.longitude });
@@ -66,7 +81,12 @@ export function startUserLocationTracking(
       if (!trackHeading) return;
 
       const heading = await source.watchHeading((value) => {
-        if (!stopped) onHeading(value.trueHeading >= 0 ? value.trueHeading : value.magHeading);
+        if (stopped) return;
+        const next = smoothMapHeading(shownHeading, value);
+        if (next !== null && next !== shownHeading) {
+          shownHeading = next;
+          onHeading(next);
+        }
       });
       if (stopped) {
         heading.remove();
