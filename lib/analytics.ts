@@ -16,7 +16,7 @@ import { getKakaoNaviCapabilities } from '@/modules/kakao-navi';
 
 // 제품 분석 — 어떤 경로로 장소를 찾아 실제로 달리는지, 어디서 이탈하는지.
 // 설계와 금지 항목은 docs/analytics-events.md 참고.
-// JS 예외와 iOS 네이티브 크래시는 PostHog가 수집한다. 성능 트레이스는 Sentry에 둔다.
+// JS 예외와 iOS·Android 네이티브 크래시는 PostHog가 수집한다. 성능 트레이스는 Sentry에 둔다.
 //
 // 키가 없으면(로컬 개발, 미설정) 전체가 조용히 무효화된다 — 계측 때문에 앱이
 // 깨지는 일은 없어야 한다.

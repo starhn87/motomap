@@ -11,7 +11,7 @@ import {
   scrubDiagnosticString,
 } from '../lib/errorTracking';
 import { errorTrackingProbeAllowed, runHandledErrorProbe } from '../lib/errorTrackingProbe';
-import { isPostHogCliHost, isPostHogIngestionHost, nativeCrashAutocaptureForPlatform } from '../lib/posthogProject';
+import { androidNdkCrashAutocaptureForPlatform, isPostHogCliHost, isPostHogIngestionHost, nativeCrashAutocaptureForPlatform } from '../lib/posthogProject';
 import {
   assertUploadCredentials,
   assertUploadHost,
@@ -125,14 +125,31 @@ test('릴리스 예외 단계에는 버전 문맥만 담긴다', () => {
   attachErrorTrackingRuntime(null);
 });
 
-test('자동 수집은 미처리 예외만 기본으로 켜고 네이티브 크래시는 iOS에서만 켠다', () => {
+test('자동 수집은 미처리 예외와 iOS·Android 네이티브 크래시를 켜고 콘솔은 비운다', () => {
   assert.equal(ERROR_TRACKING_OPTIONS.autocapture.uncaughtExceptions, true);
   assert.equal(ERROR_TRACKING_OPTIONS.autocapture.unhandledRejections, true);
   assert.deepEqual(ERROR_TRACKING_OPTIONS.autocapture.console, []);
   assert.equal('nativeCrashes' in ERROR_TRACKING_OPTIONS.autocapture, false);
-  assert.equal('androidNdkCrashes' in ERROR_TRACKING_OPTIONS.autocapture, false);
   assert.equal(nativeCrashAutocaptureForPlatform('ios'), true);
-  assert.equal(nativeCrashAutocaptureForPlatform('android'), false);
+  assert.equal(nativeCrashAutocaptureForPlatform('android'), true);
+  assert.equal(nativeCrashAutocaptureForPlatform('web'), false);
+  assert.equal(androidNdkCrashAutocaptureForPlatform('android'), true);
+  assert.equal(androidNdkCrashAutocaptureForPlatform('ios'), false);
+});
+
+test('네이티브 beforeSend 패치는 예외 딕셔너리를 전송 전에 지우고 패턴이 깨지면 보내지 않는다', () => {
+  const swift = readFileSync(new URL('../node_modules/@posthog/react-native-plugin/ios/PosthogReactNativePlugin.swift', import.meta.url), 'utf8');
+  const kotlin = readFileSync(new URL('../node_modules/@posthog/react-native-plugin/android/src/main/java/com/posthogreactnativeplugin/PosthogReactNativePluginModule.kt', import.meta.url), 'utf8');
+  for (const source of [swift, kotlin]) {
+    assert.match(source, /\[A-Z0-9\._%\+-\]\+@/);
+    assert.match(source, /phc\|phx\|sbp\|sb_secret/);
+    assert.match(source, /ExponentPushToken/);
+    assert.match(source, /scrubNativeExceptionEvent/);
+  }
+  assert.match(swift, /guard motomapNativeExceptionPatterns\.count == 6 else \{ return nil \}/);
+  assert.match(kotlin, /MOTOMAP_NATIVE_EXCEPTION_PATTERNS\.size != 6/);
+  assert.match(swift, /return scrubNativeExceptionEvent\(event\)/);
+  assert.match(kotlin, /scrubNativeExceptionEvent\(restoreJsFatalCaptureProperties\(it\)\)/);
 });
 
 test('scrub은 큐와 네트워크 전송보다 먼저 실행되는 before_send다', () => {

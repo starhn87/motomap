@@ -38,6 +38,9 @@
         "simulator": true,
         "image": "macos-tahoe-26.6-xcode-27.0"
       },
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "EXPO_PUBLIC_ERROR_TRACKING_PROBE": "1",
         "EXPO_PUBLIC_POSTHOG_HOST": "https://eu.i.posthog.com",

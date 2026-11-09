@@ -7,7 +7,7 @@
 - `lib/errorTracking.ts`, `lib/analytics.ts`, `components/ErrorFallback.tsx`
 - `app/_layout.tsx`, `components/ActiveRootLayout.tsx`
 - `metro.config.js`, `app.config.js`, `config/posthog-error-tracking.json`
-- `scripts/upload-posthog-hermes.mjs`, `.github/workflows/posthog-symbols.yml`
+- `scripts/upload-posthog-hermes.mjs`, `.github/workflows/posthog-symbols.yml`, `docs/posthog-upload-secrets.md`
 
 ## 먼저 확인할 활성 원칙
 
@@ -17,7 +17,7 @@
 4. JS scrub은 네이티브 크래시 원문에 적용되지 않는다. 그 경로에 민감 값을 넣지 않는 것으로 보완하고, 지워졌다고 말하지 않는다.
 5. 심볼 업로드 키는 분석용 프로젝트 키와 다른 personal API key다. 저장소에 두지 않는다.
 6. 기존 PostHog 프로젝트는 EU다. 수집 호스트와 CLI 호스트가 그 쌍과 다르면 보내지 않는다.
-7. `nativeCrashes`는 iOS 프로세스에서만 켠다. Android NDK 수집은 켜지 않는다.
+7. `nativeCrashes`는 iOS와 Android에서 켠다. Android NDK 크래시도 Android에서만 켠다. ERR-002의 iOS 제한은 ERR-003으로 대체됐다.
 8. 네이티브 빌드·OTA·심볼 업로드는 이 결정의 코드가 준비됐다고 실행된 것이 아니다.
 
 ## ERR-001 — PostHog로 JS 예외와 iOS 네이티브 크래시를 수집
@@ -93,7 +93,7 @@ PostHog로 옮기기로 승인됐다. 회사 Sentry 프로젝트나 회사 자�
 ## ERR-002 — EU 프로젝트에만 보내고 네이티브 크래시는 iOS로 제한
 
 - 날짜: 2026-11-07
-- 상태: 활성
+- 상태: EU 호스트 결정은 활성. Android 수집 제한은 대체됨(ERR-003)
 - 관련 구현: `config/posthog-error-tracking.json`, `lib/posthogProject.ts`, `lib/analytics.ts`, `scripts/upload-posthog-hermes.mjs`, `eas.json`
 
 ### 배경
@@ -114,11 +114,8 @@ PostHog로 옮기기로 승인됐다. 회사 Sentry 프로젝트나 회사 자�
 `POSTHOG_CLI_HOST`가 `https://eu.posthog.com`이고 수집 호스트도 위의 값일 때만 진행한다.
 하나라도 다르면 업로드를 거절한다.
 
-`nativeCrashes`는 `Platform.OS === 'ios'`일 때만 true다. Android 프로세스는 네이티브 크래시
-자동 수집을 켜지 않고, `androidNdkCrashes`도 켜지 않는다. 공식 Expo 플러그인의
-`uploadNativeSymbols`는 iOS dSYM과 Android 심볼 업로드 단계를 함께 등록한다. iOS 전용 스위치는
-없다. `eas build -p ios`는 Android Gradle 단계를 실행하지 않는다. Android 빌드를 따로 만들지
-않는다.
+이 항목의 Android 비활성 결정은 ERR-003이 대체한다. EU 호스트 불일치 거절은 유지한다.
+공식 Expo 플러그인의 `uploadNativeSymbols`는 iOS dSYM과 Android 심볼 업로드 단계를 함께 등록한다.
 
 검증용 버튼과 `abort()` 네이티브 파일은 `EXPO_PUBLIC_ERROR_TRACKING_PROBE=1`인 번들·prebuild에만
 들어간다. 릴리스 번들은 빈 `ErrorTrackingProbeHost`만 포함하고, 프로덕션 프로필은 그 플러그인을
@@ -127,27 +124,62 @@ PostHog로 옮기기로 승인됐다. 회사 Sentry 프로젝트나 회사 자�
 ### 검토한 대안과 시행착오
 
 CLI 기본값인 미국 호스트를 유지하면 기존 EU 프로젝트와 다른 곳으로 심볼이 올라갈 수 있다.
-호스트를 추정해 채우지 않고 불일치를 실패로 둔다. Android까지 네이티브 크래시를 켜는 것은
-승인 범위를 넘는다고 보고 플랫폼 분기로 막는다. 플러그인에서 Android 심볼 단계만 제거하는
-포크는 공식 설정이 아니라 하지 않는다.
+호스트를 추정해 채우지 않고 불일치를 실패로 둔다. 당시에는 Android 크래시를 승인 범위 밖이라
+껐고, 그 제한은 ERR-003에서 해제됐다. 플러그인에서 Android 심볼 단계만 제거하는 포크는
+공식 설정이 아니라 하지 않는다.
+
+## ERR-003 — iOS와 Android 네이티브 크래시를 보내고, 이벤트 딕셔너리는 전송 전에 지운다
+
+- 날짜: 2026-11-09
+- 상태: 활성. 네이티브 종단 검증과 바이너리 첨부 경계는 미완료
+- 관련 구현: `patches/@posthog+react-native-plugin+2.12.5.patch`, `lib/posthogProject.ts`, `lib/errorTracking.ts`
+
+### 배경
+
+추가 승인으로 iOS만 수집하던 제한이 풀렸다. 네이티브 페이로드의 개인정보 제거도 적용 대상이다.
+공식 React Native 문서와 설치된 `posthog-react-native` 4.81.0 / `@posthog/react-native-plugin`
+2.12.5에는 앱이 네이티브 크래시용 redact 콜백을 등록하는 옵션이 없다. JS `before_send`는
+네이티브 `$exception`을 보지 못한다.
+
+플러그인 소스가 그 전송 지점을 이미 잡고 있다. iOS는 `config.setBeforeSend`이고, Android는
+`addBeforeSend`다. 둘 다 SDK가 이벤트를 보내기 전에 호출한다. 공개 설정으로 이 훅을 넘길 수
+없어, 같은 지점에 문자열·민감 키 제거를 `patch-package`로 넣었다.
+
+### 결정
+
+`nativeCrashes`는 iOS와 Android에서 켠다. `androidNdkCrashes`는 Android에서만 켠다. iOS의
+`nativeCrashes`가 C/C++ 시그널을 포함하고, Android의 `nativeCrashes`는 Java/Kotlin만 본다.
+NDK는 별도 플래그다.
+
+`$exception` 이벤트 딕셔너리는 그 beforeSend에서 JS와 같은 이메일·토큰·좌표 쌍·민감 키를
+지운다. 정규식 6개가 준비되지 않거나 처리가 실패하면 iOS는 그 예외를 보내지 않고, Android는
+속성 맵을 비운 뒤 고정 문구만 남긴다. `$exception`이 아닌 네이티브 이벤트는 이 패치가 바꾸지
+않는다.
+
+이 적용은 이벤트 딕셔너리까지다. posthog-ios와 posthog-android의 크래시 리포터 소스는 이
+저장소에 없고, beforeSend에 넘어오는 딕셔너리만 확인했다. tombstone, minidump, 별도 파일
+업로드가 그 딕셔너리 밖에 있으면 이 패치는 지우지 못한다. 그 경로가 없다고 말하지 않는다.
+
+검증용 네이티브 종료는 검증 prebuild에만 들어간다. iOS는 `abort()`, Android는 잡히지 않는
+백그라운드 `RuntimeException`이다. NDK 신호를 일부러 일으키는 트리거는 없다.
+
+### 검토한 대안과 시행착오
+
+네이티브 수집을 끄는 것이 개인정보에는 안전하지만, 승인된 Android·iOS 크래시 수집을 포기한다.
+공식 훅이 생길 때까지 기다리면 이번 승인 범위를 구현하지 못한다. 플러그인 beforeSend에 제거를
+넣는 것이 현재 SDK가 제공하는 전송 직전 지점이다.
 
 ### 네이티브 경로의 개인정보 한계
 
-설치된 `@posthog/react-native-plugin` 2.12.5의 iOS `beforeSend`는 치명적인 JS 예외의 중복만
-제거하고, 그 외 네이티브 `$exception`은 그대로 반환한다. JS `before_send`는 이 이벤트를 보지 못한다.
-공식 React Native 설정에는 네이티브 크래시용 별도 redact 훅이 없다.
-
-그래서 네이티브 크래시에 대해 보장하는 것은 다음뿐이다.
+JS `before_send`는 네이티브 `$exception`을 보지 못한다. 제거는 ERR-003의 플러그인 beforeSend
+패치가 담당하며, 그 패치가 보는 것은 SDK가 넘긴 이벤트 딕셔너리다.
 
 - PostHog `identify`에는 계정 id만 넘긴다. 이메일은 넣지 않는다.
 - 예외 단계에는 릴리스 문맥만 넣는다. 검색어, 주소, 좌표, 토큰, 메일, 닉네임을 단계로 남기지 않는다.
-- 네이티브 크래시 페이로드는 기기 밖으로 나간다. posthog-ios가 EU 수집 호스트로 `$exception`을
-  직접 보내며, 그 전송은 JS `before_send`를 거치지 않는다.
-- 네이티브 예외 메시지, 시그널, 프레임에 크래시 시점의 네이티브 코드가 넣은 문자열은 JS scrub으로
-  제거되지 않는다. 지도·인증·푸시 네이티브 프레임이 토큰, 좌표, 계정 식별자를 포함하면 PostHog에
-  남을 수 있다. 이 잔여 위험은 코드로 지우지 못했다.
-
-JS scrub이 네이티브 크래시를 보호한다고 해석하지 않는다.
+- 네이티브 `$exception`은 EU 수집 호스트로 나간다. 딕셔너리 안의 이메일·토큰·좌표 쌍·민감 키는
+  beforeSend에서 지운 뒤 전달한다.
+- tombstone, minidump, 그 밖의 바이너리 첨부가 beforeSend 밖에 있으면 지우지 못한다. 이 저장소의
+  플러그인 소스로는 그 첨부가 없다는 것을 확인하지 못했다. 이 경계는 미완료다.
 
 ### 검토한 대안과 시행착오
 
@@ -155,7 +187,7 @@ Sentry를 이번 작업에서 걷어 내면 인증 복구·푸시 진단의 기�
 남기기로 해서 같은 JS 예외가 양쪽 프로젝트에 갈 수 있다. Sentry 제거는 별도 결정이다.
 
 콘솔 autocapture는 렌더 경계와 겹쳐 이중 수집이 되고, 리플레이 콘솔까지 넓어지므로 끄기로 했다.
-Android NDK 수집은 iOS 승인 범위 밖이고 추가 심볼이 필요해 끄기로 했다.
+Android NDK 수집은 처음에 iOS 승인 범위 밖이라 껐고, ERR-003에서 Android 검증 대상으로 다시 켰다.
 네이티브 소스 업로드는 저장소 내용을 PostHog에 올리므로 하지 않는다.
 플러그인의 `dotenvFile`은 로컬 자격 파일을 빌드에 연결하므로 쓰지 않는다.
 전체 SPM 전환은 Expo에서 공식 검증이 없어 CocoaPods를 유지한다.

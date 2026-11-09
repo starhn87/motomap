@@ -1,11 +1,11 @@
 import type { AppReleaseContext } from '@/lib/appVersion';
-import { nativeCrashAutocaptureForPlatform } from '@/lib/posthogProject';
+import { androidNdkCrashAutocaptureForPlatform, nativeCrashAutocaptureForPlatform } from '@/lib/posthogProject';
 
 /**
  * PostHog 오류 수집.
  * 콘솔 로그와 세션 리플레이는 여기서 켜지 않는다.
- * 네이티브 크래시는 posthog-ios가 직접 만들어 보내며, 이 모듈의 scrub은 그 페이로드에
- * 적용되지 않는다. 한계는 docs/domain-decisions/error-tracking.md 에 적혀 있다.
+ * 네이티브 크래시 이벤트 딕셔너리는 JS before_send가 아니라 플러그인 beforeSend 패치가
+ * 전송 전에 지운다. 그 딕셔너리 밖의 바이너리 첨부는 지우지 못한다.
  */
 
 const REDACTED = '[redacted]';
@@ -29,8 +29,8 @@ export function errorTrackingOptionsForPlatform(os: string) {
   return {
     autocapture: {
       ...ERROR_TRACKING_OPTIONS.autocapture,
-      // SDK 옵션은 iOS/Android 공용이다. 승인 범위인 iOS에서만 true로 넘긴다.
       nativeCrashes: nativeCrashAutocaptureForPlatform(os),
+      androidNdkCrashes: androidNdkCrashAutocaptureForPlatform(os),
     },
   };
 }
