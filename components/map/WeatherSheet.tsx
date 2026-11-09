@@ -1,4 +1,4 @@
-import { ActivityIndicator, View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, ScrollView, Pressable, useWindowDimensions } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
@@ -118,7 +118,11 @@ const glyph = StyleSheet.create({
   },
 });
 
-// 라이딩 날씨 상세 바텀시트 — 적합도 등급·점수, 현재 조건, 6시간 예보
+const WEATHER_SHEET_HANDLE_HEIGHT = 24;
+const CONTENT_HORIZONTAL_PADDING = 22;
+const STAT_COLUMN_GAP = 8;
+
+// 라이딩 날씨 상세 바텀시트 — 적합도 등급·점수, 현재 조건, 시간별 예보
 export default function WeatherSheet({
   open,
   closeImmediately = false,
@@ -133,6 +137,11 @@ export default function WeatherSheet({
   const bottomSheetRef = useRef<BottomSheet>(null);
   const didOpenRef = useRef(false);
   const insets = useSafeAreaInsets();
+  const { width, height, fontScale } = useWindowDimensions();
+  const [contentHeight, setContentHeight] = useState(0);
+  const snapHeight = contentHeight > 0
+    ? Math.min(Math.ceil(contentHeight) + WEATHER_SHEET_HANDLE_HEIGHT, Math.floor(height * 0.62))
+    : '62%';
 
   // 시트 인스턴스는 닫힌 상태로 계속 유지한다. 이미 준비된 ref를 여는 방식이라
   // 버튼 탭과 마운트 타이밍이 경합해 snap 명령이 유실되지 않는다.
@@ -213,17 +222,17 @@ export default function WeatherSheet({
           sub: value != null ? `${value}㎍/m³` : undefined,
         }
       : { text: '-', color: undefined, sub: undefined };
-  const pm10 = airStat(air?.pm10Grade, air?.pm10);
-  const pm25 = airStat(air?.pm25Grade, air?.pm25);
-
-  const stats: { label: string; value: string; color?: string; sub?: string; air?: boolean }[] = [
-    { label: '체감', value: `${weather.current.feels}°` },
-    { label: '바람', value: `${weather.current.windMs}m/s` },
-    { label: '습도', value: `${weather.current.humidity}%` },
-    { label: '상태', value: weather.current.condition },
-    { label: '미세먼지', value: pm10.text, color: pm10.color, sub: pm10.sub, air: true },
-    { label: '초미세먼지', value: pm25.text, color: pm25.color, sub: pm25.sub, air: true },
+  const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10).replaceAll('-', '');
+  const daily = weather.daily?.date === today ? weather.daily : undefined;
+  const stats: { label: string; text: string; color?: string; sub?: string }[] = [
+    { label: '바람', text: `${weather.current.windMs}m/s` },
+    { label: '습도', text: `${weather.current.humidity}%` },
+    { label: '미세먼지', ...airStat(air?.pm10Grade, air?.pm10) },
+    { label: '초미세먼지', ...airStat(air?.pm25Grade, air?.pm25) },
   ];
+  // 좌우 여백과 열 간격을 제외하고 가장 긴 라벨이 들어갈 폭을 확보한다.
+  const singleStatRow = (width - CONTENT_HORIZONTAL_PADDING * 2 - STAT_COLUMN_GAP * 3) / fontScale >= 248;
+  const statRows = singleStatRow ? [stats] : [stats.slice(0, 2), stats.slice(2)];
 
   // 시간대별 셀 목록에 일출·일몰 카드를 시각 순서대로 삽입한다.
   const hourItems: (
@@ -244,7 +253,7 @@ export default function WeatherSheet({
     <BottomSheet
       ref={bottomSheetRef}
       index={-1}
-      snapPoints={['62%']}
+      snapPoints={[snapHeight]}
       animateOnMount={false}
       enableDynamicSizing={false}
       enablePanDownToClose
@@ -261,7 +270,8 @@ export default function WeatherSheet({
       }}
       handleIndicatorStyle={{ backgroundColor: colors.tabIconDefault }}>
       <BottomSheetScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 6 }]}
+        onContentSizeChange={(_width, height) => setContentHeight(height)}
         showsVerticalScrollIndicator={false}>
         {/* 등급 헤더 */}
         <View style={styles.gradeRow}>
@@ -332,81 +342,99 @@ export default function WeatherSheet({
         </View>
 
         <View style={[styles.currentConditions, { borderBottomColor: colors.border }]}>
-          <View style={styles.primaryCondition}>
-            <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>기온</Text>
-            <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.temp}°</Text>
+          <View style={[styles.primaryGroup, styles.temperatureGroup, daily && styles.beforeDailyGroup]}>
+            <View style={styles.primaryCondition}>
+              <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>기온</Text>
+              <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.temp}°</Text>
+            </View>
+            <View style={styles.primaryCondition}>
+              <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>체감</Text>
+              {/* 32pt 줄의 기준선을 확보해 작은 체감 값도 같은 높이에 맞춘다. */}
+              <Text style={[styles.primaryValue, { color: colors.textSecondary }]}>
+                {'\u200B'}
+                <Text style={styles.secondaryValue}>{weather.current.feels}°</Text>
+              </Text>
+            </View>
           </View>
-          <View style={styles.primaryCondition}>
+          {daily && (
+            <View style={[styles.primaryGroup, styles.temperatureGroup]}>
+              {[{ label: '최저', value: daily.min }, { label: '최고', value: daily.max }].map((stat) => (
+                <View key={stat.label} style={styles.primaryCondition}>
+                  <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>{stat.label}</Text>
+                  <Text style={[styles.primaryValue, { color: colors.text }]}>{stat.value}°</Text>
+                </View>
+              ))}
+            </View>
+          )}
+          <View style={[styles.primaryGroup, styles.primaryCondition]}>
             <Text style={[styles.primaryLabel, { color: colors.textSecondary }]}>강수확률</Text>
             <Text style={[styles.primaryValue, { color: colors.text }]}>{weather.current.pop}%</Text>
           </View>
         </View>
 
         <View style={styles.statsGrid}>
-          {stats.map((s) => (
-            <View
-              key={s.label}
-              style={styles.statCell}>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{s.label}</Text>
-              <View style={[styles.statValueRow, s.air && styles.airValue]}>
-                <Text style={[styles.statValue, { color: s.color ?? colors.text }]}>{s.value}</Text>
-                {(s.air || !!s.sub) && (
-                  <Text style={[styles.statSub, { color: colors.textSecondary }]}>{s.sub ?? ' '}</Text>
-                )}
-              </View>
+          {statRows.map((row) => (
+            <View key={row[0].label} style={styles.statRow}>
+              {row.map((stat) => (
+                <View key={stat.label} style={styles.statCell}>
+                  <Text style={[styles.statLabel, styles.statCentered, { color: colors.textSecondary }]}>{stat.label}</Text>
+                  <Text style={[styles.statValue, { color: stat.color ?? colors.text }]}>{stat.text}</Text>
+                  {'sub' in stat && (
+                    <Text accessible={!!stat.sub} style={[styles.statSub, { color: colors.textSecondary }]}>{stat.sub ?? ' '}</Text>
+                  )}
+                </View>
+              ))}
             </View>
           ))}
         </View>
 
-        {/* 12시간 예보 — 가로 스와이프. 시트 패딩을 상쇄해 끝까지 흘린다 */}
+        {/* 12시간 예보 — 본문 여백을 벗어나 좌우 8pt만 남기고 가로 스와이프 */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.hourlyScroll}
-          contentContainerStyle={styles.hourlyScrollContent}>
-          <View style={styles.hourlyRow}>
-            {hourItems.map((item) =>
-              item.kind === 'hour' ? (
-                <View
-                  key={item.h.at}
-                  style={styles.hourCell}>
-                  <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>{item.h.hour}</Text>
-                  <WeatherEmoji
-                    emoji={item.h.emoji}
-                    size={26}
-                    lineHeight={31}
+          contentContainerStyle={styles.hourlyRow}>
+          {hourItems.map((item) =>
+            item.kind === 'hour' ? (
+              <View
+                key={item.h.at}
+                style={styles.hourCell}>
+                <Text style={[styles.hourLabel, { color: colors.textSecondary }]}>{item.h.hour}</Text>
+                <WeatherEmoji
+                  emoji={item.h.emoji}
+                  size={26}
+                  lineHeight={31}
+                />
+                <Text style={[styles.hourTemp, { color: colors.text }]}>{item.h.temp}°</Text>
+                {/* 강수확률 0%는 표기 자체를 비운다 (자리는 유지해 셀 높이 정렬) */}
+                <Text style={[styles.hourPop, { color: colors.tint }]}>
+                  {item.h.pop > 0 ? `💧${item.h.pop}%` : ' '}
+                </Text>
+              </View>
+            ) : (
+              <View
+                key={`${item.e.type}-${item.e.time}`}
+                style={styles.hourCell}>
+                <Text
+                  style={[styles.hourLabel, styles.sunTime, { color: colors.text }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit>
+                  {toShortTime(item.e.time)}
+                </Text>
+                <View style={styles.sunIcon}>
+                  <SunGlyph
+                    type={item.e.type}
+                    lineColor={colors.textSecondary}
+                    arrowColor={colors.text}
                   />
-                  <Text style={[styles.hourTemp, { color: colors.text }]}>{item.h.temp}°</Text>
-                  {/* 강수확률 0%는 표기 자체를 비운다 (자리는 유지해 셀 높이 정렬) */}
-                  <Text style={[styles.hourPop, { color: colors.tint }]}>
-                    {item.h.pop > 0 ? `💧${item.h.pop}%` : ' '}
-                  </Text>
                 </View>
-              ) : (
-                <View
-                  key={`${item.e.type}-${item.e.time}`}
-                  style={styles.hourCell}>
-                  <Text
-                    style={[styles.hourLabel, styles.sunTime, { color: colors.text }]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit>
-                    {toShortTime(item.e.time)}
-                  </Text>
-                  <View style={styles.sunIcon}>
-                    <SunGlyph
-                      type={item.e.type}
-                      lineColor={colors.textSecondary}
-                      arrowColor={colors.text}
-                    />
-                  </View>
-                  <Text style={[styles.hourTemp, { color: colors.text }]}>
-                    {item.e.type === 'sunrise' ? '일출' : '일몰'}
-                  </Text>
-                  <Text style={styles.hourPop}> </Text>
-                </View>
-              ),
-            )}
-          </View>
+                <Text style={[styles.hourTemp, { color: colors.text }]}>
+                  {item.e.type === 'sunrise' ? '일출' : '일몰'}
+                </Text>
+                <Text style={styles.hourPop}> </Text>
+              </View>
+            ),
+          )}
         </ScrollView>
 
         <View style={styles.source}>
@@ -423,8 +451,7 @@ export default function WeatherSheet({
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingHorizontal: CONTENT_HORIZONTAL_PADDING,
     gap: 16,
   },
   // absolute — 행 레이아웃에 참여하지 않아 늦게 나타나도 행 높이가 변할 수 없다
@@ -472,61 +499,67 @@ const styles = StyleSheet.create({
   },
   currentConditions: {
     flexDirection: 'row',
-    gap: 24,
+    flexWrap: 'wrap',
+    columnGap: 16,
+    rowGap: 8,
     paddingBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  primaryCondition: { flex: 1, gap: 4 },
-  primaryLabel: { fontSize: 12 },
-  primaryValue: { fontSize: 32, lineHeight: 40, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  statsGrid: {
+  primaryGroup: { flexGrow: 1, flexShrink: 1 },
+  temperatureGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    columnGap: 20,
-    rowGap: 12,
+    justifyContent: 'center',
+    columnGap: 8,
+    rowGap: 8,
+  },
+  beforeDailyGroup: { marginEnd: 4 },
+  primaryCondition: { flexShrink: 1, alignItems: 'center', gap: 4 },
+  primaryLabel: { fontSize: 12, textAlign: 'center' },
+  primaryValue: { fontSize: 32, lineHeight: 40, fontWeight: '600', fontVariant: ['tabular-nums'], textAlign: 'center' },
+  secondaryValue: { fontSize: 22 },
+  statsGrid: {
+    gap: 12,
+  },
+  statRow: {
+    flexDirection: 'row',
+    gap: STAT_COLUMN_GAP,
   },
   statCell: {
-    flexBasis: '45%',
-    flexGrow: 1,
-    gap: 4,
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
   },
+  statCentered: { textAlign: 'center' },
   statLabel: {
     fontSize: 12,
   },
-  statValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    flexWrap: 'wrap',
-    gap: 4,
-    minHeight: 20,
-  },
-  // 비동기 농도는 처음부터 별도 줄을 확보해 뒤의 예보를 밀지 않는다.
-  airValue: { flexDirection: 'column', alignItems: 'flex-start', gap: 2 },
   statValue: {
+    textAlign: 'center',
     fontSize: 15,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
   statSub: {
+    textAlign: 'center',
     fontSize: 11,
     lineHeight: 16,
     minHeight: 16,
   },
   hourlyScroll: {
-    marginHorizontal: -20,
     flexGrow: 0,
-  },
-  hourlyScrollContent: {
-    paddingHorizontal: 20,
+    marginHorizontal: -CONTENT_HORIZONTAL_PADDING,
   },
   hourlyRow: {
     flexDirection: 'row',
-    gap: 4,
+    paddingHorizontal: 8,
   },
   hourCell: {
     alignItems: 'center',
     gap: 4,
-    width: 62,
+    width: 56,
     paddingVertical: 8,
   },
   hourLabel: {
@@ -535,7 +568,7 @@ const styles = StyleSheet.create({
   },
   sunTime: {
     fontWeight: '700',
-    maxWidth: 58,
+    maxWidth: 52,
   },
   sunIcon: {
     height: 31,

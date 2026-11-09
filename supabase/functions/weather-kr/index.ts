@@ -122,6 +122,14 @@ interface Hour {
   reh: number | null;
 }
 
+type ForecastItem = { category: string; fcstDate: string; fcstTime: string; fcstValue: string };
+
+function dailyTemperature(items: ForecastItem[], date: string, category: 'TMN' | 'TMX') {
+  const raw = items.find((item) => item?.fcstDate === date && item.category === category)?.fcstValue;
+  const value = typeof raw === 'string' && raw.trim() ? Number(raw) : NaN;
+  return value >= -90 && value <= 60 ? value : undefined;
+}
+
 const cache = new Map<string, { at: number; body: string }>();
 const TTL = 30 * 60 * 1000;
 
@@ -129,10 +137,12 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   let latRaw = url.searchParams.get('lat');
   let lngRaw = url.searchParams.get('lng');
+  let includeDaily = false;
   if (req.method === 'POST') {
     const body = await req.json().catch(() => ({}));
     latRaw ??= body.lat;
     lngRaw ??= body.lng;
+    includeDaily = body.daily === true;
   }
   const lat = Number(latRaw);
   const lng = Number(lngRaw);
@@ -145,7 +155,9 @@ Deno.serve(async (req) => {
   const base = baseDateTime();
   const ultra = ultraBaseDateTime();
   const ncst = ncstBaseDateTime();
-  const cacheKey = `${nx},${ny},${base.date}${base.time},${ultra.date}${ultra.time},${ncst.date}${ncst.time}`;
+  const kstNow = new Date(Date.now() + 9 * 3600 * 1000);
+  const today = kstNow.toISOString().slice(0, 10).replaceAll('-', '');
+  const cacheKey = `${nx},${ny},${base.date}${base.time},${ultra.date}${ultra.time},${ncst.date}${ncst.time}${includeDaily ? `,daily:${today}` : ''}`;
   const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < TTL) {
     return new Response(hit.body, {
@@ -170,7 +182,7 @@ Deno.serve(async (req) => {
   ]);
   if (!res.ok) return Response.json({ error: `upstream ${res.status}` }, { status: 502 });
   const data = await res.json().catch(() => null);
-  const items: { category: string; fcstDate: string; fcstTime: string; fcstValue: string }[] =
+  const items: ForecastItem[] =
     data?.response?.body?.items?.item ?? [];
   if (!items.length) {
     return Response.json(
@@ -222,9 +234,8 @@ Deno.serve(async (req) => {
     ultraCovered.add(k);
   }
   // 발표 후 시간이 지나면 앞 행들이 과거가 된다 — 현재 시간대(정시) 이전은 버린다
-  const kstNow = new Date(Date.now() + 9 * 3600 * 1000);
   const nowKey =
-    kstNow.toISOString().slice(0, 10).replaceAll('-', '') +
+    today +
     String(kstNow.getUTCHours()).padStart(2, '0') +
     '00';
   // 실황(관측) 병합 — 현재 정시 슬롯의 기온·강수형태·바람·습도를 관측값으로 덮는다.
@@ -275,7 +286,31 @@ Deno.serve(async (req) => {
     };
   });
 
-  const body = JSON.stringify({ base: `${base.date}${base.time}`, nx, ny, hours });
+  let daily: { date: string; min: number; max: number } | undefined;
+  if (includeDaily) {
+    let min = dailyTemperature(items, today, 'TMN');
+    let max = dailyTemperature(items, today, 'TMX');
+    // 최신 발표분에서 이미 지난 극값 슬롯이 빠졌다면 전날 23시 발표분에서 보완한다.
+    if (min === undefined || max === undefined) {
+      const yesterday = new Date(kstNow.getTime() - 86400000)
+        .toISOString().slice(0, 10).replaceAll('-', '');
+      if (base.date !== yesterday || base.time !== '2300') {
+        const earlierApi = api.replace(`base_date=${base.date}&base_time=${base.time}`,
+          `base_date=${yesterday}&base_time=2300`);
+        const earlier = await fetch(earlierApi, { signal: AbortSignal.timeout(2000) })
+          .then((response) => response.ok ? response.json() : null)
+          .catch(() => null);
+        const earlierItems = earlier?.response?.body?.items?.item;
+        if (Array.isArray(earlierItems)) {
+          min ??= dailyTemperature(earlierItems, today, 'TMN');
+          max ??= dailyTemperature(earlierItems, today, 'TMX');
+        }
+      }
+    }
+    if (min !== undefined && max !== undefined && min <= max) daily = { date: today, min, max };
+  }
+
+  const body = JSON.stringify({ base: `${base.date}${base.time}`, nx, ny, hours, daily });
   cache.set(cacheKey, { at: Date.now(), body });
   return new Response(body, {
     headers: { 'Content-Type': 'application/json', 'x-cache': 'MISS' },

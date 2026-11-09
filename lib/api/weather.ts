@@ -34,6 +34,7 @@ export interface RidingWeather {
     emoji: string;
   };
   hourly: HourlyWeather[];
+  daily?: { date: string; min: number; max: number };
 }
 
 // 기상청 낙뢰(LGT)·강수형태(PTY)·하늘상태(SKY) → 상태·이모지.
@@ -413,15 +414,21 @@ function kmaHourAt(hour: KmaHour): Date {
 
 export async function fetchRidingWeather(latitude: number, longitude: number): Promise<RidingWeather> {
   let hours: KmaHour[];
+  let daily: RidingWeather['daily'];
   try {
     const { data, error } = await withCoordinateUse({ latitude,longitude },'weather','kma',() => supabase.functions.invoke('weather-kr', {
-      body: { lat: latitude, lng: longitude }, timeout: 20_000,
+      body: { lat: latitude, lng: longitude, daily: true }, timeout: 20_000,
     }));
     if (error) throw error;
     if (!Array.isArray(data?.hours) || data.hours.length === 0 || !data.hours.every(isKmaHour)) {
       throw new ProviderError('kma', 'forecast', 'invalid_response');
     }
     hours = data.hours;
+    const range = data.daily;
+    if (range?.date === hours[0].date && Number.isFinite(range.min) &&
+        Number.isFinite(range.max) && range.min <= range.max) {
+      daily = { date: range.date, min: Math.round(range.min), max: Math.round(range.max) };
+    }
   } catch (error) {
     throw edgeProviderError('kma', 'forecast', error);
   }
@@ -474,5 +481,6 @@ export async function fetchRidingWeather(latitude: number, longitude: number): P
       emoji,
     },
     hourly,
+    ...(daily ? { daily } : {}),
   };
 }

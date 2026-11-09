@@ -851,6 +851,7 @@ export default function SearchResultsScreen() {
           index={1}
           snapPoints={[88, midSnap, '85%']}
           animateOnMount={false}
+          enableDynamicSizing={false}
           backgroundStyle={{ backgroundColor: colors.background }}
           handleIndicatorStyle={{ backgroundColor: colors.border }}>
           <BottomSheetFlatList

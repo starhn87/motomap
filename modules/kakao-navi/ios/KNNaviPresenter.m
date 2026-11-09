@@ -10,6 +10,7 @@
 #import "KNNaviHiddenViews.h"
 #import "KNNaviHazardSheet.h"
 #import "KNNaviGasLayer.h"
+#import "KNNaviTrafficBar.h"
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
@@ -341,6 +342,12 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong) KNNaviBottomPanel *bottomPanel;
 @property(nonatomic, strong) KNNaviHazardSheet *hazardSheet;
 @property(nonatomic, strong) KNNaviGasLayer *gasLayer;
+@property(nonatomic, strong) KNNaviTrafficBar *trafficBar;
+@property(nonatomic, strong) KNGuide_Location *trafficLocationGuide;
+@property(nonatomic, strong) KNRoute *trafficMatchedRoute;
+@property(nonatomic, strong) KNRoute *trafficDisplayedRoute;
+@property(nonatomic) BOOL trafficRouteChanging;
+@property(nonatomic, strong) NSNumber *trafficDarkMode;
 @property(nonatomic, copy) void (^onArrival)(NSDictionary *);
 @property(nonatomic) BOOL arrivalEmitted;
 @property(nonatomic, strong) UIControl *menuBackdrop;
@@ -594,6 +601,12 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
   gActiveNavi = self;
   if (!self.preview) [self installBottomPanel];
+  if (!self.preview) {
+    self.trafficBar = [[KNNaviTrafficBar alloc] initWithFrame:CGRectZero];
+    if (self.trafficDarkMode) self.trafficBar.overrideUserInterfaceStyle = self.trafficDarkMode.boolValue ? UIUserInterfaceStyleDark : UIUserInterfaceStyleLight;
+    [self.trafficBar reset];
+    [self.view insertSubview:self.trafficBar belowSubview:self.menuBackdrop];
+  }
   // SDK 생성자 안에서 발생해 아직 handler가 없었던 전환도 놓치지 않는다.
   if (naviView.didBlockSafetyMode) [self handleBlockedSafetyMode];
 }
@@ -647,6 +660,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.bottomPanel.onFailure = ^{
     KNNaviViewController *vc = weakSelf;
     [vc.webHiddenViews restore];
+    [vc stopForwardingBottomNotice];
     [vc.mapHiddenViews restore]; vc.mapControlsHidden = NO;
     vc.bottomPanel.hidden = YES;
     [vc.bottomPanel.menuView.layer removeAllAnimations];
@@ -723,10 +737,26 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self closeBottomMenu]; return YES;
 }
 
+- (void)stopForwardingBottomNotice {
+  if (![self.naviView isKindOfClass:KNNaviRouteView.class]) return;
+  KNNaviRouteView *routeView = (id)self.naviView;
+  routeView.onBottomNotice = nil;
+  [routeView refreshBottomNotice];
+}
+
 - (void)refreshHiddenViews {
   if (self.finished) return;
   [self.auxiliaryHiddenViews hideAuxiliaryViewsIn:self.naviView];
   if (self.bottomPanel.ready) {
+    KNNaviRouteView *routeView = [self.naviView isKindOfClass:KNNaviRouteView.class] ? (id)self.naviView : nil;
+    if (routeView && !routeView.onBottomNotice) {
+      __weak KNNaviViewController *weakSelf = self;
+      routeView.onBottomNotice = ^(NSString *message) {
+        KNNaviViewController *vc = weakSelf;
+        if (!vc.finished && !vc.suspended) [vc.bottomPanel showToast:message];
+      };
+    }
+    [routeView refreshBottomNotice];
     [self.webHiddenViews hideView:self.naviView.bottomView];
     [self.webHiddenViews hideView:self.naviView.menuView];
     BOOL hidden = [KNNaviRouteView isSDKMapStateBoundaryCompatible] && [self.mapHiddenViews hideMapControlsIn:self.naviView.mapView];
@@ -746,7 +776,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.naviView.frame = self.view.bounds;
   if (self.bottomPanel) {
     [self.bottomPanel setBottomInset:0];
-    CGFloat height = MIN(self.panelHeight ?: KNNaviBottomCollapsedHeight, self.view.bounds.size.height - self.view.safeAreaInsets.top - gap);
+    CGFloat height = MIN(self.panelHeight ?: (KNNaviBottomCollapsedHeight + KNNaviBottomRecenterHeight), self.view.bounds.size.height - self.view.safeAreaInsets.top - gap);
     self.bottomPanel.frame = CGRectMake(12, self.view.bounds.size.height - gap - height, MAX(0, self.view.bounds.size.width - 24), height);
     self.bottomPanel.hidden = !web;
   }
@@ -761,17 +791,73 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   sheet.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height - sheetHeight / 2);
   if (!web) { sheet.hidden = YES; self.menuBackdrop.hidden = YES; }
   [self refreshHiddenViews];
+  CGRect safe = UIEdgeInsetsInsetRect(self.view.bounds, self.view.safeAreaInsets);
+  CGRect banner = [self.naviView.curDirView convertRect:self.naviView.curDirView.bounds toView:self.view];
+  self.trafficBar.frame = KNNaviTrafficBarFrame(safe, CGRectGetMaxY(banner), CGRectGetMaxY(self.bottomPanel.frame) - KNNaviBottomCollapsedHeight);
+  [self refreshTrafficBar];
+}
+
+- (void)resetTrafficBar {
+  self.trafficLocationGuide = nil;
+  self.trafficMatchedRoute = nil;
+  self.trafficDisplayedRoute = nil;
+  [self.trafficBar reset];
+}
+
+- (void)refreshTrafficBar {
+  if (!self.trafficBar) return;
+  KNGuide_Location *guide = self.trafficLocationGuide;
+  KNRoute *route = self.trafficMatchedRoute;
+  BOOL active = !self.finished && !self.preview && !self.suspended && !self.changingDestination &&
+      !self.trafficRouteChanging && !self.arrivalRecovery.waiting && !self.arrivalMessage &&
+      !self.safetyScreenQuarantined && self.guidance.guideState == KNGuideState_OnRouteGuide &&
+      [KNSDKBridge isLocationUseAllowed] && self.viewIfLoaded.window &&
+      UIApplication.sharedApplication.applicationState == UIApplicationStateActive;
+  KNRoute *currentRoute = self.guidance.routesOnGuide.firstObject;
+  if (!active || !currentRoute) {
+    [self resetTrafficBar]; return;
+  }
+  BOOL positionAvailable = [self usableRecoveryGPS:guide.gpsOrigin] && guide.locationForPrimaryRoute && route == currentRoute;
+  if (self.trafficDisplayedRoute != currentRoute || self.trafficBar.positionAvailable != positionAvailable) {
+    [self.trafficBar reset];
+    self.trafficDisplayedRoute = currentRoute;
+  }
+  if (!positionAvailable) {
+    self.trafficLocationGuide = nil;
+    self.trafficMatchedRoute = nil;
+  }
+  self.trafficBar.positionAvailable = positionAvailable;
+  // SDK 조작부를 숨긴 정상 안내에서만 표시한다. 지도 탐색·시트에는 터치 없는 막대도 남기지 않는다.
+  BOOL visible = self.bottomPanel.ready && self.mapControlsHidden && !self.bottomPanel.expanded && !self.mapDetached &&
+      (!self.hasNaviScreenState || self.naviScreenState == DriveNormal) &&
+      !CGRectIsEmpty(self.trafficBar.frame);
+  if (visible) {
+    KNLocation *origin = positionAvailable ? guide.locationForPrimaryRoute : currentRoute.mainRoadList.firstObject.fromLocation;
+    SInt32 distance = origin ? [currentRoute remainDistFromLocation:origin] : 0;
+    // 첫 GPS가 없어도 SDK가 경로 시작점임을 확인해 준 위치로 전체 교통 흐름을 보여준다.
+    // 마지막 위치를 현재 위치처럼 쓰거나 첫 주요 도로가 경로 중간인 경우를 시작점으로 추정하지 않는다.
+    if (!positionAvailable && (!origin || distance <= 0 || llabs((int64_t)distance - currentRoute.totalDist) > 3)) {
+      [self resetTrafficBar]; return;
+    }
+    [self.trafficBar updateFromLocation:origin
+                    remainingDistance:distance
+                                 time:NSProcessInfo.processInfo.systemUptime];
+  }
+  BOOL browsing = self.mapDetached || (self.hasNaviScreenState && self.naviScreenState == DriveTouch);
+  BOOL animate = self.bottomPanel.ready && !self.bottomPanel.expanded &&
+      !CGRectIsEmpty(self.trafficBar.frame) && (browsing || visible);
+  [self.trafficBar setVisible:visible && self.trafficBar.states.count > 0 animated:animate];
 }
 
 - (void)updateBottomPanel {
   [self.currentLocationExpiryTimer invalidate];
   self.currentLocationExpiryTimer = nil;
   if (self.finished) return;
+  [self refreshTrafficBar];
   KNTrip *trip = self.guidance.trip;
   NSMutableDictionary *state = [@{@"volume":@(self.volume), @"busy":@(self.changingDestination || self.arrivalRecovery.requesting)} mutableCopy];
   if (self.arrivalRecovery.waiting || self.arrivalMessage) {
-    state[@"status"] = self.arrivalRecovery.requesting ? @"복귀 경로를 찾고 있어요" : @"왼쪽 새로고침으로 다시 안내";
-    state[@"detail"] = @"왼쪽 새로고침으로 다시 안내";
+    state[@"status"] = self.arrivalRecovery.requesting ? @"복귀 경로를 찾고 있어요" : @"";
   } else if (trip) {
     state[@"remainingDistance"] = @(trip.remainDist);
     state[@"remainingTime"] = @(trip.remainTime);
@@ -789,7 +875,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   // SDK 콜백이 끊겨도 마지막 위치 문자열이 화면에 무기한 남지 않게 한다.
   NSTimeInterval expiry = DBL_MAX;
   for (NSDate *timestamp in @[self.currentLocationGPSAt ?: NSDate.distantPast,
-                              self.currentLocationAt ?: NSDate.distantPast]) {
+                              self.currentLocationAt ?: NSDate.distantPast,
+                              self.trafficLocationGuide.gpsOrigin.timestamp ?: NSDate.distantPast]) {
     NSTimeInterval remaining = 10 + timestamp.timeIntervalSinceNow;
     if (remaining > 0) expiry = MIN(expiry, remaining);
   }
@@ -821,6 +908,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (self.safetyScreenQuarantined && !self.preview && !self.finished && !self.bottomPanel.ready) visible = YES;
   self.endButton.hidden = !visible;
   self.hazardButton.hidden = YES;
+  [self refreshTrafficBar];
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object
@@ -1009,6 +1097,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)naviViewDidUpdateUseDarkMode:(BOOL)aDarkMode {
+  self.trafficDarkMode = @(aDarkMode);
+  self.trafficBar.overrideUserInterfaceStyle = aDarkMode ? UIUserInterfaceStyleDark : UIUserInterfaceStyleLight;
 }
 
 - (void)naviViewDidUpdateMapCameraMode:(MapViewCameraMode)aMapViewCameraMode {
@@ -1039,6 +1129,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)guidanceGuideStarted:(KNGuidance *)aGuidance {
   if (self.finished) return;
+  self.trafficRouteChanging = NO;
+  [self resetTrafficBar];
   // 경로 계산 중 기존 엔진의 자동 재탐색 완료는 편집 승인으로 취급하지 않는다.
   if (self.suspended && self.changingDestination && !self.resumeCommitting) {
     [self.naviView guidanceGuideStarted:aGuidance]; return;
@@ -1077,10 +1169,14 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)guidanceCheckingRouteChange:(KNGuidance *)aGuidance {
+  self.trafficRouteChanging = YES;
+  [self resetTrafficBar];
   [self.naviView guidanceCheckingRouteChange:aGuidance];
 }
 
 - (void)guidanceOutOfRoute:(KNGuidance *)aGuidance {
+  self.trafficRouteChanging = YES;
+  [self resetTrafficBar];
   [self.naviView guidanceOutOfRoute:aGuidance];
   // 경로 이탈 시 SDK 가 자차를 매칭 해제(off) 상태로 다시 그리면서 커스텀
   // 이미지를 기본 아이콘으로 되돌린다 — 실기기에서 "기본 위치 아이콘"이
@@ -1089,11 +1185,15 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)guidanceRouteUnchanged:(KNGuidance *)aGuidance {
+  self.trafficRouteChanging = NO;
+  [self resetTrafficBar];
   [self.naviView guidanceRouteUnchanged:aGuidance];
   [self applyCarTheme]; // 이탈 판정이 "경로 유지"로 끝나도 자차는 다시 그려졌다
 }
 
 - (void)guidance:(KNGuidance *)aGuidance routeUnchangedWithError:(KNError *)aError {
+  self.trafficRouteChanging = NO;
+  [self resetTrafficBar];
   // 현재 엔진의 자동 재탐색 실패는 수동 위치/경로 준비 요청의 실패가 아니다.
   if (self.suspended && self.changingDestination && !self.resumeCommitting) {
     [self.naviView guidance:aGuidance routeUnchangedWithError:aError];
@@ -1125,6 +1225,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
                      toRoute:(KNRoute *)aToRoute
                   toLocation:(KNLocation *)aToLocation
                       reason:(KNGuideRouteChangeReason)aChangeReason {
+  self.trafficRouteChanging = NO;
+  [self resetTrafficBar];
   [self.naviView guidanceRouteChanged:aGuidance];
   [self applyCarTheme]; // 재탐색으로 새 경로가 깔릴 때도 자차·경로 테마가 리셋된다
 }
@@ -1145,6 +1247,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (self.finished) return;
   // 이전 종료 콜백이 새 경로 시작 뒤 늦게 도착한 경우 현재 안내를 덮지 않는다.
   if (aGuidance.guideState == KNGuideState_OnRouteGuide) return;
+  [self resetTrafficBar];
   // 미리보기는 실제 이동·복귀 경로가 없으므로 완료 시 닫고 안전운행 화면은 열지 않는다.
   if (self.preview) { [self finish]; return; }
   // SDK는 이 콜백 전에 경로를 지운다. 안전운행 UI로 전달하거나 옛 회전 안내를
@@ -1364,6 +1467,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)guidance:(KNGuidance *)aGuidance
     didUpdateRoutes:(NSArray<KNRoute *> *)aRoutes
      multiRouteInfo:(KNMultiRouteInfo *)aMultiRouteInfo {
+  self.trafficRouteChanging = NO;
+  [self resetTrafficBar];
   [self.naviView guidance:aGuidance didUpdateRoutes:aRoutes multiRouteInfo:aMultiRouteInfo];
 }
 
@@ -1448,6 +1553,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 }
 
 - (void)pauseForInactive {
+  [self resetTrafficBar];
   [self cancelArrivalPrompt];
   [self pauseFooterPosition];
 }
@@ -1520,6 +1626,10 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)guidance:(KNGuidance *)aGuidance didUpdateLocation:(KNGuide_Location *)aLocationGuide {
   if (self.finished || ![KNSDKBridge isLocationUseAllowed]) return;
+  if (self.trafficBar) {
+    self.trafficLocationGuide = aLocationGuide;
+    self.trafficMatchedRoute = aGuidance.routesOnGuide.firstObject;
+  }
   [self.naviView guidance:aGuidance didUpdateLocation:aLocationGuide];
   [self updateCurrentLocationWithGuide:aLocationGuide];
   if (!self.preview) [self.gasLayer updateGPS:aLocationGuide.gpsOrigin];
@@ -1607,6 +1717,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 - (void)finish {
   if (self.finished) return;
   self.finished = YES;
+  [self resetTrafficBar];
   // 모달 해제는 아래 기존 종료 체인에서 한 번만 실행한다.
   [self detachArrivalPrompt];
   [self pauseFooterPosition];
@@ -1623,6 +1734,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.onResumeError = nil;
   if (gSuspendedNavi == self) gSuspendedNavi = nil;
   [self.bottomPanel invalidate];
+  [self stopForwardingBottomNotice];
   [self.webHiddenViews restore];
   [self.auxiliaryHiddenViews restore];
   [self stopObservingBottomView];

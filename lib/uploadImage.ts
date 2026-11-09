@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
@@ -35,7 +36,7 @@ export async function pickImages(limit: number): Promise<string[]> {
 
 export async function uploadImage(uri: string, folder: string): Promise<string> {
   const ext = uri.split('.').pop()?.split('?')[0] ?? 'jpg';
-  const fileName = `${folder}/${Date.now()}.${ext}`;
+  const fileName = `${folder}/${randomUUID()}.${ext}`;
   const contentType = ext === 'png' ? 'image/png' : 'image/jpeg';
 
   const base64 = await FileSystem.readAsStringAsync(uri, {

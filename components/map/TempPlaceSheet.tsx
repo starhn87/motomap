@@ -255,6 +255,10 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
         prefillProviderId: identity.providerId,
         prefillSource: 'temp_place',
         prefillTs: submittedAt,
+        returnPhone: place.phone ?? '',
+        returnProviderId: place.providerId ?? '',
+        returnPlaceUrl: place.placeUrl ?? '',
+        returnGeneralPlaceId: generalPlace?.id ?? place.generalPlaceId ?? '',
       },
     });
   };
@@ -605,7 +609,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
                   바이크 특화 장소로 제보하기
                 </Text>
                 <Text style={[styles.submitDescription, { color: colors.textSecondary }]}>
-                  주차·영업 정보 등을 알려주면 모토맵 장소로 검토해요.
+                  이 장소를 설명해서 알려주시면 모토맵 장소로 검토해요
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.tint} />
