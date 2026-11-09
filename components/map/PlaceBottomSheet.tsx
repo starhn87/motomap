@@ -92,13 +92,13 @@ function PlaceBottomSheet({
   const navLaunching = useNavLaunching((st) => st.launching);
   const insets = useSafeAreaInsets();
   const headerTop = insets.top + (Platform.OS === 'android' ? ANDROID_TOP_CONTROL_GAP : 0);
-  const initialIndex = openExpanded ? 2 : 1;
+  const initialIndex = openExpanded || highlightReview ? 2 : 1;
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const [currentIndex, setCurrentIndex] = useState(1);
-  const [settledIndex, setSettledIndex] = useState(1);
+  const [currentIndex, setCurrentIndex] = useState(-1);
+  const [settledIndex, setSettledIndex] = useState(-1);
   const [changeReportOpen, setChangeReportOpen] = useState(false);
-  const animatedIndex = useSharedValue(1);
-  const currentIndexRef = useRef(1);
+  const animatedIndex = useSharedValue(-1);
+  const currentIndexRef = useRef(-1);
 
   // currentIndex를 state와 ref 양쪽에 반영(ref는 핸들 onPress에서 최신값 참조용).
   const syncIndex = useCallback((i: number) => {
@@ -161,24 +161,19 @@ function PlaceBottomSheet({
   };
 
   const scrollRef = useRef<any>(null);
-  const mountedPlaceId = useRef<string | null>(null);
+  const [handleMeasured, setHandleMeasured] = useState(false);
   const visiblePlaceId = place && displayPlace ? place.id : null;
   useEffect(() => {
-    const previous = mountedPlaceId.current;
-    mountedPlaceId.current = visiblePlaceId;
-    if (!visiblePlaceId) return;
-    if (previous && previous !== visiblePlaceId) {
-      scrollRef.current?.scrollTo({ y: 0, animated: false });
-      bottomSheetRef.current?.snapToIndex(highlightReview ? 2 : initialIndex);
-    } else if (!previous) {
-      // 실제 시트가 마운트되는 순간에는 index prop만 스냅을 소유한다.
-      setSettledIndex(initialIndex);
+    if (!handleMeasured) return;
+    if (!visiblePlaceId) {
+      bottomSheetRef.current?.close();
+      return;
     }
-  }, [visiblePlaceId, initialIndex, highlightReview]);
-
-  useEffect(() => {
-    if (highlightReview?.key && initialIndex !== 2 && visiblePlaceId) bottomSheetRef.current?.expand();
-  }, [highlightReview?.key, initialIndex, visiblePlaceId]);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    // 핸들과 컨테이너의 레이아웃이 UI 스레드에 반영된 프레임에서 한 번만 연다.
+    const frame = requestAnimationFrame(() => bottomSheetRef.current?.snapToIndex(initialIndex));
+    return () => cancelAnimationFrame(frame);
+  }, [handleMeasured, visiblePlaceId, initialIndex, highlightReview?.key]);
 
   useEffect(() => {
     setChangeReportOpen(false);
@@ -190,7 +185,7 @@ function PlaceBottomSheet({
 
   const handleSheetChanges = (index: number) => {
     setSettledIndex(index);
-    if (index === -1) onClose();
+    if (index === -1 && visiblePlaceId) onClose();
   };
 
   const isExpanded = currentIndex === SNAP_POINTS.length - 1;
@@ -267,6 +262,7 @@ function PlaceBottomSheet({
             bottomSheetRef.current?.snapToIndex(ci + 1);
           }
         }}
+        onLayout={() => setHandleMeasured(true)}
         style={styles.handleContainer}>
         <Animated.View
           style={[styles.handleIndicator, handleIndicatorStyle]}
@@ -280,8 +276,6 @@ function PlaceBottomSheet({
   // 메운다. 우리 데이터가 있으면 그게 우선 — 제보자가 직접 확인한 값이고,
   // "우천 휴무" 처럼 구글이 모르는 사정이 담겨 있다.
   //
-  // 아래 early return 보다 위에 있어야 한다. 시트가 닫힌 렌더에서만 훅이 빠지면
-  // 순서가 어긋나 React 가 터진다.
   const { data: googleHours } = usePlaceHours(
     !displayPlace || displayPlace.hours
       ? null
@@ -292,21 +286,19 @@ function PlaceBottomSheet({
           longitude: displayPlace.longitude,
         },
   );
-  if (!place || !displayPlace) return null;
-
-  const sortedTags = [...(displayPlace.tags ?? [])].sort((a, b) => {
+  const sortedTags = [...(displayPlace?.tags ?? [])].sort((a, b) => {
     const ha = HIGHLIGHT_TAGS.has(a) ? 0 : 1;
     const hb = HIGHLIGHT_TAGS.has(b) ? 0 : 1;
     return ha - hb;
   });
 
-  const hours = displayPlace.hours ?? googleHours?.hours ?? undefined;
-  const actionRowAlone = !displayPlace.phone && !showsPlaceHoursRow({
-    hours, fallbackText: displayPlace.openingHours, businessStatus: googleHours?.businessStatus, operationalStatus,
+  const hours = displayPlace?.hours ?? googleHours?.hours ?? undefined;
+  const actionRowAlone = !displayPlace?.phone && !showsPlaceHoursRow({
+    hours, fallbackText: displayPlace?.openingHours, businessStatus: googleHours?.businessStatus, operationalStatus,
   });
 
   const infoCards = [
-    displayPlace.parkingInfo && {
+    displayPlace?.parkingInfo && {
       icon: <MaterialIcons name="local-parking" size={16} color={colors.textSecondary} />,
       label: '주차',
       value: displayPlace.parkingInfo,
@@ -321,13 +313,14 @@ function PlaceBottomSheet({
     onPress?: () => void;
   }>;
 
+
   return (
     <>
       <BottomSheet
         ref={bottomSheetRef}
         // 시트 전체를 하나로 묶으면 사진·헤더·리뷰 버튼이 접근성 트리에서 숨는다.
         accessible={false}
-        index={initialIndex}
+        index={-1}
         animateOnMount={false}
         snapPoints={SNAP_POINTS}
         enableDynamicSizing={false}
@@ -357,6 +350,7 @@ function PlaceBottomSheet({
           elevation: 8,
         }}
         handleComponent={renderHandle}>
+        {place && displayPlace && (
         <BottomSheetScrollView
           ref={scrollRef}
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
@@ -592,10 +586,11 @@ function PlaceBottomSheet({
             <ReviewList target={{ kind: 'place', id: place.id }} highlight={highlightReview} />
           </View>
         </BottomSheetScrollView>
+        )}
       </BottomSheet>
 
       {/* 헤더 바: 바텀시트와 별개의 레이어. 확장(페이지) 시에만 화면 상단에 고정 표시 */}
-      {isExpanded && (
+      {visiblePlaceId && isExpanded && (
         <View
           pointerEvents={headerReady ? 'box-none' : 'none'}
           style={[
@@ -617,13 +612,13 @@ function PlaceBottomSheet({
         </View>
       )}
 
-      <PlaceChangeReportSheet
+      {displayPlace && <PlaceChangeReportSheet
         visible={changeReportOpen}
         placeId={displayPlace.id}
         placeName={displayPlace.name}
         operationalStatus={operationalStatus}
         onClose={() => setChangeReportOpen(false)}
-      />
+      />}
     </>
   );
 }
