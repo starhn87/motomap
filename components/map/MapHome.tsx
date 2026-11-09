@@ -660,7 +660,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 오버레이 지도에는 탭이 없다.
   const tabOcclusion = useTabOcclusion(!overlay);
   const insets = useSafeAreaInsets();
-  const topControls = Platform.OS === 'android' ? insets.top + ANDROID_TOP_CONTROL_GAP : 60;
+  const android = Platform.OS === 'android';
+  const topControls = android ? insets.top + ANDROID_TOP_CONTROL_GAP : 60;
   const tabOcclusionSv = useSharedValue(tabOcclusion);
   useEffect(() => { tabOcclusionSv.value = tabOcclusion; }, [tabOcclusion, tabOcclusionSv]);
 
@@ -760,6 +761,37 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 선택된 장소는 아래의 별도 핀 마커 하나로만 강조한다.
   const PLACE_CAPTION_MIN_ZOOM = 8;
 
+  const weatherAction = (weather || weatherFailed || weatherFetching) && (
+    <WeatherFab
+      weather={weather}
+      failed={weatherFailed}
+      refreshing={weatherFetching}
+      onRetry={() => { void refetchWeather(); }}
+      open={weatherOpen && !placeDetailOpen}
+      onPress={handleWeatherPress}
+      top={android ? 0 : undefined}
+    />
+  );
+  const favoritesAction = (
+    <GlassButton
+      accessibilityLabel={showFavorites ? '즐겨찾기 장소 숨기기' : '즐겨찾기 장소 보기'}
+      accessibilityRole="button"
+      onPress={() => {
+        if (!user) {
+          toast.info('로그인하면 즐겨찾기를 지도에서 볼 수 있어요');
+          return;
+        }
+        toggleShowFavorites();
+      }}
+      style={[styles.favFab, { top: android ? 4 : 162 }]}>
+      <Ionicons
+        name={showFavorites ? 'star' : 'star-outline'}
+        size={20}
+        color={showFavorites ? '#FACC15' : colors.textSecondary}
+      />
+    </GlassButton>
+  );
+
   return (
     <View
       style={styles.container}
@@ -834,7 +866,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         }}>
         {/* 가려진 홈과 장소 지도 오버레이가 센서를 동시에 소유하지 않게 한다.
             지도·카메라는 그대로 유지하고 실제 노출 완료 뒤 구독만 재개한다. */}
-        <TrackedUserLocationMarker enabled={isMapFocused && (overlay || mapPresentationReady)} retry={locationRetry} />
+        <TrackedUserLocationMarker enabled={isMapFocused && (overlay || mapPresentationReady)} retry={locationRetry} isHome={!overlay} />
 
         {/* 등록 장소는 모든 줌에서 개별 원형 마커로 그린다. 아이콘은 숨기지 않고,
             겹치는 기본 심벌과 장소명 캡션만 SDK가 정리한다. */}
@@ -1035,7 +1067,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       ) : (
         <Animated.View
           pointerEvents="box-none"
-          style={[styles.searchAndFilter, { top: topControls }]}>
+          style={[styles.searchAndFilter, { top: topControls, gap: android ? 6 : 4 }]}>
           <View style={styles.searchRow}>
             <SearchEntry />
             <GlassButton
@@ -1053,42 +1085,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
               />
             </GlassButton>
           </View>
-          <CategoryFilter />
+          <CategoryFilter actions={android ? <>{weatherAction}{favoritesAction}</> : undefined} />
         </Animated.View>
       )}
 
-      {!overlay && (weather || weatherFailed || weatherFetching) && (
-        <WeatherFab
-          weather={weather}
-          failed={weatherFailed}
-          refreshing={weatherFetching}
-          onRetry={() => { void refetchWeather(); }}
-          open={weatherOpen && !placeDetailOpen}
-          onPress={handleWeatherPress}
-        />
-      )}
-
-      {/* 즐겨찾기 지도 표시 — 날씨 FAB와 같은 행 오른쪽 끝, 켜면 별이 채워진다 */}
-      {!overlay && (
-      <GlassButton
-        accessibilityLabel={showFavorites ? '즐겨찾기 장소 숨기기' : '즐겨찾기 장소 보기'}
-        accessibilityRole="button"
-        onPress={() => {
-          if (!user) {
-            toast.info('로그인하면 즐겨찾기를 지도에서 볼 수 있어요');
-            return;
-          }
-          toggleShowFavorites();
-        }}
-        style={styles.favFab}>
-        <Ionicons
-          name={showFavorites ? 'star' : 'star-outline'}
-          size={20}
-          color={showFavorites ? '#FACC15' : colors.textSecondary}
-        />
-      </GlassButton>
-      )}
-
+      {!overlay && !android && <>{weatherAction}{favoritesAction}</>}
 
       {showGasRefresh && !selectedStation && !placeDetailOpen && !weatherOpen && (
         <Animated.View entering={FadeIn.duration(200)} style={[styles.gasRefreshAnchor, { bottom: 14 + tabOcclusion }]}>
@@ -1196,7 +1197,6 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 5,
     elevation: 5,
-    gap: 4,
   },
   searchRow: {
     flexDirection: 'row',
@@ -1230,10 +1230,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  // 중앙 세부 필터의 양옆에서 날씨 FAB와 기존 높이를 유지한다.
   favFab: {
     position: 'absolute',
-    top: 162,
     right: 16,
     width: 44,
     height: 44,

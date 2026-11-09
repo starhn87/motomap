@@ -78,5 +78,5 @@ export function useUserLocation(enabled = true, trackHeading = true, retry = 0) 
     );
   }, [setUserLocation, tracking, trackHeading, revision, retry]);
 
-  return { heading };
+  return { heading, tracking };
 }

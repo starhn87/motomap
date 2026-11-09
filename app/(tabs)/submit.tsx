@@ -283,10 +283,10 @@ function SubmitPlace() {
         onScroll={trackHeaderScroll} scrollEventThrottle={16}
         ref={scrollRef}
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.content, { paddingTop: headerInset + 20 }]}
+        contentContainerStyle={[styles.content, { paddingTop: headerInset + (Platform.OS === 'android' ? 12 : 20) }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>카테고리 *</Text>
+        <Text style={[styles.sectionTitle, Platform.OS === 'android' && styles.firstSectionTitle, { color: colors.text }]}>카테고리 *</Text>
         <View style={styles.categories}>
           {CATEGORY_LIST.map((cat) => (
             <Pressable
@@ -502,6 +502,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: { fontSize: 14, fontWeight: '700' },
   content: { padding: 20, paddingBottom: 40 },
+  firstSectionTitle: { marginTop: 0 },
   sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: 16, marginBottom: 8 },
   categories: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   categoryChip: {

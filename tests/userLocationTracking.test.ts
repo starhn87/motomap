@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getOrRequestLocationPermission, shouldTrackUserLocation, smoothMapHeading, startUserLocationTracking, type UserLocationSource } from '../lib/userLocationTracking';
+import { getOrRequestLocationPermission, markerHeadingMotion, markerPositionMotion, shouldTrackUserLocation, smoothMapHeading, startUserLocationTracking, type UserLocationSource } from '../lib/userLocationTracking';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -233,4 +233,22 @@ test('지도 방위는 낮은 신뢰도와 작은 흔들림을 무시하고 북�
   assert.equal(smoothMapHeading(0, right, { trueHeading: 0, magHeading: 0 }), 0);
   const turn = smoothMapHeading(0, right, { trueHeading: 88, magHeading: 91 });
   assert.ok(turn !== null && turn > 40 && turn < 60);
+});
+
+
+test('표시용 위치는 가까운 좌표만 보간하고 먼 캐시 보정은 바로 반영한다', () => {
+  const close = { ...coords, latitude: 37.0002 };
+  const motion = markerPositionMotion(coords, close);
+  assert.ok(motion);
+  assert.ok(Math.abs(motion(0.5).latitude - 37.0001) < 1e-8);
+  assert.equal(motion(0.5).longitude, 127);
+  assert.equal(markerPositionMotion(coords, { ...coords, latitude: 37.1 }), null);
+  assert.equal(markerPositionMotion(coords, coords), null);
+});
+
+test('표시용 화살표는 북쪽을 지나 양방향으로 최단 회전한다', () => {
+  assert.equal(markerHeadingMotion(350, 10)?.(0.25), 355);
+  assert.equal(markerHeadingMotion(350, 10)?.(0.5), 0);
+  assert.equal(markerHeadingMotion(10, 350)?.(0.75), 355);
+  assert.equal(markerHeadingMotion(50, 50), null);
 });

@@ -1,3 +1,5 @@
+import { haversine } from './distance';
+
 type Position = { coords: { latitude: number; longitude: number } };
 type Heading = { trueHeading: number; magHeading: number; accuracy?: number };
 type Subscription = { remove(): void };
@@ -46,6 +48,22 @@ export function smoothMapHeading(previous: number | null, sample: Heading, prece
   }
   const weight = Math.min(0.55, 0.20 + Math.abs(delta) / 180);
   return (previous + delta * weight + 360) % 360;
+}
+
+export function markerHeadingMotion(from: number, to: number) {
+  const delta = headingDelta(from, to);
+  if (delta === 0) return null;
+  return (progress: number) => (from + delta * progress + 360) % 360;
+}
+
+export function markerPositionMotion(from: Position['coords'], to: Position['coords']) {
+  const distance = haversine(from, to);
+  // 오래된 캐시에서 최신 위치로 크게 바뀌면 중간 좌표를 그리지 않는다.
+  if (!(distance > 0 && distance <= 100)) return null;
+  return (progress: number) => ({
+    latitude: from.latitude + (to.latitude - from.latitude) * progress,
+    longitude: (from.longitude + headingDelta(from.longitude, to.longitude) * progress + 540) % 360 - 180,
+  });
 }
 
 // 화면 종료와 비동기 native 구독 생성의 경합을 한 수명 안에서 처리한다.
