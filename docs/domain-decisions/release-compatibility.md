@@ -15,7 +15,7 @@
 - 현재 앱 버전: **1.2.11**
 - 공식 지원 직전 버전: **1.2.10**
 - 원격 최소 실행 버전: **1.2.4**
-- 네이티브 브리지 계약: **42**
+- 네이티브 브리지 계약: **43**
 - 백엔드 API 계약: **1**
 
 ## 2026-11-07 날씨 레이아웃 TestFlight 공통 OTA 승인
@@ -1745,3 +1745,10 @@ API1 계약을 유지한다. Android UI SDK 최소 요구 사항에 맞춰 Andro
 UI SDK의 `v2-common:2.23.0`과 기존 Android 로그인 SDK 2.20.1이 혼용되면
 `KakaoJson.getBase()`를 찾지 못해 시작 시 종료된다. Android 로그인 라이브러리도
 2.23.0에 맞추고 앱에서 사용하지 않는 두 가지 제거된 SDK 참조를 패치했다.
+
+## 2026-11-09 Android 모토맵 길안내 화면 후보
+
+NAV-073에서 Android에 `guide_web_bottom`, `guide_route_editing`, `guide_arrival_record`
+계약을 제공해 브리지 43으로 올린다. iOS 하단 HTML의 렌더링은 그대로 쓰고 Android 메시지
+전송 경로를 같은 파일에 둔다. 새 Android 바이너리에서 적용하며 후보 앱/runtime1.2.11과 API1을
+유지한다.

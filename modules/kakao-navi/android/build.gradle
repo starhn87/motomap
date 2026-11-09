@@ -14,7 +14,26 @@ android {
   }
 }
 
+// iOS와 Android가 같은 마크업·아이콘·서체를 묶는다.
+def guideAssets = tasks.register('bundleGuidePanel', Sync) {
+  from('../ios/Resources') {
+    include 'navigation-bottom.html'
+  }
+  from('../ios/Resources/Fonts') {
+    include '*.woff2', 'OFL.txt'
+  }
+  into layout.buildDirectory.dir('generated/assets/guidePanel/motomap-guide')
+}
+androidComponents {
+  onVariants(selector().all()) { variant ->
+    variant.sources.assets.addStaticSourceDirectory(layout.buildDirectory.dir('generated/assets/guidePanel').get().asFile.path)
+  }
+}
+tasks.named('preBuild').configure { dependsOn guideAssets }
+
 dependencies {
+  implementation 'androidx.webkit:webkit:1.15.0'
   implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
   implementation 'com.kakaomobility.knsdk:knsdk_ui:1.12.8-hotfix05'
+  testImplementation 'junit:junit:4.13.2'
 }

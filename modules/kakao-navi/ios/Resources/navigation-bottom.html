@@ -316,7 +316,11 @@ License: Apache-2.0 (Pictogrammers Free License, icons).
   <script>
     (() => {
       const $ = id => document.getElementById(id);
-      const send = (action, extra = {}) => window.webkit.messageHandlers.motomapBottom.postMessage({ action, ...extra });
+      const send = (action, extra = {}) => {
+        const payload = { action, ...extra };
+        if (window.MotoMapAndroid) window.MotoMapAndroid.postMessage(JSON.stringify(payload));
+        else window.webkit.messageHandlers.motomapBottom.postMessage(payload);
+      };
       let expanded = false;
       let menuOpen = false;
       let latestState = {};
