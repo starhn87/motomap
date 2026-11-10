@@ -8,13 +8,11 @@ test('위험 제보·주유소 메뉴는 계속 닫고 경로 편집을 분리�
   assert.equal(GUIDE_ROUTE_EDITING_ENABLED,true);
 });
 test('실제 하단 메뉴는 목적지 변경·음량·종료만 제공한다',()=>{
-  const html=readFileSync(new URL('../modules/kakao-navi/ios/Resources/navigation-bottom.html',import.meta.url),'utf8');
-  const actions=[...html.matchAll(/data-action="([^"]+)"/g)].map(m=>m[1]).sort();
-  assert.deepEqual(actions,['end','menu','recenter','refresh','routeEdit']);
-  assert.match(html,/type="range" id="volume"/);
-  assert.match(html,/id="mute"/);
-  assert.match(html,/data-action="routeEdit"[^\n]*<span>목적지 변경<\/span>/);
-  assert.doesNotMatch(html,/다른 경로/);
-  assert.doesNotMatch(html,/경로 편집/);
-  assert.doesNotMatch(html,/viasLabel|class="actions"/);
+  const panel = readFileSync(new URL('../components/navigation/IOSGuidePanel.tsx', import.meta.url), 'utf8');
+  const actions = [...new Set([...panel.matchAll(/act\('([^']+)'/g)].map(match => match[1]))].sort();
+  assert.deepEqual(actions, ['end', 'menu', 'recenter', 'refresh', 'routeEdit', 'volume']);
+  assert.match(panel, /accessibilityRole="adjustable" accessibilityLabel="안내 음량"/);
+  assert.match(panel, /안내 음소거/);
+  assert.match(panel, /목적지 변경/);
+  assert.doesNotMatch(panel, /다른 경로|경로 편집/);
 });

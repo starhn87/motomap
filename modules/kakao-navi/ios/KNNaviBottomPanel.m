@@ -1,19 +1,21 @@
 #import "KNNaviBottomPanel.h"
-#import <WebKit/WebKit.h>
 #import <math.h>
 
 const CGFloat KNNaviBottomCollapsedHeight = 68;
 const CGFloat KNNaviBottomRecenterHeight = 54;
 
-@class KNNaviBottomPanel;
-@interface KNNaviBottomMessage : NSObject <WKScriptMessageHandler>
-@property(nonatomic, weak) KNNaviBottomPanel *owner;
-@end
-@interface KNNaviBottomPanel () <WKNavigationDelegate>
-@property(nonatomic, strong) WKWebView *webView;
-@property(nonatomic, strong) WKWebView *menuWebView;
-@property(nonatomic, strong) NSURL *documentURL;
-@property(nonatomic, strong) NSDictionary *state;
+static KNNaviGuideSurfaceFactory surfaceFactory;
+static KNNaviGuideSurfaceEvent surfaceEvent;
+static NSMapTable<NSString *, KNNaviBottomPanel *> *panels;
+
+@interface KNNaviBottomPanel ()
+@property(nonatomic, strong, nullable) UIView *footer;
+@property(nonatomic, strong) UIView *menuView;
+@property(nonatomic, strong, nullable) UIView *menu;
+@property(nonatomic, copy) NSString *token;
+@property(nonatomic, copy) NSDictionary *state;
+@property(nonatomic, copy, nullable) NSDictionary *lastFooterSnapshot;
+@property(nonatomic, copy, nullable) NSDictionary *lastMenuSnapshot;
 @property(nonatomic) BOOL ready;
 @property(nonatomic) BOOL footerReady;
 @property(nonatomic) BOOL menuReady;
@@ -22,55 +24,88 @@ const CGFloat KNNaviBottomRecenterHeight = 54;
 @property(nonatomic) BOOL expanded;
 @property(nonatomic) CGFloat bottomInset;
 @property(nonatomic) CGFloat menuBottomInset;
-- (void)receiveMessage:(WKScriptMessage *)message;
 @end
-@implementation KNNaviBottomMessage
-- (void)userContentController:(WKUserContentController *)controller didReceiveScriptMessage:(WKScriptMessage *)message {
-  [self.owner receiveMessage:message];
-}
-@end
+
 @implementation KNNaviBottomPanel
++ (void)setSurfaceFactory:(KNNaviGuideSurfaceFactory)factory event:(KNNaviGuideSurfaceEvent)event {
+  surfaceFactory = [factory copy];
+  surfaceEvent = [event copy];
+}
++ (NSDictionary *)connectSurface:(NSString *)token menu:(BOOL)menu {
+  KNNaviBottomPanel *panel = [panels objectForKey:token];
+  if (!panel || panel.failed) return nil;
+  return [panel snapshotForMenu:menu];
+}
++ (void)surfaceRendered:(NSString *)token menu:(BOOL)menu {
+  KNNaviBottomPanel *panel = [panels objectForKey:token];
+  if (!panel || panel.failed || panel.ready) return;
+  if (menu) panel.menuReady = YES; else panel.footerReady = YES;
+  if (!panel.footerReady || !panel.menuReady) return;
+  panel.ready = YES;
+  [panel publishHeight];
+  [panel publish];
+  if (panel.onAction) panel.onAction(@"ready", @{});
+}
++ (void)surfaceAction:(NSString *)token action:(NSString *)action value:(NSNumber *)value {
+  KNNaviBottomPanel *panel = [panels objectForKey:token];
+  if (!panel.ready || panel.failed) return;
+  if ([action isEqualToString:@"menu"]) { [panel setMenuOpen:!panel.expanded]; return; }
+  if ([action isEqualToString:@"volume"]) {
+    if (!panel.expanded || !value || !isfinite(value.doubleValue)) return;
+    if (panel.onAction) panel.onAction(action, @{@"value":@(MAX(0, MIN(1, value.doubleValue)))});
+    return;
+  }
+  if ([action isEqualToString:@"routeEdit"]) {
+    if (!panel.expanded || ![panel.state[@"canRouteEdit"] boolValue] || [panel.state[@"busy"] boolValue]) return;
+  } else if ([action isEqualToString:@"end"]) {
+    if (!panel.expanded) return;
+  } else if ([action isEqualToString:@"recenter"]) {
+    if (panel.expanded || ![panel.state[@"showRecenter"] boolValue]) return;
+  } else if ([action isEqualToString:@"refresh"]) {
+    if (panel.expanded || [panel.state[@"busy"] boolValue]) return;
+  } else return;
+  [panel collapse];
+  if (panel.onAction) panel.onAction(action, @{});
+}
 - (instancetype)initWithFrame:(CGRect)frame {
   self = [super initWithFrame:frame];
   if (!self) return nil;
   _state = @{};
-  NSURL *url = [NSBundle.mainBundle URLForResource:@"MotoMapNavigationUI" withExtension:@"bundle"];
-  NSBundle *bundle = url ? [NSBundle bundleWithURL:url] : nil;
-  _documentURL = [bundle URLForResource:@"navigation-bottom" withExtension:@"html"];
-  _webView = [self makeWebView];
-  _webView.frame = self.bounds;
-  [self addSubview:_webView];
-  // 메뉴는 미리 로드한 별도 뷰다. footer 크기/문서를 바꾸지 않고 native 시트로 올린다.
-  _menuWebView = [self makeWebView];
-  _menuWebView.hidden = YES;
-  if (!_documentURL) dispatch_async(dispatch_get_main_queue(), ^{ [self fail]; });
+  _token = NSUUID.UUID.UUIDString;
+  if (!panels) panels = [NSMapTable strongToWeakObjectsMapTable];
+  [panels setObject:self forKey:_token];
+
+  _menuView = [UIView new];
+  _menuView.hidden = YES;
+  _footer = surfaceFactory ? surfaceFactory(@{@"token":_token, @"menu":@NO}) : nil;
+  _menu = surfaceFactory ? surfaceFactory(@{@"token":_token, @"menu":@YES}) : nil;
+  if (_footer) [self mount:_footer inView:self];
+  if (_menu) [self mount:_menu inView:_menuView];
+
   __weak KNNaviBottomPanel *weakSelf = self;
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+  NSTimeInterval timeout = _footer && _menu ? 10 : 0;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeout * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
     if (!weakSelf.ready) [weakSelf fail];
   });
   return self;
 }
-- (WKWebView *)makeWebView {
-  WKWebViewConfiguration *config = [WKWebViewConfiguration new];
-  KNNaviBottomMessage *handler = [KNNaviBottomMessage new]; handler.owner = self;
-  [config.userContentController addScriptMessageHandler:handler name:@"motomapBottom"];
-  WKWebView *web = [[WKWebView alloc] initWithFrame:CGRectZero configuration:config];
-  web.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-  web.navigationDelegate = self;
-  web.opaque = NO;
-  web.backgroundColor = UIColor.clearColor;
-  web.scrollView.backgroundColor = UIColor.clearColor;
-  web.scrollView.bounces = NO;
-  web.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
-  if (self.documentURL) [web loadFileURL:self.documentURL allowingReadAccessToURL:self.documentURL.URLByDeletingLastPathComponent];
-  return web;
+- (void)mount:(UIView *)surface inView:(UIView *)parent {
+  surface.backgroundColor = UIColor.clearColor;
+  surface.frame = parent.bounds;
+  surface.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  [parent addSubview:surface];
 }
-- (UIView *)menuView { return self.menuWebView; }
 - (void)fail {
   if (self.invalidated || self.failed) return;
   [self collapse];
   self.failed = YES; self.ready = NO;
+  [self detachSurfaces];
   if (self.onFailure) self.onFailure();
+}
+- (void)detachSurfaces {
+  [panels removeObjectForKey:self.token];
+  [self.footer removeFromSuperview]; self.footer = nil;
+  [self.menu removeFromSuperview]; self.menu = nil;
 }
 - (void)setBottomInset:(CGFloat)inset {
   if (_bottomInset == MAX(0, inset)) return;
@@ -84,11 +119,12 @@ const CGFloat KNNaviBottomRecenterHeight = 54;
 }
 - (void)publishHeight {
   self.accessibilityElementsHidden = self.expanded;
-  self.menuWebView.accessibilityViewIsModal = self.expanded && self.ready;
+  self.menuView.accessibilityViewIsModal = self.expanded && self.ready;
   if (self.onHeight) self.onHeight(KNNaviBottomCollapsedHeight + KNNaviBottomRecenterHeight + self.bottomInset);
 }
 - (void)updateState:(NSDictionary *)state {
-  self.state = [state copy];
+  if ([self.state isEqualToDictionary:state]) return;
+  self.state = state;
   [self publish];
 }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
@@ -97,19 +133,35 @@ const CGFloat KNNaviBottomRecenterHeight = 54;
       point.y >= 44 || fabs(point.x - self.bounds.size.width / 2) > 66)) return NO;
   return [super pointInside:point withEvent:event];
 }
-- (void)publishTo:(WKWebView *)web menu:(BOOL)menu {
-  NSMutableDictionary *payload = [self.state mutableCopy];
-  payload[@"expanded"] = @(menu); payload[@"menuOpen"] = @(self.expanded);
-  payload[@"bottomInset"] = @(menu ? self.menuBottomInset : self.bottomInset);
-  NSData *json = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
-  if (!json) return;
-  NSString *text = [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
-  [web evaluateJavaScript:[NSString stringWithFormat:@"window.MotoMapBottom.render(%@)",text] completionHandler:nil];
+- (NSDictionary *)snapshotForMenu:(BOOL)menu {
+  // GPS·시간 변경은 숨겨진 메뉴를 다시 그리지 않고 음량 변경은 하단 바에 보내지 않는다.
+  NSMutableDictionary *state = [self.state mutableCopy];
+  if (menu) {
+    state = [@{@"volume":self.state[@"volume"] ?: @1,
+               @"canRouteEdit":self.state[@"canRouteEdit"] ?: @NO,
+               @"busy":self.state[@"busy"] ?: @NO} mutableCopy];
+  } else {
+    [state removeObjectsForKeys:@[@"volume", @"canRouteEdit"]];
+  }
+  return @{@"token":self.token, @"menu":@(menu), @"expanded":@(self.expanded),
+           @"bottomInset":@(menu ? self.menuBottomInset : self.bottomInset), @"state":state};
 }
 - (void)publish {
-  if (!self.ready || self.invalidated || self.failed) return;
-  [self publishTo:self.webView menu:NO];
-  [self publishTo:self.menuWebView menu:YES];
+  if (self.invalidated || self.failed || !surfaceEvent) return;
+  if (self.footerReady) {
+    NSDictionary *footer = [self snapshotForMenu:NO];
+    if (![self.lastFooterSnapshot isEqual:footer]) {
+      self.lastFooterSnapshot = footer;
+      surfaceEvent(footer);
+    }
+  }
+  if (self.menuReady) {
+    NSDictionary *menu = [self snapshotForMenu:YES];
+    if (![self.lastMenuSnapshot isEqual:menu]) {
+      self.lastMenuSnapshot = menu;
+      surfaceEvent(menu);
+    }
+  }
 }
 - (BOOL)accessibilityPerformEscape {
   if (!self.expanded) return NO;
@@ -122,57 +174,15 @@ const CGFloat KNNaviBottomRecenterHeight = 54;
   if (self.onMenuVisibility) self.onMenuVisibility(open);
 }
 - (void)showToast:(NSString *)message {
-  if (!self.ready || self.invalidated || self.failed) return;
-  NSData *data = [NSJSONSerialization dataWithJSONObject:@[message] options:0 error:nil];
-  NSString *json = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-  WKWebView *target = self.expanded ? self.menuWebView : self.webView;
-  if (json) [target evaluateJavaScript:[NSString stringWithFormat:@"window.MotoMapBottom.toast(%@[0])", json] completionHandler:nil];
+  if (!self.ready || self.invalidated || self.failed || !surfaceEvent) return;
+  surfaceEvent(@{@"token":self.token, @"menu":@(self.expanded), @"toast":message});
 }
 - (void)collapse { [self setMenuOpen:NO]; }
-- (void)receiveMessage:(WKScriptMessage *)message {
-  if (self.invalidated || self.failed || !message.frameInfo.mainFrame ||
-      (message.webView != self.webView && message.webView != self.menuWebView) ||
-      ![message.frameInfo.request.URL.path isEqualToString:self.documentURL.path] ||
-      ![message.body isKindOfClass:NSDictionary.class]) return;
-  NSDictionary *body = message.body;
-  NSString *action = body[@"action"];
-  if (![action isKindOfClass:NSString.class]) return;
-  if ([action isEqualToString:@"ready"]) {
-    if (message.webView == self.webView) self.footerReady = YES; else self.menuReady = YES;
-    if (self.ready || !self.footerReady || !self.menuReady) return;
-    self.ready = YES; [self publishHeight]; [self publish];
-    if (self.onAction) self.onAction(@"ready",@{});
-    return;
-  }
-  if (!self.ready) return;
-  if ([action isEqualToString:@"menu"]) { [self setMenuOpen:!self.expanded]; return; }
-  if ([action isEqualToString:@"volume"]) {
-    NSNumber *value = body[@"value"];
-    if (![value isKindOfClass:NSNumber.class] || !isfinite(value.doubleValue)) return;
-    if (self.onAction) self.onAction(action,@{@"value":@(MAX(0,MIN(1,value.doubleValue)))});
-    return;
-  }
-  NSSet *allowed = [NSSet setWithArray:@[@"refresh",@"recenter",@"end",@"routeEdit"]];
-  if (![allowed containsObject:action]) return;
-  if ([action isEqualToString:@"routeEdit"] && ![self.state[@"canRouteEdit"] boolValue]) return;
-  [self collapse];
-  if (self.onAction) self.onAction(action,@{});
-}
-- (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)action decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
-  BOOL local = [action.request.URL.path isEqualToString:self.documentURL.path] && action.request.URL.isFileURL;
-  decisionHandler(local ? WKNavigationActionPolicyAllow : WKNavigationActionPolicyCancel);
-}
-- (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error { [self fail]; }
-- (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error { [self fail]; }
-- (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView { [self fail]; }
 - (void)invalidate {
   if (self.invalidated) return;
   self.invalidated = YES;
-  for (WKWebView *web in @[self.webView,self.menuWebView]) {
-    [web stopLoading];
-    [web.configuration.userContentController removeScriptMessageHandlerForName:@"motomapBottom"];
-    web.navigationDelegate = nil;
-  }
+  self.ready = NO;
+  [self detachSurfaces];
   self.onAction = nil; self.onHeight = nil; self.onFailure = nil; self.onMenuVisibility = nil;
 }
 @end

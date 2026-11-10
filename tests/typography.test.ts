@@ -41,17 +41,10 @@ test('번들 서체는 공식 배포의 원본9굵기와 전체 OFL 고지를 �
   assert.equal(JSON.parse(readFileSync('assets/fonts/license.json', 'utf8')).text, readFileSync('assets/fonts/OFL.txt', 'utf8'));
 });
 
-test('길안내 웹서체는 같은 로컬 번들의 원본만 읽고 OFL과 해시를 유지한다', () => {
-  const root = 'modules/kakao-navi/ios/Resources/Fonts';
-  const sources = JSON.parse(readFileSync(`${root}/sources.json`, 'utf8'));
-  for (const file of sources.files) {
-    const bytes = readFileSync(`${root}/${file.file}`);
-    assert.equal(createHash('sha256').update(bytes).digest('hex'), file.sha256);
-    assert.equal(bytes.subarray(0, 4).toString(), 'wOF2');
+test('iOS 길안내 RN 패널은 앱에 포함된 Pretendard를 쓴다', () => {
+  const panel = readFileSync('components/navigation/IOSGuidePanel.tsx', 'utf8');
+  for (const weight of ['Regular', 'SemiBold', 'Bold']) {
+    assert.ok(panel.includes(`Pretendard-${weight}`));
+    assert.ok(readFileSync(`assets/fonts/Pretendard-${weight}.otf`).length > 0);
   }
-  const html = readFileSync('modules/kakao-navi/ios/Resources/navigation-bottom.html', 'utf8');
-  assert.ok(html.includes("font-src 'self'"));
-  assert.equal((html.match(/@font-face/g) ?? []).length, 3);
-  for (const file of sources.files) assert.ok(html.includes(`url('${file.file}')`));
-  assert.equal(readFileSync(`${root}/OFL.txt`, 'utf8'), readFileSync('assets/fonts/OFL.txt', 'utf8'));
 });

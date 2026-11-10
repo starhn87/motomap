@@ -351,7 +351,7 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, copy) void (^onArrival)(NSDictionary *);
 @property(nonatomic) BOOL arrivalEmitted;
 @property(nonatomic, strong) UIControl *menuBackdrop;
-@property(nonatomic, strong) KNNaviHiddenViews *webHiddenViews;
+@property(nonatomic, strong) KNNaviHiddenViews *panelHiddenViews;
 @property(nonatomic, strong) KNNaviHiddenViews *mapHiddenViews;
 @property(nonatomic) BOOL mapControlsHidden;
 @property(nonatomic) BOOL mapDetached;
@@ -641,7 +641,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.gasLayer.onRoute = ^{ if (gasOwner.onMenu) gasOwner.onMenu(108); };
   self.volume = 1;
   self.auxiliaryHiddenViews = [KNNaviHiddenViews new];
-  self.webHiddenViews = [KNNaviHiddenViews new];
+  self.panelHiddenViews = [KNNaviHiddenViews new];
   self.mapHiddenViews = [KNNaviHiddenViews new];
   self.menuBackdrop = [UIControl new];
   self.menuBackdrop.backgroundColor = [UIColor colorWithWhite:0 alpha:0.28];
@@ -659,7 +659,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.bottomPanel.onMenuVisibility = ^(BOOL visible) { [weakSelf setBottomMenuVisible:visible]; };
   self.bottomPanel.onFailure = ^{
     KNNaviViewController *vc = weakSelf;
-    [vc.webHiddenViews restore];
+    [vc.panelHiddenViews restore];
     [vc stopForwardingBottomNotice];
     [vc.mapHiddenViews restore]; vc.mapControlsHidden = NO;
     vc.bottomPanel.hidden = YES;
@@ -718,6 +718,9 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     sheet.hidden = NO; self.menuBackdrop.hidden = NO;
     [self.view bringSubviewToFront:self.menuBackdrop];
     [self.view bringSubviewToFront:sheet];
+    [self becomeFirstResponder];
+  } else if (self.isFirstResponder) {
+    [self resignFirstResponder];
   }
   [UIView animateWithDuration:0.25 delay:0
                      options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseOut
@@ -728,8 +731,23 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     if (self.bottomPanel.expanded != visible) return;
     if (!visible || !self.bottomPanel.ready) {
       sheet.hidden = YES; self.menuBackdrop.hidden = YES;
-    } else if (visible && finished) UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, sheet);
+      if (finished && !visible && self.bottomPanel.ready) {
+        UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, self.bottomPanel);
+      }
+    } else if (finished) UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, sheet);
   }];
+}
+
+- (BOOL)canBecomeFirstResponder {
+  return self.bottomPanel.expanded || [super canBecomeFirstResponder];
+}
+
+- (NSArray<UIKeyCommand *> *)keyCommands {
+  NSArray<UIKeyCommand *> *commands = [super keyCommands] ?: @[];
+  if (!self.bottomPanel.expanded) return commands;
+  UIKeyCommand *escape = [UIKeyCommand keyCommandWithInput:UIKeyInputEscape modifierFlags:0 action:@selector(closeBottomMenu)];
+  escape.discoverabilityTitle = @"길안내 메뉴 닫기";
+  return [commands arrayByAddingObject:escape];
 }
 
 - (BOOL)accessibilityPerformEscape {
@@ -757,8 +775,8 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
       };
     }
     [routeView refreshBottomNotice];
-    [self.webHiddenViews hideView:self.naviView.bottomView];
-    [self.webHiddenViews hideView:self.naviView.menuView];
+    [self.panelHiddenViews hideView:self.naviView.bottomView];
+    [self.panelHiddenViews hideView:self.naviView.menuView];
     BOOL hidden = [KNNaviRouteView isSDKMapStateBoundaryCompatible] && [self.mapHiddenViews hideMapControlsIn:self.naviView.mapView];
     if (!hidden) [self.mapHiddenViews restore];
     if (self.mapControlsHidden != hidden) {
@@ -770,7 +788,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
 
 - (void)viewDidLayoutSubviews {
   [super viewDidLayoutSubviews];
-  BOOL web = self.bottomPanel.ready;
+  BOOL panelReady = self.bottomPanel.ready;
   CGFloat gap = MAX(self.view.safeAreaInsets.bottom, 12) + 8;
   // 지도는 바닥까지 채우고 앱 카드를 홈 인디케이터 위에 띄운다.
   self.naviView.frame = self.view.bounds;
@@ -778,18 +796,18 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     [self.bottomPanel setBottomInset:0];
     CGFloat height = MIN(self.panelHeight ?: (KNNaviBottomCollapsedHeight + KNNaviBottomRecenterHeight), self.view.bounds.size.height - self.view.safeAreaInsets.top - gap);
     self.bottomPanel.frame = CGRectMake(12, self.view.bounds.size.height - gap - height, MAX(0, self.view.bounds.size.width - 24), height);
-    self.bottomPanel.hidden = !web;
+    self.bottomPanel.hidden = !panelReady;
   }
   self.menuBackdrop.frame = self.view.bounds;
   UIView *sheet = self.bottomPanel.menuView;
   // 메뉴 배경은 화면 하단까지, 조작부는 홈 인디케이터 위에 둔다.
   CGFloat menuInset = self.view.safeAreaInsets.bottom;
   [self.bottomPanel setMenuBottomInset:menuInset];
-  // 238 = 메뉴 HTML(핸들·음량·목적지 변경·종료) 내용 높이. 남는 높이는 목적지 변경과 종료 사이 간격으로 벌어진다.
+  // 238 = 메뉴(핸들·음량·목적지 변경·종료) 내용 높이. 남는 높이는 목적지 변경과 종료 사이 간격으로 벌어진다.
   CGFloat sheetHeight = MIN(238 + menuInset, self.view.bounds.size.height - self.view.safeAreaInsets.top);
   sheet.bounds = CGRectMake(0, 0, self.view.bounds.size.width, MAX(0, sheetHeight));
   sheet.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height - sheetHeight / 2);
-  if (!web) { sheet.hidden = YES; self.menuBackdrop.hidden = YES; }
+  if (!panelReady) { sheet.hidden = YES; self.menuBackdrop.hidden = YES; }
   [self refreshHiddenViews];
   CGRect safe = UIEdgeInsetsInsetRect(self.view.bounds, self.view.safeAreaInsets);
   CGRect banner = [self.naviView.curDirView convertRect:self.naviView.curDirView.bounds toView:self.view];
@@ -1736,7 +1754,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   if (gSuspendedNavi == self) gSuspendedNavi = nil;
   [self.bottomPanel invalidate];
   [self stopForwardingBottomNotice];
-  [self.webHiddenViews restore];
+  [self.panelHiddenViews restore];
   [self.auxiliaryHiddenViews restore];
   [self stopObservingBottomView];
   [self.guidance stop];

@@ -1,4 +1,6 @@
 import ExpoModulesCore
+import Expo
+import React
 
 // KNSDK 코드를 reject 코드 뒤에 붙인다 — JS 는 문구가 아니라 이 코드로 분기한다
 // (예: E_KNSDK_ROUTE_20413). SDK 밖에서 난 실패는 접미사 없이 그대로.
@@ -17,7 +19,7 @@ public class KakaoNaviModule: Module {
     // JS가 앱 버전 문자열을 추측하지 않고 실제 바이너리 기능을 확인한다.
     // 기능을 추가·삭제하거나 wire 계약이 바뀌면 bridgeVersion을 올린다.
     Constants([
-            "bridgeVersion": 41,
+            "bridgeVersion": 42,
       "features": [
         "bike_route_preview",
         "guide_options",
@@ -25,7 +27,7 @@ public class KakaoNaviModule: Module {
         "app_lifecycle_forwarding",
         "accessibility_nil_guard",
         "location_privacy_stop",
-        "guide_web_bottom",
+        "guide_rn_bottom",
         "guide_route_editing",
         "guide_poi_tap",
         "guide_poi_sheet_update",
@@ -79,7 +81,36 @@ public class KakaoNaviModule: Module {
 
     // 길안내는 네이티브 전체화면으로 띄운다(이유는 KNNaviPresenter.h 참고).
     // 경로 탐색이 비동기라 결과는 이벤트로 알린다.
-    Events("onGuideStarted", "onGuideArrival", "onGuideEnd", "onGuideFailed", "onGuideMenu", "onGuidePoiTap")
+    Events("onGuideStarted", "onGuideArrival", "onGuideEnd", "onGuideFailed", "onGuideMenu", "onGuidePoiTap", "onIOSGuidePanel")
+
+    AsyncFunction("connectIOSGuidePanel") { (token: String, menu: Bool, promise: Promise) in
+      MainActor.assumeIsolated {
+        promise.resolve(KNNaviBottomPanel.connect(token: token, menu: menu))
+      }
+    }.runOnQueue(.main)
+
+    AsyncFunction("iosGuidePanelRendered") { (token: String, menu: Bool) in
+      MainActor.assumeIsolated { KNNaviBottomPanel.rendered(token: token, menu: menu) }
+    }.runOnQueue(.main)
+
+    AsyncFunction("iosGuidePanelAction") { (token: String, action: String, value: Double?) in
+      MainActor.assumeIsolated {
+        KNNaviBottomPanel.handle(token: token, action: action, value: value.map { NSNumber(value: $0) })
+      }
+    }.runOnQueue(.main)
+
+    // 등록된 JS 패널이 없는 구 번들은 SDK UI를 사용한다.
+    AsyncFunction("enableIOSGuidePanel") {
+      MainActor.assumeIsolated {
+        let factory = (UIApplication.shared.delegate as? ExpoReactNativeFactoryProvider)?.reactNativeFactory?.rootViewFactory
+        KNNaviBottomPanel.setSurfaceFactory({ [weak factory, weak self] props in
+          guard self != nil, let factory else { return nil }
+          return KNNaviGuideSurface.make(rootFactory: factory, props: props)
+        }, event: { [weak self] payload in
+          self?.sendEvent("onIOSGuidePanel", payload)
+        })
+      }
+    }.runOnQueue(.main)
 
     AsyncFunction("startGuide") {
       (startLng: Double, startLat: Double, goalLng: Double, goalLat: Double, goalName: String,

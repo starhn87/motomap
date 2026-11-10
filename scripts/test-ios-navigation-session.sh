@@ -37,7 +37,7 @@ for framework in KNSDK KMLocationSDK KakaoSDKCommon RNCryptor Realm RealmSwift A
 done
 xcrun clang -fobjc-arc -fmodules -target "$arch-apple-ios16.4-simulator" -isysroot "$sdkroot" \
   -I "$root/modules/kakao-navi/ios" -F "$app/Frameworks" -framework KNSDK \
-  -framework WebKit -framework UIKit -framework Foundation -framework AVFoundation -framework CoreLocation \
+  -framework UIKit -framework Foundation -framework AVFoundation -framework CoreLocation \
   -Wl,-rpath,@executable_path/Frameworks \
   "$root/modules/kakao-navi/ios/KNNaviPresenter.m" \
   "$root/modules/kakao-navi/ios/KNNaviTheme.m" \
@@ -79,7 +79,6 @@ PLIST
 mkdir -p "$app/MotoMapNavigationVoice.bundle"
 cp "$root/modules/kakao-navi/ios/Resources/navigation-start.mp3" "$app/MotoMapNavigationVoice.bundle/"
 mkdir -p "$app/MotoMapNavigationUI.bundle"
-cp "$root/modules/kakao-navi/ios/Resources/navigation-bottom.html" "$app/MotoMapNavigationUI.bundle/"
 cp "$root"/modules/kakao-navi/ios/Resources/GasBrands/*.png "$app/MotoMapNavigationUI.bundle/"
 codesign --force --sign - "$app" >/dev/null 2>&1
 xcrun simctl list runtimes --json > "$work/runtimes.json"
