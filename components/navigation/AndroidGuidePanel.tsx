@@ -285,7 +285,7 @@ export default function AndroidGuidePanel({ token }: { token: string }) {
             <Ionicons name={showDestination ? 'location-outline' : 'navigate'} size={20} color={tone.ink} />
             <Text numberOfLines={1} style={[styles.place, { color: tone.ink }]}>{showDestination ? state.goalName ?? '목적지' : state.currentLocationName}</Text>
           </View>
-          <View style={styles.inline}>
+          <View style={[styles.inline, styles.metrics]}>
             <Text numberOfLines={1} style={[state.status || !valid ? styles.label : styles.eta, { color: tone.ink }]}>
               {state.status ?? (valid ? remainingTime(time) : '안내 준비 중')}
             </Text>
@@ -325,6 +325,7 @@ export default function AndroidGuidePanel({ token }: { token: string }) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metrics: { gap: 10 },
   control: { width: 48, height: 44, alignItems: 'center', justifyContent: 'center' },
   dimmed: { opacity: 0.45 },
   hidden: { opacity: 0 },
@@ -332,7 +333,7 @@ const styles = StyleSheet.create({
     borderRadius: 16, borderWidth: 1, elevation: 4, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4 },
   summary: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 1 },
   place: { color: '#52525B', fontFamily: APP_FONT_FAMILY, fontSize: 16, flexShrink: 1 },
-  eta: { color: INK, fontFamily: APP_FONT_FAMILY, fontSize: 24, fontWeight: '700', flexShrink: 1 },
+  eta: { color: INK, fontFamily: APP_FONT_FAMILY, fontSize: 22, fontWeight: '700', flexShrink: 1 },
   distance: { color: INK, fontFamily: APP_FONT_FAMILY, fontSize: 20, fontWeight: '600' },
   label: { color: INK, fontFamily: APP_FONT_FAMILY, fontSize: 15, fontWeight: '600', flexShrink: 1 },
   wideStatus: { color: INK, fontFamily: APP_FONT_FAMILY, fontSize: 16, fontWeight: '600', flex: 1, textAlign: 'center' },
