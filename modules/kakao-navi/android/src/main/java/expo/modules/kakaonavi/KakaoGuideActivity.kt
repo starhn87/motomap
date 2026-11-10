@@ -20,6 +20,8 @@ import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
+import com.facebook.react.ReactApplication
+import com.facebook.react.ReactHost
 import com.kakaomobility.knsdk.KNCarType
 import com.kakaomobility.knsdk.KNLanguageType
 import com.kakaomobility.knsdk.KNRouteAvoidOption
@@ -71,6 +73,7 @@ class KakaoGuideActivity : AppCompatActivity() {
   }
 
   private var guide: KakaoGuideController? = null
+  private var resumedReactHost: ReactHost? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -85,6 +88,20 @@ class KakaoGuideActivity : AppCompatActivity() {
     onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
       override fun handleOnBackPressed() = controller.handleBack()
     })
+  }
+
+  override fun onResume() {
+    super.onResume()
+    if (guide?.usesReactPanel() == true) {
+      resumedReactHost = (application as? ReactApplication)?.reactHost
+      resumedReactHost?.onHostResume(this)
+    }
+  }
+
+  override fun onPause() {
+    resumedReactHost?.onHostPause(this)
+    resumedReactHost = null
+    super.onPause()
   }
 
   override fun onDestroy() {
@@ -124,8 +141,9 @@ internal class KakaoGuideController(
   private var guidance: KNGuidance? = null
   private var started = false
   private var ended = false
-  private var panel: MotoGuidePanel? = null
+  private var panel: MotoGuideControls? = null
   private var panelReady = false
+  private var panelStartedAt = 0L
   private var guideRoot: FrameLayout? = null
   private var traffic: MotoTrafficRail? = null
   private var viewState = KNNaviViewState.NONE
@@ -338,22 +356,62 @@ internal class KakaoGuideController(
       }
     }
     viewState = naviView.viewState
+    mountPanel(screen, root, BuildConfig.MOTOMAP_GUIDE_RN)
+    return true
+  }
+
+  private fun mountPanel(screen: KakaoGuideActivity, root: FrameLayout, useReact: Boolean) {
+    traffic?.drawNative = !useReact
+    if (BuildConfig.MOTOMAP_GUIDE_BENCHMARK) panelStartedAt = android.os.SystemClock.elapsedRealtime()
     try {
-      val bottom = MotoGuidePanel(root, ::setPanelReady, ::handlePanelAction, ::updateTraffic)
+      val bottom = if (useReact) {
+        MotoGuideRnPanel(screen, root, { request?.emit?.invoke("onAndroidGuidePanel", it) },
+          { ready ->
+            if (ready) setPanelReady(true)
+            else if (guideRoot === root && panel is MotoGuideRnPanel) {
+              panel?.destroy()
+              panel = null
+              mountPanel(screen, root, false)
+            }
+          }, ::handlePanelAction, ::updateTraffic)
+      } else MotoGuidePanel(root, ::setPanelReady, ::handlePanelAction, ::updateTraffic)
       panel = bottom
       updatePanel(bottom)
       bottom.load()
     } catch (_: RuntimeException) {
-      if (panel == null) setPanelReady(false) else panel?.destroy()
+      panel?.destroy()
+      panel = null
+      if (useReact) mountPanel(screen, root, false) else setPanelReady(false)
     }
-    return true
+  }
+
+  fun usesReactPanel() = panel is MotoGuideRnPanel
+
+  fun connectReactPanel(token: String) = (panel as? MotoGuideRnPanel)?.connect(token)
+
+  fun reactPanelRendered(token: String) {
+    (panel as? MotoGuideRnPanel)?.didRender(token)
+  }
+
+  fun reactPanelAction(token: String, action: String, value: Float?) {
+    (panel as? MotoGuideRnPanel)?.action(token, action, value)
   }
 
   private fun dp(value: Int) = (application.resources.displayMetrics.density * value).roundToInt()
 
   private fun setPanelReady(ready: Boolean) {
+    if (BuildConfig.MOTOMAP_GUIDE_BENCHMARK && ready && !panelReady) {
+      val renderer = if (usesReactPanel()) "rn" else "web"
+      val elapsed = android.os.SystemClock.elapsedRealtime() - panelStartedAt
+      val routeMeters = guidance?.routesOnGuide?.firstOrNull()?.totalDist
+      android.util.Log.i("MotoGuideBench", "ready renderer=$renderer elapsedMs=$elapsed routeMeters=$routeMeters")
+    }
     panelReady = ready
     val root = guideRoot ?: return
+    if (ready) {
+      fallback?.let(root::removeView)
+      fallback = null
+    }
     if (!ready && !ended && fallback == null) {
       fallback = android.widget.Button(root.context).apply {
         text = "길안내 종료"
@@ -369,32 +427,38 @@ internal class KakaoGuideController(
 
   private fun updateTraffic() {
     val rail = traffic ?: return
-    val engine = guidance
-    val route = engine?.routesOnGuide?.firstOrNull()
-    if (viewState == KNNaviViewState.DriveTouch || viewState == KNNaviViewState.DriveFullRoute) {
-      rail.show(false)
-      return
-    }
-    if (ended || arrival != null || refreshing || route == null) {
-      rail.clear()
-      return
-    }
-    val matched = lastMatched?.takeIf {
-      lastGps?.let { gps -> gps.isFresh() && gps.posTrust } == true && it.route === route
-    }
-    if (trafficStartRoute !== route) {
-      trafficStartRoute = route
-      val first = route.mainRoadList().orEmpty().firstOrNull()?.fromLocation
-      val poi = guideTrip?.start?.let { route.locationOfPoi(it) }
-      trafficStart = listOfNotNull(first, poi).firstOrNull {
-        it.route === route && abs(route.totalDist - route.remainDistFromLocation(it)) <= 3
+    try {
+      val engine = guidance
+      val route = engine?.routesOnGuide?.firstOrNull()
+      if (viewState == KNNaviViewState.DriveTouch || viewState == KNNaviViewState.DriveFullRoute) {
+        rail.show(false)
+        return
       }
+      if (ended || arrival != null || refreshing || route == null) {
+        rail.clear()
+        return
+      }
+      val matched = lastMatched?.takeIf {
+        lastGps?.let { gps -> gps.isFresh() && gps.posTrust } == true && it.route === route
+      }
+      if (trafficStartRoute !== route) {
+        trafficStartRoute = route
+        val first = route.mainRoadList().orEmpty().firstOrNull()?.fromLocation
+        val poi = guideTrip?.start?.let { route.locationOfPoi(it) }
+        trafficStart = listOfNotNull(first, poi).firstOrNull {
+          it.route === route && abs(route.totalDist - route.remainDistFromLocation(it)) <= 3
+        }
+      }
+      val start = matched ?: trafficStart
+      if (start == null) rail.unknown(route)
+      else rail.sample(route, start, matched != null)
+      rail.show(panelReady && panel?.expanded != true && rail.layoutParams.height >= dp(80) &&
+        (viewState == KNNaviViewState.DriveNormal || viewState == KNNaviViewState.NONE))
+    } finally {
+      (panel as? MotoGuideRnPanel)?.updateTraffic(rail.snapshot(
+        (rail.layoutParams.height / application.resources.displayMetrics.density).roundToInt()
+      ))
     }
-    val start = matched ?: trafficStart
-    if (start == null) rail.unknown(route)
-    else rail.sample(route, start, matched != null)
-    rail.show(panelReady && panel?.expanded != true && rail.layoutParams.height >= dp(80) &&
-      (viewState == KNNaviViewState.DriveNormal || viewState == KNNaviViewState.NONE))
   }
 
   private fun handlePanelAction(action: String, value: Float?) {
@@ -441,7 +505,7 @@ internal class KakaoGuideController(
     map.moveCamera(KNMapCameraUpdate().targetTo(coordinate), false, false)
   }
 
-  private fun updatePanel(target: MotoGuidePanel? = panel) {
+  private fun updatePanel(target: MotoGuideControls? = panel) {
     val trip = guidance?.trip ?: guideTrip
     val state = viewState
     updateTraffic()

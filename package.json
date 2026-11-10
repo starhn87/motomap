@@ -1,6 +1,6 @@
 {
   "name": "ridemap",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "1.2.11",
   "scripts": {
     "start": "expo start",

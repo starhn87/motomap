@@ -18,7 +18,21 @@ import kotlin.math.abs
 internal fun remainingTrafficFraction(remaining: Int, total: Int, hasPosition: Boolean): Float =
   if (hasPosition && total > 0) remaining.coerceIn(0, total).toFloat() / total else 1f
 
+internal data class MotoTrafficSnapshot(
+  val colors: List<Int>,
+  val fraction: Float,
+  val sampledFraction: Float,
+  val positioned: Boolean,
+  val visible: Boolean,
+  val height: Int,
+)
+
 internal class MotoTrafficRail(context: Context) : View(context) {
+  var drawNative = true
+    set(value) {
+      field = value
+      visibility = if (value) VISIBLE else GONE
+    }
   private data class Profile(val states: List<KNTrafficState>, val fraction: Float)
 
   private val unknown = 0xFFB8BBC0.toInt()
@@ -59,7 +73,7 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     }
     val fraction = remainingTrafficFraction(distance, route.totalDist, hasPosition)
     val samePositionMode = this.route === route && positioned == hasPosition
-    setProgress(fraction, visible && samePositionMode && hasPosition && ValueAnimator.areAnimatorsEnabled())
+    setProgress(fraction, drawNative && visible && samePositionMode && hasPosition && ValueAnimator.areAnimatorsEnabled())
     val now = SystemClock.elapsedRealtime()
     if (samePositionMode && profile != null &&
       now - sampledAt < 10_000 && abs(distance - sampledRemaining) < maxOf(100, sampledRemaining / 48)
@@ -122,6 +136,7 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     if (visible == target) return
     visible = target
     if (!target) setProgress(targetFraction, false)
+    if (!drawNative) return
     importantForAccessibility = if (target) IMPORTANT_FOR_ACCESSIBILITY_YES else IMPORTANT_FOR_ACCESSIBILITY_NO
     animate().cancel()
     if (ValueAnimator.areAnimatorsEnabled()) animate().alpha(if (target) 1f else 0f).setDuration(170).start()
@@ -182,18 +197,24 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     canvas.drawPath(path, paint)
   }
 
+  fun snapshot(heightDp: Int): MotoTrafficSnapshot? = profile?.let {
+    MotoTrafficSnapshot(it.states.map(::trafficColor), targetFraction, it.fraction, positioned, visible, heightDp)
+  }
+
+  private fun trafficColor(state: KNTrafficState): Int = when (state) {
+    KNTrafficState.KNTrafficState_Red -> 0xFFF7404A.toInt()
+    KNTrafficState.KNTrafficState_Orange -> 0xFFFF990D.toInt()
+    KNTrafficState.KNTrafficState_Yellow -> 0xFFFFD926.toInt()
+    KNTrafficState.KNTrafficState_Blue -> smooth
+    KNTrafficState.KNTrafficState_Blocked -> 0xFF851F29.toInt()
+    else -> unknown
+  }
+
   private fun drawProfile(canvas: Canvas, profile: Profile, unit: Float) {
     val sampledBottom = outline.top + outline.height() * profile.fraction
     val step = (sampledBottom - outline.top) / profile.states.size
     profile.states.forEachIndexed { index, state ->
-      paint.color = when (state) {
-        KNTrafficState.KNTrafficState_Red -> 0xFFF7404A.toInt()
-        KNTrafficState.KNTrafficState_Orange -> 0xFFFF990D.toInt()
-        KNTrafficState.KNTrafficState_Yellow -> 0xFFFFD926.toInt()
-        KNTrafficState.KNTrafficState_Blue -> smooth
-        KNTrafficState.KNTrafficState_Blocked -> 0xFF851F29.toInt()
-        else -> unknown
-      }
+      paint.color = trafficColor(state)
       segment.set(outline.left, sampledBottom - (index + 1) * step, outline.right, sampledBottom - index * step + .5f)
       canvas.drawRect(segment, paint)
       if (state == KNTrafficState.KNTrafficState_Blocked) {

@@ -24,11 +24,23 @@ class KakaoNaviModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("KakaoNavi")
-    Constant("bridgeVersion") { 44 }
+    Constant("bridgeVersion") { 45 }
     Constant("features") {
       listOf("android_live_guidance", "location_privacy_stop", "guide_web_bottom", "guide_arrival_record", "guide_route_editing")
     }
-    Events("onGuideStarted", "onGuideEnd", "onGuideFailed", "onGuideMenu", "onGuideArrival")
+    Events("onGuideStarted", "onGuideEnd", "onGuideFailed", "onGuideMenu", "onGuideArrival", "onAndroidGuidePanel")
+
+    AsyncFunction("connectAndroidGuidePanel") { token: String ->
+      if (locationAllowed) KakaoGuideActivity.session?.controller?.connectReactPanel(token) else null
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("androidGuidePanelRendered") { token: String ->
+      if (locationAllowed) KakaoGuideActivity.session?.controller?.reactPanelRendered(token)
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("androidGuidePanelAction") { token: String, action: String, value: Float? ->
+      if (locationAllowed) KakaoGuideActivity.session?.controller?.reactPanelAction(token, action, value)
+    }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("setLocationUseAllowed") { allowed: Boolean ->
       locationAllowed = allowed

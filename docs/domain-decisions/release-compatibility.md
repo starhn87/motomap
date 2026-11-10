@@ -15,7 +15,7 @@
 - 현재 앱 버전: **1.2.11**
 - 공식 지원 직전 버전: **1.2.10**
 - 원격 최소 실행 버전: **1.2.4**
-- 네이티브 브리지 계약: **44**
+- 네이티브 브리지 계약: **45**
 - 백엔드 API 계약: **1**
 
 ## 2026-11-07 날씨 레이아웃 TestFlight 공통 OTA 승인
@@ -1758,3 +1758,10 @@ NAV-073에서 Android에 `guide_web_bottom`, `guide_route_editing`, `guide_arriv
 NAV-074는 Android 안내 Activity와 엔진 수명주기, SDK 리소스 및 공유 HTML을 변경한다.
 새 Android 바이너리가 필요하며 후보 앱/runtime1.2.11과 API1을 유지하고 검증 정책에 맞춰
 브리지 버전을 44로 올린다.
+
+## 2026-11-10 Android 안내 React Native 서피스
+
+Android 안내 Activity가 앱의 React Host로 별도 안내 서피스를 만든다. 앱 엔트리포인트의
+서피스 등록과 Kotlin의 토큰 기반 상태·조작 계약이 함께 필요하므로 브리지 계약을 45로
+올린다. 적용에는 새 Android 바이너리가 필요하다. 이전 JS 번들이 실행되면 기존 WebView
+하단과 Canvas 막대로 복구한다. 앱 버전·백엔드 API 계약과 iOS 안내 구현은 유지한다.

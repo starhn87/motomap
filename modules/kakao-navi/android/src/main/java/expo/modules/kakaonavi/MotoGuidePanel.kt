@@ -26,7 +26,7 @@ internal class MotoGuidePanel(
   private val onReady: (Boolean) -> Unit,
   private val onAction: (String, Float?) -> Unit,
   private val onExpanded: () -> Unit,
-) {
+) : MotoGuideControls {
   private companion object {
     const val ORIGIN = "https://appassets.androidplatform.net"
     const val DIRECTORY = "/motomap-guide/"
@@ -42,7 +42,7 @@ internal class MotoGuidePanel(
   private var ready = false
   private var closed = false
   private var collapsing = false
-  var expanded = false
+  override var expanded = false
     private set
 
   private val backdrop = View(root.context).apply {
@@ -62,7 +62,7 @@ internal class MotoGuidePanel(
     }
   }
 
-  fun load() {
+  override fun load() {
     if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
       destroy()
       return
@@ -140,7 +140,7 @@ internal class MotoGuidePanel(
     }
   }
 
-  fun setExpanded(expand: Boolean) {
+  override fun setExpanded(expand: Boolean) {
     if (!ready || expanded == expand || collapsing) return
     if (expand) {
       expanded = true
@@ -170,7 +170,7 @@ internal class MotoGuidePanel(
     onExpanded()
   }
 
-  fun update(values: Map<String, Any?>) {
+  override fun update(values: Map<String, Any?>) {
     if (state == values) return
     state = values
     render()
@@ -185,7 +185,7 @@ internal class MotoGuidePanel(
     web.evaluateJavascript("window.MotoMapBottom.render(JSON.parse(${JSONObject.quote(json)}))", null)
   }
 
-  fun toast(text: String) {
+  override fun toast(text: String) {
     if (ready) web.evaluateJavascript("window.MotoMapBottom.toast(${JSONObject.quote(text)})", null)
   }
 
@@ -205,7 +205,7 @@ internal class MotoGuidePanel(
     }
   }
 
-  fun destroy() {
+  override fun destroy() {
     if (closed) return
     closed = true
     ready = false
