@@ -332,6 +332,7 @@ internal class KakaoGuideController(
       naviView.bottomMenuComponent,
       naviView.findViewById<View>(NaviResources.id.component_cur_position),
       naviView.findViewById<View>(NaviResources.id.component_around_menu),
+      naviView.findViewById<View>(NaviResources.id.component_zoom),
     )
     ViewCompat.setOnApplyWindowInsetsListener(root) { target, insets ->
       val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
