@@ -195,7 +195,6 @@ export default function AndroidGuidePanel({ token }: { token: string }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [toast, setToast] = useState('');
   const [showGoal, setShowGoal] = useState(false);
-  const [sheetMounted, setSheetMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const ready = useRef(false);
@@ -240,12 +239,7 @@ export default function AndroidGuidePanel({ token }: { token: string }) {
 
   useEffect(() => {
     const duration = reducedMotion ? 0 : expanded ? 220 : 180;
-    if (expanded) setSheetMounted(true);
     motion.value = withTiming(expanded ? 1 : 0, { duration, easing: Easing.out(Easing.cubic) });
-    if (!expanded) {
-      const timer = setTimeout(() => setSheetMounted(false), duration);
-      return () => clearTimeout(timer);
-    }
   }, [expanded, motion, reducedMotion]);
 
   const backdrop = useAnimatedStyle(() => ({ opacity: motion.value * 0.33 }));
@@ -278,7 +272,9 @@ export default function AndroidGuidePanel({ token }: { token: string }) {
       style={({ pressed }) => [styles.recenter, { backgroundColor: tone.floating, borderColor: tone.line }, pressed && styles.dimmed]}>
       <Ionicons name="navigate" size={19} color={tone.ink} /><Text style={[styles.label, { color: tone.ink }]}>현재 위치로</Text>
     </Pressable>}
-    {!expanded && <View style={[styles.bar, { backgroundColor: tone.bar, borderColor: tone.line }]} accessibilityElementsHidden={sheetMounted}>
+    <View pointerEvents={expanded ? 'none' : 'auto'}
+      importantForAccessibility={expanded ? 'no-hide-descendants' : 'auto'}
+      style={[styles.bar, { backgroundColor: tone.bar, borderColor: tone.line }, expanded && styles.hidden]}>
       {state.fullWidthStatus ? <Text accessibilityLiveRegion="polite" style={[styles.wideStatus, { color: tone.ink }]}>{state.fullWidthStatus}</Text> : <>
         <Control color={tone.ink} icon="refresh" label="현재 경로 새로고침" onPress={() => act('refresh')} disabled={state.busy} />
         <View style={styles.summary} {...sheetDrag.panHandlers}>
@@ -295,8 +291,11 @@ export default function AndroidGuidePanel({ token }: { token: string }) {
         </View>
         <Control color={tone.ink} icon="menu" label="길안내 메뉴 열기" onPress={() => act('menu')} expanded={false} />
       </>}
-    </View>}
-    {sheetMounted && <View pointerEvents={expanded ? 'box-none' : 'none'} style={StyleSheet.absoluteFill}>
+    </View>
+    {/* 시트와 하단 바를 유지해 전환 프레임에서 뷰를 다시 만들지 않는다. */}
+    <View pointerEvents={expanded ? 'box-none' : 'none'}
+      importantForAccessibility={expanded ? 'auto' : 'no-hide-descendants'}
+      style={styles.menuLayer}>
       <Animated.View style={[styles.backdrop, backdrop]}>
         <Pressable accessibilityRole="button" accessibilityLabel="길안내 메뉴 닫기"
           style={StyleSheet.absoluteFill} onPress={() => act('menu')} />
@@ -313,7 +312,7 @@ export default function AndroidGuidePanel({ token }: { token: string }) {
           <Ionicons name="navigate-outline" size={18} color={tone.onAction} /><Text style={[styles.endLabel, { color: tone.onAction }]}>길안내 종료</Text>
         </Pressable>
       </Animated.View>
-    </View>}
+    </View>
     {!!toast && <View pointerEvents="none" style={[styles.toast, { bottom: expanded ? 0 : 8, left: expanded ? 0 : 12, right: expanded ? 0 : 12 }]}>
       <Text accessibilityLiveRegion="polite" style={styles.endLabel}>{toast}</Text>
     </View>}
@@ -325,6 +324,7 @@ const styles = StyleSheet.create({
   inline: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   control: { width: 48, height: 44, alignItems: 'center', justifyContent: 'center' },
   dimmed: { opacity: 0.45 },
+  hidden: { opacity: 0 },
   bar: { position: 'absolute', bottom: BAR_INSET, left: 12, right: 12, height: BAR_HEIGHT,
     borderRadius: 16, borderWidth: 1, elevation: 4, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4 },
   summary: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 1 },
@@ -336,6 +336,7 @@ const styles = StyleSheet.create({
   recenter: { position: 'absolute', bottom: 84, width: 132, alignSelf: 'center', height: 44, borderRadius: 22, borderWidth: 1,
     backgroundColor: PAPER, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 5, paddingHorizontal: 12, elevation: 3 },
+  menuLayer: { ...StyleSheet.absoluteFill, overflow: 'hidden' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: '#000000' },
   sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, height: MENU_HEIGHT,
     borderWidth: 1, borderBottomWidth: 0, borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 20, paddingBottom: 14 },
