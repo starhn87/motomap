@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -65,7 +66,9 @@ function Control({ icon, label, onPress, disabled, expanded, color }: {
   return <Pressable accessibilityRole="button" accessibilityLabel={label}
     accessibilityState={{ disabled, expanded }} disabled={disabled} onPress={onPress}
     style={({ pressed }) => [styles.control, (disabled || pressed) && styles.dimmed]}>
-    <Ionicons name={icon} size={label === '길안내 메뉴 열기' ? 30 : 22} color={color} />
+    {icon === 'refresh'
+      ? <MaterialIcons name="refresh" size={26} color={color} />
+      : <Ionicons name={icon} size={icon === 'menu' ? 30 : 22} color={color} />}
   </Pressable>;
 }
 
@@ -329,7 +332,7 @@ const styles = StyleSheet.create({
     borderRadius: 16, borderWidth: 1, elevation: 4, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4 },
   summary: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 1 },
   place: { color: '#52525B', fontFamily: APP_FONT_FAMILY, fontSize: 16, flexShrink: 1 },
-  eta: { color: INK, fontFamily: APP_FONT_FAMILY, fontSize: 28, fontWeight: '700', flexShrink: 1 },
+  eta: { color: INK, fontFamily: APP_FONT_FAMILY, fontSize: 24, fontWeight: '700', flexShrink: 1 },
   distance: { color: INK, fontFamily: APP_FONT_FAMILY, fontSize: 20, fontWeight: '600' },
   label: { color: INK, fontFamily: APP_FONT_FAMILY, fontSize: 15, fontWeight: '600', flexShrink: 1 },
   wideStatus: { color: INK, fontFamily: APP_FONT_FAMILY, fontSize: 16, fontWeight: '600', flex: 1, textAlign: 'center' },
