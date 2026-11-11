@@ -16,7 +16,7 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function fixture() {
+function fixture(platform: 'ios' | 'android' = 'ios') {
   let actor: string | null = 'account-a';
   let permission = { status: 'granted', granted: true, canAskAgain: true, ios: { status: 2 } };
   let cache: string | null = tokenA;
@@ -28,6 +28,7 @@ function fixture() {
   let timerId = 0;
   let pendingUpsert: Promise<unknown> | null = null;
   let pendingExpo: Promise<{ data: string }> | null = null;
+  let expoError: Error | undefined;
   let pendingDelete: Promise<unknown> | null = null;
   let pendingCacheWrite: Promise<unknown> | null = null;
   let pendingCacheRemove: Promise<unknown> | null = null;
@@ -97,10 +98,13 @@ function fixture() {
   const api = loadModule<typeof import('../lib/pushTokens')>('lib/pushTokens.ts', {
     'expo-notifications': {
       IosAuthorizationStatus: { PROVISIONAL: 3, EPHEMERAL: 4 },
+      AndroidImportance: { DEFAULT: 3 },
+      setNotificationChannelAsync: async () => null,
       getPermissionsAsync: async () => permission,
       requestPermissionsAsync: async () => { prompts++; return permission; },
       getExpoPushTokenAsync: async (options: Record<string, any>) => {
         expoOptions.push(options);
+        if (expoError) throw expoError;
         if (emitNativeOnExpoRead && !options.devicePushToken) {
           for (const listener of tokenListeners) listener({ type: 'ios', data: 'native-a' });
         }
@@ -122,7 +126,7 @@ function fixture() {
       },
     },
     'expo-constants': constants,
-    'react-native': { Platform: { OS: 'ios' }, AppState: appState },
+    'react-native': { Platform: { OS: platform }, AppState: appState },
     '@sentry/react-native': {
       withScope(work: (scope: unknown) => void) {
         const tags: Record<string, string> = {};
@@ -150,6 +154,7 @@ function fixture() {
     failCacheRemove: () => { cacheRemoveError = true; },
     failCacheWrite: () => { cacheWriteError = true; },
     token: (value: string) => { expoToken = value; },
+    failExpo: (error: Error) => { expoError = error; },
     holdExpo: (value: Promise<{ data: string }> | null) => { pendingExpo = value; },
     holdUpsert: (value: Promise<unknown> | null) => { pendingUpsert = value; },
     holdDelete: (value: Promise<unknown> | null) => { pendingDelete = value; },
@@ -301,6 +306,32 @@ test('토큰 해제 실패는 로그아웃 성공으로 표시하지 않고 기�
   const f = fixture(); f.deleteErrors.push({ code: '42501' }); let signedOut = false;
   await assert.rejects(f.api.signOutWithPushTokenCleanup(async () => { signedOut = true; }), /알림 연결/);
   assert.equal(signedOut, false); assert.equal(f.rows.get(tokenA)?.user_id, 'account-a');
+});
+
+test('Firebase가 초기화되지 않은 Android에 정리할 토큰이 없으면 로그아웃한다', async () => {
+  const f = fixture('android'); f.clearCache(); f.rows.clear();
+  f.failExpo(Object.assign(new Error('Unable to get Firebase Messaging instance. Did you configure `googleServicesFile` path in app config?'), {
+    code: 'E_REGISTRATION_FAILED',
+  }));
+  let signedOut = false;
+  const result = f.api.signOutWithPushTokenCleanup(async () => { signedOut = true; f.actor(null); });
+  // 수정 전에는 실패한 로그아웃 뒤 토큰 등록 재시도까지 끝나야 결과가 나온다.
+  void result.catch(() => {});
+  await flush(); await f.advance(6500); await result;
+  assert.equal(signedOut, true);
+  assert.deepEqual(f.deletes, []);
+  assert.equal(f.expoOptions.length, 1);
+});
+
+test('Android 토큰 조회의 일시 오류는 Firebase 설정 누락과 구분한다', async () => {
+  const f = fixture('android'); f.clearCache();
+  f.failExpo(Object.assign(new Error('Fetching the token failed: SERVICE_NOT_AVAILABLE'), { code: 'E_REGISTRATION_FAILED' }));
+  let signedOut = false;
+  const result = f.api.signOutWithPushTokenCleanup(async () => { signedOut = true; });
+  const rejected = assert.rejects(result, /알림 연결/);
+  await flush(); await f.advance(6500); await rejected;
+  assert.equal(signedOut, false);
+  assert.equal(f.rows.get(tokenA)?.user_id, 'account-a');
 });
 
 test('삭제 후 캐시 제거 실패도 토큰을 잃지 않도록 같은 계정 등록을 복구한다', async () => {

@@ -291,7 +291,16 @@ async function unregister(actor: string, signal: AbortSignal) {
     const permission = await bounded(Notifications.getPermissionsAsync(), signal);
     const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
     if (allowed(permission) && projectId) {
-      ({ data: token } = await bounded(Notifications.getExpoPushTokenAsync({ projectId }), signal));
+      try {
+        ({ data: token } = await bounded(Notifications.getExpoPushTokenAsync({ projectId }), signal));
+      } catch (error) {
+        const failure = error as { code?: unknown; message?: unknown } | null;
+        // FCM이 초기화되지 않은 Android 빌드에는 조회할 기기 토큰이 없다.
+        if (Platform.OS !== 'android' || failure?.code !== 'E_REGISTRATION_FAILED'
+          || typeof failure.message !== 'string' || !failure.message.includes('Unable to get Firebase Messaging instance.')) {
+          throw error;
+        }
+      }
     }
   }
   for (const old of new Set([token, currentDeviceToken])) {
