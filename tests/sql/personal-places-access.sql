@@ -9,7 +9,7 @@ create function auth.uid() returns uuid language sql stable
 
 create table public.profiles (id uuid primary key);
 insert into public.profiles values ('10000000-0000-0000-0000-000000000001'), ('10000000-0000-0000-0000-000000000002');
-\ir ../../supabase/migrations/20261112130934_add_account_personal_places.sql
+\ir ../../supabase/migrations/20261112132809_add_account_personal_places.sql
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', true);

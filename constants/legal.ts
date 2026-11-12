@@ -26,6 +26,11 @@ const effectiveNotice = effectiveDate
   ? `시행일: ${effectiveDate} (2026년 8월 18일 시행 문서를 대체합니다.)`
   : '개정안 시행일: 실제 운영 재개일에 맞춰 확정 후 안내합니다. 아직 시행되지 않은 개정안입니다.';
 
+const personalPlacesNotice = `집·회사 동기화 관련 개정 안내
+· 공개일 및 시행일: 2026-11-12
+· 변경 전: 집·회사 설정은 설정한 기기에 저장했습니다.
+· 변경 후: 동기화를 지원하는 버전에서는 이름·주소·좌표를 로그인 계정에 저장해 같은 계정의 기기에서 사용할 수 있습니다. 내 정보에서 삭제하거나 회원 탈퇴하면 서버 설정도 삭제됩니다.`;
+
 export const LEGAL_OPERATOR = {
   tradeName: '모토맵',
   representative: '이승우',
@@ -129,6 +134,8 @@ ${effectiveNotice}`,
     title: '개인정보 처리방침',
     content: `${LEGAL_OPERATOR.tradeName}(대표: ${LEGAL_OPERATOR.representative}, 이하 "회사")은 이용자의 개인정보를 중요시하며 「개인정보 보호법」 등 관련 법령을 준수하고 있습니다. 본 개인정보 처리방침은 회사가 어떤 정보를 수집하고 수집된 정보를 어떻게 사용하며 필요에 따라 누구와 정보를 공유하는지, 그리고 이용자가 자신의 정보를 어떻게 보호할 수 있는지 알려드립니다.
 
+${personalPlacesNotice}
+
 운영자 정보
 ${operatorContact}
 
@@ -224,6 +231,8 @@ ${effectiveNotice}`,
     title: '위치기반 서비스 이용약관',
     content: `제1조 (목적)
 본 약관은 ${LEGAL_OPERATOR.tradeName}(대표: ${LEGAL_OPERATOR.representative}, 이하 "회사")이 제공하는 위치기반 서비스(이하 "서비스")와 관련하여 회사와 이용자의 권리·의무 및 책임사항을 규정함을 목적으로 합니다.
+
+${personalPlacesNotice}
 
 운영자 정보
 ${operatorContact}
