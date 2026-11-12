@@ -4,6 +4,7 @@ import { loadModule } from './helpers/loadModule';
 import { haversine } from '../lib/distance';
 function setup() {
   let revision = 1, allowed = true, user: any = { id: 'rider' }, saved = true, uuid = 0;
+  let accountLoaded = true;
   let release: (() => void) | undefined, block: Promise<void> | undefined;
   const writes: any[] = [], invalidations: any[] = [];
   const mod = loadModule<any>('lib/guideArrival.ts', {
@@ -11,7 +12,7 @@ function setup() {
     '@/lib/api/rides': { recordPlaceRides: async (rows: any, valid: any) => { if (!valid()) return false; writes.push(rows); return saved; } },
     '@/lib/api/courseLibrary': { recordCourseCompletion: async () => true },
     '@/lib/ridePlaceStats': { buildPlaceRidesForArrival: () => [{ role: 'goal', place_id: 'place' }] },
-    '@/stores/useMyPlacesStore': { useMyPlacesStore: { getState: () => ({ load: async () => { await block; }, places: {} }) } },
+    '@/stores/useMyPlacesStore': { useMyPlacesStore: { getState: () => ({ load: async () => { await block; }, places: {}, accountLoaded, refreshAccount: async () => {} }) } },
     '@/stores/useAuthStore': { useAuthStore: { getState: () => ({ user }) } },
     '@/stores/useLocationPrivacyStore': { locationUseAllowed: () => allowed,
       useLocationPrivacyStore: { getState: () => ({ revision, historyAllowed: allowed }) } },
@@ -19,6 +20,7 @@ function setup() {
     '@/lib/distance': { haversine }, '@/lib/analytics': { track: { courseCompleted() {} } },
   });
   return { mod, writes, invalidations, fail: () => { saved = false; }, succeed: () => { saved = true; },
+    setAccountLoaded: (loaded: boolean) => { accountLoaded = loaded; },
     block: () => { block = new Promise<void>(resolve => { release = resolve; }); }, release: () => release?.(),
     revoke: () => { revision++; allowed = false; }, logout: () => { user = null; } };
 }
@@ -54,4 +56,14 @@ test('같은 목적지로 다른 경로를 적용해 객체가 바뀌어도 같�
   assert.equal(f.writes.length, 1);
   await f.mod.recordGuideArrival({ ...first, visitIdentity: {} }, []);
   assert.equal(f.writes.length, 2);
+});
+
+test('계정의 집·회사 값을 확인할 때까지 도착 기록을 분류하지 않는다', async () => {
+  const f = setup(), target = goal();
+  f.setAccountLoaded(false);
+  await f.mod.recordGuideArrival(target, []);
+  assert.equal(f.writes.length, 0);
+  f.setAccountLoaded(true);
+  await f.mod.recordGuideArrival(target, []);
+  assert.equal(f.writes.length, 1);
 });
