@@ -279,6 +279,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
     <PlaceSheetHeaderActions
       expanded={expanded}
       isFavorite={isFavorite}
+      showFavorite={!!user}
       favoriteDisabled={favPending}
       favoriteScale={favoriteScale}
       onFavorite={handleFavorite}
@@ -650,15 +651,17 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
                 </View>
               )}
             </View>
-            {!pickAction && <ReviewForm target={{ kind: 'general', place: resolvedPlace ?? place }} />}
-            <View style={styles.reviewDivider} />
+            {!!user && !pickAction && <ReviewForm target={{ kind: 'general', place: resolvedPlace ?? place }} />}
+            {!!user && !pickAction && <View style={styles.reviewDivider} />}
             {reviewTarget ? (
-              <ReviewList target={reviewTarget} highlight={highlightReview} />
+              <ReviewList target={reviewTarget} allowWriting={!pickAction} highlight={highlightReview} />
             ) : generalPlaceLoading ? (
               <ReviewListSkeleton />
             ) : (
               <Text style={[styles.emptyReviews, { color: colors.textSecondary }]}>
-                아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
+                {pickAction ? '아직 리뷰가 없어요.'
+                  : user ? '아직 리뷰가 없어요. 첫 리뷰를 남겨보세요.'
+                  : '아직 리뷰가 없어요. 로그인하고 첫 리뷰를 남겨보세요.'}
               </Text>
             )}
           </View>

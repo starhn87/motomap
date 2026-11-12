@@ -11,6 +11,7 @@ import Colors, { semantic } from '@/constants/Colors';
 interface Props {
   expanded: boolean;
   isFavorite: boolean;
+  showFavorite: boolean;
   favoriteDisabled?: boolean;
   favoriteScale: SharedValue<number>;
   onFavorite: () => void;
@@ -20,6 +21,7 @@ interface Props {
 export default function PlaceSheetHeaderActions({
   expanded,
   isFavorite,
+  showFavorite,
   favoriteDisabled,
   favoriteScale,
   onFavorite,
@@ -36,7 +38,7 @@ export default function PlaceSheetHeaderActions({
 
   return (
     <>
-      <ActionButton
+      {showFavorite && <ActionButton
         accessibilityLabel={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
         accessibilityRole="button"
         accessibilityState={{ selected: isFavorite, disabled: !!favoriteDisabled }}
@@ -50,7 +52,7 @@ export default function PlaceSheetHeaderActions({
             color={isFavorite ? semantic.star : expanded ? colors.text : colors.textSecondary}
           />
         </Animated.View>
-      </ActionButton>
+      </ActionButton>}
       <ActionButton
         accessibilityLabel="장소 상세 닫기"
         accessibilityRole="button"

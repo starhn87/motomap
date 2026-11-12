@@ -17,7 +17,7 @@ test('등록·일반 장소 액션은 풀 확장만 Glass이며 크기·즐겨�
     '@/constants/Colors': { ...exported({ light: { text: 'black', textSecondary: 'gray' } }), semantic: { star: 'yellow' } },
   });
   for (const expanded of [false, true]) {
-    const tree = module.default({ expanded, isFavorite: true, favoriteScale: { value: 1.2 },
+    const tree = module.default({ expanded, showFavorite: true, isFavorite: true, favoriteScale: { value: 1.2 },
       onFavorite: () => favorites++, onClose: () => closes++ });
     const [favorite, close] = tree.props.children;
     assert.equal(favorite.type, expanded ? 'GlassButton' : 'TouchableOpacity');
@@ -27,6 +27,10 @@ test('등록·일반 장소 액션은 풀 확장만 Glass이며 크기·즐겨�
     assert.equal(favorite.props.children.props.style.transform[0].scale, 1.2);
     assert.equal(close.props.accessibilityLabel, '장소 상세 닫기');
     favorite.props.onPress(); close.props.onPress();
+    const guest = module.default({ expanded, showFavorite: false, isFavorite: false,
+      favoriteScale: { value: 1 }, onFavorite: () => favorites++, onClose: () => closes++ });
+    assert.equal(guest.props.children[0], false);
+    assert.equal(guest.props.children[1].props.accessibilityLabel, '장소 상세 닫기');
   }
   assert.equal(favorites, 2); assert.equal(closes, 2);
 });
