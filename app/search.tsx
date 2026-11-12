@@ -219,8 +219,10 @@ export default function SearchScreen() {
       address: address ?? '',
       latitude: point.latitude,
       longitude: point.longitude,
+    }).then(saved => {
+      if (saved) toast.success(slot === 'home' ? '집을 저장했어요.' : '회사를 저장했어요.');
+      else toast.error('저장하지 못했어요. 다시 시도해 주세요.');
     });
-    toast.success(slot === 'home' ? '집을 저장했어요.' : '회사를 저장했어요.');
   };
 
   const trimmed = query.trim();

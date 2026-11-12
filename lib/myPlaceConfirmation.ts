@@ -16,7 +16,7 @@ export function createMyPlaceConfirmation(
   };
   return {
     title: `${slot === 'home' ? '집으로' : '회사로'} 설정할까요?`,
-    message: [place.name, place.address].filter(Boolean).join('\n'),
+    message: [place.name, place.address, '같은 계정으로 로그인한 기기에서 이 장소를 볼 수 있어요.'].filter(Boolean).join('\n'),
     maskMessage: true,
     buttons: [
       { text: '설정', onPress: () => settle(onConfirm) },

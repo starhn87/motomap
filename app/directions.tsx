@@ -213,6 +213,8 @@ export default function DirectionsScreen() {
         address: address ?? '',
         latitude: point.latitude,
         longitude: point.longitude,
+      }).then(saved => {
+        if (!saved) toast.error('저장하지 못했어요. 다시 시도해 주세요.');
       });
       pickDest(point, address);
     }

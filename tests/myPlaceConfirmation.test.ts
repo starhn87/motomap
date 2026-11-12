@@ -10,7 +10,7 @@ test('집·회사 선택 후보는 확인 전에는 저장하거나 이동하지
     const dialog = createMyPlaceConfirmation(slot, place, () => { saved += 1; }, () => {});
     assert.equal(saved, 0);
     assert.equal(dialog.title, slot === 'home' ? '집으로 설정할까요?' : '회사로 설정할까요?');
-    assert.equal(dialog.message, '테스트 장소\n테스트 주소');
+    assert.equal(dialog.message, '테스트 장소\n테스트 주소\n같은 계정으로 로그인한 기기에서 이 장소를 볼 수 있어요.');
     assert.equal(dialog.maskMessage, true);
   }
 });
@@ -41,5 +41,5 @@ test('취소 후에는 저장·길찾기를 실행하지 않으며 목록 복귀
 
 test('주소가 없는 후보도 불필요한 빈 줄 없이 표시한다', () => {
   const dialog = createMyPlaceConfirmation('home', { ...place, address: '' }, () => {}, () => {});
-  assert.equal(dialog.message, place.name);
+  assert.equal(dialog.message, `${place.name}\n같은 계정으로 로그인한 기기에서 이 장소를 볼 수 있어요.`);
 });

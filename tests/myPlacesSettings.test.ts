@@ -6,7 +6,9 @@ function setup(enabled = true) {
   let editing: any = null, dialog: any;
   const saved = { home: { name: '비공개 집', address: '비공개 주소', latitude: 37.5, longitude: 127 } } as Record<string, any>;
   const writes: string[] = [];
-  const store = { enabled, places: saved, load() {}, save(slot: string, point: any) { writes.push(slot); saved[slot] = point; }, remove(slot: string) { delete saved[slot]; } };
+  const store = { enabled, places: saved, load() {},
+    async save(slot: string, point: any) { writes.push(slot); saved[slot] = point; return true; },
+    async remove(slot: string) { delete saved[slot]; return true; } };
   const jsx = (type: any, props: any) => ({ type, props });
   const module = loadModule<{ default: () => any }>('components/profile/MyPlacesSettings.tsx', {
     react: { useState: () => [editing, (value: any) => { editing = value; }], useEffect: (run: () => void) => run() },
@@ -18,7 +20,7 @@ function setup(enabled = true) {
     '@/stores/useMyPlacesStore': { useMyPlacesStore: (select: any) => select(store) },
     '@/components/search/PointSearchModal': { __esModule: true, default: 'PointSearchModal' },
     '@/lib/dialog': { appAlert: (...args: any[]) => { dialog = args; } },
-    '@/lib/toast': { toast: { success() {} } },
+    '@/lib/toast': { toast: { success() {}, error() {} } },
   });
   const nodes = (node: any): any[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
   const tree = () => module.default();
