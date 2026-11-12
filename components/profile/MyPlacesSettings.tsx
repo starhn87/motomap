@@ -9,15 +9,17 @@ import PointSearchModal, { type Point } from '@/components/search/PointSearchMod
 import { appAlert } from '@/lib/dialog';
 import { toast } from '@/lib/toast';
 
-// 집·회사는 로그인과 무관한 기기 로컬 설정이다.
+// 집·회사 값은 로그인 중에만 기기에서 관리한다.
 export default function MyPlacesSettings() {
   const colors = Colors[useColorScheme() ?? 'light'];
+  const enabled = useMyPlacesStore(s => s.enabled);
   const myPlaces = useMyPlacesStore(s => s.places);
   const loadMyPlaces = useMyPlacesStore(s => s.load);
   const saveMyPlace = useMyPlacesStore(s => s.save);
   const removeMyPlace = useMyPlacesStore(s => s.remove);
   useEffect(() => { void loadMyPlaces(); }, [loadMyPlaces]);
   const [editingSlot, setEditingSlot] = useState<MyPlaceSlot | null>(null);
+  if (!enabled) return null;
 
   const handleMyPlace = (slot: MyPlaceSlot) => {
     const label = slot === 'home' ? '집' : '회사';

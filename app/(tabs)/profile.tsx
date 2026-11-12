@@ -257,9 +257,6 @@ function ProfileScreen() {
   if (!user) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, paddingTop: headerInset }]}>
-        <View style={[styles.menu, { marginTop: 16, marginBottom: 12 }]}>
-          <MyPlacesSettings />
-        </View>
         <LoginPrompt message="로그인하고 마이페이지를 확인하세요." />
         <TabScrollSpacer />
       </View>

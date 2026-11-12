@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
 
-function setup() {
+function setup(enabled = true) {
   let editing: any = null, dialog: any;
   const saved = { home: { name: '비공개 집', address: '비공개 주소', latitude: 37.5, longitude: 127 } } as Record<string, any>;
   const writes: string[] = [];
-  const store = { places: saved, load() {}, save(slot: string, point: any) { writes.push(slot); saved[slot] = point; }, remove(slot: string) { delete saved[slot]; } };
+  const store = { enabled, places: saved, load() {}, save(slot: string, point: any) { writes.push(slot); saved[slot] = point; }, remove(slot: string) { delete saved[slot]; } };
   const jsx = (type: any, props: any) => ({ type, props });
   const module = loadModule<{ default: () => any }>('components/profile/MyPlacesSettings.tsx', {
     react: { useState: () => [editing, (value: any) => { editing = value; }], useEffect: (run: () => void) => run() },
@@ -27,7 +27,7 @@ function setup() {
   return { saved, writes, tree, row, modal, dialog: () => dialog };
 }
 
-test('로그인 의존성 없이 집·회사를 관리하고 취소는 기존 값을 보존한다', () => {
+test('로그인 중 집·회사를 관리하고 취소는 기존 값을 보존한다', () => {
   const s = setup(), home = s.saved.home;
   assert.ok(!JSON.stringify(s.tree()).includes(home.name));
   s.row(1).props.onPress();
@@ -51,7 +51,7 @@ test('기존 장소의 변경·삭제는 개인정보 마스킹된 확인 동작
   assert.equal(s.saved.home, undefined);
 });
 
-test('비로그인 내 정보에도 집·회사 편집 진입을 남긴다', () => {
+test('비로그인 내 정보에는 집·회사 편집 진입이 없다', () => {
   const jsx = (type: any, props: any) => ({ type, props });
   const exported = (value: any) => ({ __esModule: true, default: value });
   const profile = loadModule<any>('app/(tabs)/profile.tsx', {
@@ -72,6 +72,7 @@ test('비로그인 내 정보에도 집·회사 편집 진입을 남긴다', () 
   });
   const nodes = (node: any): any[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props ? [node, ...nodes(node.props.children)] : [];
   const tree = nodes(profile.default());
-  assert.ok(tree.some(node => node.type === 'MyPlacesSettings'));
+  assert.ok(!tree.some(node => node.type === 'MyPlacesSettings'));
+  assert.equal(setup(false).tree(), null);
   assert.ok(tree.some(node => node.type === 'LoginPrompt'));
 });

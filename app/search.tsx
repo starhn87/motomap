@@ -178,6 +178,7 @@ export default function SearchScreen() {
 
   // 내 장소(집·회사) — 기기 로컬 저장. 탭하면 바로 길안내, 미저장이면 설정
   const myPlaces = useMyPlacesStore((s) => s.places);
+  const myPlacesEnabled = useMyPlacesStore((s) => s.enabled);
   const myPlacesLoaded = useMyPlacesStore((s) => s.loaded);
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
   const saveMyPlace = useMyPlacesStore((s) => s.save);
@@ -189,7 +190,12 @@ export default function SearchScreen() {
   // 내 정보의 집·회사 메뉴에서 — 롱프레스 같은 숨은 동작은 두지 않는다.
   const [editingSlot, setEditingSlot] = useState<MyPlaceSlot | null>(null);
 
+  useEffect(() => {
+    if (!myPlacesEnabled) setEditingSlot(null);
+  }, [myPlacesEnabled]);
+
   const handleMyPlace = (slot: MyPlaceSlot) => {
+    if (!myPlacesEnabled) return;
     const saved = myPlaces[slot];
     if (!saved) {
       Keyboard.dismiss();
@@ -207,7 +213,7 @@ export default function SearchScreen() {
   const handleSlotSelect = (point: Point, address?: string) => {
     const slot = editingSlot;
     setEditingSlot(null);
-    if (!slot || point === 'current') return;
+    if (!myPlacesEnabled || !slot || point === 'current') return;
     void saveMyPlace(slot, {
       name: point.name,
       address: address ?? '',
@@ -244,7 +250,7 @@ export default function SearchScreen() {
 
   const { data: recommended, isLoading: recommendedLoading } = useRecommendedPlaces();
   const landingLoading =
-    !myPlacesLoaded ||
+    (myPlacesEnabled && !myPlacesLoaded) ||
     recentLoading ||
     recommendedLoading ||
     (!!user && favoritesLoading);
@@ -483,7 +489,7 @@ export default function SearchScreen() {
       </View>
 
       <View style={[styles.myPlacesRow, { paddingHorizontal: 20, paddingBottom: 12 }]}>
-        {(['home', 'work'] as const).map(slot => (
+        {myPlacesEnabled && (['home', 'work'] as const).map(slot => (
           <Pressable key={slot} accessibilityRole="button" onPress={() => handleMyPlace(slot)}
             style={({ pressed }) => [styles.myPlaceCard, { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}>
             <Ionicons name={slot === 'home' ? 'home' : 'business'} size={20} color={colors.tint} />
@@ -836,7 +842,7 @@ export default function SearchScreen() {
 
 
       <PointSearchModal
-        visible={editingSlot !== null}
+        visible={myPlacesEnabled && editingSlot !== null}
         confirmSlot={editingSlot}
         allowCurrent={false}
         title={editingSlot === 'home' ? '집 설정' : '회사 설정'}

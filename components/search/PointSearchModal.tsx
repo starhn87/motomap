@@ -81,6 +81,7 @@ export default function PointSearchModal({
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const myPlacesEnabled = useMyPlacesStore((s) => s.enabled);
   const myPlaces = useMyPlacesStore((s) => s.places);
   const [query, setQuery] = useState('');
   const draftQueries = useRef(new Map<string, string>());
@@ -98,13 +99,15 @@ export default function PointSearchModal({
       onSelect(point, address);
       return;
     }
+    const owner = user?.id;
+    if (!owner) return;
     Keyboard.dismiss();
     setSelectionConfirmation(createMyPlaceConfirmation(
       confirmSlot,
       { ...point, address: address ?? '' },
       () => {
         setSelectionConfirmation(null);
-        onSelect(point, address);
+        if (useAuthStore.getState().user?.id === owner) onSelect(point, address);
       },
       () => setSelectionConfirmation(null),
     ));
@@ -439,7 +442,7 @@ export default function PointSearchModal({
                       <Text style={[styles.quickLabel, { color: colors.text }]}>현위치</Text>
                     </Pressable>
                   )}
-                  {allowSaved &&
+                  {allowSaved && myPlacesEnabled &&
                     (
                       [
                         ['home', 'home', '집'],

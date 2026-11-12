@@ -15,6 +15,7 @@ export default function DialogHost() {
   if (!dialog) return null;
 
   const press = (button: DialogButton | undefined) => {
+    if (useDialogStore.getState().dialog !== dialog) return;
     // 다음 확인창을 여는 액션을 위해 현재 창부터 닫는다.
     if (dialog.dismissible !== false) hide();
     button?.onPress?.();
