@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 
 import { syncPersonalPlaceRideExclusions } from '@/lib/api/rides';
 import { queryClient } from '@/lib/queryClient';
@@ -18,19 +19,23 @@ function placesSignature(
 }
 
 /**
- * 로그인과 로컬 집·회사가 준비되면 과거 목적지 통계를 한 번 보정한다. 좌표는
- * 서버로 보내지 않고 내려받은 본인 기록과 기기에서 비교한다.
+ * 집·회사 동기화를 갱신하고 과거 목적지 통계는 내려받은 본인 기록과 기기에서 비교한다.
  */
 export default function PersonalPlaceRideSync() {
   const user = useAuthStore((state) => state.user);
   const places = useMyPlacesStore((state) => state.places);
   const loaded = useMyPlacesStore((state) => state.loaded);
   const load = useMyPlacesStore((state) => state.load);
+  const refreshAccount = useMyPlacesStore((state) => state.refreshAccount);
   const signature = placesSignature(places);
 
   useEffect(() => {
     void load();
-  }, [load]);
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') void refreshAccount();
+    });
+    return () => subscription.remove();
+  }, [load, refreshAccount]);
 
   useQuery({
     queryKey: ['personal-place-ride-sync', user?.id, signature],

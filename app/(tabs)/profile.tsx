@@ -141,7 +141,7 @@ function LoggedInContent() {
       {
         text: '로그아웃', style: 'destructive',
         onPress: () => {
-          void signOut().catch(() => {
+          void signOut('local').catch(() => {
             toast.error('로그아웃하지 못했어요.', '연결 상태를 확인하고 다시 시도해 주세요.');
           });
         },

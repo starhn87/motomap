@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchAccountPlaces, importAccountPlaces, saveAccountPlace } from '@/lib/api/personalPlaces';
 import { useDialogStore } from '@/lib/dialog';
 import { useAuthStore } from '@/stores/useAuthStore';
 
-// 내 장소(집·회사) — 반복 목적지 단축. 집 주소는 민감 정보라 기기 로컬에만 저장한다.
 export type MyPlaceSlot = 'home' | 'work';
 
 export interface MyPlace {
@@ -13,27 +13,43 @@ export interface MyPlace {
   longitude: number;
 }
 
+export type MyPlaces = Partial<Record<MyPlaceSlot, MyPlace>>;
+type StoredPlaces = { owner: string; places: MyPlaces };
 const STORAGE_KEY = 'my-places';
-type Places = Partial<Record<MyPlaceSlot, MyPlace>>;
-type StoredPlaces = { owner: string; places: Places };
 
 interface MyPlacesStore {
-  places: Places;
+  places: MyPlaces;
+  localPlaces: MyPlaces;
   enabled: boolean;
   loaded: boolean;
   load: () => Promise<void>;
-  save: (slot: MyPlaceSlot, place: MyPlace) => Promise<void>;
-  remove: (slot: MyPlaceSlot) => Promise<void>;
+  refreshAccount: () => Promise<void>;
+  save: (slot: MyPlaceSlot, place: MyPlace) => Promise<boolean>;
+  remove: (slot: MyPlaceSlot) => Promise<boolean>;
 }
 
 let revision = 0;
 let needsReset = false;
-let storageQueue: Promise<void> = Promise.resolve();
+let queue = Promise.resolve();
+let pendingRefresh: Promise<void> | undefined;
+let activeRequest: AbortController | undefined;
 
-function enqueue(work: () => Promise<void>) {
-  const next = storageQueue.then(work);
-  storageQueue = next.catch(() => {});
+function enqueue<T>(work: () => Promise<T>) {
+  const next = queue.then(work);
+  queue = next.then(() => {}, () => {});
   return next;
+}
+
+async function request<T>(work: (signal: AbortSignal) => Promise<T>) {
+  const controller = new AbortController();
+  activeRequest = controller;
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    return await work(controller.signal);
+  } finally {
+    clearTimeout(timeout);
+    if (activeRequest === controller) activeRequest = undefined;
+  }
 }
 
 async function resetStorage() {
@@ -42,10 +58,13 @@ async function resetStorage() {
   needsReset = false;
 }
 
+const emptyPlaces = () => ({
+  places: {}, localPlaces: {}, loaded: false,
+});
+
 export const useMyPlacesStore = create<MyPlacesStore>((set, get) => ({
-  places: {},
+  ...emptyPlaces(),
   enabled: useAuthStore.getState().status === 'signed_in',
-  loaded: false,
   load: async () => {
     const owner = useAuthStore.getState().session?.user.id;
     if (!owner || !get().enabled || get().loaded) return;
@@ -56,55 +75,88 @@ export const useMyPlacesStore = create<MyPlacesStore>((set, get) => ({
         await resetStorage();
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (current !== revision) return;
-        const stored = raw ? JSON.parse(raw) as StoredPlaces | Places : null;
-        let places: Places = {};
+        const stored = raw ? JSON.parse(raw) as StoredPlaces | MyPlaces : null;
+        let places: MyPlaces = {};
         if (stored && 'owner' in stored) {
           if (stored.owner === owner) places = stored.places;
         } else if (stored) {
-          // 계정 구분이 없던 기존 값은 현재 로그인한 계정에 연결한다.
+          // 계정 구분이 없던 기존 값은 현재 로그인한 계정의 기기에만 남긴다.
           await persistPlaces(owner, stored);
           places = stored;
         }
-        if (current === revision) set({ places, loaded: true });
+        if (current === revision) set({ places, localPlaces: places, loaded: true });
       } catch {
         if (current === revision) set({ loaded: true });
       }
+      if (current === revision) void get().refreshAccount();
     });
   },
-  save: async (slot, place) => {
-    await writePlace(slot, place);
+  refreshAccount: () => {
+    const owner = useAuthStore.getState().session?.user.id;
+    if (!owner || !get().enabled || !get().loaded) return Promise.resolve();
+    if (pendingRefresh) return pendingRefresh;
+    const current = revision;
+    const next = enqueue(async () => {
+      if (current !== revision) return;
+      const local = get().localPlaces;
+      const hasLocal = !!(local.home || local.work);
+      const remote = await request(async signal => {
+        if (hasLocal) await importAccountPlaces(owner, local, signal);
+        return fetchAccountPlaces(owner, signal);
+      });
+      if (current !== revision) return;
+      set({ places: remote });
+      // 저장과 재조회가 성공한 경우에만 기존 기기 값의 유일한 복사본을 없앤다.
+      if (hasLocal) {
+        await AsyncStorage.removeItem(STORAGE_KEY);
+        if (current === revision) set({ localPlaces: {} });
+      }
+    }).catch(() => {});
+    pendingRefresh = next;
+    void next.then(() => { if (pendingRefresh === next) pendingRefresh = undefined; });
+    return next;
   },
-  remove: async (slot) => {
-    await writePlace(slot);
-  },
+  save: writePlace,
+  remove: (slot) => writePlace(slot),
 }));
 
-function persistPlaces(owner: string, places: Places) {
+function persistPlaces(owner: string, places: MyPlaces) {
   return AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ owner, places }));
 }
 
 async function writePlace(slot: MyPlaceSlot, place?: MyPlace) {
   const owner = useAuthStore.getState().session?.user.id;
-  if (!owner || !useMyPlacesStore.getState().enabled) return;
+  if (!owner || !useMyPlacesStore.getState().enabled) return false;
   const current = revision;
   await useMyPlacesStore.getState().load();
-  await enqueue(async () => {
+  return enqueue(async () => {
     const state = useMyPlacesStore.getState();
-    if (current !== revision || !state.enabled) return;
-    await resetStorage();
-    const places = { ...state.places };
+    if (current !== revision || !state.enabled) return false;
+    await request(signal => saveAccountPlace(owner, slot, place, signal));
+    if (current !== revision) return false;
+    const places = { ...useMyPlacesStore.getState().places };
     if (place) places[slot] = place;
     else delete places[slot];
-    await persistPlaces(owner, places);
-    if (current === revision) useMyPlacesStore.setState({ places });
-  }).catch(() => {});
+    useMyPlacesStore.setState({ places });
+    void useMyPlacesStore.getState().refreshAccount();
+    return true;
+  }).catch(() => {
+    if (current === revision) void useMyPlacesStore.getState().refreshAccount();
+    return false;
+  });
+}
+
+function clearMemory() {
+  revision++;
+  activeRequest?.abort();
+  pendingRefresh = undefined;
+  useMyPlacesStore.setState(emptyPlaces());
 }
 
 function clearPlaces() {
-  revision++;
   needsReset = true;
   // 이전 저장이 진행 중이어도 디스크 삭제를 그 뒤에 실행한다.
-  useMyPlacesStore.setState({ places: {}, loaded: false });
+  clearMemory();
   void enqueue(resetStorage).catch(() => {});
 }
 
@@ -123,12 +175,11 @@ useAuthStore.subscribe((state, previous) => {
     clearPlaces();
   }
   if (useMyPlacesStore.getState().enabled === enabled) return;
+  useMyPlacesStore.setState({ enabled });
   if (!enabled) {
-    revision++;
-    useMyPlacesStore.setState({ enabled: false, places: {}, loaded: false });
+    clearMemory();
     return;
   }
-  useMyPlacesStore.setState({ enabled: true });
   void useMyPlacesStore.getState().load();
 });
 

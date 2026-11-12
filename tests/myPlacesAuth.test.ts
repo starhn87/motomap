@@ -2,74 +2,135 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { create } from 'zustand';
 import { useDialogStore } from '../lib/dialog';
+import type { MyPlace, MyPlaces, MyPlaceSlot } from '../stores/useMyPlacesStore';
 import { loadModule } from './helpers/loadModule';
 
 const home = { name: '집', address: '주소', latitude: 37, longitude: 127 };
+const work = { ...home, name: '회사' };
 const signedIn = (id: string) => ({ status: 'signed_in', session: { user: { id } } });
 const guest = { status: 'signed_out', session: null };
 const flush = () => new Promise<void>(resolve => setImmediate(resolve));
+type Server = Map<string, Map<MyPlaceSlot, MyPlace | null>>;
 
-function fixture(initial = signedIn('a'), stored = JSON.stringify({ home })) {
+function fixture(initial = signedIn('a'), stored: string | null = null, server: Server = new Map()) {
   const auth = create<{ status: string; session: { user: { id: string } } | null }>(() => initial);
-  let saved: string | null = stored;
-  let write: Promise<void> | undefined;
-  const { useMyPlacesStore: places } = loadModule<{ useMyPlacesStore: typeof import('../stores/useMyPlacesStore').useMyPlacesStore }>(
+  let saved = stored;
+  let read: Promise<void> | undefined;
+  let unavailable = false;
+  function rows(owner: string) {
+    const account = server.get(owner) ?? new Map<MyPlaceSlot, MyPlace | null>();
+    server.set(owner, account);
+    return account;
+  }
+  const { useMyPlacesStore: places } = loadModule<typeof import('../stores/useMyPlacesStore')>(
     'stores/useMyPlacesStore.ts',
     {
       zustand: { create },
       '@/lib/dialog': { useDialogStore },
       '@/stores/useAuthStore': { useAuthStore: auth },
+      '@/lib/api/personalPlaces': {
+        fetchAccountPlaces: async (owner: string) => {
+          await read;
+          if (unavailable) throw new Error('offline');
+          return Object.fromEntries([...rows(owner)].filter(([, value]) => value !== null));
+        },
+        importAccountPlaces: async (owner: string, local: MyPlaces) => {
+          if (unavailable) throw new Error('offline');
+          for (const slot of ['home', 'work'] as const) {
+            const value = local[slot];
+            if (value && !rows(owner).has(slot)) rows(owner).set(slot, value);
+          }
+        },
+        saveAccountPlace: async (owner: string, slot: MyPlaceSlot, value?: MyPlace) => {
+          if (unavailable) throw new Error('offline');
+          rows(owner).set(slot, value ?? null);
+        },
+      },
       '@react-native-async-storage/async-storage': {
         __esModule: true,
-
         default: {
           getItem: async () => saved,
-          setItem: async (_key: string, value: string) => { await write; saved = value; },
+          setItem: async (_key: string, value: string) => { saved = value; },
           removeItem: async () => { saved = null; },
         },
       },
-    },
+    }, { AbortController },
   );
-  return { auth, places, saved: () => saved, delayWrite: (promise: Promise<void>) => { write = promise; } };
+  const ready = async () => {
+    await places.getState().load();
+    await places.getState().refreshAccount();
+  };
+  return { auth, places, ready, saved: () => saved, offline: (value: boolean) => { unavailable = value; },
+    delayRead: (promise: Promise<void>) => { read = promise; } };
 }
 
-test('로그아웃이 저장 중이어도 집·회사 값이 다시 생기지 않고 비로그인 저장도 막는다', async () => {
-  const { auth, places, saved, delayWrite } = fixture();
-  await places.getState().load();
-  assert.equal(JSON.stringify(places.getState().places.home), JSON.stringify(home));
-  assert.equal(JSON.parse(saved()!).owner, 'a');
-  let finish!: () => void;
-  delayWrite(new Promise<void>(resolve => { finish = resolve; }));
-  const saving = places.getState().save('work', home);
-  await flush();
+test('한 기기에만 있던 값이 같은 계정의 다른 기기에 동기화되고 로그아웃으로 서버 값이 삭제되지 않는다', async () => {
+  const server: Server = new Map();
+  const first = fixture(signedIn('a'), JSON.stringify({ owner: 'a', places: { home } }), server);
+  const second = fixture(signedIn('a'), null, server);
+  await first.ready();
+  assert.equal(first.saved(), null);
+  await second.ready();
+  assert.deepEqual({ ...second.places.getState().places.home }, home);
+  assert.equal(await second.places.getState().save('work', work), true);
+  await first.places.getState().refreshAccount();
+  assert.deepEqual(first.places.getState().places.work, work);
+
   useDialogStore.getState().show({ title: '집', message: home.address, buttons: [], maskMessage: true });
-  auth.setState(guest);
+  first.auth.setState(guest);
   assert.equal(useDialogStore.getState().dialog, null);
-  assert.equal(places.getState().enabled, false);
-  assert.equal(Object.keys(places.getState().places).length, 0);
-  await places.getState().save('home', home);
-  finish();
-  await saving;
+  assert.equal(first.places.getState().enabled, false);
+  assert.equal(Object.keys(first.places.getState().places).length, 0);
+  assert.equal(await first.places.getState().save('home', home), false);
+  assert.equal(server.get('a')?.size, 2);
+  first.auth.setState(signedIn('a'));
+  await first.ready();
+  assert.deepEqual(first.places.getState().places.work, work);
+});
+
+test('오래된 기기의 값으로 다른 기기에서 설정하거나 삭제한 슬롯을 덮지 않는다', async () => {
+  const server: Server = new Map([['a', new Map<MyPlaceSlot, MyPlace | null>([['home', null], ['work', work]])]]);
+  const f = fixture(signedIn('a'), JSON.stringify({ home, work: home }), server);
+  await f.ready();
+  assert.equal(f.saved(), null);
+  assert.equal(f.places.getState().places.home, undefined);
+  assert.deepEqual(f.places.getState().places.work, work);
+});
+
+test('동기화에 실패하면 이전 기기의 유일한 사본을 보존하고 저장 실패를 알린다', async () => {
+  const f = fixture(signedIn('a'), JSON.stringify({ owner: 'a', places: { home } }));
+  f.offline(true);
+  await f.ready();
+  assert.deepEqual({ ...f.places.getState().places.home }, home);
+  assert.equal(JSON.parse(f.saved()!).owner, 'a');
+  assert.equal(await f.places.getState().save('work', work), false);
+  assert.equal(f.places.getState().places.work, undefined);
+  await f.places.getState().refreshAccount();
+  f.offline(false);
+  await f.places.getState().refreshAccount();
+  assert.equal(f.saved(), null);
+});
+
+test('계정이 바뀌면 이전 계정의 늦은 서버 응답과 이전 기기 값을 표시하지 않는다', async () => {
+  const server: Server = new Map([['a', new Map([['home', home]])]]);
+  const f = fixture(signedIn('a'), null, server);
+  let release!: () => void;
+  f.delayRead(new Promise<void>(resolve => { release = resolve; }));
+  await f.places.getState().load();
   await flush();
-  assert.equal(saved(), null);
-
-  auth.setState(signedIn('a'));
-  await places.getState().load();
-  assert.equal(Object.keys(places.getState().places).length, 0);
+  f.auth.setState(signedIn('b'));
+  assert.equal(Object.keys(f.places.getState().places).length, 0);
+  release();
+  await f.ready();
+  assert.equal(Object.keys(f.places.getState().places).length, 0);
+  assert.equal(server.get('a')?.size, 1);
 });
 
-test('계정을 바로 전환해도 이전 계정의 집·회사를 읽지 않는다', async () => {
-  const { auth, places, saved } = fixture();
-  await places.getState().load();
-  auth.setState(signedIn('b'));
-  await places.getState().load();
-  assert.equal(saved(), null);
-  assert.equal(Object.keys(places.getState().places).length, 0);
-});
-
-test('삭제 전에 앱이 종료됐어도 다른 계정으로 다시 실행하면 집·회사를 읽지 않는다', async () => {
-  const { places } = fixture(signedIn('b'), JSON.stringify({ owner: 'a', places: { home } }));
-  await places.getState().load();
-  assert.equal(places.getState().loaded, true);
-  assert.equal(places.getState().places.home, undefined);
+test('다른 계정으로 다시 실행할 때 기기 값이 새 계정으로 넘어가지 않는다', async () => {
+  const server: Server = new Map();
+  const f = fixture(signedIn('b'), JSON.stringify({ owner: 'a', places: { home } }), server);
+  await f.ready();
+  assert.equal(f.places.getState().loaded, true);
+  assert.equal(f.places.getState().places.home, undefined);
+  assert.equal(server.get('b')?.size, 0);
 });
