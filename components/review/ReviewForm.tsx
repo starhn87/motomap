@@ -40,13 +40,7 @@ export default function ReviewForm({ target }: Props) {
   // 업로드부터 등록까지 전 과정을 잠근다
   const [submitting, setSubmitting] = useState(false);
 
-  if (!user) {
-    return (
-      <Text style={[styles.loginHint, { color: colors.textSecondary }]}>
-        리뷰를 작성하려면 로그인이 필요합니다.
-      </Text>
-    );
-  }
+  if (!user) return null;
 
   const handleAddPhotos = async () => {
     if (picking) return;
@@ -168,11 +162,6 @@ const styles = StyleSheet.create({
   },
   container: {
     gap: 12,
-  },
-  loginHint: {
-    fontSize: 13,
-    textAlign: 'center',
-    marginVertical: 12,
   },
   input: {
     borderWidth: 1,

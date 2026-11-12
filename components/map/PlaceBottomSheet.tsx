@@ -267,6 +267,7 @@ function PlaceBottomSheet({
     <PlaceSheetHeaderActions
       expanded={expanded}
       isFavorite={isFavorite}
+      showFavorite={!!user}
       favoriteDisabled={favoritePending}
       favoriteScale={heartScale}
       onFavorite={handleFavorite}
@@ -610,14 +611,15 @@ function PlaceBottomSheet({
                 </View>
               )}
             </View>
-            {!pickAction && <ReviewForm target={{ kind: 'place', id: place.id }} />}
-            <View style={styles.reviewDivider} />
+            {!!user && !pickAction && <ReviewForm target={{ kind: 'place', id: place.id }} />}
+            {!!user && !pickAction && <View style={styles.reviewDivider} />}
             <View
               onLayout={(e) => {
                 reviewListYRef.current = e.nativeEvent.layout.y;
               }}>
               <ReviewList
                 target={{ kind: 'place', id: place.id }}
+                allowWriting={!pickAction}
                 highlight={highlightReview}
                 onHighlightLayout={(y) => {
                   highlightItemYRef.current = y;

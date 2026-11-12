@@ -339,9 +339,10 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   // 즐겨찾기 지도 표시 — 켜면 뷰포트·필터와 무관하게 즐겨찾기가 별 마커로 보인다.
   // 일반 장소보다 높은 우선순위의 개별 마커로 그려 탭·선택 강조를 유지한다.
-  const showFavorites = useMapStore((s) => s.showFavorites);
+  const favoritesSelected = useMapStore((s) => s.showFavorites);
   const toggleShowFavorites = useMapStore((s) => s.toggleShowFavorites);
   const user = useAuthStore((s) => s.user);
+  const showFavorites = !!user && favoritesSelected;
   const { data: favoritePlaces } = useFavoritePlaces(showFavorites);
   const favIds = useMemo(
     () => new Set((favoritePlaces?.places ?? []).map((p) => p.id)),
@@ -1041,17 +1042,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       )}
 
       {/* 즐겨찾기 지도 표시 — 날씨 FAB와 같은 행 오른쪽 끝, 켜면 별이 채워진다 */}
-      {!overlay && (
+      {!overlay && !!user && (
       <GlassButton
         accessibilityLabel={showFavorites ? '즐겨찾기 장소 숨기기' : '즐겨찾기 장소 보기'}
         accessibilityRole="button"
-        onPress={() => {
-          if (!user) {
-            toast.info('로그인하면 즐겨찾기를 지도에서 볼 수 있어요');
-            return;
-          }
-          toggleShowFavorites();
-        }}
+        onPress={toggleShowFavorites}
         style={styles.favFab}>
         <Ionicons
           name={showFavorites ? 'star' : 'star-outline'}

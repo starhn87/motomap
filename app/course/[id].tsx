@@ -81,6 +81,7 @@ function LegacyCourseDetailScreen({ id }: { id: string }) {
   const { mutateAsync: updateReview } = useUpdateCourseReview(id ?? '');
   const { mutateAsync: removeReview } = useDeleteCourseReview(id ?? '');
   const blockedIds = useBlockedIds();
+  const visibleReviews = (reviews ?? []).filter(review => !blockedIds.has(review.userId));
   const { mutateAsync: blockUserFn } = useBlockUser();
   const [rating, setRating] = useState(0);
   const [content, setContent] = useState('');
@@ -465,21 +466,22 @@ function LegacyCourseDetailScreen({ id }: { id: string }) {
                 </Text>
               </Pressable>
             </View>
-          ) : (
+          ) : visibleReviews.length > 0 && (
             <Text style={[styles.loginHint, { color: colors.textSecondary }]}>
-              리뷰를 작성하려면 로그인이 필요합니다.
+              리뷰를 작성하려면 로그인해 주세요.
             </Text>
           )}
 
-          {!(reviews ?? []).filter((r) => !blockedIds.has(r.userId)).length ? (
+          {!visibleReviews.length ? (
             <Text style={[styles.emptyReview, { color: colors.textSecondary }]}>
-              아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
+              {user ? '아직 리뷰가 없어요. 첫 리뷰를 남겨보세요.'
+                : '아직 리뷰가 없어요. 로그인하고 첫 리뷰를 남겨보세요.'}
             </Text>
           ) : (
             <View style={styles.reviewList}>
-              {reviews!.filter((r) => !blockedIds.has(r.userId)).map((review) => {
+              {visibleReviews.map((review) => {
                 const isOwner = user?.id === review.userId;
-                const isEditing = editingId === review.id;
+                const isEditing = isOwner && editingId === review.id;
 
                 return (
                   <View

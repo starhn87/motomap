@@ -87,13 +87,14 @@ function ReviewPhotoOverlay({ review }: { review: Review }) {
 
 interface Props {
   target: ReviewTarget;
+  allowWriting: boolean;
   /** 이 리뷰로 스크롤·강조 — key(nonce)가 바뀔 때마다 다시 반짝인다 */
   highlight?: { id: string; key: string } | null;
   /** 강조 대상 리뷰 카드의 y(리스트 루트 기준)를 부모에 보고 — 스크롤 목표 계산용 */
   onHighlightLayout?: (y: number) => void;
 }
 
-export default function ReviewList({ target, highlight, onHighlightLayout }: Props) {
+export default function ReviewList({ target, allowWriting, highlight, onHighlightLayout }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -156,7 +157,9 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
   if (!visibleReviews?.length) {
     return (
       <Text style={[styles.empty, { color: colors.textSecondary }]}>
-        아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
+        {!allowWriting ? '아직 리뷰가 없어요.'
+          : user ? '아직 리뷰가 없어요. 첫 리뷰를 남겨보세요.'
+          : '아직 리뷰가 없어요. 로그인하고 첫 리뷰를 남겨보세요.'}
       </Text>
     );
   }
@@ -286,9 +289,12 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
 
   return (
     <View style={styles.container}>
+      {!user && allowWriting && (
+        <Text style={{ color: colors.textSecondary }}>리뷰를 작성하려면 로그인해 주세요.</Text>
+      )}
       {visibleReviews.map((review) => {
         const isOwner = user?.id === review.userId;
-        const isEditing = editingId === review.id;
+        const isEditing = isOwner && editingId === review.id;
 
         const isHighlight = highlight?.id === review.id;
         return (
