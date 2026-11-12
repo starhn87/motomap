@@ -221,8 +221,7 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
 
   if (!loaded) return null;
   // 같은 1.2.8 테스트 바이너리라도 중지 브리지가 없는 앱에는 새 위치 기능을 열지 않는다.
-  if (Platform.OS === 'ios' && nativeCapabilities.bridgeVersion < 2) return <ServiceResumeScreen
-    mode="update" storeUrl={APP_STORE_URL} onRetry={() => {}} />;
+  if (Platform.OS === 'ios' && nativeCapabilities.bridgeVersion < 2) return <ServiceResumeScreen storeUrl={APP_STORE_URL} />;
   // 기존 계정의 새 동의를 확인하기 전 지도 Stack·개인 기록 동기화를 마운트하지 않는다.
   // 모듈 import/Sentry 초기화까지 차단한다는 의미는 아니다.
   if (authStatus === 'restoring') {

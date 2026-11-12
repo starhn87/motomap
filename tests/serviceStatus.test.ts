@@ -35,35 +35,24 @@ test('버전을 모르면 서비스를 열지 않는다', () => {
   assert.equal(isVersionAtLeast('invalid', '1.2.8'), false);
 });
 
-test('접수·준비·구버전에서는 정상 앱을 마운트하지 않는다', () => {
-  assert.equal(resolveServiceGate(null, '1.2.8'), 'suspended');
-  assert.equal(resolveServiceGate(suspended, '1.2.8'), 'suspended');
-  assert.equal(
-    resolveServiceGate({ ...suspended, status: 'preparing' }, '1.2.8'),
-    'preparing',
-  );
-  assert.equal(
-    resolveServiceGate({ ...suspended, status: 'active' }, '1.2.7'),
-    'update',
-  );
-  assert.equal(
-    resolveServiceGate({ ...suspended, status: 'active' }, '1.2.8'),
-    'check-update',
-  );
+test('운영 상태와 무관하게 최소 버전을 만족하면 앱을 시작한다', () => {
+  assert.equal(resolveServiceGate(null, '1.2.8'), 'check-update');
+  for (const status of ['suspended', 'preparing', 'active'] as const) {
+    assert.equal(resolveServiceGate({ ...suspended, status }, '1.2.8'), 'check-update');
+    assert.equal(resolveServiceGate({ ...suspended, status }, '1.2.7'), 'update');
+  }
+  assert.equal(resolveServiceGate(null, '1.2.3'), 'update');
+  assert.equal(resolveServiceGate(null, null), 'update');
+  assert.equal(resolveServiceGate({ ...suspended, minimumAppVersion: '1.0.0' }, '1.2.3'), 'update');
 });
 
-test('준비 중에는 별도 내부 TestFlight 채널의 새 버전만 열린다', () => {
-  const preparing = { ...suspended, status: 'preparing' as const };
-  assert.equal(resolveServiceGate(preparing, '1.2.8', true), 'check-update');
-  assert.equal(resolveServiceGate(preparing, '1.2.7', true), 'update');
-  assert.equal(resolveServiceGate(suspended, '1.2.8', true), 'suspended');
-});
-
-test('네트워크 오류와 503 응답은 중단으로 닫는다', async () => {
+test('네트워크 오류와 503 응답에도 지원 버전은 시작할 수 있다', async () => {
   const unavailable = await fetchServiceStatus(async () => {
     throw new Error('offline');
   });
   const maintenance = await fetchServiceStatus(async () => new Response('maintenance', { status: 503 }));
   assert.equal(unavailable, null);
   assert.equal(maintenance, null);
+  assert.equal(resolveServiceGate(unavailable, '1.2.8'), 'check-update');
+  assert.equal(resolveServiceGate(maintenance, '1.2.8'), 'check-update');
 });
