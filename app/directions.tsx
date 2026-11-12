@@ -49,6 +49,7 @@ export default function DirectionsScreen() {
   const { data: favorites } = useFavoritePlaces();
   const navLaunching = useNavLaunching((s) => s.launching);
   const myPlaces = useMyPlacesStore((s) => s.places);
+  const myPlacesEnabled = useMyPlacesStore((s) => s.enabled);
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
   const saveMyPlace = useMyPlacesStore((s) => s.save);
   // 장소 상세의 출발/도착 버튼에서 넘어올 때의 프리필
@@ -80,6 +81,9 @@ export default function DirectionsScreen() {
       : null,
   );
   const [editing, setEditing] = useState<Editing | null>(null);
+  useEffect(() => {
+    if (!myPlacesEnabled) setEditing(current => current === 'home' || current === 'work' ? null : current);
+  }, [myPlacesEnabled]);
   // 경유지 — null 은 + 로 만든 빈 줄. 미리보기로 넘어갈 때 채워진 것만 전달한다.
   const [viaPoints, setViaPoints] = useState<(NavTarget | null)[]>([]);
   const [fieldDraftKeys, setFieldDraftKeys] = useState(['origin', 'dest']);
@@ -203,7 +207,7 @@ export default function DirectionsScreen() {
       void preview(point, dest);
     } else if (kind === 'dest') {
       pickDest(point, address);
-    } else if ((kind === 'home' || kind === 'work') && point !== 'current') {
+    } else if ((kind === 'home' || kind === 'work') && point !== 'current' && myPlacesEnabled) {
       void saveMyPlace(kind, {
         name: point.name,
         address: address ?? '',
@@ -216,7 +220,7 @@ export default function DirectionsScreen() {
 
   // 집/회사 칩 — 설정돼 있으면 바로 도착지로, 없으면 설정 검색부터
   const shortcut = (slot: MyPlaceSlot) => {
-    if (previewBlocked()) return;
+    if (!myPlacesEnabled || previewBlocked()) return;
     const saved = myPlaces[slot];
     if (saved) {
       pickDest(
@@ -326,7 +330,7 @@ export default function DirectionsScreen() {
       </Pressable>
 
       {/* 바로가기 — 집·회사 (검색 화면과 같은 저장소) */}
-      <View style={styles.shortcutRow}>
+      {myPlacesEnabled && <View style={styles.shortcutRow}>
         <ShortcutChip
           icon="home"
           text={myPlaces.home ? '집' : '집 설정'}
@@ -339,7 +343,7 @@ export default function DirectionsScreen() {
           set={!!myPlaces.work}
           onPress={() => shortcut('work')}
         />
-      </View>
+      </View>}
 
       {/* 최근 검색 — 좌표 있는 항목만 (검색 화면과 같은 목록) */}
       {recentRows.length > 0 && (
@@ -388,7 +392,7 @@ export default function DirectionsScreen() {
       )}
 
       <PointSearchModal
-        visible={editing !== null}
+        visible={editing !== null && (myPlacesEnabled || (editing !== 'home' && editing !== 'work'))}
         draftKey={editing === 'origin' ? fieldDraftKeys[0]
           : editing === 'dest' ? fieldDraftKeys[fieldDraftKeys.length - 1]
             : typeof editing === 'number' ? fieldDraftKeys[editing + 1] : undefined}
