@@ -1,3 +1,4 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import {
   Modal,
   View,
@@ -9,7 +10,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { Text, TextInput } from '@/components/ui/AppText';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -29,6 +30,8 @@ interface Props {
 }
 
 export default function ReportSheet({ visible, onClose, targetType, targetId }: Props) {
+  const keyboardScrollRef = useRef<ScrollView>(null);
+  const keyboardInput = useRevealKeyboardInput(keyboardScrollRef);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -72,6 +75,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
         behavior="height">
         <Pressable style={styles.backdrop} onPress={handleClose} />
         <ScrollView
+          ref={keyboardScrollRef}
           automaticallyAdjustKeyboardInsets
           style={[
             styles.sheet,
@@ -121,6 +125,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
           </View>
 
           <TextInput
+            onFocus={keyboardInput.onFocus}
             style={[
               styles.input,
               {

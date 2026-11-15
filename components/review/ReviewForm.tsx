@@ -20,10 +20,11 @@ import StarRating from './StarRating';
 import PhotoDragList from './PhotoDragList';
 
 interface Props {
+  onInputFocus?: () => void;
   target: ReviewCreateTarget;
 }
 
-export default function ReviewForm({ target }: Props) {
+export default function ReviewForm({ target, onInputFocus }: Props) {
   // 바이크 미등록이면 폼 아래에서 한 번 권한다 — 리뷰에 기종 뱃지가 붙는
   // 순간이라 등록의 보상이 가장 눈에 보이는 자리다
   const { model: myBikeModel } = useMyBike();
@@ -105,6 +106,7 @@ export default function ReviewForm({ target }: Props) {
       <StarRating rating={rating} onRate={setRating} size={32} />
 
       <BottomSheetTextInput
+        onFocus={onInputFocus}
         style={[
           APP_FONT_STYLE,
           styles.input,

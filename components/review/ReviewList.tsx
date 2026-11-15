@@ -86,6 +86,7 @@ function ReviewPhotoOverlay({ review }: { review: Review }) {
 }
 
 interface Props {
+  onInputFocus?: () => void;
   target: ReviewTarget;
   allowWriting: boolean;
   /** 이 리뷰로 스크롤·강조 — key(nonce)가 바뀔 때마다 다시 반짝인다 */
@@ -94,7 +95,7 @@ interface Props {
   onHighlightLayout?: (y: number) => void;
 }
 
-export default function ReviewList({ target, allowWriting, highlight, onHighlightLayout }: Props) {
+export default function ReviewList({ target, allowWriting, highlight, onHighlightLayout, onInputFocus }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -348,6 +349,7 @@ export default function ReviewList({ target, allowWriting, highlight, onHighligh
               <View style={styles.editForm}>
                 <StarRating rating={editRating} onRate={setEditRating} size={24} />
                 <BottomSheetTextInput
+                  onFocus={onInputFocus}
                   style={[
                     APP_FONT_STYLE,
                     styles.editInput,

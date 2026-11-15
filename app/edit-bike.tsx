@@ -1,3 +1,4 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import CloseIcon from '@/components/ui/CloseIcon';
@@ -158,6 +159,8 @@ function GarageCard({
 }
 
 export default function EditBikeScreen() {
+  const keyboardScrollRef = useRef<ScrollView>(null);
+  const keyboardInput = useRevealKeyboardInput(keyboardScrollRef);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((state) => state.user)!;
@@ -383,6 +386,7 @@ export default function EditBikeScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <ScrollView
+          ref={keyboardScrollRef}
           automaticallyAdjustKeyboardInsets
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
@@ -429,6 +433,7 @@ export default function EditBikeScreen() {
           <Text style={[styles.label, { color: colors.text }]}>기종 *</Text>
           <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <TextInput
+              onFocus={keyboardInput.onFocus}
               style={[styles.input, { color: colors.text }]}
               placeholder="예: CB650R, R7, 슈퍼커브110"
               placeholderTextColor={colors.textSecondary}
@@ -474,6 +479,7 @@ export default function EditBikeScreen() {
           <Text style={[styles.label, { color: colors.text }]}>애칭</Text>
           <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <TextInput
+              onFocus={keyboardInput.onFocus}
               style={[styles.input, { color: colors.text }]}
               placeholder="예: 콩이, 번개"
               placeholderTextColor={colors.textSecondary}
@@ -488,6 +494,7 @@ export default function EditBikeScreen() {
               <Text style={[styles.label, { color: colors.text }]}>연식</Text>
               <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <TextInput
+                  onFocus={keyboardInput.onFocus}
                   style={[styles.input, { color: colors.text }]}
                   placeholder="2025"
                   placeholderTextColor={colors.textSecondary}
@@ -502,6 +509,7 @@ export default function EditBikeScreen() {
               <Text style={[styles.label, { color: colors.text }]}>색상</Text>
               <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <TextInput
+                  onFocus={keyboardInput.onFocus}
                   style={[styles.input, { color: colors.text }]}
                   placeholder="매트 블랙"
                   placeholderTextColor={colors.textSecondary}
