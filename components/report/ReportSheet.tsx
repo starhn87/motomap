@@ -68,9 +68,11 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
       onRequestClose={handleClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        enabled={Platform.OS === 'android'}
+        behavior="height">
         <Pressable style={styles.backdrop} onPress={handleClose} />
         <ScrollView
+          automaticallyAdjustKeyboardInsets
           style={[
             styles.sheet,
             {

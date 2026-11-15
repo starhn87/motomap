@@ -7,8 +7,6 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -383,10 +381,10 @@ export default function EditBikeScreen() {
   if (editorOpen) {
     const shownPhoto = pendingPhoto ?? (removePhoto ? null : editingBike?.photoUrl ?? null);
     return (
-      <KeyboardAvoidingView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <ScrollView
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.editorContent}>
           <View style={styles.editorHeading}>
@@ -531,7 +529,7 @@ export default function EditBikeScreen() {
             </Pressable>
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     );
   }
 

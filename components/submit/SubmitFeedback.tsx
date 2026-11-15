@@ -81,8 +81,10 @@ export default function SubmitFeedback() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      enabled={Platform.OS === 'android'}
+      behavior="height">
       <ScrollView
+        automaticallyAdjustKeyboardInsets
         onScroll={trackHeaderScroll} scrollEventThrottle={16}
         style={{ flex: 1 }}
         contentContainerStyle={[styles.content, { paddingTop: headerInset + 20 }]}

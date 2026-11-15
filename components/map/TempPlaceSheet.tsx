@@ -354,6 +354,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
         enablePanDownToClose={false}
         keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
         enableBlurKeyboardOnGesture
         onChange={(index) => {
           setSettledIndex(index);
@@ -375,6 +376,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
             ref={scrollRef}
             contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
             showsVerticalScrollIndicator={false}
+            automaticallyAdjustKeyboardInsets
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag">
             <Animated.View style={spacerStyle} />
