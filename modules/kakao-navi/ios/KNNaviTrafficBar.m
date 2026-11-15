@@ -107,9 +107,10 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
 - (void)setPositionAvailable:(BOOL)available {
   if (_positionAvailable == available) return;
   _positionAvailable = available;
+  self.sampledAt = -INFINITY;
   self.accessibilityLabel = available ? @"남은 경로 교통 흐름" : @"경로 교통 흐름";
   self.accessibilityHint = available ? @"아래가 출발지, 위가 목적지입니다. 화살표는 현재 위치입니다. 구간별 평균 교통 상황입니다." :
-      @"GPS 수신 대기 중인 전체 경로의 평균 교통 상황입니다.";
+      @"GPS 수신 대기 중입니다. 마지막으로 확인한 구간의 평균 교통 상황입니다.";
   [self updateAccessibilityValue];
   [self setNeedsDisplay];
 }
@@ -133,7 +134,7 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
 - (void)updateAccessibilityValue {
   if (!self.states.count) { self.accessibilityValue = nil; return; }
   SInt32 distance = self.remainingDistance;
-  NSString *label = self.positionAvailable ? @"목적지까지" : @"경로 길이";
+  NSString *label = self.positionAvailable ? @"목적지까지" : @"확인된 구간 길이";
   NSString *length = distance >= 1000 ? [NSString stringWithFormat:@"%@ %.1f킬로미터", label, distance / 1000.0] :
       [NSString stringWithFormat:@"%@ %d미터", label, (int)distance];
   NSArray<NSString *> *names = @[@"교통정보 없음", @"정체", @"지체", @"서행", @"원활", @"통행 불가"];
