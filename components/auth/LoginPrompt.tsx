@@ -259,9 +259,11 @@ export default function LoginPrompt({ message }: { message?: string }) {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      enabled={Platform.OS === 'android'}
+      behavior="height"
       style={[styles.keyboardAvoiding, { backgroundColor: colors.background }]}>
       <AnimatedScrollView
+        automaticallyAdjustKeyboardInsets
         contentContainerStyle={styles.scrollContent}
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         keyboardShouldPersistTaps="handled"

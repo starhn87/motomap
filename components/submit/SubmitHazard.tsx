@@ -5,8 +5,6 @@ import {
   StyleSheet,
   View,
   Pressable,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   ActivityIndicator,
   Keyboard,
@@ -120,10 +118,14 @@ export default function SubmitHazard() {
   ];
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView onScroll={trackHeaderScroll} scrollEventThrottle={16} contentContainerStyle={[styles.content, { paddingTop: headerInset + 20 }]} keyboardShouldPersistTaps="handled">
+    <View style={styles.flex}>
+      <ScrollView
+        automaticallyAdjustKeyboardInsets
+        onScroll={trackHeaderScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={[styles.content, { paddingTop: headerInset + 20 }]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
         <Text style={[styles.sectionTitle, { color: colors.text }]}>위험 유형 *</Text>
         <View style={styles.typeGrid}>
           {HAZARD_LIST.map((h) => {
@@ -288,7 +290,7 @@ export default function SubmitHazard() {
           setMapOpen(false);
         }}
       />
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

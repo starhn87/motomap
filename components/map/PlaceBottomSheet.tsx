@@ -365,6 +365,7 @@ function PlaceBottomSheet({
         // 입력을 마치면 사용자가 보던 스냅 위치로 되돌린다.
         keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
         enableBlurKeyboardOnGesture
         // 스와이프로는 최소 스냅까지만 내려간다. 실수로 쓸어서 닫히는 걸 막고,
         // 닫기는 X 버튼과 풀확장 헤더의 뒤로가기 두 곳으로 모은다.
@@ -384,6 +385,7 @@ function PlaceBottomSheet({
           ref={scrollRef}
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
           <Animated.View style={spacerStyle} />

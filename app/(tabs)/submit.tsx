@@ -278,8 +278,10 @@ function SubmitPlace() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      enabled={Platform.OS === 'android'}
+      behavior="height">
       <ScrollView
+        automaticallyAdjustKeyboardInsets
         onScroll={trackHeaderScroll} scrollEventThrottle={16}
         ref={scrollRef}
         style={{ flex: 1 }}
