@@ -818,7 +818,7 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     [self resetTrafficBar]; return;
   }
   BOOL positionAvailable = [self usableRecoveryGPS:guide.gpsOrigin] && guide.locationForPrimaryRoute && route == currentRoute;
-  if (self.trafficDisplayedRoute != currentRoute || self.trafficBar.positionAvailable != positionAvailable) {
+  if (self.trafficDisplayedRoute != currentRoute) {
     [self.trafficBar reset];
     self.trafficDisplayedRoute = currentRoute;
   }
@@ -831,17 +831,18 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   BOOL visible = self.bottomPanel.ready && self.mapControlsHidden && !self.bottomPanel.expanded && !self.mapDetached &&
       (!self.hasNaviScreenState || self.naviScreenState == DriveNormal) &&
       !CGRectIsEmpty(self.trafficBar.frame);
-  if (visible) {
+  if (visible && (positionAvailable || !self.trafficBar.states.count)) {
     KNLocation *origin = positionAvailable ? guide.locationForPrimaryRoute : currentRoute.mainRoadList.firstObject.fromLocation;
     SInt32 distance = origin ? [currentRoute remainDistFromLocation:origin] : 0;
-    // 첫 GPS가 없어도 SDK가 경로 시작점임을 확인해 준 위치로 전체 교통 흐름을 보여준다.
-    // 마지막 위치를 현재 위치처럼 쓰거나 첫 주요 도로가 경로 중간인 경우를 시작점으로 추정하지 않는다.
-    if (!positionAvailable && (!origin || distance <= 0 || llabs((int64_t)distance - currentRoute.totalDist) > 3)) {
-      [self resetTrafficBar]; return;
+    // 같은 경로에서 GPS가 끊기면 위치 참조만 버리고 이미 읽은 교통 상태는 보존한다.
+    // 표본이 없는 새 경로는 SDK가 확인한 시작점에서만 전체 경로를 읽는다.
+    if (origin && distance > 0 && (positionAvailable || llabs((int64_t)distance - currentRoute.totalDist) <= 3)) {
+      [self.trafficBar updateFromLocation:origin
+                      remainingDistance:distance
+                                   time:NSProcessInfo.processInfo.systemUptime];
+    } else if (positionAvailable) {
+      [self.trafficBar reset];
     }
-    [self.trafficBar updateFromLocation:origin
-                    remainingDistance:distance
-                                 time:NSProcessInfo.processInfo.systemUptime];
   }
   BOOL browsing = self.mapDetached || (self.hasNaviScreenState && self.naviScreenState == DriveTouch);
   BOOL animate = self.bottomPanel.ready && !self.bottomPanel.expanded &&
