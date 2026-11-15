@@ -9,12 +9,13 @@ test('선택한 제보 유형은 아이콘과 글자 모두 선택 배경과 대
     const colors = { background: scheme === 'dark' ? '#0A0A0A' : '#FFFFFF', tint: scheme === 'dark' ? '#FAFAFA' : '#18181B', text: '#888888' };
     const state: any[] = []; let cursor=0;
     const module = loadModule<any>('components/submit/SubmitFeedback.tsx', {
-      react: { useState: (value: any) => {const i=cursor++;if (!(i in state))state[i]=value;return [state[i],(v:any)=>state[i]=v];} },
+      react: { useRef: (current: any) => ({current}), useState: (value: any) => {const i=cursor++;if (!(i in state))state[i]=value;return [state[i],(v:any)=>state[i]=v];} },
       'react/jsx-runtime': { jsx, jsxs: jsx },
       'react-native': { View:'View', Text:'Text',TextInput:'Input',Pressable:'Button',ScrollView:'Scroll',KeyboardAvoidingView:'Avoid',Platform:{OS:'ios'},StyleSheet:{create:(s:any)=>s} },
       '@expo/vector-icons/Ionicons': exported('Icon'),
       'react-native-reanimated': { ...exported({createAnimatedComponent:(value:any)=>value}),useSharedValue:()=>({value:1}),useAnimatedStyle:()=>({}),withSpring:(v:any)=>v },
       '@/constants/Colors': exported({ [scheme]: colors }), '@/components/useColorScheme': {useColorScheme:()=>scheme},
+      '@/hooks/useRevealKeyboardInput': {useRevealKeyboardInput:()=>({onFocus:()=>{}})},
       '@/lib/api/feedback': {}, '@/lib/toast': {}, '@/lib/push': {},
       '@/components/navigation/tabOcclusion': {TabScrollSpacer:'Spacer'},
       '@/components/navigation/headerInset': {useContentHeaderInset:()=>100},

@@ -1,3 +1,4 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import CloseIcon from '@/components/ui/CloseIcon';
@@ -92,6 +93,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
   const insets = useSafeAreaInsets();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const scrollRef = useRef<any>(null);
+  const keyboardInput = useRevealKeyboardInput(scrollRef);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const animatedIndex = useSharedValue(-1);
   const currentIndexRef = useRef(-1);
@@ -355,6 +357,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
         enableBlurKeyboardOnGesture
         onChange={(index) => {
           if (index === -1 && place) onClose();
+          else keyboardInput.reveal();
         }}
         containerStyle={styles.sheetContainer}
         backgroundStyle={{
@@ -648,10 +651,10 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
                 </View>
               )}
             </View>
-            {!!user && !pickAction && <ReviewForm target={{ kind: 'general', place: resolvedPlace ?? place }} />}
+            {!!user && !pickAction && <ReviewForm onInputFocus={keyboardInput.onFocus} target={{ kind: 'general', place: resolvedPlace ?? place }} />}
             {!!user && !pickAction && <View style={styles.reviewDivider} />}
             {reviewTarget ? (
-              <ReviewList target={reviewTarget} allowWriting={!pickAction} />
+              <ReviewList onInputFocus={keyboardInput.onFocus} target={reviewTarget} allowWriting={!pickAction} />
             ) : generalPlaceLoading ? (
               <ReviewListSkeleton />
             ) : (

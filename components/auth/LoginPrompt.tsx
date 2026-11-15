@@ -1,3 +1,4 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   View,
@@ -11,7 +12,7 @@ import {
 } from 'react-native';
 import { Text, TextInput } from '@/components/ui/AppText';
 import { Image } from 'expo-image';
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { router } from 'expo-router';
@@ -85,6 +86,8 @@ function AgreementRow({
 }
 
 export default function LoginPrompt({ message }: { message?: string }) {
+  const keyboardScrollRef = useRef<ScrollView>(null);
+  const keyboardInput = useRevealKeyboardInput(keyboardScrollRef);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const authStatus = useAuthStore((state) => state.status);
@@ -263,6 +266,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
       behavior="height"
       style={[styles.keyboardAvoiding, { backgroundColor: colors.background }]}>
       <AnimatedScrollView
+        ref={keyboardScrollRef}
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={styles.scrollContent}
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -344,6 +348,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
               <Text style={[styles.label, { color: colors.text }]}>닉네임 *</Text>
               <View style={styles.nicknameRow}>
                 <TextInput
+                  onFocus={keyboardInput.onFocus}
                   style={[...inputStyle, styles.nicknameInput]}
                   placeholder="닉네임 (2~15자)"
                   placeholderTextColor={colors.textSecondary}
@@ -389,6 +394,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
           {!needsOnboarding && (
             <>
               <TextInput
+                onFocus={keyboardInput.onFocus}
                 style={inputStyle}
                 placeholder="이메일"
                 placeholderTextColor={colors.textSecondary}
@@ -398,6 +404,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
                 autoCapitalize="none"
               />
               <TextInput
+                onFocus={keyboardInput.onFocus}
                 style={inputStyle}
                 placeholder="비밀번호"
                 placeholderTextColor={colors.textSecondary}

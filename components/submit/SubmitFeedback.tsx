@@ -1,3 +1,4 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   StyleSheet,
@@ -9,7 +10,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { Text, TextInput } from '@/components/ui/AppText';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Animated, {
   useAnimatedStyle,
   withSpring,
@@ -35,6 +36,8 @@ const FEEDBACK_TYPES = [
 ];
 
 export default function SubmitFeedback() {
+  const scrollRef = useRef<ScrollView>(null);
+  const keyboardInput = useRevealKeyboardInput(scrollRef);
   const trackHeaderScroll = useTrackHeaderScroll();
   const headerInset = useContentHeaderInset();
   const colorScheme = useColorScheme();
@@ -84,6 +87,7 @@ export default function SubmitFeedback() {
       enabled={Platform.OS === 'android'}
       behavior="height">
       <ScrollView
+        ref={scrollRef}
         automaticallyAdjustKeyboardInsets
         onScroll={trackHeaderScroll} scrollEventThrottle={16}
         style={{ flex: 1 }}
@@ -123,6 +127,7 @@ export default function SubmitFeedback() {
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>내용 *</Text>
         <TextInput
+          onFocus={keyboardInput.onFocus}
           style={[
             styles.input,
             {

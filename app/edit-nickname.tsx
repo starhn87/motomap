@@ -1,3 +1,4 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   View,
@@ -8,7 +9,7 @@ import {
 } from 'react-native';
 import { Text, TextInput } from '@/components/ui/AppText';
 import { TouchableOpacity } from 'react-native-gesture-handler';
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { router } from 'expo-router';
 
 import Colors, { semantic } from '@/constants/Colors';
@@ -24,6 +25,8 @@ import Skeleton from '@/components/ui/Skeleton';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 export default function EditNicknameScreen() {
+  const keyboardScrollRef = useRef<ScrollView>(null);
+  const keyboardInput = useRevealKeyboardInput(keyboardScrollRef);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const syncProfileNickname = useAuthStore((state) => state.syncProfileNickname);
@@ -130,6 +133,7 @@ export default function EditNicknameScreen() {
 
   return (
     <ScrollView
+      ref={keyboardScrollRef}
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={styles.content}
       automaticallyAdjustKeyboardInsets
@@ -139,6 +143,7 @@ export default function EditNicknameScreen() {
 
       <View style={styles.nicknameRow}>
         <TextInput
+          onFocus={keyboardInput.onFocus}
           style={[
             styles.input,
             {

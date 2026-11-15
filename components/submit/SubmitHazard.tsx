@@ -1,3 +1,4 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import CloseIcon from '@/components/ui/CloseIcon';
@@ -11,7 +12,7 @@ import {
 } from 'react-native';
 import { Text, TextInput } from '@/components/ui/AppText';
 import { Image } from 'expo-image';
-import { useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -32,6 +33,8 @@ import type { HazardType } from '@/types';
 
 // 노면 위험 제보 — 지금 서 있는 자리를 찍는 게 기본 시나리오라 현재 위치를 쓴다.
 export default function SubmitHazard() {
+  const scrollRef = useRef<ScrollView>(null);
+  const keyboardInput = useRevealKeyboardInput(scrollRef);
   const trackHeaderScroll = useTrackHeaderScroll();
   const headerInset = useContentHeaderInset();
   const colorScheme = useColorScheme();
@@ -120,6 +123,7 @@ export default function SubmitHazard() {
   return (
     <View style={styles.flex}>
       <ScrollView
+        ref={scrollRef}
         automaticallyAdjustKeyboardInsets
         onScroll={trackHeaderScroll}
         scrollEventThrottle={16}
@@ -215,6 +219,7 @@ export default function SubmitHazard() {
           {type === 'etc' ? '어떤 위험인가요 *' : '메모'}
         </Text>
         <TextInput
+          onFocus={keyboardInput.onFocus}
           style={[...inputStyle, styles.multiline]}
           placeholder={
             type === 'etc'

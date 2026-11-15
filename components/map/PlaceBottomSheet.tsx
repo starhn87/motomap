@@ -1,3 +1,4 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { View, StyleSheet, Share, ActivityIndicator, Pressable } from 'react-native';
@@ -153,6 +154,7 @@ function PlaceBottomSheet({
   };
 
   const scrollRef = useRef<any>(null);
+  const keyboardInput = useRevealKeyboardInput(scrollRef);
   const didInitRef = useRef(false);
   // place(장소)가 바뀔 때만 시트 위치를 리셋한다.
   // - 의존성을 [place] 참조로 두면 드래그 확장 중 참조 변경마다 snapToIndex(1)이
@@ -360,7 +362,10 @@ function PlaceBottomSheet({
         failOffsetX={[-12, 12]}
         animatedIndex={animatedIndex}
         animatedPosition={animatedPosition}
-        onChange={handleSheetChanges}
+        onChange={(index) => {
+          handleSheetChanges(index);
+          keyboardInput.reveal();
+        }}
         // 리뷰 입력 시 시트를 최대로 펼쳐 키보드 위 공간을 확보하고,
         // 입력을 마치면 사용자가 보던 스냅 위치로 되돌린다.
         keyboardBehavior="extend"
@@ -613,13 +618,14 @@ function PlaceBottomSheet({
                 </View>
               )}
             </View>
-            {!!user && !pickAction && <ReviewForm target={{ kind: 'place', id: place.id }} />}
+            {!!user && !pickAction && <ReviewForm onInputFocus={keyboardInput.onFocus} target={{ kind: 'place', id: place.id }} />}
             {!!user && !pickAction && <View style={styles.reviewDivider} />}
             <View
               onLayout={(e) => {
                 reviewListYRef.current = e.nativeEvent.layout.y;
               }}>
               <ReviewList
+                onInputFocus={keyboardInput.onFocus}
                 target={{ kind: 'place', id: place.id }}
                 allowWriting={!pickAction}
                 highlight={highlightReview}
