@@ -6,6 +6,13 @@ import {
   type GestureResponderEvent,
 } from 'react-native';
 
+function formatRemainingDistance(meters: number): string {
+  if (meters >= 1000) return `${(meters / 1000).toFixed(1)}km`;
+  if (meters === 0) return '0m';
+  const step = meters <= 100 ? 5 : 20;
+  return `${Math.max(step, Math.floor(meters / step) * step)}m`;
+}
+
 type Props = { token: string; menu: boolean };
 type Action = 'menu' | 'refresh' | 'recenter' | 'routeEdit' | 'end' | 'volume';
 type GuideState = {
@@ -212,7 +219,7 @@ export default function IOSGuidePanel({ token, menu }: Props) {
             {showMetrics ? <>
               <RemainingTime seconds={time} color={tone.ink} />
               <Text numberOfLines={1} maxFontSizeMultiplier={1.15} style={[styles.distance, { color: tone.ink }]}>
-                {meters >= 1000 ? `${(meters / 1000).toFixed(1)}km` : `${Math.round(meters)}m`}
+                {formatRemainingDistance(meters)}
               </Text>
             </> : <Text numberOfLines={1} maxFontSizeMultiplier={1.15} style={[styles.label, { color: tone.ink }]}>{state.status ?? '안내 준비 중'}</Text>}
           </View>
