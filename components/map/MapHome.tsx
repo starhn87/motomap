@@ -390,20 +390,21 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     (place: Place) => {
       followingRef.current = false;
       track.placeViewed({ place_id: place.id, category: place.category, source: 'map_marker' });
-      setHighlightReview(null);
-      setTempPlace(null);
-      setSelectedPlaceId(place.id);
-      setSelectedPlace(place);
       // 현재 줌을 유지한 채 마커가 시트에 가리지 않는 위치로 카메라만 보정
       const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
       mapRef.current?.animateCameraTo({
         latitude: place.latitude - sheetLatOffset(zoom, mapViewportHeight, place.latitude),
         longitude: place.longitude,
         zoom,
-        duration: 400,
+        duration: 260,
+        easing: 'EaseOut',
       });
+      setHighlightReview(null);
+      setTempPlace(null);
+      setSelectedPlaceId(place.id);
+      setSelectedPlace(place);
     },
-    [setSelectedPlaceId, mapCenter, mapViewportHeight]
+    [setSelectedPlaceId, mapCenter?.zoom, mapViewportHeight]
   );
 
   const handleSearchSelect = useCallback(
@@ -498,18 +499,19 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const handleTempPlaceSelect = useCallback(
     (place: TempPlace) => {
       followingRef.current = false;
-      setSelectedPlaceId(null);
-      setSelectedPlace(null);
-      setSelectedStation(null);
-      setHighlightReview(null);
-      setTempPlace(place);
       const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
       mapRef.current?.animateCameraTo({
         latitude: place.latitude - sheetLatOffset(zoom, mapViewportHeight, place.latitude),
         longitude: place.longitude,
         zoom,
-        duration: 400,
+        duration: 260,
+        easing: 'EaseOut',
       });
+      setSelectedPlaceId(null);
+      setSelectedPlace(null);
+      setSelectedStation(null);
+      setHighlightReview(null);
+      setTempPlace(place);
     },
     [
       mapCenter?.zoom,
