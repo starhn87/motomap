@@ -95,6 +95,7 @@ function PlaceBottomSheet({
   const headerTop = insets.top + (Platform.OS === 'android' ? ANDROID_TOP_CONTROL_GAP : 0);
   const initialIndex = openExpanded || highlightReview ? 2 : 1;
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const collapseFromHeader = useCallback(() => bottomSheetRef.current?.snapToIndex(1), []);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [settledIndex, setSettledIndex] = useState(-1);
   const [changeReportOpen, setChangeReportOpen] = useState(false);
@@ -197,8 +198,11 @@ function PlaceBottomSheet({
   // 스냅이 끝날 때까지 헤더 터치를 비활성화해 우발적 탭을 막는다.
   const headerReady = settledIndex === 2;
 
-  // 확장으로 이동하면 UI 스레드에서 핸들 표시를 숨긴다.
-  // currentIndex(state) 대신 animatedIndex로 계산해 renderHandle을 안정 참조로 유지한다.
+  // 시트가 화면 상단에 거의 닿았을 때만 고정 헤더를 표시한다.
+  const pageHeaderVisibility = useAnimatedStyle(() => ({
+    opacity: interpolate(animatedIndex.value, [1.94, 2], [0, 1], Extrapolation.CLAMP),
+  }));
+
   const handleIndicatorStyle = useAnimatedStyle(() => ({
     opacity: animatedIndex.value >= 1.5 ? 0 : 1,
   }));
@@ -589,12 +593,15 @@ function PlaceBottomSheet({
         )}
       </BottomSheet>
 
-      {/* 헤더 바: 바텀시트와 별개의 레이어. 확장(페이지) 시에만 화면 상단에 고정 표시 */}
-      {visiblePlaceId && isExpanded && (
-        <View
-          pointerEvents={headerReady ? 'box-none' : 'none'}
+      {/* 확장 헤더는 미리 마운트하고 전환 중에는 UI 스레드에서 표시만 바꾼다. */}
+      {visiblePlaceId ? (
+        <Animated.View
+          pointerEvents={isExpanded && headerReady ? 'box-none' : 'none'}
+          accessibilityElementsHidden={!isExpanded || !headerReady}
+          importantForAccessibility={isExpanded && headerReady ? 'auto' : 'no-hide-descendants'}
           style={[
             styles.pageHeader,
+            pageHeaderVisibility,
             {
               paddingTop: headerTop,
               backgroundColor: colors.background,
@@ -607,10 +614,10 @@ function PlaceBottomSheet({
             style={[styles.iconButton, styles.pageHeaderIconButton, { borderRadius: 22 }]}>
             <BackIcon size={28} color={colors.text} />
           </GlassButton>
-          <PlaceSheetCollapseHandle color={colors.tabIconDefault} onCollapse={() => bottomSheetRef.current?.snapToIndex(1)} />
+          <PlaceSheetCollapseHandle onCollapse={collapseFromHeader} />
           <View style={[styles.nameActions, { gap: 12 }]}>{renderActions(true)}</View>
-        </View>
-      )}
+        </Animated.View>
+      ) : null}
 
       {displayPlace && <PlaceChangeReportSheet
         visible={changeReportOpen}
