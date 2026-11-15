@@ -289,6 +289,11 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
     return () => clearTimeout(timer);
   }, [isExpanded]);
 
+  // 시트가 화면 상단에 거의 닿았을 때만 고정 헤더를 표시한다.
+  const pageHeaderVisibility = useAnimatedStyle(() => ({
+    opacity: interpolate(animatedIndex.value, [1.94, 2], [0, 1], Extrapolation.CLAMP),
+  }));
+
   const handleIndicatorStyle = useAnimatedStyle(() => ({
     opacity: animatedIndex.value >= 1.5 ? 0 : 1,
   }));
@@ -660,11 +665,14 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
         ) : null}
       </BottomSheet>
 
-      {place && isExpanded && (
+      {place ? (
         <Animated.View
-          pointerEvents={headerReady ? 'auto' : 'box-only'}
+          pointerEvents={isExpanded && headerReady ? 'box-none' : 'none'}
+          accessibilityElementsHidden={!isExpanded || !headerReady}
+          importantForAccessibility={isExpanded && headerReady ? 'auto' : 'no-hide-descendants'}
           style={[
             styles.pageHeader,
+            pageHeaderVisibility,
             { paddingTop: insets.top, backgroundColor: colors.background },
           ]}>
           <GlassButton
@@ -676,7 +684,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, pickA
           </GlassButton>
           <View style={[styles.nameActions, { gap: 12 }]}>{renderActions(true)}</View>
         </Animated.View>
-      )}
+      ) : null}
     </>
   );
 }

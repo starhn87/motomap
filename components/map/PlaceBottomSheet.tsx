@@ -224,8 +224,11 @@ function PlaceBottomSheet({
     return () => clearTimeout(t);
   }, [isExpanded]);
 
-  // 확장으로 이동하면 UI 스레드에서 핸들 표시를 숨긴다.
-  // currentIndex(state) 대신 animatedIndex로 계산해 renderHandle을 안정 참조로 유지한다.
+  // 시트가 화면 상단에 거의 닿았을 때만 고정 헤더를 표시한다.
+  const pageHeaderVisibility = useAnimatedStyle(() => ({
+    opacity: interpolate(animatedIndex.value, [1.94, 2], [0, 1], Extrapolation.CLAMP),
+  }));
+
   const handleIndicatorStyle = useAnimatedStyle(() => ({
     opacity: animatedIndex.value >= 1.5 ? 0 : 1,
   }));
@@ -625,27 +628,28 @@ function PlaceBottomSheet({
         </BottomSheetScrollView>
       </BottomSheet>
 
-      {/* 헤더 바: 바텀시트와 별개의 레이어. 확장(페이지) 시에만 화면 상단에 고정 표시 */}
-      {isExpanded && (
-        <Animated.View
-          pointerEvents={headerReady ? 'auto' : 'box-only'}
-          style={[
-            styles.pageHeader,
-            {
-              paddingTop: insets.top,
-              backgroundColor: colors.background,
-            },
-          ]}>
-          <GlassButton
-            accessibilityLabel="뒤로"
-            accessibilityRole="button"
-            onPress={() => bottomSheetRef.current?.close()}
-            style={[styles.iconButton, styles.pageHeaderIconButton, { borderRadius: 22 }]}>
-            <BackIcon size={28} color={colors.text} />
-          </GlassButton>
-          <View style={[styles.nameActions, { gap: 12 }]}>{renderActions(true)}</View>
-        </Animated.View>
-      )}
+      {/* 확장 헤더는 미리 마운트하고 전환 중에는 UI 스레드에서 표시만 바꾼다. */}
+      <Animated.View
+        pointerEvents={isExpanded && headerReady ? 'box-none' : 'none'}
+        accessibilityElementsHidden={!isExpanded || !headerReady}
+        importantForAccessibility={isExpanded && headerReady ? 'auto' : 'no-hide-descendants'}
+        style={[
+          styles.pageHeader,
+          pageHeaderVisibility,
+          {
+            paddingTop: insets.top,
+            backgroundColor: colors.background,
+          },
+        ]}>
+        <GlassButton
+          accessibilityLabel="뒤로"
+          accessibilityRole="button"
+          onPress={() => bottomSheetRef.current?.close()}
+          style={[styles.iconButton, styles.pageHeaderIconButton, { borderRadius: 22 }]}>
+          <BackIcon size={28} color={colors.text} />
+        </GlassButton>
+        <View style={[styles.nameActions, { gap: 12 }]}>{renderActions(true)}</View>
+      </Animated.View>
 
       <PlaceChangeReportSheet
         visible={changeReportOpen}
