@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
-import { Keyboard, Platform, TextInput, type KeyboardMetrics, type ScrollView, type View } from 'react-native';
+import { Dimensions, Keyboard, Platform, TextInput, type KeyboardMetrics, type ScrollView, type View } from 'react-native';
 
 type ScrollResponder = Pick<ScrollView, 'scrollTo' | 'getNativeScrollRef'> & {
   getInnerViewRef(): View | null;
 };
 type KeyboardScrollView = { getScrollResponder(): unknown };
 
-// 시트와 iOS 인셋 애니메이션이 끝난 실제 위치에서 가려진 만큼만 스크롤한다.
+// iOS에서는 키보드 전환이 시작될 때 입력란과 목표 키보드 위치를 비교한다.
 export function useRevealKeyboardInput(scrollRef: RefObject<KeyboardScrollView | null>) {
   const focused = useRef<ReturnType<typeof TextInput.State.currentlyFocusedInput> | null>(null);
   const keyboardFrame = useRef<KeyboardMetrics | null>(null);
   const frame = useRef<number | undefined>(undefined);
+  const keyboardHiding = useRef(false);
 
   const reveal = useCallback(() => {
     if (frame.current !== undefined) cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(() => {
+      if (keyboardHiding.current) return;
       const input = focused.current;
       const keyboard = keyboardFrame.current ?? Keyboard.metrics();
       const scroll = scrollRef.current?.getScrollResponder() as ScrollResponder | null | undefined;
@@ -25,7 +27,7 @@ export function useRevealKeyboardInput(scrollRef: RefObject<KeyboardScrollView |
       viewport.measureInWindow((_x, viewportY, _width, height) => {
         content.measureInWindow((_cx, contentY) => {
           input.measureInWindow((_ix, y, _iw, inputHeight) => {
-            if (TextInput.State.currentlyFocusedInput() !== input || focused.current !== input || !Keyboard.isVisible() || !height || !inputHeight) return;
+            if (TextInput.State.currentlyFocusedInput() !== input || focused.current !== input || keyboardHiding.current || !height || !inputHeight) return;
             const visibleBottom = Math.min(viewportY + height, keyboard.screenY) - 12;
             if (visibleBottom <= viewportY) return;
             const offset = viewportY - contentY;
@@ -42,21 +44,25 @@ export function useRevealKeyboardInput(scrollRef: RefObject<KeyboardScrollView |
   }, [scrollRef]);
 
   useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', ({ endCoordinates }) => {
+    const start = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillChangeFrame' : 'keyboardDidShow', ({ endCoordinates }) => {
+      if (endCoordinates.height <= 0 || endCoordinates.screenY >= Dimensions.get('screen').height) return;
+      keyboardHiding.current = false;
       keyboardFrame.current = endCoordinates;
       reveal();
     });
-    const change = Platform.OS === 'ios'
-      ? Keyboard.addListener('keyboardDidChangeFrame', ({ endCoordinates }) => {
-          keyboardFrame.current = endCoordinates;
-          reveal();
-        })
-      : undefined;
-    const hide = Keyboard.addListener('keyboardDidHide', () => { keyboardFrame.current = null; });
+    const hideStart = Platform.OS === 'ios' ? Keyboard.addListener('keyboardWillHide', () => {
+      keyboardHiding.current = true;
+      keyboardFrame.current = null;
+      if (frame.current !== undefined) cancelAnimationFrame(frame.current);
+    }) : undefined;
+    const stop = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardHiding.current = false;
+      keyboardFrame.current = null;
+    });
     return () => {
-      show.remove();
-      change?.remove();
-      hide.remove();
+      start.remove();
+      hideStart?.remove();
+      stop.remove();
       if (frame.current !== undefined) cancelAnimationFrame(frame.current);
     };
   }, [reveal]);

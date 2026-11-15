@@ -197,34 +197,19 @@ function PlaceBottomSheet({
   // 스냅이 끝날 때까지 헤더 터치를 비활성화해 우발적 탭을 막는다.
   const headerReady = settledIndex === 2;
 
-  // 핸들 인디케이터 색: 확장(페이지) 상태에 가까워지면 투명 처리.
+  // 확장으로 이동하면 UI 스레드에서 핸들 표시를 숨긴다.
   // currentIndex(state) 대신 animatedIndex로 계산해 renderHandle을 안정 참조로 유지한다.
   const handleIndicatorStyle = useAnimatedStyle(() => ({
-    backgroundColor:
-      animatedIndex.value >= SNAP_POINTS.length - 1.5
-        ? 'transparent'
-        : colors.tabIconDefault,
+    opacity: animatedIndex.value >= 1.5 ? 0 : 1,
   }));
 
-  // 확장 정도(animatedIndex 1→2)에 비례해 콘텐츠 상단 여백을 연속으로 늘린다.
-  // isExpanded 토글로 paddingTop을 한 번에 바꾸면 콘텐츠가 뚝 끊겨 보이기 때문.
-  const spacerStyle = useAnimatedStyle(() => ({
-    height: interpolate(
-      animatedIndex.value,
-      [1, 2],
-      [
-        0,
-        Math.max(
-          headerTop +
-            PAGE_HEADER_HEIGHT +
-            HEADER_CONTENT_GAP -
-            HANDLE_HEIGHT -
-            CONTENT_PADDING,
-          0
-        ),
-      ],
-      Extrapolation.CLAMP
-    ),
+    const headerSpace = Math.max(
+    headerTop + PAGE_HEADER_HEIGHT + HEADER_CONTENT_GAP - HANDLE_HEIGHT - CONTENT_PADDING,
+    0,
+  );
+  // 상단 여백은 고정하고 시트 이동 중에는 Yoga 레이아웃 대신 위치만 바꾼다.
+  const contentMotionStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(animatedIndex.value, [1, 2], [-headerSpace, 0], Extrapolation.CLAMP) }],
   }));
 
   const handleShare = async () => {
@@ -268,11 +253,11 @@ function PlaceBottomSheet({
         onLayout={() => setHandleMeasured(true)}
         style={styles.handleContainer}>
         <Animated.View
-          style={[styles.handleIndicator, handleIndicatorStyle]}
+          style={[styles.handleIndicator, { backgroundColor: colors.tabIconDefault }, handleIndicatorStyle]}
         />
       </TouchableOpacity>
     ),
-    [handleIndicatorStyle]
+    [colors.tabIconDefault, handleIndicatorStyle]
   );
 
   // 등록 장소라도 영업시간이 비어 있는 곳이 대부분이라(148곳 중 7곳) 구글로
@@ -365,7 +350,8 @@ function PlaceBottomSheet({
           automaticallyAdjustKeyboardInsets
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
-          <Animated.View style={spacerStyle} />
+          <Animated.View style={contentMotionStyle}>
+            <View style={{ height: headerSpace }} />
 
           <View style={styles.nameRow}>
             <Pressable
@@ -598,6 +584,7 @@ function PlaceBottomSheet({
               highlight={highlightReview}
             />
           </View>
+          </Animated.View>
         </BottomSheetScrollView>
         )}
       </BottomSheet>

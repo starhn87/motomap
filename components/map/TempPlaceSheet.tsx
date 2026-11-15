@@ -293,29 +293,16 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
   const headerReady = settledIndex === 2;
 
   const handleIndicatorStyle = useAnimatedStyle(() => ({
-    backgroundColor:
-      animatedIndex.value >= SNAP_POINTS.length - 1.5
-        ? 'transparent'
-        : colors.tabIconDefault,
+    opacity: animatedIndex.value >= 1.5 ? 0 : 1,
   }));
 
-  const spacerStyle = useAnimatedStyle(() => ({
-    height: interpolate(
-      animatedIndex.value,
-      [1, 2],
-      [
-        0,
-        Math.max(
-          headerTop +
-            PAGE_HEADER_HEIGHT +
-            HEADER_CONTENT_GAP -
-            HANDLE_HEIGHT -
-            CONTENT_PADDING,
-          0,
-        ),
-      ],
-      Extrapolation.CLAMP,
-    ),
+  const headerSpace = Math.max(
+    headerTop + PAGE_HEADER_HEIGHT + HEADER_CONTENT_GAP - HANDLE_HEIGHT - CONTENT_PADDING,
+    0,
+  );
+  // 상단 여백은 고정하고 시트 이동 중에는 Yoga 레이아웃 대신 위치만 바꾼다.
+  const contentMotionStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(animatedIndex.value, [1, 2], [-headerSpace, 0], Extrapolation.CLAMP) }],
   }));
 
   const renderHandle = useCallback(
@@ -331,10 +318,10 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
           }
         }}
         style={styles.handleContainer}>
-        <Animated.View style={[styles.handleIndicator, handleIndicatorStyle]} />
+        <Animated.View style={[styles.handleIndicator, { backgroundColor: colors.tabIconDefault }, handleIndicatorStyle]} />
       </TouchableOpacity>
     ),
-    [handleIndicatorStyle],
+    [colors.tabIconDefault, handleIndicatorStyle],
   );
 
   const actionRowAlone = !place?.phone && !showsPlaceHoursRow({ hours: placeHours?.hours, businessStatus: placeHours?.businessStatus });
@@ -382,7 +369,8 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
             automaticallyAdjustKeyboardInsets
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag">
-            <Animated.View style={spacerStyle} />
+            <Animated.View style={contentMotionStyle}>
+              <View style={{ height: headerSpace }} />
 
           <View style={styles.nameRow}>
             <Pressable
@@ -677,6 +665,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
           </View>
 
             <Text style={[styles.attribution, { color: colors.textSecondary }]}>{externalPlaceAttribution([place])}</Text>
+            </Animated.View>
           </BottomSheetScrollView>
         ) : null}
       </BottomSheet>
