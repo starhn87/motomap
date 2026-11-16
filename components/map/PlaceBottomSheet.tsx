@@ -192,6 +192,11 @@ function PlaceBottomSheet({
     opacity: interpolate(animatedIndex.value, [1.94, 2], [0, 1], Extrapolation.CLAMP),
   }));
 
+  // 전환 중 버튼 슬롯을 유지해 제목 줄바꿈과 본문 레이아웃이 바뀌지 않게 한다.
+  const inlineActionsVisibility = useAnimatedStyle(() => ({
+    opacity: interpolate(animatedIndex.value, [1.94, 2], [1, 0], Extrapolation.CLAMP),
+  }));
+
   const handleIndicatorStyle = useAnimatedStyle(() => ({
     opacity: animatedIndex.value >= 1.5 ? 0 : 1,
   }));
@@ -358,12 +363,13 @@ function PlaceBottomSheet({
                 {displayPlace.name}
               </Text>
             </View>
-            {!isExpanded && (
-              <Animated.View
-                style={styles.nameActions}>
-                {renderActions(false)}
-              </Animated.View>
-            )}
+            <Animated.View
+              pointerEvents={isExpanded ? 'none' : 'auto'}
+              accessibilityElementsHidden={isExpanded}
+              importantForAccessibility={isExpanded ? 'no-hide-descendants' : 'auto'}
+              style={[styles.nameActions, inlineActionsVisibility]}>
+              {renderActions(false)}
+            </Animated.View>
           </View>
 
           <PlaceAddressRow address={displayPlace.address} />

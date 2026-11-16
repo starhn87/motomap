@@ -231,6 +231,7 @@ test('지도 마커는 상세만 열고 검색 결과는 지도 높이에 맞춰
     mapViewportHeight: 900,
     setMapViewportHeight: (height: number) => { context.mapViewportHeight = height; },
     followingRef: { current: true },
+    didCenterOnUserRef: { current: false },
     mapRef: { current: { animateCameraTo: (camera: any) => { context.camera = camera; } } },
     track: { placeViewed() {} },
     setHighlightReview() {}, setSelectedPlaceId() {}, setSelectedStation() {},
@@ -244,11 +245,14 @@ test('지도 마커는 상세만 열고 검색 결과는 지도 높이에 맞춰
   api.handleMarkerPress(place);
   assert.equal(context.selectedPlace, place);
   assert.equal(context.camera, undefined);
+  assert.equal(context.didCenterOnUserRef.current, true);
   assert.equal(context.followingRef.current, false);
   context.followingRef.current = true;
+  context.didCenterOnUserRef.current = false;
   api.handleTempPlaceSelect(place);
   assert.equal(context.tempPlace, place);
   assert.equal(context.camera, undefined);
+  assert.equal(context.didCenterOnUserRef.current, true);
   assert.equal(context.followingRef.current, false);
 
   for (const name of searchHandlers) {

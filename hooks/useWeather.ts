@@ -5,10 +5,14 @@ import { fetchRidingWeather } from '@/lib/api/weather';
 import { fetchAirQuality } from '@/lib/api/air';
 import { retryProviderQuery } from '@/lib/providerErrors';
 
+export function weatherGridCoordinate(coordinate?: number | null): number | null {
+  return coordinate == null ? null : Number(coordinate.toFixed(2));
+}
+
 // 라이딩 날씨 — 좌표를 ~1km 격자로 스냅해 캐시를 공유하고 10분간 신선하게 유지
 export function useWeather(latitude?: number | null, longitude?: number | null) {
-  const lat = latitude != null ? Number(latitude.toFixed(2)) : null;
-  const lng = longitude != null ? Number(longitude.toFixed(2)) : null;
+  const lat = weatherGridCoordinate(latitude);
+  const lng = weatherGridCoordinate(longitude);
 
   const queryClient = useQueryClient();
 
