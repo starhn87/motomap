@@ -7,7 +7,6 @@ import Animated, {
   FadeIn,
   FadeOut,
   useSharedValue,
-  type SharedValue,
   useAnimatedReaction,
   useAnimatedStyle,
   withSequence,
@@ -58,8 +57,6 @@ import Skeleton from '@/components/ui/Skeleton';
 interface Props {
   place: Place | null;
   onClose: () => void;
-  /** 시트 상단의 컨테이너 기준 y — 내 위치 버튼이 시트를 따라 움직이도록 밖에 노출 */
-  animatedPosition?: SharedValue<number>;
   /** 내 리뷰에서 진입 — 시트를 펼쳐 리뷰 영역으로 이동하고 선택한 리뷰를 강조한다. */
   highlightReview?: { id: string; key: string } | null;
   openExpanded?: boolean;
@@ -81,7 +78,6 @@ const CONTENT_PADDING = 20;
 function PlaceBottomSheet({
   place,
   onClose,
-  animatedPosition,
   highlightReview,
   openExpanded = false,
   pickAction,
@@ -95,30 +91,29 @@ function PlaceBottomSheet({
   const headerTop = insets.top + (Platform.OS === 'android' ? ANDROID_TOP_CONTROL_GAP : 0);
   const initialIndex = openExpanded || highlightReview ? 2 : 1;
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const closeRequestedFor = useRef<typeof place>(null);
+  const requestSheetClose = () => {
+    closeRequestedFor.current = place;
+    bottomSheetRef.current?.close();
+  };
   const collapseFromHeader = useCallback(() => bottomSheetRef.current?.snapToIndex(1), []);
-  const [currentIndex, setCurrentIndex] = useState(-1);
   const [settledIndex, setSettledIndex] = useState(-1);
   const [changeReportOpen, setChangeReportOpen] = useState(false);
   const animatedIndex = useSharedValue(-1);
-  const currentIndexRef = useRef(-1);
-
-  // currentIndex를 state와 ref 양쪽에 반영(ref는 핸들 onPress에서 최신값 참조용).
-  const syncIndex = useCallback((i: number) => {
-    currentIndexRef.current = i;
-    setCurrentIndex(i);
-  }, []);
-
-  // 시트의 실제 위치(animatedIndex)를 신뢰 소스로 currentIndex를 동기화한다.
-  // onAnimate/onChange(이벤트)는 드래그로 직접 끌었을 때 누락/지연되어
-  // 헤더 상태가 어긋나거나(100%인데 헤더 없음) 재확장이 안 되는 버그가 있었다.
+  const [isExpanded, setExpanded] = useState(false);
   useAnimatedReaction(
-    () => Math.round(animatedIndex.value),
-    (rounded, previous) => {
-      if (rounded !== previous) {
-        runOnJS(syncIndex)(rounded);
-      }
-    }
+    // 헤더가 거의 불투명해질 때까지 현재 드래그에 자리를 양보한다.
+    () => animatedIndex.value >= 1.99,
+    (expanded, previous) => {
+      if (expanded !== previous) runOnJS(setExpanded)(expanded);
+    },
   );
+  const advanceSheet = useCallback(() => {
+    const index = Math.round(animatedIndex.value);
+    if (index >= 0 && index < SNAP_POINTS.length - 1) {
+      bottomSheetRef.current?.snapToIndex(index + 1);
+    }
+  }, [animatedIndex]);
   const user = useAuthStore((s) => s.user);
   const { data: latestPlace } = usePlace(place?.id ?? null);
   const reviewTarget = place ? ({ kind: 'place', id: place.id } as const) : null;
@@ -186,17 +181,11 @@ function PlaceBottomSheet({
     highlightReview?.key, settledIndex === 2 && !reviewsLoading, headerTop + PAGE_HEADER_HEIGHT + HEADER_CONTENT_GAP, scrollRef,
   );
 
-  const handleSheetChanges = (index: number) => {
-    setSettledIndex(index);
-    if (index === -1 && visiblePlaceId) onClose();
+  const handleSheetClosed = () => {
+    const requested = closeRequestedFor.current;
+    closeRequestedFor.current = null;
+    if (requested && requested.id === visiblePlaceId) onClose();
   };
-
-  const isExpanded = currentIndex === SNAP_POINTS.length - 1;
-
-  // 드래그로 확장(스와이프)이 끝나는 순간 헤더 바가 손가락 위치에 나타나면서
-  // 손가락 떼는 동작이 헤더 버튼(✕/뒤로) 탭으로 처리돼 시트가 닫히는 문제가 있었다.
-  // 스냅이 끝날 때까지 헤더 터치를 비활성화해 우발적 탭을 막는다.
-  const headerReady = settledIndex === 2;
 
   // 시트가 화면 상단에 거의 닿았을 때만 고정 헤더를 표시한다.
   const pageHeaderVisibility = useAnimatedStyle(() => ({
@@ -207,7 +196,7 @@ function PlaceBottomSheet({
     opacity: animatedIndex.value >= 1.5 ? 0 : 1,
   }));
 
-    const headerSpace = Math.max(
+  const headerSpace = Math.max(
     headerTop + PAGE_HEADER_HEIGHT + HEADER_CONTENT_GAP - HANDLE_HEIGHT - CONTENT_PADDING,
     0,
   );
@@ -235,7 +224,7 @@ function PlaceBottomSheet({
       favoriteDisabled={favoritePending}
       favoriteScale={heartScale}
       onFavorite={handleFavorite}
-      onClose={onClose}
+      onClose={requestSheetClose}
     />
   );
 
@@ -248,12 +237,7 @@ function PlaceBottomSheet({
         accessibilityLabel="장소 상세 펼치기"
         accessibilityRole="button"
         activeOpacity={1}
-        onPress={() => {
-          const ci = currentIndexRef.current;
-          if (ci < SNAP_POINTS.length - 1) {
-            bottomSheetRef.current?.snapToIndex(ci + 1);
-          }
-        }}
+        onPress={advanceSheet}
         onLayout={() => setHandleMeasured(true)}
         style={styles.handleContainer}>
         <Animated.View
@@ -261,7 +245,7 @@ function PlaceBottomSheet({
         />
       </TouchableOpacity>
     ),
-    [colors.tabIconDefault, handleIndicatorStyle]
+    [advanceSheet, colors.tabIconDefault, handleIndicatorStyle]
   );
 
   // 등록 장소라도 영업시간이 비어 있는 곳이 대부분이라(148곳 중 7곳) 구글로
@@ -321,9 +305,9 @@ function PlaceBottomSheet({
         activeOffsetY={[-12, 12]}
         failOffsetX={[-12, 12]}
         animatedIndex={animatedIndex}
-        animatedPosition={animatedPosition}
+        onClose={handleSheetClosed}
         onChange={(index) => {
-          handleSheetChanges(index);
+          setSettledIndex(index);
           keyboardInput.reveal();
         }}
         // 리뷰 입력 시 시트를 최대로 펼쳐 키보드 위 공간을 확보하고,
@@ -362,12 +346,7 @@ function PlaceBottomSheet({
               accessibilityLabel={`${displayPlace.name} 상세 펼치기`}
               accessibilityRole="button"
               accessibilityState={{ expanded: isExpanded }}
-              onPress={() => {
-                const index = currentIndexRef.current;
-                if (index < SNAP_POINTS.length - 1) {
-                  bottomSheetRef.current?.snapToIndex(index + 1);
-                }
-              }}
+              onPress={advanceSheet}
               style={styles.nameRowPressTarget}
             />
             <View pointerEvents="none" style={styles.nameContent}>
@@ -596,9 +575,9 @@ function PlaceBottomSheet({
       {/* 확장 헤더는 미리 마운트하고 전환 중에는 UI 스레드에서 표시만 바꾼다. */}
       {visiblePlaceId ? (
         <Animated.View
-          pointerEvents={isExpanded && headerReady ? 'box-none' : 'none'}
-          accessibilityElementsHidden={!isExpanded || !headerReady}
-          importantForAccessibility={isExpanded && headerReady ? 'auto' : 'no-hide-descendants'}
+          pointerEvents={isExpanded ? 'box-none' : 'none'}
+          accessibilityElementsHidden={!isExpanded}
+          importantForAccessibility={isExpanded ? 'auto' : 'no-hide-descendants'}
           style={[
             styles.pageHeader,
             pageHeaderVisibility,
@@ -610,7 +589,7 @@ function PlaceBottomSheet({
           <GlassButton
             accessibilityLabel="뒤로"
             accessibilityRole="button"
-            onPress={() => bottomSheetRef.current?.close()}
+            onPress={requestSheetClose}
             style={[styles.iconButton, styles.pageHeaderIconButton, { borderRadius: 22 }]}>
             <BackIcon size={28} color={colors.text} />
           </GlassButton>

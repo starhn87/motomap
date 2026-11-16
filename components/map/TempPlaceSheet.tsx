@@ -22,7 +22,6 @@ import Animated, {
   useSharedValue,
   withSequence,
   withTiming,
-  type SharedValue,
 } from 'react-native-reanimated';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
@@ -75,7 +74,6 @@ export interface TempPlace extends GeneralPlaceInput {
 interface Props {
   place: TempPlace | null;
   onClose: () => void;
-  animatedPosition?: SharedValue<number>;
   highlightReview?: { id: string; key: string } | null;
   openExpanded?: boolean;
   /** 지도에서 선택 화면에서 열 때 — 출발·도착·공유 대신 이 버튼 하나와 장소 정보만 보인다. */
@@ -91,7 +89,7 @@ const DETAIL_CARD_GAP = 10;
 
 // 일반 장소도 등록 장소와 같은 확장형 상세 경험을 쓴다. 차이는 카테고리·라이더
 // 집계처럼 모토맵이 검증한 정보 대신 카카오 정보와 라이더 리뷰가 중심이라는 점이다.
-export default function TempPlaceSheet({ place, onClose, animatedPosition, highlightReview, openExpanded = false, pickAction }: Props) {
+export default function TempPlaceSheet({ place, onClose, highlightReview, openExpanded = false, pickAction }: Props) {
   const [hoursExpanded, setHoursExpanded] = useState(false);
   useEffect(() => { setHoursExpanded(false); }, [place?.name, place?.latitude, place?.longitude]);
   const colorScheme = useColorScheme();
@@ -100,27 +98,31 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
   const headerTop = insets.top + (Platform.OS === 'android' ? ANDROID_TOP_CONTROL_GAP : 0);
   const initialIndex = openExpanded || highlightReview ? 2 : 1;
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const closeRequestedFor = useRef<typeof place>(null);
+  const requestSheetClose = () => {
+    closeRequestedFor.current = place;
+    bottomSheetRef.current?.close();
+  };
   const collapseFromHeader = useCallback(() => bottomSheetRef.current?.snapToIndex(1), []);
   const scrollRef = useRef<any>(null);
   const keyboardInput = useRevealKeyboardInput(scrollRef);
-  const [currentIndex, setCurrentIndex] = useState(-1);
   const [settledIndex, setSettledIndex] = useState(-1);
   const animatedIndex = useSharedValue(-1);
-  const currentIndexRef = useRef(-1);
-
-  const syncIndex = useCallback((index: number) => {
-    currentIndexRef.current = index;
-    setCurrentIndex(index);
-  }, []);
-
+  const [isExpanded, setExpanded] = useState(false);
   useAnimatedReaction(
-    () => Math.round(animatedIndex.value),
-    (rounded, previous) => {
-      if (rounded !== previous) runOnJS(syncIndex)(rounded);
+    // 헤더가 거의 불투명해질 때까지 현재 드래그에 자리를 양보한다.
+    () => animatedIndex.value >= 1.99,
+    (expanded, previous) => {
+      if (expanded !== previous) runOnJS(setExpanded)(expanded);
     },
   );
+  const advanceSheet = useCallback(() => {
+    const index = Math.round(animatedIndex.value);
+    if (index >= 0 && index < SNAP_POINTS.length - 1) {
+      bottomSheetRef.current?.snapToIndex(index + 1);
+    }
+  }, [animatedIndex]);
   const [resolvingNavigation, setResolvingNavigation] = useState(false);
-  const isExpanded = currentIndex === SNAP_POINTS.length - 1;
   const navLaunching = useNavLaunching((s) => s.launching);
   const user = useAuthStore((st) => st.user);
 
@@ -286,13 +288,11 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
       favoriteDisabled={favPending}
       favoriteScale={favoriteScale}
       onFavorite={handleFavorite}
-      onClose={onClose}
+      onClose={requestSheetClose}
     />
   );
 
   const navigating = resolvingNavigation || navLaunching;
-  const headerReady = settledIndex === 2;
-
   // 시트가 화면 상단에 거의 닿았을 때만 고정 헤더를 표시한다.
   const pageHeaderVisibility = useAnimatedStyle(() => ({
     opacity: interpolate(animatedIndex.value, [1.94, 2], [0, 1], Extrapolation.CLAMP),
@@ -317,17 +317,12 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
         accessibilityLabel="장소 상세 펼치기"
         accessibilityRole="button"
         activeOpacity={1}
-        onPress={() => {
-          const index = currentIndexRef.current;
-          if (index < SNAP_POINTS.length - 1) {
-            bottomSheetRef.current?.snapToIndex(index + 1);
-          }
-        }}
+        onPress={advanceSheet}
         style={styles.handleContainer}>
         <Animated.View style={[styles.handleIndicator, { backgroundColor: colors.tabIconDefault }, handleIndicatorStyle]} />
       </TouchableOpacity>
     ),
-    [colors.tabIconDefault, handleIndicatorStyle],
+    [advanceSheet, colors.tabIconDefault, handleIndicatorStyle],
   );
 
   const actionRowAlone = !place?.phone && !showsPlaceHoursRow({ hours: placeHours?.hours, businessStatus: placeHours?.businessStatus });
@@ -345,16 +340,20 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
         activeOffsetY={[-12, 12]}
         failOffsetX={[-12, 12]}
         animatedIndex={animatedIndex}
-        animatedPosition={animatedPosition}
         enablePanDownToClose={false}
         keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
         android_keyboardInputMode="adjustResize"
         enableBlurKeyboardOnGesture
+        onClose={() => {
+          const requested = closeRequestedFor.current;
+          closeRequestedFor.current = null;
+          if (requested && requested.name === place?.name &&
+              requested.latitude === place.latitude && requested.longitude === place.longitude) onClose();
+        }}
         onChange={(index) => {
           setSettledIndex(index);
-          if (index === -1 && place) onClose();
-          else keyboardInput.reveal();
+          if (index >= 0) keyboardInput.reveal();
         }}
         containerStyle={styles.sheetContainer}
         backgroundStyle={{
@@ -383,12 +382,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
               accessibilityLabel={`${place.name} 상세 펼치기`}
               accessibilityRole="button"
               accessibilityState={{ expanded: isExpanded }}
-              onPress={() => {
-                const index = currentIndexRef.current;
-                if (index < SNAP_POINTS.length - 1) {
-                  bottomSheetRef.current?.snapToIndex(index + 1);
-                }
-              }}
+              onPress={advanceSheet}
               style={styles.nameRowPressTarget}
             />
             <View pointerEvents="none" style={styles.nameContent}>
@@ -678,9 +672,9 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
 
       {place ? (
         <Animated.View
-          pointerEvents={isExpanded && headerReady ? 'box-none' : 'none'}
-          accessibilityElementsHidden={!isExpanded || !headerReady}
-          importantForAccessibility={isExpanded && headerReady ? 'auto' : 'no-hide-descendants'}
+          pointerEvents={isExpanded ? 'box-none' : 'none'}
+          accessibilityElementsHidden={!isExpanded}
+          importantForAccessibility={isExpanded ? 'auto' : 'no-hide-descendants'}
           style={[
             styles.pageHeader,
             pageHeaderVisibility,
@@ -689,7 +683,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
           <GlassButton
             accessibilityLabel="뒤로"
             accessibilityRole="button"
-            onPress={() => bottomSheetRef.current?.close()}
+            onPress={requestSheetClose}
             style={[styles.iconButton, styles.pageHeaderIconButton, { borderRadius: 22 }]}>
             <BackIcon size={28} color={colors.text} />
           </GlassButton>

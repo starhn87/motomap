@@ -12,13 +12,12 @@ import {
   type PressableStateCallbackType,
 } from 'react-native';
 import { Text } from '@/components/ui/AppText';
-import { memo, useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { memo, startTransition, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { NaverMapView, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 import Animated, { FadeOut,
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
   FadeIn,
 } from 'react-native-reanimated';
 
@@ -26,7 +25,9 @@ import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { track } from '@/lib/analytics';
-import { isInMapRenderWindow, usePlaces, type MapCenter } from '@/hooks/usePlaces';
+import { createPlaceCameraGate } from '@/lib/placeCameraGate';
+import { mapRenderWindowContains } from '@/lib/mapWindow';
+import { usePlaces, type MapCenter } from '@/hooks/usePlaces';
 import { useGasLayer } from '@/hooks/useGasLayer';
 import { usePlace } from '@/hooks/usePlace';
 import { useWeather } from '@/hooks/useWeather';
@@ -88,6 +89,9 @@ import {
   type MapCameraSnapshot,
 } from '@/lib/mapCamera';
 
+const MAP_LOGO_MARGIN = { left: 8, right: 0, top: 0, bottom: 0 };
+const HIDDEN_MAP_LOCATION_OVERLAY = { isVisible: false };
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // 장소 선택 시 상세 시트가 마커를 가리지 않도록 카메라 중심을 남쪽으로 내려
@@ -138,15 +142,20 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const [mapCameraAtMount] = useState<MapCameraSnapshot | null>(() =>
     overlay ? null : getLastMapCamera(),
   );
-  const [initialCameraFallback, setInitialCameraFallback] =
-    useState<MapCameraSnapshot | null>(mapCameraAtMount);
   const [mapCenter, setMapCenter] = useState<MapCenter | null>(() => {
     const camera = mapCameraAtMount;
     return camera
       ? { latitude: camera.latitude, longitude: camera.longitude, zoom: camera.zoom }
       : null;
   });
+  const [placeFocusPending, setPlaceFocusPending] = useState(false);
+  const placeCameraGate = useMemo(() => createPlaceCameraGate(setPlaceFocusPending), []);
+  useEffect(() => () => placeCameraGate.dispose(), [placeCameraGate]);
+  useEffect(() => {
+    if (!isMapFocused) placeCameraGate.finish();
+  }, [isMapFocused, placeCameraGate]);
   const mapRef = useRef<NaverMapViewRef>(null);
+  const currentZoom = useRef(mapCameraAtMount?.zoom ?? DEFAULT_ZOOM);
   const followingRef = useRef(false);
   const handledFocusTransitionRef = useRef<string | null>(null);
   const isMapFocusedRef = useRef(isMapFocused);
@@ -261,14 +270,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     (camera: MapCameraSnapshot, region?: NonNullable<MapCenter['region']>) => {
       if (!overlay) {
         setLastMapCamera(camera);
-        setInitialCameraFallback(camera);
       }
-      setMapCenter({
+      // 카메라 정착 뒤 상세 첫 표시를 지도 범위 갱신보다 먼저 처리한다.
+      startTransition(() => setMapCenter({
         latitude: camera.latitude,
         longitude: camera.longitude,
         zoom: camera.zoom,
         region,
-      });
+      }));
       // 검색의 "지금 보는 지역" 기준점은 이동이 끝났을 때만 갱신한다.
       useMapStore.getState().setMapCenter({
         latitude: camera.latitude,
@@ -360,61 +369,53 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     () => (showFavorites ? basePlaces.filter((p) => !favIds.has(p.id)) : basePlaces),
     [basePlaces, showFavorites, favIds],
   );
+  const isInsideMarkerWindow = useMemo(() => mapRenderWindowContains(mapCenter), [mapCenter]);
   const windowedPlaces = useMemo(
-    () => places.filter((place) => isInMapRenderWindow(place, mapCenter)),
-    [places, mapCenter],
+    () => places.filter(isInsideMarkerWindow),
+    [places, isInsideMarkerWindow],
   );
   const windowedFavoritePlaces = useMemo(
     () =>
-      (favoritePlaces?.places ?? []).filter((place) =>
-        isInMapRenderWindow(place, mapCenter),
-      ),
-    [favoritePlaces, mapCenter],
+      (favoritePlaces?.places ?? []).filter(isInsideMarkerWindow),
+    [favoritePlaces, isInsideMarkerWindow],
   );
   const windowedGeneralFavorites = useMemo(
     () =>
-      (favoritePlaces?.general ?? []).filter((place) =>
-        isInMapRenderWindow(place, mapCenter),
-      ),
-    [favoritePlaces, mapCenter],
+      (favoritePlaces?.general ?? []).filter(isInsideMarkerWindow),
+    [favoritePlaces, isInsideMarkerWindow],
   );
   const windowedSharedGeneralPlaces = useMemo(
     () =>
-      sharedGeneralPlaces.filter((place) => isInMapRenderWindow(place, mapCenter)),
-    [sharedGeneralPlaces, mapCenter],
+      sharedGeneralPlaces.filter(isInsideMarkerWindow),
+    [sharedGeneralPlaces, isInsideMarkerWindow],
   );
   const windowedHazards = useMemo(
     () =>
       (mapCenter?.zoom ?? 0) >= HAZARD_MIN_ZOOM
-        ? hazards.filter((hazard) => isInMapRenderWindow(hazard, mapCenter))
+        ? hazards.filter(isInsideMarkerWindow)
         : [],
-    [hazards, mapCenter],
+    [hazards, mapCenter?.zoom, isInsideMarkerWindow],
   );
-  const handleMarkerPress = useCallback(
-    (place: Place) => {
-      followingRef.current = false;
-      track.placeViewed({ place_id: place.id, category: place.category, source: 'map_marker' });
-      // 현재 줌을 유지한 채 마커가 시트에 가리지 않는 위치로 카메라만 보정
-      const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
-      mapRef.current?.animateCameraTo({
-        latitude: place.latitude - sheetLatOffset(zoom, mapViewportHeight, place.latitude),
-        longitude: place.longitude,
-        zoom,
-        duration: 260,
-        easing: 'EaseOut',
-      });
-      setHighlightReview(null);
-      setTempPlace(null);
-      setSelectedPlaceId(place.id);
-      setSelectedPlace(place);
-    },
-    [setSelectedPlaceId, mapCenter?.zoom, mapViewportHeight]
-  );
+  const focusPlaceCamera = useCallback((place: { latitude: number; longitude: number }) => {
+    followingRef.current = false;
+    const map = mapRef.current;
+    if (!map) return;
+    const zoom = currentZoom.current;
+    const target = {
+      latitude: place.latitude - sheetLatOffset(zoom, mapViewportHeight, place.latitude),
+      longitude: place.longitude,
+      zoom,
+    };
+    const duration = 260;
+    placeCameraGate.begin(target, duration);
+    map.animateCameraTo({ ...target, duration, easing: 'EaseOut' });
+  }, [mapViewportHeight, placeCameraGate]);
 
   const handleSearchSelect = useCallback(
     (place: Place) => {
       // 따라가기가 켜져 있으면 다음 위치 갱신이 카메라를 도로 내 위치로 끌고
       // 간다 — 장소를 보러 가는 순간 풀어야 한다(안내 종료 직후 검색에서 실증)
+      placeCameraGate.finish();
       followingRef.current = false;
       setSelectedPlaceId(place.id);
       setSelectedPlace(place);
@@ -428,11 +429,12 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         easing: 'EaseOut',
       });
     },
-    [setSelectedPlaceId, mapViewportHeight]
+    [setSelectedPlaceId, mapViewportHeight, placeCameraGate]
   );
 
   const handleSearchPointSelect = useCallback(
     (place: TempPlace) => {
+      placeCameraGate.finish();
       followingRef.current = false;
       mapRef.current?.animateCameraTo({
         latitude: place.latitude - sheetLatOffset(15, mapViewportHeight, place.latitude),
@@ -443,7 +445,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         easing: 'EaseOut',
       });
     },
-    [mapViewportHeight],
+    [mapViewportHeight, placeCameraGate],
   );
 
   // 라우트 파라미터(검색·푸시·내 리뷰·코스 근처 장소·카카오 일반 장소) 진입 처리
@@ -480,12 +482,25 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     onSelectPlace: handleSearchSelect,
     onSelectPoint: handleSearchPointSelect,
     clearSelection: () => {
+      placeCameraGate.finish();
       followingRef.current = false;
       setSelectedPlaceId(null);
       setSelectedPlace(null);
       setSelectedStation(null);
     },
   });
+
+  const handleMarkerPress = useCallback(
+    (place: Place) => {
+      focusPlaceCamera(place);
+      track.placeViewed({ place_id: place.id, category: place.category, source: 'map_marker' });
+      setHighlightReview(null);
+      setTempPlace(null);
+      setSelectedPlaceId(place.id);
+      setSelectedPlace(place);
+    },
+    [focusPlaceCamera, setHighlightReview, setSelectedPlaceId, setTempPlace]
+  );
 
   const selectedGeneralPlace = useGeneralPlace(tempPlace);
   const promotedPlace = usePlace(selectedGeneralPlace.data?.promotedPlaceId ?? null);
@@ -502,15 +517,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   const handleTempPlaceSelect = useCallback(
     (place: TempPlace) => {
-      followingRef.current = false;
-      const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
-      mapRef.current?.animateCameraTo({
-        latitude: place.latitude - sheetLatOffset(zoom, mapViewportHeight, place.latitude),
-        longitude: place.longitude,
-        zoom,
-        duration: 260,
-        easing: 'EaseOut',
-      });
+      focusPlaceCamera(place);
       setSelectedPlaceId(null);
       setSelectedPlace(null);
       setSelectedStation(null);
@@ -518,8 +525,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       setTempPlace(place);
     },
     [
-      mapCenter?.zoom,
-      mapViewportHeight,
+      focusPlaceCamera,
       setSelectedPlaceId,
       setSelectedStation,
       setHighlightReview,
@@ -534,17 +540,13 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   );
 
   const handleBottomSheetClose = useCallback(() => {
+    placeCameraGate.finish();
     setSelectedPlaceId(null);
     setSelectedPlace(null);
     setTempPlace(null);
     setHighlightReview(null);
     setCourseReturn(null);
-    // ✕/뒤로가기는 시트를 닫힘 애니메이션 없이 언마운트시켜 position 이 확장 값에
-    // 동결된다(버튼 실종) — 닫힘 위치로 부드럽게 복귀시킨다. 스와이프 닫기처럼 이미
-    // 닫힘 값에 도달한 경우엔 사실상 no-op 이다.
-    sheetPosition.value = withTiming(containerHeight.value + 100, { duration: 250 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setSelectedPlaceId, setTempPlace]);
+  }, [placeCameraGate, setSelectedPlaceId, setTempPlace, setHighlightReview, setCourseReturn]);
 
   const closePlaceDetail = overlay && overlayParams.detailExpanded === '1'
     ? () => {
@@ -674,8 +676,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   useEffect(() => { tabOcclusionSv.value = tabOcclusion; }, [tabOcclusion, tabOcclusionSv]);
 
   // 시트/카드는 내 위치 버튼과 탭 위를 덮는다. 버튼을 따라 올리지 않는다.
-  const sheetPosition = useSharedValue(999999);
-  const containerHeight = useSharedValue(0);
   const myLocationFollowStyle = useAnimatedStyle(() => {
     return {
       bottom: 12 + tabOcclusionSv.value,
@@ -738,7 +738,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       : null;
   const initialCamera =
     overlayTarget ??
-    initialCameraFallback ?? {
+    mapCameraAtMount ?? {
       latitude: userLocation?.latitude ?? DEFAULT_CENTER[1],
       longitude: userLocation?.longitude ?? DEFAULT_CENTER[0],
       zoom: DEFAULT_ZOOM,
@@ -756,7 +756,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       style={styles.container}
       onLayout={(e) => {
         const height = e.nativeEvent.layout.height;
-        containerHeight.value = height;
         // 탭·가로 화면에서 달라지는 실제 지도 영역을 카메라 보정에도 쓴다.
         if (height > 0) setMapViewportHeight(height);
       }}>
@@ -781,10 +780,10 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         isNightModeEnabled={colorScheme === 'dark'}
         isShowLocationButton={false}
         logoAlign="BottomLeft"
-        logoMargin={{ left: 8, right: 0, top: 0, bottom: 0 }}
+        logoMargin={MAP_LOGO_MARGIN}
         // SDK 자체 위치 오버레이 차단 — 커스텀 마커와 별개의 유령 마커가 뜬다.
         // 다른 지도 화면들과 같은 방어인데 여기만 빠져 있었다.
-        locationOverlay={{ isVisible: false }}
+        locationOverlay={HIDDEN_MAP_LOCATION_OVERLAY}
         isShowCompass={false}
         isShowScaleBar={false}
         isShowZoomControls={false}
@@ -795,10 +794,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         onTapSymbol={handleSymbolTap}
         onCameraChanged={(e) => {
           // 드래그하면 따라가기 해제 (프로그램 이동 'Developer' 는 유지)
-          if (e.reason === 'Gesture') followingRef.current = false;
+          if (e.reason === 'Gesture') {
+            followingRef.current = false;
+            placeCameraGate.finish();
+          }
           // 검색 화면 아래에서 분리된 surface가 내는 카메라 이벤트는 사용자가
           // 마지막으로 본 프레임이 아니다. blur 순간의 스냅샷을 그대로 동결한다.
           if (!isMapFocused) return;
+          currentZoom.current = e.zoom ?? DEFAULT_ZOOM;
           const camera = {
             latitude: e.latitude,
             longitude: e.longitude,
@@ -812,6 +815,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         }}
         onCameraIdle={(e) => {
           if (!isMapFocused) return;
+          currentZoom.current = e.zoom ?? DEFAULT_ZOOM;
           const camera = {
             latitude: e.latitude,
             longitude: e.longitude,
@@ -820,6 +824,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             bearing: e.bearing ?? 0,
           };
           persistSettledCamera(camera, e.region);
+          placeCameraGate.settled(camera);
         }}>
         {/* 가려진 홈과 장소 지도 오버레이가 센서를 동시에 소유하지 않게 한다.
             지도·카메라는 그대로 유지하고 실제 노출 완료 뒤 구독만 재개한다. */}
@@ -1127,17 +1132,15 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
       <MapOverlayLayer focused={isMapFocused} inline={overlay}>
       <PlaceBottomSheet
-        place={selectedPlace}
+        place={placeFocusPending ? null : selectedPlace}
         onClose={closePlaceDetail}
-        animatedPosition={selectedPlace ? sheetPosition : undefined}
         highlightReview={highlightReview?.kind === 'place' ? highlightReview : null}
         openExpanded={overlay && overlayParams.detailExpanded === '1'}
       />
 
       <TempPlaceSheet
-        place={tempPlace}
+        place={placeFocusPending ? null : tempPlace}
         onClose={closePlaceDetail}
-        animatedPosition={tempPlace ? sheetPosition : undefined}
         highlightReview={highlightReview?.kind === 'general' ? highlightReview : null}
         openExpanded={overlay && overlayParams.detailExpanded === '1'}
       />

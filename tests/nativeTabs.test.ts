@@ -202,32 +202,32 @@ test('설정은 로그인과 무관하게 텍스트 없는 44pt Glass 아이콘�
   tree.props.onPress(); assert.equal(pushed, '/settings');
 });
 
-test('지도 레이아웃이 달라지면 FAB와 장소 카메라 보정에 같은 실제 높이를 사용한다', () => {
+test('실제 지도 높이가 달라지면 검색 및 마커 선택의 카메라 보정도 달라진다', () => {
   const path = 'components/map/MapHome.tsx';
   const source = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
   const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  let offset: ts.FunctionDeclaration | undefined, onLayout: ts.Expression | undefined, select: ts.Expression | undefined, temp: ts.Expression | undefined;
+  let offset: ts.FunctionDeclaration | undefined, onLayout: ts.Expression | undefined, select: ts.Expression | undefined, focus: ts.Expression | undefined;
   function visit(node: ts.Node) {
     if (ts.isFunctionDeclaration(node) && node.name?.text === 'sheetLatOffset') offset = node;
     if (ts.isJsxAttribute(node) && node.name.getText(ast) === 'onLayout' && node.initializer && ts.isJsxExpression(node.initializer)) onLayout = node.initializer.expression;
     if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'handleSearchPointSelect' && node.initializer && ts.isCallExpression(node.initializer)) select = node.initializer.arguments[0];
-    if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'handleTempPlaceSelect' && node.initializer && ts.isCallExpression(node.initializer)) temp = node.initializer.arguments[0];
+    if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'focusPlaceCamera' && node.initializer && ts.isCallExpression(node.initializer)) focus = node.initializer.arguments[0];
     ts.forEachChild(node, visit);
   }
   visit(ast);
-  assert.ok(offset && onLayout && select && temp);
-  const { outputText } = ts.transpileModule(`${offset.getText(ast)}\nmodule.exports = { layout: ${onLayout.getText(ast)}, select: ${select.getText(ast)}, temp: ${temp.getText(ast)} };`, {
+  assert.ok(offset && onLayout && select && focus);
+  const { outputText } = ts.transpileModule(`${offset.getText(ast)}\nmodule.exports = { layout: ${onLayout.getText(ast)}, select: ${select.getText(ast)}, focus: ${focus.getText(ast)} };`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022 },
   });
-  const shared = { value: 0 }, context: any = { mapViewportHeight: 900, containerHeight: shared,
+  const context: any = { mapViewportHeight: 900, currentZoom: { current: 15 },
     setMapViewportHeight: (height: number) => { context.mapViewportHeight = height; }, followingRef: { current: true }, mapRef: { current: { animateCameraTo: (camera: any) => { context.camera = camera; } } },
-    mapCenter: { zoom: 15 }, setSelectedPlaceId() {}, setSelectedPlace() {}, setSelectedStation() {}, setHighlightReview() {}, setTempPlace() {},
+    placeCameraGate: { begin() {}, finish() {} }, setTempPlace() {},
     module: { exports: {} } };
   new Script(outputText).runInNewContext(context);
   const api = context.module.exports;
-  for (const handler of [api.select, api.temp]) {
+  for (const handler of [api.select, api.focus]) {
     api.layout({ nativeEvent: { layout: { height: 700 } } });
-    assert.equal(shared.value, 700); assert.equal(context.mapViewportHeight, 700);
+    assert.equal(context.mapViewportHeight, 700);
     handler({ latitude: 37.5, longitude: 127 });
     const first = context.camera.latitude;
     api.layout({ nativeEvent: { layout: { height: 400 } } });
