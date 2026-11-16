@@ -25,7 +25,6 @@ import { useTabOcclusion } from '@/components/navigation/tabOcclusion';
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { track } from '@/lib/analytics';
-import { createPlaceCameraGate } from '@/lib/placeCameraGate';
 import { mapRenderWindowContains } from '@/lib/mapWindow';
 import { usePlaces, type MapCenter } from '@/hooks/usePlaces';
 import { useGasLayer } from '@/hooks/useGasLayer';
@@ -148,14 +147,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       ? { latitude: camera.latitude, longitude: camera.longitude, zoom: camera.zoom }
       : null;
   });
-  const [placeFocusPending, setPlaceFocusPending] = useState(false);
-  const placeCameraGate = useMemo(() => createPlaceCameraGate(setPlaceFocusPending), []);
-  useEffect(() => () => placeCameraGate.dispose(), [placeCameraGate]);
-  useEffect(() => {
-    if (!isMapFocused) placeCameraGate.finish();
-  }, [isMapFocused, placeCameraGate]);
   const mapRef = useRef<NaverMapViewRef>(null);
-  const currentZoom = useRef(mapCameraAtMount?.zoom ?? DEFAULT_ZOOM);
   const followingRef = useRef(false);
   const handledFocusTransitionRef = useRef<string | null>(null);
   const isMapFocusedRef = useRef(isMapFocused);
@@ -396,26 +388,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         : [],
     [hazards, mapCenter?.zoom, isInsideMarkerWindow],
   );
-  const focusPlaceCamera = useCallback((place: { latitude: number; longitude: number }) => {
-    followingRef.current = false;
-    const map = mapRef.current;
-    if (!map) return;
-    const zoom = currentZoom.current;
-    const target = {
-      latitude: place.latitude - sheetLatOffset(zoom, mapViewportHeight, place.latitude),
-      longitude: place.longitude,
-      zoom,
-    };
-    const duration = 260;
-    placeCameraGate.begin(target, duration);
-    map.animateCameraTo({ ...target, duration, easing: 'EaseOut' });
-  }, [mapViewportHeight, placeCameraGate]);
 
   const handleSearchSelect = useCallback(
     (place: Place) => {
       // 따라가기가 켜져 있으면 다음 위치 갱신이 카메라를 도로 내 위치로 끌고
       // 간다 — 장소를 보러 가는 순간 풀어야 한다(안내 종료 직후 검색에서 실증)
-      placeCameraGate.finish();
       followingRef.current = false;
       setSelectedPlaceId(place.id);
       setSelectedPlace(place);
@@ -429,12 +406,11 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         easing: 'EaseOut',
       });
     },
-    [setSelectedPlaceId, mapViewportHeight, placeCameraGate]
+    [setSelectedPlaceId, mapViewportHeight]
   );
 
   const handleSearchPointSelect = useCallback(
     (place: TempPlace) => {
-      placeCameraGate.finish();
       followingRef.current = false;
       mapRef.current?.animateCameraTo({
         latitude: place.latitude - sheetLatOffset(15, mapViewportHeight, place.latitude),
@@ -445,7 +421,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         easing: 'EaseOut',
       });
     },
-    [mapViewportHeight, placeCameraGate],
+    [mapViewportHeight],
   );
 
   // 라우트 파라미터(검색·푸시·내 리뷰·코스 근처 장소·카카오 일반 장소) 진입 처리
@@ -482,7 +458,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     onSelectPlace: handleSearchSelect,
     onSelectPoint: handleSearchPointSelect,
     clearSelection: () => {
-      placeCameraGate.finish();
       followingRef.current = false;
       setSelectedPlaceId(null);
       setSelectedPlace(null);
@@ -492,14 +467,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   const handleMarkerPress = useCallback(
     (place: Place) => {
-      focusPlaceCamera(place);
+      followingRef.current = false;
       track.placeViewed({ place_id: place.id, category: place.category, source: 'map_marker' });
       setHighlightReview(null);
       setTempPlace(null);
       setSelectedPlaceId(place.id);
       setSelectedPlace(place);
     },
-    [focusPlaceCamera, setHighlightReview, setSelectedPlaceId, setTempPlace]
+    [setHighlightReview, setSelectedPlaceId, setTempPlace]
   );
 
   const selectedGeneralPlace = useGeneralPlace(tempPlace);
@@ -517,7 +492,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   const handleTempPlaceSelect = useCallback(
     (place: TempPlace) => {
-      focusPlaceCamera(place);
+      followingRef.current = false;
       setSelectedPlaceId(null);
       setSelectedPlace(null);
       setSelectedStation(null);
@@ -525,7 +500,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       setTempPlace(place);
     },
     [
-      focusPlaceCamera,
       setSelectedPlaceId,
       setSelectedStation,
       setHighlightReview,
@@ -540,13 +514,12 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   );
 
   const handleBottomSheetClose = useCallback(() => {
-    placeCameraGate.finish();
     setSelectedPlaceId(null);
     setSelectedPlace(null);
     setTempPlace(null);
     setHighlightReview(null);
     setCourseReturn(null);
-  }, [placeCameraGate, setSelectedPlaceId, setTempPlace, setHighlightReview, setCourseReturn]);
+  }, [setSelectedPlaceId, setTempPlace, setHighlightReview, setCourseReturn]);
 
   const closePlaceDetail = overlay && overlayParams.detailExpanded === '1'
     ? () => {
@@ -794,14 +767,10 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         onTapSymbol={handleSymbolTap}
         onCameraChanged={(e) => {
           // 드래그하면 따라가기 해제 (프로그램 이동 'Developer' 는 유지)
-          if (e.reason === 'Gesture') {
-            followingRef.current = false;
-            placeCameraGate.finish();
-          }
+          if (e.reason === 'Gesture') followingRef.current = false;
           // 검색 화면 아래에서 분리된 surface가 내는 카메라 이벤트는 사용자가
           // 마지막으로 본 프레임이 아니다. blur 순간의 스냅샷을 그대로 동결한다.
           if (!isMapFocused) return;
-          currentZoom.current = e.zoom ?? DEFAULT_ZOOM;
           const camera = {
             latitude: e.latitude,
             longitude: e.longitude,
@@ -815,7 +784,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         }}
         onCameraIdle={(e) => {
           if (!isMapFocused) return;
-          currentZoom.current = e.zoom ?? DEFAULT_ZOOM;
           const camera = {
             latitude: e.latitude,
             longitude: e.longitude,
@@ -824,7 +792,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             bearing: e.bearing ?? 0,
           };
           persistSettledCamera(camera, e.region);
-          placeCameraGate.settled(camera);
         }}>
         {/* 가려진 홈과 장소 지도 오버레이가 센서를 동시에 소유하지 않게 한다.
             지도·카메라는 그대로 유지하고 실제 노출 완료 뒤 구독만 재개한다. */}
@@ -1132,14 +1099,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
       <MapOverlayLayer focused={isMapFocused} inline={overlay}>
       <PlaceBottomSheet
-        place={placeFocusPending ? null : selectedPlace}
+        place={selectedPlace}
         onClose={closePlaceDetail}
         highlightReview={highlightReview?.kind === 'place' ? highlightReview : null}
         openExpanded={overlay && overlayParams.detailExpanded === '1'}
       />
 
       <TempPlaceSheet
-        place={placeFocusPending ? null : tempPlace}
+        place={tempPlace}
         onClose={closePlaceDetail}
         highlightReview={highlightReview?.kind === 'general' ? highlightReview : null}
         openExpanded={overlay && overlayParams.detailExpanded === '1'}
