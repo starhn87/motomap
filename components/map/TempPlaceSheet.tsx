@@ -2,6 +2,7 @@ import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import PlaceSheetHeaderActions from '@/components/map/PlaceSheetHeaderActions';
+import { placeSheetOffsetX, placeSheetOffsetY } from './placeSheetPanOffsets';
 import { PlaceSheetBackground, PlaceSheetHeaderOverlay, PlaceSheetHeaderProvider, PlaceSheetNameRow } from '@/components/map/PlaceSheetHeader';
 import { ANDROID_TOP_CONTROL_GAP } from '@/components/navigation/headerSpacing';
 import { usePlaceReviewFocus } from '@/hooks/usePlaceReviewFocus';
@@ -332,8 +333,8 @@ export default function TempPlaceSheet({ place, onClose, highlightReview, openEx
         // 하단 인셋 0의 위치는 유지하고 이동 중 본문 마스크의 높이 재계산을 막는다.
         detached
         enableOverDrag={false}
-        activeOffsetY={[-12, 12]}
-        failOffsetX={[-12, 12]}
+        activeOffsetY={placeSheetOffsetY}
+        failOffsetX={placeSheetOffsetX}
         animatedIndex={animatedIndex}
         enablePanDownToClose={false}
         keyboardBehavior="extend"

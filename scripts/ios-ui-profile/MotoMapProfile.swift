@@ -125,6 +125,24 @@ final class MotoMapProfile: XCTestCase {
         let handle = app.buttons["장소 상세 펼치기"].firstMatch
         XCTAssertTrue(handle.isHittable)
         XCTAssertGreaterThan(handle.frame.midY, app.frame.height * 0.45)
+
+        // 짧은 세로 드래그는 중간 스냅으로 돌아와야 한다. 탭으로 처리하면 풀확장된다.
+        // 앞선 긴 드래그의 스냅 애니메이션이 끝난 정지 위치에서 시작한다.
+        Thread.sleep(forTimeInterval: 0.8)
+        let middleY = handle.frame.midY
+        let middle = handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        middle.press(forDuration: 0.09, thenDragTo: middle.withOffset(CGVector(dx: 0, dy: -10)),
+                     withVelocity: 100, thenHoldForDuration: 0.12)
+        Thread.sleep(forTimeInterval: 0.8)
+        XCTAssertEqual(handle.frame.midY, middleY, accuracy: 2)
+
+        // 가로 실패 범위까지 줄이면 첫 이동 샘플에서 빠른 대각선 세로 플릭을 잃는다.
+        middle.press(forDuration: 0.06,
+                     thenDragTo: middle.withOffset(CGVector(dx: -app.frame.width * 0.21, dy: -app.frame.height * 0.37)),
+                     withVelocity: 1600, thenHoldForDuration: 0.15)
+        XCTAssertTrue(header.waitForExistence(timeout: 4))
+        header.tap()
+        XCTAssertGreaterThan(handle.frame.midY, app.frame.height * 0.45)
         handle.tap()
         XCTAssertTrue(header.waitForExistence(timeout: 4))
         app.buttons["장소 상세 닫기"].firstMatch.tap()
