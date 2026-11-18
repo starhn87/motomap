@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import { usePathname } from 'expo-router';
 import PostHog from 'posthog-react-native';
 
@@ -22,7 +23,8 @@ const enabled = !!apiKey && !__DEV__;
 export const posthog = enabled
   ? new PostHog(apiKey!, {
       host,
-      enableSessionReplay: true,
+      // iOS의 화면 캡처가 지도 위 장소 시트의 UI 프레임을 지연시킨다.
+      enableSessionReplay: Platform.OS !== 'ios',
       // RN 리플레이는 스크린샷 모드만 지원한다 — 화면이 통째로 찍히므로
       // 마스킹이 곧 개인정보 방어선이다. 아래 셋은 SDK 기본값도 true 지만
       // 실수로 꺼지면 바로 유출이라 의도를 코드에 남긴다.
