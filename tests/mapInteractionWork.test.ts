@@ -15,12 +15,13 @@ function findSource<T extends ts.Node>(path: string, find: (node: ts.Node) => T 
   return match.getText(ast);
 }
 
-function evaluate(source: string, scope: Record<string, unknown>) {
+function evaluate<T = unknown>(source: string, scope: Record<string, unknown>): () => T {
   const { outputText } = ts.transpileModule(`result = () => (${source});`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React },
   });
-  const context = { ...scope, result: () => undefined };
+  const context: { result?: () => T } = { ...scope };
   new Script(outputText).runInNewContext(context);
+  assert.ok(context.result);
   return context.result;
 }
 
@@ -41,24 +42,22 @@ test('같은 날씨 격자의 GPS 좌표들은 지도 화면 구독값을 바꾸
   assert.notEqual(latitude(), before);
 });
 
-for (const sheet of ['PlaceBottomSheet', 'TempPlaceSheet']) {
-  test(`${sheet}: 확장과 축소 중에 제목 옆 버튼을 다시 만들지 않는다`, () => {
-    const row = findSource(`components/map/${sheet}.tsx`, node =>
-      ts.isJsxElement(node) && node.openingElement.attributes.properties.some(p =>
-        ts.isJsxAttribute(p) && p.name.getText() === 'style' && p.initializer?.getText() === '{styles.nameRow}')
-        ? node : undefined);
-    const controls = { type: 'actions' };
-    let rendered = 0;
-    for (const isExpanded of [false, true, false]) {
-      const load = evaluate(row, {
-        React: { createElement() {} },
-        View: 'View', Pressable: 'Pressable', Animated: { View: 'AnimatedView' },
-        Text: 'Text', styles: {}, colors: {}, isExpanded,
-        advanceSheet() {}, displayPlace: { name: '장소' }, place: { name: '장소' },
-        inlineActionsVisibility: {}, renderActions: () => { rendered += 1; return controls; },
-      });
-      load();
-    }
-    assert.equal(rendered, 3);
-  });
-}
+test('확장 중 제목 옆 버튼은 자리를 유지하고 터치와 접근성만 비활성화된다', () => {
+  const row = findSource('components/map/PlaceSheetHeader.tsx', node =>
+    ts.isJsxElement(node) && node.openingElement.attributes.properties.some(p =>
+      ts.isJsxAttribute(p) && p.name.getText() === 'style' && p.initializer?.getText() === '{styles.nameRow}')
+      ? node : undefined);
+  const actions = { type: 'actions' };
+  for (const expanded of [false, true, false]) {
+    type Slot = { children: unknown[]; props: { pointerEvents: string; accessibilityElementsHidden: boolean } };
+    const render = evaluate<{ children: Slot[] }>(row, {
+      React: { createElement: (type: unknown, props: unknown, ...children: unknown[]) => ({ type, props, children }) },
+      View: 'View', Pressable: 'Pressable', Animated: { View: 'AnimatedView' }, StyleSheet: {},
+      Text: 'Text', styles: {}, colors: {}, expanded, children: actions, visibility: {}, onPress() {}, name: '장소',
+    });
+    const slot = render().children[2];
+    assert.equal(slot.children[0], actions);
+    assert.equal(slot.props.pointerEvents, expanded ? 'none' : 'auto');
+    assert.equal(slot.props.accessibilityElementsHidden, expanded);
+  }
+});

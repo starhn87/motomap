@@ -4,8 +4,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { View, StyleSheet, Share, ActivityIndicator, Pressable, Platform } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import Animated, {
-  FadeIn,
-  FadeOut,
   useSharedValue,
   useAnimatedReaction,
   useAnimatedStyle,
@@ -16,11 +14,8 @@ import Animated, {
   Extrapolation,
   runOnJS,
 } from 'react-native-reanimated';
-import CloseIcon from '@/components/ui/CloseIcon';
-import GlassButton from '@/components/ui/GlassButton';
-import BackIcon from '@/components/ui/BackIcon';
 import PlaceSheetHeaderActions from '@/components/map/PlaceSheetHeaderActions';
-import PlaceSheetCollapseHandle from '@/components/map/PlaceSheetCollapseHandle';
+import { PlaceSheetBackground, PlaceSheetHeaderOverlay, PlaceSheetHeaderProvider, PlaceSheetNameRow } from '@/components/map/PlaceSheetHeader';
 import { ANDROID_TOP_CONTROL_GAP } from '@/components/navigation/headerSpacing';
 import { usePlaceReviewFocus } from '@/hooks/usePlaceReviewFocus';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -96,16 +91,14 @@ function PlaceBottomSheet({
     closeRequestedFor.current = place;
     bottomSheetRef.current?.close();
   };
-  const collapseFromHeader = useCallback(() => bottomSheetRef.current?.snapToIndex(1), []);
-  const [settledIndex, setSettledIndex] = useState(-1);
+  const [reviewExpanded, setReviewExpanded] = useState(false);
   const [changeReportOpen, setChangeReportOpen] = useState(false);
   const animatedIndex = useSharedValue(-1);
-  const [isExpanded, setExpanded] = useState(false);
+  const reviewRequested = !!highlightReview;
   useAnimatedReaction(
-    // 헤더가 거의 불투명해질 때까지 현재 드래그에 자리를 양보한다.
-    () => animatedIndex.value >= 1.99,
+    () => reviewRequested && animatedIndex.value === 2,
     (expanded, previous) => {
-      if (expanded !== previous) runOnJS(setExpanded)(expanded);
+      if (expanded !== !!previous) runOnJS(setReviewExpanded)(expanded);
     },
   );
   const advanceSheet = useCallback(() => {
@@ -178,7 +171,7 @@ function PlaceBottomSheet({
   }, [place?.id]);
 
   const onReviewLayout = usePlaceReviewFocus(
-    highlightReview?.key, settledIndex === 2 && !reviewsLoading, headerTop + PAGE_HEADER_HEIGHT + HEADER_CONTENT_GAP, scrollRef,
+    highlightReview?.key, reviewExpanded && !reviewsLoading, headerTop + PAGE_HEADER_HEIGHT + HEADER_CONTENT_GAP, scrollRef,
   );
 
   const handleSheetClosed = () => {
@@ -186,16 +179,6 @@ function PlaceBottomSheet({
     closeRequestedFor.current = null;
     if (requested && requested.id === visiblePlaceId) onClose();
   };
-
-  // 시트가 화면 상단에 거의 닿았을 때만 고정 헤더를 표시한다.
-  const pageHeaderVisibility = useAnimatedStyle(() => ({
-    opacity: interpolate(animatedIndex.value, [1.94, 2], [0, 1], Extrapolation.CLAMP),
-  }));
-
-  // 전환 중 버튼 슬롯을 유지해 제목 줄바꿈과 본문 레이아웃이 바뀌지 않게 한다.
-  const inlineActionsVisibility = useAnimatedStyle(() => ({
-    opacity: interpolate(animatedIndex.value, [1.94, 2], [1, 0], Extrapolation.CLAMP),
-  }));
 
   const handleIndicatorStyle = useAnimatedStyle(() => ({
     opacity: animatedIndex.value >= 1.5 ? 0 : 1,
@@ -296,8 +279,12 @@ function PlaceBottomSheet({
 
 
   return (
-    <>
+    <PlaceSheetHeaderProvider
+      animatedIndex={animatedIndex}
+      header={visiblePlaceId ? { top: headerTop, onClose: requestSheetClose, actions: renderActions(true) } : null}>
       <BottomSheet
+        backdropComponent={PlaceSheetHeaderOverlay}
+        backgroundComponent={PlaceSheetBackground}
         ref={bottomSheetRef}
         // 시트 전체를 하나로 묶으면 사진·헤더·리뷰 버튼이 접근성 트리에서 숨는다.
         accessible={false}
@@ -314,10 +301,7 @@ function PlaceBottomSheet({
         failOffsetX={[-12, 12]}
         animatedIndex={animatedIndex}
         onClose={handleSheetClosed}
-        onChange={(index) => {
-          setSettledIndex(index);
-          keyboardInput.reveal();
-        }}
+        onChange={keyboardInput.reveal}
         // 리뷰 입력 시 시트를 최대로 펼쳐 키보드 위 공간을 확보하고,
         // 입력을 마치면 사용자가 보던 스냅 위치로 되돌린다.
         keyboardBehavior="extend"
@@ -330,7 +314,6 @@ function PlaceBottomSheet({
         containerStyle={styles.sheetContainer}
         backgroundStyle={{
           backgroundColor: colors.background,
-          borderRadius: isExpanded ? 0 : 24,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.15,
@@ -349,31 +332,9 @@ function PlaceBottomSheet({
           <Animated.View style={contentMotionStyle}>
             <View style={{ height: headerSpace }} />
 
-          <View style={styles.nameRow}>
-            <Pressable
-              accessibilityLabel={`${displayPlace.name} 상세 펼치기`}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isExpanded }}
-              onPress={advanceSheet}
-              style={styles.nameRowPressTarget}
-            />
-            <View pointerEvents="none" style={styles.nameContent}>
-              <Text
-                style={[styles.name, { color: colors.text }]}
-                numberOfLines={2}
-                textBreakStrategy="balanced"
-                lineBreakStrategyIOS="push-out">
-                {displayPlace.name}
-              </Text>
-            </View>
-            <Animated.View
-              pointerEvents={isExpanded ? 'none' : 'auto'}
-              accessibilityElementsHidden={isExpanded}
-              importantForAccessibility={isExpanded ? 'no-hide-descendants' : 'auto'}
-              style={[styles.nameActions, inlineActionsVisibility]}>
-              {renderActions(false)}
-            </Animated.View>
-          </View>
+          <PlaceSheetNameRow name={displayPlace.name} onPress={advanceSheet}>
+            {renderActions(false)}
+          </PlaceSheetNameRow>
 
           <PlaceAddressRow address={displayPlace.address} />
 
@@ -581,32 +542,6 @@ function PlaceBottomSheet({
         )}
       </BottomSheet>
 
-      {/* 확장 헤더는 미리 마운트하고 전환 중에는 UI 스레드에서 표시만 바꾼다. */}
-      {visiblePlaceId ? (
-        <Animated.View
-          pointerEvents={isExpanded ? 'box-none' : 'none'}
-          accessibilityElementsHidden={!isExpanded}
-          importantForAccessibility={isExpanded ? 'auto' : 'no-hide-descendants'}
-          style={[
-            styles.pageHeader,
-            pageHeaderVisibility,
-            {
-              paddingTop: headerTop,
-              backgroundColor: colors.background,
-            },
-          ]}>
-          <GlassButton
-            accessibilityLabel="뒤로"
-            accessibilityRole="button"
-            onPress={requestSheetClose}
-            style={[styles.iconButton, styles.pageHeaderIconButton, { borderRadius: 22 }]}>
-            <BackIcon size={28} color={colors.text} />
-          </GlassButton>
-          <PlaceSheetCollapseHandle onCollapse={collapseFromHeader} />
-          <View style={[styles.nameActions, { gap: 12 }]}>{renderActions(true)}</View>
-        </Animated.View>
-      ) : null}
-
       {displayPlace && <PlaceChangeReportSheet
         visible={changeReportOpen}
         placeId={displayPlace.id}
@@ -614,7 +549,7 @@ function PlaceBottomSheet({
         operationalStatus={operationalStatus}
         onClose={() => setChangeReportOpen(false)}
       />}
-    </>
+    </PlaceSheetHeaderProvider>
   );
 }
 
@@ -636,18 +571,6 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
   },
-  pageHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 30,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -664,41 +587,6 @@ const styles = StyleSheet.create({
   reviewCount: {
     fontSize: 12,
     marginLeft: 2,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 36,
-    marginBottom: 0,
-  },
-  name: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  nameRowPressTarget: {
-    ...StyleSheet.absoluteFill,
-  },
-  nameContent: {
-    flex: 1,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-    paddingRight: 16,
-  },
-  nameActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  iconButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pageHeaderIconButton: {
-    width: 44,
-    height: 44,
   },
   addressRow: {
     flexDirection: 'row',

@@ -1,15 +1,19 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
+import { useBottomSheetGestureHandlers } from '@gorhom/bottom-sheet';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
 
 function PlaceSheetCollapseHandle({ onCollapse }: { onCollapse: () => void }) {
-  const pan = Gesture.Pan()
-    .activeOffsetY(12)
+  const { handlePanGestureHandler } = useBottomSheetGestureHandlers();
+  const pan = useMemo(() => Gesture.Pan()
+    .activeOffsetY([-12, 12])
     .failOffsetX([-16, 16])
-    .onEnd(({ translationY, velocityY }) => {
-      if (translationY >= 24 || velocityY >= 400) runOnJS(onCollapse)();
-    });
+    .shouldCancelWhenOutside(false)
+    .runOnJS(false)
+    .onStart(handlePanGestureHandler.handleOnStart)
+    .onChange(handlePanGestureHandler.handleOnChange)
+    .onEnd(handlePanGestureHandler.handleOnEnd)
+    .onFinalize(handlePanGestureHandler.handleOnFinalize), [handlePanGestureHandler]);
 
   return <GestureDetector gesture={pan}>
     <Pressable accessibilityRole="button" accessibilityLabel="장소 상세 접기" onPress={onCollapse} style={styles.target} />
