@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View, Share } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, View, Share } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { PostHogMaskView } from 'posthog-react-native';
 import LegalConsentScreen from '@/components/auth/LegalConsentScreen';
 import { useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';

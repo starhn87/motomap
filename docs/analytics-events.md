@@ -26,8 +26,10 @@ app_opened → place_viewed → navigation_started → navigation_ended(arrived)
 
 **C. 기여**
 ```
-place_submitted → 승인
+place_submission_opened → place_submission_attempted → place_submitted → 승인
 ```
+탭에서 바로 연 제보는 `place_submission_opened` 가 없다. 그 경우 분모는 화면 조회이고,
+버튼까지 간 결과는 `place_submission_attempted` 다.
 
 **D. 내 바이크 정체성**
 ```
@@ -68,8 +70,19 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | --- | --- |
 | `navigation_previewed` | `distance_m` · `duration_s` · `priority` · `via_count` · `has_custom_start` |
 | `navigation_started` | `guide_session_id` · `mode`(live·preview) · `priority` · `via_count` · `distance_m` |
-| `navigation_ended` | `guide_session_id` · `mode` · `reason`(arrived·cancelled·abandoned) · `duration_s` · `distance_m` |
+| `navigation_ended` | `guide_session_id` · `mode` · `reason`(arrived·cancelled·abandoned) · `exit`(user_end·no_goal·start_failed·process_end) · `had_arrived` · `duration_s` · `distance_m` · `remaining_m`(알 수 있을 때만) |
 | `route_failed` | `code`(KNSDK 에러 코드) · `via_count` |
+
+`reason` 은 주간 도착률의 기존 버킷이다. `exit` 는 그 버킷을 만든 계기다.
+
+- `user_end` — 종료 버튼·위치 이용 중지로 안내 화면이 닫힘. 목적지 400m 안·도착 콜백이면 `arrived`, 아니면 `cancelled`. `remaining_m` 는 그때의 남은 거리.
+- `no_goal` — 세션에 목적지가 없는 채로 닫힘 (`cancelled`).
+- `start_failed` — 시작 마커가 남은 상태에서 `onGuideFailed` (`cancelled`). 경로 탐색이 시작 전에 실패하면 마커가 없어 이벤트가 없다. 그 경우는 `route_failed`.
+- `process_end` — 다음 실행까지 마커가 남은 비정상 종료 (`abandoned`). 강제 종료·OS 종료·크래시를 구분하지 않는다.
+
+`had_arrived` 는 안내 중 300m 도착 콜백이 이 세션에 기록됐는지다. 화면은 도착해도 라이더가 종료를 누르기 전까지 유지되므로(NAV-013), 도착 뒤 앱이 죽으면 `reason` 은 `abandoned` 로 남고 `had_arrived` 만 true 가 된다. 도착률 정의를 바꾸지 않기 위한 분리다. `remaining_m` 는 좌표가 아니다.
+
+2026-11-02: 실주행 도착률이 약 12%(시작 169 · 도착 20 · 중도 66 · 비정상 72)까지 내려갔지만 `reason` 세 값 밖에는 원인이 없었다. 위 속성은 그 다음 주를 가르기 위한 것이고, 이미 쌓인 이벤트에는 소급하지 않는다.
 
 ### 참여·기여
 
@@ -78,7 +91,17 @@ bike_setup_viewed → bike_setup_saved → bike_ride_history_opened
 | `favorite_toggled` | `on` · `place_id` · `category` · `source` |
 | `place_submission_prompted` | `has_address` |
 | `place_submission_opened` | `source`(arrival·temp_place·search_empty) |
+| `place_submission_attempted` | `source`(tab·arrival·temp_place·search_empty) · `result`(login·missing_name·missing_category·missing_address·duplicate_approved·duplicate_pending·error·submitted) |
 | `place_submitted` | `category` · `source`(tab·arrival·temp_place·search_empty) |
+
+`place_submission_attempted` 는 열기와 접수 사이다. `result` 로 어디서 멈췄는지 가른다.
+
+- `login` — 도착·일반 장소·검색 없음에서 제보를 열었는데 로그인 벽이 보임. 버튼을 누르기 전이라, 로그인 후 제출하면 `submitted` 가 따로 남는다.
+- `missing_name` · `missing_category` · `missing_address` — 제보 버튼을 눌렀지만 그 항목이 비어 있음. 검사는 이름 → 카테고리 → 주소 순서다.
+- `duplicate_approved` · `duplicate_pending` — 같은 주소의 등록 장소 또는 검토 중 제보.
+- `error` — 전송 실패. `submitted` — 접수. 접수 때는 기존 `place_submitted` 도 같이 남긴다.
+
+열린 횟수에서 시도를 빼면, 버튼을 누르기 전에 나간 경우다.
 | `review_submitted` | `target`(place·general·course) · `rating` · `has_photo` |
 | `general_place_share_toggled` | `on` — 일반 장소 추천의 레거시 이벤트명 |
 | `chat_message_sent` | `turn_index` |
@@ -135,6 +158,10 @@ PostHog·private DB 안에서만 확인한다. 위 예외도 함께 지킨다.
 
 ## 세션 리플레이
 
+iOS에서는 지도 위 장소 상세 시트를 움직일 때 캡처가 UI 스레드를 지연시켜 화면 녹화를 끈다.
+화면 조회·검색·리뷰 등 제품 이벤트는 계속 집계한다. Android에서는 기존 녹화 설정을 사용한다.
+측정 조건은 [MAP-083](domain-decisions/map-place-details.md#map-083--ios-장소-시트의-이동을-방해하는-세션-녹화를-끈다)에 기록했다.
+
 RN 은 **스크린샷 모드만** 지원한다 — 화면이 통째로 찍히므로 마스킹이 곧 방어선이다.
 
 **전역 설정**(`lib/analytics.ts`) — SDK 기본값도 true 지만 꺼지면 바로 유출이라 명시한다.
@@ -159,3 +186,8 @@ Supabase auth 의 user id 로 `identify()`. 비로그인은 익명 id 로 쌓다
 
 `EXPO_PUBLIC_POSTHOG_API_KEY` 가 없으면 계측 전체가 무효화된다(개발 중이거나 키 미설정 시 안전).
 개발 빌드(`__DEV__`)에서도 보내지 않는다 — Sentry 와 같은 이유로, 개발 노이즈가 실데이터를 오염시킨다.
+
+### 2026-11-18 Android 화면 녹화 비활성화
+
+지도·장소 상세 시트 조작 중 스크린샷 캡처 비용을 피하도록 Android에서도 세션 녹화를 끈다.
+모든 플랫폼의 제품 이벤트와 익명/계정 식별 분석은 기존대로 동작한다.

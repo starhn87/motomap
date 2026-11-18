@@ -1,13 +1,14 @@
+import { APP_FONT_STYLE } from '@/lib/typography';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import BikeIcon from '@/components/ui/BikeIcon';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { Image as RNImage } from 'expo-image';
 import { TouchableOpacity } from 'react-native-gesture-handler';
@@ -68,13 +69,13 @@ function ReviewPhotoOverlay({ review }: { review: Review }) {
       <View style={styles.photoOverlayHeader}>
         <Text style={styles.photoOverlayName} numberOfLines={1}>
           {review.userName}
-          {review.bikeModel ? `  ·  ${review.bikeModel}` : ''}
         </Text>
         <Text style={styles.photoOverlayStars}>
           {'★'.repeat(review.rating)}
           {'☆'.repeat(Math.max(0, 5 - review.rating))}
         </Text>
       </View>
+      {!!review.bikeModel && <Text style={styles.photoOverlayBike} numberOfLines={1}>{review.bikeModel}</Text>}
       {review.content ? (
         <Text style={styles.photoOverlayContent} numberOfLines={3}>
           {review.content}
@@ -85,14 +86,16 @@ function ReviewPhotoOverlay({ review }: { review: Review }) {
 }
 
 interface Props {
+  onInputFocus?: () => void;
   target: ReviewTarget;
+  allowWriting: boolean;
   /** 이 리뷰로 스크롤·강조 — key(nonce)가 바뀔 때마다 다시 반짝인다 */
   highlight?: { id: string; key: string } | null;
   /** 강조 대상 리뷰 카드의 y(리스트 루트 기준)를 부모에 보고 — 스크롤 목표 계산용 */
   onHighlightLayout?: (y: number) => void;
 }
 
-export default function ReviewList({ target, highlight, onHighlightLayout }: Props) {
+export default function ReviewList({ target, allowWriting, highlight, onHighlightLayout, onInputFocus }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -155,7 +158,9 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
   if (!visibleReviews?.length) {
     return (
       <Text style={[styles.empty, { color: colors.textSecondary }]}>
-        아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
+        {!allowWriting ? '아직 리뷰가 없어요.'
+          : user ? '아직 리뷰가 없어요. 첫 리뷰를 남겨보세요.'
+          : '아직 리뷰가 없어요. 로그인하고 첫 리뷰를 남겨보세요.'}
       </Text>
     );
   }
@@ -285,9 +290,12 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
 
   return (
     <View style={styles.container}>
+      {!user && allowWriting && (
+        <Text style={{ color: colors.textSecondary }}>리뷰를 작성하려면 로그인해 주세요.</Text>
+      )}
       {visibleReviews.map((review) => {
         const isOwner = user?.id === review.userId;
-        const isEditing = editingId === review.id;
+        const isEditing = isOwner && editingId === review.id;
 
         const isHighlight = highlight?.id === review.id;
         return (
@@ -341,7 +349,9 @@ export default function ReviewList({ target, highlight, onHighlightLayout }: Pro
               <View style={styles.editForm}>
                 <StarRating rating={editRating} onRate={setEditRating} size={24} />
                 <BottomSheetTextInput
+                  onFocus={onInputFocus}
                   style={[
+                    APP_FONT_STYLE,
                     styles.editInput,
                     {
                       backgroundColor: colors.surfaceElevated,
@@ -536,6 +546,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  photoOverlayBike: { color: '#D4D4D8', fontSize: 12, marginTop: 4 },
   photoOverlayStars: {
     color: '#FACC15',
     fontSize: 13,

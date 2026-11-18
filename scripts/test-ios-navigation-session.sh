@@ -37,19 +37,23 @@ for framework in KNSDK KMLocationSDK KakaoSDKCommon RNCryptor Realm RealmSwift A
 done
 xcrun clang -fobjc-arc -fmodules -target "$arch-apple-ios16.4-simulator" -isysroot "$sdkroot" \
   -I "$root/modules/kakao-navi/ios" -F "$app/Frameworks" -framework KNSDK \
-  -framework WebKit -framework UIKit -framework Foundation -framework AVFoundation -framework CoreLocation \
+  -framework UIKit -framework Foundation -framework AVFoundation -framework CoreLocation \
   -Wl,-rpath,@executable_path/Frameworks \
   "$root/modules/kakao-navi/ios/KNNaviPresenter.m" \
   "$root/modules/kakao-navi/ios/KNNaviTheme.m" \
   "$root/modules/kakao-navi/ios/KNSDKBridge.m" \
   "$root/modules/kakao-navi/ios/KNNaviAudioFocus.m" \
   "$root/modules/kakao-navi/ios/KNNaviArrivalRecovery.m" \
+  "$root/modules/kakao-navi/ios/KNNaviArrivalPrompt.m" \
   "$root/modules/kakao-navi/ios/KNNaviRouteView.m" \
   "$root/modules/kakao-navi/ios/KNNaviBottomPanel.m" \
   "$root/modules/kakao-navi/ios/KNNaviHiddenViews.m" \
   "$root/modules/kakao-navi/ios/KNNaviHazardSheet.m" \
   "$root/modules/kakao-navi/ios/KNNaviGasLayer.m" \
+  "$root/modules/kakao-navi/ios/KNNaviTrafficBar.m" \
+  "$root/tests/ios/KNNaviTrafficBarTests.m" \
   "$root/tests/ios/KNNaviPoiSheetTests.m" \
+  "$root/tests/ios/KNNaviArrivalPromptTests.m" \
   "$root/tests/ios/KNNaviSessionTests.m" "$root/tests/ios/NavigationSessionTestApp.m" \
   -o "$app/NavigationSessionTests"
 cat > "$app/Info.plist" <<'PLIST'
@@ -75,7 +79,6 @@ PLIST
 mkdir -p "$app/MotoMapNavigationVoice.bundle"
 cp "$root/modules/kakao-navi/ios/Resources/navigation-start.mp3" "$app/MotoMapNavigationVoice.bundle/"
 mkdir -p "$app/MotoMapNavigationUI.bundle"
-cp "$root/modules/kakao-navi/ios/Resources/navigation-bottom.html" "$app/MotoMapNavigationUI.bundle/"
 cp "$root"/modules/kakao-navi/ios/Resources/GasBrands/*.png "$app/MotoMapNavigationUI.bundle/"
 codesign --force --sign - "$app" >/dev/null 2>&1
 xcrun simctl list runtimes --json > "$work/runtimes.json"
@@ -102,6 +105,8 @@ xcrun simctl launch "$simulator_id" com.ridemap.tests.navigation-session >/dev/n
 container=$(xcrun simctl get_app_container "$simulator_id" com.ridemap.tests.navigation-session data)
 for ((i=0; i<150; i++)); do
   if [[ -f "$container/Documents/session-result.txt" ]]; then
+    if [[ -f "$container/Documents/arrival-prompt.png" ]]; then cp "$container/Documents/arrival-prompt.png" /tmp/motomap-arrival-prompt.png; fi
+    if [[ -f "$container/Documents/traffic-bar.png" ]]; then cp "$container/Documents/traffic-bar.png" /tmp/motomap-traffic-bar.png; fi
     if [[ -f "$container/Documents/bottom-expanded.png" ]]; then cp "$container/Documents/bottom-expanded.png" /tmp/motomap-bottom-expanded.png; fi
     if [[ -f "$container/Documents/bottom-collapsed.png" ]]; then cp "$container/Documents/bottom-collapsed.png" /tmp/motomap-bottom-collapsed.png; fi
     if [[ -f "$container/Documents/hazard-sheet.png" ]]; then cp "$container/Documents/hazard-sheet.png" /tmp/motomap-hazard-sheet.png; fi

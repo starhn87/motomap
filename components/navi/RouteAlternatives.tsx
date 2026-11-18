@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { formatMeters, formatSeconds } from '@/lib/api/directions';
 import type { BikeRoute, RoutePriority } from '@/modules/kakao-navi';
+
+const CARD_GAP = 8;
 
 type Alternative = {
   value: RoutePriority;
@@ -16,32 +19,38 @@ type Alternative = {
   loading: boolean;
 };
 
-export default function RouteAlternatives({ options, priority, requestedViaCount, disabled, onSelect }: {
+export default function RouteAlternatives({ options, priority, requestedViaCount, horizontalInset, disabled, onSelect }: {
   options: Alternative[];
   priority: RoutePriority;
   requestedViaCount: number;
+  horizontalInset: number;
   disabled: boolean;
   onSelect: (priority: RoutePriority) => void;
 }) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const scroll = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
-  const cardWidth = width > 0 ? (width - 44) / 2 : 136;
+  const cardWidth = width > 44 ? (width - 44) / 2 : 136;
+  const cardStep = cardWidth + CARD_GAP;
+  const maxOffset = Math.max(0, options.length * cardStep - CARD_GAP - width);
   const selectedIndex = options.findIndex(option => option.value === priority);
   useEffect(() => {
-    if (selectedIndex >= 0) scroll.current?.scrollTo({ x: selectedIndex * (cardWidth + 8), animated: true });
-  }, [selectedIndex, cardWidth]);
+    if (selectedIndex >= 0 && width > 0) {
+      scroll.current?.scrollTo({ x: Math.min(selectedIndex * cardStep, maxOffset), animated: true });
+    }
+  }, [selectedIndex, width, cardStep, maxOffset]);
   const selected = options.find((option) => option.value === priority);
   const excludedViaCount = selected?.route ? Math.max(0, requestedViaCount - (selected.vias?.length ?? 0) / 2) : 0;
   let viaSummary = '경로를 선택하면 경유지를 확인할 수 있어요.';
-  if (excludedViaCount > 0) viaSummary = `경유지 ${excludedViaCount}개 제외 · 표시된 경유지로 안내해요.`;
+  if (excludedViaCount > 0) viaSummary = `경유지 ${excludedViaCount}개를 제외하고 안내해요.`;
   else if (selected?.route) viaSummary = '지도에 표시된 경유지로 안내해요.';
   else if (selected?.loading) viaSummary = '경유지 포함 여부를 확인 중이에요.';
   else if (selected?.error) viaSummary = '다른 경로를 선택하거나 다시 시도해 주세요.';
   return (
     <View style={styles.container} onLayout={({ nativeEvent }) => setWidth(nativeEvent.layout.width)}>
-      <ScrollView ref={scroll} style={styles.scroll} horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.row} accessibilityRole="radiogroup" accessibilityLabel="경로 비교">
+      <ScrollView ref={scroll} style={[styles.scroll, { marginHorizontal: -horizontalInset }]}
+        horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.row, { paddingHorizontal: horizontalInset }]} accessibilityRole="radiogroup" accessibilityLabel="경로 비교">
         {options.map((option) => {
           const active = option.value === priority;
           const color = active ? colors.background : colors.text;
@@ -92,7 +101,7 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
                       accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">경유 0개</Text>
                     {option.route && (
                       <Text style={[styles.detail, styles.content, { color }]} numberOfLines={1}>
-                        경유 {viaCount}개{viaCount < requestedViaCount ? ` · ${requestedViaCount - viaCount}개 제외` : ''}
+                        경유 {viaCount}개{viaCount < requestedViaCount ? ` (${requestedViaCount - viaCount}개 제외)` : ''}
                       </Text>
                     )}
                   </View>
@@ -128,7 +137,7 @@ export default function RouteAlternatives({ options, priority, requestedViaCount
 const styles = StyleSheet.create({
   container: { gap: 8 },
   scroll: { flexGrow: 0 },
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: CARD_GAP },
   option: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, gap: 4 },
   summary: { gap: 4 },
   placeholder: { opacity: 0 },

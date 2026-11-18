@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 
 import { BRAND_BADGES, type GasStation } from '@/lib/api/gasStations';

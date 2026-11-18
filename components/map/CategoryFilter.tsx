@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -12,7 +14,6 @@ import Colors from '@/constants/Colors';
 import { useMapStore } from '@/stores/useMapStore';
 import { track } from '@/lib/analytics';
 import type { PlaceCategory } from '@/types';
-import { haptics } from '@/lib/haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -32,6 +33,7 @@ function FilterChip({
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const isDark = colorScheme === 'dark';
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -59,17 +61,17 @@ function FilterChip({
         {
           backgroundColor: isActive
             ? color
-            : colorScheme === 'dark'
-              ? '#1A1A1A'
-              : '#FFFFFF',
+            : colors.background,
           borderColor: isActive ? color : colors.border,
         },
+        isDark && (isActive ? styles.darkChipSelected : styles.darkChip),
       ]}>
-      <CategoryIcon category={categoryKey} size={15} color={isActive ? '#FFFFFF' : color} />
+      <CategoryIcon category={categoryKey} size={15} color={isActive && !isDark ? '#FFFFFF' : color} />
       <Text
         style={[
           styles.chipLabel,
           { color: isActive ? '#FFFFFF' : colors.text },
+          isDark && (isActive ? styles.darkChipLabelSelected : styles.darkChipLabel),
         ]}>
         {label}
       </Text>
@@ -80,6 +82,8 @@ function FilterChip({
 function RiderShareFilterChip({ isActive, onPress }: { isActive: boolean; onPress: () => void }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const isDark = colorScheme === 'dark';
+  const labelColor = isDark ? (isActive ? '#FFFFFF' : '#E4E4E7') : (isActive ? colors.background : colors.text);
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -102,25 +106,24 @@ function RiderShareFilterChip({ isActive, onPress }: { isActive: boolean; onPres
         {
           backgroundColor: isActive
             ? colors.text
-            : colorScheme === 'dark'
-              ? '#1A1A1A'
-              : '#FFFFFF',
+            : colors.background,
           borderColor: isActive ? colors.text : colors.border,
         },
+        isDark && (isActive ? styles.darkChipSelected : styles.darkChip),
       ]}>
       <Ionicons
         name={isActive ? 'checkmark-circle' : 'checkmark-circle-outline'}
         size={16}
-        color={isActive ? colors.background : colors.text}
+        color={labelColor}
       />
-      <Text style={[styles.chipLabel, { color: isActive ? colors.background : colors.text }]}>
+      <Text style={[styles.chipLabel, { color: labelColor }]}>
         추천 장소
       </Text>
     </AnimatedPressable>
   );
 }
 
-export default function CategoryFilter() {
+export default function CategoryFilter({ actions }: { actions?: ReactNode }) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const activeFilter = useMapStore((state) => state.activeFilter);
   const premiumGasOnly = useMapStore((state) => state.premiumGasOnly);
@@ -129,7 +132,6 @@ export default function CategoryFilter() {
   const showRiderShares = useMapStore((state) => state.showRiderShares);
   const toggleRiderShares = useMapStore((state) => state.toggleRiderShares);
   const handlePress = (key: PlaceCategory) => {
-    haptics.selection(50);
     // 끄는 동작은 세지 않는다 — 무엇을 보려 했는지가 관심사다
     if (activeFilter !== key) track.categoryFiltered({ category: key });
     setActiveFilter(activeFilter === key ? null : key);
@@ -154,20 +156,19 @@ export default function CategoryFilter() {
         <RiderShareFilterChip
           isActive={showRiderShares}
           onPress={() => {
-            haptics.selection(50);
             track.generalSharedLayerToggled({ on: !showRiderShares });
             toggleRiderShares();
           }}
         />
       </ScrollView>
-      {activeFilter === 'gas_station' && (
-        <View pointerEvents="box-none" style={styles.subfilters}>
-          <Pressable
+      {(actions || activeFilter === 'gas_station') && (
+        <View pointerEvents="box-none" style={[styles.subfilters, actions ? styles.actionsRow : null]}>
+          {actions}
+          {activeFilter === 'gas_station' && <Pressable
             accessibilityRole="checkbox"
             accessibilityLabel="고급휘발유 판매 주유소만 보기"
             accessibilityState={{ checked: premiumGasOnly }}
             onPress={() => {
-              haptics.selection(50);
               togglePremiumGasOnly();
             }}
             style={({ pressed }) => [styles.chip, styles.subfilterChip, {
@@ -183,7 +184,7 @@ export default function CategoryFilter() {
             <Text numberOfLines={1} style={[styles.chipLabel, { flexShrink: 1, color: premiumGasOnly ? colors.background : colors.text }]}>
               고급휘발유만
             </Text>
-          </Pressable>
+          </Pressable>}
         </View>
       )}
     </View>
@@ -191,6 +192,16 @@ export default function CategoryFilter() {
 }
 
 const styles = StyleSheet.create({
+  darkChip: {
+    backgroundColor: '#24262B',
+    borderColor: '#41444B',
+  },
+  darkChipSelected: {
+    backgroundColor: '#3A3D44',
+    borderColor: '#62666E',
+  },
+  darkChipLabel: { color: '#E4E4E7' },
+  darkChipLabelSelected: { color: '#FFFFFF' },
   container: {
     paddingHorizontal: 16,
     paddingVertical: 4,
@@ -203,6 +214,13 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
     alignItems: 'center',
   },
+  actionsRow: {
+    marginTop: 6,
+    paddingTop: 0,
+    paddingBottom: 0,
+    minHeight: 52,
+    justifyContent: 'center',
+  },
   subfilterChip: {
     minHeight: 44,
     maxWidth: '100%',
@@ -213,11 +231,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.06,
     shadowRadius: 2,
     elevation: 2,
   },

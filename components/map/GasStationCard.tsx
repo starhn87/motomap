@@ -1,9 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ActivityIndicator, View, Text, Pressable, StyleSheet } from 'react-native';
-import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
+import { ActivityIndicator, View, Pressable, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/AppText';
+import Animated, { Keyframe } from 'react-native-reanimated';
 
 import Colors from '@/constants/Colors';
 import CloseIcon from '@/components/ui/CloseIcon';
+import GlassButton from '@/components/ui/GlassButton';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useGasStationDetail } from '@/hooks/useGasStations';
 import { openNavigation } from '@/lib/navigation';
@@ -12,7 +14,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useGeneralFavorite, useToggleGeneralFavorite } from '@/hooks/useFavorites';
 import { fullTankCost, myFuelProd, useMyBike } from '@/lib/bike';
 import { toast } from '@/lib/toast';
-import { haptics } from '@/lib/haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Props {
   station: GasStation;
@@ -20,9 +22,20 @@ interface Props {
   onClose: () => void;
 }
 
+// Glass 표면이 투명한 부모에서 캡처되지 않도록 이동만 적용한다.
+const enterCard = new Keyframe({
+  0: { transform: [{ translateY: 16 }] },
+  100: { transform: [{ translateY: 0 }] },
+}).duration(250);
+const exitCard = new Keyframe({
+  0: { transform: [{ translateY: 0 }] },
+  100: { transform: [{ translateY: 16 }] },
+}).duration(200);
+
 export default function GasStationCard({ station, fuelCode = 'B027', onClose }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
   const { data: detail, isLoading, isError, isFetching, refetch } = useGasStationDetail(station.id);
   // 내 바이크를 등록했으면 그 유종을 강조하고 가득 주유비를 보여준다
   const { spec: myBike } = useMyBike();
@@ -52,7 +65,7 @@ export default function GasStationCard({ station, fuelCode = 'B027', onClose }: 
         on: !isFavorite,
         favoriteId: favorite?.id,
       });
-      haptics.selection();
+
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }
@@ -63,9 +76,9 @@ export default function GasStationCard({ station, fuelCode = 'B027', onClose }: 
 
   return (
     <Animated.View
-      entering={FadeInUp.duration(250)}
-      exiting={FadeOutDown.duration(200)}
-      style={[styles.card, { backgroundColor: colors.background, borderColor: colors.border }]}>
+      entering={enterCard}
+      exiting={exitCard}
+      style={[styles.card, { bottom: insets.bottom + 12, backgroundColor: colors.background, borderColor: colors.border }]}>
       <View style={styles.header}>
         <View style={styles.titleWrap}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
@@ -92,27 +105,27 @@ export default function GasStationCard({ station, fuelCode = 'B027', onClose }: 
         <View style={styles.headerActions}>
           {/* 여백은 padding 이 아니라 hitSlop 으로 — 아이콘이 줄 높이보다
               커지면 잘린다 */}
-          <Pressable
+          {!!user && <GlassButton compact
             accessibilityLabel={isFavorite ? '주유소 즐겨찾기 해제' : '주유소 즐겨찾기'}
             accessibilityRole="button"
             onPress={handleFavorite}
             disabled={favPending}
             hitSlop={12}
-            style={({ pressed }) => ({ opacity: pressed || favPending ? 0.55 : 1 })}>
+            style={{ width: 36, height: 36, borderRadius: 18 }}>
             <Ionicons
               name={isFavorite ? 'star' : 'star-outline'}
               size={20}
               color={isFavorite ? '#FACC15' : colors.textSecondary}
             />
-          </Pressable>
-          <Pressable
+          </GlassButton>}
+          <GlassButton compact
             accessibilityLabel="주유소 정보 닫기"
             accessibilityRole="button"
             onPress={onClose}
             hitSlop={12}
-            style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
+            style={{ width: 36, height: 36, borderRadius: 18 }}>
             <CloseIcon size={20} color={colors.textSecondary} />
-          </Pressable>
+          </GlassButton>
         </View>
       </View>
 
@@ -152,7 +165,7 @@ export default function GasStationCard({ station, fuelCode = 'B027', onClose }: 
           if (!cost) return null;
           return (
             <Text style={[styles.tankCost, { color: colors.textSecondary }]}>
-              가득 약 {cost.toLocaleString()}원 · 탱크 {myBike!.tankL}L 기준
+              가득 약 {cost.toLocaleString()}원 ({myBike!.tankL}L 기준)
             </Text>
           );
         })()}
@@ -169,9 +182,9 @@ export default function GasStationCard({ station, fuelCode = 'B027', onClose }: 
             accessibilityState={{ disabled: isFetching, busy: isFetching }}
             disabled={isFetching}
             onPress={() => { void refetch(); }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={[styles.meta, { color: colors.textSecondary, flex: 0, flexShrink: 1 }]} numberOfLines={1}>
-                {detail ? '이전 유가' : '유가 조회 실패'}{' · '}
+                {detail ? '이전 유가' : '유가 조회 실패'}
               </Text>
               <View>
                 <Text accessible={false} style={[styles.meta, { flex: 0, color: colors.tint, opacity: isFetching ? 0 : 1 }]}>다시 시도</Text>

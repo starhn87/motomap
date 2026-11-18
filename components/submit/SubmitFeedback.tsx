@@ -1,16 +1,16 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   StyleSheet,
   View,
-  Text,
-  TextInput,
   Pressable,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Keyboard,
 } from 'react-native';
-import { useState } from 'react';
+import { Text, TextInput } from '@/components/ui/AppText';
+import { useRef, useState } from 'react';
 import Animated, {
   useAnimatedStyle,
   withSpring,
@@ -21,6 +21,9 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { submitFeedback } from '@/lib/api/feedback';
 import { toast } from '@/lib/toast';
+import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
+import { useContentHeaderInset } from '@/components/navigation/headerInset';
+import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 import { registerPushToken } from '@/lib/push';
 import type { FeedbackType } from '@/lib/api/feedback';
 
@@ -33,6 +36,10 @@ const FEEDBACK_TYPES = [
 ];
 
 export default function SubmitFeedback() {
+  const scrollRef = useRef<ScrollView>(null);
+  const keyboardInput = useRevealKeyboardInput(scrollRef);
+  const trackHeaderScroll = useTrackHeaderScroll();
+  const headerInset = useContentHeaderInset();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -77,10 +84,14 @@ export default function SubmitFeedback() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      enabled={Platform.OS === 'android'}
+      behavior="height">
       <ScrollView
+        ref={scrollRef}
+        automaticallyAdjustKeyboardInsets
+        onScroll={trackHeaderScroll} scrollEventThrottle={16}
         style={{ flex: 1 }}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: headerInset + 20 }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
         <Text style={[styles.sectionTitle, { color: colors.text }]}>유형 *</Text>
@@ -88,6 +99,7 @@ export default function SubmitFeedback() {
           {FEEDBACK_TYPES.map((ft) => (
             <Pressable
               key={ft.key}
+              accessibilityRole="radio" accessibilityState={{ selected: type === ft.key }}
               onPress={() => setType(ft.key)}
               style={[
                 styles.typeChip,
@@ -101,7 +113,7 @@ export default function SubmitFeedback() {
                   borderColor: type === ft.key ? colors.tint : colors.border,
                 },
               ]}>
-              <Ionicons name={ft.icon} size={18} color={type === ft.key ? colors.tint : colors.textSecondary} />
+              <Ionicons name={ft.icon} size={18} color={type === ft.key ? colors.background : colors.textSecondary} />
               <Text
                 style={[
                   styles.typeLabel,
@@ -115,6 +127,7 @@ export default function SubmitFeedback() {
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>내용 *</Text>
         <TextInput
+          onFocus={keyboardInput.onFocus}
           style={[
             styles.input,
             {
@@ -144,6 +157,7 @@ export default function SubmitFeedback() {
             {submitting ? '제출 중...' : '의견 보내기'}
           </Text>
         </AnimatedPressable>
+        <TabScrollSpacer />
       </ScrollView>
     </KeyboardAvoidingView>
   );

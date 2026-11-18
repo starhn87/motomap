@@ -84,6 +84,8 @@ export function deviceLocationSecret(): Promise<string> {
   return secretPromise;
 }
 
+export class LocationUsageLimitError extends Error {}
+
 // 비밀값은 분석·오류 로그에 넣지 않는다. 원격 실패를 성공/동의로 바꾸지 않는다.
 export async function locationPrivacyRpc(action: string, secret: string, payload: Record<string, Json | undefined>, actor: string | null): Promise<Json> {
   const controller = new AbortController();
@@ -92,6 +94,9 @@ export async function locationPrivacyRpc(action: string, secret: string, payload
     const { data, error } = await supabase.rpc('location_privacy', {
       p_action: action, p_secret: secret, p_payload: { ...payload, expectedActor: actor, clientCapabilities: ['tmap'] },
     }).abortSignal(controller.signal);
+    if (error?.code === 'P0001' && ['usage limit reached', 'location daily limit reached'].includes(error.message)) {
+      throw new LocationUsageLimitError('위치 이용 요청이 잠시 제한됐어요.');
+    }
     if (error) throw new Error('위치정보 설정을 처리하지 못했어요. 다시 시도해 주세요.');
     if (data === null) throw new Error('위치정보 응답을 확인하지 못했어요.');
     return data;

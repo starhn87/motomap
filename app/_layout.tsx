@@ -5,7 +5,6 @@ import { View } from 'react-native';
 
 import ServiceLoadingScreen from '@/components/ServiceLoadingScreen';
 import ServiceResumeScreen from '@/components/ServiceResumeScreen';
-import ServiceSuspendedScreen from '@/components/ServiceSuspendedScreen';
 import { APP_STORE_URL } from '@/constants/app';
 import { getInstalledAppVersion } from '@/lib/appVersion';
 import { fetchServiceStatus, resolveServiceGate } from '@/lib/serviceStatus';
@@ -21,10 +20,10 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ fade: true, duration: STARTUP_SPLASH_FADE_MS });
 
-// 중단 화면에서는 이 모듈을 평가하지 않는다. 지도·인증·분석은 진입 후에만 시작한다.
+// 최소 버전 확인 뒤에 지도·인증·분석을 시작한다.
 const ActiveRootLayout = lazy(() => import('@/components/ActiveRootLayout'));
 
-type GateStage = 'checking' | 'suspended' | 'preparing' | 'update' | 'retry' | 'active';
+type GateStage = 'checking' | 'update' | 'active';
 
 export default function RootLayout() {
   const [stage, setStage] = useState<GateStage>('checking');
@@ -41,11 +40,7 @@ export default function RootLayout() {
     const status = await fetchServiceStatus();
     if (requestId !== requestSequence.current) return;
     if (status) setStoreUrl(status.storeUrl);
-    const gate = resolveServiceGate(
-      status,
-      getInstalledAppVersion(),
-      Updates.channel === 'internal-testflight',
-    );
+    const gate = resolveServiceGate(status, getInstalledAppVersion());
     if (gate !== 'check-update') {
       setStage(gate);
       return;
@@ -54,18 +49,14 @@ export default function RootLayout() {
     // 알림의 비동기 조회·저장을 끝내기 전에 OTA로 native emitter를 교체하지 않는다.
     const resumeOutcome = await resumeController.current?.settleStartup();
     if (requestId !== requestSequence.current) return;
-    if (resumeOutcome === 'failed' || resumeOutcome === 'pending') {
-      setStage('update');
-      return;
-    }
-    if (resumeOutcome === 'opened' || resumeOutcome === 'unavailable' || resumeOutcome === 'navigation') {
-      // 스토어·상세를 여는 사용자 동작을 앱 내부 OTA 재시작으로 덮어쓰지 않는다.
+    if (resumeOutcome && resumeOutcome !== 'none') {
+      // 알림 탭 처리 결과를 OTA 재시작이나 업데이트 화면으로 덮지 않는다.
       setStage('active');
       return;
     }
 
-    // 개발 서버는 expo-updates 확인 API가 지원되지 않는다.
-    if (__DEV__) {
+    // 상태 조회에 실패하면 OTA까지 기다리지 않고 설치된 지원 버전으로 시작한다.
+    if (!status || __DEV__) {
       setStage('active');
       return;
     }
@@ -77,18 +68,14 @@ export default function RootLayout() {
         const downloaded = await Updates.fetchUpdateAsync();
         if (requestId !== requestSequence.current) return;
         if (!downloaded.isNew) {
-          setStage('retry');
+          setStage('active');
           return;
         }
         // 다운로드 중에도 새 알림을 탭할 수 있다. 직전 응답을 다시 정리한다.
         const lateResumeOutcome = await resumeController.current?.settleStartup();
         if (requestId !== requestSequence.current) return;
-        if (lateResumeOutcome === 'opened' || lateResumeOutcome === 'unavailable' || lateResumeOutcome === 'navigation') {
+        if (lateResumeOutcome && lateResumeOutcome !== 'none') {
           setStage('active');
-          return;
-        }
-        if (lateResumeOutcome === 'failed' || lateResumeOutcome === 'pending') {
-          setStage('update');
           return;
         }
         await Updates.reloadAsync();
@@ -96,12 +83,12 @@ export default function RootLayout() {
       }
       setStage('active');
     } catch {
-      if (requestId === requestSequence.current) setStage('retry');
+      if (requestId === requestSequence.current) setStage('active');
     }
   }
 
   useEffect(() => {
-    const controller = setupResumeStoreLink(() => setStage('update'));
+    const controller = setupResumeStoreLink();
     resumeController.current = controller;
     void checkStatus();
     return () => {
@@ -130,21 +117,8 @@ export default function RootLayout() {
     );
   } else if (stage === 'checking') {
     content = <ServiceLoadingScreen />;
-  } else if (stage === 'update' || stage === 'retry') {
-    content = (
-      <ServiceResumeScreen
-        mode={stage}
-        onRetry={() => void checkStatus()}
-        storeUrl={storeUrl}
-      />
-    );
   } else {
-    content = (
-      <ServiceSuspendedScreen
-        preparing={stage === 'preparing'}
-        onCheckStatus={() => void checkStatus()}
-      />
-    );
+    content = <ServiceResumeScreen storeUrl={storeUrl} />;
   }
 
   return (

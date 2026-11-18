@@ -12,6 +12,9 @@ NS_ASSUME_NONNULL_BEGIN
 // [자차 on 주간, on 야간, off 주간, off 야간] — SDK 가 요구하는 순서.
 + (NSArray<UIImage *> *)carImages;
 
+// 원 지름에 맞춘 자차 화살표. 지도 자차와 교통 막대에서 함께 사용한다.
++ (UIBezierPath *)vehicleArrowAtCenter:(CGPoint)center diameter:(CGFloat)diameter;
+
 // 자차 이미지의 기준점(중앙).
 + (CGPoint)carAnchor;
 

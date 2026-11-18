@@ -40,6 +40,7 @@ interface Verdict {
   criteria: string[];
   reason: string;
   userReason: string;
+  descriptionDraft: string;
 }
 
 interface RidingGuideVerdict {
@@ -62,6 +63,7 @@ const VERDICT_SCHEMA = {
       minItems: 1,
       description: '판정에 직접 사용한 승인 기준 규칙 ID를 중요도 순으로 1~6개',
     },
+    descriptionDraft: { type: 'string', description: '장소 제보의 원문이 비어 있거나 구체적이지 않을 때만, 같은 장소로 교차 확인한 자료의 사실을 한국어 160자 이내의 1~2문장으로 요약하고, 참고한 출처는 reason에 명시한다. 추측, 광고 문구, 확인되지 않은 주차·영업·바이크 접근 정보는 제외한다. 근거가 부족하거나 원문이 충분하거나 장소 제보가 아니면 빈 문자열.' },
     reason: { type: 'string', description: '판정 근거 (한국어, 1~3문장)' },
     userReason: {
       type: 'string',
@@ -72,7 +74,7 @@ const VERDICT_SCHEMA = {
         '내부 판정 용어(카카오 로컬, 웹 조사, confidence 등)는 쓰지 않는다.',
     },
   },
-  required: ['verdict', 'confidence', 'criteria', 'reason', 'userReason'],
+  required: ['verdict', 'confidence', 'criteria', 'reason', 'userReason', 'descriptionDraft'],
   additionalProperties: false,
 } as const;
 
@@ -465,7 +467,7 @@ async function judge(table: string, record: Record<string, unknown>): Promise<{ 
       `한국의 장소 "${record.name}" (주소: ${record.address ?? '?'}) 이(가) 오토바이 라이더들에게 ` +
       `알려진 곳인지 웹에서 조사하라. "${record.name} 바이크", "${record.name} 오토바이", "${record.name} 라이더" 등으로 검색해 ` +
       `운영자·공공기관·공식 브랜드처럼 현재성이 있는 출처를 우선하고, 라이더 커뮤니티·블로그·후기의 ` +
-      `언급 여부도 확인하라. ${categoryResearch} 발견한 근거를 한국어 3~5문장으로 요약하라. ` +
+      `언급 여부도 확인하라. ${categoryResearch} 같은 주소의 장소에서 확인한 대표 메뉴나 시설 특징도 조사하고, 출처와 함께 한국어 3~5문장으로 요약하라. ` +
       `근거가 없으면 "라이더 관련 언급을 찾지 못함"이라고 명시하라.`,
     ).catch((e) => `(웹 조사 실패: ${String(e).slice(0, 120)})`);
     evidenceParts.push('웹 조사: ' + web);
@@ -523,9 +525,12 @@ async function sign(msg: string): Promise<string> {
     .slice(0, 32);
 }
 
-async function moderateUrl(table: string, id: string, action: 'approve' | 'reject') {
-  const s = await sign(`${table}:${id}:${action}`);
-  return `${SB_URL}/functions/v1/moderate?t=${table}&id=${id}&a=${action}&s=${s}`;
+async function moderateUrl(table: string, id: string, action: 'approve' | 'reject', draft = '') {
+  const signed = `${table}:${id}:${action}`;
+  const signature = await sign(draft ? `${signed}:${draft}` : signed);
+  const params = new URLSearchParams({ t: table, id, a: action, s: signature });
+  if (draft) params.set('d', btoa(String.fromCharCode(...new TextEncoder().encode(draft))));
+  return `${SB_URL}/functions/v1/moderate?${params}`;
 }
 
 async function guideModerateUrl(
@@ -579,13 +584,21 @@ async function saveRidingGuideVerdict(id: string, verdict: RidingGuideVerdict) {
 async function postDiscord(
   content: string,
   actions?: { label: string; style: number; customId: string; url: string }[],
+  draft = '',
+  photos: string[] = [],
 ) {
+  const embeds = [
+    ...(draft ? [{ title: '등록 설명 초안', description: draft }] : []),
+    ...photos.map((url, index) => ({ title: `제보 사진 ${index + 1}`, url })),
+  ];
   if (BOT_TOKEN && CHANNEL_ID) {
     const res = await fetch(`https://discord.com/api/v10/channels/${CHANNEL_ID}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bot ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         content: content.slice(0, 1900),
+        embeds,
+        allowed_mentions: { parse: [] },
         components: actions?.length
           ? [
               {
@@ -610,7 +623,7 @@ async function postDiscord(
   await fetch(DISCORD_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: (content + linkLine).slice(0, 1900) }),
+    body: JSON.stringify({ content: content.slice(0, Math.max(0, 1900 - linkLine.length)) + linkLine, embeds, allowed_mentions: { parse: [] } }),
   });
 }
 
@@ -682,6 +695,15 @@ async function judgeAndPost(table: string, record: Record<string, unknown>) {
     const id = String(record.id);
     // 반려 버튼을 누르면 이 문구가 rejected_reason 으로 복사된다 (verdict 무관 항상 저장)
     await saveUserReason(table, id, v.userReason);
+    const draft = table === 'places' && typeof v.descriptionDraft === 'string'
+      ? v.descriptionDraft.trim() : '';
+    const description = draft.length <= 160 ? draft : '';
+    const photoPrefix = `${SB_URL}/storage/v1/object/public/ridemap-media/place-submissions/`;
+    const photos = table === 'places' && Array.isArray(record.photos)
+      ? record.photos.filter((url): url is string => typeof url === 'string' &&
+        url.startsWith(photoPrefix) && /^[a-zA-Z0-9/._-]+$/.test(url.slice(photoPrefix.length)) &&
+        url.length <= 220).slice(0, 5)
+      : [];
     // 교차검증 원자료(evidence)는 판정 입력으로만 쓰고 노출하지 않는다 — reason 에 요약됨
     await postDiscord(
       `🤖 AI 판정 — ${icon} ${record.name}\n` +
@@ -690,8 +712,14 @@ async function judgeAndPost(table: string, record: Record<string, unknown>) {
       `근거: ${v.reason}\n` +
       `반려 시 안내 문구: ${v.userReason}`,
       [
+        ...(description ? [{
+          label: '초안으로 승인',
+          style: 3,
+          customId: `mod:approve-draft:places:${id}`,
+          url: await moderateUrl(table, id, 'approve', description),
+        }] : []),
         {
-          label: '승인',
+          label: description ? '원문으로 승인' : '승인',
           style: 3, // 초록
           customId: `mod:approve:${table}:${id}`,
           url: await moderateUrl(table, id, 'approve'),
@@ -703,6 +731,8 @@ async function judgeAndPost(table: string, record: Record<string, unknown>) {
           url: await moderateUrl(table, id, 'reject'),
         },
       ],
+      description,
+      photos,
     );
   } catch (e) {
     // 기본 제보 알림은 별도 트리거로 이미 발송됨 — 판정 실패만 알린다

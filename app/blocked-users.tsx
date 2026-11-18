@@ -2,11 +2,11 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   StyleSheet,
   View,
-  Text,
   Pressable,
   FlatList,
   RefreshControl,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { Image as RNImage } from 'expo-image';
 
 import Colors from '@/constants/Colors';

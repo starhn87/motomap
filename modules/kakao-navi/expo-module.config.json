@@ -1,5 +1,8 @@
 {
-  "platforms": ["ios"],
+  "platforms": ["ios", "android"],
+  "android": {
+    "modules": ["expo.modules.kakaonavi.KakaoNaviModule"]
+  },
   "ios": {
     "modules": ["KakaoNaviModule"],
     "appDelegateSubscribers": ["KNNaviAppDelegateSubscriber"]

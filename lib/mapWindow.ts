@@ -37,12 +37,9 @@ export function mapRenderWindowRadius(center: MapCenter): number | null {
   return Math.hypot(halfHeight, halfWidth) * MAP_WINDOW_OVERSCAN;
 }
 
-export function isInMapRenderWindow(
-  coordinate: Coordinate,
-  center?: MapCenter | null,
-): boolean {
+export function mapRenderWindowContains(center?: MapCenter | null): (coordinate: Coordinate) => boolean {
   const region = center?.region;
-  if (!region || region.latitudeDelta <= 0 || region.longitudeDelta <= 0) return true;
+  if (!region || region.latitudeDelta <= 0 || region.longitudeDelta <= 0) return () => true;
 
   // region.latitude/longitude는 남서쪽 모서리다. 이를 그대로 중심으로 쓰면
   // 실제 화면의 북쪽·동쪽 25%가 1.5배 overscan 창에서도 빠진다.
@@ -50,8 +47,12 @@ export function isInMapRenderWindow(
   const regionCenterLongitude = region.longitude + region.longitudeDelta / 2;
   const latitudeMargin = (region.latitudeDelta * MAP_WINDOW_OVERSCAN) / 2;
   const longitudeMargin = (region.longitudeDelta * MAP_WINDOW_OVERSCAN) / 2;
-  return (
+  return (coordinate) => (
     Math.abs(coordinate.latitude - regionCenterLatitude) <= latitudeMargin &&
     Math.abs(coordinate.longitude - regionCenterLongitude) <= longitudeMargin
   );
+}
+
+export function isInMapRenderWindow(coordinate: Coordinate, center?: MapCenter | null): boolean {
+  return mapRenderWindowContains(center)(coordinate);
 }

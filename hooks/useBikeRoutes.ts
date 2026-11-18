@@ -1,5 +1,6 @@
 import { withLocationUse, providerLocationAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import { useEffect, useMemo, useState } from 'react';
+import { Platform } from 'react-native';
 
 import KakaoNavi, {
   friendlyRouteError,
@@ -11,7 +12,8 @@ import KakaoNavi, {
 } from '@/modules/kakao-navi';
 import { sampleWaypoints, type NavTarget } from '@/lib/navigation';
 import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
-import { fetchBikeTraffic, type TrafficPart } from '@/lib/api/directions';
+import { LocationUsageLimitError } from '@/lib/locationPrivacy';
+import { fetchBikePreview, fetchBikeTraffic, type TrafficPart } from '@/lib/api/directions';
 import { toast } from '@/lib/toast';
 import { track } from '@/lib/analytics';
 import { canFallbackToCourseStart, kakaoNaviProviderError, shouldReduceRouteVias } from '@/lib/kakaoRouteErrors';
@@ -19,7 +21,7 @@ import { rememberProviderFailure } from '@/lib/providerErrors';
 
 const ROUTE_LOAD_TIMEOUT_MS = 20_000;
 
-type RouteOption = { route: BikeRoute; vias: number[]; context: string };
+type RouteOption = { route: BikeRoute; vias: number[]; context: string; trafficParts?: TrafficPart[] };
 type RouteFailure = { message: string; canRetry: boolean; context: string };
 
 // 미리보기 화면의 "지점 → 경로" 도메인 — 옵션별 경로·혼잡 캐시, 20412 경유지
@@ -39,6 +41,7 @@ export function useBikeRoutes(args: {
   /** 화면이 가려지거나 안내 시작 중이면 비교 요청을 중지한다. */
   enabled?: boolean;
 }) {
+  const useRestPreview = Platform.OS === 'android';
   const privacyRevision = useLocationPrivacyStore((s) => s.revision);
   const { start, startName, goal, userVias, courseVias, isCourseMode, enabled = true } = args;
 
@@ -113,16 +116,18 @@ export function useBikeRoutes(args: {
       setErrors((previous) => ({ ...previous, [requestedPriority]: { message, canRetry, context } }));
     };
     let cancelled = false;
+    const controller = useRestPreview ? new AbortController() : null;
     const timeout = setTimeout(() => {
       if (cancelled) return;
       cancelled = true;
+      controller?.abort();
       fail('길안내 응답이 늦어지고 있어요. 잠시 후 다시 시도해 주세요.', true);
     }, ROUTE_LOAD_TIMEOUT_MS);
 
     (async () => {
       // SDK 는 여기서 처음 초기화된다(lazy — 배터리 사유는 lib/kakaoNaviInit.ts)
       try {
-        await ensureKakaoNaviReady();
+        if (!useRestPreview) await ensureKakaoNaviReady();
       } catch (err) {
         if (!cancelled) {
           const failure = kakaoNaviProviderError(err, 'initialize');
@@ -143,14 +148,17 @@ export function useBikeRoutes(args: {
       let lastErr: unknown = null;
       for (const tryVias of ladder) {
         try {
-          const result = await withLocationUse('route','kakao',() => KakaoNavi.requestBikeRoute(
-            effStart[0], effStart[1], goal.longitude, goal.latitude, tryVias, requestedPriority,
-          ));
+          const preview = useRestPreview
+            ? await fetchBikePreview(effStart, [goal.longitude, goal.latitude], pairsFromFlat(tryVias), requestedPriority, controller?.signal)
+            : { route: await withLocationUse('route','kakao',() => KakaoNavi.requestBikeRoute(
+                effStart[0], effStart[1], goal.longitude, goal.latitude, tryVias, requestedPriority,
+              )), trafficParts: undefined };
+          const result = preview.route;
           if (cancelled) return;
           if (tryVias.length < requestVias.length) {
-            if (requestedPriority === priority) toast.info('일부 경유지를 빼고 안내해요', '경로가 코스와 다를 수 있어요.');
+            if (requestedPriority === priority) toast.info('일부 경유지를 뺀 경로예요', '경로가 코스와 다를 수 있어요.');
           }
-          setRoutes((prev) => ({ ...prev, [requestedPriority]: { route: result, vias: tryVias, context } }));
+          setRoutes((prev) => ({ ...prev, [requestedPriority]: { ...preview, vias: tryVias, context } }));
           if (requestedPriority === priority) track.navigationPreviewed({
             distance_m: result.distance,
             duration_s: result.duration,
@@ -161,11 +169,15 @@ export function useBikeRoutes(args: {
           return;
         } catch (err) {
           if (cancelled) return;
+          if (err instanceof LocationUsageLimitError) {
+            fail(`${err.message} 잠시 후 다시 시도해 주세요.`, true);
+            return;
+          }
           const failure = kakaoNaviProviderError(err, 'route');
           lastErr = failure;
           rememberProviderFailure(failure);
           // 경유지 단절만 사다리로 해결한다. 인증·네트워크·서버 실패에는 같은 요청을 반복하지 않는다.
-          if (!shouldReduceRouteVias(lastErr)) break;
+          if (!shouldReduceRouteVias(lastErr) || (useRestPreview && !isCourseMode)) break;
         }
       }
       if (cancelled) return;
@@ -199,10 +211,11 @@ export function useBikeRoutes(args: {
 
     return () => {
       cancelled = true;
+      controller?.abort();
       clearTimeout(timeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias·userVias·courseOnly 에서 파생
-  }, [context, allowed, enabled, requestPriority, routes, errors]);
+  }, [context, allowed, enabled, requestPriority, routes, errors, useRestPreview]);
 
   // 혼잡 구간 색칠 — 선택한 옵션의 실제 경유지가 확정된 뒤에만 조회한다.
   // 비교용 경로에는 REST 혼잡 요청을 추가하지 않는다. 실패하면 단색 그대로다.
@@ -211,7 +224,7 @@ export function useBikeRoutes(args: {
       if (Object.keys(traffic).length) setTraffic({});
       return;
     }
-    if (!enabled || !effStart || traffic[priority]?.context === context) return;
+    if (useRestPreview || !enabled || !effStart || traffic[priority]?.context === context) return;
     if (!route) return;
     let cancelled = false;
     fetchBikeTraffic(effStart, [goal.longitude, goal.latitude], pairsFromFlat(activeVias ?? effVias), priority)
@@ -223,7 +236,7 @@ export function useBikeRoutes(args: {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- effVias 는 vias·userVias·courseOnly 에서 파생
-  }, [context, route, priority, enabled]);
+  }, [context, route, priority, enabled, useRestPreview]);
 
   return {
     priority,
@@ -241,7 +254,7 @@ export function useBikeRoutes(args: {
         errors[p.value]?.context !== context && (requestPriority === p.value || !hasFailure),
     })),
     /** 선택된 옵션의 혼잡 구간 — 없으면 단색으로 그린다 */
-    trafficParts: allowed && traffic[priority]?.context === context ? traffic[priority]?.parts : undefined,
+    trafficParts: option?.trafficParts ?? (allowed && traffic[priority]?.context === context ? traffic[priority]?.parts : undefined),
     loading,
     routeError,
     retryRoute,

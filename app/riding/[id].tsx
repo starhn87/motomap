@@ -5,9 +5,9 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { Image } from 'expo-image';
 import { useEffect, useRef } from 'react';
 import { useLocalSearchParams } from 'expo-router';
@@ -157,7 +157,7 @@ export default function RidingGuideDetailScreen() {
 
       {guide.regions.length > 0 && (
         <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>
-          {guide.regions.join(' · ')}
+          {guide.regions.join(', ')}
         </Text>
       )}
       <View style={styles.titleRow}>

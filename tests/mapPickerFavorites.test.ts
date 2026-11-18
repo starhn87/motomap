@@ -36,6 +36,7 @@ function setup(overrides: Record<string, unknown> = {}) {
   const registered = [favorites.places[0], { id: 'repair', name: '바이크 정비소', address: '정비소 주소', latitude: 37.5005, longitude: 127.0005, category: 'repair_shop' }];
   const placeQueries: any[] = [];
   const mod = loadModule<any>('components/map/MapPickerModal.tsx', {
+    '@/components/ui/GlassButton': { __esModule: true, default: 'GlassButton' },
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', Modal: 'Modal', ActivityIndicator: 'Spinner', StyleSheet: { create: (v: any) => v, absoluteFill: {} } },
     '@expo/vector-icons/Ionicons': { __esModule: true, default: 'Icon' },

@@ -85,7 +85,7 @@ test('전송 중에는 제보 문구 공간을 유지하면서 스피너만 표�
     ts.isJsxAttribute(prop) && prop.name.getText() === 'onPress'
     && prop.initializer?.getText() === '{handleSubmit}');
   for (const submitting of [false, true]) {
-    const button = renderPart('app/(tabs)/submit.tsx', select, { submitting, handleSubmit() {} });
+    const button = renderPart('app/(tabs)/submit.tsx', select, { submitting, pickingPhotos: false, handleSubmit() {} });
     assert.equal(button.type, 'Pressable');
     assert.equal(button.props.disabled, submitting);
     assert.equal(button.props.accessibilityState.busy, submitting);

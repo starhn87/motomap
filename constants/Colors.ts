@@ -6,6 +6,12 @@ export const semantic = {
   danger: '#EF4444',
 };
 
+// 밝은 페이지에서 Android 조작부를 회색 면으로 구분한다.
+export const androidLightControl = {
+  backgroundColor: '#F3F3F5',
+  borderWidth: 0,
+};
+
 export default {
   light: {
     text: '#18181B',
@@ -15,7 +21,7 @@ export default {
     border: '#E4E4E7',
     tint: '#18181B',
     tabIconDefault: '#A1A1AA',
-    tabIconSelected: '#18181B',
+    tabIconSelected: '#007AFF',
     surface: '#F9FAFB',
     surfaceElevated: '#FFFFFF',
     surfaceMuted: '#F3F4F6',

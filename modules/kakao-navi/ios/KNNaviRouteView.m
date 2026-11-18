@@ -1,4 +1,5 @@
 #import "KNNaviRouteView.h"
+#import "KNNaviHiddenViews.h"
 #import <KNSDK/KNComponentView.h>
 #import <objc/runtime.h>
 #import <string.h>
@@ -12,7 +13,14 @@
 @interface KNNaviRouteView ()
 @property(nonatomic, readwrite) BOOL didBlockSafetyMode;
 @property(nonatomic, readwrite) BOOL mapDetached;
+@property(nonatomic, strong) UIView *bottomNoticeView;
+@property(nonatomic, strong) UIView *bottomNoticeTitle;
+@property(nonatomic, strong) UILabel *bottomNoticeLabel;
+@property(nonatomic, strong) KNNaviHiddenViews *bottomNoticeLock;
+@property(nonatomic, copy) NSString *lastBottomNotice;
 @end
+
+static char kBottomNoticeContext;
 
 static IMP gOriginalMapState = NULL;
 static void MotoMapMapState(KNNaviRouteView *view, SEL selector, KNNaviMapView *map, MapState state) {
@@ -25,6 +33,95 @@ static void MotoMapMapState(KNNaviRouteView *view, SEL selector, KNNaviMapView *
 }
 
 @implementation KNNaviRouteView
+
+- (void)restoreBottomNotice {
+  [self.bottomNoticeView removeObserver:self forKeyPath:@"hidden" context:&kBottomNoticeContext];
+  [self.bottomNoticeTitle removeObserver:self forKeyPath:@"hidden" context:&kBottomNoticeContext];
+  [self.bottomNoticeLabel removeObserver:self forKeyPath:@"hidden" context:&kBottomNoticeContext];
+  [self.bottomNoticeLabel removeObserver:self forKeyPath:@"text" context:&kBottomNoticeContext];
+  [self.bottomNoticeLabel removeObserver:self forKeyPath:@"attributedText" context:&kBottomNoticeContext];
+  [self.bottomNoticeLock restore];
+  self.bottomNoticeView = nil;
+  self.bottomNoticeTitle = nil;
+  self.bottomNoticeLabel = nil;
+  self.lastBottomNotice = nil;
+}
+
+- (void)publishBottomNotice {
+  UILabel *label = self.bottomNoticeLabel;
+  if (!label || label.hidden || self.bottomNoticeTitle.hidden ||
+      [self.bottomNoticeLock isRequestedHidden:self.bottomNoticeView]) {
+    self.lastBottomNotice = nil;
+    return;
+  }
+  NSString *text = [label.text ?: label.attributedText.string ?: @""
+      stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+  if (!text.length) {
+    self.lastBottomNotice = nil;
+    return;
+  }
+  if ([text isEqualToString:self.lastBottomNotice]) return;
+  self.lastBottomNotice = text;
+  if (self.onBottomNotice) self.onBottomNotice(text);
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object
+                       change:(NSDictionary *)change context:(void *)context {
+  if (context == &kBottomNoticeContext) {
+    // SDK의 문자열과 가시성 변경이 같은 사이클에 끝난 뒤 전달한다.
+    __weak KNNaviRouteView *weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf publishBottomNotice]; });
+    return;
+  }
+  [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+}
+
+- (void)refreshBottomNotice {
+  if (!self.onBottomNotice) {
+    [self restoreBottomNotice];
+    return;
+  }
+  if (self.bottomNoticeLabel && self.bottomNoticeView.superview == self &&
+      self.bottomNoticeTitle.superview == self.bottomNoticeView &&
+      self.bottomNoticeLabel.superview == self.bottomNoticeTitle) return;
+  [self restoreBottomNotice];
+  // 고정 SDK에서 확인한 하단 알림 계층만 처리한다.
+  for (UIView *info in self.subviews) {
+    if (![NSStringFromClass(info.class) isEqualToString:@"KNInfoView"]) continue;
+    for (UIView *title in info.subviews) {
+      if (![NSStringFromClass(title.class) isEqualToString:@"InfoTitleLabel"]) continue;
+      for (UIView *child in title.subviews) {
+        if (![child isKindOfClass:UILabel.class]) continue;
+        self.bottomNoticeView = info;
+        self.bottomNoticeTitle = title;
+        self.bottomNoticeLabel = (UILabel *)child;
+        self.bottomNoticeLock = [KNNaviHiddenViews new];
+        [self.bottomNoticeLock hideView:info];
+        [info addObserver:self forKeyPath:@"hidden" options:0 context:&kBottomNoticeContext];
+        [title addObserver:self forKeyPath:@"hidden" options:0 context:&kBottomNoticeContext];
+        [child addObserver:self forKeyPath:@"hidden" options:0 context:&kBottomNoticeContext];
+        [child addObserver:self forKeyPath:@"text" options:0 context:&kBottomNoticeContext];
+        [child addObserver:self forKeyPath:@"attributedText" options:0 context:&kBottomNoticeContext];
+        [self publishBottomNotice];
+        return;
+      }
+    }
+  }
+}
+
+- (void)layoutSubviews {
+  [super layoutSubviews];
+  [self refreshBottomNotice];
+}
+
+- (void)guidanceRouteChanged:(KNGuidance *)guidance {
+  [super guidanceRouteChanged:guidance];
+  [self refreshBottomNotice];
+}
+
+- (void)dealloc {
+  [self restoreBottomNotice];
+}
 
 + (BOOL)isSDKMapStateBoundaryCompatible {
   static dispatch_once_t once;

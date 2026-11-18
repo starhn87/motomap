@@ -78,6 +78,16 @@ Deno.serve(async (req) => {
   const action = u.searchParams.get('a');
   const targetGuideId = u.searchParams.get('g') ?? '';
   const s = u.searchParams.get('s');
+  const encodedDraft = u.searchParams.get('d');
+  let draft = '';
+  if (encodedDraft !== null) {
+    try {
+      if (!encodedDraft || encodedDraft.length > 860) throw new Error('invalid draft length');
+      draft = new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(atob(encodedDraft), (byte) => byte.charCodeAt(0)));
+    } catch {
+      return page(400, '잘못된 설명 초안이에요');
+    }
+  }
 
   if (table === 'riding_guide_submissions') {
     if (
@@ -139,7 +149,11 @@ Deno.serve(async (req) => {
   ) {
     return page(400, '잘못된 요청이에요');
   }
-  if (s !== (await sign(`${table}:${id}:${action}`))) {
+  if (draft && (table !== 'places' || action !== 'approve' || draft.length > 200)) {
+    return page(400, '잘못된 설명 초안이에요');
+  }
+  const signed = `${table}:${id}:${action}`;
+  if (s !== (await sign(draft ? `${signed}:${draft}` : signed))) {
     return page(403, '링크 서명이 올바르지 않아요');
   }
 
@@ -162,23 +176,27 @@ Deno.serve(async (req) => {
   }
 
   if (action === 'approve') {
-    const r = await sb(`${table}?id=eq.${id}`, {
+    const r = await sb(`${table}?id=eq.${id}&approved=eq.false&deleted_at=is.null`, {
       method: 'PATCH',
-      body: JSON.stringify({ approved: true }),
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ approved: true, ...(draft ? { description: draft } : {}) }),
     });
     if (!r.ok) return page(500, '처리에 실패했어요', `HTTP ${r.status}`);
+    if (!(await r.json()).length) return page(200, '이미 처리된 제보예요');
     await discordLog(`🟢 승인 완료 — ${icon} ${row.name}`);
     return page(200, '✅ 승인 완료', `${row.name} — 제보자에게 반영 알림이 발송됐어요.`);
   }
 
-  const r = await sb(`${table}?id=eq.${id}`, {
+  const r = await sb(`${table}?id=eq.${id}&approved=eq.false&deleted_at=is.null`, {
     method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
       deleted_at: new Date().toISOString(),
       rejected_reason: row.ai_reject_reason ?? null,
     }),
   });
   if (!r.ok) return page(500, '처리에 실패했어요', `HTTP ${r.status}`);
+  if (!(await r.json()).length) return page(200, '이미 처리된 제보예요');
   await discordLog(
     `🔴 반려 완료 — ${icon} ${row.name}` +
       (row.ai_reject_reason ? `\n안내 문구: ${row.ai_reject_reason}` : ' (사유 없음 — 기본 문구 발송)'),

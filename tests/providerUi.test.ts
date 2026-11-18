@@ -35,6 +35,7 @@ function weatherButton() {
     '@/components/weather/WeatherEmoji': 'WeatherEmoji',
   };
   new Script(code).runInNewContext({ module, exports: module.exports, require: (name: string) => {
+    if (name === '@/components/ui/AppText') return dependencies['react-native'];
     if (!(name in dependencies)) throw new Error(`미지정 날씨 버튼 의존성: ${name}`);
     return dependencies[name];
   } });
@@ -65,7 +66,8 @@ test('이전 날씨는 명시적으로 표시하고 기존 상세 토글·터치
   let opens = 0;
   const weather = { current: { temp: 20, emoji: '☀️' }, gradeColor: 'green' };
   const normal = render({ weather, open: false, onPress: () => opens++ });
-  assert.equal(normal.props.children[1].props.children, '20°');
+  assert.equal(normal.props.children[0].props.emoji, '☀️');
+  assert.equal(normal.props.children[1], false);
   normal.props.onPressIn();
   assert.equal(scales[0].value, 0.82);
   normal.props.onPressOut();

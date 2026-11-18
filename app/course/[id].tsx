@@ -1,9 +1,8 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import BikeIcon from '@/components/ui/BikeIcon';
 import {
   StyleSheet,
   View,
-  Text,
-  TextInput,
   Pressable,
   ScrollView,
   ActivityIndicator,
@@ -12,7 +11,8 @@ import {
   Platform,
   Share,
 } from 'react-native';
-import { useState } from 'react';
+import { Text, TextInput } from '@/components/ui/AppText';
+import { useRef, useState } from 'react';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { NaverMapView, NaverMapPathOverlay, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 
@@ -82,7 +82,10 @@ function LegacyCourseDetailScreen({ id }: { id: string }) {
   const { mutateAsync: updateReview } = useUpdateCourseReview(id ?? '');
   const { mutateAsync: removeReview } = useDeleteCourseReview(id ?? '');
   const blockedIds = useBlockedIds();
+  const visibleReviews = (reviews ?? []).filter(review => !blockedIds.has(review.userId));
   const { mutateAsync: blockUserFn } = useBlockUser();
+  const scrollRef = useRef<ScrollView>(null);
+  const keyboardInput = useRevealKeyboardInput(scrollRef);
   const [rating, setRating] = useState(0);
   const [content, setContent] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -160,8 +163,11 @@ function LegacyCourseDetailScreen({ id }: { id: string }) {
     <>
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      enabled={Platform.OS === 'android'}
+      behavior="height">
       <ScrollView
+        ref={scrollRef}
+        automaticallyAdjustKeyboardInsets
         style={styles.container}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -271,7 +277,7 @@ function LegacyCourseDetailScreen({ id }: { id: string }) {
         {course.sectionFrom && course.sectionTo && (
           <Text style={[styles.sectionLine, { color: colors.textSecondary }]}>
             {course.sectionFrom} → {course.sectionTo}
-            {course.routeName ? ` · ${course.routeName}` : ''}
+            {course.routeName ? `\n${course.routeName}` : ''}
           </Text>
         )}
         {course.description ? (
@@ -370,7 +376,7 @@ function LegacyCourseDetailScreen({ id }: { id: string }) {
                     <View style={styles.hazardBody}>
                       <Text style={[styles.hazardLabel, { color: colors.text }]}>
                         {meta.label}
-                        {hazard.note ? ` · ${hazard.note}` : ''}
+                        {hazard.note ? `\n${hazard.note}` : ''}
                       </Text>
                       <Text style={[styles.hazardMeta, { color: colors.textSecondary }]}>
                         {hazardFreshness(hazard.lastConfirmedAt, hazard.staleness)}
@@ -416,7 +422,7 @@ function LegacyCourseDetailScreen({ id }: { id: string }) {
                       </Text>
                     </View>
                     <Text style={[styles.nearbyCardSub, { color: colors.textSecondary }]}>
-                      {CATEGORIES[place.category].label} · 코스{' '}
+                      {CATEGORIES[place.category].label}{'\n'}코스{' '}
                       {routeFraction < 0.33 ? '초반' : routeFraction < 0.67 ? '중반' : '후반'}
                     </Text>
                   </Pressable>
@@ -439,6 +445,7 @@ function LegacyCourseDetailScreen({ id }: { id: string }) {
               <Text style={[styles.reviewFormLabel, { color: colors.text }]}>별점</Text>
               <StarRating rating={rating} onRate={setRating} size={32} />
               <TextInput
+                onFocus={keyboardInput.onFocus}
                 style={[
                   styles.reviewInput,
                   {
@@ -466,21 +473,22 @@ function LegacyCourseDetailScreen({ id }: { id: string }) {
                 </Text>
               </Pressable>
             </View>
-          ) : (
+          ) : visibleReviews.length > 0 && (
             <Text style={[styles.loginHint, { color: colors.textSecondary }]}>
-              리뷰를 작성하려면 로그인이 필요합니다.
+              리뷰를 작성하려면 로그인해 주세요.
             </Text>
           )}
 
-          {!(reviews ?? []).filter((r) => !blockedIds.has(r.userId)).length ? (
+          {!visibleReviews.length ? (
             <Text style={[styles.emptyReview, { color: colors.textSecondary }]}>
-              아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
+              {user ? '아직 리뷰가 없어요. 첫 리뷰를 남겨보세요.'
+                : '아직 리뷰가 없어요. 로그인하고 첫 리뷰를 남겨보세요.'}
             </Text>
           ) : (
             <View style={styles.reviewList}>
-              {reviews!.filter((r) => !blockedIds.has(r.userId)).map((review) => {
+              {visibleReviews.map((review) => {
                 const isOwner = user?.id === review.userId;
-                const isEditing = editingId === review.id;
+                const isEditing = isOwner && editingId === review.id;
 
                 return (
                   <View
@@ -518,6 +526,7 @@ function LegacyCourseDetailScreen({ id }: { id: string }) {
                       <View style={styles.editForm}>
                         <StarRating rating={editRating} onRate={setEditRating} size={24} />
                         <TextInput
+                          onFocus={keyboardInput.onFocus}
                           style={[
                             styles.editInput,
                             {

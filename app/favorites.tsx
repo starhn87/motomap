@@ -3,11 +3,11 @@ import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   StyleSheet,
   View,
-  Text,
   Pressable,
   FlatList,
   RefreshControl,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { router } from 'expo-router';
 import EmptyState from '@/components/ui/EmptyState';
 

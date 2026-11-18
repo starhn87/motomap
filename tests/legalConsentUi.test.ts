@@ -5,10 +5,10 @@ import { Script } from 'node:vm';
 import { transformSync } from 'esbuild';
 
 type Element = { type: unknown; props: Record<string, any> };
-function fixture(options: { needsLegal?: boolean; showProvidersInline?: boolean; consent?:()=>Promise<void>; legal?:()=>Promise<void> } = {}) {
-  const states: any[]=[]; let cursor=0; let actor='A'; const calls: string[]=[];
+function fixture(options: { needsLegal?: boolean; showProvidersInline?: boolean; guest?: boolean; historyAllowed?: boolean; consent?:()=>Promise<void>; legal?:()=>Promise<void> } = {}) {
+  const states: any[]=[]; let cursor=0; let actor: string | null=options.guest?null:'A'; const calls: string[]=[];
   let consentArgs: unknown[]=[];
-  const state={actor:'A',version:null,providers:[],historyAllowed:false,ready:true,
+  const state={actor,version:null,providers:[],historyAllowed:options.historyAllowed??false,ready:true,
     consent:async(...args:unknown[])=>{calls.push('location'); consentArgs=args; await options.consent?.();},
     browse:()=>calls.push('browse'),load:async()=>{}};
   const source=readFileSync(new URL('../components/auth/LegalConsentScreen.tsx',import.meta.url),'utf8');
@@ -16,20 +16,25 @@ function fixture(options: { needsLegal?: boolean; showProvidersInline?: boolean;
   const documents=Object.fromEntries(['terms','privacy','location'].map(type=>[type,{title:type,content:`current-${type}-body`}]));
   const module={exports:{} as {default:(props: Record<string,unknown>)=>Element}};
   const dependencies: Record<string,unknown>={
+    '@/components/ui/GlassButton': { __esModule: true, default: 'GlassButton' },
+    '@/components/useColorScheme': { useColorScheme: () => 'light' },
+    '@/constants/Colors': { __esModule: true, default: { light: { text: '#18181B' } } },
     react:{useState(initial:any){const i=cursor++; if(!(i in states)) states[i]=typeof initial==='function'?initial():initial;
       return [states[i],(v:any)=>{states[i]=typeof v==='function'?v(states[i]):v;}];},
       useRef(initial:any){const i=cursor++; if(!(i in states)) states[i]={current:initial}; return states[i];}},
     'react/jsx-runtime':{jsx:(type:unknown,props:unknown)=>({type,props}),jsxs:(type:unknown,props:unknown)=>({type,props})},
     'react-native':{ActivityIndicator:'ActivityIndicator',Modal:'Modal',Pressable:'Pressable',SafeAreaView:'SafeAreaView',ScrollView:'ScrollView',Text:'Text',View:'View',StyleSheet:{create:(v:unknown)=>v}},
+    'react-native-safe-area-context':{SafeAreaView:'InsetView'},
     '@/constants/legal':{LEGAL_DOCS:documents},
     '@/lib/legalConsent':{acceptCurrentLegalDocuments:async()=>{calls.push('legal'); await options.legal?.();}},
     '@/lib/locationPrivacy':{LOCATION_CONSENT_VERSION:'2026-10-11-location-v2',LOCATION_PROVIDERS:['kakao','kma','airkorea','opinet','anthropic','tmap'],
       LOCATION_PROVIDER_DETAILS:{kakao:'routes',kma:'weather',airkorea:'air',opinet:'gas',anthropic:'AI',tmap:'주변 장소 검색: 약2km 격자'},
       RECIPIENT_LABELS:{kakao:'카카오',kma:'기상청',airkorea:'한국환경공단',opinet:'한국석유공사',anthropic:'Anthropic',tmap:'TMAP'}},
     '@/stores/useLocationPrivacyStore':{useLocationPrivacyStore:Object.assign(()=>state,{getState:()=>state})},
-    '@/stores/useAuthStore':{useAuthStore:{getState:()=>({session:{access_token:`test-token-${actor}`,user:{id:actor}},refreshOnboardingStatus:async()=>{calls.push('refresh');},signOut:async()=>{}})}},
+    '@/stores/useAuthStore':{useAuthStore:{getState:()=>({session:actor?{access_token:`test-token-${actor}`,user:{id:actor}}:null,refreshOnboardingStatus:async()=>{calls.push('refresh');},signOut:async()=>{}})}},
   };
   new Script(code).runInNewContext({module,exports:module.exports,require:(name:string)=>{
+    if (name === '@/components/ui/AppText') return dependencies['react-native'];
     if(!(name in dependencies)) throw new Error(`미지정 약관 UI 의존성: ${name}`); return dependencies[name];
   }});
   return {render:()=>{cursor=0;return module.exports.default({needsLegal:options.needsLegal ?? true,showProvidersInline:options.showProvidersInline ?? false});},
@@ -41,18 +46,18 @@ function elements(node:any):Element[]{
   return [node,...elements(node.props.children)];
 }
 function checkAll(f:ReturnType<typeof fixture>){
-  elements(f.render()).filter(n=>n.props.accessibilityRole==='checkbox').forEach(n=>n.props.onPress());
+  elements(f.render()).filter(n=>n.props.accessibilityRole==='checkbox' && n.props.accessibilityLabel !== '방문·주행 기록 저장 (선택)').forEach(n=>n.props.onPress());
 }
 function submit(f:ReturnType<typeof fixture>){
   return elements(f.render()).find(n=>n.type==='Pressable' && ['동의하고 시작하기','동의하고 저장'].includes(n.props.accessibilityLabel))!;
 }
 test('처음에는 미선택 기본 동의만 보이고 공급자 선택은 자세히 보기에 담는다',()=>{
   const f=fixture(); const nodes=elements(f.render());
-  assert.equal(nodes.filter(n=>n.props.accessibilityRole==='checkbox').length,3);
+  assert.equal(nodes.filter(n=>n.props.accessibilityRole==='checkbox').length,4);
   assert.ok(nodes.filter(n=>n.props.accessibilityRole==='checkbox').every(n=>!n.props.accessibilityState.checked));
   assert.equal(submit(f).props.disabled,true);
   const locationOnly=fixture({needsLegal:false});
-  assert.equal(elements(locationOnly.render()).filter(n=>n.props.accessibilityRole==='checkbox').length,1);
+  assert.equal(elements(locationOnly.render()).filter(n=>n.props.accessibilityRole==='checkbox').length,2);
 });
 test('문서 보기는 동의 버전의 내장 본문이며 닫아도 체크 상태를 유지한다',()=>{
   const f=fixture(); elements(f.render()).find(n=>n.props.accessibilityRole==='checkbox')!.props.onPress();
@@ -153,9 +158,52 @@ test('설정의 동의 범위 변경은 약관 보기를 누르지 않아도 TMA
   assert.match(source,/<LegalConsentScreen needsLegal=\{false\} showProvidersInline/);
 });
 test('기존 온보딩은 제공자 목록을 본문에 자동 노출하지 않고 설정 모달에는 중복 선택을 만들지 않는다',()=>{
-  const onboard=fixture({needsLegal:false});assert.equal(visibleElements(onboard.render()).filter(n=>n.props.accessibilityRole==='checkbox').length,1);
+  const onboard=fixture({needsLegal:false});assert.equal(visibleElements(onboard.render()).filter(n=>n.props.accessibilityRole==='checkbox').length,2);
   const f=fixture({needsLegal:false,showProvidersInline:true});
   visibleElements(f.render()).find(n=>n.props.accessibilityLabel==='location 보기')!.props.onPress();
   const modal=visibleElements(f.render()).find(n=>n.type==='Modal')!;
   assert.equal(elements(modal).filter(n=>n.props.accessibilityRole==='checkbox').length,0);
+});
+
+
+test('최초 동의에서 기록 저장은 별도로 선택하며 필수 동의를 대신하지 않는다', async () => {
+  const f=fixture();
+  const optional=()=>elements(f.render()).find(n=>n.props.accessibilityLabel==='방문·주행 기록 저장 (선택)')!;
+  assert.equal(optional().props.accessibilityState.checked,false);
+  optional().props.onPress(); assert.equal(submit(f).props.disabled,true);
+  checkAll(f); await submit(f).props.onPress(); await new Promise(done=>setTimeout(done,0));
+  assert.equal(f.consentArgs()[2],true);
+});
+
+test('최초 화면에서 문서를 열지 않아도 모든 기능의 위치 전달 범위를 선택할 수 있다', () => {
+  const f=fixture();
+  elements(f.render()).find(n=>n.props.accessibilityLabel==='기능별 위치 전달 선택')!.props.onPress();
+  const tmap=visibleElements(f.render()).find(n=>n.props.accessibilityRole==='checkbox' && elements(n).some(c=>c.props.children==='TMAP'))!;
+  assert.ok(tmap); assert.equal(tmap.props.accessibilityState.checked,false);
+  tmap.props.onPress();
+  assert.equal(visibleElements(f.render()).find(n=>n.props.accessibilityRole==='checkbox' && elements(n).some(c=>c.props.children==='TMAP'))!.props.accessibilityState.checked,true);
+  assert.deepEqual(f.calls,[], '선택만으로 서버에 저장하지 않는다');
+});
+
+
+test('비회원은 기록 저장을 켤 수 없고 위치 동의만 저장한다', async () => {
+  const f=fixture({needsLegal:false,guest:true});
+  const history=elements(f.render()).find(n=>n.props.accessibilityLabel==='방문·주행 기록 저장 (선택)')!;
+  assert.equal(history.props.disabled,true);
+  history.props.onPress(); checkAll(f); await submit(f).props.onPress(); await new Promise(done=>setTimeout(done,0));
+  assert.equal(f.consentArgs()[2],false);
+});
+
+test('위치 전달 범위만 바꿀 때 기존 기록 저장 동의는 유지한다', async () => {
+  const f=fixture({needsLegal:false,showProvidersInline:true,historyAllowed:true});
+  checkAll(f); await submit(f).props.onPress(); await new Promise(done=>setTimeout(done,0));
+  assert.equal(f.consentArgs()[2],true);
+});
+
+
+test('추가 전달 대상을 비워도 기본 지도 이용까지 전달이 없다고 안내하지 않는다', () => {
+  const f=fixture();
+  elements(f.render()).find(n=>n.props.accessibilityLabel==='기능별 위치 전달 선택')!.props.onPress();
+  visibleElements(f.render()).filter(n=>n.props.accessibilityRole==='checkbox' && n.props.accessibilityState.checked).forEach(n=>n.props.onPress());
+  assert.ok(visibleElements(f.render()).some(n=>typeof n.props.children==='object' && Array.isArray(n.props.children) && n.props.children.includes('선택한 추가 전달 대상이 없어요.')));
 });

@@ -22,7 +22,8 @@ const enabled = !!apiKey && !__DEV__;
 export const posthog = enabled
   ? new PostHog(apiKey!, {
       host,
-      enableSessionReplay: true,
+      // 지도·시트 이동 중 화면 캡처 작업을 피하고 제품 이벤트만 수집한다.
+      enableSessionReplay: false,
       // RN 리플레이는 스크린샷 모드만 지원한다 — 화면이 통째로 찍히므로
       // 마스킹이 곧 개인정보 방어선이다. 아래 셋은 SDK 기본값도 true 지만
       // 실수로 꺼지면 바로 유출이라 의도를 코드에 남긴다.
@@ -190,14 +191,21 @@ export const track = {
     distance_m?: number;
   }) => capture('navigation_started', p),
 
+  // reason 은 기존 도착·중도·비정상 버킷을 유지한다. exit 가 종료 계기이고,
+  // had_arrived 는 300m 도착 콜백이 세션에 남았는지다. 프로세스 종료를
+  // 도착으로 재분류하지 않는다 — 도착률 정의가 바뀌면 과거 주간 수치와 끊긴다.
   // abandoned = 안내 중 앱이 죽어(강제 종료·OS 종료 포함) 종료를 못 찍은
   // 세션을 다음 실행 때 정산한 것. 시작과 같은 id·mode 로 묶는다.
   navigationEnded: (p: {
     guide_session_id: string;
     reason: 'arrived' | 'cancelled' | 'abandoned';
+    exit: 'user_end' | 'no_goal' | 'start_failed' | 'process_end';
+    had_arrived: boolean;
     mode: 'live' | 'preview';
     duration_s?: number;
     distance_m?: number;
+    /** 종료 시점의 목적지까지 남은 거리. 위치를 못 읽으면 생략 */
+    remaining_m?: number;
   }) =>
     capture('navigation_ended', p),
 
@@ -216,6 +224,21 @@ export const track = {
 
   placeSubmissionOpened: (p: { source: 'arrival' | 'temp_place' | 'search_empty' }) =>
     capture('place_submission_opened', p),
+
+  // 열기와 접수 사이. result 가 이탈 구간이다. login 은 버튼 전이므로
+  // 같은 방문에서 이후 submitted 가 또 남을 수 있다.
+  placeSubmissionAttempted: (p: {
+    source: 'tab' | 'arrival' | 'temp_place' | 'search_empty';
+    result:
+      | 'login'
+      | 'missing_name'
+      | 'missing_category'
+      | 'missing_address'
+      | 'duplicate_approved'
+      | 'duplicate_pending'
+      | 'error'
+      | 'submitted';
+  }) => capture('place_submission_attempted', p),
 
   // 제보 폼에는 사진 입력이 없다 — 카테고리와 진입 경로만 남긴다
   placeSubmitted: (p: {

@@ -3,36 +3,37 @@ import { useGuideSession } from '@/lib/guideSession';
 import { withLocationUse, locationUseAllowed } from '@/stores/useLocationPrivacyStore';
 import {
   AppState,
+  Linking,
+  Platform,
   StyleSheet,
   View,
-  Text,
   Pressable,
   Keyboard,
   ActivityIndicator,
   useWindowDimensions,
   type PressableStateCallbackType,
 } from 'react-native';
-import { memo, useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { Text } from '@/components/ui/AppText';
+import { memo, startTransition, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { NaverMapView, NaverMapMarkerOverlay } from '@mj-studio/react-native-naver-map';
 import type { NaverMapViewRef } from '@mj-studio/react-native-naver-map';
 import Animated, { FadeOut,
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
-  withSequence,
-  Easing,
   FadeIn,
-  interpolate,
-  Extrapolation,
 } from 'react-native-reanimated';
 
+import { ANDROID_TAB_SIDE_INSET, useTabOcclusion } from '@/components/navigation/tabOcclusion';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { appAlert } from '@/lib/dialog';
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/constants/mapStyle';
 import { useMapStore } from '@/stores/useMapStore';
 import { track } from '@/lib/analytics';
-import { isInMapRenderWindow, usePlaces, type MapCenter } from '@/hooks/usePlaces';
+import { mapRenderWindowContains } from '@/lib/mapWindow';
+import { usePlaces, type MapCenter } from '@/hooks/usePlaces';
 import { useGasLayer } from '@/hooks/useGasLayer';
 import { usePlace } from '@/hooks/usePlace';
-import { useWeather } from '@/hooks/useWeather';
+import { useWeather, weatherGridCoordinate } from '@/hooks/useWeather';
 import { useMapDeepLinks } from '@/hooks/useMapDeepLinks';
 import { setMapFocusOverride } from '@/lib/mapFocus';
 import { useNearbyHazards } from '@/hooks/useHazards';
@@ -51,6 +52,7 @@ import { findGeneralFavorite } from '@/lib/api/favorites';
 import { useFavoritePlaces } from '@/hooks/useFavorites';
 import { useAuthStore } from '@/stores/useAuthStore';
 import PlaceBottomSheet from '@/components/map/PlaceBottomSheet';
+import MapOverlayLayer from '@/components/map/MapOverlayLayer';
 import CourseReturnChip from '@/components/map/CourseReturnChip';
 import GasStationMarker from '@/components/map/GasStationMarker';
 import GasStationCard from '@/components/map/GasStationCard';
@@ -59,12 +61,14 @@ import WeatherSheet from '@/components/map/WeatherSheet';
 import * as Location from 'expo-location';
 
 import TempPlaceSheet, { type TempPlace } from '@/components/map/TempPlaceSheet';
+import { useGeneralPlace } from '@/hooks/useGeneralPlace';
 import TempPlaceMarker from '@/components/map/TempPlaceMarker';
 import HazardMarker from '@/components/map/HazardMarker';
 import HazardSheet from '@/components/map/HazardSheet';
 import { coordToAddress } from '@/lib/api/kakaoLocal';
 import { resolveSymbolPlace } from '@/lib/symbolPlace';
 import SearchEntry from '@/components/search/SearchEntry';
+import { ANDROID_TOP_CONTROL_GAP } from '@/components/navigation/headerSpacing';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import type { Href } from 'expo-router';
@@ -80,14 +84,19 @@ import RegisteredPlaceMarkers, {
 import { toast } from '@/lib/toast';
 import { useSharedGeneralPlaces } from '@/hooks/useCommunityPlaceSignals';
 import { usePlaceOperationalStatuses } from '@/hooks/usePlaceOperationalStatus';
-import type { Place, RoadHazard } from '@/types';
-import { haptics } from '@/lib/haptics';
+import type { Place, PlaceOperationalStatus, RoadHazard } from '@/types';
+import GlassButton from '@/components/ui/GlassButton';
 import {
   getLastMapCamera,
   setMainMapFocused,
   setLastMapCamera,
   type MapCameraSnapshot,
 } from '@/lib/mapCamera';
+
+const MAP_LOGO_MARGIN = { left: 8, right: 0, top: 0, bottom: 0 };
+const HIDDEN_MAP_LOCATION_OVERLAY = { isVisible: false };
+const EMPTY_MARKER_LIST: never[] = [];
+const EMPTY_OPERATIONAL_STATUSES: Record<string, PlaceOperationalStatus> = {};
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -111,14 +120,17 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     kakaoLng?: string;
     focusPlaceId?: string;
     focusTs?: string;
+    detailExpanded?: string;
   }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const userLocation = useMapStore((state) => state.userLocation);
-  const selectedPlaceId = useMapStore((state) => state.selectedPlaceId);
+  const tabSelectedPlaceId = useMapStore((state) => state.selectedPlaceId);
+  const [overlaySelectedPlaceId, setOverlaySelectedPlaceId] = useState<string | null>(null);
+  const selectedPlaceId = overlay ? overlaySelectedPlaceId : tabSelectedPlaceId;
   const activeFilter = useMapStore((state) => state.activeFilter);
   const premiumGasOnly = useMapStore((state) => state.premiumGasOnly);
-  const setSelectedPlaceId = useMapStore((state) => state.setSelectedPlaceId);
+  const setTabSelectedPlaceId = useMapStore((state) => state.setSelectedPlaceId);
+  const setSelectedPlaceId = overlay ? setOverlaySelectedPlaceId : setTabSelectedPlaceId;
   const showRiderShares = useMapStore((state) => state.showRiderShares);
   const isMapFocused = useIsFocused();
   const rootNavigation = useNavigation<NativeStackNavigationProp<ParamListBase>>('/');
@@ -135,8 +147,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const [mapCameraAtMount] = useState<MapCameraSnapshot | null>(() =>
     overlay ? null : getLastMapCamera(),
   );
-  const [initialCameraFallback, setInitialCameraFallback] =
-    useState<MapCameraSnapshot | null>(mapCameraAtMount);
+  const [initialUserLocation] = useState(() => useMapStore.getState().userLocation);
   const [mapCenter, setMapCenter] = useState<MapCenter | null>(() => {
     const camera = mapCameraAtMount;
     return camera
@@ -154,6 +165,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   const [mapReady, setMapReady] = useState(false);
   const [mapPresentationReady, setMapPresentationReady] = useState(false);
   const didCenterOnUserRef = useRef(false);
+  const [locationRetry, setLocationRetry] = useState(0);
   const pendingGuideReturn = useGuideSession((s) => s.preview?.returnPending ? s.preview.snapshot.token : null);
   const [guideReturnAttempt, setGuideReturnAttempt] = useState(0);
   const [guideReturnFailed, setGuideReturnFailed] = useState(false);
@@ -258,14 +270,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     (camera: MapCameraSnapshot, region?: NonNullable<MapCenter['region']>) => {
       if (!overlay) {
         setLastMapCamera(camera);
-        setInitialCameraFallback(camera);
       }
-      setMapCenter({
+      // 카메라 정착 뒤 상세 첫 표시를 지도 범위 갱신보다 먼저 처리한다.
+      startTransition(() => setMapCenter({
         latitude: camera.latitude,
         longitude: camera.longitude,
         zoom: camera.zoom,
         region,
-      });
+      }));
       // 검색의 "지금 보는 지역" 기준점은 이동이 끝났을 때만 갱신한다.
       useMapStore.getState().setMapCenter({
         latitude: camera.latitude,
@@ -293,17 +305,17 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     mapCenter,
     !gasMode && !showRiderShares,
   );
-  const { data: operationalStatuses = {} } = usePlaceOperationalStatuses(isMapFocused);
-  const { data: sharedGeneralPlaces = [] } = useSharedGeneralPlaces(
+  const { data: operationalStatuses = EMPTY_OPERATIONAL_STATUSES } = usePlaceOperationalStatuses(isMapFocused);
+  const { data: sharedGeneralPlaces = EMPTY_MARKER_LIST } = useSharedGeneralPlaces(
     mapCenter,
     showRiderShares,
   );
-  const { data: hazards = [] } = useNearbyHazards(mapCenter);
+  const { data: hazards = EMPTY_MARKER_LIST } = useNearbyHazards(mapCenter);
   const [selectedHazard, setSelectedHazard] = useState<RoadHazard | null>(null);
 
   // 라이딩 날씨 — 내 위치 우선, 없으면 지도 중심 기준
-  const weatherLat = userLocation?.latitude ?? mapCenter?.latitude;
-  const weatherLng = userLocation?.longitude ?? mapCenter?.longitude;
+  const weatherLat = useMapStore((state) => weatherGridCoordinate(state.userLocation?.latitude)) ?? mapCenter?.latitude;
+  const weatherLng = useMapStore((state) => weatherGridCoordinate(state.userLocation?.longitude)) ?? mapCenter?.longitude;
   const { data: weather, isError: weatherFailed, isFetching: weatherFetching, refetch: refetchWeather } = useWeather(weatherLat, weatherLng);
   const [weatherOpen, setWeatherOpen] = useState(false);
 
@@ -313,36 +325,36 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     if (weatherOpen) void refetchWeather();
   }, [weatherOpen, refetchWeather]);
 
-  // 최초 1회: 지도가 준비되고 내 위치를 확보하면 카메라를 내 위치로 이동
+  // 위치 갱신은 카메라 명령만 전달한다. 지도 본문은 날씨 격자가 바뀔 때만 갱신한다.
   useEffect(() => {
-    // 오버레이는 보러 온 장소가 주인공이다 — 위치가 도착했다고 카메라를 내
-    // 위치로 뺏으면 장소→내 위치→장소로 두 번 튄다(실기기 보고)
-    if (overlay || !mapReady || !userLocation || didCenterOnUserRef.current) return;
-    // 검색 전에 보던 카메라가 있으면 그 상태가 사용자 위치보다 우선한다.
-    if (mapCameraAtMount) {
-      didCenterOnUserRef.current = true;
-      return;
-    }
-    // 딥링크 포커스를 들고 태어났다면(콜드 스타트 직후 검색 → 장소) 초기
-    // 센터링 자체를 포기한다 — 내 위치를 경유했다가 장소로 가는 게 이것이었다
-    if (overlayParams.focusPlaceId || overlayParams.kakaoLat) {
-      didCenterOnUserRef.current = true;
-      return;
-    }
-    didCenterOnUserRef.current = true;
-    mapRef.current?.animateCameraTo({
-      latitude: userLocation.latitude,
-      longitude: userLocation.longitude,
-      zoom: DEFAULT_ZOOM,
-      duration: 0,
+    if (!isMapFocused || !mapReady) return;
+    const syncCameraToLocation = (userLocation: ReturnType<typeof useMapStore.getState>['userLocation']) => {
+      if (!isMapFocusedRef.current || !userLocation) return;
+      if (!overlay && !didCenterOnUserRef.current) {
+        didCenterOnUserRef.current = true;
+        // 복원 카메라와 콜드 스타트 딥링크가 최초 위치보다 우선한다.
+        if (!mapCameraAtMount && !overlayParams.focusPlaceId && !overlayParams.kakaoLat) {
+          mapRef.current?.animateCameraTo({ ...userLocation, zoom: DEFAULT_ZOOM, duration: 0 });
+          return;
+        }
+      }
+      if (followingRef.current) {
+        mapRef.current?.animateCameraTo({ ...userLocation, duration: 600 });
+      }
+    };
+
+    syncCameraToLocation(useMapStore.getState().userLocation);
+    return useMapStore.subscribe((state, previous) => {
+      if (state.userLocation !== previous.userLocation) syncCameraToLocation(state.userLocation);
     });
-  }, [overlay, mapReady, userLocation, mapCameraAtMount, overlayParams.focusPlaceId, overlayParams.kakaoLat]);
+  }, [isMapFocused, mapReady, overlay, mapCameraAtMount, overlayParams.focusPlaceId, overlayParams.kakaoLat]);
 
   // 즐겨찾기 지도 표시 — 켜면 뷰포트·필터와 무관하게 즐겨찾기가 별 마커로 보인다.
   // 일반 장소보다 높은 우선순위의 개별 마커로 그려 탭·선택 강조를 유지한다.
-  const showFavorites = useMapStore((s) => s.showFavorites);
+  const favoritesSelected = useMapStore((s) => s.showFavorites);
   const toggleShowFavorites = useMapStore((s) => s.toggleShowFavorites);
   const user = useAuthStore((s) => s.user);
+  const showFavorites = !!user && favoritesSelected;
   const { data: favoritePlaces } = useFavoritePlaces(showFavorites);
   const favIds = useMemo(
     () => new Set((favoritePlaces?.places ?? []).map((p) => p.id)),
@@ -351,60 +363,37 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   // 즐겨찾기는 이름 캡션과 함께 개별 마커로 항상 보인다(네이버 지도식).
   // 뷰포트 목록과 겹치면 일반 마커 쪽에서는 제외한다.
-  const basePlaces = gasMode || showRiderShares ? [] : (supabasePlaces ?? []);
+  const basePlaces = gasMode || showRiderShares ? EMPTY_MARKER_LIST : (supabasePlaces ?? EMPTY_MARKER_LIST);
   const places = useMemo(
     () => (showFavorites ? basePlaces.filter((p) => !favIds.has(p.id)) : basePlaces),
     [basePlaces, showFavorites, favIds],
   );
+  const isInsideMarkerWindow = useMemo(() => mapRenderWindowContains(mapCenter), [mapCenter]);
   const windowedPlaces = useMemo(
-    () => places.filter((place) => isInMapRenderWindow(place, mapCenter)),
-    [places, mapCenter],
+    () => places.filter(isInsideMarkerWindow),
+    [places, isInsideMarkerWindow],
   );
   const windowedFavoritePlaces = useMemo(
     () =>
-      (favoritePlaces?.places ?? []).filter((place) =>
-        isInMapRenderWindow(place, mapCenter),
-      ),
-    [favoritePlaces, mapCenter],
+      (favoritePlaces?.places ?? []).filter(isInsideMarkerWindow),
+    [favoritePlaces, isInsideMarkerWindow],
   );
   const windowedGeneralFavorites = useMemo(
     () =>
-      (favoritePlaces?.general ?? []).filter((place) =>
-        isInMapRenderWindow(place, mapCenter),
-      ),
-    [favoritePlaces, mapCenter],
+      (favoritePlaces?.general ?? []).filter(isInsideMarkerWindow),
+    [favoritePlaces, isInsideMarkerWindow],
   );
   const windowedSharedGeneralPlaces = useMemo(
     () =>
-      sharedGeneralPlaces.filter((place) => isInMapRenderWindow(place, mapCenter)),
-    [sharedGeneralPlaces, mapCenter],
+      sharedGeneralPlaces.filter(isInsideMarkerWindow),
+    [sharedGeneralPlaces, isInsideMarkerWindow],
   );
   const windowedHazards = useMemo(
     () =>
       (mapCenter?.zoom ?? 0) >= HAZARD_MIN_ZOOM
-        ? hazards.filter((hazard) => isInMapRenderWindow(hazard, mapCenter))
+        ? hazards.filter(isInsideMarkerWindow)
         : [],
-    [hazards, mapCenter],
-  );
-  const handleMarkerPress = useCallback(
-    (place: Place) => {
-      haptics.selection(90);
-      followingRef.current = false;
-      track.placeViewed({ place_id: place.id, category: place.category, source: 'map_marker' });
-      setHighlightReview(null);
-      setTempPlace(null);
-      setSelectedPlaceId(place.id);
-      setSelectedPlace(place);
-      // 현재 줌을 유지한 채 마커가 시트에 가리지 않는 위치로 카메라만 보정
-      const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
-      mapRef.current?.animateCameraTo({
-        latitude: place.latitude - sheetLatOffset(zoom, mapViewportHeight, place.latitude),
-        longitude: place.longitude,
-        zoom,
-        duration: 400,
-      });
-    },
-    [setSelectedPlaceId, mapCenter, mapViewportHeight]
+    [hazards, mapCenter?.zoom, isInsideMarkerWindow],
   );
 
   const handleSearchSelect = useCallback(
@@ -456,6 +445,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     isMapPresented: overlay || mapPresentationReady,
     onFollow: () => {
       if (!locationUseAllowed()) return;
+      didCenterOnUserRef.current = true;
       followingRef.current = true;
       // 안내 중엔 위치 구독이 멈춰 스토어가 출발지에 얼어 있다 — 스토어를
       // 그대로 쓰면(handleMyLocation) 카메라가 출발지로 되돌아갔다가 구독
@@ -469,7 +459,10 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
         };
+        // 캐시 위치는 즉시 적용한다. 저장 과정에서 별도의 따라가기 애니메이션을 시작하지 않는다.
+        followingRef.current = false;
         useMapStore.getState().setUserLocation(coords);
+        followingRef.current = true;
         mapRef.current?.animateCameraTo({ ...coords, duration: 0 });
       }).catch(() => { followingRef.current = false; });
     },
@@ -483,25 +476,43 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     },
   });
 
+  const handleMarkerPress = useCallback(
+    (place: Place) => {
+      didCenterOnUserRef.current = true;
+      followingRef.current = false;
+      track.placeViewed({ place_id: place.id, category: place.category, source: 'map_marker' });
+      setHighlightReview(null);
+      setTempPlace(null);
+      setSelectedPlaceId(place.id);
+      setSelectedPlace(place);
+    },
+    [setHighlightReview, setSelectedPlaceId, setTempPlace]
+  );
+
+  const selectedGeneralPlace = useGeneralPlace(tempPlace);
+  const promotedPlace = usePlace(selectedGeneralPlace.data?.promotedPlaceId ?? null);
+  useEffect(() => {
+    if (isMapFocused && tempPlace) void selectedGeneralPlace.refetch();
+  }, [isMapFocused, tempPlace, selectedGeneralPlace.refetch]);
+  useEffect(() => {
+    if (isMapFocused && tempPlace && highlightReview?.kind !== 'general' && promotedPlace.data && promotedPlace.data.id === selectedGeneralPlace.data?.promotedPlaceId) {
+      setTempPlace(null);
+      setSelectedPlaceId(promotedPlace.data.id);
+      setSelectedPlace(promotedPlace.data);
+    }
+  }, [isMapFocused, tempPlace, highlightReview?.kind, promotedPlace.data, selectedGeneralPlace.data?.promotedPlaceId, setTempPlace, setSelectedPlaceId]);
+
   const handleTempPlaceSelect = useCallback(
     (place: TempPlace) => {
+      didCenterOnUserRef.current = true;
       followingRef.current = false;
       setSelectedPlaceId(null);
       setSelectedPlace(null);
       setSelectedStation(null);
       setHighlightReview(null);
       setTempPlace(place);
-      const zoom = mapCenter?.zoom ?? DEFAULT_ZOOM;
-      mapRef.current?.animateCameraTo({
-        latitude: place.latitude - sheetLatOffset(zoom, mapViewportHeight, place.latitude),
-        longitude: place.longitude,
-        zoom,
-        duration: 400,
-      });
     },
     [
-      mapCenter?.zoom,
-      mapViewportHeight,
       setSelectedPlaceId,
       setSelectedStation,
       setHighlightReview,
@@ -521,12 +532,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
     setTempPlace(null);
     setHighlightReview(null);
     setCourseReturn(null);
-    // ✕/뒤로가기는 시트를 닫힘 애니메이션 없이 언마운트시켜 position 이 확장 값에
-    // 동결된다(버튼 실종) — 닫힘 위치로 부드럽게 복귀시킨다. 스와이프 닫기처럼 이미
-    // 닫힘 값에 도달한 경우엔 사실상 no-op 이다.
-    sheetPosition.value = withTiming(containerHeight.value + 100, { duration: 250 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setSelectedPlaceId, setTempPlace]);
+  }, [setSelectedPlaceId, setTempPlace, setHighlightReview, setCourseReturn]);
+
+  const closePlaceDetail = overlay && overlayParams.detailExpanded === '1'
+    ? () => {
+        handleBottomSheetClose();
+        if (isMapFocused && router.canGoBack()) router.back();
+      }
+    : handleBottomSheetClose;
 
   const selectedPlaceQuery = usePlace(selectedPlace?.id ?? null);
   useEffect(() => {
@@ -632,73 +645,65 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       router.setParams({
         focusPlaceId: placeId,
         focusTs: String(Date.now()),
-        ...(opts?.reviewId ? { focusReviewId: opts.reviewId } : {}),
-        ...(opts?.fromCourseId ? { fromCourseId: opts.fromCourseId } : {}),
+        focusReviewId: opts?.reviewId ?? '',
+        fromCourseId: opts?.fromCourseId ?? '',
+        kakaoName: '',
+        kakaoLat: '',
+        kakaoLng: '',
       });
     });
     return () => setMapFocusOverride(null);
   }, [overlay]);
 
-  // 탭바와 같은 프레스 감각 — 누르는 동안 움츠리고 떼면 한 번만 튕기며 복귀
-  const myLocationScale = useSharedValue(1);
-  const myLocationStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: myLocationScale.value }],
-  }));
+  // 떠 있는 탭이 레이아웃을 먹지 않으므로, 탭 위 버튼만 그 높이만큼 올린다.
+  // 오버레이 지도에는 탭이 없다.
+  const tabOcclusion = useTabOcclusion(!overlay);
+  const insets = useSafeAreaInsets();
+  const android = Platform.OS === 'android';
+  const topControls = android ? insets.top + ANDROID_TOP_CONTROL_GAP : 60;
+  const tabOcclusionSv = useSharedValue(tabOcclusion);
+  useEffect(() => { tabOcclusionSv.value = tabOcclusion; }, [tabOcclusion, tabOcclusionSv]);
 
-  // 내 위치 버튼이 장소 시트의 실시간 위치를 따라 위로 밀려난다 (시트 위 16px).
-  // 시트가 끝까지(100% 근처) 올라가면 페이드아웃. 닫히면 기본 위치로 자연 복귀.
-  const sheetPosition = useSharedValue(999999);
-  const containerHeight = useSharedValue(0);
+  // 시트/카드는 내 위치 버튼과 탭 위를 덮는다. 버튼을 따라 올리지 않는다.
   const myLocationFollowStyle = useAnimatedStyle(() => {
-    const h = containerHeight.value;
-    const fromSheet = h > 0 ? h - sheetPosition.value + 16 : 0;
     return {
-      bottom: Math.max(24, fromSheet),
-      opacity:
-        h > 0
-          ? interpolate(sheetPosition.value, [h * 0.2, h * 0.35], [0, 1], Extrapolation.CLAMP)
-          : 1,
+      bottom: 12 + tabOcclusionSv.value,
     };
   });
-  const handleMyLocationPressIn = () => {
-    myLocationScale.value = withTiming(0.85, { duration: 90 });
-  };
-  const handleMyLocationPressOut = () => {
-    myLocationScale.value = withSequence(
-      withTiming(1.05, { duration: 100, easing: Easing.out(Easing.quad) }),
-      withTiming(1, { duration: 90, easing: Easing.inOut(Easing.quad) }),
-    );
-  };
 
-  // 안내 종료 후 "내 위치 따라가기" — 위치 갱신마다 카메라가 따라가고,
-  // 사용자가 지도를 드래그하면 풀린다. SDK 트래킹 모드는 쓰지 않는다(유령
-  // 위치 오버레이 소환 — useMapDeepLinks 주석 참고).
-  useEffect(() => {
-    if (
-      !isMapFocused ||
-      !followingRef.current ||
-      !userLocation
-    ) return;
-    mapRef.current?.animateCameraTo({
-      latitude: userLocation.latitude,
-      longitude: userLocation.longitude,
-      duration: 600,
-    });
-  }, [isMapFocused, userLocation]);
-
-  const handleMyLocation = () => {
+  const handleMyLocation = async () => {
     if (!locationUseAllowed()) {
       toast.info('위치 이용 설정이 필요해요', '현재 위치를 이용하려면 동의하고 다시 시작해 주세요.');
       router.push('/location-privacy' as Href);
       return;
     }
+    const { userLocation } = useMapStore.getState();
     if (!userLocation) {
-      toast.info('현재 위치를 확인할 수 없어요', '기기의 위치 서비스와 권한을 확인해 주세요.');
+      try {
+        if (!await Location.hasServicesEnabledAsync()) {
+          toast.info('기기의 위치 서비스가 꺼져 있어요', '기기 설정에서 위치를 켜 주세요.');
+          return;
+        }
+        const permission = await Location.getForegroundPermissionsAsync();
+        if (permission.status === 'denied') {
+          appAlert('위치 권한이 필요해요', '모토맵 앱의 위치 권한을 허용해 주세요.', [
+            { text: '설정 열기', onPress: () => { void Linking.openSettings().catch(() => {}); } },
+            { text: '취소', style: 'cancel' },
+          ]);
+          return;
+        }
+        if (!locationUseAllowed()) return;
+        setLocationRetry(previous => previous + 1);
+        toast.info('현재 위치를 확인 중이에요');
+      } catch {
+        toast.info('현재 위치를 확인할 수 없어요', '잠시 후 다시 시도해 주세요.');
+      }
       return;
     }
-    if (!userLocation || !mapRef.current) return;
-    haptics.selection(90);
+    if (!mapRef.current) return;
+
     // 내 위치를 지도 중앙으로 이동(현재 줌 유지)
+    didCenterOnUserRef.current = true;
     mapRef.current.animateCameraTo({
       latitude: userLocation.latitude,
       longitude: userLocation.longitude,
@@ -709,8 +714,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
 
   // 오버레이는 딥링크 좌표를 이미 안다 — 기본 위치에서 800ms 카메라 이동을
   // 기다리지 말고 처음부터 그 자리에서 뜬다(전환 체감의 대부분이 이 이동이었다)
-  const overlayLat = Number(overlayParams.lat ?? overlayParams.kakaoLat);
-  const overlayLng = Number(overlayParams.lng ?? overlayParams.kakaoLng);
+  const overlayLat = Number((overlayParams.lat ?? overlayParams.kakaoLat) || NaN);
+  const overlayLng = Number((overlayParams.lng ?? overlayParams.kakaoLng) || NaN);
   const overlayTarget =
     overlay && Number.isFinite(overlayLat) && Number.isFinite(overlayLng)
       ? {
@@ -726,9 +731,9 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       : null;
   const initialCamera =
     overlayTarget ??
-    initialCameraFallback ?? {
-      latitude: userLocation?.latitude ?? DEFAULT_CENTER[1],
-      longitude: userLocation?.longitude ?? DEFAULT_CENTER[0],
+    mapCameraAtMount ?? {
+      latitude: initialUserLocation?.latitude ?? DEFAULT_CENTER[1],
+      longitude: initialUserLocation?.longitude ?? DEFAULT_CENTER[0],
       zoom: DEFAULT_ZOOM,
       tilt: 0,
       bearing: 0,
@@ -739,12 +744,42 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
   // 선택된 장소는 아래의 별도 핀 마커 하나로만 강조한다.
   const PLACE_CAPTION_MIN_ZOOM = 8;
 
+  const weatherAction = (weather || weatherFailed || weatherFetching) && (
+    <WeatherFab
+      weather={weather}
+      failed={weatherFailed}
+      refreshing={weatherFetching}
+      onRetry={() => { void refetchWeather(); }}
+      open={weatherOpen && !placeDetailOpen}
+      onPress={handleWeatherPress}
+      top={android ? 0 : undefined}
+    />
+  );
+  const favoritesAction = !!user && (
+    <GlassButton homeMap
+      accessibilityLabel={showFavorites ? '즐겨찾기 장소 숨기기' : '즐겨찾기 장소 보기'}
+      accessibilityRole="button"
+      onPress={() => {
+        if (!user) {
+          toast.info('로그인하면 즐겨찾기를 지도에서 볼 수 있어요');
+          return;
+        }
+        toggleShowFavorites();
+      }}
+      style={[styles.favFab, { top: android ? 4 : 162 }]}>
+      <Ionicons
+        name={showFavorites ? 'star' : 'star-outline'}
+        size={20}
+        color={showFavorites ? '#FACC15' : colors.textSecondary}
+      />
+    </GlassButton>
+  );
+
   return (
     <View
       style={styles.container}
       onLayout={(e) => {
         const height = e.nativeEvent.layout.height;
-        containerHeight.value = height;
         // 탭·가로 화면에서 달라지는 실제 지도 영역을 카메라 보정에도 쓴다.
         if (height > 0) setMapViewportHeight(height);
       }}>
@@ -768,10 +803,14 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         mapType="Basic"
         isNightModeEnabled={colorScheme === 'dark'}
         isShowLocationButton={false}
+        logoAlign="BottomLeft"
+        logoMargin={Platform.OS === 'android'
+          ? { left: ANDROID_TAB_SIDE_INSET, bottom: Math.max(tabOcclusion, insets.bottom) + 8 }
+          : { left: 8, right: 0, top: 0, bottom: 0 }}
         // SDK 자체 위치 오버레이 차단 — 커스텀 마커와 별개의 유령 마커가 뜬다.
         // 다른 지도 화면들과 같은 방어인데 여기만 빠져 있었다.
-        locationOverlay={{ isVisible: false }}
-        isShowCompass
+        locationOverlay={HIDDEN_MAP_LOCATION_OVERLAY}
+        isShowCompass={false}
         isShowScaleBar={false}
         isShowZoomControls={false}
         initialCamera={initialCamera}
@@ -781,7 +820,10 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         onTapSymbol={handleSymbolTap}
         onCameraChanged={(e) => {
           // 드래그하면 따라가기 해제 (프로그램 이동 'Developer' 는 유지)
-          if (e.reason === 'Gesture') followingRef.current = false;
+          if (e.reason === 'Gesture') {
+            didCenterOnUserRef.current = true;
+            followingRef.current = false;
+          }
           // 검색 화면 아래에서 분리된 surface가 내는 카메라 이벤트는 사용자가
           // 마지막으로 본 프레임이 아니다. blur 순간의 스냅샷을 그대로 동결한다.
           if (!isMapFocused) return;
@@ -809,7 +851,7 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         }}>
         {/* 가려진 홈과 장소 지도 오버레이가 센서를 동시에 소유하지 않게 한다.
             지도·카메라는 그대로 유지하고 실제 노출 완료 뒤 구독만 재개한다. */}
-        <TrackedUserLocationMarker enabled={isMapFocused && (overlay || mapPresentationReady)} />
+        <TrackedUserLocationMarker enabled={isMapFocused && (overlay || mapPresentationReady)} retry={locationRetry} isHome={!overlay} />
 
         {/* 등록 장소는 모든 줌에서 개별 원형 마커로 그린다. 아이콘은 숨기지 않고,
             겹치는 기본 심벌과 장소명 캡션만 SDK가 정리한다. */}
@@ -856,7 +898,6 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
                   haloColor: colorScheme === 'dark' ? '#111827' : '#FFFFFF',
                 }}
                 onTap={() => {
-                  haptics.selection(90);
                   track.generalSharedPlaceSelected({ share_count: shared.shareCount });
                   handleTempPlaceSelect({
                     name: shared.name,
@@ -997,34 +1038,30 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
       {overlay ? (
         /* 오버레이는 "이 장소가 뭔지 보고 돌아오는" 화면 — 검색·필터·길찾기는
            지도 탭의 일이라 걷어내고 뒤로가기만 남긴다 */
-        <Pressable
+        <GlassButton
           accessibilityLabel="지도 미리보기 닫기"
           accessibilityRole="button"
           onPress={() => router.back()}
-          style={({ pressed }) => [
+          style={[
             styles.backButton,
             styles.backButtonOverlay,
-            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-            pressed && styles.controlPressed,
+            { top: topControls, borderRadius: 22 },
           ]}>
           <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </Pressable>
+        </GlassButton>
       ) : (
         <Animated.View
           pointerEvents="box-none"
-          entering={FadeIn.duration(300)}
-          style={styles.searchAndFilter}>
+          style={[styles.searchAndFilter, { top: topControls, gap: android ? 6 : 4 }]}>
           <View style={styles.searchRow}>
             <SearchEntry />
-            <Pressable
+            <GlassButton
+              homeMap
+              glassEffectStyle="regular"
               accessibilityLabel="길찾기"
               accessibilityRole="button"
               onPress={() => router.push('/directions')}
-              style={({ pressed }) => [
-                styles.directionsButton,
-                { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-                pressed && styles.controlPressed,
-              ]}>
+              style={styles.directionsButton}>
               {/* 글리프의 세로 줄기가 왼쪽에 있어 시각 무게가 좌측으로 쏠린다 — 살짝 보정 */}
               <MaterialCommunityIcons
                 name="arrow-right-top-bold"
@@ -1032,54 +1069,16 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
                 color={colors.tint}
                 style={{ marginLeft: 2 }}
               />
-            </Pressable>
+            </GlassButton>
           </View>
-          <CategoryFilter />
+          <CategoryFilter actions={android ? <>{weatherAction}{favoritesAction}</> : undefined} />
         </Animated.View>
       )}
 
-      {!overlay && (weather || weatherFailed || weatherFetching) && (
-        <WeatherFab
-          weather={weather}
-          failed={weatherFailed}
-          refreshing={weatherFetching}
-          onRetry={() => { void refetchWeather(); }}
-          open={weatherOpen && !placeDetailOpen}
-          onPress={handleWeatherPress}
-        />
-      )}
-
-      {/* 즐겨찾기 지도 표시 — 날씨 FAB와 같은 행 오른쪽 끝, 켜면 별이 채워진다 */}
-      {!overlay && (
-      <Pressable
-        accessibilityLabel={showFavorites ? '즐겨찾기 장소 숨기기' : '즐겨찾기 장소 보기'}
-        accessibilityRole="button"
-        onPress={() => {
-          if (!user) {
-            toast.info('로그인하면 즐겨찾기를 지도에서 볼 수 있어요');
-            return;
-          }
-          toggleShowFavorites();
-        }}
-        style={({ pressed }) => [
-          styles.favFab,
-          {
-            backgroundColor: colors.background,
-            borderColor: colors.border,
-          },
-          pressed && styles.controlPressed,
-        ]}>
-        <Ionicons
-          name={showFavorites ? 'star' : 'star-outline'}
-          size={20}
-          color={showFavorites ? '#FACC15' : colors.textSecondary}
-        />
-      </Pressable>
-      )}
-
+      {!overlay && !android && <>{weatherAction}{favoritesAction}</>}
 
       {showGasRefresh && !selectedStation && !placeDetailOpen && !weatherOpen && (
-        <Animated.View entering={FadeIn.duration(200)} style={styles.gasRefreshAnchor}>
+        <Animated.View entering={FadeIn.duration(200)} style={[styles.gasRefreshAnchor, { bottom: 14 + tabOcclusion }]}>
           <Pressable
             accessibilityLabel={gasFetching ? '주유소 검색 중' : gasError
               ? stations.length ? '이전 유가가 표시되고 있어요. 이 지역 주유소 다시 검색' : '유가 조회 실패. 이 지역 주유소 다시 검색'
@@ -1100,31 +1099,27 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
             </View>
             <Text numberOfLines={1} style={[styles.gasRefreshText, { color: colors.text }]}>
               {gasFetching ? '검색 중' : gasError
-                ? stations.length ? '이전 유가 · 재시도' : '검색 실패 · 재시도'
+                ? stations.length ? '이전 유가 재시도' : '검색 실패 재시도'
                 : '이 지역 재검색'}
             </Text>
           </Pressable>
         </Animated.View>
       )}
 
-      <AnimatedPressable
-        accessibilityLabel="내 위치로 이동"
-        accessibilityRole="button"
-        onPress={handleMyLocation}
-        onPressIn={handleMyLocationPressIn}
-        onPressOut={handleMyLocationPressOut}
+      <Animated.View
         style={[
           styles.myLocationButton,
-          myLocationStyle,
           myLocationFollowStyle,
-          { backgroundColor: colors.background, shadowColor: '#000' },
         ]}>
+        <GlassButton homeMap={!overlay} glassEffectStyle="regular" accessibilityLabel="내 위치로 이동" accessibilityRole="button" onPress={handleMyLocation}
+          style={{ width: 48, height: 48, borderRadius: 24 }}>
         <View style={styles.myLocationIconContainer}>
           <View style={[styles.myLocationCrosshair, { borderColor: colors.tint }]}>
             <View style={[styles.myLocationCenter, { backgroundColor: colors.tint }]} />
           </View>
         </View>
-      </AnimatedPressable>
+        </GlassButton>
+      </Animated.View>
 
       {guideReturnFailed && pendingGuideReturn != null && (
         <Pressable accessibilityRole="button" accessibilityLabel="진행 중인 길안내 화면으로 복귀"
@@ -1134,19 +1129,19 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
         </Pressable>
       )}
 
+      <MapOverlayLayer focused={isMapFocused} inline={overlay}>
       <PlaceBottomSheet
         place={selectedPlace}
-        onClose={handleBottomSheetClose}
-        animatedPosition={sheetPosition}
-        highlightReview={highlightReview}
+        onClose={closePlaceDetail}
+        highlightReview={highlightReview?.kind === 'place' ? highlightReview : null}
+        openExpanded={overlay && overlayParams.detailExpanded === '1'}
       />
-
-      <HazardSheet hazard={selectedHazard} onClose={() => setSelectedHazard(null)} />
 
       <TempPlaceSheet
         place={tempPlace}
-        onClose={handleBottomSheetClose}
-        animatedPosition={sheetPosition}
+        onClose={closePlaceDetail}
+        highlightReview={highlightReview?.kind === 'general' ? highlightReview : null}
+        openExpanded={overlay && overlayParams.detailExpanded === '1'}
       />
 
       {selectedStation && (
@@ -1170,6 +1165,8 @@ export default function MapHome({ overlay = false }: { overlay?: boolean }) {
           onClose={() => setWeatherOpen(false)}
         />
       )}
+      </MapOverlayLayer>
+      <HazardSheet hazard={selectedHazard} onClose={() => setSelectedHazard(null)} />
     </View>
   );
 }
@@ -1183,12 +1180,10 @@ const styles = StyleSheet.create({
   },
   searchAndFilter: {
     position: 'absolute',
-    top: 60,
     left: 0,
     right: 0,
     zIndex: 5,
     elevation: 5,
-    gap: 0,
   },
   searchRow: {
     flexDirection: 'row',
@@ -1206,8 +1201,6 @@ const styles = StyleSheet.create({
   },
   backButtonOverlay: {
     position: 'absolute',
-    // 검색바와 같은 상단 기준(60) — 화면마다 눈높이가 안 바뀐다
-    top: 60,
     left: 16,
     zIndex: 5,
     elevation: 5,
@@ -1215,8 +1208,7 @@ const styles = StyleSheet.create({
   directionsButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -1225,15 +1217,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  // 중앙 세부 필터의 양옆에서 날씨 FAB와 기존 높이를 유지한다.
   favFab: {
     position: 'absolute',
-    top: 162,
     right: 16,
     width: 44,
     height: 44,
     borderRadius: 22,
-    borderWidth: 1.5,
+    // Glass가 가장자리를 그린다. 별도 테두리는 내부 최소44pt 버튼을 오른쪽으로 민다.
+    borderWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -1243,11 +1234,11 @@ const styles = StyleSheet.create({
     elevation: 4,
     zIndex: 5,
   },
-  // 44pt 버튼의 중심을 내 위치 버튼(bottom 24 + 높이 48)의 중심과 맞춘다.
+  // 44pt 버튼의 중심을 내 위치 버튼(bottom 12 + 높이 48)의 중심과 맞춘다.
   gasRefreshAnchor: {
     position: 'absolute',
     alignSelf: 'center',
-    bottom: 26,
+    bottom: 14,
     width: 192,
     maxWidth: '55%',
     height: 44,

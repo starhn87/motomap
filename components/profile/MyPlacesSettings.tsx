@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -8,15 +9,17 @@ import PointSearchModal, { type Point } from '@/components/search/PointSearchMod
 import { appAlert } from '@/lib/dialog';
 import { toast } from '@/lib/toast';
 
-// 집·회사는 로그인과 무관한 기기 로컬 설정이다.
+// 집·회사 값은 로그인한 계정에서 관리한다.
 export default function MyPlacesSettings() {
   const colors = Colors[useColorScheme() ?? 'light'];
+  const enabled = useMyPlacesStore(s => s.enabled);
   const myPlaces = useMyPlacesStore(s => s.places);
   const loadMyPlaces = useMyPlacesStore(s => s.load);
   const saveMyPlace = useMyPlacesStore(s => s.save);
   const removeMyPlace = useMyPlacesStore(s => s.remove);
   useEffect(() => { void loadMyPlaces(); }, [loadMyPlaces]);
   const [editingSlot, setEditingSlot] = useState<MyPlaceSlot | null>(null);
+  if (!enabled) return null;
 
   const handleMyPlace = (slot: MyPlaceSlot) => {
     const label = slot === 'home' ? '집' : '회사';
@@ -28,7 +31,11 @@ export default function MyPlacesSettings() {
     // 집·회사 이름은 민감 정보 — 앱 다이얼로그라 리플레이 마스킹이 닿는다
     appAlert(label, saved.name, [
       { text: '변경', onPress: () => setEditingSlot(slot) },
-      { text: '삭제', style: 'destructive', onPress: () => void removeMyPlace(slot) },
+      { text: '삭제', style: 'destructive', onPress: () => {
+        void removeMyPlace(slot).then(removed => {
+          if (!removed) toast.error('삭제하지 못했어요. 다시 시도해 주세요.');
+        });
+      } },
       { text: '취소', style: 'cancel' },
     ], { maskMessage: true });
   };
@@ -42,8 +49,10 @@ export default function MyPlacesSettings() {
       address: address ?? '',
       latitude: point.latitude,
       longitude: point.longitude,
+    }).then(saved => {
+      if (saved) toast.success(slot === 'home' ? '집을 저장했어요.' : '회사를 저장했어요.');
+      else toast.error('저장하지 못했어요. 다시 시도해 주세요.');
     });
-    toast.success(slot === 'home' ? '집을 저장했어요.' : '회사를 저장했어요.');
   };
 
   return (

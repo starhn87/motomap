@@ -1,7 +1,10 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
+  BottomSheetTextInput,
+  type BottomSheetScrollViewMethods,
 } from '@gorhom/bottom-sheet';
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 import {
@@ -9,10 +12,10 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
+import { APP_FONT_STYLE } from '@/lib/typography';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import Colors from '@/constants/Colors';
@@ -22,7 +25,6 @@ import {
   submitPlaceChangeReport,
   type PlaceChangeReason,
 } from '@/lib/api/placeChangeReports';
-import { haptics } from '@/lib/haptics';
 import { registerPushToken } from '@/lib/push';
 import { toast } from '@/lib/toast';
 import type { PlaceOperationalStatus } from '@/types';
@@ -44,6 +46,8 @@ export default function PlaceChangeReportSheet({
   operationalStatus,
   onClose,
 }: Props) {
+  const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
+  const keyboardInput = useRevealKeyboardInput(scrollRef);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const requestedVisibleRef = useRef(visible);
   const closingIntentRef = useRef(false);
@@ -128,7 +132,7 @@ export default function PlaceChangeReportSheet({
       // 승인·반려 결과를 받을 맥락이 분명한 시점에 알림 권한을 확인한다.
       // 내부에서 실패를 삼키므로 제보 접수 결과에는 영향을 주지 않는다.
       await registerPushToken(true);
-      haptics.success();
+
       toast.success('장소 정보 제보가 접수되었습니다.', '확인 후 안전하게 반영할게요.');
       bottomSheetRef.current?.close();
     } catch (error: any) {
@@ -163,7 +167,9 @@ export default function PlaceChangeReportSheet({
       handleIndicatorStyle={{ backgroundColor: colors.border }}
       containerStyle={styles.sheetContainer}>
       <BottomSheetScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.sheetContent}
+        automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         bounces={false}
@@ -182,7 +188,6 @@ export default function PlaceChangeReportSheet({
                   accessibilityRole="radio"
                   accessibilityState={{ checked: selected }}
                   onPress={() => {
-                    haptics.selection();
                     setReason(option.key);
                   }}
                   style={({ pressed }) => [
@@ -211,9 +216,11 @@ export default function PlaceChangeReportSheet({
             })}
           </View>
 
-          <TextInput
+          <BottomSheetTextInput
+            onFocus={keyboardInput.onFocus}
             accessibilityLabel="제보 상세 내용 (선택)"
             style={[
+              APP_FONT_STYLE,
               styles.input,
               {
                 backgroundColor: colors.surface,

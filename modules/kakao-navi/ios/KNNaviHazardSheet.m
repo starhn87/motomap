@@ -1,3 +1,4 @@
+#import "KNNaviTypography.h"
 #import "KNNaviHazardSheet.h"
 #import <math.h>
 
@@ -93,10 +94,10 @@ static const CGFloat KNNaviOptionIconSize=21;
   UIView *handle = [UIView new]; handle.backgroundColor = UIColor.systemGray3Color;
   handle.layer.cornerRadius = 2; handle.translatesAutoresizingMaskIntoConstraints = NO; [header addSubview:handle];
   UILabel *title = [UILabel new]; title.text = self.headingTitle; self.titleLabel = title; title.textColor = ink;
-  title.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline]; title.adjustsFontForContentSizeCategory = YES;
+  title.font = MMPreferredAppFont(UIFontTextStyleHeadline); title.adjustsFontForContentSizeCategory = YES;
   title.accessibilityTraits = UIAccessibilityTraitHeader; title.numberOfLines = 2;
   UILabel *detail = [UILabel new]; detail.text = self.headingDetail; detail.textColor = UIColor.secondaryLabelColor;
-  detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]; detail.adjustsFontForContentSizeCategory = YES;
+  detail.font = MMPreferredAppFont(UIFontTextStyleSubheadline); detail.adjustsFontForContentSizeCategory = YES;
   detail.numberOfLines = 0;
   // POI 시트는 설명 없이 열고 주유소 가격이 오면 그때 보인다.
   detail.hidden = !self.headingDetail.length; self.detailLabel = detail;
@@ -119,7 +120,7 @@ static const CGFloat KNNaviOptionIconSize=21;
       config.baseBackgroundColor = [self colorWithLight:0.94 dark:0.095]; config.baseForegroundColor = ink;
       config.background.cornerRadius = 12;
       config.background.strokeColor = [self colorWithLight:0.89 dark:0.16]; config.background.strokeWidth = 1;
-      config.attributedTitle = [[NSAttributedString alloc] initWithString:option[@"label"] attributes:@{NSFontAttributeName:[UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]}];
+      config.attributedTitle = [[NSAttributedString alloc] initWithString:option[@"label"] attributes:@{NSFontAttributeName:MMPreferredAppFont(UIFontTextStyleSubheadline)}];
       config.image = [option[@"symbol"] isEqual:@"motomap.destination"] ? [self footerDestinationIcon] : [UIImage systemImageNamed:option[@"symbol"] ?: symbols[option[@"key"]] ?: @"exclamationmark.triangle"] ?: [UIImage systemImageNamed:@"exclamationmark.triangle"];
       CGFloat iconSize=[option[@"key"] isEqual:@"via"] && [option[@"symbol"] isEqual:@"plus.circle"] ? 19 : KNNaviOptionIconSize;
       config.preferredSymbolConfigurationForImage = [UIImageSymbolConfiguration configurationWithPointSize:iconSize weight:UIImageSymbolWeightRegular];
@@ -136,7 +137,7 @@ static const CGFloat KNNaviOptionIconSize=21;
   }
   UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem]; self.cancelButton = cancel;
   [cancel setTitle:@"취소" forState:UIControlStateNormal]; [cancel setTitleColor:ink forState:UIControlStateNormal];
-  cancel.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
+  cancel.titleLabel.font = MMPreferredAppFont(UIFontTextStyleHeadline);
   cancel.titleLabel.adjustsFontForContentSizeCategory = YES; cancel.accessibilityIdentifier = @"hazard-cancel";
   cancel.backgroundColor = [self colorWithLight:0.96 dark:0.095]; cancel.layer.cornerRadius = 12;
   [cancel addTarget:self action:@selector(cancelTapped) forControlEvents:UIControlEventTouchUpInside];

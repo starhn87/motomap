@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 
 import { NIGHT_PARTLY_CLOUDY_EMOJI } from '@/constants/weather';
 

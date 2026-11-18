@@ -38,9 +38,8 @@ static UIColor *Hex(uint32_t rgb) {
 // 경로선 외곽선을 상단 배너와 같은 색으로. 밝은 경로선을 짙은 테두리가 감싸면
 // 경로가 지도에서 떠오르고, 화면 위아래가 한 톤으로 묶인다.
 //
-// 안쪽 색(혼잡도)은 건드리지 않는다. 초록=원활, 노랑=서행, 빨강=정체는 내비가
-// 공유하는 약속이라 주행 중 반사적으로 읽히는 정보다 — 앱 톤을 앞세워 봐야
-// 실익 없이 해석만 늦어진다.
+// 안쪽 색(혼잡도)은 건드리지 않는다. 원활·서행·정체는 SDK 기본 교통색을
+// 유지해 주행 중 경로선과 교통 막대를 같은 의미로 읽을 수 있게 한다.
 //
 // base 는 반드시 SDK 기본 테마여야 한다. 통째로 만들면 nonnull 인 alterRoute 가
 // 비어 그리는 순간 죽는다(실증).
@@ -93,6 +92,19 @@ static KNMapRouteTheme *RouteTheme(KNMapRouteTheme *base, UIColor *stroke) {
   return theme;
 }
 
++ (UIBezierPath *)vehicleArrowAtCenter:(CGPoint)center diameter:(CGFloat)diameter {
+  CGFloat size = diameter * kSize / (kSize - 2);
+  CGFloat h = size * 0.30;
+  CGFloat w = size * 0.26;
+  UIBezierPath *arrow = [UIBezierPath bezierPath];
+  [arrow moveToPoint:CGPointMake(center.x, center.y - h * 0.75)];
+  [arrow addLineToPoint:CGPointMake(center.x + w, center.y + h * 0.65)];
+  [arrow addLineToPoint:CGPointMake(center.x, center.y + h * 0.25)];
+  [arrow addLineToPoint:CGPointMake(center.x - w, center.y + h * 0.65)];
+  [arrow closePath];
+  return arrow;
+}
+
 // 원 안에 위쪽을 향한 화살촉. 방향 회전은 SDK 가 처리한다.
 + (UIImage *)carImageWithAccent:(UIColor *)accent fill:(UIColor *)fill {
   CGRect bounds = CGRectMake(0, 0, kSize, kSize);
@@ -109,22 +121,9 @@ static KNMapRouteTheme *RouteTheme(KNMapRouteTheme *base, UIColor *stroke) {
     circle.lineWidth = kRingWidth;
     [circle stroke];
 
-    // 화살촉 — 원 지름의 절반 정도로 잡아 여백을 남긴다.
-    CGFloat cx = CGRectGetMidX(bounds);
-    CGFloat cy = CGRectGetMidY(bounds);
-    CGFloat h = kSize * 0.30;
-    CGFloat w = kSize * 0.26;
-
-    UIBezierPath *arrow = [UIBezierPath bezierPath];
-    [arrow moveToPoint:CGPointMake(cx, cy - h * 0.75)];
-    [arrow addLineToPoint:CGPointMake(cx + w, cy + h * 0.65)];
-    [arrow addLineToPoint:CGPointMake(cx, cy + h * 0.25)];
-    [arrow addLineToPoint:CGPointMake(cx - w, cy + h * 0.65)];
-    [arrow closePath];
-    arrow.lineJoinStyle = kCGLineJoinRound;
-
+    CGPoint center = CGPointMake(CGRectGetMidX(bounds), CGRectGetMidY(bounds));
     [accent setFill];
-    [arrow fill];
+    [[self vehicleArrowAtCenter:center diameter:kSize - 2] fill];
   }];
 }
 

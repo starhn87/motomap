@@ -33,10 +33,17 @@ import { fetchGasPricesAt, gasPriceSummary, looksLikeGasStation } from '@/lib/ap
 // 안내 중 앱이 죽으면(강제 종료·크래시) navigation_ended 가 유실된다 — 시작 때
 // 마커를 남기고 정상 종료 때 지운다. 다음 실행에서 마커가 남아 있으면 비정상
 // 종료였던 것이므로 늦게나마 'abandoned' 로 정산해 완주율 분모를 지킨다.
+// 도착 콜백은 세션 id 만 따로 남긴다. reason 은 abandoned 그대로 두고,
+// had_arrived 로 "도착한 뒤 프로세스가 죽은 것"만 가른다.
 const GUIDE_ACTIVE_KEY = 'guide-active';
+const GUIDE_ARRIVED_KEY = 'guide-arrived-session';
 
 type GuideStartEvent = Parameters<typeof track.navigationStarted>[0];
-type ActiveGuide = GuideStartEvent & { started_at_ms: number };
+type ActiveGuide = GuideStartEvent & { started_at_ms: number; had_arrived?: boolean };
+type GuideExit = 'user_end' | 'no_goal' | 'start_failed' | 'process_end';
+
+// 시작 기록과 종료 정산이 겹치면 뒤늦은 쓰기가 마커를 되살리지 않게 한다.
+let guideEpoch = 0;
 
 function parseActiveGuide(raw: string): ActiveGuide | null {
   // 직전 OTA가 남긴 mode 문자열도 한 번은 정산할 수 있게 호환한다.
@@ -72,37 +79,68 @@ function parseActiveGuide(raw: string): ActiveGuide | null {
 }
 
 async function takeActiveGuide(): Promise<ActiveGuide | null> {
+  guideEpoch += 1;
   const raw = await AsyncStorage.getItem(GUIDE_ACTIVE_KEY);
-  if (!raw) return null;
-  await AsyncStorage.removeItem(GUIDE_ACTIVE_KEY);
-  return parseActiveGuide(raw);
+  const arrivedId = await AsyncStorage.getItem(GUIDE_ARRIVED_KEY);
+  if (raw) await AsyncStorage.removeItem(GUIDE_ACTIVE_KEY);
+  if (arrivedId) await AsyncStorage.removeItem(GUIDE_ARRIVED_KEY);
+  const active = raw ? parseActiveGuide(raw) : null;
+  if (!active) return null;
+  return { ...active, had_arrived: arrivedId === active.guide_session_id };
 }
 
 function trackGuideEnd(
   active: ActiveGuide | null,
   reason: 'arrived' | 'cancelled' | 'abandoned',
+  exit: GuideExit,
+  extra?: { had_arrived?: boolean; remaining_m?: number },
 ) {
   if (!active) return;
   track.navigationEnded({
     guide_session_id: active.guide_session_id,
     reason,
+    exit,
+    had_arrived: extra?.had_arrived === true || active.had_arrived === true,
     mode: active.mode,
     duration_s: Math.max(0, Math.round((Date.now() - active.started_at_ms) / 1000)),
     distance_m: active.distance_m,
+    remaining_m: extra?.remaining_m,
   });
 }
 
 /** 안내가 실제로 시작된 순간(onGuideStarted) 호출 — navi 화면이 부른다 */
 export async function markGuideStarted(start: GuideStartEvent) {
-  await AsyncStorage.setItem(
-    GUIDE_ACTIVE_KEY,
-    JSON.stringify({ ...start, started_at_ms: Date.now() } satisfies ActiveGuide),
-  );
+  const epoch = ++guideEpoch;
+  const payload = JSON.stringify({ ...start, started_at_ms: Date.now() } satisfies ActiveGuide);
+  await AsyncStorage.setItem(GUIDE_ACTIVE_KEY, payload);
+  // 종료 정산이 먼저 마커를 지운 뒤 이 쓰기가 끝나면, 방금 쓴 세션만 다시 지운다.
+  if (epoch !== guideEpoch) {
+    const current = await AsyncStorage.getItem(GUIDE_ACTIVE_KEY);
+    if (current === payload) await AsyncStorage.removeItem(GUIDE_ACTIVE_KEY);
+  }
+}
+
+// 300m 도착 콜백. 활성 마커를 다시 쓰지 않고 세션 id 만 남긴다.
+async function rememberGuideArrival() {
+  const epoch = guideEpoch;
+  const raw = await AsyncStorage.getItem(GUIDE_ACTIVE_KEY);
+  if (epoch !== guideEpoch || !raw) return;
+  const active = parseActiveGuide(raw);
+  if (!active) return;
+  await AsyncStorage.setItem(GUIDE_ARRIVED_KEY, active.guide_session_id);
+  if (epoch !== guideEpoch) {
+    const stamped = await AsyncStorage.getItem(GUIDE_ARRIVED_KEY);
+    const currentRaw = await AsyncStorage.getItem(GUIDE_ACTIVE_KEY);
+    const currentId = currentRaw ? parseActiveGuide(currentRaw)?.guide_session_id : undefined;
+    if (stamped === active.guide_session_id && currentId !== active.guide_session_id) {
+      await AsyncStorage.removeItem(GUIDE_ARRIVED_KEY);
+    }
+  }
 }
 
 async function reconcileAbandonedGuide() {
   const active = await takeActiveGuide();
-  trackGuideEnd(active, 'abandoned');
+  trackGuideEnd(active, 'abandoned', 'process_end');
 }
 
 // 주행 중 연타로 여러 시트를 열거나 같은 위치를 중복 제보하지 않는다.
@@ -275,14 +313,17 @@ async function handleGuideEnd() {
   // 드래그하면 SDK 가 따라가기를 알아서 푼다.
   followMyLocationOnMap();
   if (!goal) {
-    trackGuideEnd(active, 'cancelled');
+    trackGuideEnd(active, 'cancelled', 'no_goal');
     return;
   }
 
   const dist = await distanceToGoal(goal);
   const confirmed = hasGuideArrived(goal);
   const near = confirmed || (dist !== null && dist < 400);
-  trackGuideEnd(active, near ? 'arrived' : 'cancelled');
+  trackGuideEnd(active, near ? 'arrived' : 'cancelled', 'user_end', {
+    had_arrived: confirmed,
+    remaining_m: dist === null ? undefined : Math.round(dist),
+  });
   if (confirmed || (dist !== null && dist <= 300)) void recordGuideArrival(goal, viaPlaces);
   // 등록 장소·코스는 리뷰로, 일반 목적지는 이름·위치가 채워진 간편 제보로 잇는다.
   if (near && (goal.placeId || goal.generalPlaceId || goal.courseId)) suggestReview(goal);
@@ -350,13 +391,16 @@ export function registerGuideEvents(): () => void {
   const arrival = supportsKakaoNaviFeature('guide_arrival_record')
     ? KakaoNavi.addListener('onGuideArrival', event => {
         const { goal, viaPlaces } = useGuideSession.getState();
-        if (goal && matchesGuideArrival(goal, event)) void recordGuideArrival(goal, viaPlaces);
+        if (goal && matchesGuideArrival(goal, event)) {
+          void recordGuideArrival(goal, viaPlaces);
+          void rememberGuideArrival();
+        }
       }) : { remove: () => {} };
   const end = KakaoNavi.addListener('onGuideEnd', () => { void handleGuideEnd(); });
   const failed = KakaoNavi.addListener('onGuideFailed', ({ code, message, preserveActive }) => {
     if (!preserveActive) {
       useGuideSession.getState().clear();
-      void takeActiveGuide().then((active) => trackGuideEnd(active, 'cancelled'));
+      void takeActiveGuide().then((active) => trackGuideEnd(active, 'cancelled', 'start_failed'));
     }
     toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(message, code));
   });

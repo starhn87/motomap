@@ -3,13 +3,15 @@ import {
   Platform,
   StyleSheet,
   View,
-  Text,
   Pressable,
   ScrollView,
-  Switch,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ANDROID_TOP_CONTROL_GAP, HEADER_CONTROL_SIZE } from '@/components/navigation/headerSpacing';
+import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -25,8 +27,9 @@ import { appAlert } from '@/lib/dialog';
 import { supabase } from '@/lib/supabase';
 import { friendlySocialAuthError } from '@/lib/socialAuthError';
 import type { SocialLoginProvider } from '@/lib/socialAuth';
-import { useHapticsStore } from '@/stores/useHapticsStore';
-import { haptics } from '@/lib/haptics';
+import { nativeUI } from '@/lib/nativeUI';
+import NativeChoiceControl from '@/components/ui/NativeChoiceControl';
+import NativeSettingsGroup from '@/components/ui/NativeSettingsGroup';
 
 type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -115,6 +118,16 @@ function LoginMethods({ initialProviders }: { initialProviders: string[] }) {
     ? LOGIN_METHODS
     : LOGIN_METHODS.filter((method) => method.provider !== 'apple');
 
+  if (nativeUI) return <NativeSettingsGroup rows={[
+    ...(identities.has('email') ? [{ key: 'email', label: '이메일', value: '연결됨', connected: true }] : []),
+    ...methods.map(method => {
+      const connected = identities.has(method.identity);
+      return { key: method.provider, label: method.label, value: connected ? '연결됨' : '연결', connected,
+        onPress: connected ? undefined : () => { void handleLink(method.provider); },
+        disabled: linking !== null, loading: linking === method.provider };
+    }),
+  ]} />;
+
   return (
     <View style={[styles.loginMethodsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       {identities.has('email') ? (
@@ -168,20 +181,13 @@ function LoginMethods({ initialProviders }: { initialProviders: string[] }) {
 
 
 export default function SettingsScreen() {
+  const trackHeaderScroll = useTrackHeaderScroll();
+  const insets = useSafeAreaInsets();
   const { current, hasUpdate, openStore } = useAppUpdate();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const { mode, setMode } = useThemeStore();
-  const hapticsEnabled = useHapticsStore((state) => state.enabled);
-  const setHapticsEnabled = useHapticsStore((state) => state.setEnabled);
-
-  const handleHapticsChange = (enabled: boolean) => {
-    if (hapticsEnabled) haptics.selection();
-    void setHapticsEnabled(enabled);
-    if (enabled) haptics.success();
-  };
-
   const handleDeleteAccount = () => {
     appAlert(
       '회원 탈퇴',
@@ -217,34 +223,20 @@ export default function SettingsScreen() {
     );
   };
 
+  const headerHeight = insets.top + HEADER_CONTROL_SIZE + (Platform.OS === 'android' ? ANDROID_TOP_CONTROL_GAP : 0);
   return (
     <ScrollView
+      onScroll={trackHeaderScroll} scrollEventThrottle={16}
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}>
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>사용 환경</Text>
-      <Text style={[styles.environmentLabel, { color: colors.text }]}>테마</Text>
+      contentContainerStyle={[styles.content, { paddingTop: headerHeight + 16, paddingBottom: insets.bottom + 32 }]}>
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 0 }]}>테마</Text>
       <View style={styles.themeRow}>
+        {nativeUI ? <NativeChoiceControl label="테마" presentation="segmented" value={mode} onChange={setMode}
+          options={[{ value: 'system', label: '시스템' }, { value: 'light', label: '라이트' }, { value: 'dark', label: '다크' }]} /> : <>
         <ThemeOption label="시스템" value="system" current={mode} onPress={setMode} />
         <ThemeOption label="라이트" value="light" current={mode} onPress={setMode} />
         <ThemeOption label="다크" value="dark" current={mode} onPress={setMode} />
-      </View>
-
-      <View
-        style={[styles.settingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={styles.settingText}>
-          <Text style={[styles.settingLabel, { color: colors.text }]}>햅틱 피드백</Text>
-          <Text style={[styles.settingHint, { color: colors.textSecondary }]}>
-            켜면 진동을 테스트해요. 시스템 햅틱이 꺼져 있으면 동작하지 않을 수 있어요.
-          </Text>
-        </View>
-        <View style={styles.settingSwitchSlot}>
-          <Switch
-            accessibilityLabel="햅틱 피드백"
-            value={hapticsEnabled}
-            onValueChange={handleHapticsChange}
-            trackColor={{ false: colors.border, true: semantic.success }}
-          />
-        </View>
+        </>}
       </View>
 
       {user ? (
@@ -259,6 +251,12 @@ export default function SettingsScreen() {
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
         앱 정보
       </Text>
+      {nativeUI ? <NativeSettingsGroup rows={[
+        { key: 'version', label: '버전', value: current + (hasUpdate ? ' 업데이트 있음' : ''),
+          onPress: hasUpdate ? openStore : undefined, chevron: hasUpdate },
+        { key: 'font-license', label: '서체 라이선스', onPress: () => router.push('/font-license' as any), chevron: true },
+        ...(user ? [{ key: 'blocked-users', label: '차단 관리', onPress: () => router.push('/blocked-users' as any), chevron: true }] : []),
+      ]} /> : <>
       <View
         style={[
           styles.infoCard,
@@ -286,6 +284,7 @@ export default function SettingsScreen() {
           </View>
         </Pressable>
       </View>
+      <Pressable onPress={() => router.push('/font-license' as any)} style={[styles.linkButton, { backgroundColor: colors.surface, borderColor: colors.border }]}><Text style={[styles.linkText, { color: colors.text }]}>서체 라이선스</Text><Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text></Pressable>
 
       {user && (
         <Pressable
@@ -301,10 +300,17 @@ export default function SettingsScreen() {
           <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
         </Pressable>
       )}
+      </>}
 
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 20 }]}>
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
         약관 및 정책
       </Text>
+      {nativeUI ? <NativeSettingsGroup rows={[
+        { key: 'location-privacy', label: '위치정보 동의·기록 관리', onPress: () => router.push('/location-privacy' as any), chevron: true },
+        { key: 'terms', label: '서비스 이용약관', onPress: () => router.push('/legal/terms' as any), chevron: true },
+        { key: 'privacy', label: '개인정보 처리방침', onPress: () => router.push('/legal/privacy' as any), chevron: true },
+        { key: 'location', label: '위치기반 서비스 이용약관', onPress: () => router.push('/legal/location' as any), chevron: true },
+      ]} /> : <>
       <Pressable accessibilityRole="button" onPress={() => router.push('/location-privacy' as any)}
         style={[styles.linkButton,{ backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={[styles.linkText,{ color: colors.text }]}>위치정보 동의·기록 관리</Text>
@@ -346,13 +352,16 @@ export default function SettingsScreen() {
         <Text style={[styles.linkText, { color: colors.text }]}>위치기반 서비스 이용약관</Text>
         <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
       </Pressable>
+      </>}
 
       {user && (
         <>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 20 }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
             계정
           </Text>
-          <Pressable
+          {nativeUI ? <NativeSettingsGroup rows={[
+            { key: 'delete-account', label: '회원 탈퇴', onPress: handleDeleteAccount, destructive: true },
+          ]} /> : <Pressable
             onPress={handleDeleteAccount}
             style={[
               styles.linkButton,
@@ -363,7 +372,7 @@ export default function SettingsScreen() {
             ]}>
             <Text style={[styles.linkText, { color: semantic.danger }]}>회원 탈퇴</Text>
             <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
-          </Pressable>
+          </Pressable>}
         </>
       )}
     </ScrollView>
@@ -377,28 +386,22 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 40,
+    gap: 12,
   },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    marginBottom: 10,
-    marginTop: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    marginTop: 20,
   },
   themeRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 12,
-  },
-  environmentLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
   },
   themeOption: {
     flex: 1,
     paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
@@ -415,39 +418,10 @@ const styles = StyleSheet.create({
   loginMethodsCard: {
     borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 32,
     overflow: 'hidden',
   },
-  settingCard: {
-    minHeight: 64,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  settingText: {
-    flex: 1,
-    marginRight: 12,
-  },
-  settingSwitchSlot: {
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-  },
-  settingLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  settingHint: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 5,
-  },
   loginMethodRow: {
-    minHeight: 52,
+    minHeight: 56,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
@@ -471,7 +445,7 @@ const styles = StyleSheet.create({
   },
   linkMethodButton: {
     minWidth: 54,
-    minHeight: 34,
+    minHeight: 44,
     paddingHorizontal: 12,
     borderRadius: 9,
     alignItems: 'center',
@@ -482,6 +456,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   infoRow: {
+    minHeight: 24,
+    alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
@@ -508,7 +484,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    marginTop: 12,
   },
   linkText: {
     fontSize: 14,

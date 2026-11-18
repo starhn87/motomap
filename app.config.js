@@ -1,4 +1,7 @@
 const releasePolicy = require('./config/release-policy.json');
+const pretendardFonts = [
+  'Thin', 'ExtraLight', 'Light', 'Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold', 'Black',
+].map((name, index) => ({ path: `./assets/fonts/Pretendard-${name}.otf`, weight: (index + 1) * 100 }));
 // 운영 중단처럼 구버전까지 즉시 막아야 하는 비상 OTA에만 사용한다. 일반 빌드와
 // OTA에서는 비워 두어 release-policy.json이 계속 단일 기준이 되게 한다.
 const emergencyRuntimeVersion = process.env.MOTOMAP_EMERGENCY_RUNTIME_VERSION;
@@ -75,10 +78,11 @@ export default {
     android: {
       package: 'com.ridemap.app',
       adaptiveIcon: {
-        foregroundImage: './assets/images/icon-v2.png',
+        foregroundImage: './assets/images/android-adaptive-foreground.png',
         backgroundColor: '#0A0A0A',
       },
       predictiveBackGestureEnabled: false,
+      blockedPermissions: ['android.permission.READ_PHONE_STATE'],
       permissions: [
         'ACCESS_FINE_LOCATION',
         'ACCESS_COARSE_LOCATION',
@@ -91,6 +95,10 @@ export default {
     },
     plugins: [
       'expo-router',
+      ['expo-font', {
+        ios: { fonts: pretendardFonts.map(font => font.path) },
+        android: { fonts: [{ fontFamily: 'Pretendard', fontDefinitions: pretendardFonts }] },
+      }],
       [
         'expo-splash-screen',
         {
@@ -99,6 +107,8 @@ export default {
           backgroundColor: '#0A0A0A',
           // Expo 57에서도 기존 전체 화면 바이크 이미지의 크기·배치를 유지한다.
           ios: { enableFullScreenImage_legacy: true },
+          // Android 마스크 안에서 바이크가 화면 너비의 절반에 가깝게 보인다.
+          android: { image: './assets/images/android-splash-bike.png', imageWidth: 288 },
         },
       ],
       [
@@ -168,11 +178,14 @@ export default {
             enableSceneSupport: true,
           },
           android: {
+            minSdkVersion: 26,
             extraMavenRepos: [
               'https://repository.map.naver.com/archive/maven',
               // 카카오 SDK(com.kakao.sdk:*)는 Maven Central 이 아니라 카카오 전용
               // 저장소에만 있다. @react-native-kakao 는 mavenCentral 만 선언하므로 필수.
               'https://devrepo.kakao.com/nexus/content/groups/public/',
+              'https://devrepo.kakaomobility.com/repository/kakao-mobility-android-knsdk-public/',
+              'https://devrepo.kakaomobility.com/repository/kakao-mobility-android-locationsdk-release/',
             ],
           },
         },

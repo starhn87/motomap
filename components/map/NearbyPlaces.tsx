@@ -1,4 +1,5 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { ScrollView } from 'react-native-gesture-handler';
 
 import Colors from '@/constants/Colors';
@@ -65,9 +66,10 @@ export default function NearbyPlaces({ place }: { place: Place }) {
                   {near.name}
                 </Text>
               </View>
-              <Text style={[styles.cardSub, { color: colors.textSecondary }]}>
-                {CATEGORIES[near.category].label} · {formatMeters(haversine(place, near))}
-              </Text>
+              <View style={{ flexDirection: 'row', columnGap: 12, flexWrap: 'wrap' }}>
+                <Text style={[styles.cardSub, { color: colors.textSecondary }]}>{CATEGORIES[near.category].label}</Text>
+                <Text style={[styles.cardSub, { color: colors.textSecondary }]}>{formatMeters(haversine(place, near))}</Text>
+              </View>
             </Pressable>
           ))}
         </View>

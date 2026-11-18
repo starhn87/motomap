@@ -1,4 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import GlassButton from '@/components/ui/GlassButton';
+import GlassSurface from '@/components/ui/GlassSurface';
 import {
   ActivityIndicator,
   FlatList,
@@ -7,10 +9,9 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import Colors from '@/constants/Colors';
@@ -80,6 +81,7 @@ export default function PointSearchModal({
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const myPlacesEnabled = useMyPlacesStore((s) => s.enabled);
   const myPlaces = useMyPlacesStore((s) => s.places);
   const [query, setQuery] = useState('');
   const draftQueries = useRef(new Map<string, string>());
@@ -97,13 +99,15 @@ export default function PointSearchModal({
       onSelect(point, address);
       return;
     }
+    const owner = user?.id;
+    if (!owner) return;
     Keyboard.dismiss();
     setSelectionConfirmation(createMyPlaceConfirmation(
       confirmSlot,
       { ...point, address: address ?? '' },
       () => {
         setSelectionConfirmation(null);
-        onSelect(point, address);
+        if (useAuthStore.getState().user?.id === owner) onSelect(point, address);
       },
       () => setSelectionConfirmation(null),
     ));
@@ -332,11 +336,7 @@ export default function PointSearchModal({
         <View style={{ flex: 1 }} accessibilityElementsHidden={!!selectionConfirmation}
           importantForAccessibility={selectionConfirmation ? 'no-hide-descendants' : 'auto'}>
         <View style={styles.modalHeader}>
-          <View
-            style={[
-              styles.searchBox,
-              { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
-            ]}>
+          <GlassSurface style={styles.searchBox}>
             <Ionicons name="search" size={16} color={colors.textSecondary} />
             <TextInput
               value={query}
@@ -383,13 +383,14 @@ export default function PointSearchModal({
                 color={listening ? colors.tint : colors.textSecondary}
               />
             </Pressable>
-          </View>
-          <Pressable
+          </GlassSurface>
+          <GlassButton
             accessibilityRole="button"
             onPress={onClose}
+            style={{ minWidth: 56, height: 44, borderRadius: 22 }}
             hitSlop={{ top: 13, bottom: 13, left: 8, right: 8 }}>
             <Text style={[styles.modalCancel, { color: colors.text }]}>취소</Text>
-          </Pressable>
+          </GlassButton>
         </View>
 
         {/* 집·회사를 정하는 중이면 결과 목록에 사는 곳 주소가 그대로 뜬다.
@@ -441,7 +442,7 @@ export default function PointSearchModal({
                       <Text style={[styles.quickLabel, { color: colors.text }]}>현위치</Text>
                     </Pressable>
                   )}
-                  {allowSaved &&
+                  {allowSaved && myPlacesEnabled &&
                     (
                       [
                         ['home', 'home', '집'],
@@ -555,7 +556,7 @@ export default function PointSearchModal({
                   )}
                 </View>
                 <Text style={[styles.resultBadge, { color: CATEGORIES[item.place.category].color }]}>
-                  {isFavorite(item) ? '즐겨찾기 · ' : ''}{CATEGORIES[item.place.category].label}
+                  {isFavorite(item) ? '즐겨찾기 ' : ''}{CATEGORIES[item.place.category].label}
                 </Text>
               </Pressable>
             ) : (
@@ -609,8 +610,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 22,
+    borderWidth: 0,
     paddingHorizontal: 12,
     height: 44,
   },

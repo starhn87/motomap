@@ -12,21 +12,388 @@
 
 ## 현재 계약
 
-- 현재 앱 버전: **1.2.11**
+- 현재 앱 버전: **1.3.2**
 - 공식 지원 직전 버전: **1.2.10**
 - 원격 최소 실행 버전: **1.2.4**
-- 네이티브 브리지 계약: **38**
+
+- 네이티브 브리지 계약: **48**
 - 백엔드 API 계약: **1**
+
+## 2026-11-11 iOS 길안내 RN TestFlight 후보 — 1.3.2
+
+App Store Connect가 승인된 1.3.1의 새 빌드 제출을 거절했다(90062, 90186).
+같은 RN 소스를 1.3.2로 올리고 앱 버전 기반 Expo 런타임도 1.3.2로 분리한다.
+native42, API1, 원격 최소 실행 버전 및 미출시 후보의 OTA 차단 정책은 유지한다.
+
+## 2026-11-10 iOS 길안내 RN 패널 후보
+
+native42는 iOS 길안내 패널에 `guide_rn_bottom`과 Surface 연결·준비·조작 계약을 추가한다.
+native41의 WebView 화면은 이미 설치된 바이너리에서 계속 동작한다. 앱 버전과 Expo 런타임은
+로컬 비교 단계에서 1.3.1을 사용한다. 배포 전에는 새 바이너리와 호환 범위를 검증해야 한다.
+앱 버전 후보 표시와 OTA 제한을 유지한다.
+
+## 2026-11-09 TestFlight — 1.3.1
+
+사용자 요청으로 iOS 앱 버전과 Expo 런타임을 1.3.1로 올리고 production 채널로
+TestFlight 빌드를 제출한다. 직전 1.3.0(79)의 교통 막대 변경과 활동 탭·장소 상세의
+수정을 포함한다. native41/API1, 지원 직전 공개 버전 1.2.10, 원격 최소 실행 버전
+1.2.4 정책을 유지한다.
+
+EAS 클라우드의 무료 빌드 한도에 도달해 source `1104941`을 맥에서 production으로
+빌드했다. 서명된 IPA의 앱 버전 1.3.1(81), 런타임 1.3.1, production 채널을 확인했다.
+EAS 제출 `bda8b064-fd3d-4f59-935d-7a37b0635e6f`가 완료되어 App Store Connect가
+업로드를 수신했다. 확인 시점에는 Apple이 빌드를 처리 중이다.
+
+## 2026-11-08 App Store 제출 후보 — 1.3.0
+
+1.2.11 TestFlight 빌드 77 이후의 지도 날씨 레이아웃과 일 최저·최고, 장소 제보와
+리뷰 사진 동작을 포함한 main 소스를 1.3.0 iOS 바이너리로 묶는다. 앱 버전과
+appVersion 기반 Expo 런타임은 모두 1.3.0, 채널은 production, native41/API1이다.
+1.2.11은 TestFlight 후보였으므로 공식 지원 직전 공개 버전은 1.2.10을 유지한다.
+source `b6a272b`의 EAS iOS 빌드 `87cf97f9-66cc-451f-a069-f2a5034c7ebd`가 완료됐다.
+IPA에서 1.3.0(78), runtime 1.3.0, production 채널과 날씨·사진 관련 번들 문자열을
+확인했다. 제출 `40c220e5-7a68-4536-ae5a-f7e6558d81dd`에서 App Store Connect
+업로드 성공을 확인했다. Apple 처리와 심사 제출은 별개다.
+
+## 2026-11-07 날씨 레이아웃 TestFlight 공통 OTA 승인
+
+사용자가 MAP-068의 main 푸시와 TestFlight OTA 적용을 명시 승인했다. 시간별 예보 양 끝
+여백8pt·셀56pt, 바람·습도/먼지2종의2열 정렬, 기온 오른쪽의 작은 체감을 포함하는
+`45db7ce`·`902f5cf`를 main에 푸시하고, source `902f5cf`의 커밋된 파일만 격리 복제해
+production/iOS/runtime1.2.11에 발행한다. 같은 채널·runtime의 TestFlight 빌드들이 함께
+받으며 특정 빌드 번호만 대상으로 삼지 않는다. 구 바이너리의 네이티브 기능은 바뀌지 않는다.
+
+일반 릴리스 검사는 통과했다. `check:release -- --ota`의 미출시 후보 차단은 예상대로
+실패했으며, 이번 명시 승인만 일회 예외로 처리한다. candidate1.2.11 및 보호 검사는
+유지한다. 앱/runtime·native41/API1·의존성·권한·DB 계약 변경이나 새 바이너리는 없다.
+타입·532개 테스트·최종 리뷰를 통과했고, 실기기 수신·큰 글자에서의 화면 확인은 남아 있다.
+실제 발행 ID와 runtime1.2.10/1.2.11 manifest 대조 결과는 완료 후 기록한다.
+
+### 발행 완료
+
+source `902f5cfb7d844eeb226dddf618dfe87c77c1c752`에서 OTA 그룹
+`e50c380f-fed6-4189-9f7a-0da422191acc`, iOS update
+`01a1b3e4-fec2-7a95-a283-86aa602baf9d`를 발행했다. production/iOS/runtime1.2.11의
+실제 manifest가 신규 ID를 반환하며 runtime1.2.10은 발행 전후
+`01a17594-175f-7e46-bd9e-f6b5dbd18ef8`로 동일하다. main GitHub checks도 통과했다.
+
+격리 소스의 iOS export·업로드·발행은 성공했다. 임시 디렉터리의 기본 Node25는
+시스템 공유 라이브러리 누락으로 CLI 실행 전에 종료돼 기존 설치된 Node22를 명시해
+진행했으며 전역 설치는 바꾸지 않았다. 실제 TestFlight 기기의 다운로드·적용·화면은
+아직 확인하지 않았고, 앱 완전 종료→재실행(다운로드)→다시 재실행(적용)으로 확인한다.
+
+## 2026-11-05 TestFlight 업로드: 1.2.11(73), 첫 GPS 대기 막대 미노출 수정
+
+source `eddffb89df1002cd7766cc365b00453d486bec2e`의 clean clone에서 production iOS
+build `dd2e100e-dc72-461c-b0ce-cf2decad0b9a`가 FINISHED다. 앱1.2.11(73), runtime1.2.11,
+production 채널, native41/API1이다. IPA80.6MiB에서 번들 식별자·버전·채널과 GPS 대기 요약의
+새 selector/문구 포함을 확인했고, 격리 테스트 컨트롤러는 실행 파일에 없음을 확인했다.
+
+NAV-067을 포함한다. 실제 SDK의 GPS 대기·정지 조건에서 수정 전에는 INVISIBLE, 수정 후에는
+48개 구간으로 VISIBLE이었다. 사용자가 회색 자차였음을 확인해 재현 상태와 일치했다.
+532개 테스트·타입·릴리스·diff·최종 리뷰를 통과했고 기본 네이티브 실패0건과 실제 SDK
+`TRAFFIC_RENDER_RESULT visible=1`을 확인했다. 새 바이너리의 실기기 수신·실주행 검증과는 구분한다.
+
+EAS submission `775ad66c-a114-4abf-863d-6da68054cbeb`가 FINISHED이며 Apple 업로드
+성공을 확인했다. 제출 취소/직접 업로드는 하지 않았다. 확인 시점은 Apple 처리 단계이며
+TestFlight 설치 가능 상태까지 확인한 것은 아니다. Git 푸시·공개 OTA·App Store 심사·
+판매·DB·전체 알림은 하지 않았다.
+
+## 2026-11-05 72번 교통 막대 미노출 수정 후보
+
+NAV-067은 실제 SDK의 첫 GPS 대기 상태에서 발생한 막대 미노출을 수정한다. GPS 대기에는
+확인된 경로 시작점의 전체 요약·회색 위치, 신뢰 매칭 수신 후에는 남은 경로·초록 위치를
+표시한다. 내부 네이티브 표시 개선이며 앱/runtime1.2.11·native41/API1·candidate 보호를 유지한다.
+기존 교통 막대의 새 빌드·TestFlight 전달 요청에 대한 후속 회귀 수정으로 검증·커밋 후
+수정 바이너리를 전달한다. Git 푸시·공개 OTA·App Store 심사·판매·DB 변경은 포함하지 않는다.
+72번 바이너리가 변경된 것으로 해석하지 않으며 다음 실제 빌드 번호/업로드 결과는 후속 기록한다.
+
+## 2026-11-05 TestFlight 업로드: 1.2.11(72), 길안내 교통 막대
+
+source `8e59bd14dd4b08bb838d91c601b906a27f175ad1`의 clean clone에서 EAS production iOS
+build `b5388533-bf0a-4970-9d94-ba5857825f8a`가 FINISHED다. 앱1.2.11(72), runtime1.2.11,
+production 채널, native41/API1이며 IPA는80.6MiB다. IPA의 버전·채널과 네이티브 실행 파일의
+`KNNaviTrafficBar` 클래스·접근성 식별자 포함도 확인했다. 무관한 미추적 파일은 제외했다.
+
+NAV-064~066의 우측 하단 교통 막대가 포함된다. 얇은 흰 외곽선·초록 현재 위치·실제 길안내
+테마의 원활 파랑을 사용한다. 532개 테스트·타입·릴리스·diff와 최종 리뷰를 통과했으며,
+네이티브 시뮬레이터 하네스는 실패0건이다. 새 바이너리의 실주행 데이터·표시 위치 검증은
+운영자의 TestFlight 확인 대상으로 남는다.
+
+EAS submission `1137e248-bbf0-4b6d-b130-7163b3835fb1`가 FINISHED이며
+`Submitted your app to Apple App Store Connect`와 업로드 성공을 확인했다.
+이번에는 EAS 제출이 완료돼 취소나 직접 업로드 우회는 하지 않았다. Apple 처리 완료나
+TestFlight 설치 가능 상태까지 확인한 것은 아니다. Git 푸시·공개 OTA·App Store 심사·판매
+변경·DB·전체 알림은 하지 않았다.
+
+## 2026-11-05 길안내 교통 막대 새 빌드·TestFlight 전달 승인
+
+운영자가 NAV-064~066의 최종 교통 막대를 새 앱으로 빌드해 TestFlight에 올리도록 승인했다.
+네이버 참고 화면의 얇은 막대와 우측 하단 배치를 유지하고, 원활은 실제 길안내 테마의 파랑,
+현재 위치는 앱 초록으로 표시한다. 앱/runtime1.2.11·native41/API1·candidate 보호를 유지한다.
+커밋된 소스만 격리 복제해 production iOS로 빌드하고 실제 빌드 번호·산출물·Apple 업로드
+결과를 후속 기록한다. App Store 심사·판매 변경·공개 OTA·DB·전체 알림은 범위에 없다.
+이번 요청은 빌드·TestFlight 전달이며 Git 푸시는 하지 않는다. 아래 후보 기록은 당시 상태로 남긴다.
+
+## 2026-11-05 길안내 교통 막대 소스 후보
+
+NAV-064는 기존 KNSDK 공개 경로/매칭 위치 API를 소비하는 네이티브 표시 개선이다.
+외형은 NAV-065에서 이전 네이버 공개 참고 화면의 얇은 막대·원형 현재 위치·우측 하단 정렬로 맞췄다.
+원활·현재 위치 색상은 NAV-066에서 길안내의 파랑·앱 초록에 맞췄다.
+새 JS 메서드·이벤트·capability·권한·백엔드 계약을 추가하지 않아 앱/runtime1.2.11·
+native41/API1을 유지한다. candidate OTA 차단도 유지한다. 기존 TestFlight71번에는
+포함되지 않으며 새 바이너리가 필요하다. 이번 요청은 구현·검증·커밋 범위이고 새 빌드·
+기기 설치·푸시·TestFlight 전달은 승인 전이다. 새 상태를 기존71번의 전달 기록으로 읽지 않는다.
+
+## 2026-11-05 TestFlight 업로드: 1.2.11(71), native41 UI 후속
+
+사용자 승인으로 설정 제목을 `테마` 하나로 정리하고 앱 정보의 버전을 첫 행에 배치했다.
+앞서 확인한 native41 UI·초기 동의 선택·햅틱 제거·낙관삭제 애니메이션·헤더 구분선 제거와 함께
+source `4e35c584a996c6949cd45dbcc471d34798deb68d`를 main에 푸시했다.
+532개 테스트·타입/릴리스/diff 검사·코드 리뷰와 main GitHub checks가 통과했다.
+
+커밋된 소스만 clean clone한 EAS production iOS build
+`6eb6a895-965b-45a7-b894-0e385d5ec382`가 FINISHED다. IPA에서도 com.ridemap.app,
+앱1.2.11(71)·runtime1.2.11·production 채널을 확인했다. native41/API1이며 IPA는80.6MiB다.
+로컬 개발용 앱 디렉터리 크기나 App Store의 최종 다운로드 크기와 혼동하지 않는다.
+
+EAS submission `311c0820-77d2-4350-9d61-95d26c7160e2`는 IN_QUEUE에 장시간 머물렀다.
+기존 ASC 인증으로71번 빌드 미존재를 조회하고, 공식 submit:cancel 후 CANCELED를 확인했다.
+Apple 미존재를 다시 확인한 뒤 같은 IPA를 공식 altool로 업로드했다.
+2026-11-05 00:02 KST `UPLOAD SUCCEEDED with no errors`, delivery
+`8a4d8812-2368-4844-bc10-27c73879636c`를 확인했다. 기존 EAS 등록 인증만 재사용했고 새 키나
+권한을 만들지 않았다. 임시0600 개인 키는 전용0700 디렉터리에서 사용한 뒤 삭제했다.
+
+이 기록은 Apple 업로드 성공이며 처리 완료·TestFlight 설치 가능 상태까지 확인했다는 뜻은
+아니다. App Store 심사·판매 변경·공개 OTA·DB 변경·전체 알림은 하지 않았다.
+
+## 2026-11-04 native41 후속 검증·TestFlight 전달 승인
+
+운영자가 설정의 `사용 환경`/`테마`를 다른 섹션 제목과 같은 색의 `테마` 하나로 정리하고,
+앱 정보의 첫 행을 버전으로 바꾸도록 요청했다. 네이티브와 RN 폴백 모두 같은 순서를 사용한다.
+업데이트 조건과 스토어 이동·테마 저장 동작은 유지한다. 앞서 완료한 UI 보완과 함께 main 푸시와
+새 production iOS 빌드의 TestFlight 업로드를 승인했다. 공개 OTA·App Store 심사·판매 변경은
+포함하지 않는다. 앱/runtime1.2.11·native41/API1·candidate 보호는 유지한다.
+
+아래 후속 후보의 실기기 검증은 source8245503 로컬 Release 빌드/무선 설치 후 완료했다.
+선택을1.5초 누르는 동안5회 캡처에서 기존 선택 표시 유지와 뗀 뒤 전환을 확인했다.
+활동 재진입 전후 필터 접근성 프레임이 같고, 선택된 건의 아이콘의 대비와 햅틱 설정 제거도
+확인했다. 중간 검사1회는 radio를 button으로 찾던 자동화 selector 때문에 실패했으며,
+수정한 독립 검사는 통과했다. 실제 사용자 카드 삭제/알림 읽음/동의 선택은 실행하지 않았다.
+이후 ecc1bc2의 모든 페이지 헤더 구분선 제거도 새 Release 빌드·설치와 서체 라이선스 상세
+열기/뒤로가기 실기기 검사에서 통과했다. 사용자가 이전 수정의 정상 적용도 확인했다.
+새 TestFlight 빌드 번호·소스·업로드 결과는 실제 완료 후 후속 기록한다.
+
+## 2026-11-04 native41 후속 선택·필터 보완 후보
+
+INTERACTION-029: 기존 segmented-control2.5.7의 중복 values 재생성/선택 인덱스 재지정을
+막는 patch-package 파일과 고정 크기 Menu label을 준비했다. 기존 ABI·호출·이벤트는 같아
+REL-003에 따라 native41/API1·앱/runtime1.2.11을 유지한다. 새 기능 capability는 추가하지 않는다.
+이 패치의 실제 iOS compile flags syntax-only는 통과했지만 새 앱 빌드·설치·영상 비교는 아직이다.
+현재 설치 source71cee95 및 TestFlight70과 구분하며 candidate OTA 보호를 유지한다.
+이번 작업은 검증/커밋까지이며 새 앱 빌드·main 푸시·OTA·TestFlight는 별도 승인 전이다.
+아래 로컬 검증은 수정 전 source의 기록이며 새 패치의 실기기 통과로 재해석하지 않는다.
+
+## 2026-11-04 native41 로컬 빌드·실기기 검증
+
+사용자가 새 빌드→실기기 설치/검증을 승인했다. source `71cee95`에서 Expo57 prebuild와 pod install,
+Xcode27 Release 빌드가 성공했다. 앱은 **1.2.11(로컬1)/native41/API1**, runtime1.2.11,
+internal-testflight 채널이다. 서명된 앱의 UIAppFonts9개 OTF와 로컬 WebView의3개 WOFF2가
+원본 해시와 일치하고 새 세그먼트 JS도 포함됨을 확인했다. 앱 디렉터리는154.7MiB이며
+압축 IPA/스토어 다운로드 크기나 기존 앱 대비 증가량으로 해석하지 않는다.
+
+iPhone16/iOS27.0.1에 무선 설치했다. 잠금으로 첫 실행이 거절됐고 사용자 해제 후 검증했다.
+`testNativeRefinement41`59.144초와 `testNativeUIControls`293.649초가 모두 통과했다.
+활동4회 왕복·제보3분류·세그먼트 실제44pt 이상·설정 행56pt 이상·서체 라이선스·
+전체/장소/건의 메뉴·접근성 이름 중복 제거·테마 변경/원복·약관 행 빈 여백 탭·지도 복귀를 확인했다.
+캡처에서 행 간격·새 서체·세그먼트·메뉴 외형을 확인했다. 메뉴 라벨의 기기 접근성 프레임은
+20.33pt였다. 기존 계정의 알림 선택/읽음·리뷰/즐겨찾기/제보/로그인 연결은 변경하지 않았다.
+
+두 번째 검사에는 XCTest의 `App animations complete notification not received` 대기4회가
+포함됐다. 테스트 경과 시간을 탭 응답속도로 해석하지 않는다. 목록 첫 행 좌표 수집은 해당
+접근성 ScrollView를 찾지 못해 값이 없으므로 프레임 단위 점프/지연 측정으로 기록하지 않는다.
+설정 Glass의 누르는 중 확대는 부모 clip 제거를 적용했지만 누르는 순간의 영상 검증은 별도다.
+큰 글자·VoiceOver 실제 발화·길안내 WebView의 실화면 서체 확인도 아직 남아 있다.
+
+앱을 다시 실행해두었다. 이번 승인은 로컬 빌드/설치/검증이며 main 푸시·OTA·TestFlight·
+App Store 제출은 하지 않았다. 기존 TestFlight70/native39와 구분한다. 아래 후보 기록은 당시
+상태로 보존한다.
+
+## 2026-11-04 조작 반응·앱 서체 후속 후보(native41)
+
+INTERACTION-028/TYPE-001에 따라 UIKit UISegmentedControl2.5.7과 Pretendard1.3.9 원본9굵기를
+직접 포함한다. native41/`native_segmented_controls`와 실제 native view 존재를 확인한 뒤에만
+새 JS 모듈을 평가한다. native40은 기존 SwiftUI 선택을,39 이하는 RN 선택을 유지한다.
+등록되지 않은 서체를 강제하지 않고 이전 바이너리는 시스템 서체로 폴백한다.
+앱/runtime1.2.11·API1 및 후보 OTA 금지를 유지한다. DB·운영 정책·알림 읽음 경계는 바꾸지 않는다.
+
+이번 범위는 코드·소스 검증·커밋까지다. 새 앱 빌드·설치·main 푸시·배포는 승인 전이다.
+현재 실기기native40 및 TestFlight70/native39에 새 서체·UIKit 세그먼트가 반영된 것으로
+표기하지 않는다. 새 바이너리의44pt 선택·큰 글자·메뉴 높이·Glass 확대 잘림·서체·목록 전환은
+후속 실기기 검증 대상이다. 기존 설정 진입 반복 검사는18.894초 통과했지만, 이 검사는
+사용자가 지적한 누르는 중 Glass 확대 잘림을 검증한 것은 아니다.
+
+## 2026-11-04 로컬 native40 빌드·설치·UI 검증
+
+사용자가 main 푸시→새 iOS 빌드→실기기 설치/검증을 승인했다. ExpoUI57.0.26 pod 및
+KakaoNavi의 native40/`native_ui_controls`를 포함해 Xcode27 Release 빌드가 성공했다.
+로컬 설치본은 **1.2.11(1)**, runtime1.2.11·internal-testflight 채널이며 Apple 배포 빌드 번호가
+아니다. iPhone16/iOS27.0.1에 기존 앱 위로 설치하고 실행했다. TestFlight70은 기존native39 그대로다.
+
+동작 검사는 성공했으나 캡처에서 부분 노출 설정 행의17pt 상단 잘림을 발견했다. 인라인 Host의
+컨테이너 safe area 중복과 Picker 접근성 이름 중복을 수정했다(INTERACTION-027 후속).
+수정본도 Release 빌드/재설치했고 A/B 기기 좌표·캡처로 잘림 해소를 확인했다. 최종 XCUITest
+`testNativeUIControls`가53.096초에 통과했다. 전체/장소/건의 선택, 내 제보/리뷰 전환·3분류 표시,
+접근성 이름 중복 제거, 라이트/다크 선택과 원래 설정 복원, 약관 행 여백 터치·상세·지도 복귀를
+검사했다. 스크롤 전후 설정 그룹 배치도 별도 geometry probe로 확인했다. 실제 계정의 알림 읽음·
+로그인 연결·리뷰/즐겨찾기/제보 변경·탈퇴는 하지 않았다. 큰 글자/VoiceOver 음성 검증은 남아 있다.
+
+타입·JS514개·릴리스 계약·diff 검사가 통과했다. main 푸시는 GitHub Git Operations 장애로
+서버500에 여러 차례 실패한 뒤 c72c13b까지 성공했다. 후속 UI 보완·검증 기록은 별도 커밋으로
+이어간다. 강제 푸시·이력 재작성은 하지 않는다. 이번 승인에는 TestFlight/App Store 업로드·OTA가
+포함되지 않아 발행하지 않았다. 아래 후보/사전검증 기록은 당시 상태로 보존한다.
+
+## 2026-11-04 iOS 네이티브 선택·설정 UI 후보(native40)
+
+사용자가 선택 드롭다운→활동3분류→테마 선택→설정 목록 적용을 승인했다. INTERACTION-027 /
+NOTIFY-007에 따라 Expo SDK57 호환 `@expo/ui`57.0.26을 직접 의존성으로 선언했다. 기존 lock의
+전이 의존성57.0.22와 구 바이너리의 포함 여부를 새 API 지원 근거로 추정하지 않는다.
+네이티브 계약40과 capability `native_ui_controls`를 함께 선언한다. JS는 iOS에서 이 계약과
+optional ExpoUI 모듈을 확인한 뒤에만 SwiftUI JS를 평가한다. 이전39 이하·모듈 없음·Android는
+기존 RN UI를 사용한다. 앱/runtime1.2.11·API1·지원 최소/직전 버전은 유지하며 후보 OTA 금지는 보존한다.
+
+모든 목록·계정·알림 읽음·제보 숨김·업데이트/탈퇴 조건은 기존 경로를 재사용한다. 설정 행만
+SwiftUI로 호스팅해 RN 스크롤·Glass 헤더·인셋을 유지한다. 네이티브 Form/List 중첩은 하지 않는다.
+이번 승인 범위는 로컬 구현·검증·커밋이다. 푸시·새 앱 빌드·기기 설치·외부 배포 전에는 확인한다.
+기존 TestFlight70(native39)에 포함되지 않았으며 네이티브 외형·큰 글자·VoiceOver·실제 탭 전환은
+새 바이너리의 후속 검증 대상이다. JS 번들 검사를 새 네이티브 앱 빌드/기기 검증으로 기록하지 않는다.
+
+소스 검증: 타입·JS514개·릴리스 계약·diff 검사가 통과했다. Expo UI만 지정한 SDK57 의존성
+검사도 통과했고, 최종 production 설정의 iOS JS export가9.3MB Hermes 번들 생성에 성공했다.
+네이티브 컴파일·OS의 실제 메뉴/행 터치·VoiceOver·기기 설치는 아직 하지 않았다.
+
+## 2026-11-04 TestFlight 전달: 1.2.11(70), 도착 확인·검색/활동 UI
+
+사용자 요청 네 항목을 cb00065(검색 Glass·미리보기 일반 X),4f1cc56(스크롤되는 장소/건의 필터),
+8146f57(도착 확인·native39)로 나눠 main에 푸시했다. 소스
+`8146f57c37ca43fa5035d606c542186a6a904cc2`의 clean clone에서 production 빌드했다.
+EAS build `1602c69b-9f43-4af5-969c-3ab201271615`가 FINISHED,1.2.11(70)·runtime1.2.11·
+production 채널·STORE/iOS·소스 커밋 일치를 확인했다. native39/API1이며 새 도착 확인은 이
+바이너리부터 포함된다. 이전69번(native38)에 있다고 추정하지 않는다.
+
+EAS submission `4ae474a5-b7a2-4575-8538-ec51462b1b5d`가 **App Store Connect 업로드 성공**으로
+완료됐다. Apple 처리 완료·TestFlight 설치 가능 시점은 확인하지 않았다. 공개 출시/심사 제출이나
+OTA 발행은 하지 않았다. 실제 GPS 주행의 도착 판정 시점·도로 위 가독성은 새 TestFlight 확인 대상이다.
+
+검증: JS509개, 타입·릴리스 호환성·diff 검사와 main GitHub checks가 통과했다. 네이티브
+시뮬레이터 하네스는 실패0건이며 예·아니오·10초 만료, 신뢰 GPS/SDK 종료 조건, 중복/늦은 콜백,
+실제 UIKit의 만료→비활성→외부 종료 전환에서 모달/부모/타이머 해제를 확인했다.
+KNSDK 헤더의 기존 nullability 경고12건 외 테스트 실패는 없었다. 확인창 렌더 캡처도 검토했다.
+실제 사용자의 계정·리뷰·즐겨찾기·제보 데이터는 변경하지 않았다.
+
+## 2026-11-04 도착 확인·검색/활동 UI 후속 후보(native39)
+
+NAV-063은 실제 SDK 도착/안내 종료 뒤 네이티브 확인창을 추가한다. 예만 종료하고 아니오·10초
+무응답은 안내를 유지한다. 새 capability `guide_arrival_confirmation`과 bridge39를 선언한다.
+앱/runtime1.2.11·API1·지원 최소/직전 버전은 유지한다. 이전 native38에 이 기능이 있다고
+추정하지 않는다. SEARCH-025/INTERACTION-026/NOTIFY-005의 검색 Glass·미리보기 일반 X·
+스크롤되는 장소/건의 필터도 포함한다. 사용자 main 푸시와 신규 production/TestFlight 업로드 승인
+범위이며 OTA·공개 출시·App Store 심사 제출은 포함하지 않는다. 다음 빌드 번호/소스/업로드 결과는
+실제 완료 후 기록한다. 실주행 SDK 도착 시점은 자동 하네스의 검증 범위에 포함되지 않는다.
+
+## 2026-11-04 TestFlight 전달: 1.2.11(69), 정보 위계·지도 조작부 정리
+
+사용자 승인으로 `3c01083`까지 main에 푸시하고 커밋된 소스만 clean clone해 production iOS로
+빌드했다. EAS build `7a4bd869-4fae-4735-8a9d-7b1fabf7e012`가 `FINISHED`, 앱/런타임1.2.11,
+build69·production 채널·native38/API1·소스 커밋 일치를 확인했다. 아카이브는41.1MB다.
+
+내 바이크 사진/사양·로딩 UI, 날씨의 주요 수치와 보조 정보·스크롤, 장소 태그를 정리하고
+정보 중앙점·중복 설명을 줄인 후보(INTERACTION-024/025, MAP-065)가 포함된다. 지도 즐겨찾기
+아이콘의 내부44pt 정렬과 나침반 숨김(MAP-066)도 포함한다. 509개 테스트·타입·iOS 번들 검증,
+마지막 지도 수정의 관련20개 테스트와 최종 리뷰를 통과했고 소스 커밋의 GitHub CI도 성공했다.
+69번 UI의 수정 후 실기기 외형은 아직 확인하지 않았다.
+
+EAS submission `2ad6f318-c4b4-4b54-9cc0-f8dcea7b33a9`는 **App Store Connect 업로드 성공**으로
+끝났다. 확인 시점은 Apple 처리 단계이며 TestFlight 설치 가능 상태를 확인한 것은 아니다.
+이전 요금제 제한을 반복하지 않도록 `--what-to-test` 없이 제출했다. App Store 심사·판매
+변경·OTA 발행·새 DB 변경은 하지 않았다.
+
+## 2026-11-04 TestFlight 전달: 1.2.11(68), 활동 탭·Liquid Glass UI
+
+사용자 승인으로 `b01ee42`까지 main에 푸시하고 커밋된 파일만 clean clone해 production iOS로
+빌드했다. EAS build `e5ef66e3-e164-46d7-8d9e-4e63328f440d`가 `FINISHED`, 앱/런타임1.2.11,
+build68·production 채널·native38/API1·소스 커밋 일치를 확인했다. 아카이브는41.1MB이며
+로컬 생성 iOS 프로젝트·무관한 미추적 파일은 포함하지 않았다.
+
+활동 탭의 제보·리뷰·알림과 스와이프 삭제/숨기기, 테마 즉시 반영, 공용 regular Glass 조작부,
+지도 하단 UI를 고정하는 루트 시트 레이어, 다크 카테고리 차콜 색상이 포함된다
+(NOTIFY-003/004, INTERACTION-021~023, MAP-064). 제출 전509개 테스트·타입/릴리스 검사와
+최종 코드 리뷰를 통과했고, 소스 커밋의 GitHub CI도 성공했다. 로컬 실기기 확인 범위는 각
+도메인 기록을 따른다. expo-blur native 모듈을 포함한 전체 UI 후보를 전달하는 새 바이너리다.
+
+EAS submission `d19bf6dc-b910-4ae0-bc5b-0aa9af7d325d`는 **App Store Connect 업로드 성공**으로
+끝났다. 확인 시점은 Apple 처리 단계이며 TestFlight 설치 가능 상태나 심사 제출을 확인한 것은
+아니다. App Store 심사·판매 변경·OTA 발행은 하지 않았다.
+
+후속 사용자 확인: 68번을 TestFlight에서 직접 설치해 정상 동작함을 확인했다.
+
+첫 제출은 `--what-to-test`의 changelog 등록이 EAS Enterprise 전용이라 예약 전에 실패했다.
+같은 빌드를 재빌드하지 않고 해당 옵션 없이 제출해 성공했다. 이 환경에서는 테스트 메모 옵션을
+무조건 붙이지 않는다. 필요한 메모는 App Store Connect 로그인 후 별도로 등록한다.
+
+## 2026-11-04 후속 후보 — 즉시 테마 전환·상단 Glass·지도 루트 오버레이
+
+INTERACTION-021의 탭 테마 상속 수정은 실기기 재시작 없는 전환과 사용자 확인을 통과했고
+`d011340`으로 기록했다. INTERACTION-022·MAP-064는 상단 조작부 통일과 하단 UI를 고정하는
+루트 포털 구현이며 로컬 실기기 검증을 통과했다. `@gorhom/portal@1.0.14`는 이미 BottomSheet가 설치한 순수 JS 패키지이며
+직접 import에 맞춰 정확한 버전의 직접 의존성으로 선언한다. 네이티브 모듈·설정·권한·wire/API
+계약은 추가하지 않아 app/runtime1.2.11·native38/API1을 유지한다.
+날씨/장소의 실제 겹침·프레임 불변·사진 모달·포커스 복귀를 확인했으며, 푸시·OTA·TestFlight·
+심사 제출은 별도 승인 범위다. 앞서 검증한 tabBarHidden 방식은 사용자의 후속 요청으로 폐기한다.
+
+## 2026-11-04 소스 후보 — 활동 탭·공용 Glass 조작부
+
+### 후속 후보: 터치 반응·블러 헤더·활동 목록 삭제
+
+#### 2026-11-04 로컬 설치 기록
+
+사용자 승인으로 소스9f2b4aa를 기존 생성 iOS 프로젝트·개발용 서명으로 Release 빌드했다.
+pod install 뒤 ExpoBlur57.0.3의 native provider 등록, 빌드 성공과 codesign 검증, 수정 UI10개
+모듈의 sourcemap/작업 소스 일치를 확인했다. app/runtime1.2.11·native38/API1,
+내부 채널 `internal-testflight`다. 연결된 iPhone16에 기존 앱을 지우지 않고 덮어써 설치하고
+devicectl 실행 성공을 확인했다. bundle SHA256:
+`2ebda1f79551c6cabac4d14241736496ee2f6745ca71393d0a1e9aa874d47d60`.
+NAVER 로고는 사용자 결정대로 현재 위치를 유지했다(MAP-061 후속). 이는 설치·실행 확인이며
+Glass 팽창/밝기·블러·스와이프 외형의 사용자 확인 완료를 뜻하지 않는다. 푸시·OTA·TestFlight·
+Apple 심사/판매·추가 운영 DB 변경은 하지 않았다. 아래 준비 시점의 이력은 보존한다.
+
+#### 준비 시점 기록
+
+INTERACTION-015/NOTIFY-004로 탭 순서·종/점 배지·Glass 터치 계층과 헤더/설정 간격을 정리한다.
+새 `expo-blur@57.0.3` native 모듈은 다음 설치 빌드가 필요하다. 모듈 없는 구설치본에서는
+불투명 헤더로 폴백하며, 앱/runtime1.2.11·브리지38/API1은 유지한다(기존 wire 메서드 변경 없음).
+사용자 승인으로 숨김/본인 알림 삭제 DB migration20261103153229는 적용·검증했다.
+라이딩 제보 UI만 제거하고 과거 자료·상세 경로는 유지한다. 푸시·OTA·새 빌드/설치는 미실행이다.
+
+NOTIFY-003/COMMUNITY-012로 이전 탐색 랭킹 후보를 활동 탭으로 대체한다. INTERACTION-014,
+MAP-061, SEARCH-024로 지도·검색·설정 버튼과 헤더 배경을 정리한다. `expo-glass-effect`는 이미
+설치된 57.0.4를 직접 의존성으로 고정하며 버전·native 소스·브리지·DB 계약 변경은 없다.
+app/runtime1.2.11·native38/API1과 원격 정책은 유지한다. 모듈/API가 없는 바이너리는 opaque
+fallback이지만 이번 전체 UI는 새 바이너리/기기 QA 뒤 전달하며 무검증 OTA는 하지 않는다.
+현재 릴리즈 노트·제출 후보 문구를 동기화했고, 아래 67번 및 과거 탐색 후보의 실제 이력은 보존한다.
+이 작업에서 푸시·새 빌드/설치·OTA·TestFlight·심사 제출·DB 변경은 하지 않는다.
 
 ## 2026-11-01 TestFlight 전달: 1.2.11(67), native38/API1
 
 ### 2026-11-02 이후 소스 후보 — 탐색 랭킹·iOS 네이티브 탭
 
 COMMUNITY-010의 일반 공개 추천수/등록 리뷰 평점 분리와 INTERACTION-012의 iOS NativeTabs
-전환을 다음 검증 후보에 포함한다. 설치된 SDK57의 JS 내비게이터를 사용하며 네이티브 코드·
+전환을 다음 검증 후보에 포함한다. COMMUNITY-011·RIDING-003·INTERACTION-013의 떠 있는 탭과
+탐색 보드 정리는 같은 JS 후보에 포함한다. 설치된 SDK57의 JS 내비게이터를 사용하며 네이티브 코드·
 의존성·wire 계약 변경은 없어 app/runtime1.2.11·native38/API1을 유지한다. 이미 업로드한 67번이
-이 변경을 담았다는 뜻은 아니다. 새 바이너리의 Glass·헤더·지도/시트/모달 safe area를 확인한 후
-전달하며 검증 전 OTA는 하지 않는다. 커밋까지만 준비하고 푸시·빌드·배포는 별도 승인이다.
+이 변경을 담았다는 뜻은 아니다. 새 바이너리의 Glass·헤더·지도/시트/모달 safe area와 떠 있는
+탭이 버튼·시트를 가리는지를 확인한 후 전달하며 검증 전 OTA는 하지 않는다. 커밋까지만 준비하고
+푸시·빌드·배포는 별도 승인이다.
 
 아래 67번 전달 이력은 당시 사실로 보존한다.
 
@@ -1346,3 +1713,124 @@ production/iOS/runtime1.2.10 그룹 `98b64db8-de89-4eab-b302-239c2f386fc2`, upda
 유지하고 이미 진행 중인 장소 UI 후속 OTA로 처리했다. 별도 준비 중인 ExpoClipboard
 의존성은 포함하지 않았으며 네이티브/API/버전 변경·새 빌드·Apple 제출은 하지 않았다.
 실제 기기 표시와 터치는 확인 전이다.
+
+## 2026-11-08 TestFlight 업로드 — 1.2.11(75)
+
+사용자 승인으로 NAV-068 소스 `5f58c71`을 main에 푸시했다. 격리한 커밋 소스에서
+production iOS 빌드 `4b83da46-3ca3-413a-afe7-8069a53b5398`가 완료됐다. 앱과 runtime은
+1.2.11, 채널은 production, 브리지 계약은 native41/API1이다. IPA에서 빌드 75와 새로고침
+아이콘의 SVG 선 굵기 변경을 확인했다. 타입 검사, 테스트 532개, 릴리스 검사와 GitHub 검사를
+통과했다.
+
+제출 `9a0d3478-99ae-4fbf-817a-4ca89656725d`에서 App Store Connect 업로드 성공을
+확인했다. Apple 처리 완료, TestFlight 설치 가능 여부 및 실기기 화면은 확인 전이다.
+
+## 2026-11-08 TestFlight 업로드 — 1.2.11(76)
+
+사용자 승인으로 소스 `4c32907`의 production iOS 빌드
+`3b011589-4847-4d61-971c-b433706f5dfb`를 완료했다. 앱과 runtime은 1.2.11, 채널은 production,
+브리지 계약은 native41/API1이다. IPA에서 76번, SDK 하단 안내 전달 메서드, WebView 빈 상태
+표시 분기 및 도착 대기 문구 제거를 확인했다.
+
+제출 `95913277-24b1-4941-8f4f-0ae4fb5f4f57`에서 App Store Connect 업로드 성공을
+확인했다. Apple 처리 완료와 실기기 설치·표시는 확인 전이다. 이번 요청의 범위는 빌드와 제출이다.
+
+## 2026-11-08 TestFlight 업로드 — 1.2.11(77)
+
+사용자 승인으로 `9939d91`까지 main에 푸시했다. 경로 미리보기 가로 목록의 스크롤
+영역 확장과 실제 안내 조작부 전환 개선을 담아 production iOS 빌드
+`5e4f29e7-fa53-4a3f-b016-eb2e679dbf74`가 완료됐다. 앱과 runtime은 1.2.11, 채널은
+production, 계약은 native41/API1이다. IPA에서 77번과 현재 위치 버튼의 페이드 리소스를
+확인했다. 타입, 테스트 532개, iOS 네이티브 세션, 릴리스 검사와 GitHub 검사를 통과했다.
+
+제출 `43141e8a-5daf-4555-bb8b-0bc0f3f13c55`에서 App Store Connect 업로드 성공을
+확인했다. Apple 처리 완료와 실기기 설치·화면 확인은 아직 하지 않았다.
+
+## 2026-11-08 Android 적응형 런처 아이콘
+
+Galaxy S22 One UI 앱 목록에서 공통 `icon-v2.png`를 적응형 전경에 그대로 사용한 결과 위치 핀의
+하단이 마스크에 잘렸다. 같은 흰 핀·오토바이 도안을 투명한 Android 전경에 넣고 중앙 안전 영역에
+맞춘다. 배경색은 기존 `#0A0A0A`를 사용한다. 전경은 네이티브 리소스라 새 Android APK에 반영된다.
+앱/runtime 1.2.11과 네이티브 브리지·백엔드 API 계약은 유지한다.
+
+[Android 적응형 아이콘 안전 영역](https://developer.android.com/develop/ui/compose/system/icon_design_adaptive)
+
+### 2026-11-09 Android 아이콘·인트로 크기 조정
+
+Galaxy One UI에서 런처 아이콘의 핀·바이크 전경 크기를 약 17% 줄인다. 인트로는 원본 바이크의
+투명 영역을 고려해 Android 네이티브와 JS 대기 화면 모두 288dp 정사각 영역에 원본을 배치한다.
+실제 바이크 문양은 약 144dp다. iOS는 기존 전체 화면 원본 설정을 쓴다. Android 아이콘과 시스템
+인트로는 새 APK가 필요하며 1.2.11 앱/runtime과 네이티브/API 계약은 유지한다.
+
+[Android 스플래시 이미지 규격](https://developer.android.com/develop/ui/views/launch/splash-screen)
+
+### 2026-11-09 Android 인트로 바이크 크기 후속
+
+갤럭시에서 이전 약 144dp 바이크가 작다는 피드백을 받아 같은 원본의 Android 전용 크롭을 사용한다.
+288dp 시스템 캔버스와 중앙 마스크 안에서 바이크 너비를 약 179dp로 키운다. Galaxy S22에서는
+화면 너비의 절반에 가깝다. 네이티브 시작 화면과 JS 대기 화면이 같은 전용 이미지를 사용한다.
+
+## 2026-11-09 Android 앱 내 이륜차 주행 안내 후보
+
+NAV-072는 Android 네이티브 브리지와 `android_live_guidance` capability를 도입한다.
+REL-003에 따라 브리지 계약을 42로 올린다. 기존 Android 바이너리는 REST 미리보기를
+제공하며 앱 내 안내는 새 APK를 설치하면 사용할 수 있다. 미출시 후보 앱/runtime1.2.11과
+API1 계약을 유지한다. Android UI SDK 최소 요구 사항에 맞춰 Android 8.0(API 26)을
+지원 하한으로 삼는다. 카카오 앱의 Android 플랫폼 키에는 패키지와 APK 서명 해시가
+등록되어야 한다. 이 변경은 갤럭시 로컬 테스트 APK를 대상으로 한다.
+
+UI SDK의 `v2-common:2.23.0`과 기존 Android 로그인 SDK 2.20.1이 혼용되면
+`KakaoJson.getBase()`를 찾지 못해 시작 시 종료된다. Android 로그인 라이브러리도
+2.23.0에 맞추고 앱에서 사용하지 않는 두 가지 제거된 SDK 참조를 패치했다.
+
+## 2026-11-09 Android 모토맵 길안내 화면 후보
+
+NAV-073에서 Android에 `guide_web_bottom`, `guide_route_editing`, `guide_arrival_record`
+계약을 제공해 브리지 43으로 올린다. iOS 하단 HTML의 렌더링은 그대로 쓰고 Android 메시지
+전송 경로를 같은 파일에 둔다. 새 Android 바이너리에서 적용하며 후보 앱/runtime1.2.11과 API1을
+유지한다.
+
+## 2026-11-09 Android 안내 단일 태스크·교통 UI 후보
+
+NAV-074는 Android 안내 Activity와 엔진 수명주기, SDK 리소스 및 공유 HTML을 변경한다.
+새 Android 바이너리가 필요하며 후보 앱/runtime1.2.11과 API1을 유지하고 검증 정책에 맞춰
+브리지 버전을 44로 올린다.
+
+## 2026-11-10 Android 안내 React Native 서피스
+
+Android 안내 Activity가 앱의 React Host로 별도 안내 서피스를 만든다. 앱 엔트리포인트의
+서피스 등록과 Kotlin의 토큰 기반 상태·조작 계약이 함께 필요하므로 브리지 계약을 45로
+올린다. 적용에는 새 Android 바이너리가 필요하다. 이전 JS 번들이 실행되면 기존 WebView
+하단과 Canvas 막대로 복구한다. 앱 버전·백엔드 API 계약과 iOS 안내 구현은 유지한다.
+
+## 2026-11-11 Android 안내 지도 확대·축소 조작부 숨김
+
+Android 안내 화면의 SDK 조작부 표시 정책 변경을 적용하려면 새 Android 바이너리가
+필요하다. 네이티브 모듈 변경 검사에 맞춰 계약 표기를 46으로 올린다. JS 이벤트·인자와
+앱 버전·백엔드 API 계약은 유지한다.
+
+## 2026-11-11 Android 안내 지도 보기 전환 버튼 숨김
+
+Android 안내 하단 바와 겹치는 SDK 카메라 모드 버튼을 숨긴다. 새 Android 바이너리에
+반영되는 모듈 변경에 맞춰 계약 표기를 47로 올린다. JS 이벤트·인자와 앱 버전·백엔드
+API 계약은 유지한다.
+
+## 2026-11-18 Android 기능·성능 정합 후보
+
+Android 배포 소스 `e60e61e`와 iOS 빌드 91 로컬 메타데이터의 기반 커밋 `b61ce83`을
+통합한다. 91 로그는 dirty 작업본과 소스맵 업로드 실패를 포함해 성공 바이너리의 전체
+소스 동일성은 확정하지 않는다. 최신 커밋 기반 기능을 Android에서 검증하는 작업이다.
+
+Android도 앱/런타임 1.3.2로 분리하고 브리지 계약을 양쪽 48, API1로 동기화한다.
+Android 기존 47의 RN 패널·교통 막대·경로 미리보기와 카카오 로그인 패치를 보존하며,
+통합된 iOS RN43 기능도 유지한다. Android WebView 폴백 자산은 iOS 번들에서 분리한다.
+릴리스·제출 문서와 노트를 같은 변경에 포함하고 새 바이너리로 검증한다.
+원격 최소 버전 정책·운영 DB·Play Console·공개 OTA 배포는 이번 로컬 검증에 포함하지 않는다.
+
+### main 이력 통합
+
+main의 Firebase 미설정 로그아웃 수정은 같은 코드와 테스트로 이미 포함된다. 11월 2일의
+피드백·제보 로딩·바이크 빈 화면 개선도 유지한다. 당시의 탐색/알림 탭 구성과 순위 화면은
+COMMUNITY-012와 NOTIFY-003의 활동 탭으로 대체됐으므로 재도입하지 않는다. 기존
+COMMUNITY-010 및 INTERACTION-012 기록과 후속 대체 결정, 인증 수정 기록을 보존한다.
+main 병합 결과의 실행 소스는 Galaxy에서 검증한 `c5708a2`와 같으며 이 절만 추가한다.

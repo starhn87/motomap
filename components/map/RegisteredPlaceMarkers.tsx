@@ -28,34 +28,53 @@ const RegisteredPlaceMarkers = memo(function RegisteredPlaceMarkers({
 }) {
   return places
     .filter((place) => place.id !== selectedPlaceId)
-    .map((place) => {
-      const temporarilyClosed = operationalStatuses[place.id] === 'temporarily_closed';
-      return (
-        <NaverMapMarkerOverlay
-          key={place.id}
-          latitude={place.latitude}
-          longitude={place.longitude}
-          image={MARKER_IMAGES_CIRCLE[place.category]}
-          width={30}
-          height={30}
-          anchor={{ x: 0.5, y: 0.5 }}
-          alpha={temporarilyClosed ? TEMPORARILY_CLOSED_MARKER_ALPHA : 1}
-          globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
-          zIndex={10}
-          isForceShowIcon
-          isHideCollidedSymbols
-          isHideCollidedCaptions
-          caption={{
-            text: markerCaption(place.name, temporarilyClosed),
-            textSize: 12,
-            minZoom: 8,
-            color: dark ? '#F9FAFB' : '#111827',
-            haloColor: dark ? '#111827' : '#FFFFFF',
-          }}
-          onTap={() => onTap(place)}
-        />
-      );
-    });
+    .map((place) => (
+      <RegisteredPlaceMarker
+        key={place.id}
+        place={place}
+        temporarilyClosed={operationalStatuses[place.id] === 'temporarily_closed'}
+        dark={dark}
+        onTap={onTap}
+      />
+    ));
+});
+
+// 선택 핀이 바뀌어도 나머지 네이티브 마커에는 새 props를 보내지 않는다.
+const RegisteredPlaceMarker = memo(function RegisteredPlaceMarker({
+  place,
+  temporarilyClosed,
+  dark,
+  onTap,
+}: {
+  place: Place;
+  temporarilyClosed: boolean;
+  dark: boolean;
+  onTap: (place: Place) => void;
+}) {
+  return (
+    <NaverMapMarkerOverlay
+      latitude={place.latitude}
+      longitude={place.longitude}
+      image={MARKER_IMAGES_CIRCLE[place.category]}
+      width={30}
+      height={30}
+      anchor={{ x: 0.5, y: 0.5 }}
+      alpha={temporarilyClosed ? TEMPORARILY_CLOSED_MARKER_ALPHA : 1}
+      globalZIndex={PLACE_MARKER_GLOBAL_Z_INDEX}
+      zIndex={10}
+      isForceShowIcon
+      isHideCollidedSymbols
+      isHideCollidedCaptions
+      caption={{
+        text: markerCaption(place.name, temporarilyClosed),
+        textSize: 12,
+        minZoom: 8,
+        color: dark ? '#F9FAFB' : '#111827',
+        haloColor: dark ? '#111827' : '#FFFFFF',
+      }}
+      onTap={() => onTap(place)}
+    />
+  );
 });
 
 export default RegisteredPlaceMarkers;

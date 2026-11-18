@@ -1,5 +1,6 @@
+import { APP_FONT_FAMILY } from '@/lib/typography';
 import React from 'react';
-import { Platform, Pressable } from 'react-native';
+import { Platform, Pressable, StyleSheet } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
@@ -17,8 +18,12 @@ import type { BottomTabBarButtonProps } from 'expo-router/js-tabs';
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useUnreadCount } from '@/hooks/useNotifications';
-import NotificationBell from '@/components/navigation/NotificationBell';
+import SettingsButton from '@/components/navigation/SettingsButton';
 import { NativeTabDeviceInsetsContext } from '@/components/navigation/NativeTabScreen';
+import {
+  ANDROID_TAB_BAR_HEIGHT, ANDROID_TAB_LIFT, ANDROID_TAB_SIDE_INSET,
+  FLOATING_TAB_BAR_HEIGHT, FLOATING_TAB_LIFT, TabOcclusionContext, useJsTabOcclusion,
+} from '@/components/navigation/tabOcclusion';
 
 // 누르는 동안 움츠리고(pressIn) 떼는 순간 한 번만 튕기며 복귀(pressOut).
 // tabPress 는 손을 뗀 뒤에야 발생해 이 구분이 불가능하므로 tabBarButton 을 커스텀해
@@ -87,6 +92,8 @@ function LegacyTabLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  const occlusion = useJsTabOcclusion();
+  const android = Platform.OS === 'android';
 
   const unreadCount = useUnreadCount();
   const mapTab = useTabPressScale();
@@ -95,22 +102,44 @@ function LegacyTabLayout() {
   const profileTab = useTabPressScale();
 
   return (
+    <TabOcclusionContext.Provider value={occlusion}>
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.tint,
+        tabBarActiveTintColor: android ? colors.tint : colors.tabIconSelected,
         tabBarInactiveTintColor: colors.tabIconDefault,
+        // 레이아웃 높이를 먹지 않는 떠 있는 바. 화면 끝보다 조금 위에 둔다.
         tabBarStyle: {
+          position: 'absolute',
+          // 내비게이터의 기본 start/end가 물리적 left/right보다 우선한다.
+          ...(android ? { start: ANDROID_TAB_SIDE_INSET, end: ANDROID_TAB_SIDE_INSET } : { left: 16, right: 16 }),
+          bottom: insets.bottom + (android ? ANDROID_TAB_LIFT : FLOATING_TAB_LIFT),
+          height: android ? ANDROID_TAB_BAR_HEIGHT : FLOATING_TAB_BAR_HEIGHT,
+          borderRadius: 28,
+          borderTopWidth: 0,
+          paddingTop: android ? 2 : 4,
+          ...(android ? { paddingBottom: 6 } : {}),
           backgroundColor: colors.surfaceElevated,
-          borderTopColor: colors.border,
-          // 상단 여백을 주는 만큼 높이도 늘려야 라벨이 잘리지 않는다
-          paddingTop: 6,
-          height: 56 + insets.bottom,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.16,
+          shadowRadius: 16,
+          elevation: 8,
         },
         tabBarLabelStyle: {
-          marginTop: 4,
+          fontFamily: APP_FONT_FAMILY,
+          marginTop: 2,
+          fontSize: 11,
+          fontWeight: '600',
+        },
+        headerTitleAlign: 'center',
+        headerShadowVisible: false,
+        headerTitleStyle: {
+          fontFamily: APP_FONT_FAMILY,
+          fontSize: 18,
+          fontWeight: '700',
         },
         headerStyle: {
-          backgroundColor: colors.surfaceElevated,
+          backgroundColor: colors.background,
         },
         headerTintColor: colors.text,
       }}>
@@ -119,83 +148,76 @@ function LegacyTabLayout() {
         options={{
           title: '지도',
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="map" color={color} scale={mapTab.scale} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={android && !focused ? 'map-outline' : 'map'} color={color} scale={mapTab.scale} />
           ),
           tabBarButton: (props) => <TabButton tab={mapTab} props={props} />,
-        }}
-      />
-      <Tabs.Screen
-        name="courses"
-        options={{
-          title: '탐색',
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="compass" color={color} scale={coursesTab.scale} />
-          ),
-          tabBarButton: (props) => <TabButton tab={coursesTab} props={props} />,
         }}
       />
       <Tabs.Screen
         name="submit"
         options={{
           title: '제보',
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="add-circle" color={color} scale={submitTab.scale} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={android && !focused ? 'add-circle-outline' : 'add-circle'} color={color} scale={submitTab.scale} />
           ),
           tabBarButton: (props) => <TabButton tab={submitTab} props={props} />,
+        }}
+      />
+      <Tabs.Screen
+        name="courses"
+        options={{
+          title: '활동',
+          tabBarBadge: unreadCount > 0 ? '' : undefined,
+          tabBarBadgeStyle: { backgroundColor: semantic.danger, minWidth: 7, width: 7, height: 7 },
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={android && focused ? 'notifications' : 'notifications-outline'} color={color} scale={coursesTab.scale} />
+          ),
+          tabBarButton: (props) => <TabButton tab={coursesTab} props={props} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: '내 정보',
-          headerRight: () => <NotificationBell />,
-          // 종이 내 정보로 들어가면서 안읽음 신호는 탭 아이콘 뱃지로 남긴다
-          tabBarBadge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount) : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: semantic.danger,
-            color: '#FFFFFF',
-            fontSize: 10,
-            fontWeight: '800',
-            minWidth: 17,
-            height: 17,
-            lineHeight: 15,
-            borderRadius: 8.5,
-          },
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="person" color={color} scale={profileTab.scale} />
+          headerRight: () => <SettingsButton />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={android && !focused ? 'person-outline' : 'person'} color={color} scale={profileTab.scale} />
           ),
           tabBarButton: (props) => <TabButton tab={profileTab} props={props} />,
         }}
       />
     </Tabs>
+    </TabOcclusionContext.Provider>
   );
 }
 
 function IosTabLayout() {
-  const colors = Colors[useColorScheme() ?? 'light'];
+  const scheme = useColorScheme() ?? 'light';
+  const colors = Colors[scheme];
   const unreadCount = useUnreadCount();
   const deviceInsets = useSafeAreaInsets();
+  // 탭별 UIKit override는 테마 prop 변경 때 갱신되지 않는다. host의 테마만 상속한다.
   return (
     <NativeTabDeviceInsetsContext.Provider value={deviceInsets}>
-      <NativeTabs tintColor={colors.tint} iconColor={{ default: colors.textSecondary, selected: colors.tint }}
+      <NativeTabs labelStyle={{ fontFamily: APP_FONT_FAMILY }} unstable_nativeProps={{ colorScheme: scheme }} tintColor={colors.tint} iconColor={{ default: colors.textSecondary, selected: colors.tint }}
         badgeBackgroundColor={semantic.danger} minimizeBehavior="never" sidebarAdaptable={false}>
         <NativeTabs.Trigger name="index" disableAutomaticContentInsets disableScrollToTop disablePopToTop>
           <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} md="map" />
           <NativeTabs.Trigger.Label>지도</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="courses" disableAutomaticContentInsets>
-          <NativeTabs.Trigger.Icon sf={{ default: 'safari', selected: 'safari.fill' }} md="explore" />
-          <NativeTabs.Trigger.Label>탐색</NativeTabs.Trigger.Label>
-        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="submit" disableAutomaticContentInsets disableScrollToTop>
           <NativeTabs.Trigger.Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} md="add_circle" />
           <NativeTabs.Trigger.Label>제보</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="courses" disableAutomaticContentInsets disableScrollToTop>
+          <NativeTabs.Trigger.Icon sf={{ default: 'bell', selected: 'bell.fill' }} md="notifications" />
+          <NativeTabs.Trigger.Label>활동</NativeTabs.Trigger.Label>
+          {unreadCount > 0 && <NativeTabs.Trigger.Badge />}
+        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon sf={{ default: 'person', selected: 'person.fill' }} md="person" />
           <NativeTabs.Trigger.Label>내 정보</NativeTabs.Trigger.Label>
-          {unreadCount > 0 && <NativeTabs.Trigger.Badge>{unreadCount > 9 ? '9+' : String(unreadCount)}</NativeTabs.Trigger.Badge>}
         </NativeTabs.Trigger>
       </NativeTabs>
     </NativeTabDeviceInsetsContext.Provider>

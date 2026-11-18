@@ -4,11 +4,11 @@ import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   StyleSheet,
   View,
-  Text,
   Pressable,
   ScrollView,
   RefreshControl,
 } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 
 import Colors, { semantic } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';

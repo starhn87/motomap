@@ -18,6 +18,7 @@ export function loadModule<T>(
     module,
     exports: module.exports,
     require: (name: string) => {
+      if (name === '@/components/ui/AppText' && !(name in dependencies) && 'react-native' in dependencies) return dependencies['react-native'];
       if (!(name in dependencies)) throw new Error(`테스트 의존성이 없습니다: ${name}`);
       return dependencies[name];
     },

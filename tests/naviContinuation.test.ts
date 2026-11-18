@@ -11,7 +11,7 @@ const arrivals: number[] = [];
 const goal = { name: '기존 목적지', latitude: 37.5, longitude: 127.1, placeId: 'original' };
 const nextGoal = { name: '새 목적지', latitude: 37.6, longitude: 127.2, placeId: 'new' };
 
-function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading = false, previousPriority = 2, enabled = true) {
+function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading = false, previousPriority = 2, enabled = true, os = 'ios', androidGuidance = false) {
   let dirty = false, cursor = 0;
   let slots: any[] = [];
   const rootSlots: any[] = [], contentSlots: any[] = [];
@@ -27,8 +27,9 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
       tasks.push(() => { previous?.cleanup?.(); effects[i] = { deps, cleanup: fn() }; }); },
   };
   react.useLayoutEffect = react.useEffect;
-  const calls = { resumed: [] as any[], started: 0, tracked: 0, marker: 0, replace: [] as string[], errors: [] as string[], blocked: false, backed: 0 };
+  const calls = { resumed: [] as any[], started: 0, androidStarted: [] as any[], tracked: 0, marker: 0, replace: [] as string[], errors: [] as string[], blocked: false, backed: 0 };
   let selectedPriority = 0;
+  let kakaoAllowed = true;
   const listeners: Record<string, () => void> = {};
   let resolveResume!: (value: any) => void, rejectResume!: (error: Error) => void, finishAudit!: () => void;
   const native = {
@@ -47,27 +48,29 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
   const chain: any = new Proxy({}, { get: () => () => chain });
   const defaultExport = (value: any) => ({ __esModule: true, default: value });
   const deps: Record<string, any> = {
+    '@/components/ui/GlassButton': defaultExport('GlassButton'),
     '@/lib/guideMenuPolicy': { GUIDE_ROUTE_EDITING_ENABLED: enabled, GUIDE_MENU_UNAVAILABLE_MESSAGE: '안내 종료 후 다시 설정해 주세요.' },
     '@/stores/useMyPlacesStore': { useMyPlacesStore: (select: any) => select({ places: {}, load() {} }) },
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },
-    'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'Spinner', StyleSheet: { create: (x: any) => x } },
-    'expo-router': { useLocalSearchParams: () => ({ resume: '7' }), useRouter: () => router, useNavigation: () => navigation },
+    'react-native': { Platform: { OS: os }, View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'Spinner', StyleSheet: { create: (x: any) => x } },
+    'expo-router': { useLocalSearchParams: () => os === 'android' ? {} : ({ resume: '7' }), useRouter: () => router, useNavigation: () => navigation },
     'expo-router/react-navigation': { useIsFocused: () => true, usePreventRemove(blocked: boolean) { calls.blocked = blocked; } },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
     'react-native-gesture-handler': { Gesture: { Pan: () => chain } },
     'react-native-reanimated': { runOnJS: (fn: any) => fn, useSharedValue: (value: any) => react.useRef({ value }).current },
     'expo-location': { requestForegroundPermissionsAsync: async () => ({ status: 'granted' }), getCurrentPositionAsync: async () => { throw Error('GPS unavailable'); }, Accuracy: { Balanced: 3 } },
-    '@/stores/useLocationPrivacyStore': { providerLocationAllowed: () => true, useLocationPrivacyStore: (s: any) => s({ revision: 0 }),
+    '@/stores/useLocationPrivacyStore': { providerLocationAllowed: () => kakaoAllowed, useLocationPrivacyStore: (s: any) => s({ revision: 0 }),
       async withLocationUse(_purpose: any, _provider: any, work: any) { await work(); await new Promise<void>((resolve) => { finishAudit = resolve; }); } },
     '@/lib/guideSession': { useGuideSession: useSession }, '@/lib/guidePreview': previewHelpers,
-    '@/lib/naviParams': { parseNaviParams() { throw Error('continuation must use native snapshot'); } },
+    '@/lib/naviParams': { parseNaviParams() { return { goal, start: [127, 37.4], startName: null, userVias: [], courseVias: [] }; } },
     '@/lib/navigation': {}, '@/lib/mapFocus': { hasMapOverlayInStack: () => false },
     '@/stores/useMapStore': { useMapStore: Object.assign((s: any) => s({ userLocation: null, requestMapReset() {} }), { getState: () => ({ userLocation: null, requestMapReset() {} }) }) },
     '@/hooks/useUserLocation': { useUserLocation() {} },
+    '@/lib/userLocationTracking': { getOrRequestLocationPermission: async () => ({ status: 'granted' }) },
     '@/hooks/useBikeRoutes': { useBikeRoutes: () => ({ priority: selectedPriority, setPriority(value: number) { selectedPriority = value; dirty = true; }, route: routesLoading ? undefined : { distance: 1200, duration: 600 }, alternatives: [], mapRoutes: [], trafficParts: [], loading: routesLoading, courseOnly: false, flatVias: [], effVias: [], resetRoutes() {} }) },
     '@/lib/recentSearches': { loadRecentSearches: async () => [], recentTargets: () => [] },
     '@/lib/guideEvents': { markGuideStarted() { calls.marker++; } },
-    '@/lib/kakaoNaviInit': { ensureKakaoNaviReady: async () => {} },
+    '@/lib/kakaoNaviInit': { ensureKakaoNaviReady: async () => {}, async startAndroidGuide(...args: any[]) { calls.androidStarted.push(args); } },
     '@/lib/analytics': { createAnalyticsId: () => 'new', track: { navigationStarted() { calls.tracked++; } } },
     '@/lib/distance': { haversine: () => 0 },
     '@/hooks/useArrivalHours': { useArrivalHours: () => arrivalHours },
@@ -76,7 +79,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
     '@/lib/toast': { toast: { error: (message: string) => calls.errors.push(message) } },
     '@/components/useColorScheme': { useColorScheme: () => 'light' },
     '@/constants/Colors': defaultExport({ light: {} }),
-    '@/modules/kakao-navi': { ...defaultExport(native), friendlyRouteError: String, supportsKakaoNaviFeature: () => true, pairsFromFlat: () => [] },
+    '@/modules/kakao-navi': { ...defaultExport(native), friendlyRouteError: String, supportsKakaoNaviFeature: (feature: string) => feature !== 'android_live_guidance' || androidGuidance, pairsFromFlat: () => [] },
     '@/components/navi/RouteFieldRow': { ...defaultExport('RouteFieldRow'), ROW_H: 48, nearestSlot: () => 0 },
   };
   for (const path of ['@expo/vector-icons/Ionicons', '@expo/vector-icons/MaterialCommunityIcons', '@/components/ui/CloseIcon', '@/components/search/PointSearchModal', '@/components/navi/PreviewMap', '@/components/navi/RouteAlternatives']) deps[path] = defaultExport(path);
@@ -100,6 +103,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
   return { calls, store, start, render, flush, selectGoal, listeners, nodes: () => nodes(tree), cancel: () => nodes(tree).find(n => n.type === '@/components/search/PointSearchModal')!.props.onClose(),
     applied: () => resolveResume({ vias: [], passedVias: [] }),
     failed: () => rejectResume(new Error('no route')), finishAudit: () => finishAudit?.(),
+    revokeKakao: () => { kakaoAllowed = false; },
     unmount: () => effects.forEach((effect) => effect?.cleanup?.()) };
 }
 
@@ -230,4 +234,43 @@ test('확인창을 취소하면 안내를 바꾸지 않고 다시 시작할 수 
     assert.equal(dialogs.length, 2);
     f.unmount();
   } finally { arrivalHours = {}; }
+});
+
+
+test('Android 구버전은 경로 미리보기를 계속 지원한다', () => {
+  const f = setup(false, null, false, 2, true, 'android');
+  assert.ok(f.nodes().some(node => node.type === '@/components/navi/PreviewMap'));
+  assert.ok(f.nodes().some(node => node.props.children === '앱 내 주행 안내를 지원하는 새 버전이 필요해요.'));
+  assert.ok(!f.nodes().some(node => node.props.children === '안내 시작'));
+  assert.equal(f.calls.started, 0);
+  f.unmount();
+});
+
+test('Android 안내 시작은 선택 경로를 네이티브에 보내고 실제 시작 신호에서 세션을 연다', async () => {
+  const f = setup(false, null, false, 2, true, 'android', true);
+  f.nodes().find(n => n.type === '@/components/navi/RouteAlternatives')!.props.onSelect(4);
+  f.render();
+  f.start();
+  f.start();
+  f.render();
+  assert.equal(f.calls.blocked, true);
+  assert.deepEqual(f.calls.androidStarted, [[[127, 37.4], goal, [], 4]]);
+  assert.equal(f.calls.started + f.calls.tracked, 0);
+  f.listeners.onGuideStarted();
+  await f.flush();
+  assert.equal(f.calls.blocked, false);
+  assert.equal(f.calls.tracked, 1);
+  assert.deepEqual(f.calls.replace, ['/']);
+  f.unmount();
+});
+
+test('카카오 위치 동의 철회 뒤 도착한 Android 시작 신호로 세션을 만들지 않는다', async () => {
+  const f = setup(false, null, false, 2, true, 'android', true);
+  f.start();
+  f.revokeKakao();
+  f.listeners.onGuideStarted();
+  await f.flush();
+  assert.equal(f.calls.tracked + f.calls.marker, 0);
+  assert.deepEqual(f.calls.replace, []);
+  f.unmount();
 });

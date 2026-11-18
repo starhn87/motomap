@@ -1,16 +1,17 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import GlassButton from '@/components/ui/GlassButton';
+import BackIcon from '@/components/ui/BackIcon';
 import BikeIcon from '@/components/ui/BikeIcon';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   View,
-  Text,
-  TextInput,
   Pressable,
   StyleSheet,
   FlatList,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 // eslint 참고: TypingDots 의 훅은 고정 3개 점에만 쓰여 순서가 안정적이다
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Image } from 'expo-image';
@@ -288,7 +289,7 @@ export default function ChatScreen() {
                   </Text>
                   <Text style={[styles.cardSub, { color: colors.textSecondary }]} numberOfLines={1}>
                     {guide.primaryPlaceName}
-                    {guide.distanceKm !== null ? ` · ${guide.distanceKm}km` : ''}
+                    {guide.distanceKm !== null ? ` (${guide.distanceKm}km)` : ''}
                   </Text>
                 </View>
                 <Text style={[styles.cardBadge, { color: colors.tint }]}>라이딩</Text>
@@ -303,15 +304,17 @@ export default function ChatScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* 헤더 */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </Pressable>
+      <View style={styles.header}>
+        <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()} hitSlop={10}
+          style={[styles.backButton, { width: 44, height: 44, borderRadius: 22 }]}>
+          <BackIcon size={24} color={colors.text} />
+        </GlassButton>
         <Text style={[styles.headerTitle, { color: colors.text }]}>AI 추천</Text>
         {messages.length > 0 ? (
-          <Pressable onPress={handleNewChat} hitSlop={10} style={styles.newChatButton}>
+          <GlassButton accessibilityRole="button" accessibilityLabel="새 대화" onPress={handleNewChat} hitSlop={10}
+            style={[styles.newChatButton, { height: 44, borderRadius: 22 }]}>
             <Text style={[styles.newChatText, { color: colors.tint }]}>새 대화</Text>
-          </Pressable>
+          </GlassButton>
         ) : (
           <View style={styles.newChatButton} />
         )}
@@ -327,9 +330,6 @@ export default function ChatScreen() {
             <BikeIcon size={72} color={colors.tint} />
             <Text style={[styles.welcomeTitle, { color: colors.text }]}>
               어디로 달려볼까요?
-            </Text>
-            <Text style={[styles.welcomeSub, { color: colors.textSecondary }]}>
-              모토맵에 등록된 장소와 라이딩 추천 중에서{'\n'}딱 맞는 곳을 찾아드려요.
             </Text>
             <View style={styles.suggestions}>
               {SUGGESTIONS.map((s) => (
@@ -436,7 +436,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderBottomWidth: 1,
   },
   backButton: {
     width: 36,

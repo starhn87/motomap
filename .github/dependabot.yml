@@ -1,0 +1,58 @@
+# 개인 운영 범위의 의존성 업데이트. Dependabot만 쓰고 자동 병합은 설정하지 않는다.
+# 스케줄은 기존 주간 다이제스트와 같은 월요일 09:00 Asia/Seoul.
+# open-pull-requests-limit는 디렉터리 항목마다 적용되고 저장소 전체 한도는 없다.
+# 버전 업데이트만 합이 3이 되도록 항목별 1로 나눈다. 보안 업데이트는 이 한도 밖이다.
+# 메이저는 그룹에 넣지 않아 의존성별 PR로 남고, 한도가 차 있으면 비메이저 그룹 뒤로 대기한다.
+# Deno·벤더 패키지·락파일 없는 kakao-navi·Podspec은 DEP-001에서 제외한다.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 1
+    groups:
+      npm-non-major:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/website"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 1
+    groups:
+      npm-non-major:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 1
+    groups:
+      actions-non-major:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

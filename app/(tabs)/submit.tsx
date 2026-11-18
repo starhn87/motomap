@@ -1,9 +1,10 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
+import { nativeUI } from '@/lib/nativeUI';
+import NativeChoiceControl from '@/components/ui/NativeChoiceControl';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   StyleSheet,
   View,
-  Text,
-  TextInput,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
@@ -11,8 +12,14 @@ import {
   Keyboard,
   ActivityIndicator,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 import { useState, useEffect, useRef } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { digestStringAsync, CryptoDigestAlgorithm } from 'expo-crypto';
+import { pickImages, uploadImage, removeUploadedImage } from '@/lib/uploadImage';
+import PhotoDragList from '@/components/review/PhotoDragList';
+import ImageViewer from '@/components/ui/ImageViewer';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -24,14 +31,22 @@ import { registerPushToken } from '@/lib/push';
 import { toast } from '@/lib/toast';
 import { track } from '@/lib/analytics';
 import LoginPrompt from '@/components/auth/LoginPrompt';
-import SubmitRidingGuide from '@/components/submit/SubmitRidingGuide';
 import SubmitFeedback from '@/components/submit/SubmitFeedback';
 import SubmitHazard from '@/components/submit/SubmitHazard';
 import AddressSearchModal from '@/components/submit/AddressSearchModal';
 import { withNativeTabScreen } from '@/components/navigation/NativeTabScreen';
+import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
+import { HeaderInsetContext, useContentHeaderInset } from '@/components/navigation/headerInset';
+import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
+import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 import type { PlaceCategory } from '@/types';
 
-type SubmitType = 'place' | 'riding' | 'hazard' | 'feedback';
+type SubmitType = 'place' | 'hazard' | 'feedback';
+type PlaceSubmissionSource = 'tab' | 'arrival' | 'temp_place' | 'search_empty';
+
+function placeSubmissionSource(source: string | undefined): PlaceSubmissionSource {
+  return source === 'arrival' || source === 'temp_place' || source === 'search_empty' ? source : 'tab';
+}
 
 function SubmitTypeTab({
   type,
@@ -47,7 +62,6 @@ function SubmitTypeTab({
   const isActive = current === type;
   const labels: Record<SubmitType, string> = {
     place: '장소',
-    riding: '라이딩',
     hazard: '위험',
     feedback: '건의',
   };
@@ -78,6 +92,8 @@ function SubmitTypeTab({
 }
 
 function SubmitPlace() {
+  const trackHeaderScroll = useTrackHeaderScroll();
+  const headerInset = useContentHeaderInset();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -93,7 +109,25 @@ function SubmitPlace() {
   } | null>(null);
   const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photoPreviewIndex, setPhotoPreviewIndex] = useState<number | null>(null);
+  const [pickingPhotos, setPickingPhotos] = useState(false);
+  const userId = useAuthStore((s) => s.user?.id);
+
+  async function addPhotos() {
+    if (pickingPhotos || submitting || photos.length >= 5) return;
+    setPickingPhotos(true);
+    try {
+      const picked = await pickImages(5 - photos.length);
+      setPhotos((current) => [...current, ...picked].slice(0, 5));
+    } catch {
+      toast.error('사진을 선택하지 못했어요.');
+    } finally {
+      setPickingPhotos(false);
+    }
+  }
   const scrollRef = useRef<ScrollView>(null);
+  const keyboardInput = useRevealKeyboardInput(scrollRef);
 
   // 지도의 "일반 장소" 시트에서 넘어온 프리필 (이름·주소·좌표)
   const { prefillName, prefillAddress, prefillLat, prefillLng, prefillProvider, prefillProviderId, prefillSource, prefillTs } =
@@ -111,6 +145,8 @@ function SubmitPlace() {
   useEffect(() => {
     if (!prefillName || !prefillTs || handledPrefillRef.current === prefillTs) return;
     handledPrefillRef.current = prefillTs;
+    setPhotos([]);
+    setPhotoPreviewIndex(null);
     // 탭 화면은 라우팅 뒤에도 마운트 상태가 유지된다. 일반 장소 상세에서 다시
     // 들어오면 이전 제보 폼의 스크롤을 이어받지 않고 처음부터 보여준다.
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -141,26 +177,37 @@ function SubmitPlace() {
   }, [prefillName, prefillAddress, prefillLat, prefillLng, prefillProvider, prefillProviderId, prefillTs]);
 
   const handleSubmit = async () => {
+    if (submitting || pickingPhotos || !userId) return;
     Keyboard.dismiss();
+    const source = placeSubmissionSource(prefillSource);
     if (!name.trim()) {
+      track.placeSubmissionAttempted({ source, result: 'missing_name' });
       toast.info('장소명을 입력해주세요.');
       return;
     }
     if (!category) {
+      track.placeSubmissionAttempted({ source, result: 'missing_category' });
       toast.info('카테고리를 선택해주세요.');
       return;
     }
     if (!address.trim() || !coords) {
+      track.placeSubmissionAttempted({ source, result: 'missing_address' });
       toast.info('주소를 검색해서 선택해주세요.');
       return;
     }
 
     setSubmitting(true);
+    let accepted = false;
+    const uploadedPhotos: string[] = [];
 
     try {
       // 같은 주소의 기존 장소/제보가 있으면 중복 제출을 막는다
       const dup = await checkPlaceDuplicate(address.trim());
       if (dup) {
+        track.placeSubmissionAttempted({
+          source,
+          result: dup === 'approved' ? 'duplicate_approved' : 'duplicate_pending',
+        });
         toast.info(
           dup === 'approved' ? '이미 등록된 장소예요.' : '이미 제보된 장소예요.',
           dup === 'approved'
@@ -170,7 +217,14 @@ function SubmitPlace() {
         return;
       }
 
+      if (photos.length) {
+        const folder = await digestStringAsync(CryptoDigestAlgorithm.SHA256, userId);
+        for (const uri of photos) {
+          uploadedPhotos.push(await uploadImage(uri, `place-submissions/${folder}`));
+        }
+      }
       await submitPlace({
+        photos: uploadedPhotos,
         name: name.trim(),
         description: description.trim(),
         category,
@@ -181,15 +235,12 @@ function SubmitPlace() {
         sourcePlaceId: sourceIdentity?.placeId,
       });
 
+      track.placeSubmissionAttempted({ source, result: 'submitted' });
       track.placeSubmitted({
         category,
-        source:
-          prefillSource === 'arrival' ||
-          prefillSource === 'temp_place' ||
-          prefillSource === 'search_empty'
-            ? prefillSource
-            : 'tab',
+        source,
       });
+      accepted = true;
 
       // 권한 요청(모달)이 완료 토스트·폼 리셋을 가리면 "제보가 안 됐다"고 오해해
       // 중복 제보하게 되므로, 권한 흐름을 먼저 끝낸 뒤 완료 처리를 한다.
@@ -200,12 +251,17 @@ function SubmitPlace() {
 
       setName('');
       setDescription('');
+      setPhotos([]);
       setCategory(null);
       setAddress('');
       setCoords(null);
       setAddressDetail('');
       setSourceIdentity(null);
     } catch (error: any) {
+      if (!accepted) {
+        await Promise.all(uploadedPhotos.map(removeUploadedImage));
+        track.placeSubmissionAttempted({ source, result: 'error' });
+      }
       toast.error('제보에 실패했습니다.', error.message);
     } finally {
       setSubmitting(false);
@@ -224,14 +280,17 @@ function SubmitPlace() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      enabled={Platform.OS === 'android'}
+      behavior="height">
       <ScrollView
+        automaticallyAdjustKeyboardInsets
+        onScroll={trackHeaderScroll} scrollEventThrottle={16}
         ref={scrollRef}
         style={{ flex: 1 }}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: headerInset + (Platform.OS === 'android' ? 12 : 20) }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>카테고리 *</Text>
+        <Text style={[styles.sectionTitle, Platform.OS === 'android' && styles.firstSectionTitle, { color: colors.text }]}>카테고리 *</Text>
         <View style={styles.categories}>
           {CATEGORY_LIST.map((cat) => (
             <Pressable
@@ -265,6 +324,7 @@ function SubmitPlace() {
         </Pressable>
         {address ? (
           <TextInput
+            onFocus={keyboardInput.onFocus}
             style={[inputStyle, { marginTop: 8 }]}
             placeholder="상세 주소 (동·호수·층 등, 선택)"
             placeholderTextColor={colors.textSecondary}
@@ -274,17 +334,39 @@ function SubmitPlace() {
         ) : null}
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>장소명 *</Text>
-        <TextInput style={inputStyle} placeholder="장소를 검색하면 자동 입력됩니다" placeholderTextColor={colors.textSecondary} value={name} onChangeText={setName} />
+        <TextInput
+          onFocus={keyboardInput.onFocus}
+          style={inputStyle}
+          placeholder="장소를 검색하면 자동 입력됩니다"
+          placeholderTextColor={colors.textSecondary}
+          value={name}
+          onChangeText={setName}
+        />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>설명</Text>
-        <TextInput style={[...inputStyle, styles.multiline]} placeholder="이 장소에 대해 알려주세요" placeholderTextColor={colors.textSecondary} value={description} onChangeText={setDescription} multiline numberOfLines={3} />
+        <TextInput
+          onFocus={keyboardInput.onFocus}
+          style={[...inputStyle, styles.multiline]}
+          placeholder="이 장소에 대해 알려주세요"
+          placeholderTextColor={colors.textSecondary}
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          numberOfLines={3}
+        />
+
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>사진</Text>
+        <View pointerEvents={submitting ? 'none' : 'auto'}>
+          <PhotoDragList uris={photos} onChange={setPhotos} onAdd={addPhotos} max={5}
+            loading={pickingPhotos} showReorderHint={false} onPreview={setPhotoPreviewIndex} />
+        </View>
 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="장소 제보하기"
-          accessibilityState={{ disabled: submitting, busy: submitting }}
+          accessibilityState={{ disabled: submitting || pickingPhotos, busy: submitting }}
           onPress={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || pickingPhotos}
           style={({ pressed }) => [
             styles.submitButton,
             { backgroundColor: colors.tint, opacity: submitting ? 0.6 : pressed ? 0.7 : 1 },
@@ -295,11 +377,15 @@ function SubmitPlace() {
             <ActivityIndicator color={colors.background} style={{ flex: 1 }} />
           </View>}
         </Pressable>
+        <TabScrollSpacer />
       </ScrollView>
+      <ImageViewer photos={photos} visible={photoPreviewIndex !== null}
+        initialIndex={photoPreviewIndex ?? 0} onClose={() => setPhotoPreviewIndex(null)} />
       <AddressSearchModal
         visible={addressModalVisible}
         onClose={() => setAddressModalVisible(false)}
         onSelect={(r) => {
+          if (coords && (coords.latitude !== r.latitude || coords.longitude !== r.longitude)) setPhotos([]);
           setAddress(r.roadAddress || r.address);
           setCoords({ latitude: r.latitude, longitude: r.longitude });
           const identity = generalPlaceIdentity({ name: r.placeName, address: r.roadAddress || r.address,
@@ -316,48 +402,100 @@ function SubmitPlace() {
 }
 
 function SubmitScreen() {
+  const headerInset = useContentHeaderInset();
+  const [tabHeight, setTabHeight] = useState(52);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const [submitType, setSubmitType] = useState<SubmitType>('place');
-  const { submitType: requestedType, submitTs } = useLocalSearchParams<{
+  const { submitType: requestedType, submitTs, prefillSource, prefillTs, prefillName, prefillAddress,
+    prefillLat, prefillLng, returnPhone, returnProviderId, returnPlaceUrl, returnGeneralPlaceId } = useLocalSearchParams<{
     submitType?: string;
     submitTs?: string;
+    prefillSource?: string;
+    prefillTs?: string;
+    prefillName?: string; prefillAddress?: string; prefillLat?: string; prefillLng?: string;
+    returnPhone?: string; returnProviderId?: string; returnPlaceUrl?: string; returnGeneralPlaceId?: string;
   }>();
+  const loginGateKey = useRef<string | null>(null);
+  const [canReturnToPlace, setCanReturnToPlace] = useState(false);
+  const handledReturnRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (prefillSource === 'temp_place' && prefillTs && handledReturnRef.current !== prefillTs) {
+      handledReturnRef.current = prefillTs;
+      setCanReturnToPlace(true);
+    } else if (prefillSource !== 'temp_place') {
+      setCanReturnToPlace(false);
+    }
+  }, [prefillSource, prefillTs]);
+
+  const backToPlace = canReturnToPlace && (
+    <Pressable accessibilityRole="button" accessibilityLabel="장소 상세로 돌아가기"
+      onPress={() => {
+        setCanReturnToPlace(false);
+        if (prefillName && prefillLat && prefillLng) router.navigate({ pathname: '/', params: {
+          kakaoName: prefillName, kakaoAddress: prefillAddress, kakaoLat: prefillLat, kakaoLng: prefillLng,
+          kakaoPhone: returnPhone, kakaoId: returnProviderId, kakaoUrl: returnPlaceUrl,
+          generalPlaceId: returnGeneralPlaceId, focusTs: String(Date.now()),
+        } });
+      }}
+      style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name="chevron-back" size={24} color={colors.text} />
+    </Pressable>
+  );
+
+  // 도착·일반 장소·빈 검색에서 들어온 제보가 로그인 벽에 막히면 버튼 시도가 없다.
+  useEffect(() => {
+    if (user) return;
+    if (prefillSource !== 'arrival' && prefillSource !== 'temp_place' && prefillSource !== 'search_empty') return;
+    const key = `${prefillSource}:${prefillTs ?? submitTs ?? ''}`;
+    if (loginGateKey.current === key) return;
+    loginGateKey.current = key;
+    track.placeSubmissionAttempted({ source: prefillSource, result: 'login' });
+  }, [user, prefillSource, prefillTs, submitTs]);
 
   // 다른 화면의 CTA에서 제보 탭을 열 때, 이전에 보던 위험·건의 탭이 남지 않게 한다.
   // 같은 장소 CTA를 다시 눌러도 timestamp가 바뀌므로 매번 장소 탭으로 돌아온다.
   useEffect(() => {
     if (
       requestedType === 'place' ||
-      requestedType === 'riding' ||
       requestedType === 'hazard' ||
       requestedType === 'feedback'
     ) {
       setSubmitType(requestedType);
-    } else if (requestedType === 'course') {
-      // 이전 OTA에서 만든 제보 CTA도 새 라이딩 제안 폼으로 이어준다.
-      setSubmitType('riding');
+    } else if (requestedType === 'course' || requestedType === 'riding') {
+      // 구버전 링크가 제거된 메뉴나 빈 화면을 열지 않도록 장소 제보로 안내한다.
+      setSubmitType('place');
     }
   }, [requestedType, submitTs]);
 
   if (!user) {
-    return <LoginPrompt message="제보하려면 로그인이 필요합니다." />;
+    return <View style={{ flex: 1 }}>
+      {backToPlace && <View style={{ paddingTop: headerInset, paddingLeft: 12 }}>{backToPlace}</View>}
+      <LoginPrompt message="제보하려면 로그인이 필요합니다." />
+    </View>;
   }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.tabRow}>
+      <HeaderInsetContext.Provider value={headerInset + tabHeight}>
+        {submitType === 'place' && <SubmitPlace />}
+        {submitType === 'hazard' && <SubmitHazard />}
+        {submitType === 'feedback' && <SubmitFeedback />}
+      </HeaderInsetContext.Provider>
+      <View style={[styles.tabRow, { top: headerInset }]} onLayout={event => setTabHeight(event.nativeEvent.layout.height)}>
+        <HeaderBackdrop />
+        {backToPlace}
+        {nativeUI ? <View style={{ flex: 1 }}><NativeChoiceControl label="제보 종류" presentation="segmented"
+          value={submitType} onChange={setSubmitType} options={[
+            { value: 'place', label: '장소' }, { value: 'hazard', label: '위험' }, { value: 'feedback', label: '건의' },
+          ]} /></View> : <>
         <SubmitTypeTab type="place" current={submitType} onPress={setSubmitType} />
-        <SubmitTypeTab type="riding" current={submitType} onPress={setSubmitType} />
         <SubmitTypeTab type="hazard" current={submitType} onPress={setSubmitType} />
         <SubmitTypeTab type="feedback" current={submitType} onPress={setSubmitType} />
+        </>}
       </View>
-
-      {submitType === 'place' && <SubmitPlace />}
-      {submitType === 'riding' && <SubmitRidingGuide />}
-      {submitType === 'hazard' && <SubmitHazard />}
-      {submitType === 'feedback' && <SubmitFeedback />}
     </View>
   );
 }
@@ -367,14 +505,17 @@ export default withNativeTabScreen(SubmitScreen, { title: '제보' });
 const styles = StyleSheet.create({
   container: { flex: 1 },
   tabRow: {
+    position: 'absolute', left: 0, right: 0, zIndex: 5, overflow: 'hidden',
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 4,
     paddingBottom: 4,
   },
   tab: {
     flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
@@ -382,6 +523,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: { fontSize: 14, fontWeight: '700' },
   content: { padding: 20, paddingBottom: 40 },
+  firstSectionTitle: { marginTop: 0 },
   sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: 16, marginBottom: 8 },
   categories: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   categoryChip: {

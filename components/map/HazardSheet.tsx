@@ -1,4 +1,5 @@
-import { View, Text, Pressable, Modal, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Pressable, Modal, StyleSheet, ActivityIndicator } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import { useState } from 'react';
 import { Image } from 'expo-image';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -6,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors, { semantic } from '@/constants/Colors';
 import CloseIcon from '@/components/ui/CloseIcon';
+import GlassButton from '@/components/ui/GlassButton';
 import { useColorScheme } from '@/components/useColorScheme';
 import { HAZARDS, hazardFreshness } from '@/constants/hazards';
 import { useVoteHazard } from '@/hooks/useHazards';
@@ -75,14 +77,14 @@ export default function HazardSheet({ hazard, onClose }: Props) {
               {hazardFreshness(hazard.lastConfirmedAt, hazard.staleness)}
             </Text>
           </View>
-          <Pressable
+          <GlassButton
             accessibilityLabel="위험 정보 닫기"
             accessibilityRole="button"
             onPress={onClose}
             hitSlop={10}
-            style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}>
+            style={{ width: 44, height: 44, borderRadius: 22 }}>
             <CloseIcon size={22} color={colors.textSecondary} />
-          </Pressable>
+          </GlassButton>
         </View>
 
         {hazard.note ? (

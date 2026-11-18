@@ -1,11 +1,10 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { View, Text, StyleSheet, Share, ActivityIndicator, Pressable } from 'react-native';
+import { View, StyleSheet, Share, ActivityIndicator, Pressable, Platform } from 'react-native';
+import { Text } from '@/components/ui/AppText';
 import Animated, {
-  FadeIn,
-  FadeOut,
   useSharedValue,
-  type SharedValue,
   useAnimatedReaction,
   useAnimatedStyle,
   withSequence,
@@ -15,8 +14,11 @@ import Animated, {
   Extrapolation,
   runOnJS,
 } from 'react-native-reanimated';
-import CloseIcon from '@/components/ui/CloseIcon';
 import PlaceSheetHeaderActions from '@/components/map/PlaceSheetHeaderActions';
+import { placeSheetOffsetX, placeSheetOffsetY } from './placeSheetPanOffsets';
+import { PlaceSheetBackground, PlaceSheetHeaderOverlay, PlaceSheetHeaderProvider, PlaceSheetNameRow } from '@/components/map/PlaceSheetHeader';
+import { ANDROID_TOP_CONTROL_GAP } from '@/components/navigation/headerSpacing';
+import { usePlaceReviewFocus } from '@/hooks/usePlaceReviewFocus';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import BottomSheet, {
@@ -45,24 +47,19 @@ import NearbyPlaces from '@/components/map/NearbyPlaces';
 import { useReviews } from '@/hooks/useReviews';
 import { toast } from '@/lib/toast';
 import type { Place } from '@/types';
-import { haptics } from '@/lib/haptics';
 import { usePlaceOperationalStatus } from '@/hooks/usePlaceOperationalStatus';
 import Skeleton from '@/components/ui/Skeleton';
 
 interface Props {
   place: Place | null;
   onClose: () => void;
-  /** 시트 상단의 컨테이너 기준 y — 내 위치 버튼이 시트를 따라 움직이도록 밖에 노출 */
-  animatedPosition?: SharedValue<number>;
-  /** 내 리뷰에서 진입 — 시트를 끝까지 펼치고 이 리뷰로 스크롤·강조한다. key(nonce)마다 재실행 */
+  /** 내 리뷰에서 진입 — 시트를 펼쳐 리뷰 영역으로 이동하고 선택한 리뷰를 강조한다. */
   highlightReview?: { id: string; key: string } | null;
+  openExpanded?: boolean;
   /** 지도에서 선택 화면에서 열 때 — 출발·도착·공유 대신 이 버튼 하나와 장소 정보만 보인다. */
   pickAction?: { label: string; onPress: () => void };
 }
 
-// 최소 스냅은 비율이 아니라 고정 높이 — 지도 탭에서는 하단 탭바(~83pt)가
-// 시트 아래를 덮으므로, 핸들·제목·X 가 탭바 위로 나오는 딱 그만큼만 잡는다
-const SNAP_POINTS = [100, '45%', '100%'];
 // 헤더 바(safe-area 제외) 높이. spacer 계산에 쓰는 고정값.
 const PAGE_HEADER_HEIGHT = 56;
 // 드래그 핸들 영역 높이 (paddingVertical 12*2 + 인디케이터 4)
@@ -75,8 +72,8 @@ const CONTENT_PADDING = 20;
 function PlaceBottomSheet({
   place,
   onClose,
-  animatedPosition,
   highlightReview,
+  openExpanded = false,
   pickAction,
 }: Props) {
   const [hoursExpanded, setHoursExpanded] = useState(false);
@@ -85,29 +82,32 @@ function PlaceBottomSheet({
   const colors = Colors[colorScheme ?? 'light'];
   const navLaunching = useNavLaunching((st) => st.launching);
   const insets = useSafeAreaInsets();
+  // 최소 높이에서도 시스템 하단 바 위로 제목과 닫기 버튼이 모두 보이게 한다.
+  const snapPoints = useMemo(() => [100 + insets.bottom, '45%', '100%'], [insets.bottom]);
+  const headerTop = insets.top + (Platform.OS === 'android' ? ANDROID_TOP_CONTROL_GAP : 0);
+  const initialIndex = openExpanded || highlightReview ? 2 : 1;
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const [currentIndex, setCurrentIndex] = useState(1);
+  const closeRequestedFor = useRef<typeof place>(null);
+  const requestSheetClose = () => {
+    closeRequestedFor.current = place;
+    bottomSheetRef.current?.close();
+  };
+  const [reviewExpanded, setReviewExpanded] = useState(false);
   const [changeReportOpen, setChangeReportOpen] = useState(false);
-  const animatedIndex = useSharedValue(1);
-  const currentIndexRef = useRef(1);
-
-  // currentIndex를 state와 ref 양쪽에 반영(ref는 핸들 onPress에서 최신값 참조용).
-  const syncIndex = useCallback((i: number) => {
-    currentIndexRef.current = i;
-    setCurrentIndex(i);
-  }, []);
-
-  // 시트의 실제 위치(animatedIndex)를 신뢰 소스로 currentIndex를 동기화한다.
-  // onAnimate/onChange(이벤트)는 드래그로 직접 끌었을 때 누락/지연되어
-  // 헤더 상태가 어긋나거나(100%인데 헤더 없음) 재확장이 안 되는 버그가 있었다.
+  const animatedIndex = useSharedValue(-1);
+  const reviewRequested = !!highlightReview;
   useAnimatedReaction(
-    () => Math.round(animatedIndex.value),
-    (rounded, previous) => {
-      if (rounded !== previous) {
-        runOnJS(syncIndex)(rounded);
-      }
-    }
+    () => reviewRequested && animatedIndex.value === 2,
+    (expanded, previous) => {
+      if (expanded !== !!previous) runOnJS(setReviewExpanded)(expanded);
+    },
   );
+  const advanceSheet = useCallback(() => {
+    const index = Math.round(animatedIndex.value);
+    if (index >= 0 && index < snapPoints.length - 1) {
+      bottomSheetRef.current?.snapToIndex(index + 1);
+    }
+  }, [animatedIndex, snapPoints.length]);
   const user = useAuthStore((s) => s.user);
   const { data: latestPlace } = usePlace(place?.id ?? null);
   const reviewTarget = place ? ({ kind: 'place', id: place.id } as const) : null;
@@ -145,110 +145,53 @@ function PlaceBottomSheet({
     }
     try {
       await toggleFav({ placeId: place.id, on: !isFavorite });
-      haptics.selection();
+
     } catch (error: any) {
       toast.error('즐겨찾기 처리에 실패했습니다.', error.message);
     }
   };
 
   const scrollRef = useRef<any>(null);
-  const didInitRef = useRef(false);
-  // place(장소)가 바뀔 때만 시트 위치를 리셋한다.
-  // - 의존성을 [place] 참조로 두면 드래그 확장 중 참조 변경마다 snapToIndex(1)이
-  //   호출돼 확장이 취소되므로 [place?.id]로 둔다.
-  // - 첫 마운트는 index={1}이 초기 위치를 잡으므로 snapToIndex를 생략한다. 마운트 때
-  //   index와 effect가 둘 다 애니메이션을 걸면 열림 도중 드래그가 꼬이기 때문.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const keyboardInput = useRevealKeyboardInput(scrollRef, { padOccludedContent: true });
+  const [handleMeasured, setHandleMeasured] = useState(false);
+  const visiblePlaceId = place && displayPlace ? place.id : null;
   useEffect(() => {
-    if (!didInitRef.current) {
-      didInitRef.current = true;
+    if (!handleMeasured) return;
+    if (!visiblePlaceId) {
+      bottomSheetRef.current?.close();
       return;
     }
-    if (place) {
-      // 같은 시트 인스턴스가 다음 장소를 표시하므로 이전 장소에서 내린 스크롤을
-      // 먼저 지운다. 스냅 위치만 바꾸면 콘텐츠 y는 그대로 남아 중간부터 보인다.
-      scrollRef.current?.scrollTo({ y: 0, animated: false });
-      bottomSheetRef.current?.snapToIndex(1);
-    } else {
-      bottomSheetRef.current?.close();
-    }
-  }, [place?.id]);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    // 핸들과 컨테이너의 레이아웃이 UI 스레드에 반영된 프레임에서 한 번만 연다.
+    const frame = requestAnimationFrame(() => bottomSheetRef.current?.snapToIndex(initialIndex));
+    return () => cancelAnimationFrame(frame);
+  }, [handleMeasured, visiblePlaceId, initialIndex, highlightReview?.key]);
 
   useEffect(() => {
     setChangeReportOpen(false);
   }, [place?.id]);
 
-  // 강조 리뷰로 스크롤: 콘텐츠 기준 y = 리뷰섹션 y + 리스트 wrapper y + 카드 y (onLayout 합산)
-  const reviewSectionYRef = useRef(0);
-  const reviewListYRef = useRef(0);
-  const highlightItemYRef = useRef(0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!highlightReview) return;
-    // place 리셋 effect의 snapToIndex(1)과 겹치지 않게 살짝 늦춰 끝까지 편다
-    const t1 = setTimeout(() => bottomSheetRef.current?.snapToIndex(2), 200);
-    // 확장 애니메이션과 리뷰 렌더가 끝날 즈음 스크롤 (카드 미측정이면 리뷰 섹션 상단으로)
-    const t2 = setTimeout(() => {
-      const y =
-        reviewSectionYRef.current + reviewListYRef.current + highlightItemYRef.current;
-      scrollRef.current?.scrollTo({
-        y: Math.max(0, y - insets.top - PAGE_HEADER_HEIGHT - HEADER_CONTENT_GAP - 8),
-        animated: true,
-      });
-    }, 950);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [highlightReview?.key]);
+  const onReviewLayout = usePlaceReviewFocus(
+    highlightReview?.key, reviewExpanded && !reviewsLoading, headerTop + PAGE_HEADER_HEIGHT + HEADER_CONTENT_GAP, scrollRef,
+  );
 
-  const handleSheetChanges = (index: number) => {
-    if (index === -1) onClose();
+  const handleSheetClosed = () => {
+    const requested = closeRequestedFor.current;
+    closeRequestedFor.current = null;
+    if (requested && requested.id === visiblePlaceId) onClose();
   };
 
-  const isExpanded = currentIndex === SNAP_POINTS.length - 1;
-
-  // 드래그로 확장(스와이프)이 끝나는 순간 헤더 바가 손가락 위치에 나타나면서
-  // 손가락 떼는 동작이 헤더 버튼(✕/뒤로) 탭으로 처리돼 시트가 닫히는 문제가 있었다.
-  // 헤더가 나타난 뒤 잠깐 동안 터치를 비활성화해 우발적 탭을 막는다.
-  const [headerReady, setHeaderReady] = useState(false);
-  useEffect(() => {
-    if (!isExpanded) {
-      setHeaderReady(false);
-      return;
-    }
-    const t = setTimeout(() => setHeaderReady(true), 300);
-    return () => clearTimeout(t);
-  }, [isExpanded]);
-
-  // 핸들 인디케이터 색: 확장(페이지) 상태에 가까워지면 투명 처리.
-  // currentIndex(state) 대신 animatedIndex로 계산해 renderHandle을 안정 참조로 유지한다.
   const handleIndicatorStyle = useAnimatedStyle(() => ({
-    backgroundColor:
-      animatedIndex.value >= SNAP_POINTS.length - 1.5
-        ? 'transparent'
-        : colors.tabIconDefault,
+    opacity: animatedIndex.value >= 1.5 ? 0 : 1,
   }));
 
-  // 확장 정도(animatedIndex 1→2)에 비례해 콘텐츠 상단 여백을 연속으로 늘린다.
-  // isExpanded 토글로 paddingTop을 한 번에 바꾸면 콘텐츠가 뚝 끊겨 보이기 때문.
-  const spacerStyle = useAnimatedStyle(() => ({
-    height: interpolate(
-      animatedIndex.value,
-      [1, 2],
-      [
-        0,
-        Math.max(
-          insets.top +
-            PAGE_HEADER_HEIGHT +
-            HEADER_CONTENT_GAP -
-            HANDLE_HEIGHT -
-            CONTENT_PADDING,
-          0
-        ),
-      ],
-      Extrapolation.CLAMP
-    ),
+  const headerSpace = Math.max(
+    headerTop + PAGE_HEADER_HEIGHT + HEADER_CONTENT_GAP - HANDLE_HEIGHT - CONTENT_PADDING,
+    0,
+  );
+  // 상단 여백은 고정하고 시트 이동 중에는 Yoga 레이아웃 대신 위치만 바꾼다.
+  const contentMotionStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(animatedIndex.value, [1, 2], [-headerSpace, 0], Extrapolation.CLAMP) }],
   }));
 
   const handleShare = async () => {
@@ -266,10 +209,11 @@ function PlaceBottomSheet({
     <PlaceSheetHeaderActions
       expanded={expanded}
       isFavorite={isFavorite}
+      showFavorite={!!user}
       favoriteDisabled={favoritePending}
       favoriteScale={heartScale}
       onFavorite={handleFavorite}
-      onClose={onClose}
+      onClose={requestSheetClose}
     />
   );
 
@@ -282,27 +226,21 @@ function PlaceBottomSheet({
         accessibilityLabel="장소 상세 펼치기"
         accessibilityRole="button"
         activeOpacity={1}
-        onPress={() => {
-          const ci = currentIndexRef.current;
-          if (ci < SNAP_POINTS.length - 1) {
-            bottomSheetRef.current?.snapToIndex(ci + 1);
-          }
-        }}
+        onPress={advanceSheet}
+        onLayout={() => setHandleMeasured(true)}
         style={styles.handleContainer}>
         <Animated.View
-          style={[styles.handleIndicator, handleIndicatorStyle]}
+          style={[styles.handleIndicator, { backgroundColor: colors.tabIconDefault }, handleIndicatorStyle]}
         />
       </TouchableOpacity>
     ),
-    [handleIndicatorStyle]
+    [advanceSheet, colors.tabIconDefault, handleIndicatorStyle]
   );
 
   // 등록 장소라도 영업시간이 비어 있는 곳이 대부분이라(148곳 중 7곳) 구글로
   // 메운다. 우리 데이터가 있으면 그게 우선 — 제보자가 직접 확인한 값이고,
   // "우천 휴무" 처럼 구글이 모르는 사정이 담겨 있다.
   //
-  // 아래 early return 보다 위에 있어야 한다. 시트가 닫힌 렌더에서만 훅이 빠지면
-  // 순서가 어긋나 React 가 터진다.
   const { data: googleHours } = usePlaceHours(
     !displayPlace || displayPlace.hours
       ? null
@@ -313,21 +251,19 @@ function PlaceBottomSheet({
           longitude: displayPlace.longitude,
         },
   );
-  if (!place || !displayPlace) return null;
-
-  const sortedTags = [...(displayPlace.tags ?? [])].sort((a, b) => {
+  const sortedTags = [...(displayPlace?.tags ?? [])].sort((a, b) => {
     const ha = HIGHLIGHT_TAGS.has(a) ? 0 : 1;
     const hb = HIGHLIGHT_TAGS.has(b) ? 0 : 1;
     return ha - hb;
   });
 
-  const hours = displayPlace.hours ?? googleHours?.hours ?? undefined;
-  const actionRowAlone = !displayPlace.phone && !showsPlaceHoursRow({
-    hours, fallbackText: displayPlace.openingHours, businessStatus: googleHours?.businessStatus, operationalStatus,
+  const hours = displayPlace?.hours ?? googleHours?.hours ?? undefined;
+  const actionRowAlone = !displayPlace?.phone && !showsPlaceHoursRow({
+    hours, fallbackText: displayPlace?.openingHours, businessStatus: googleHours?.businessStatus, operationalStatus,
   });
 
   const infoCards = [
-    displayPlace.parkingInfo && {
+    displayPlace?.parkingInfo && {
       icon: <MaterialIcons name="local-parking" size={16} color={colors.textSecondary} />,
       label: '주차',
       value: displayPlace.parkingInfo,
@@ -342,27 +278,34 @@ function PlaceBottomSheet({
     onPress?: () => void;
   }>;
 
+
   return (
-    <>
+    <PlaceSheetHeaderProvider
+      animatedIndex={animatedIndex}
+      header={visiblePlaceId ? { top: headerTop, onClose: requestSheetClose, actions: renderActions(true) } : null}>
       <BottomSheet
+        backdropComponent={PlaceSheetHeaderOverlay}
+        backgroundComponent={PlaceSheetBackground}
         ref={bottomSheetRef}
         // 시트 전체를 하나로 묶으면 사진·헤더·리뷰 버튼이 접근성 트리에서 숨는다.
         accessible={false}
-        index={1}
+        index={-1}
         animateOnMount={false}
-        snapPoints={SNAP_POINTS}
+        snapPoints={snapPoints}
         enableDynamicSizing={false}
-        // 방향 잠금 — 세로로 12px 움직여야 시트 팬이 활성화되고, 가로로 먼저 12px
-        // 가면 시트 팬이 실패해 사진 스트립의 가로 스와이프에 양보한다 (네이버 지도식)
-        activeOffsetY={[-12, 12]}
-        failOffsetX={[-12, 12]}
+        // 하단 인셋 0의 위치는 유지하고 이동 중 본문 마스크의 높이 재계산을 막는다.
+        detached
+        enableOverDrag={false}
+        activeOffsetY={placeSheetOffsetY}
+        failOffsetX={placeSheetOffsetX}
         animatedIndex={animatedIndex}
-        animatedPosition={animatedPosition}
-        onChange={handleSheetChanges}
+        onClose={handleSheetClosed}
+        onChange={keyboardInput.reveal}
         // 리뷰 입력 시 시트를 최대로 펼쳐 키보드 위 공간을 확보하고,
         // 입력을 마치면 사용자가 보던 스냅 위치로 되돌린다.
         keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
         enableBlurKeyboardOnGesture
         // 스와이프로는 최소 스냅까지만 내려간다. 실수로 쓸어서 닫히는 걸 막고,
         // 닫기는 X 버튼과 풀확장 헤더의 뒤로가기 두 곳으로 모은다.
@@ -370,7 +313,6 @@ function PlaceBottomSheet({
         containerStyle={styles.sheetContainer}
         backgroundStyle={{
           backgroundColor: colors.background,
-          borderRadius: isExpanded ? 0 : 24,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.15,
@@ -378,45 +320,21 @@ function PlaceBottomSheet({
           elevation: 8,
         }}
         handleComponent={renderHandle}>
+        {place && displayPlace && (
         <BottomSheetScrollView
           ref={scrollRef}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 + keyboardInput.extraScrollInset }]}
+          onContentSizeChange={keyboardInput.reveal}
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
-          <Animated.View style={spacerStyle} />
+          <Animated.View style={contentMotionStyle}>
+            <View style={{ height: headerSpace }} />
 
-          <View style={styles.nameRow}>
-            <Pressable
-              accessibilityLabel={`${displayPlace.name} 상세 펼치기`}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isExpanded }}
-              onPress={() => {
-                const index = currentIndexRef.current;
-                if (index < SNAP_POINTS.length - 1) {
-                  bottomSheetRef.current?.snapToIndex(index + 1);
-                }
-              }}
-              style={styles.nameRowPressTarget}
-            />
-            <View pointerEvents="none" style={styles.nameContent}>
-              <Text
-                style={[styles.name, { color: colors.text }]}
-                numberOfLines={2}
-                textBreakStrategy="balanced"
-                lineBreakStrategyIOS="push-out">
-                {displayPlace.name}
-              </Text>
-            </View>
-            {!isExpanded && (
-              <Animated.View
-                entering={FadeIn.duration(200)}
-                exiting={FadeOut.duration(150)}
-                style={styles.nameActions}>
-                {renderActions(false)}
-              </Animated.View>
-            )}
-          </View>
+          <PlaceSheetNameRow name={displayPlace.name} onPress={advanceSheet}>
+            {renderActions(false)}
+          </PlaceSheetNameRow>
 
           <PlaceAddressRow address={displayPlace.address} />
 
@@ -514,29 +432,13 @@ function PlaceBottomSheet({
             <View style={styles.tags}>
               {sortedTags.map((tag) => {
                 const highlight = HIGHLIGHT_TAGS.has(tag);
-                if (highlight) {
-                  return (
-                    <View
-                      key={tag}
-                      style={[styles.highlightTag, { backgroundColor: colors.tint }]}>
-                      <Text
-                        style={[
-                          styles.highlightTagText,
-                          { color: colors.background },
-                        ]}>
-                        {tag}
-                      </Text>
-                    </View>
-                  );
-                }
                 return (
-                  <View
+                  <Text
                     key={tag}
-                    style={[styles.tag, { backgroundColor: colors.surfaceMuted }]}>
-                    <Text style={[styles.tagText, { color: colors.text }]}>
-                      #{tag}
-                    </Text>
-                  </View>
+                    style={[styles.tagText, { color: highlight ? colors.text : colors.textSecondary },
+                      highlight && styles.highlightTagText]}>
+                    {tag}
+                  </Text>
                 );
               })}
             </View>
@@ -607,9 +509,8 @@ function PlaceBottomSheet({
 
           <View
             style={[styles.reviewSection, { borderTopColor: colors.border }]}
-            onLayout={(e) => {
-              reviewSectionYRef.current = e.nativeEvent.layout.y;
-            }}>
+            key={highlightReview?.key ?? place.id}
+            onLayout={onReviewLayout}>
             <View style={styles.reviewSectionHeader}>
               <Text style={[styles.reviewSectionTitle, { color: colors.text }]}>
                 리뷰
@@ -627,55 +528,28 @@ function PlaceBottomSheet({
                 </View>
               )}
             </View>
-            {!pickAction && <ReviewForm target={{ kind: 'place', id: place.id }} />}
-            <View style={styles.reviewDivider} />
-            <View
-              onLayout={(e) => {
-                reviewListYRef.current = e.nativeEvent.layout.y;
-              }}>
-              <ReviewList
-                target={{ kind: 'place', id: place.id }}
-                highlight={highlightReview}
-                onHighlightLayout={(y) => {
-                  highlightItemYRef.current = y;
-                }}
-              />
-            </View>
+            {!!user && !pickAction && <ReviewForm onInputFocus={keyboardInput.onFocus} target={{ kind: 'place', id: place.id }} />}
+            {!!user && !pickAction && <View style={styles.reviewDivider} />}
+            <ReviewList
+              onInputFocus={keyboardInput.onFocus}
+              target={{ kind: 'place', id: place.id }}
+              allowWriting={!pickAction}
+              highlight={highlightReview}
+            />
           </View>
+          </Animated.View>
         </BottomSheetScrollView>
+        )}
       </BottomSheet>
 
-      {/* 헤더 바: 바텀시트와 별개의 레이어. 확장(페이지) 시에만 화면 상단에 고정 표시 */}
-      {isExpanded && (
-        <Animated.View
-          pointerEvents={headerReady ? 'auto' : 'box-only'}
-          entering={FadeIn.duration(200)}
-          style={[
-            styles.pageHeader,
-            {
-              paddingTop: insets.top,
-              backgroundColor: colors.background,
-            },
-          ]}>
-          <TouchableOpacity
-            accessibilityLabel="뒤로"
-            accessibilityRole="button"
-            onPress={() => bottomSheetRef.current?.close()}
-            style={[styles.iconButton, styles.pageHeaderIconButton]}>
-            <Ionicons name="chevron-back" size={28} color={colors.text} />
-          </TouchableOpacity>
-          <View style={styles.nameActions}>{renderActions(true)}</View>
-        </Animated.View>
-      )}
-
-      <PlaceChangeReportSheet
+      {displayPlace && <PlaceChangeReportSheet
         visible={changeReportOpen}
         placeId={displayPlace.id}
         placeName={displayPlace.name}
         operationalStatus={operationalStatus}
         onClose={() => setChangeReportOpen(false)}
-      />
-    </>
+      />}
+    </PlaceSheetHeaderProvider>
   );
 }
 
@@ -697,18 +571,6 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
   },
-  pageHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 30,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -725,41 +587,6 @@ const styles = StyleSheet.create({
   reviewCount: {
     fontSize: 12,
     marginLeft: 2,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 36,
-    marginBottom: 0,
-  },
-  name: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  nameRowPressTarget: {
-    ...StyleSheet.absoluteFill,
-  },
-  nameContent: {
-    flex: 1,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-    paddingRight: 16,
-  },
-  nameActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  iconButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pageHeaderIconButton: {
-    width: 44,
-    height: 44,
   },
   addressRow: {
     flexDirection: 'row',
@@ -783,26 +610,16 @@ const styles = StyleSheet.create({
   tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    columnGap: 12,
+    rowGap: 4,
     marginBottom: 16,
-  },
-  tag: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
   },
   tagText: {
     fontSize: 12,
-    fontWeight: '500',
-  },
-  highlightTag: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
+    lineHeight: 18,
   },
   highlightTagText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   infoGrid: {
     flexDirection: 'row',

@@ -1,20 +1,19 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import CloseIcon from '@/components/ui/CloseIcon';
+import GlassButton from '@/components/ui/GlassButton';
 import { router } from 'expo-router';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Text, TextInput } from '@/components/ui/AppText';
 import { useQueryClient } from '@tanstack/react-query';
 
 import BikeIcon from '@/components/ui/BikeIcon';
@@ -103,8 +102,7 @@ function GarageCard({
   const colors = Colors[colorScheme ?? 'light'];
   const spec = getBikeSpec(bike.model);
   const details = [bike.modelYear ? `${bike.modelYear}년식` : null, bike.color, spec?.category]
-    .filter(Boolean)
-    .join(' · ');
+    .filter(Boolean);
 
   return (
     <View style={[styles.bikeCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -133,7 +131,9 @@ function GarageCard({
             </View>
           )}
         </View>
-        {!!details && <Text style={[styles.bikeDetails, { color: colors.textSecondary }]}>{details}</Text>}
+        {details.length > 0 && <View style={styles.metadataRow}>
+          {details.map((detail, index) => <Text key={index} style={[styles.bikeDetails, { color: colors.textSecondary }]}>{detail}</Text>)}
+        </View>}
         <View style={styles.cardActions}>
           {!bike.isActive && (
             <Pressable
@@ -159,6 +159,8 @@ function GarageCard({
 }
 
 export default function EditBikeScreen() {
+  const keyboardScrollRef = useRef<ScrollView>(null);
+  const keyboardInput = useRevealKeyboardInput(keyboardScrollRef);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((state) => state.user)!;
@@ -382,10 +384,11 @@ export default function EditBikeScreen() {
   if (editorOpen) {
     const shownPhoto = pendingPhoto ?? (removePhoto ? null : editingBike?.photoUrl ?? null);
     return (
-      <KeyboardAvoidingView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <ScrollView
+          ref={keyboardScrollRef}
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.editorContent}>
           <View style={styles.editorHeading}>
@@ -395,9 +398,10 @@ export default function EditBikeScreen() {
               </Text>
               <Text style={[styles.editorSubtitle, { color: colors.textSecondary }]}>모델명보다 애칭이 먼저 보이도록 꾸밀 수 있어요.</Text>
             </View>
-            <Pressable hitSlop={10} onPress={closeEditor}>
+            <GlassButton accessibilityRole="button" accessibilityLabel="바이크 편집 닫기" hitSlop={10} onPress={closeEditor}
+              style={{ width: 44, height: 44, borderRadius: 22 }}>
               <CloseIcon size={24} color={colors.text} />
-            </Pressable>
+            </GlassButton>
           </View>
 
           <Pressable
@@ -429,6 +433,7 @@ export default function EditBikeScreen() {
           <Text style={[styles.label, { color: colors.text }]}>기종 *</Text>
           <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <TextInput
+              onFocus={keyboardInput.onFocus}
               style={[styles.input, { color: colors.text }]}
               placeholder="예: CB650R, R7, 슈퍼커브110"
               placeholderTextColor={colors.textSecondary}
@@ -474,6 +479,7 @@ export default function EditBikeScreen() {
           <Text style={[styles.label, { color: colors.text }]}>애칭</Text>
           <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <TextInput
+              onFocus={keyboardInput.onFocus}
               style={[styles.input, { color: colors.text }]}
               placeholder="예: 콩이, 번개"
               placeholderTextColor={colors.textSecondary}
@@ -488,6 +494,7 @@ export default function EditBikeScreen() {
               <Text style={[styles.label, { color: colors.text }]}>연식</Text>
               <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <TextInput
+                  onFocus={keyboardInput.onFocus}
                   style={[styles.input, { color: colors.text }]}
                   placeholder="2025"
                   placeholderTextColor={colors.textSecondary}
@@ -502,6 +509,7 @@ export default function EditBikeScreen() {
               <Text style={[styles.label, { color: colors.text }]}>색상</Text>
               <View style={[styles.inputRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <TextInput
+                  onFocus={keyboardInput.onFocus}
                   style={[styles.input, { color: colors.text }]}
                   placeholder="매트 블랙"
                   placeholderTextColor={colors.textSecondary}
@@ -529,7 +537,7 @@ export default function EditBikeScreen() {
             </Pressable>
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     );
   }
 
@@ -588,7 +596,10 @@ export default function EditBikeScreen() {
           ]}>
           <View>
             <Text style={[styles.passportLabel, { color: colors.textSecondary }]}>나의 주행 기록</Text>
-            <Text style={[styles.passportValue, { color: colors.text }]}>{rideStats.places}곳 · {rideStats.rides}번 주행</Text>
+            <View style={styles.metadataRow}>
+              <Text style={[styles.passportValue, { color: colors.text }]}>{rideStats.places}곳 방문</Text>
+              <Text style={[styles.passportValue, { color: colors.text }]}>{rideStats.rides}번 주행</Text>
+            </View>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
         </Pressable>
@@ -598,6 +609,7 @@ export default function EditBikeScreen() {
 }
 
 const styles = StyleSheet.create({
+  metadataRow: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4 },
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   errorText: { fontSize: 14 },

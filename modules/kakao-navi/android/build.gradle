@@ -1,0 +1,26 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.kakaonavi'
+version = '1.0.0'
+
+android {
+  namespace 'expo.modules.kakaonavi'
+  buildFeatures { buildConfig true }
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+    buildConfigField 'boolean', 'MOTOMAP_GUIDE_RN', (project.findProperty('motomapGuideRenderer') != 'web').toString()
+    buildConfigField 'boolean', 'MOTOMAP_GUIDE_BENCHMARK', (project.findProperty('motomapGuideBenchmark') == 'true').toString()
+  }
+}
+
+dependencies {
+  implementation 'com.facebook.react:react-android'
+  implementation 'androidx.webkit:webkit:1.15.0'
+  implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
+  implementation 'com.kakaomobility.knsdk:knsdk_ui:1.12.8-hotfix05'
+  testImplementation 'junit:junit:4.13.2'
+}
