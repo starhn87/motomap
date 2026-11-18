@@ -342,6 +342,9 @@ export default function TempPlaceSheet({ place, onClose, highlightReview, openEx
         animateOnMount={false}
         snapPoints={SNAP_POINTS}
         enableDynamicSizing={false}
+        // 하단 인셋 0의 위치는 유지하고 이동 중 본문 마스크의 높이 재계산을 막는다.
+        detached
+        enableOverDrag={false}
         activeOffsetY={[-12, 12]}
         failOffsetX={[-12, 12]}
         animatedIndex={animatedIndex}

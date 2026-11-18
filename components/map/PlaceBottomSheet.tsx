@@ -305,6 +305,9 @@ function PlaceBottomSheet({
         animateOnMount={false}
         snapPoints={SNAP_POINTS}
         enableDynamicSizing={false}
+        // 하단 인셋 0의 위치는 유지하고 이동 중 본문 마스크의 높이 재계산을 막는다.
+        detached
+        enableOverDrag={false}
         // 방향 잠금 — 세로로 12px 움직여야 시트 팬이 활성화되고, 가로로 먼저 12px
         // 가면 시트 팬이 실패해 사진 스트립의 가로 스와이프에 양보한다 (네이버 지도식)
         activeOffsetY={[-12, 12]}
