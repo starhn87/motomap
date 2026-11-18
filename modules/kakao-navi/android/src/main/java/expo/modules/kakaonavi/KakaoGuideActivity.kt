@@ -452,8 +452,11 @@ internal class KakaoGuideController(
         }
       }
       val start = matched ?: trafficStart
-      if (start == null) rail.unknown(route)
-      else rail.sample(route, start, matched != null)
+      if (matched != null) rail.sample(route, matched, true)
+      else if (!rail.retain(route)) {
+        if (start == null) rail.unknown(route)
+        else rail.sample(route, start, false)
+      }
       rail.show(panelReady && panel?.expanded != true && rail.layoutParams.height >= dp(80) &&
         (viewState == KNNaviViewState.DriveNormal || viewState == KNNaviViewState.NONE))
     } finally {
@@ -518,7 +521,7 @@ internal class KakaoGuideController(
       "remainingDistance" to trip?.remainDist()?.takeIf { it >= 0 },
       "status" to when {
         refreshing -> if (arrival != null) "복귀 경로를 찾고 있어요" else "경로를 다시 찾고 있어요"
-        arrival != null -> "목적지 주변입니다"
+        arrival != null -> ""
         else -> null
       },
       "fullWidthStatus" to if (manualRefresh && refreshing) "경로를 다시 찾고 있어요" else null,

@@ -90,7 +90,7 @@ test('한 기기에만 있던 값이 같은 계정의 다른 기기에 동기화
 
 test('오래된 기기의 값으로 다른 기기에서 설정하거나 삭제한 슬롯을 덮지 않는다', async () => {
   const server: Server = new Map([['a', new Map<MyPlaceSlot, MyPlace | null>([['home', null], ['work', work]])]]);
-  const f = fixture(signedIn('a'), JSON.stringify({ home, work: home }), server);
+  const f = fixture(signedIn('a'), JSON.stringify({ owner: 'a', places: { home, work: home } }), server);
   await f.ready();
   assert.equal(f.saved(), null);
   assert.equal(f.places.getState().places.home, undefined);
@@ -131,6 +131,14 @@ test('다른 계정으로 다시 실행할 때 기기 값이 새 계정으로 �
   const f = fixture(signedIn('b'), JSON.stringify({ owner: 'a', places: { home } }), server);
   await f.ready();
   assert.equal(f.places.getState().loaded, true);
+  assert.equal(f.places.getState().places.home, undefined);
+  assert.equal(server.get('b')?.size, 0);
+});
+
+test('소유자를 알 수 없는 기기 주소는 현재 계정에 표시하거나 전송하지 않는다', async () => {
+  const server: Server = new Map();
+  const f = fixture(signedIn('b'), JSON.stringify({ home }), server);
+  await f.ready();
   assert.equal(f.places.getState().places.home, undefined);
   assert.equal(server.get('b')?.size, 0);
 });

@@ -22,6 +22,7 @@ interface MyPlacesStore {
   localPlaces: MyPlaces;
   enabled: boolean;
   loaded: boolean;
+  accountLoaded: boolean;
   load: () => Promise<void>;
   refreshAccount: () => Promise<void>;
   save: (slot: MyPlaceSlot, place: MyPlace) => Promise<boolean>;
@@ -59,7 +60,7 @@ async function resetStorage() {
 }
 
 const emptyPlaces = () => ({
-  places: {}, localPlaces: {}, loaded: false,
+  places: {}, localPlaces: {}, loaded: false, accountLoaded: false,
 });
 
 export const useMyPlacesStore = create<MyPlacesStore>((set, get) => ({
@@ -76,14 +77,8 @@ export const useMyPlacesStore = create<MyPlacesStore>((set, get) => ({
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (current !== revision) return;
         const stored = raw ? JSON.parse(raw) as StoredPlaces | MyPlaces : null;
-        let places: MyPlaces = {};
-        if (stored && 'owner' in stored) {
-          if (stored.owner === owner) places = stored.places;
-        } else if (stored) {
-          // 계정 구분이 없던 기존 값은 현재 로그인한 계정의 기기에만 남긴다.
-          await persistPlaces(owner, stored);
-          places = stored;
-        }
+        // 계정 정보가 없는 기존 값은 현재 계정의 주소로 간주하지 않는다.
+        const places = stored && 'owner' in stored && stored.owner === owner ? stored.places : {};
         if (current === revision) set({ places, localPlaces: places, loaded: true });
       } catch {
         if (current === revision) set({ loaded: true });
@@ -105,7 +100,7 @@ export const useMyPlacesStore = create<MyPlacesStore>((set, get) => ({
         return fetchAccountPlaces(owner, signal);
       });
       if (current !== revision) return;
-      set({ places: remote });
+      set({ places: remote, accountLoaded: true });
       // 저장과 재조회가 성공한 경우에만 기존 기기 값의 유일한 복사본을 없앤다.
       if (hasLocal) {
         await AsyncStorage.removeItem(STORAGE_KEY);
@@ -119,10 +114,6 @@ export const useMyPlacesStore = create<MyPlacesStore>((set, get) => ({
   save: writePlace,
   remove: (slot) => writePlace(slot),
 }));
-
-function persistPlaces(owner: string, places: MyPlaces) {
-  return AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ owner, places }));
-}
 
 async function writePlace(slot: MyPlaceSlot, place?: MyPlace) {
   const owner = useAuthStore.getState().session?.user.id;

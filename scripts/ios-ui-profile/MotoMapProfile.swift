@@ -36,7 +36,7 @@ final class MotoMapProfile: XCTestCase {
         search.tap()
     }
 
-    func openPhotoFixture() {
+    func openExpandedPlace() {
         openSearch()
         let input = app.textFields["장소, 라이딩 검색"]
         XCTAssertTrue(input.waitForExistence(timeout: 15))
@@ -47,6 +47,10 @@ final class MotoMapProfile: XCTestCase {
         result.tap()
         XCTAssertTrue(app.buttons["다산생태공원 상세 펼치기"].waitForExistence(timeout: 15))
         app.buttons["다산생태공원 상세 펼치기"].tap()
+    }
+
+    func openPhotoFixture() {
+        openExpandedPlace()
         let photo = app.buttons["장소 사진 1 확대"]
         XCTAssertTrue(photo.waitForExistence(timeout: 20))
         for _ in 0..<4 {
@@ -99,6 +103,52 @@ final class MotoMapProfile: XCTestCase {
 
     func testInspectSearch() throws {
         openPhotoFixture()
+    }
+
+    func testPlaceSheetHeaderDrag() {
+        openExpandedPlace()
+        let header = app.buttons["장소 상세 접기"]
+        XCTAssertTrue(header.waitForExistence(timeout: 5))
+        // 본문을 스크롤한 뒤에도 헤더에서 시작한 드래그는 시트가 이어받는다.
+        let body = app.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.7))
+        body.press(forDuration: 0.05, thenDragTo: body.withOffset(CGVector(dx: 0, dy: -180)))
+        let center = header.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        // 천천히 조금만 당긴 뒤 멈춰 놓으면 가장 가까운 전체 확장 위치로 돌아온다.
+        // 예전 헤더는 손을 뗄 때 24pt만 넘었어도 무조건 중간 위치로 접었다.
+        center.press(forDuration: 0.08, thenDragTo: center.withOffset(CGVector(dx: 0, dy: 72)),
+                     withVelocity: 350, thenHoldForDuration: 0.45)
+        XCTAssertTrue(header.waitForExistence(timeout: 4))
+        XCTAssertTrue(header.isHittable)
+
+        let half = center.withOffset(CGVector(dx: 0, dy: app.frame.height * 0.38))
+        center.press(forDuration: 0.08, thenDragTo: half, withVelocity: 450, thenHoldForDuration: 0.45)
+        let handle = app.buttons["장소 상세 펼치기"].firstMatch
+        XCTAssertTrue(handle.isHittable)
+        XCTAssertGreaterThan(handle.frame.midY, app.frame.height * 0.45)
+
+        // 짧은 세로 드래그는 중간 스냅으로 돌아와야 한다. 탭으로 처리하면 풀확장된다.
+        // 앞선 긴 드래그의 스냅 애니메이션이 끝난 정지 위치에서 시작한다.
+        Thread.sleep(forTimeInterval: 0.8)
+        let middleY = handle.frame.midY
+        let middle = handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        middle.press(forDuration: 0.09, thenDragTo: middle.withOffset(CGVector(dx: 0, dy: -10)),
+                     withVelocity: 100, thenHoldForDuration: 0.12)
+        Thread.sleep(forTimeInterval: 0.8)
+        XCTAssertEqual(handle.frame.midY, middleY, accuracy: 2)
+
+        // 가로 실패 범위까지 줄이면 첫 이동 샘플에서 빠른 대각선 세로 플릭을 잃는다.
+        middle.press(forDuration: 0.06,
+                     thenDragTo: middle.withOffset(CGVector(dx: -app.frame.width * 0.21, dy: -app.frame.height * 0.37)),
+                     withVelocity: 1600, thenHoldForDuration: 0.15)
+        XCTAssertTrue(header.waitForExistence(timeout: 4))
+        header.tap()
+        XCTAssertGreaterThan(handle.frame.midY, app.frame.height * 0.45)
+        handle.tap()
+        XCTAssertTrue(header.waitForExistence(timeout: 4))
+        app.buttons["장소 상세 닫기"].firstMatch.tap()
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
+                                              object: app.buttons["다산생태공원 상세 펼치기"])
+        XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
     }
 
     func testPhotoGestureSmoke() throws {

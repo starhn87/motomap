@@ -319,6 +319,12 @@ License: Apache-2.0 (Pictogrammers Free License, icons).
   </main>
   <script>
     (() => {
+      function formatRemainingDistance(meters) {
+        if (meters >= 1000) return (meters / 1000).toFixed(1) + 'km';
+        if (meters === 0) return '0m';
+        const step = meters <= 100 ? 5 : 20;
+        return Math.max(step, Math.floor(meters / step) * step) + 'm';
+      }
       const $ = id => document.getElementById(id);
       const send = (action, extra = {}) => {
         const payload = { action, ...extra };
@@ -434,7 +440,7 @@ License: Apache-2.0 (Pictogrammers Free License, icons).
             if (minutes >= 60) appendTime(Math.floor(minutes / 60), '시간');
             if (minutes < 60 || minutes % 60) appendTime(minutes % 60, '분');
             $('arrival').setAttribute('aria-label', '남은 시간 ' + $('arrival').textContent);
-            $('distance').textContent = meters >= 1000 ? (meters / 1000).toFixed(1) + 'km' : Math.round(meters) + 'm';
+            $('distance').textContent = formatRemainingDistance(meters);
           } else {
             $('arrival').className = 'status';
             $('arrival').textContent = '안내 준비 중';

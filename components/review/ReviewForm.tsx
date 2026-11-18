@@ -20,10 +20,11 @@ import StarRating from './StarRating';
 import PhotoDragList from './PhotoDragList';
 
 interface Props {
+  onInputFocus?: () => void;
   target: ReviewCreateTarget;
 }
 
-export default function ReviewForm({ target }: Props) {
+export default function ReviewForm({ target, onInputFocus }: Props) {
   // 바이크 미등록이면 폼 아래에서 한 번 권한다 — 리뷰에 기종 뱃지가 붙는
   // 순간이라 등록의 보상이 가장 눈에 보이는 자리다
   const { model: myBikeModel } = useMyBike();
@@ -40,13 +41,7 @@ export default function ReviewForm({ target }: Props) {
   // 업로드부터 등록까지 전 과정을 잠근다
   const [submitting, setSubmitting] = useState(false);
 
-  if (!user) {
-    return (
-      <Text style={[styles.loginHint, { color: colors.textSecondary }]}>
-        리뷰를 작성하려면 로그인이 필요합니다.
-      </Text>
-    );
-  }
+  if (!user) return null;
 
   const handleAddPhotos = async () => {
     if (picking) return;
@@ -111,6 +106,7 @@ export default function ReviewForm({ target }: Props) {
       <StarRating rating={rating} onRate={setRating} size={32} />
 
       <BottomSheetTextInput
+        onFocus={onInputFocus}
         style={[
           APP_FONT_STYLE,
           styles.input,
@@ -168,11 +164,6 @@ const styles = StyleSheet.create({
   },
   container: {
     gap: 12,
-  },
-  loginHint: {
-    fontSize: 13,
-    textAlign: 'center',
-    marginVertical: 12,
   },
   input: {
     borderWidth: 1,

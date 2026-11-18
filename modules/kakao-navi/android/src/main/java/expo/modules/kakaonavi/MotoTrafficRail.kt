@@ -120,6 +120,15 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     }
   }
 
+  // 같은 경로의 마지막 교통 표본과 진행 위치는 GPS 수신 중단에도 보존한다.
+  fun retain(route: KNRoute): Boolean {
+    if (this.route !== route || profile == null || sampledAt == 0L) return false
+    positioned = false
+    contentDescription = "경로 교통 흐름, GPS 수신 대기, 확인된 구간 길이 ${sampledRemaining / 1000.0}킬로미터"
+    invalidate()
+    return true
+  }
+
   fun unknown(route: KNRoute) {
     if (this.route === route && !positioned && sampledAt == 0L) return
     this.route = route

@@ -1,3 +1,4 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   ActivityIndicator,
@@ -71,6 +72,8 @@ function cameraFor(places: SelectedPlace[]) {
 }
 
 export default function SubmitRidingGuide() {
+  const scrollRef = useRef<ScrollView>(null);
+  const keyboardInput = useRevealKeyboardInput(scrollRef);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const queryClient = useQueryClient();
@@ -203,8 +206,11 @@ export default function SubmitRidingGuide() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      enabled={Platform.OS === 'android'}
+      behavior="height">
       <ScrollView
+        ref={scrollRef}
+        automaticallyAdjustKeyboardInsets
         style={[styles.container, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -260,6 +266,7 @@ export default function SubmitRidingGuide() {
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>추천 이유 *</Text>
         <TextInput
+          onFocus={keyboardInput.onFocus}
           style={[...inputStyle, styles.reasonInput]}
           placeholder="경치, 도로 흐름, 휴식이나 음식처럼 실제 라이딩에서 좋았던 점을 알려주세요"
           placeholderTextColor={colors.textSecondary}
@@ -273,6 +280,7 @@ export default function SubmitRidingGuide() {
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>제안 제목</Text>
         <TextInput
+          onFocus={keyboardInput.onFocus}
           style={inputStyle}
           placeholder="대표 목적지를 고르면 자동으로 채워져요"
           placeholderTextColor={colors.textSecondary}
@@ -309,6 +317,7 @@ export default function SubmitRidingGuide() {
               </Pressable>
             </View>
             <TextInput
+              onFocus={keyboardInput.onFocus}
               style={[...inputStyle, styles.stopNote]}
               placeholder="이곳도 함께 추천하는 이유 (선택)"
               placeholderTextColor={colors.textSecondary}
@@ -361,6 +370,7 @@ export default function SubmitRidingGuide() {
           })}
         </View>
         <TextInput
+          onFocus={keyboardInput.onFocus}
           style={[...inputStyle, styles.customTags]}
           placeholder="그 밖의 태그를 쉼표로 구분해 입력"
           placeholderTextColor={colors.textSecondary}

@@ -24,7 +24,7 @@ function placesSignature(
 export default function PersonalPlaceRideSync() {
   const user = useAuthStore((state) => state.user);
   const places = useMyPlacesStore((state) => state.places);
-  const loaded = useMyPlacesStore((state) => state.loaded);
+  const accountLoaded = useMyPlacesStore((state) => state.accountLoaded);
   const load = useMyPlacesStore((state) => state.load);
   const refreshAccount = useMyPlacesStore((state) => state.refreshAccount);
   const signature = placesSignature(places);
@@ -51,7 +51,7 @@ export default function PersonalPlaceRideSync() {
       }
       return updated;
     },
-    enabled: !!user && loaded,
+    enabled: !!user && accountLoaded,
     staleTime: Infinity,
   });
 

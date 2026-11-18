@@ -1,18 +1,15 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import CloseIcon from '@/components/ui/CloseIcon';
-import GlassButton from '@/components/ui/GlassButton';
-import BackIcon from '@/components/ui/BackIcon';
 import PlaceSheetHeaderActions from '@/components/map/PlaceSheetHeaderActions';
-import PlaceSheetCollapseHandle from '@/components/map/PlaceSheetCollapseHandle';
+import { placeSheetOffsetX, placeSheetOffsetY } from './placeSheetPanOffsets';
+import { PlaceSheetBackground, PlaceSheetHeaderOverlay, PlaceSheetHeaderProvider, PlaceSheetNameRow } from '@/components/map/PlaceSheetHeader';
 import { ANDROID_TOP_CONTROL_GAP } from '@/components/navigation/headerSpacing';
 import { usePlaceReviewFocus } from '@/hooks/usePlaceReviewFocus';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Animated, {
   Extrapolation,
-  FadeIn,
-  FadeOut,
   interpolate,
   runOnJS,
   Easing,
@@ -21,7 +18,6 @@ import Animated, {
   useSharedValue,
   withSequence,
   withTiming,
-  type SharedValue,
 } from 'react-native-reanimated';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
@@ -74,14 +70,12 @@ export interface TempPlace extends GeneralPlaceInput {
 interface Props {
   place: TempPlace | null;
   onClose: () => void;
-  animatedPosition?: SharedValue<number>;
   highlightReview?: { id: string; key: string } | null;
   openExpanded?: boolean;
   /** 지도에서 선택 화면에서 열 때 — 출발·도착·공유 대신 이 버튼 하나와 장소 정보만 보인다. */
   pickAction?: { label: string; onPress: () => void };
 }
 
-const SNAP_POINTS = [100, '45%', '100%'];
 const PAGE_HEADER_HEIGHT = 56;
 const HANDLE_HEIGHT = 28;
 const HEADER_CONTENT_GAP = 6;
@@ -90,34 +84,40 @@ const DETAIL_CARD_GAP = 10;
 
 // 일반 장소도 등록 장소와 같은 확장형 상세 경험을 쓴다. 차이는 카테고리·라이더
 // 집계처럼 모토맵이 검증한 정보 대신 카카오 정보와 라이더 리뷰가 중심이라는 점이다.
-export default function TempPlaceSheet({ place, onClose, animatedPosition, highlightReview, openExpanded = false, pickAction }: Props) {
+export default function TempPlaceSheet({ place, onClose, highlightReview, openExpanded = false, pickAction }: Props) {
   const [hoursExpanded, setHoursExpanded] = useState(false);
   useEffect(() => { setHoursExpanded(false); }, [place?.name, place?.latitude, place?.longitude]);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  // 최소 높이에서도 시스템 하단 바 위로 제목과 닫기 버튼이 모두 보이게 한다.
+  const snapPoints = useMemo(() => [100 + insets.bottom, '45%', '100%'], [insets.bottom]);
   const headerTop = insets.top + (Platform.OS === 'android' ? ANDROID_TOP_CONTROL_GAP : 0);
   const initialIndex = openExpanded || highlightReview ? 2 : 1;
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const closeRequestedFor = useRef<typeof place>(null);
+  const requestSheetClose = () => {
+    closeRequestedFor.current = place;
+    bottomSheetRef.current?.close();
+  };
   const scrollRef = useRef<any>(null);
-  const [currentIndex, setCurrentIndex] = useState(-1);
-  const [settledIndex, setSettledIndex] = useState(-1);
+  const keyboardInput = useRevealKeyboardInput(scrollRef, { padOccludedContent: true });
+  const [reviewExpanded, setReviewExpanded] = useState(false);
   const animatedIndex = useSharedValue(-1);
-  const currentIndexRef = useRef(-1);
-
-  const syncIndex = useCallback((index: number) => {
-    currentIndexRef.current = index;
-    setCurrentIndex(index);
-  }, []);
-
+  const reviewRequested = !!highlightReview;
   useAnimatedReaction(
-    () => Math.round(animatedIndex.value),
-    (rounded, previous) => {
-      if (rounded !== previous) runOnJS(syncIndex)(rounded);
+    () => reviewRequested && animatedIndex.value === 2,
+    (expanded, previous) => {
+      if (expanded !== !!previous) runOnJS(setReviewExpanded)(expanded);
     },
   );
+  const advanceSheet = useCallback(() => {
+    const index = Math.round(animatedIndex.value);
+    if (index >= 0 && index < snapPoints.length - 1) {
+      bottomSheetRef.current?.snapToIndex(index + 1);
+    }
+  }, [animatedIndex, snapPoints.length]);
   const [resolvingNavigation, setResolvingNavigation] = useState(false);
-  const isExpanded = currentIndex === SNAP_POINTS.length - 1;
   const navLaunching = useNavLaunching((s) => s.launching);
   const user = useAuthStore((st) => st.user);
 
@@ -173,7 +173,7 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
   }, [place?.name, place?.latitude, place?.longitude, initialIndex, highlightReview?.key]);
 
   const onReviewLayout = usePlaceReviewFocus(
-    highlightReview?.key, settledIndex === 2 && !generalPlaceLoading && !reviewsLoading, headerTop + PAGE_HEADER_HEIGHT + HEADER_CONTENT_GAP, scrollRef,
+    highlightReview?.key, reviewExpanded && !generalPlaceLoading && !reviewsLoading, headerTop + PAGE_HEADER_HEIGHT + HEADER_CONTENT_GAP, scrollRef,
   );
 
   const handleFavorite = async () => {
@@ -279,40 +279,26 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
     <PlaceSheetHeaderActions
       expanded={expanded}
       isFavorite={isFavorite}
+      showFavorite={!!user}
       favoriteDisabled={favPending}
       favoriteScale={favoriteScale}
       onFavorite={handleFavorite}
-      onClose={onClose}
+      onClose={requestSheetClose}
     />
   );
 
   const navigating = resolvingNavigation || navLaunching;
-  const headerReady = settledIndex === 2;
-
   const handleIndicatorStyle = useAnimatedStyle(() => ({
-    backgroundColor:
-      animatedIndex.value >= SNAP_POINTS.length - 1.5
-        ? 'transparent'
-        : colors.tabIconDefault,
+    opacity: animatedIndex.value >= 1.5 ? 0 : 1,
   }));
 
-  const spacerStyle = useAnimatedStyle(() => ({
-    height: interpolate(
-      animatedIndex.value,
-      [1, 2],
-      [
-        0,
-        Math.max(
-          headerTop +
-            PAGE_HEADER_HEIGHT +
-            HEADER_CONTENT_GAP -
-            HANDLE_HEIGHT -
-            CONTENT_PADDING,
-          0,
-        ),
-      ],
-      Extrapolation.CLAMP,
-    ),
+  const headerSpace = Math.max(
+    headerTop + PAGE_HEADER_HEIGHT + HEADER_CONTENT_GAP - HANDLE_HEIGHT - CONTENT_PADDING,
+    0,
+  );
+  // 상단 여백은 고정하고 시트 이동 중에는 Yoga 레이아웃 대신 위치만 바꾼다.
+  const contentMotionStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(animatedIndex.value, [1, 2], [-headerSpace, 0], Extrapolation.CLAMP) }],
   }));
 
   const renderHandle = useCallback(
@@ -321,47 +307,53 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
         accessibilityLabel="장소 상세 펼치기"
         accessibilityRole="button"
         activeOpacity={1}
-        onPress={() => {
-          const index = currentIndexRef.current;
-          if (index < SNAP_POINTS.length - 1) {
-            bottomSheetRef.current?.snapToIndex(index + 1);
-          }
-        }}
+        onPress={advanceSheet}
         style={styles.handleContainer}>
-        <Animated.View style={[styles.handleIndicator, handleIndicatorStyle]} />
+        <Animated.View style={[styles.handleIndicator, { backgroundColor: colors.tabIconDefault }, handleIndicatorStyle]} />
       </TouchableOpacity>
     ),
-    [handleIndicatorStyle],
+    [advanceSheet, colors.tabIconDefault, handleIndicatorStyle],
   );
 
   const actionRowAlone = !place?.phone && !showsPlaceHoursRow({ hours: placeHours?.hours, businessStatus: placeHours?.businessStatus });
 
   return (
-    <>
+    <PlaceSheetHeaderProvider
+      animatedIndex={animatedIndex}
+      header={place ? { top: headerTop, onClose: requestSheetClose, actions: renderActions(true) } : null}>
       <BottomSheet
+        backdropComponent={PlaceSheetHeaderOverlay}
+        backgroundComponent={PlaceSheetBackground}
         ref={bottomSheetRef}
         // 등록 장소와 같이 내부 액션을 각각의 접근성 요소로 노출한다.
         accessible={false}
         index={-1}
         animateOnMount={false}
-        snapPoints={SNAP_POINTS}
+        snapPoints={snapPoints}
         enableDynamicSizing={false}
-        activeOffsetY={[-12, 12]}
-        failOffsetX={[-12, 12]}
+        // 하단 인셋 0의 위치는 유지하고 이동 중 본문 마스크의 높이 재계산을 막는다.
+        detached
+        enableOverDrag={false}
+        activeOffsetY={placeSheetOffsetY}
+        failOffsetX={placeSheetOffsetX}
         animatedIndex={animatedIndex}
-        animatedPosition={animatedPosition}
         enablePanDownToClose={false}
         keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
+        android_keyboardInputMode="adjustResize"
         enableBlurKeyboardOnGesture
+        onClose={() => {
+          const requested = closeRequestedFor.current;
+          closeRequestedFor.current = null;
+          if (requested && requested.name === place?.name &&
+              requested.latitude === place.latitude && requested.longitude === place.longitude) onClose();
+        }}
         onChange={(index) => {
-          setSettledIndex(index);
-          if (index === -1 && place) onClose();
+          if (index >= 0) keyboardInput.reveal();
         }}
         containerStyle={styles.sheetContainer}
         backgroundStyle={{
           backgroundColor: colors.background,
-          borderRadius: isExpanded ? 0 : 24,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.15,
@@ -372,41 +364,18 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
         {place ? (
           <BottomSheetScrollView
             ref={scrollRef}
-            contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
+            contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 + keyboardInput.extraScrollInset }]}
+            onContentSizeChange={keyboardInput.reveal}
             showsVerticalScrollIndicator={false}
+            automaticallyAdjustKeyboardInsets
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag">
-            <Animated.View style={spacerStyle} />
+            <Animated.View style={contentMotionStyle}>
+              <View style={{ height: headerSpace }} />
 
-          <View style={styles.nameRow}>
-            <Pressable
-              accessibilityLabel={`${place.name} 상세 펼치기`}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isExpanded }}
-              onPress={() => {
-                const index = currentIndexRef.current;
-                if (index < SNAP_POINTS.length - 1) {
-                  bottomSheetRef.current?.snapToIndex(index + 1);
-                }
-              }}
-              style={styles.nameRowPressTarget}
-            />
-            <View pointerEvents="none" style={styles.nameContent}>
-              <Text
-                style={[styles.name, { color: colors.text }]}
-                numberOfLines={2}
-                textBreakStrategy="balanced"
-                lineBreakStrategyIOS="push-out">
-                {place.name}
-              </Text>
-            </View>
-            {!isExpanded && (
-              <Animated.View
-                style={styles.nameActions}>
-                {renderActions(false)}
-              </Animated.View>
-            )}
-          </View>
+          <PlaceSheetNameRow name={place.name} onPress={advanceSheet}>
+            {renderActions(false)}
+          </PlaceSheetNameRow>
 
           <PlaceAddressRow address={place.address} />
 
@@ -650,43 +619,34 @@ export default function TempPlaceSheet({ place, onClose, animatedPosition, highl
                 </View>
               )}
             </View>
-            {!pickAction && <ReviewForm target={{ kind: 'general', place: resolvedPlace ?? place }} />}
-            <View style={styles.reviewDivider} />
+            {!!user && !pickAction && <ReviewForm onInputFocus={keyboardInput.onFocus} target={{ kind: 'general', place: resolvedPlace ?? place }} />}
+            {!!user && !pickAction && <View style={styles.reviewDivider} />}
             {reviewTarget ? (
-              <ReviewList target={reviewTarget} highlight={highlightReview} />
+              <ReviewList
+                onInputFocus={keyboardInput.onFocus}
+                target={reviewTarget}
+                allowWriting={!pickAction}
+                highlight={highlightReview}
+              />
             ) : generalPlaceLoading ? (
               <ReviewListSkeleton />
             ) : (
               <Text style={[styles.emptyReviews, { color: colors.textSecondary }]}>
-                아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
+                {pickAction ? '아직 리뷰가 없어요.'
+                  : user ? '아직 리뷰가 없어요. 첫 리뷰를 남겨보세요.'
+                  : '아직 리뷰가 없어요. 로그인하고 첫 리뷰를 남겨보세요.'}
               </Text>
             )}
           </View>
 
             <Text style={[styles.attribution, { color: colors.textSecondary }]}>{externalPlaceAttribution([place])}</Text>
+            </Animated.View>
           </BottomSheetScrollView>
         ) : null}
       </BottomSheet>
 
-      {place && isExpanded && (
-        <View
-          pointerEvents={headerReady ? 'box-none' : 'none'}
-          style={[
-            styles.pageHeader,
-            { paddingTop: headerTop, backgroundColor: colors.background },
-          ]}>
-          <GlassButton
-            accessibilityLabel="뒤로"
-            accessibilityRole="button"
-            onPress={() => bottomSheetRef.current?.close()}
-            style={[styles.iconButton, styles.pageHeaderIconButton, { borderRadius: 22 }]}>
-            <BackIcon size={28} color={colors.text} />
-          </GlassButton>
-          <PlaceSheetCollapseHandle color={colors.tabIconDefault} onCollapse={() => bottomSheetRef.current?.snapToIndex(1)} />
-          <View style={[styles.nameActions, { gap: 12 }]}>{renderActions(true)}</View>
-        </View>
-      )}
-    </>
+
+    </PlaceSheetHeaderProvider>
   );
 }
 
@@ -703,46 +663,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-  },
-  pageHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 30,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 36,
-    marginBottom: 0,
-  },
-  name: { fontSize: 22, fontWeight: '700' },
-  nameRowPressTarget: {
-    ...StyleSheet.absoluteFill,
-  },
-  nameContent: {
-    flex: 1,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-    paddingRight: 16,
-  },
-  nameActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  iconButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pageHeaderIconButton: {
-    width: 44,
-    height: 44,
   },
   addressRow: {
     flexDirection: 'row',

@@ -208,13 +208,19 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   [controller setValue:@NO forKey:@"trafficRouteChanging"]; [controller refreshTrafficBar];
   check(activeBar.hidden, @"new route waits for new matched location");
   setGuide(); [controller refreshTrafficBar];
+  NSUInteger readsBeforeLoss = location.reads;
   guide.gpsOrigin.timestamp = [NSDate dateWithTimeIntervalSinceNow:-11]; [controller refreshTrafficBar];
-  check(activeBar.hidden && !activeBar.states.count, @"stale GPS clears profile");
+  check(!activeBar.hidden && activeBar.states.count == 48 && !activeBar.positionAvailable,
+        @"stale GPS keeps the same route profile");
   guide.gpsOrigin.timestamp = NSDate.date;
   guide.gpsOrigin.posTrust = NO;
   setGuide(); [controller refreshTrafficBar];
-  check(activeBar.hidden && !activeBar.states.count, @"untrusted GPS never shows projected traffic");
+  check(!activeBar.hidden && activeBar.states.count == 48 && !activeBar.positionAvailable,
+        @"untrusted GPS keeps the last verified traffic");
+  check(location.reads == readsBeforeLoss, @"unavailable GPS never resamples road conditions");
   guide.gpsOrigin.posTrust = YES;
+  setGuide(); [controller refreshTrafficBar];
+  check(activeBar.positionAvailable && location.reads == readsBeforeLoss + 48, @"recovered GPS immediately samples the route");
   guidance.routesOnGuide = @[[TrafficRouteProbe new]];
   setGuide(); [controller refreshTrafficBar];
   check(activeBar.hidden && !activeBar.states.count, @"old matched location cannot sample replacement route");
@@ -228,7 +234,8 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   check(expiry && expiry.fireDate.timeIntervalSinceNow <= 1.1, @"traffic expiry scheduled even when system footer GPS is newer");
   guide.gpsOrigin.timestamp = [NSDate dateWithTimeIntervalSinceNow:-11];
   [expiry fire];
-  check(activeBar.hidden && !activeBar.states.count, @"scheduled expiry clears traffic without next SDK location callback");
+  check(!activeBar.hidden && activeBar.states.count == 48 && !activeBar.positionAvailable,
+        @"scheduled expiry preserves traffic without next SDK location callback");
   guide.gpsOrigin.timestamp = NSDate.date;
   setGuide(); [controller refreshTrafficBar];
   [controller pauseForInactive];
@@ -249,6 +256,8 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   check(!activeBar.hidden && activeBar.states.count == 48, @"stationary startup shows known route before first GPS fix");
   check([activeBar.accessibilityValue containsString:@"GPS"], @"route overview does not claim a live current position");
   check(!activeBar.positionAvailable, @"GPS waiting position indicator stays gray");
+  [controller setValue:@YES forKey:@"trafficRouteChanging"]; [controller refreshTrafficBar];
+  [controller setValue:@NO forKey:@"trafficRouteChanging"];
   route.totalOverride = route.remaining + 20; [controller refreshTrafficBar];
   check(activeBar.hidden && !activeBar.states.count, @"first main road inside route is not treated as the origin");
   route.totalOverride = 0; [controller refreshTrafficBar];

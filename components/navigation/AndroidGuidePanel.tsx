@@ -1,3 +1,4 @@
+import { formatRemainingDistance } from '@/lib/guideDistance';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { requireOptionalNativeModule } from 'expo-modules-core';
@@ -78,9 +79,6 @@ function remainingTime(seconds: number) {
   return hours ? `${hours}시간${minutes % 60 ? ` ${minutes % 60}분` : ''}` : `${minutes}분`;
 }
 
-function remainingDistance(meters: number) {
-  return meters >= 1000 ? `${(meters / 1000).toFixed(1)}km` : `${Math.round(meters)}m`;
-}
 
 function colorString(color: number) {
   return `#${(color & 0xFFFFFF).toString(16).padStart(6, '0')}`;
@@ -286,10 +284,10 @@ export default function AndroidGuidePanel({ token }: { token: string }) {
             <Text numberOfLines={1} style={[styles.place, { color: tone.ink }]}>{showDestination ? state.goalName ?? '목적지' : state.currentLocationName}</Text>
           </View>
           <View style={[styles.inline, styles.metrics]}>
-            <Text numberOfLines={1} style={[state.status || !valid ? styles.label : styles.eta, { color: tone.ink }]}>
+            <Text numberOfLines={1} style={[state.status !== undefined || !valid ? styles.label : styles.eta, { color: tone.ink }]}>
               {state.status ?? (valid ? remainingTime(time) : '안내 준비 중')}
             </Text>
-            {valid && !state.status && <Text style={[styles.distance, { color: tone.ink }]}>{remainingDistance(meters)}</Text>}
+            {valid && state.status === undefined && <Text style={[styles.distance, { color: tone.ink }]}>{formatRemainingDistance(meters)}</Text>}
           </View>
         </View>
         <Control color={tone.ink} icon="menu" label="길안내 메뉴 열기" onPress={() => act('menu')} expanded={false} />

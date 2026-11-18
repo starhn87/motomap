@@ -13,6 +13,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 SCENARIOS = {
     'smoke': 'testPhotoGestureSmoke',
+    'sheet': 'testPlaceSheetHeaderDrag',
     'photo': 'testPhotoLoops',
     'search': 'testSearchIdle',
 }
@@ -145,7 +146,7 @@ def main():
             'xcrun', 'xcresulttool', 'get', 'test-results', 'metrics', '--path', str(result), '--compact'])
         (output / f'block-{block}-metrics-private.json').write_bytes(raw)
         metrics = clean_metrics(json.loads(raw))
-        if args.scenario != 'smoke' and not metrics:
+        if args.scenario not in ('smoke', 'sheet') and not metrics:
             raise ValueError('메트릭 없는 블록')
         results.append({'block': block, 'metrics': metrics})
         (output / 'summary.json').write_text(json.dumps(results, ensure_ascii=False, indent=2))

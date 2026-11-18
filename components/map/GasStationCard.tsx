@@ -105,7 +105,7 @@ export default function GasStationCard({ station, fuelCode = 'B027', onClose }: 
         <View style={styles.headerActions}>
           {/* 여백은 padding 이 아니라 hitSlop 으로 — 아이콘이 줄 높이보다
               커지면 잘린다 */}
-          <GlassButton compact
+          {!!user && <GlassButton compact
             accessibilityLabel={isFavorite ? '주유소 즐겨찾기 해제' : '주유소 즐겨찾기'}
             accessibilityRole="button"
             onPress={handleFavorite}
@@ -117,7 +117,7 @@ export default function GasStationCard({ station, fuelCode = 'B027', onClose }: 
               size={20}
               color={isFavorite ? '#FACC15' : colors.textSecondary}
             />
-          </GlassButton>
+          </GlassButton>}
           <GlassButton compact
             accessibilityLabel="주유소 정보 닫기"
             accessibilityRole="button"

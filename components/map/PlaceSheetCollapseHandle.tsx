@@ -1,23 +1,28 @@
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { memo, useMemo } from 'react';
+import { Pressable, StyleSheet } from 'react-native';
+import { useBottomSheetGestureHandlers } from '@gorhom/bottom-sheet';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
+import { placeSheetOffsetY, placeSheetHeaderOffsetX } from './placeSheetPanOffsets';
 
-export default function PlaceSheetCollapseHandle({ color, onCollapse }: { color: string; onCollapse: () => void }) {
-  const pan = Gesture.Pan()
-    .activeOffsetY(12)
-    .failOffsetX([-16, 16])
-    .onEnd(({ translationY, velocityY }) => {
-      if (translationY >= 24 || velocityY >= 400) runOnJS(onCollapse)();
-    });
+function PlaceSheetCollapseHandle({ onCollapse }: { onCollapse: () => void }) {
+  const { handlePanGestureHandler } = useBottomSheetGestureHandlers();
+  const pan = useMemo(() => Gesture.Pan()
+    .activeOffsetY(placeSheetOffsetY)
+    .failOffsetX(placeSheetHeaderOffsetX)
+    .shouldCancelWhenOutside(false)
+    .runOnJS(false)
+    .onStart(handlePanGestureHandler.handleOnStart)
+    .onChange(handlePanGestureHandler.handleOnChange)
+    .onEnd(handlePanGestureHandler.handleOnEnd)
+    .onFinalize(handlePanGestureHandler.handleOnFinalize), [handlePanGestureHandler]);
 
   return <GestureDetector gesture={pan}>
-    <Pressable accessibilityRole="button" accessibilityLabel="장소 상세 접기" onPress={onCollapse} style={styles.target}>
-      {Platform.OS !== 'android' && <View style={[styles.indicator, { backgroundColor: color }]} />}
-    </Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel="장소 상세 접기" onPress={onCollapse} style={styles.target} />
   </GestureDetector>;
 }
 
+export default memo(PlaceSheetCollapseHandle);
+
 const styles = StyleSheet.create({
-  target: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center' },
-  indicator: { width: 36, height: 4, borderRadius: 2 },
+  target: { flex: 1, height: 44 },
 });

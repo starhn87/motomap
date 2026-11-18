@@ -55,6 +55,7 @@ export const KAKAO_NAVI_FEATURES = [
   'location_privacy_stop',
   'android_live_guidance',
   'guide_web_bottom',
+  'guide_rn_bottom',
   'guide_route_editing',
   'guide_hazard_sheet',
   'guide_gas_stations',

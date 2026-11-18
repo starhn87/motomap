@@ -1,3 +1,4 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import { nativeUI } from '@/lib/nativeUI';
 import NativeChoiceControl from '@/components/ui/NativeChoiceControl';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -126,6 +127,7 @@ function SubmitPlace() {
     }
   }
   const scrollRef = useRef<ScrollView>(null);
+  const keyboardInput = useRevealKeyboardInput(scrollRef);
 
   // 지도의 "일반 장소" 시트에서 넘어온 프리필 (이름·주소·좌표)
   const { prefillName, prefillAddress, prefillLat, prefillLng, prefillProvider, prefillProviderId, prefillSource, prefillTs } =
@@ -278,8 +280,10 @@ function SubmitPlace() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      enabled={Platform.OS === 'android'}
+      behavior="height">
       <ScrollView
+        automaticallyAdjustKeyboardInsets
         onScroll={trackHeaderScroll} scrollEventThrottle={16}
         ref={scrollRef}
         style={{ flex: 1 }}
@@ -320,6 +324,7 @@ function SubmitPlace() {
         </Pressable>
         {address ? (
           <TextInput
+            onFocus={keyboardInput.onFocus}
             style={[inputStyle, { marginTop: 8 }]}
             placeholder="상세 주소 (동·호수·층 등, 선택)"
             placeholderTextColor={colors.textSecondary}
@@ -329,10 +334,26 @@ function SubmitPlace() {
         ) : null}
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>장소명 *</Text>
-        <TextInput style={inputStyle} placeholder="장소를 검색하면 자동 입력됩니다" placeholderTextColor={colors.textSecondary} value={name} onChangeText={setName} />
+        <TextInput
+          onFocus={keyboardInput.onFocus}
+          style={inputStyle}
+          placeholder="장소를 검색하면 자동 입력됩니다"
+          placeholderTextColor={colors.textSecondary}
+          value={name}
+          onChangeText={setName}
+        />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>설명</Text>
-        <TextInput style={[...inputStyle, styles.multiline]} placeholder="이 장소에 대해 알려주세요" placeholderTextColor={colors.textSecondary} value={description} onChangeText={setDescription} multiline numberOfLines={3} />
+        <TextInput
+          onFocus={keyboardInput.onFocus}
+          style={[...inputStyle, styles.multiline]}
+          placeholder="이 장소에 대해 알려주세요"
+          placeholderTextColor={colors.textSecondary}
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          numberOfLines={3}
+        />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>사진</Text>
         <View pointerEvents={submitting ? 'none' : 'auto'}>
