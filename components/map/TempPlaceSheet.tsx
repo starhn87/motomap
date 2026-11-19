@@ -420,17 +420,11 @@ export default function TempPlaceSheet({ place, onClose, highlightReview, openEx
                 styles.actionButton,
                 { backgroundColor: colors.tint, opacity: navigating ? 0.8 : 1 },
               ]}>
-              {navigating ? (
-                <View>
-                  <Text style={[styles.navButtonText, { color: 'transparent' }]}>도착</Text>
-                  <ActivityIndicator
-                    size="small"
-                    color={colors.background}
-                    style={StyleSheet.absoluteFill}
-                  />
-                </View>
-              ) : (
-                <Text style={[styles.navButtonText, { color: colors.background }]}>도착</Text>
+              <Text style={[styles.navButtonText, { color: colors.background, opacity: navigating ? 0 : 1 }]}>
+                도착
+              </Text>
+              {navigating && (
+                <ActivityIndicator size="small" color={colors.background} style={StyleSheet.absoluteFill} />
               )}
             </TouchableOpacity>
             <TouchableOpacity

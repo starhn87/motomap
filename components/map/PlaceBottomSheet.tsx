@@ -387,18 +387,11 @@ function PlaceBottomSheet({
                 styles.actionButton,
                 { backgroundColor: colors.tint, opacity: navLaunching ? 0.8 : 1 },
               ]}>
-              {navLaunching ? (
-                // 텍스트를 투명으로 남겨 버튼 폭을 유지하고 스피너를 겹친다
-                <View>
-                  <Text style={[styles.navButtonText, { color: 'transparent' }]}>도착</Text>
-                  <ActivityIndicator
-                    size="small"
-                    color={colors.background}
-                    style={StyleSheet.absoluteFill}
-                  />
-                </View>
-              ) : (
-                <Text style={[styles.navButtonText, { color: colors.background }]}>도착</Text>
+              <Text style={[styles.navButtonText, { color: colors.background, opacity: navLaunching ? 0 : 1 }]}>
+                도착
+              </Text>
+              {navLaunching && (
+                <ActivityIndicator size="small" color={colors.background} style={StyleSheet.absoluteFill} />
               )}
             </TouchableOpacity>
             <TouchableOpacity
