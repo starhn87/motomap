@@ -41,11 +41,7 @@ const androidWeatherIcons: Record<string, { label: string; glyphs: WeatherGlyph[
   '⛅': { label: '구름 많음', glyphs: [{ ...sun, size: 0.65 }, ...partlyCloudy] },
   [NIGHT_PARTLY_CLOUDY_EMOJI]: {
     label: '구름 많은 밤',
-    glyphs: [
-      { ...moon, size: 0.62, x: 0.36, y: 0 },
-      { ...cloudShade, size: 0.74, x: 0.04, y: 0.26 },
-      { ...cloud, size: 0.74, x: 0.02, y: 0.21 },
-    ],
+    glyphs: [{ ...moon, size: 0.61, x: 0.02 }, ...partlyCloudy],
   },
   '☁️': { label: '흐림', glyphs: [cloudShade, cloud] },
   '🌧️': { label: '비', glyphs: [...cloudWithPrecipitation, rain, { ...rain, x: 0.52, y: 0.7 }] },
