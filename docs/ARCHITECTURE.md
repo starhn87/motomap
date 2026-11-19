@@ -322,7 +322,8 @@ Sentry.wrap(
 | 에어코리아 미세먼지 | `supabase/functions/air-kr` (+029 DB 캐시) | 최근접 측정소 PM10/PM2.5 실시간 등급 — 원 API가 10~26초라 DB 캐시 필수 |
 | 구글 Places 영업시간 | `supabase/functions/place-hours` + `hooks/usePlaceHours.ts` | 영업시간 폴백(등록 데이터 우선) — 캐시는 place_id 무기한·콘텐츠 30일(약관 상한, 034). 등록 장소는 DB 원본으로 검증하고 일반 POI 키는 좌표+상호에서 서버가 재생성하며, 5분/일일 호출 제한으로 Google 비용·캐시 오염 방어 |
 | AI 추천 챗 | `supabase/functions/moto-chat-v2` + `app/chat.tsx` | 등록 장소·목적지 중심 라이딩 추천 안에서만 답하는 대화형 도우미. 구버전용 `moto-chat`의 코스 응답 계약은 유지 |
-| Sentry | `app/_layout.tsx`, `metro.config.js` | 에러·세션 추적 |
+| Sentry | `components/ActiveRootLayout.tsx`, `metro.config.js` | 기존 진단·성능 트레이스. 새 오류 수집 연동은 추가하지 않는다 |
+| PostHog 오류 수집 | `lib/errorTracking.ts`, `lib/analytics.ts`, `app.config.js` | JS 예외·iOS 네이티브 크래시. 심볼 업로드 키는 프로젝트 키와 별도 |
 | moto-kr 데이터셋 | `constants/bikes.ts` ← `scripts/sync-bike-models.mjs` (`npm run sync:bikes`) | 기종 자동완성 목록의 단일 원본은 [moto-kr](https://github.com/starhn87/moto-kr) (KENCIS 인증 기반) — bikes.ts 는 생성 파일이므로 직접 수정 금지, 기종 변경은 moto-kr mapping 에 기여 후 동기화 |
 
 ---

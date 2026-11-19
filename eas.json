@@ -29,6 +29,23 @@
       "ios": {
         "image": "macos-tahoe-26.6-xcode-27.0"
       }
+    },
+    "error-tracking-verify": {
+      "distribution": "internal",
+      "environment": "production",
+      "channel": "error-tracking-verify",
+      "ios": {
+        "simulator": true,
+        "image": "macos-tahoe-26.6-xcode-27.0"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_ERROR_TRACKING_PROBE": "1",
+        "EXPO_PUBLIC_POSTHOG_HOST": "https://eu.i.posthog.com",
+        "POSTHOG_CLI_HOST": "https://eu.posthog.com"
+      }
     }
   },
   "submit": {

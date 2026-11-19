@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { AppState, Platform } from 'react-native';
 import * as Sentry from '@sentry/react-native';
+import { captureHandledException } from '@/lib/errorTracking';
 import { supabase } from '@/lib/supabase';
 
 const TOKEN_KEY = 'device-push-token';
@@ -53,6 +54,11 @@ function report(stage: string, error: unknown) {
       scope.setTag('push_token_stage', stage);
       scope.setTag('error_code', code);
       Sentry.captureMessage('Push token synchronization failed', 'warning');
+    });
+    captureHandledException(new Error('Push token synchronization failed'), {
+      area: 'push_token',
+      push_token_stage: stage,
+      error_code: code,
     });
   } catch {
     // 오류 보고 실패가 로그인·제보를 막지 않는다.

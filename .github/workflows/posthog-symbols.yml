@@ -1,0 +1,37 @@
+# 이미 만들어진 Hermes 산출물의 소스맵만 올린다.
+# pull request와 push에서는 실행되지 않으며, EAS 빌드·OTA·스토어 제출을 호출하지 않는다.
+name: posthog-symbols
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type upload-hermes-sourcemaps to upload an existing directory
+        required: true
+        type: string
+      dist_path:
+        description: Directory that already contains the exported Hermes bundle and source maps
+        required: true
+        default: dist
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  upload-hermes:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'upload-hermes-sourcemaps'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Upload existing Hermes source maps
+        env:
+          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+          POSTHOG_CLI_PROJECT_ID: ${{ secrets.POSTHOG_CLI_PROJECT_ID }}
+          POSTHOG_CLI_HOST: https://eu.posthog.com
+          EXPO_PUBLIC_POSTHOG_HOST: https://eu.i.posthog.com
+          HERMES_DIST_PATH: ${{ github.event.inputs.dist_path }}
+        run: node scripts/upload-posthog-hermes.mjs "$HERMES_DIST_PATH"

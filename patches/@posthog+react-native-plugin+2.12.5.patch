@@ -1,0 +1,180 @@
+diff --git a/node_modules/@posthog/react-native-plugin/android/src/main/java/com/posthogreactnativeplugin/PosthogReactNativePluginModule.kt b/node_modules/@posthog/react-native-plugin/android/src/main/java/com/posthogreactnativeplugin/PosthogReactNativePluginModule.kt
+index c21d413..de68992 100644
+--- a/node_modules/@posthog/react-native-plugin/android/src/main/java/com/posthogreactnativeplugin/PosthogReactNativePluginModule.kt
++++ b/node_modules/@posthog/react-native-plugin/android/src/main/java/com/posthogreactnativeplugin/PosthogReactNativePluginModule.kt
+@@ -172,7 +172,7 @@ class PosthogReactNativePluginModule(
+               // React Native rethrows fatal JS errors natively as JavascriptException.
+               // The JS layer already captured them, so drop the native duplicate.
+               errorTrackingConfig.ignoredExceptionTypes.add(JavascriptException::class.java)
+-              addBeforeSend { restoreJsFatalCaptureProperties(it) }
++              addBeforeSend { scrubNativeExceptionEvent(restoreJsFatalCaptureProperties(it)) }
+ 
+               // Always apply the session replay configuration so that recording started later
+               // (e.g. startRecording or a linked feature flag) uses the right mode and masking;
+@@ -810,6 +810,72 @@ private fun getDoubleOrNull(
+ 
+ // Two separate native features: autoCapture covers JVM crashes, while captureNativeCrashes
+ // installs the tombstone scanner that reports NDK crashes on the next launch.
++private val MOTOMAP_NATIVE_EXCEPTION_REDACTED = "[redacted]"
++private val MOTOMAP_SENSITIVE_EXCEPTION_KEY =
++  Regex(
++    "^(?:email|e-?mail|latitude|longitude|lat|lng|lon|coord|coords|coordinate|coordinates|token|access_token|refresh_token|authorization|password|secret|api_key|apikey|cookie|nickname|address|query|review|prompt|chat|input|search|body|message_body|user_input)$",
++    RegexOption.IGNORE_CASE,
++  )
++private val MOTOMAP_NATIVE_EXCEPTION_PATTERNS =
++  listOf(
++    Regex("[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}", RegexOption.IGNORE_CASE),
++    Regex("\\bBearer\\s+[A-Za-z0-9._~+/=-]+", RegexOption.IGNORE_CASE),
++    Regex("\\b(?:phc|phx|sbp|sb_secret|sk_live|sk_test|rk_live|rk_test)_[A-Za-z0-9_-]+"),
++    Regex("\\beyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\b"),
++    Regex("ExponentPushToken\\[[^\\]]+\\]"),
++    Regex("(?<![A-Za-z0-9.])-?\\d{1,3}\\.\\d{4,}\\s*,\\s*-?\\d{1,3}\\.\\d{4,}(?![A-Za-z0-9.])"),
++  )
++
++private fun motomapScrubString(value: String): String =
++  MOTOMAP_NATIVE_EXCEPTION_PATTERNS.fold(value) { text, pattern -> pattern.replace(text, MOTOMAP_NATIVE_EXCEPTION_REDACTED) }
++
++private fun motomapScrubValue(
++  value: Any?,
++  key: String?,
++): Any? {
++  if (key == "token" && value is String && value.startsWith("phc_")) return value
++  if (key != null && MOTOMAP_SENSITIVE_EXCEPTION_KEY.matches(key)) return MOTOMAP_NATIVE_EXCEPTION_REDACTED
++  return when (value) {
++    is String -> motomapScrubString(value)
++    is Map<*, *> -> {
++      val next = linkedMapOf<String, Any?>()
++      for ((childKey, child) in value) {
++        val name = childKey as? String ?: continue
++        next[name] = motomapScrubValue(child, name)
++      }
++      next
++    }
++    is List<*> -> value.map { motomapScrubValue(it, key) }
++    else -> value
++  }
++}
++
++internal fun scrubNativeExceptionEvent(event: PostHogEvent): PostHogEvent {
++  if (event.event != "\$exception" || MOTOMAP_NATIVE_EXCEPTION_PATTERNS.size != 6) {
++    if (event.event == "\$exception" && MOTOMAP_NATIVE_EXCEPTION_PATTERNS.size != 6) {
++      event.properties?.clear()
++      event.properties?.put("\$exception_value", MOTOMAP_NATIVE_EXCEPTION_REDACTED)
++    }
++    return event
++  }
++  val properties = event.properties ?: return event
++  return try {
++    val scrubbed = linkedMapOf<String, Any?>()
++    for ((key, value) in properties) {
++      scrubbed[key] = motomapScrubValue(value, key)
++    }
++    properties.clear()
++    for ((key, value) in scrubbed) {
++      if (value != null) properties[key] = value
++    }
++    event
++  } catch (_: Throwable) {
++    properties.clear()
++    properties["\$exception_value"] = MOTOMAP_NATIVE_EXCEPTION_REDACTED
++    event
++  }
++}
++
+ internal fun PostHogAndroidConfig.applyErrorTrackingConfig(
+   nativeAutocapture: Boolean,
+   androidNdkCrashes: Boolean,
+diff --git a/node_modules/@posthog/react-native-plugin/ios/PosthogReactNativePlugin.swift b/node_modules/@posthog/react-native-plugin/ios/PosthogReactNativePlugin.swift
+index 1a383a1..87480b0 100644
+--- a/node_modules/@posthog/react-native-plugin/ios/PosthogReactNativePlugin.swift
++++ b/node_modules/@posthog/react-native-plugin/ios/PosthogReactNativePlugin.swift
+@@ -47,6 +47,71 @@ private let iso8601Formatter: ISO8601DateFormatter = {
+     return formatter
+ }()
+ 
++// Motomap: native $exception 은 JS before_send 를 거치지 않는다. posthog-ios 가 보내기 전에
++// 호출하는 이 훅에서 이벤트 딕셔너리만 지운다. 패턴이 준비되지 않으면 예외 이벤트는 보내지 않는다.
++private let motomapNativeExceptionRedacted = "[redacted]"
++private let motomapSensitiveExceptionKey = try! NSRegularExpression(
++    pattern: "^(?:email|e-?mail|latitude|longitude|lat|lng|lon|coord|coords|coordinate|coordinates|token|access_token|refresh_token|authorization|password|secret|api_key|apikey|cookie|nickname|address|query|review|prompt|chat|input|search|body|message_body|user_input)$",
++    options: [.caseInsensitive]
++)
++private let motomapNativeExceptionPatterns: [NSRegularExpression] = [
++    "[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}",
++    "\\bBearer\\s+[A-Za-z0-9._~+/=-]+",
++    "\\b(?:phc|phx|sbp|sb_secret|sk_live|sk_test|rk_live|rk_test)_[A-Za-z0-9_-]+",
++    "\\beyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\b",
++    "ExponentPushToken\\[[^\\]]+\\]",
++    "(?<![A-Za-z0-9.])-?\\d{1,3}\\.\\d{4,}\\s*,\\s*-?\\d{1,3}\\.\\d{4,}(?![A-Za-z0-9.])",
++].compactMap { pattern in
++    try? NSRegularExpression(pattern: pattern, options: pattern.contains("[A-Z0-9._%+-]+@") ? [.caseInsensitive] : [])
++}
++
++private func motomapReplace(_ regex: NSRegularExpression, in text: String) -> String {
++    let range = NSRange(text.startIndex..., in: text)
++    return regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: motomapNativeExceptionRedacted)
++}
++
++private func motomapScrubString(_ text: String) -> String {
++    motomapNativeExceptionPatterns.reduce(text) { motomapReplace($1, in: $0) }
++}
++
++private func motomapSensitiveKey(_ key: String) -> Bool {
++    let range = NSRange(key.startIndex..., in: key)
++    return motomapSensitiveExceptionKey.firstMatch(in: key, options: [], range: range) != nil
++}
++
++private func motomapScrubValue(_ value: Any, key: String?) -> Any {
++    if key == "token", let token = value as? String, token.hasPrefix("phc_") {
++        return token
++    }
++    if let key, motomapSensitiveKey(key) {
++        return motomapNativeExceptionRedacted
++    }
++    if let text = value as? String {
++        return motomapScrubString(text)
++    }
++    if let dict = value as? [String: Any] {
++        var next: [String: Any] = [:]
++        for (childKey, child) in dict {
++            next[childKey] = motomapScrubValue(child, key: childKey)
++        }
++        return next
++    }
++    if let list = value as? [Any] {
++        return list.map { motomapScrubValue($0, key: key) }
++    }
++    return value
++}
++
++private func scrubNativeExceptionEvent(_ event: PostHogEvent) -> PostHogEvent? {
++    guard event.event == "$exception" else { return event }
++    guard motomapNativeExceptionPatterns.count == 6 else { return nil }
++    for key in Array(event.properties.keys) {
++        guard let value = event.properties[key] else { continue }
++        event.properties[key] = motomapScrubValue(value, key: key)
++    }
++    return event
++}
++
+ private func isReactNativeFatalJsError(_ event: PostHogEvent) -> Bool {
+     guard event.event == "$exception",
+           let exceptionList = event.properties["$exception_list"] as? [[String: Any]]
+@@ -280,7 +345,7 @@ public class PosthogReactNativePlugin: RCTEventEmitter {
+                 for (key, value) in jsProperties {
+                     event.properties[key] = value
+                 }
+-                return event
++                return scrubNativeExceptionEvent(event)
+             }
+             if isReactNativeFatalJsError(event) {
+                 return nil
+@@ -290,7 +355,7 @@ public class PosthogReactNativePlugin: RCTEventEmitter {
+             if event.event == "$push_notification_opened", let distinctId = setupWindow.pendingDistinctId {
+                 event.distinctId = distinctId
+             }
+-            return event
++            return scrubNativeExceptionEvent(event)
+         }
+ 
+         // Surveys and session replay are iOS-only in posthog-ios, so the APIs below

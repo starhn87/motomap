@@ -55,6 +55,15 @@ IPA에서 1.3.0(78), runtime 1.3.0, production 채널과 날씨·사진 관련 �
 확인했다. 제출 `40c220e5-7a68-4536-ae5a-f7e6558d81dd`에서 App Store Connect
 업로드 성공을 확인했다. Apple 처리와 심사 제출은 별개다.
 
+## 2026-11-07 PostHog 오류 수집 준비 — 네이티브 빌드 없음
+
+ERR-001이 Hermes debug id와 `posthog-react-native/expo`의 dSYM·소스맵 업로드 단계를 소스에
+연결했다. 앱/runtime **1.2.11**, native **41**, API **1**, candidate 1.2.11은 유지한다.
+후보가 현재 버전과 같아 릴리스 검사는 이 플러그인 변경에 버전 증가를 요구하지 않는다.
+업로드 스크립트와 수동 workflow는 pull request·push에서 실행되지 않는다.
+EAS 빌드, OTA, TestFlight, 심볼 업로드는 하지 않았다. 네이티브 크래시가 심볼과 함께
+수집되는지는 다음 승인 빌드의 확인 전이다.
+
 ## 2026-11-07 날씨 레이아웃 TestFlight 공통 OTA 승인
 
 사용자가 MAP-068의 main 푸시와 TestFlight OTA 적용을 명시 승인했다. 시간별 예보 양 끝
