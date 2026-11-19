@@ -129,7 +129,7 @@ export default function WeatherEmoji({ emoji, size, lineHeight }: Props) {
 
 const styles = StyleSheet.create({
   icon: { alignItems: 'center', justifyContent: 'center' },
-  moonTilt: { transform: [{ rotate: '32deg' }] },
+  moonTilt: { transform: [{ rotate: '38deg' }] },
   layer: {
     position: 'absolute',
   },
