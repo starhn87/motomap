@@ -6,10 +6,10 @@ const jsx = (type: any, props: any) => ({ type, props });
 const exported = (value: any) => ({ __esModule: true, default: value });
 const nodes = (node: any): any[] => Array.isArray(node) ? node.flatMap(nodes) : node?.props
   ? [node, ...nodes(node.props.children)] : [];
-const views = Object.fromEntries(['Host', 'Menu', 'Picker', 'Text', 'VStack', 'HStack', 'Image', 'Spacer', 'Button', 'Divider', 'ProgressView']
-  .map(name => [name, name]));
+const views = { ...Object.fromEntries(['Host', 'Menu', 'Picker', 'Text', 'VStack', 'HStack', 'ZStack', 'Image', 'Spacer', 'Button', 'Divider', 'ProgressView']
+  .map(name => [name, name])), Overlay: Object.assign(() => null, { Content: 'OverlayContent' }) };
 const modifiers: Record<string, any> = Object.fromEntries(['accessibilityLabel', 'accessibilityValue', 'disabled', 'frame', 'labelsHidden', 'pickerStyle', 'tag', 'contentShape',
-  'accessibilityIdentifier', 'accessibilityElement', 'accessibilityHidden', 'buttonStyle', 'controlSize', 'font', 'foregroundStyle', 'padding'].map(name => [name, (value: any) => ({ name, value })]));
+  'accessibilityIdentifier', 'accessibilityElement', 'accessibilityHidden', 'buttonStyle', 'controlSize', 'font', 'foregroundStyle', 'opacity', 'padding'].map(name => [name, (value: any) => ({ name, value })]));
 modifiers.shapes = { rectangle: () => ({ shape: 'rectangle' }) };
 const colors = { text: 'black', textSecondary: 'gray', surface: 'white' };
 const deps = {
@@ -92,9 +92,10 @@ test('로그인 수단의 연결 여부를 완료 아이콘과 연결 버튼으�
   ] });
   assert.equal(nodes(tree).find(node => node.type === 'Image')?.props.systemName, 'checkmark.circle.fill');
   const [link, loading] = nodes(tree).filter(node => node.type === 'Button');
-  assert.equal(link.props.children.props.children, '연결');
+  assert.ok(nodes(link).some(node => node.type === 'Text' && node.props.children === '연결'));
   assert.ok(link.props.modifiers.some((modifier: any) => modifier.name === 'buttonStyle' && modifier.value === 'bordered'));
-  assert.equal(loading.props.children.type, 'ProgressView');
+  assert.ok(nodes(loading).some(node => node.type === 'Text' && node.props.children === '연결'));
+  assert.ok(nodes(loading).some(node => node.type === 'OverlayContent' && node.props.children.type === 'ProgressView'));
   link.props.onPress();
   loading.props.onPress();
   assert.equal(presses, 1);

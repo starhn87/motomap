@@ -24,27 +24,39 @@ export default function NativeSettingsGroup({ rows }: { rows: SettingsRow[] }) {
   const scheme = useColorScheme() ?? 'light';
   const colors = Colors[scheme];
   if (!nativeUI) return null;
-  const { Host, VStack, HStack, Text, Image, Spacer, Button, Divider, ProgressView } = nativeUI.views;
-  const { accessibilityElement, accessibilityHidden, accessibilityIdentifier, accessibilityLabel, buttonStyle, contentShape, controlSize, disabled, font, foregroundStyle, frame, padding, shapes } = nativeUI.modifiers;
+  const { Host, VStack, HStack, ZStack, Overlay, Text, Image, Spacer, Button, Divider, ProgressView } = nativeUI.views;
+  const { accessibilityElement, accessibilityHidden, accessibilityIdentifier, accessibilityLabel, buttonStyle, contentShape, controlSize, disabled, font, foregroundStyle, frame, opacity, padding, shapes } = nativeUI.modifiers;
   return <View style={{ borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surface }}>
     <Host matchContents={{ vertical: true }} colorScheme={scheme} seedColor={colors.text} ignoreSafeArea="container" style={{ minHeight: rows.length * 56 }}>
       <VStack spacing={0}>
         {rows.map((row, index) => {
+          const showStatus = !row.actionLabel || !!row.connected;
+          const status = (row.connected || row.actionLabel || row.value) && <HStack spacing={5}
+            modifiers={showStatus ? [] : [opacity(0), accessibilityHidden()]}>
+            {(row.connected || row.actionLabel) && <Image systemName="checkmark.circle.fill" size={17} color={semantic.success} modifiers={[accessibilityHidden()]} />}
+            {row.value && <Text modifiers={[font({ textStyle: 'subheadline', family: APP_FONT_FAMILY ? 'Pretendard-Regular' : undefined, size: 14 }), foregroundStyle(colors.textSecondary)]}>{row.value}</Text>}
+          </HStack>;
           const content = <HStack spacing={12} modifiers={[padding({ horizontal: 16, vertical: 17 }), frame({ minHeight: 56, alignment: 'leading' }), contentShape(shapes.rectangle()),
-            ...(row.actionLabel ? [] : [accessibilityElement('combine')])]}>
+            ...(showStatus ? [accessibilityElement('combine')] : [])]}>
             <Text modifiers={[font({ textStyle: 'body', family: APP_FONT_FAMILY ? 'Pretendard-Regular' : undefined, size: 16 }), foregroundStyle(row.destructive ? semantic.danger : colors.text)]}>{row.label}</Text>
             <Spacer minLength={8} />
-            {row.actionLabel && row.onPress ? <Button onPress={() => {
-              if (!row.disabled && !row.loading) row.onPress?.();
-            }} modifiers={[buttonStyle('bordered'), controlSize('small'), font({ textStyle: 'footnote', size: 13, weight: 'medium' }),
-              disabled(!!row.disabled || !!row.loading), accessibilityIdentifier(`settings-${row.key}`),
-              accessibilityLabel(`${row.label} ${row.actionLabel}`)]}>
-              {row.loading ? <ProgressView /> : <Text modifiers={[padding({ horizontal: 4, vertical: 2 })]}>{row.actionLabel}</Text>}
-            </Button> : row.loading ? <ProgressView /> : <>
-              {(row.connected || row.value) && <HStack spacing={5}>
-                {row.connected && <Image systemName="checkmark.circle.fill" size={17} color={semantic.success} modifiers={[accessibilityHidden()]} />}
-                {row.value && <Text modifiers={[font({ textStyle: 'subheadline', family: APP_FONT_FAMILY ? 'Pretendard-Regular' : undefined, size: 14 }), foregroundStyle(colors.textSecondary)]}>{row.value}</Text>}
-              </HStack>}
+            {row.actionLabel ? <ZStack alignment="trailing">
+              {/* 연결 전후의 크기를 모두 확보하고 로딩 표시는 라벨 위에 올린다. */}
+              <Button onPress={() => {
+                if (!row.connected && !row.disabled && !row.loading) row.onPress?.();
+              }} modifiers={[buttonStyle('bordered'), controlSize('small'), font({ textStyle: 'footnote', size: 13, weight: 'medium' }),
+                disabled(!row.onPress || !!row.connected || !!row.disabled || !!row.loading),
+                ...(row.connected
+                  ? [opacity(0), accessibilityHidden()]
+                  : [accessibilityIdentifier(`settings-${row.key}`), accessibilityLabel(`${row.label} ${row.actionLabel}`)])]}>
+                <Overlay>
+                  <Text modifiers={[padding({ horizontal: 4, vertical: 2 }), opacity(row.loading ? 0 : 1)]}>{row.actionLabel}</Text>
+                  {row.loading && <Overlay.Content><ProgressView modifiers={[controlSize('small'), accessibilityHidden()]} /></Overlay.Content>}
+                </Overlay>
+              </Button>
+              {status}
+            </ZStack> : row.loading ? <ProgressView /> : <>
+              {status}
               {row.chevron && <Image systemName="chevron.right" size={12} color={colors.textSecondary} modifiers={[accessibilityHidden()]} />}
             </>}
           </HStack>;

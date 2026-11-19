@@ -121,8 +121,8 @@ function LoginMethods({ initialProviders }: { initialProviders: string[] }) {
     ...(identities.has('email') ? [{ key: 'email', label: '이메일', value: '연결됨', connected: true }] : []),
     ...methods.map(method => {
       const connected = identities.has(method.identity);
-      return { key: method.provider, label: method.label, value: connected ? '연결됨' : undefined, connected,
-        actionLabel: connected ? undefined : '연결',
+      return { key: method.provider, label: method.label, value: '연결됨', connected,
+        actionLabel: '연결',
         onPress: connected ? undefined : () => { void handleLink(method.provider); },
         disabled: linking !== null, loading: linking === method.provider };
     }),
