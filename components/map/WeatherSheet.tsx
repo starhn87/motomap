@@ -381,10 +381,12 @@ export default function WeatherSheet({
               {row.map((stat) => (
                 <View key={stat.label} style={styles.statCell}>
                   <Text style={[styles.statLabel, styles.statCentered, { color: colors.textSecondary }]}>{stat.label}</Text>
-                  <Text style={[styles.statValue, { color: stat.color ?? colors.text }]}>{stat.text}</Text>
-                  {'sub' in stat && (
-                    <Text accessible={!!stat.sub} style={[styles.statSub, { color: colors.textSecondary }]}>{stat.sub ?? ' '}</Text>
-                  )}
+                  <View style={styles.statValues}>
+                    <Text style={[styles.statValue, { color: stat.color ?? colors.text }]}>{stat.text}</Text>
+                    {'sub' in stat && (
+                      <Text accessible={!!stat.sub} style={[styles.statSub, { color: colors.textSecondary }]}>{stat.sub ?? ' '}</Text>
+                    )}
+                  </View>
                 </View>
               ))}
             </View>
@@ -531,6 +533,11 @@ const styles = StyleSheet.create({
   statCell: {
     flex: 1,
     minWidth: 0,
+    alignItems: 'center',
+    gap: 2,
+  },
+  statValues: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
