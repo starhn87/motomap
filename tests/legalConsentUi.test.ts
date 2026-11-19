@@ -5,10 +5,10 @@ import { Script } from 'node:vm';
 import { transformSync } from 'esbuild';
 
 type Element = { type: unknown; props: Record<string, any> };
-function fixture(options: { needsLegal?: boolean; showProvidersInline?: boolean; guest?: boolean; historyAllowed?: boolean; consent?:()=>Promise<void>; legal?:()=>Promise<void> } = {}) {
+function fixture(options: { needsLegal?: boolean; showProvidersInline?: boolean; guest?: boolean; historyAllowed?: boolean; platform?: 'android' | 'ios'; savedProviders?: string[]; consent?:()=>Promise<void>; legal?:()=>Promise<void> } = {}) {
   const states: any[]=[]; let cursor=0; let actor: string | null=options.guest?null:'A'; const calls: string[]=[];
   let consentArgs: unknown[]=[];
-  const state={actor,version:null,providers:[],historyAllowed:options.historyAllowed??false,ready:true,
+  const state={actor,version:options.savedProviders ? '2026-10-11-location-v2' : null,providers:options.savedProviders ?? [],historyAllowed:options.historyAllowed??false,ready:true,
     consent:async(...args:unknown[])=>{calls.push('location'); consentArgs=args; await options.consent?.();},
     browse:()=>calls.push('browse'),load:async()=>{}};
   const source=readFileSync(new URL('../components/auth/LegalConsentScreen.tsx',import.meta.url),'utf8');
@@ -23,7 +23,7 @@ function fixture(options: { needsLegal?: boolean; showProvidersInline?: boolean;
       return [states[i],(v:any)=>{states[i]=typeof v==='function'?v(states[i]):v;}];},
       useRef(initial:any){const i=cursor++; if(!(i in states)) states[i]={current:initial}; return states[i];}},
     'react/jsx-runtime':{jsx:(type:unknown,props:unknown)=>({type,props}),jsxs:(type:unknown,props:unknown)=>({type,props})},
-    'react-native':{ActivityIndicator:'ActivityIndicator',Modal:'Modal',Pressable:'Pressable',SafeAreaView:'SafeAreaView',ScrollView:'ScrollView',Text:'Text',View:'View',StyleSheet:{create:(v:unknown)=>v}},
+    'react-native':{ActivityIndicator:'ActivityIndicator',Modal:'Modal',Platform:{OS:options.platform??'ios'},Pressable:'Pressable',SafeAreaView:'SafeAreaView',ScrollView:'ScrollView',Text:'Text',View:'View',StyleSheet:{create:(v:unknown)=>v}},
     'react-native-safe-area-context':{SafeAreaView:'InsetView'},
     '@/constants/legal':{LEGAL_DOCS:documents},
     '@/lib/legalConsent':{acceptCurrentLegalDocuments:async()=>{calls.push('legal'); await options.legal?.();}},
@@ -145,6 +145,51 @@ function visibleElements(node:any):Element[]{
   if(!node||typeof node!=='object'||!node.props||(node.type==='Modal'&&!node.props.visible))return [];
   return [node,...visibleElements(node.props.children)];
 }
+test('Android 최초 위치 동의는 약관 보기 앞까지 누를 수 있고 명시적 선택으로만 시작 버튼을 연다', () => {
+  const f=fixture({platform:'android',needsLegal:false,guest:true});
+  const label='만 14세 이상 · 위치 이용·전달 동의';
+  const getAgreement=()=>visibleElements(f.render()).find(n=>n.props.accessibilityLabel===label)!;
+  const agreement=getAgreement();
+  const row=visibleElements(f.render()).find(n=>n.type==='View' && Array.isArray(n.props.children)
+    && n.props.children.some((child:Element)=>child.props?.accessibilityLabel==='location 보기'))!;
+  assert.equal(Object.assign({},...[row.props.style].flat()).gap,0);
+  assert.equal(Object.assign({},...[agreement.props.style].flat()).paddingRight,8);
+  assert.ok(elements(agreement).slice(1).every(n=>n.props.pointerEvents==='none'));
+  assert.equal(submit(f).props.disabled,true);
+  agreement.props.onPress();
+  assert.equal(getAgreement().props.accessibilityState.checked,true);
+  assert.equal(submit(f).props.disabled,false);
+  getAgreement().props.onPress();
+  assert.equal(getAgreement().props.accessibilityState.checked,false);
+  assert.equal(submit(f).props.disabled,true);
+  visibleElements(f.render()).find(n=>n.props.accessibilityLabel==='location 보기')!.props.onPress();
+  const document=visibleElements(f.render()).find(n=>n.type==='Modal')!;
+  assert.equal(document.props.children.type,'InsetView');
+  assert.deepEqual(f.calls,[]);
+});
+
+test('Android 동의 화면과 약관 보기에서 티맵 선택을 숨기고 저장된 동의는 유지한다', async () => {
+  const hasTmap=(nodes:Element[])=>nodes.some(n=>[n.props.children].flat()
+    .some(child=>typeof child==='string' && /TMAP|약2km 격자/.test(child)));
+  for (const showProvidersInline of [false,true]) {
+    const f=fixture({platform:'android',needsLegal:false,showProvidersInline,savedProviders:['naver','kakao','tmap']});
+    const nodes=()=>visibleElements(f.render());
+    const find=(label:string)=>nodes().find(n=>n.props.accessibilityLabel===label)!;
+    assert.equal(hasTmap(nodes()),false);
+    if (!showProvidersInline) {
+      find('기능별 위치 전달 선택').props.onPress();
+      assert.equal(hasTmap(nodes()),false);
+      find('기능별 위치 전달 선택').props.onPress();
+    }
+    find('location 보기').props.onPress();
+    assert.equal(hasTmap(nodes()),false);
+    find('약관 문서 닫기').props.onPress();
+    find('만 14세 이상 · 위치 이용·전달 동의').props.onPress();
+    submit(f).props.onPress();
+    assert.deepEqual(f.consentArgs()[3],['kakao','tmap']);
+  }
+});
+
 test('설정의 동의 범위 변경은 약관 보기를 누르지 않아도 TMAP을 선택하고 저장할 수 있다',async()=>{
   const f=fixture({needsLegal:false,showProvidersInline:true});
   const tmap=visibleElements(f.render()).find(n=>n.props.accessibilityRole==='checkbox'&&elements(n).some(c=>c.props.children==='TMAP'));
