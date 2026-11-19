@@ -477,7 +477,7 @@ function SubmitScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: headerInset }]}>
-      <View style={styles.tabRow}>
+      <View style={[styles.tabRow, nativeUI && styles.nativeTabRow]}>
         {backToPlace}
         {nativeUI ? <View style={{ flex: 1 }}>
           <NativeChoiceControl label="제보 종류" presentation="segmented" preferSwiftUI
@@ -512,6 +512,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 4,
   },
+  nativeTabRow: { paddingHorizontal: 16 },
   tab: {
     flex: 1,
     minHeight: 44,
