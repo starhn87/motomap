@@ -25,7 +25,7 @@ export default function NativeSettingsGroup({ rows }: { rows: SettingsRow[] }) {
   const colors = Colors[scheme];
   if (!nativeUI) return null;
   const { Host, VStack, HStack, Text, Image, Spacer, Button, Divider, ProgressView } = nativeUI.views;
-  const { accessibilityElement, accessibilityHidden, accessibilityIdentifier, accessibilityLabel, buttonStyle, contentShape, disabled, font, foregroundStyle, frame, padding, shapes } = nativeUI.modifiers;
+  const { accessibilityElement, accessibilityHidden, accessibilityIdentifier, accessibilityLabel, buttonStyle, contentShape, controlSize, disabled, font, foregroundStyle, frame, padding, shapes } = nativeUI.modifiers;
   return <View style={{ borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surface }}>
     <Host matchContents={{ vertical: true }} colorScheme={scheme} seedColor={colors.text} ignoreSafeArea="container" style={{ minHeight: rows.length * 56 }}>
       <VStack spacing={0}>
@@ -36,7 +36,8 @@ export default function NativeSettingsGroup({ rows }: { rows: SettingsRow[] }) {
             <Spacer minLength={8} />
             {row.actionLabel && row.onPress ? <Button label={row.loading ? undefined : row.actionLabel} onPress={() => {
               if (!row.disabled && !row.loading) row.onPress?.();
-            }} modifiers={[buttonStyle('bordered'), disabled(!!row.disabled || !!row.loading), accessibilityIdentifier(`settings-${row.key}`),
+            }} modifiers={[buttonStyle('bordered'), controlSize('small'), font({ textStyle: 'footnote', size: 13, weight: 'medium' }),
+              disabled(!!row.disabled || !!row.loading), accessibilityIdentifier(`settings-${row.key}`),
               accessibilityLabel(`${row.label} ${row.actionLabel}`)]}>
               {row.loading ? <ProgressView /> : undefined}
             </Button> : row.loading ? <ProgressView /> : <>
