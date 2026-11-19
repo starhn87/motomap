@@ -71,7 +71,7 @@ test('내 정보 메뉴는 손을 뗀 상태로 즉시 돌아오고 스프링이
 test('제보 종류 선택은 선택 상태와 손을 누르는 동안의 피드백을 구분한다', () => {
   let selected = '';
   const tab = renderPart('app/(tabs)/submit.tsx', returnedBy('SubmitTypeTab'), {
-    type: 'place', isActive: true, label: '장소', onPress: (type: string) => { selected = type; },
+    Platform: { OS: 'android' }, type: 'place', isActive: true, label: '장소', onPress: (type: string) => { selected = type; },
   });
   assert.equal(tab.props.accessibilityState.selected, true);
   assert.equal(flat(tab.props.style({ pressed: true })).opacity, 0.7);

@@ -83,6 +83,7 @@ function SubmitTypeTab({
       <Text
         style={[
           styles.tabLabel,
+          Platform.OS === 'android' && styles.androidTabLabel,
           { color: isActive ? colors.background : colors.textSecondary },
         ]}>
         {label}
@@ -477,25 +478,34 @@ function SubmitScreen() {
     </View>;
   }
 
+  const fixedSelector = Platform.OS === 'android';
+  const selector = (
+    <View
+      accessibilityRole="tablist"
+      style={[styles.tabRow, fixedSelector ? styles.fixedTabRow : [styles.overlayTabRow, { top: headerInset }]]}
+      onLayout={fixedSelector ? undefined : event => setTabHeight(event.nativeEvent.layout.height)}>
+      {!fixedSelector && <HeaderBackdrop />}
+      {backToPlace}
+      {nativeUI ? <View style={{ flex: 1 }}><NativeChoiceControl label="제보 종류" presentation="segmented"
+        value={submitType} onChange={setSubmitType} options={[
+          { value: 'place', label: '장소' }, { value: 'hazard', label: '위험' }, { value: 'feedback', label: '건의' },
+        ]} /></View> : <>
+        <SubmitTypeTab type="place" current={submitType} onPress={setSubmitType} />
+        <SubmitTypeTab type="hazard" current={submitType} onPress={setSubmitType} />
+        <SubmitTypeTab type="feedback" current={submitType} onPress={setSubmitType} />
+      </>}
+    </View>
+  );
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <HeaderInsetContext.Provider value={headerInset + tabHeight}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: fixedSelector ? headerInset : 0 }]}>
+      {fixedSelector && selector}
+      <HeaderInsetContext.Provider value={fixedSelector ? 0 : headerInset + tabHeight}>
         {submitType === 'place' && <SubmitPlace />}
         {submitType === 'hazard' && <SubmitHazard />}
         {submitType === 'feedback' && <SubmitFeedback />}
       </HeaderInsetContext.Provider>
-      <View style={[styles.tabRow, { top: headerInset }]} onLayout={event => setTabHeight(event.nativeEvent.layout.height)}>
-        <HeaderBackdrop />
-        {backToPlace}
-        {nativeUI ? <View style={{ flex: 1 }}><NativeChoiceControl label="제보 종류" presentation="segmented"
-          value={submitType} onChange={setSubmitType} options={[
-            { value: 'place', label: '장소' }, { value: 'hazard', label: '위험' }, { value: 'feedback', label: '건의' },
-          ]} /></View> : <>
-        <SubmitTypeTab type="place" current={submitType} onPress={setSubmitType} />
-        <SubmitTypeTab type="hazard" current={submitType} onPress={setSubmitType} />
-        <SubmitTypeTab type="feedback" current={submitType} onPress={setSubmitType} />
-        </>}
-      </View>
+      {!fixedSelector && selector}
     </View>
   );
 }
@@ -504,8 +514,9 @@ export default withNativeTabScreen(SubmitScreen, { title: '제보' });
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  overlayTabRow: { position: 'absolute', left: 0, right: 0, zIndex: 5, overflow: 'hidden' },
+  fixedTabRow: { paddingHorizontal: 16 },
   tabRow: {
-    position: 'absolute', left: 0, right: 0, zIndex: 5, overflow: 'hidden',
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 20,
@@ -522,6 +533,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabLabel: { fontSize: 14, fontWeight: '700' },
+  androidTabLabel: { fontSize: 15, fontWeight: '600' },
   content: { padding: 20, paddingBottom: 40 },
   firstSectionTitle: { marginTop: 0 },
   sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: 16, marginBottom: 8 },
