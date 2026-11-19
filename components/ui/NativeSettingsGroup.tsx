@@ -41,8 +41,10 @@ export default function NativeSettingsGroup({ rows }: { rows: SettingsRow[] }) {
               accessibilityLabel(`${row.label} ${row.actionLabel}`)]}>
               {row.loading ? <ProgressView /> : <Text modifiers={[padding({ horizontal: 4, vertical: 2 })]}>{row.actionLabel}</Text>}
             </Button> : row.loading ? <ProgressView /> : <>
-              {row.connected && <Image systemName="checkmark.circle.fill" size={17} color={semantic.success} modifiers={[accessibilityHidden()]} />}
-              {row.value && <Text modifiers={[font({ textStyle: 'subheadline', family: APP_FONT_FAMILY ? 'Pretendard-Regular' : undefined, size: 14 }), foregroundStyle(colors.textSecondary)]}>{row.value}</Text>}
+              {(row.connected || row.value) && <HStack spacing={5}>
+                {row.connected && <Image systemName="checkmark.circle.fill" size={17} color={semantic.success} modifiers={[accessibilityHidden()]} />}
+                {row.value && <Text modifiers={[font({ textStyle: 'subheadline', family: APP_FONT_FAMILY ? 'Pretendard-Regular' : undefined, size: 14 }), foregroundStyle(colors.textSecondary)]}>{row.value}</Text>}
+              </HStack>}
               {row.chevron && <Image systemName="chevron.right" size={12} color={colors.textSecondary} modifiers={[accessibilityHidden()]} />}
             </>}
           </HStack>;
