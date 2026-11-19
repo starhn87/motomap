@@ -163,6 +163,15 @@ internal class KakaoGuideController(
       view?.curDirComponent?.visibility = View.INVISIBLE
       view?.nextDirComponent?.visibility = View.INVISIBLE
       directionPopup?.visibility = View.INVISIBLE
+    } else {
+      directionPopup?.takeIf { it.visibility == View.VISIBLE }?.let { popup ->
+        val parent = popup.parent as? View ?: return@let
+        // SDK의 회전 팝업 제약은 하단 조작부 숨김 전후로 다시 계산된다.
+        // SDK 계층과 데이터 갱신을 유지하고 실제 그리는 위치만 지도 기준점에 고정한다.
+        val top = ((parent.height - dp(134)).coerceAtLeast(0) * .49f).roundToInt()
+        val offset = (top - popup.top).toFloat()
+        if (popup.translationY != offset) popup.translationY = offset
+      }
     }
     true
   }
@@ -305,7 +314,7 @@ internal class KakaoGuideController(
       params.bottomToTop = ConstraintLayout.LayoutParams.UNSET
       params.topToTop = ConstraintLayout.LayoutParams.PARENT_ID
       params.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
-      params.verticalBias = .45f
+      params.verticalBias = .49f
       layoutParams = params
       findViewById<View>(NaviResources.id.cur_direction_img_layout)?.let { image ->
         image.layoutParams = image.layoutParams.apply { width = dp(80); height = dp(80) }
