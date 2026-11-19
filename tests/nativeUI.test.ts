@@ -82,6 +82,24 @@ test('설정 네이티브 행은 표시 전용·중복 잠금·파괴적 확인 
   assert.equal(buttons[2].props.role, 'destructive');
 });
 
+test('로그인 수단의 연결 여부를 완료 아이콘과 연결 버튼으로 표시한다', () => {
+  let presses = 0;
+  const module = loadModule<any>('components/ui/NativeSettingsGroup.tsx', deps);
+  const tree = module.default({ rows: [
+    { key: 'email', label: '이메일', value: '연결됨', connected: true },
+    { key: 'apple', label: 'Apple', actionLabel: '연결', onPress: () => presses++ },
+    { key: 'kakao', label: '카카오', actionLabel: '연결', loading: true, onPress: () => presses++ },
+  ] });
+  assert.equal(nodes(tree).find(node => node.type === 'Image')?.props.systemName, 'checkmark.circle.fill');
+  const [link, loading] = nodes(tree).filter(node => node.type === 'Button');
+  assert.equal(link.props.label, '연결');
+  assert.ok(link.props.modifiers.some((modifier: any) => modifier.name === 'buttonStyle' && modifier.value === 'bordered'));
+  assert.equal(loading.props.children.type, 'ProgressView');
+  link.props.onPress();
+  loading.props.onPress();
+  assert.equal(presses, 1);
+});
+
 test('설정 화면은 네이티브 행에서도 업데이트·테마·로그인 연결·탈퇴 확인 조건을 보존한다', () => {
   let hasUpdate = false, storeOpens = 0, deletes = 0;
   const modes: string[] = [], alerts: any[][] = [], routes: string[] = [];
@@ -162,4 +180,8 @@ test('UIKit 세그먼트는 실제44pt·큰 글자 높이를 갖고 잘못된 �
   tree.props.onChange({ nativeEvent: { selectedSegmentIndex: 1 } }); assert.equal(changes, 1);
   module.default({ ...props, enabled: false }).props.onChange({ nativeEvent: { selectedSegmentIndex: 1 } });
   assert.equal(changes, 1);
+  const swiftUIPicker = nodes(module.default({ ...props, preferSwiftUI: true })).find(node => node.type === 'Picker');
+  assert.ok(swiftUIPicker, 'UIKit을 지원하는 기기에서도 SwiftUI의 세그먼트를 선택할 수 있다');
+  swiftUIPicker.props.onSelectionChange('b');
+  assert.equal(changes, 2);
 });
