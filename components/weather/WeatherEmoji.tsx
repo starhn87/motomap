@@ -77,7 +77,11 @@ export default function WeatherEmoji({ emoji, size, lineHeight }: Props) {
               color={glyph.color}
               size={size * glyph.size}
               allowFontScaling={false}
-              style={[styles.layer, { left: size * glyph.x, top: size * glyph.y, includeFontPadding: false }]}
+              style={[
+                styles.layer,
+                { left: size * glyph.x, top: size * glyph.y, includeFontPadding: false },
+                glyph.name === moon.name && styles.moonTilt,
+              ]}
             />
           ))}
         </View>
@@ -125,6 +129,7 @@ export default function WeatherEmoji({ emoji, size, lineHeight }: Props) {
 
 const styles = StyleSheet.create({
   icon: { alignItems: 'center', justifyContent: 'center' },
+  moonTilt: { transform: [{ rotate: '18deg' }] },
   layer: {
     position: 'absolute',
   },
