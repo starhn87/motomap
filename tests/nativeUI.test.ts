@@ -92,7 +92,7 @@ test('로그인 수단의 연결 여부를 완료 아이콘과 연결 버튼으�
   ] });
   assert.equal(nodes(tree).find(node => node.type === 'Image')?.props.systemName, 'checkmark.circle.fill');
   const [link, loading] = nodes(tree).filter(node => node.type === 'Button');
-  assert.equal(link.props.label, '연결');
+  assert.equal(link.props.children.props.children, '연결');
   assert.ok(link.props.modifiers.some((modifier: any) => modifier.name === 'buttonStyle' && modifier.value === 'bordered'));
   assert.equal(loading.props.children.type, 'ProgressView');
   link.props.onPress();

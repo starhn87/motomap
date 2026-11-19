@@ -34,12 +34,12 @@ export default function NativeSettingsGroup({ rows }: { rows: SettingsRow[] }) {
             ...(row.actionLabel ? [] : [accessibilityElement('combine')])]}>
             <Text modifiers={[font({ textStyle: 'body', family: APP_FONT_FAMILY ? 'Pretendard-Regular' : undefined, size: 16 }), foregroundStyle(row.destructive ? semantic.danger : colors.text)]}>{row.label}</Text>
             <Spacer minLength={8} />
-            {row.actionLabel && row.onPress ? <Button label={row.loading ? undefined : row.actionLabel} onPress={() => {
+            {row.actionLabel && row.onPress ? <Button onPress={() => {
               if (!row.disabled && !row.loading) row.onPress?.();
             }} modifiers={[buttonStyle('bordered'), controlSize('small'), font({ textStyle: 'footnote', size: 13, weight: 'medium' }),
               disabled(!!row.disabled || !!row.loading), accessibilityIdentifier(`settings-${row.key}`),
               accessibilityLabel(`${row.label} ${row.actionLabel}`)]}>
-              {row.loading ? <ProgressView /> : undefined}
+              {row.loading ? <ProgressView /> : <Text modifiers={[padding({ horizontal: 4, vertical: 2 })]}>{row.actionLabel}</Text>}
             </Button> : row.loading ? <ProgressView /> : <>
               {row.connected && <Image systemName="checkmark.circle.fill" size={17} color={semantic.success} modifiers={[accessibilityHidden()]} />}
               {row.value && <Text modifiers={[font({ textStyle: 'subheadline', family: APP_FONT_FAMILY ? 'Pretendard-Regular' : undefined, size: 14 }), foregroundStyle(colors.textSecondary)]}>{row.value}</Text>}
