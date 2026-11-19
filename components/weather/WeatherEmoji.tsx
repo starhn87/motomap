@@ -20,8 +20,7 @@ type WeatherGlyph = {
 };
 
 const sun: WeatherGlyph = { name: 'weather-sunny', color: '#F8AF28', size: 1, x: 0, y: 0 };
-const moon: WeatherGlyph = { name: 'moon-waning-crescent', color: '#FBC963', size: 0.86, x: 0.02, y: 0.07 };
-const star: WeatherGlyph = { name: 'star-four-points', color: '#FFD984', size: 0.22, x: 0.71, y: 0.14 };
+const moon: WeatherGlyph = { name: 'moon-waxing-crescent', color: '#FBC963', size: 0.86, x: 0.07, y: 0.07 };
 const cloudShade: WeatherGlyph = { name: 'cloud', color: '#8CA2BA', size: 0.9, x: 0.06, y: 0.07 };
 const cloud: WeatherGlyph = { ...cloudShade, color: '#D8E6F2', x: 0.04, y: 0.01 };
 const rain: WeatherGlyph = { name: 'water', color: '#449AF5', size: 0.27, x: 0.24, y: 0.63 };
@@ -38,10 +37,15 @@ const partlyCloudy = [
 // 구름과 해·달·강수는 홈, 상세, 예보에서 같은 색과 비율로 그린다.
 const androidWeatherIcons: Record<string, { label: string; glyphs: WeatherGlyph[] }> = {
   '☀️': { label: '맑음', glyphs: [sun] },
-  '🌙': { label: '맑은 밤', glyphs: [moon, star] },
+  '🌙': { label: '맑은 밤', glyphs: [moon] },
   '⛅': { label: '구름 많음', glyphs: [{ ...sun, size: 0.65 }, ...partlyCloudy] },
   [NIGHT_PARTLY_CLOUDY_EMOJI]: {
-    label: '구름 많은 밤', glyphs: [{ ...moon, size: 0.61 }, ...partlyCloudy],
+    label: '구름 많은 밤',
+    glyphs: [
+      { ...moon, size: 0.62, x: 0.36, y: 0 },
+      { ...cloudShade, size: 0.74, x: 0.04, y: 0.26 },
+      { ...cloud, size: 0.74, x: 0.02, y: 0.21 },
+    ],
   },
   '☁️': { label: '흐림', glyphs: [cloudShade, cloud] },
   '🌧️': { label: '비', glyphs: [...cloudWithPrecipitation, rain, { ...rain, x: 0.52, y: 0.7 }] },
