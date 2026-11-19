@@ -1,6 +1,4 @@
 import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
-import { nativeUI } from '@/lib/nativeUI';
-import NativeChoiceControl from '@/components/ui/NativeChoiceControl';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import {
   StyleSheet,
@@ -487,14 +485,9 @@ function SubmitScreen() {
       <View style={[styles.tabRow, { top: headerInset }]} onLayout={event => setTabHeight(event.nativeEvent.layout.height)}>
         <HeaderBackdrop />
         {backToPlace}
-        {nativeUI ? <View style={{ flex: 1 }}><NativeChoiceControl label="제보 종류" presentation="segmented"
-          value={submitType} onChange={setSubmitType} options={[
-            { value: 'place', label: '장소' }, { value: 'hazard', label: '위험' }, { value: 'feedback', label: '건의' },
-          ]} /></View> : <>
         <SubmitTypeTab type="place" current={submitType} onPress={setSubmitType} />
         <SubmitTypeTab type="hazard" current={submitType} onPress={setSubmitType} />
         <SubmitTypeTab type="feedback" current={submitType} onPress={setSubmitType} />
-        </>}
       </View>
     </View>
   );
