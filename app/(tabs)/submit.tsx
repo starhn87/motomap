@@ -37,7 +37,6 @@ import AddressSearchModal from '@/components/submit/AddressSearchModal';
 import { withNativeTabScreen } from '@/components/navigation/NativeTabScreen';
 import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
 import { HeaderInsetContext, useContentHeaderInset } from '@/components/navigation/headerInset';
-import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
 import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 import type { PlaceCategory } from '@/types';
 
@@ -403,7 +402,6 @@ function SubmitPlace() {
 
 function SubmitScreen() {
   const headerInset = useContentHeaderInset();
-  const [tabHeight, setTabHeight] = useState(52);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
@@ -478,14 +476,8 @@ function SubmitScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <HeaderInsetContext.Provider value={headerInset + tabHeight}>
-        {submitType === 'place' && <SubmitPlace />}
-        {submitType === 'hazard' && <SubmitHazard />}
-        {submitType === 'feedback' && <SubmitFeedback />}
-      </HeaderInsetContext.Provider>
-      <View style={[styles.tabRow, { top: headerInset }]} onLayout={event => setTabHeight(event.nativeEvent.layout.height)}>
-        <HeaderBackdrop />
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: headerInset }]}>
+      <View style={styles.tabRow}>
         {backToPlace}
         {nativeUI ? <View style={{ flex: 1 }}>
           <NativeChoiceControl label="제보 종류" presentation="segmented" preferSwiftUI
@@ -500,6 +492,11 @@ function SubmitScreen() {
           <SubmitTypeTab type="feedback" current={submitType} onPress={setSubmitType} />
         </>}
       </View>
+      <HeaderInsetContext.Provider value={0}>
+        {submitType === 'place' && <SubmitPlace />}
+        {submitType === 'hazard' && <SubmitHazard />}
+        {submitType === 'feedback' && <SubmitFeedback />}
+      </HeaderInsetContext.Provider>
     </View>
   );
 }
@@ -509,7 +506,6 @@ export default withNativeTabScreen(SubmitScreen, { title: '제보' });
 const styles = StyleSheet.create({
   container: { flex: 1 },
   tabRow: {
-    position: 'absolute', left: 0, right: 0, zIndex: 5, overflow: 'hidden',
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 20,
