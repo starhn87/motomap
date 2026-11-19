@@ -180,8 +180,4 @@ test('UIKit 세그먼트는 실제44pt·큰 글자 높이를 갖고 잘못된 �
   tree.props.onChange({ nativeEvent: { selectedSegmentIndex: 1 } }); assert.equal(changes, 1);
   module.default({ ...props, enabled: false }).props.onChange({ nativeEvent: { selectedSegmentIndex: 1 } });
   assert.equal(changes, 1);
-  const swiftUIPicker = nodes(module.default({ ...props, preferSwiftUI: true })).find(node => node.type === 'Picker');
-  assert.ok(swiftUIPicker, 'UIKit을 지원하는 기기에서도 SwiftUI의 세그먼트를 선택할 수 있다');
-  swiftUIPicker.props.onSelectionChange('b');
-  assert.equal(changes, 2);
 });

@@ -480,7 +480,7 @@ function SubmitScreen() {
       <View style={[styles.tabRow, nativeUI && styles.nativeTabRow]}>
         {backToPlace}
         {nativeUI ? <View style={{ flex: 1 }}>
-          <NativeChoiceControl label="제보 종류" presentation="segmented" preferSwiftUI
+          <NativeChoiceControl label="제보 종류" presentation="segmented"
             value={submitType} onChange={setSubmitType} options={[
               { value: 'place', label: '장소' },
               { value: 'hazard', label: '위험' },
