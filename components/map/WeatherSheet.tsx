@@ -1,4 +1,5 @@
-import { ActivityIndicator, View, StyleSheet, ScrollView, Pressable, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, Platform, ScrollView, Pressable, useWindowDimensions } from 'react-native';
+import { ScrollView as GestureScrollView } from 'react-native-gesture-handler';
 import { Text } from '@/components/ui/AppText';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
@@ -117,6 +118,8 @@ const glyph = StyleSheet.create({
     borderRadius: 1,
   },
 });
+
+const HourlyScrollView = Platform.OS === 'android' ? GestureScrollView : ScrollView;
 
 const WEATHER_SHEET_HANDLE_HEIGHT = 24;
 const CONTENT_HORIZONTAL_PADDING = 22;
@@ -389,7 +392,7 @@ export default function WeatherSheet({
         </View>
 
         {/* 12시간 예보 — 본문 여백을 벗어나 좌우 8pt만 남기고 가로 스와이프 */}
-        <ScrollView
+        <HourlyScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.hourlyScroll}
@@ -435,7 +438,7 @@ export default function WeatherSheet({
               </View>
             ),
           )}
-        </ScrollView>
+        </HourlyScrollView>
 
         <View style={styles.source}>
           <Text style={[styles.footnote, { color: colors.textSecondary }]}>{region ?? '현재 지도 위치'} 기준</Text>
