@@ -224,6 +224,7 @@ export default function SettingsScreen() {
 
   const isAndroid = Platform.OS === 'android';
   const headerHeight = insets.top + HEADER_CONTROL_SIZE + (isAndroid ? ANDROID_TOP_CONTROL_GAP : 0);
+  const infoMenuRowsStyle = { gap: isAndroid ? 8 : 12 };
   const infoLinkStyle = [
     styles.linkButton,
     isAndroid && styles.androidInfoLink,
@@ -261,7 +262,7 @@ export default function SettingsScreen() {
           onPress: hasUpdate ? openStore : undefined, chevron: hasUpdate },
         { key: 'font-license', label: '서체 라이선스', onPress: () => router.push('/font-license' as any), chevron: true },
         ...(user ? [{ key: 'blocked-users', label: '차단 관리', onPress: () => router.push('/blocked-users' as any), chevron: true }] : []),
-      ]} /> : <>
+      ]} /> : <View style={infoMenuRowsStyle}>
       <View
         style={[
           styles.infoCard,
@@ -303,9 +304,9 @@ export default function SettingsScreen() {
           <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
         </Pressable>
       )}
-      </>}
+      </View>}
 
-      <Text style={[styles.sectionTitle, isAndroid && styles.androidPolicySectionTitle, { color: colors.textSecondary }]}>
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
         약관 및 정책
       </Text>
       {nativeUI ? <NativeSettingsGroup rows={[
@@ -313,7 +314,7 @@ export default function SettingsScreen() {
         { key: 'terms', label: '서비스 이용약관', onPress: () => router.push('/legal/terms' as any), chevron: true },
         { key: 'privacy', label: '개인정보 처리방침', onPress: () => router.push('/legal/privacy' as any), chevron: true },
         { key: 'location', label: '위치기반 서비스 이용약관', onPress: () => router.push('/legal/location' as any), chevron: true },
-      ]} /> : <>
+      ]} /> : <View style={infoMenuRowsStyle}>
       <Pressable accessibilityRole="button" onPress={() => router.push('/location-privacy' as any)}
         style={infoLinkStyle}>
         <Text style={[styles.linkText,{ color: colors.text }]}>위치정보 동의·기록 관리</Text>
@@ -337,7 +338,7 @@ export default function SettingsScreen() {
         <Text style={[styles.linkText, { color: colors.text }]}>위치기반 서비스 이용약관</Text>
         <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
       </Pressable>
-      </>}
+      </View>}
 
       {user && (
         <>
@@ -377,9 +378,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginTop: 20,
-  },
-  androidPolicySectionTitle: {
-    marginTop: 14,
   },
   themeRow: {
     flexDirection: 'row',
