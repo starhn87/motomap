@@ -876,6 +876,7 @@ TestFlight 66 사용자 피드백 두 가지.
 
 - 날짜: 2026-11-04
 - 상태: 소스 구현 / 새 TestFlight 후보
+- 일부 대체됨: Android 입력 바는 SEARCH-028을 따른다.
 - 관련: `components/search/PointSearchModal.tsx`, INTERACTION-021
 
 길찾기에서 연 검색도 지도 검색과 같은 regular GlassSurface를 쓴다. 같은 모달을 사용하는
@@ -909,3 +910,15 @@ Android 통합 검색은 최소 56dp의 채워진 검색창에 뒤로 가기, �
 
 폴더블 Android 에뮬레이터에서 Gboard 두벌식으로 ‘남산’을 조합하고, 지우기 직후 재입력해
 키보드의 검색 키로 결과 화면을 열었다. 음성 권한 요청과 시작·중지 표시도 확인했다.
+
+## SEARCH-028 — Android 지점 검색에도 공용 Material 3 검색창을 쓴다
+
+- 날짜: 2026-11-20
+- 상태: 구현
+- 관련: `components/search/PointSearchModal.tsx`, SEARCH-015, SEARCH-020, SEARCH-025, SEARCH-027
+
+출발지·도착지·경유지, 집·회사, 다른 화면의 장소 선택은 같은 지점 검색 모달을 연다. Android에서는
+통합 검색과 같은 56dp 바, 입력 스타일, 48dp 버튼을 사용한다. 뒤로가기 아이콘은 모달을
+닫으며 접근성 이름은 ‘지점 검색 취소’다. 기존 RN TextInput, 초안 복원과 폐기, 음성 세션,
+지도 선택, 집·회사 확인 흐름은 유지한다.
+Android에서는 모달 창이 열린 뒤 입력에 포커스를 줘 키보드 표시 요청이 창보다 앞서지 않게 한다.

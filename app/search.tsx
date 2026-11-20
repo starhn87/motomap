@@ -56,7 +56,7 @@ import { useUnifiedPlaceSearch } from '@/hooks/useUnifiedPlaceSearch';
 import GlassSurface from '@/components/ui/GlassSurface';
 import GlassButton from '@/components/ui/GlassButton';
 import BackIcon from '@/components/ui/BackIcon';
-import AndroidSearchBar from '@/components/search/AndroidSearchBar';
+import AndroidSearchBar, { androidSearchInputStyle } from '@/components/search/AndroidSearchBar';
 
 // 검색 전용 화면 — 입력 전에는 최근 검색·즐겨찾기·추천 목적지를 모아 보여주고,
 // 2자 이상 입력하면 통합 검색 결과로 전환된다. 장소 선택은 지도 탭의
@@ -463,7 +463,7 @@ export default function SearchScreen() {
     <TextInput
       accessibilityLabel="장소, 라이딩 검색"
       ref={inputRef}
-      style={[styles.input, Platform.OS === 'android' && styles.androidInput, { color: colors.text }]}
+      style={[Platform.OS === 'android' ? androidSearchInputStyle : styles.input, { color: colors.text }]}
       placeholder={listening ? '듣고 있어요…' : '장소, 라이딩 검색'}
       placeholderTextColor={listening ? colors.tint : colors.textSecondary}
       value={query}
@@ -899,14 +899,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-  },
-  androidInput: {
-    minHeight: 48,
-    minWidth: 0,
-    paddingHorizontal: 4,
-    paddingVertical: 0,
-    fontSize: 16,
-    includeFontPadding: false,
   },
   inputAction: {
     width: 44, height: 44, alignItems: 'center', justifyContent: 'center',

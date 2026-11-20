@@ -6,13 +6,15 @@ import { loadModule } from './helpers/loadModule';
 type Node = { type: unknown; props: Record<string, any> };
 
 // 실제 모달의 입력·effect·요청 취소를 실행한다. 네이티브 UI와 검색 API만 대역이다.
-function setup() {
+function setup(platform = 'ios') {
   const values: any[] = [];
   const effects: { deps: unknown[]; cleanup?: () => void }[] = [];
   const scheduled: (() => void)[] = [];
   const timers = new Map<number, () => void>();
   const requests: { query: string; signal: AbortSignal; resolve: (value: unknown) => void }[] = [];
   let stateIndex = 0, effectIndex = 0, timerId = 0, dirty = false;
+  let listening = false;
+  let closeCount = 0;
   const jsx = (type: unknown, props: Record<string, any>): Node => ({ type, props });
   const react = {
     useState(initial: any) {
@@ -34,12 +36,13 @@ function setup() {
   };
   const module = loadModule<{ __esModule: true, default: (props: any) => Node }>('components/search/PointSearchModal.tsx', {
     react,
+    '@/components/search/AndroidSearchBar': { __esModule: true, default: 'AndroidSearchBar' },
     '@/components/search/SearchPlaceIcon': { __esModule: true, default: 'SearchPlaceIcon', RoutePointIcon: 'RoutePointIcon' },
     'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': {
       ActivityIndicator: 'ActivityIndicator', FlatList: 'FlatList', Modal: 'Modal',
       Pressable: 'Pressable', Text: 'Text', TextInput: 'TextInput', View: 'View',
-      Keyboard: { dismiss() {} }, StyleSheet: { create: (value: unknown) => value }, Platform: { OS: 'ios' },
+      Keyboard: { dismiss() {} }, StyleSheet: { create: (value: unknown) => value }, Platform: { OS: platform },
     },
     '@expo/vector-icons/Ionicons': { __esModule: true, default: 'Ionicons' },
     '@/components/ui/GlassButton': { __esModule: true, default: 'GlassButton' },
@@ -59,7 +62,11 @@ function setup() {
     '@/hooks/useSearchAnchor': { getSearchAnchor: () => ({ near: { latitude: 37, longitude: 127 } }) },
     '@/lib/api/search': { searchUnifiedPlaces: (query: string, _near: unknown, options: { signal: AbortSignal }) =>
       new Promise((resolve) => requests.push({ query, signal: options.signal, resolve })) },
-    '@/hooks/useVoiceSearch': { useVoiceSearch: () => ({ listening: false, toggle() {}, stop() {} }) },
+    '@/hooks/useVoiceSearch': { useVoiceSearch: () => ({
+      listening,
+      toggle() { listening = !listening; },
+      stop() { listening = false; },
+    }) },
     'posthog-react-native': { PostHogMaskView: 'PostHogMaskView' },
     '@/lib/analytics': { createAnalyticsId: () => 'test-search', track: { searchResultsViewed() {}, searchNoResults() {}, searchResultSelected() {} } },
     '@/lib/api/generalPlaces': { ensureGeneralPlace() {} },
@@ -69,7 +76,11 @@ function setup() {
     clearTimeout: (id: number) => timers.delete(id),
   });
   const selections: any[] = [];
-  const props: Record<string, any> = { visible: true, allowCurrent: true, allowSaved: true, draftKey: 'start', onClose() {}, onSelect(point: any) { selections.push(point); } };
+  const props: Record<string, any> = {
+    visible: true, allowCurrent: true, allowSaved: true, draftKey: 'start',
+    onClose() { closeCount++; },
+    onSelect(point: any) { selections.push(point); },
+  };
   let tree: Node;
   const render = () => {
     for (let attempts = 0; attempts < 20; attempts++) {
@@ -93,8 +104,37 @@ function setup() {
     render();
   };
   render();
-  return { props, render, find, type, flush, requests, selections };
+  return { props, render, find, type, flush, requests, selections, getCloseCount: () => closeCount };
 }
+
+test('Android 지점 검색은 공용 바에서 취소·음성·검색어 지우기와 입력 초안을 연결한다', async () => {
+  const f = setup('android');
+  const bar = () => f.find('AndroidSearchBar')!.props;
+  f.props.title = '출발지'; f.render();
+  assert.equal(f.find('TextInput')!.props.accessibilityLabel, '출발지: 장소, 주소 검색');
+  const input = f.find('TextInput')!;
+  assert.equal(input.props.autoFocus, false);
+  let focused = false;
+  input.props.ref.current = { focus() { focused = true; } };
+  f.find('Modal')!.props.onShow();
+  await f.flush();
+  assert.equal(focused, true);
+  assert.equal(bar().onClear, undefined);
+  f.type('남산'); await f.flush();
+  bar().onVoice(); f.render();
+  assert.equal(bar().listening, true);
+  assert.equal(bar().onClear, undefined);
+  bar().onVoice(); f.render();
+  bar().onBack();
+  assert.equal(f.getCloseCount(), 1);
+  f.props.visible = false; f.render();
+  assert.equal(f.requests[0].signal.aborted, true);
+  f.props.visible = true; f.render();
+  assert.equal(f.find('TextInput')!.props.value, '남산');
+  bar().onClear(); f.render();
+  assert.equal(f.find('TextInput')!.props.value, '');
+  assert.equal(bar().onClear, undefined);
+});
 
 test('출발·도착 초안을 섞지 않고 재진입 시 해당 입력으로 결과를 새로 조회한다', async () => {
   const f = setup();

@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import AndroidSearchBar, { androidSearchInputStyle } from '@/components/search/AndroidSearchBar';
 import SearchPlaceIcon from '@/components/search/SearchPlaceIcon';
 import MapPickerModal from '@/components/map/MapPickerModal';
 import { favoriteMatcher, favoritesFirst, mergeFavoriteCandidates, isFavoritePoint } from '@/lib/favoriteMatching';
@@ -81,6 +82,9 @@ export default function PointSearchModal({
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const isAndroid = Platform.OS === 'android';
+  const inputRef = useRef<TextInput>(null);
+  const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const myPlacesEnabled = useMyPlacesStore((s) => s.enabled);
   const myPlaces = useMyPlacesStore((s) => s.places);
   const [query, setQuery] = useState('');
@@ -330,68 +334,90 @@ export default function PointSearchModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, draftKey, allowSaved, confirmSlot]);
 
+  useEffect(() => () => {
+    if (focusTimer.current) clearTimeout(focusTimer.current);
+  }, [visible]);
+
+  const focusAndroidInput = () => {
+    // Android Modal의 onShow 직후에는 창이 IME 포커스를 얻기 전일 수 있다.
+    focusTimer.current = setTimeout(() => {
+      focusTimer.current = null;
+      inputRef.current?.focus();
+    }, 240);
+  };
+
+  const searchLabel = title ? `${title}: 장소, 주소 검색` : '장소, 주소 검색';
+  const input = (
+    <TextInput
+      ref={inputRef}
+      value={query}
+      onChangeText={handleChange}
+      placeholder={listening ? '듣고 있어요…' : searchLabel}
+      placeholderTextColor={listening ? colors.tint : colors.textSecondary}
+      accessibilityLabel={searchLabel}
+      autoFocus={!isAndroid}
+      style={[isAndroid ? androidSearchInputStyle : styles.searchInput, { color: colors.text }]}
+    />
+  );
+  const searchProgress = searching && (
+    <ActivityIndicator size="small" color={colors.textSecondary} accessibilityLabel="검색 중" />
+  );
+  // 인식 중에는 다음 음성 결과가 입력을 덮어쓰므로 지우기 버튼을 숨긴다.
+  const canClearQuery = query.length > 0 && !listening;
+  const clearQuery = () => handleChange('');
+
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={selectionConfirmation ? closeConfirmation : onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onShow={isAndroid ? focusAndroidInput : undefined}
+      onRequestClose={selectionConfirmation ? closeConfirmation : onClose}>
       <View style={[styles.modal, { backgroundColor: colors.background }]}>
         <View style={{ flex: 1 }} accessibilityElementsHidden={!!selectionConfirmation}
           importantForAccessibility={selectionConfirmation ? 'no-hide-descendants' : 'auto'}>
-        <View style={styles.modalHeader}>
-          <GlassSurface style={styles.searchBox}>
-            <Ionicons name="search" size={16} color={colors.textSecondary} />
-            <TextInput
-              value={query}
-              onChangeText={handleChange}
-              placeholder={
-                listening
-                  ? '듣고 있어요…'
-                  : title
-                    ? `${title}: 장소, 주소 검색`
-                    : '장소, 주소 검색'
-              }
-              placeholderTextColor={listening ? colors.tint : colors.textSecondary}
-              accessibilityLabel={title ? `${title}: 장소, 주소 검색` : '장소, 주소 검색'}
-              autoFocus
-              style={[styles.searchInput, { color: colors.text }]}
-            />
-            {searching && (
-              <ActivityIndicator
-                size="small"
-                color={colors.textSecondary}
-                accessibilityLabel="검색 중"
-              />
-            )}
-            {/* 인식 중에는 숨긴다 — 다음 중간 결과가 어차피 덮어써서 지운 게 무의미하다 */}
-            {query.length > 0 && !listening && (
-              // 지우면 결과·즐겨찾기 접힘까지 입력과 같은 경로로 되돌린다
+        {isAndroid ? (
+          <AndroidSearchBar backLabel="지점 검색 취소" onBack={onClose}
+            onClear={canClearQuery ? clearQuery : undefined} onVoice={toggleVoice} listening={listening}>
+            {input}
+            {searchProgress}
+          </AndroidSearchBar>
+        ) : (
+          <View style={styles.modalHeader}>
+            <GlassSurface style={styles.searchBox}>
+              <Ionicons name="search" size={16} color={colors.textSecondary} />
+              {input}
+              {searchProgress}
+              {canClearQuery && (
+                <Pressable
+                  accessibilityLabel="검색어 지우기"
+                  accessibilityRole="button"
+                  onPress={clearQuery}
+                  style={styles.iconButton}>
+                  <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                </Pressable>
+              )}
               <Pressable
-                accessibilityLabel="검색어 지우기"
+                accessibilityLabel={listening ? '음성 검색 중지' : '음성 검색'}
                 accessibilityRole="button"
-                onPress={() => handleChange('')}
-                style={styles.iconButton}>
-                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                accessibilityState={{ selected: listening }}
+                onPress={toggleVoice}
+                style={[styles.iconButton, styles.iconButtonEnd]}>
+                <Ionicons
+                  name={listening ? 'mic' : 'mic-outline'}
+                  size={18}
+                  color={listening ? colors.tint : colors.textSecondary}
+                />
               </Pressable>
-            )}
-            <Pressable
-              accessibilityLabel={listening ? '음성 검색 중지' : '음성 검색'}
+            </GlassSurface>
+            <GlassButton
               accessibilityRole="button"
-              accessibilityState={{ selected: listening }}
-              onPress={toggleVoice}
-              style={[styles.iconButton, styles.iconButtonEnd]}>
-              <Ionicons
-                name={listening ? 'mic' : 'mic-outline'}
-                size={18}
-                color={listening ? colors.tint : colors.textSecondary}
-              />
-            </Pressable>
-          </GlassSurface>
-          <GlassButton
-            accessibilityRole="button"
-            onPress={onClose}
-            style={{ minWidth: 56, height: 44, borderRadius: 22 }}
-            hitSlop={{ top: 13, bottom: 13, left: 8, right: 8 }}>
-            <Text style={[styles.modalCancel, { color: colors.text }]}>취소</Text>
-          </GlassButton>
-        </View>
+              onPress={onClose}
+              style={{ minWidth: 56, height: 44, borderRadius: 22 }}
+              hitSlop={{ top: 13, bottom: 13, left: 8, right: 8 }}>
+              <Text style={[styles.modalCancel, { color: colors.text }]}>취소</Text>
+            </GlassButton>
+          </View>
+        )}
 
         {/* 집·회사를 정하는 중이면 결과 목록에 사는 곳 주소가 그대로 뜬다.
             리플레이는 화면을 통째로 찍으므로 목록째 가린다. */}

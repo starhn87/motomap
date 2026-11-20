@@ -28,9 +28,10 @@ function IconAction({ icon, label, onPress, selected }: SearchAction) {
   );
 }
 
-export default function AndroidSearchBar({ children, onBack, onClear, onVoice, listening }: {
+export default function AndroidSearchBar({ children, onBack, backLabel = '뒤로 가기', onClear, onVoice, listening }: {
   children: ReactNode;
   onBack: () => void;
+  backLabel?: string;
   onClear?: () => void;
   onVoice: () => void;
   listening: boolean;
@@ -39,7 +40,7 @@ export default function AndroidSearchBar({ children, onBack, onClear, onVoice, l
   const backgroundColor = scheme === 'light' ? androidLightControl.backgroundColor : Colors.dark.surfaceMuted;
   return (
     <View style={[styles.bar, { backgroundColor }]}>
-      <IconAction icon={I18nManager.isRTL ? 'arrow-forward' : 'arrow-back'} label="뒤로 가기" onPress={onBack} />
+      <IconAction icon={I18nManager.isRTL ? 'arrow-forward' : 'arrow-back'} label={backLabel} onPress={onBack} />
       {children}
       {!!onClear && <IconAction icon="close" label="검색어 지우기" onPress={onClear} />}
       <IconAction icon={listening ? 'mic' : 'mic-none'} label={listening ? '음성 검색 중지' : '음성 검색'}
@@ -49,6 +50,15 @@ export default function AndroidSearchBar({ children, onBack, onClear, onVoice, l
 }
 
 const styles = StyleSheet.create({
+  input: {
+    flex: 1,
+    minHeight: 48,
+    minWidth: 0,
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+    fontSize: 16,
+    includeFontPadding: false,
+  },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -69,3 +79,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+export const androidSearchInputStyle = styles.input;
