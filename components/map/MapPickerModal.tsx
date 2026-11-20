@@ -3,10 +3,11 @@ import { Text } from '@/components/ui/AppText';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { NaverMapView, NaverMapMarkerOverlay, type NaverMapViewRef } from '@mj-studio/react-native-naver-map';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import Colors from '@/constants/Colors';
+import { HEADER_CONTROL_SIZE } from '@/components/navigation/headerSpacing';
 import CloseIcon from '@/components/ui/CloseIcon';
 import GlassButton from '@/components/ui/GlassButton';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -281,14 +282,17 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
           ))}
         </View>
 
-        <GlassButton
-          accessibilityLabel="위치 선택 닫기"
-          accessibilityRole="button"
-          onPress={onClose}
-          hitSlop={10}
-          style={[styles.close, { top: insets.top + 12 }]}>
-          <CloseIcon size={20} color={colors.text} />
-        </GlassButton>
+        <SafeAreaProvider initialMetrics={initialWindowMetrics} pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+          <SafeAreaView edges={['top', 'left']} pointerEvents="box-none" style={styles.closeArea}>
+            <GlassButton
+              accessibilityLabel="위치 선택 닫기"
+              accessibilityRole="button"
+              onPress={onClose}
+              style={styles.close}>
+              <CloseIcon size={24} color={colors.text} />
+            </GlassButton>
+          </SafeAreaView>
+        </SafeAreaProvider>
 
         {/* 첫 마커 선택 전에 두 시트의 닫힌 위치와 핸들을 준비해 초기 스냅과 열림이 경합하지 않게 한다. */}
         {allowPlaces && (
@@ -346,15 +350,15 @@ export default function MapPickerModal({ visible, initial, allowPlaces = false, 
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  closeArea: {
+    alignItems: 'flex-start',
+    paddingTop: 12,
+    paddingLeft: 16,
+  },
   close: {
-    position: 'absolute',
-    left: 16,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: HEADER_CONTROL_SIZE,
+    height: HEADER_CONTROL_SIZE,
+    borderRadius: HEADER_CONTROL_SIZE / 2,
   },
   footer: {
     position: 'absolute',
