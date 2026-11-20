@@ -1,3 +1,8 @@
+## 2026-11-21 iOS TestFlight 후보 — 1.3.3
+
+iOS 앱 버전과 Expo 런타임 1.3.3, 채널 production, 브리지 native43으로 빌드한다.
+릴리스 노트는 `config/release-notes.json`을 기준으로 하고 Apple 처리 상태는 TestFlight에서 확인한다.
+
 ## 2026-11-11 iOS 길안내 RN TestFlight 후보 — 1.3.2
 
 승인된 1.3.1의 빌드 제출이 닫혀 앱 버전과 Expo 런타임을 1.3.2로 올린다.
