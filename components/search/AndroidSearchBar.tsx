@@ -62,12 +62,11 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 50,
-    borderRadius: 25,
+    minHeight: 48,
+    borderRadius: 24,
     marginHorizontal: 12,
     marginVertical: 6,
     paddingHorizontal: 4,
-    paddingVertical: 1,
   },
   action: {
     width: 48,
