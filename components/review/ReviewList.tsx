@@ -53,11 +53,11 @@ function ReviewActionsMenu({ isOwner, onEdit, onDelete, onReport, onBlock }: {
   const scheme = useColorScheme() ?? 'light';
   if (!nativeUI) return null;
   const { Host, Menu, Image, Button } = nativeUI.views;
-  const { accessibilityLabel, buttonStyle, contentShape, frame, shapes } = nativeUI.modifiers;
+  const { accessibilityLabel, buttonStyle, contentShape, frame, rotationEffect, shapes } = nativeUI.modifiers;
   return (
     <Host colorScheme={scheme} ignoreSafeArea="container" style={{ width: 44, height: 44 }}>
       <Menu label={<Image systemName="ellipsis" size={17} color={Colors[scheme].textSecondary}
-        modifiers={[frame({ width: 44, height: 44 }), contentShape(shapes.rectangle())]} />}
+        modifiers={[rotationEffect(90), frame({ width: 44, height: 44 }), contentShape(shapes.rectangle())]} />}
         modifiers={[buttonStyle('plain'), accessibilityLabel('리뷰 더보기')]}>
         {isOwner ? <>
           <Button label="수정" systemImage="pencil" onPress={onEdit} />
@@ -129,6 +129,7 @@ export default function ReviewList({ target, allowWriting, highlight, onHighligh
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
+  const showNativeMenu = !!user && !!nativeUI;
   const {
     data: reviewPages,
     isLoading,
@@ -450,19 +451,11 @@ export default function ReviewList({ target, allowWriting, highlight, onHighligh
                   </ScrollView>
                 )}
                 <View style={styles.reviewFooter}>
-                  {/* 날짜와 관리 액션은 한 묶음으로 왼쪽에, 좋아요만 오른쪽 끝에 떼어 둔다 */}
                   <View style={styles.footerLeft}>
                     <Text style={[styles.reviewDate, { color: colors.textSecondary }]}>
                       {new Date(review.createdAt).toLocaleDateString('ko-KR')}
                     </Text>
-                    {user && nativeUI ? (
-                      <ReviewActionsMenu isOwner={isOwner}
-                        onEdit={() => handleEdit(review)}
-                        onDelete={() => handleDelete(review.id)}
-                        onReport={() => setReportingId(review.id)}
-                        onBlock={() => handleBlock(review.userId, review.userName)}
-                      />
-                    ) : isOwner ? (
+                    {showNativeMenu ? null : isOwner ? (
                       <View style={styles.actions}>
                         <TouchableOpacity onPress={() => handleEdit(review)}>
                           <Text style={[styles.actionText, { color: colors.tint }]}>수정</Text>
@@ -483,37 +476,47 @@ export default function ReviewList({ target, allowWriting, highlight, onHighligh
                     ) : null}
                   </View>
 
-                  {isOwner ? (
-                    // 내 리뷰는 누를 수 없으니 받은 수만, 0이면 감춘다
-                    review.likeCount > 0 && (
-                      <View style={styles.likeButton}>
-                        <MaterialCommunityIcons name="thumb-up" size={15} color={colors.textSecondary} />
-                        <Text style={[styles.likeCount, { color: colors.textSecondary }]}>
-                          {review.likeCount}
-                        </Text>
-                      </View>
-                    )
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => handleLike(review)}
-                      hitSlop={8}
-                      style={styles.likeButton}>
-                      <MaterialCommunityIcons
-                        name={review.likedByMe ? 'thumb-up' : 'thumb-up-outline'}
-                        size={15}
-                        color={review.likedByMe ? colors.tint : colors.textSecondary}
+                  <View style={styles.footerRight}>
+                    {isOwner ? (
+                      // 내 리뷰는 누를 수 없으니 받은 수만, 0이면 감춘다
+                      review.likeCount > 0 && (
+                        <View style={styles.likeButton}>
+                          <MaterialCommunityIcons name="thumb-up" size={15} color={colors.textSecondary} />
+                          <Text style={[styles.likeCount, { color: colors.textSecondary }]}>
+                            {review.likeCount}
+                          </Text>
+                        </View>
+                      )
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleLike(review)}
+                        hitSlop={8}
+                        style={styles.likeButton}>
+                        <MaterialCommunityIcons
+                          name={review.likedByMe ? 'thumb-up' : 'thumb-up-outline'}
+                          size={15}
+                          color={review.likedByMe ? colors.tint : colors.textSecondary}
+                        />
+                        {review.likeCount > 0 && (
+                          <Text
+                            style={[
+                              styles.likeCount,
+                              { color: review.likedByMe ? colors.tint : colors.textSecondary },
+                            ]}>
+                            {review.likeCount}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                    {showNativeMenu && (
+                      <ReviewActionsMenu isOwner={isOwner}
+                        onEdit={() => handleEdit(review)}
+                        onDelete={() => handleDelete(review.id)}
+                        onReport={() => setReportingId(review.id)}
+                        onBlock={() => handleBlock(review.userId, review.userName)}
                       />
-                      {review.likeCount > 0 && (
-                        <Text
-                          style={[
-                            styles.likeCount,
-                            { color: review.likedByMe ? colors.tint : colors.textSecondary },
-                          ]}>
-                          {review.likeCount}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  )}
+                    )}
+                  </View>
                 </View>
               </>
             )}
@@ -628,8 +631,8 @@ const styles = StyleSheet.create({
   reviewContent: { fontSize: 13, lineHeight: 19, marginBottom: 6 },
   reviewPhotos: { marginBottom: 8 },
   reviewPhoto: { width: 80, height: 80, borderRadius: 8, marginRight: 6 },
-  // 날짜와 한 묶음으로 왼쪽에 둔다 — 푸터가 space-between 이라 따로 두면 가운데로 밀린다
   footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  footerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   likeButton: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   likeCount: { fontSize: 11, fontWeight: '600', fontVariant: ['tabular-nums'] },
   reviewFooter: {
