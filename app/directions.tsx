@@ -272,23 +272,7 @@ export default function DirectionsScreen() {
               />
             </View>
           ))}
-          {/* 경유지가 없을 때만 사이에 + 를 띄운다(줄 미차지). 경유지가 생기면
-              ⊖ 와의 세로 근접을 피해 + 는 도착지 행 오른쪽 끝으로 옮겨 단다. */}
-          <View style={styles.fieldDividerWrap}>
-            <View style={[styles.fieldDivider, { backgroundColor: colors.border }]} />
-            {viaPoints.length === 0 && (
-              <Pressable
-                onPress={addEmptyVia}
-                disabled={busy}
-                hitSlop={8}
-                style={[
-                  styles.fieldInsertButton,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}>
-                <MaterialCommunityIcons name="plus" size={14} color={colors.textSecondary} />
-              </Pressable>
-            )}
-          </View>
+          <View style={[styles.fieldDivider, { backgroundColor: colors.border }]} />
           <FieldRow
             icon="map-marker"
             point={dest === 'current' ? null : dest}
@@ -302,17 +286,18 @@ export default function DirectionsScreen() {
             }
           />
         </View>
-        <View style={styles.fieldSide}>
-          <Pressable
-            accessibilityLabel="출발지와 도착지 바꾸기"
-            disabled={busy}
-            accessibilityState={{ disabled: busy }}
-            onPress={swap}
-            hitSlop={8}
-            style={[styles.swapButton, { borderColor: colors.border, opacity: busy ? 0.4 : 1 }]}>
+        {viaPoints.length === 0 && <WaypointAction onPress={addEmptyVia} disabled={busy} />}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="출발지와 도착지 바꾸기"
+          disabled={busy}
+          accessibilityState={{ disabled: busy }}
+          onPress={swap}
+          style={[styles.fieldAction, { opacity: busy ? 0.4 : 1 }]}>
+          <View style={[styles.swapButton, { borderColor: colors.border }]}>
             <MaterialCommunityIcons name="swap-vertical" size={18} color={colors.textSecondary} />
-          </Pressable>
-        </View>
+          </View>
+        </Pressable>
       </View>
 
       <Pressable
@@ -455,32 +440,36 @@ function FieldRow({
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const action = onRemove ?? onAdd;
   return (
-    <Pressable onPress={onPress} disabled={disabled} style={styles.fieldRow}>
-      <RoutePointIcon point={point} icon={icon} size={16} />
-      <Text
-        style={[styles.fieldValue, { color: muted ? colors.textSecondary : colors.text }]}
-        numberOfLines={1}>
-        {value || placeholder}
-      </Text>
-      {onRemove && (
-        <Pressable
-          onPress={onRemove}
-          disabled={disabled}
-          hitSlop={8}
-          style={[styles.fieldCircleButton, { borderColor: colors.border }]}>
-          <MaterialCommunityIcons name="minus" size={14} color={colors.textSecondary} />
-        </Pressable>
-      )}
-      {onAdd && (
-        <Pressable
-          onPress={onAdd}
-          disabled={disabled}
-          hitSlop={8}
-          style={[styles.fieldCircleButton, { borderColor: colors.border }]}>
-          <MaterialCommunityIcons name="plus" size={14} color={colors.textSecondary} />
-        </Pressable>
-      )}
+    <View style={styles.fieldRow}>
+      <Pressable accessibilityRole="button" accessibilityLabel={placeholder}
+        accessibilityValue={value ? { text: value } : undefined} accessibilityState={{ disabled }}
+        onPress={onPress} disabled={disabled} style={styles.fieldEdit}>
+        <RoutePointIcon point={point} icon={icon} size={16} />
+        <Text
+          style={[styles.fieldValue, { color: muted ? colors.textSecondary : colors.text }]}
+          numberOfLines={1}>
+          {value || placeholder}
+        </Text>
+      </Pressable>
+      {action && <WaypointAction onPress={action} disabled={disabled} remove={!!onRemove} />}
+    </View>
+  );
+}
+
+function WaypointAction({ onPress, disabled, remove = false }: {
+  onPress: () => void;
+  disabled: boolean;
+  remove?: boolean;
+}) {
+  const colors = Colors[useColorScheme() ?? 'light'];
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={remove ? '경유지 삭제' : '경유지 추가'}
+      accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={styles.fieldAction}>
+      <View style={[styles.fieldCircleButton, { borderColor: colors.border }]}>
+        <MaterialCommunityIcons name={remove ? 'minus' : 'plus'} size={14} color={colors.textSecondary} />
+      </View>
     </Pressable>
   );
 }
@@ -547,38 +536,30 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     paddingVertical: 4,
-    paddingLeft: 14,
-    paddingRight: 10,
+    paddingHorizontal: 10,
   },
   fieldRows: {
     flex: 1,
   },
-  fieldRow: {
+  fieldRow: { flexDirection: 'row', alignItems: 'center' },
+  fieldEdit: {
+    flex: 1,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 13,
+    paddingVertical: 10,
   },
   fieldDivider: {
     height: StyleSheet.hairlineWidth,
     marginLeft: 26,
   },
-  // divider 를 흐름에 그대로 두고 + 버튼만 그 위에 띄운다 — 줄 높이 0
-  fieldDividerWrap: {
-    justifyContent: 'center',
-    zIndex: 5,
-  },
-  fieldInsertButton: {
-    position: 'absolute',
-    right: 5,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1,
+  fieldAction: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // 행 오른쪽 끝의 ⊖·⊕ — 같은 테두리 원형으로 시각 언어를 맞춘다
   fieldCircleButton: {
     width: 24,
     height: 24,
@@ -586,16 +567,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 5,
   },
   fieldValue: {
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
-  },
-  fieldSide: {
-    width: 42,
-    alignItems: 'center',
   },
   swapButton: {
     width: 34,

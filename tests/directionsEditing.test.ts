@@ -75,8 +75,7 @@ function setup() {
     fields()[index].props.onPress(); render(); modal().props.onSelect(point); await flush();
   };
   const add = () => {
-    const button = nodes(tree).find((node) => node.type === 'Pressable' &&
-      nodes(node.props.children).some((child) => child.type === 'Icon' && child.props.name === 'plus'));
+    const button = nodes(tree).find((node) => node.type?.name === 'WaypointAction');
     if (button) button.props.onPress(); else fields().at(-1)!.props.onAdd();
     render();
   };
