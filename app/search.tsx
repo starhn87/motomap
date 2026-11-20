@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Keyboard,
   InteractionManager,
+  Platform,
 } from 'react-native';
 import { Text, TextInput } from '@/components/ui/AppText';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -121,6 +122,7 @@ export default function SearchScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  const ios = Platform.OS === 'ios';
   const user = useAuthStore((s) => s.user);
 
   const [query, setQuery] = useState('');
@@ -460,15 +462,19 @@ export default function SearchScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* 검색 입력 바 */}
       <View style={styles.searchBarRow}>
-        <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()}
-          style={styles.backButton}>
+        {!ios && (
+          <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()}
+            style={styles.backButton}>
             <BackIcon size={24} color={colors.text} />
-        </GlassButton>
-        <GlassSurface style={styles.inputContainer}>
+          </GlassButton>
+        )}
+        <GlassSurface style={[styles.inputContainer, ios && styles.iosInputContainer]}>
+          {ios && <Ionicons name="search" size={17} color={colors.textSecondary} accessible={false} />}
           <TextInput
             accessibilityLabel="장소, 라이딩 검색"
             ref={inputRef}
-            style={[styles.input, { color: colors.text }]}
+            style={[styles.input, ios && styles.iosInput, { color: colors.text }]}
+            clearButtonMode={ios && !listening ? 'while-editing' : 'never'}
             placeholder={listening ? '듣고 있어요…' : '장소, 라이딩 검색'}
             placeholderTextColor={listening ? colors.tint : colors.textSecondary}
             value={query}
@@ -477,7 +483,7 @@ export default function SearchScreen() {
             onSubmitEditing={() => openResults(query)}
           />
           {/* 인식 중에는 숨긴다 — 다음 중간 결과가 어차피 덮어써서 지운 게 무의미하다 */}
-          {query.length > 0 && !listening && (
+          {!ios && query.length > 0 && !listening && (
             <Pressable accessibilityRole="button" accessibilityLabel="검색어 지우기" onPress={() => setQuery('')} style={styles.inputAction}>
               <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
             </Pressable>
@@ -490,6 +496,14 @@ export default function SearchScreen() {
             />
           </Pressable>
         </GlassSurface>
+        {ios && (
+          <Pressable accessibilityRole="button" onPress={() => {
+            Keyboard.dismiss();
+            router.back();
+          }} style={({ pressed }) => [styles.cancelButton, pressed && styles.cancelPressed]}>
+            <Text style={[styles.cancelLabel, { color: colors.text }]}>취소</Text>
+          </Pressable>
+        )}
       </View>
 
       {(myPlacesEnabled || !!user) && <View style={[styles.myPlacesRow, { paddingHorizontal: 20, paddingBottom: 12 }]}>
@@ -884,10 +898,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 44,
   },
+  iosInputContainer: {
+    paddingRight: 0,
+    minHeight: 44,
+    height: 'auto',
+    gap: 6,
+  },
   input: {
     flex: 1,
     fontSize: 15,
   },
+  iosInput: {
+    minHeight: 44,
+    paddingVertical: 8,
+  },
+  cancelButton: {
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelPressed: { opacity: 0.6 },
+  cancelLabel: { fontSize: 16 },
   inputAction: {
     width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
   },
