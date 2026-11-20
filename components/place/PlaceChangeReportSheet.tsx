@@ -20,6 +20,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import AndroidReportReasonRow from '@/components/report/AndroidReportReasonRow';
 import {
   PLACE_CHANGE_REASONS,
   submitPlaceChangeReport,
@@ -179,9 +180,15 @@ export default function PlaceChangeReportSheet({
             {placeName}의 달라진 정보를 알려주세요.
           </Text>
 
-          <View style={styles.reasonList}>
+          <View style={styles.reasonList} accessibilityRole={Platform.OS === 'android' ? 'radiogroup' : undefined}>
             {reasons.map((option) => {
               const selected = reason === option.key;
+              if (Platform.OS === 'android') {
+                return (
+                  <AndroidReportReasonRow key={option.key} label={option.label} description={option.description}
+                    selected={selected} disabled={submitting} onPress={() => setReason(option.key)} />
+                );
+              }
               return (
                 <Pressable
                   key={option.key}

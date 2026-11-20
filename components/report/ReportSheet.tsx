@@ -14,6 +14,7 @@ import { useRef, useState } from 'react';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import AndroidReportReasonRow from '@/components/report/AndroidReportReasonRow';
 import {
   REPORT_REASONS,
   submitReport,
@@ -34,6 +35,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
   const keyboardInput = useRevealKeyboardInput(keyboardScrollRef);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const isAndroid = Platform.OS === 'android';
 
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [description, setDescription] = useState('');
@@ -63,16 +65,103 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
     }
   };
 
+  const sheetContent = (
+    <>
+      <View style={[styles.handle, { backgroundColor: colors.border }]} />
+      <Text style={[styles.title, { color: colors.text }]}>신고하기</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+        신고 사유를 선택해주세요
+      </Text>
+
+      <View style={styles.reasonList} accessibilityRole={isAndroid ? 'radiogroup' : undefined}>
+        {REPORT_REASONS.map((opt) => {
+          const selected = reason === opt.key;
+          if (isAndroid) {
+            return (
+              <AndroidReportReasonRow key={opt.key} label={opt.label} selected={selected}
+                disabled={submitting} onPress={() => {
+                  Keyboard.dismiss();
+                  setReason(opt.key);
+                }} />
+            );
+          }
+          return (
+            <Pressable
+              key={opt.key}
+              onPress={() => setReason(opt.key)}
+              style={({ pressed }) => [
+                styles.reasonItem,
+                {
+                  backgroundColor: selected ? colors.tint : colors.surface,
+                  borderColor: selected ? colors.tint : colors.border,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.reasonText,
+                  { color: selected ? colors.background : colors.text },
+                ]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <TextInput
+        onFocus={keyboardInput.onFocus}
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.surface,
+            color: colors.text,
+            borderColor: colors.border,
+          },
+        ]}
+        placeholder="상세 설명 (선택)"
+        placeholderTextColor={colors.textSecondary}
+        value={description}
+        onChangeText={setDescription}
+        multiline
+        numberOfLines={3}
+        maxLength={500}
+      />
+
+      <View style={styles.buttons}>
+        <Pressable
+          onPress={handleClose}
+          style={({ pressed }) => [
+            styles.cancelButton,
+            { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+          ]}>
+          <Text style={[styles.cancelText, { color: colors.text }]}>취소</Text>
+        </Pressable>
+        <Pressable
+          onPress={handleSubmit}
+          disabled={submitting}
+          style={({ pressed }) => [
+            styles.submitButton,
+            {
+              backgroundColor: colors.tint,
+              opacity: submitting || pressed ? 0.6 : 1,
+            },
+          ]}>
+          <Text style={[styles.submitText, { color: colors.background }]}>
+            {submitting ? '제출 중...' : '제출'}
+          </Text>
+        </Pressable>
+      </View>
+    </>
+  );
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
       transparent
       onRequestClose={handleClose}>
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        enabled={Platform.OS === 'android'}
-        behavior="height">
+      <KeyboardAvoidingView style={styles.overlay} enabled={isAndroid} behavior="height">
         <Pressable style={styles.backdrop} onPress={handleClose} />
         <ScrollView
           ref={keyboardScrollRef}
@@ -89,85 +178,9 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           bounces={false}
           showsVerticalScrollIndicator={false}>
-          {/* 시트 빈 영역 탭 시 키보드 닫기 */}
-          <Pressable onPress={Keyboard.dismiss} accessible={false}>
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
-          <Text style={[styles.title, { color: colors.text }]}>신고하기</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            신고 사유를 선택해주세요
-          </Text>
-
-          <View style={styles.reasonList}>
-            {REPORT_REASONS.map((opt) => {
-              const selected = reason === opt.key;
-              return (
-                <Pressable
-                  key={opt.key}
-                  onPress={() => setReason(opt.key)}
-                  style={({ pressed }) => [
-                    styles.reasonItem,
-                    {
-                      backgroundColor: selected ? colors.tint : colors.surface,
-                      borderColor: selected ? colors.tint : colors.border,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}>
-                  <Text
-                    style={[
-                      styles.reasonText,
-                      { color: selected ? colors.background : colors.text },
-                    ]}>
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <TextInput
-            onFocus={keyboardInput.onFocus}
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.surface,
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
-            placeholder="상세 설명 (선택)"
-            placeholderTextColor={colors.textSecondary}
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={3}
-            maxLength={500}
-          />
-
-          <View style={styles.buttons}>
-            <Pressable
-              onPress={handleClose}
-              style={({ pressed }) => [
-                styles.cancelButton,
-                { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-              ]}>
-              <Text style={[styles.cancelText, { color: colors.text }]}>취소</Text>
-            </Pressable>
-            <Pressable
-              onPress={handleSubmit}
-              disabled={submitting}
-              style={({ pressed }) => [
-                styles.submitButton,
-                {
-                  backgroundColor: colors.tint,
-                  opacity: submitting || pressed ? 0.6 : 1,
-                },
-              ]}>
-              <Text style={[styles.submitText, { color: colors.background }]}>
-                {submitting ? '제출 중...' : '제출'}
-              </Text>
-            </Pressable>
-          </View>
-          </Pressable>
+          {isAndroid ? sheetContent : (
+            <Pressable onPress={Keyboard.dismiss} accessible={false}>{sheetContent}</Pressable>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
