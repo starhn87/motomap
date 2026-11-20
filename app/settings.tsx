@@ -305,7 +305,7 @@ export default function SettingsScreen() {
       )}
       </>}
 
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+      <Text style={[styles.sectionTitle, isAndroid && styles.androidPolicySectionTitle, { color: colors.textSecondary }]}>
         약관 및 정책
       </Text>
       {nativeUI ? <NativeSettingsGroup rows={[
@@ -377,6 +377,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginTop: 20,
+  },
+  androidPolicySectionTitle: {
+    marginTop: 14,
   },
   themeRow: {
     flexDirection: 'row',
