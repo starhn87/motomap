@@ -216,8 +216,9 @@ export const track = {
   }) => capture('navigation_started', p),
 
   // reason 은 기존 도착·중도·비정상 버킷을 유지한다. exit 가 종료 계기이고,
-  // had_arrived 는 300m 도착 콜백이 세션에 남았는지다. 프로세스 종료를
-  // 도착으로 재분류하지 않는다 — 도착률 정의가 바뀌면 과거 주간 수치와 끊긴다.
+  // had_arrived 는 300m 도착 콜백이 세션에 남았는지다. 이벤트 값은 재분류하지 않는다.
+  // 주간 다이제스트만 세션 단위로 had_arrived 를 도착에 포함하고, 기존 reason=arrived
+  // 비율을 같은 출력에 남긴다.
   // abandoned = 안내 중 앱이 죽어(강제 종료·OS 종료 포함) 종료를 못 찍은
   // 세션을 다음 실행 때 정산한 것. 시작과 같은 id·mode 로 묶는다.
   navigationEnded: (p: {

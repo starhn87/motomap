@@ -4,5 +4,95 @@
   "supportedPreviousVersion": "1.2.10",
   "minimumSupportedVersion": "1.2.4",
   "nativeBridgeVersion": 51,
-  "apiContractVersion": 1
+  "apiContractVersion": 1,
+  "shippedSourceTrace": {
+    "recordedOn": "2026-11-20",
+    "tag": { "name": "v1.3.1", "commit": "11049415b9732a76bd435ac0796c68b962acfd09" },
+    "posthogExceptionCapture": "9d49241f96290bc1c82bf9de7029a5a001fec1bb",
+    "easProductionPosthogHost": "unverified",
+    "easProductionPosthogHostReason": "EXPO_TOKEN이 없어 EAS production의 EXPO_PUBLIC_POSTHOG_HOST 값을 확인하지 못했다.",
+    "exceptionZeroCause": "문서화된 iOS 출하 소스에는 #24가 없다. Android Play 내부 1.3.2(9) 소스 91d97c5에는 #24가 있으나, 수집 호스트가 미확인이고 예외가 실제로 기록되는 검증 빌드는 실행하지 않았다.",
+    "builds": [
+      {
+        "platform": "ios",
+        "version": "1.3.1",
+        "build": "81",
+        "role": "production IPA",
+        "source": "11049415b9732a76bd435ac0796c68b962acfd09",
+        "includesPosthogExceptionCapture": false
+      },
+      {
+        "platform": "ios",
+        "version": "1.3.2",
+        "build": "85",
+        "role": "OTA 호환 대상으로만 언급. 바이너리 소스 SHA는 기록에 없음",
+        "source": null,
+        "includesPosthogExceptionCapture": null
+      },
+      {
+        "platform": "ios",
+        "version": "1.3.2",
+        "build": "86-88,90,92-93",
+        "role": "저장소 문서와 커밋 메시지에서 소스 SHA를 찾지 못함",
+        "source": null,
+        "includesPosthogExceptionCapture": null
+      },
+      {
+        "platform": "ios",
+        "version": "1.3.2",
+        "build": "89",
+        "role": "TestFlight에서 스와이프를 재현한 빌드로만 언급. 소스 SHA는 기록에 없음",
+        "source": null,
+        "includesPosthogExceptionCapture": null
+      },
+      {
+        "platform": "ios",
+        "version": "1.3.2",
+        "build": "91",
+        "role": "로컬 메타데이터의 기반 커밋. dirty 작업본이라 성공 바이너리와 동일하다고 확정하지 않음",
+        "source": "b61ce8371269186f9322cc723537aba2e7a6e0f2",
+        "includesPosthogExceptionCapture": false
+      },
+      {
+        "platform": "ios",
+        "version": "1.3.2",
+        "build": null,
+        "role": "헤더 OTA의 기존 소스. 빌드 번호가 아님",
+        "source": "76b6ea2e349613eae682a0e0e1fb4460585264d9",
+        "includesPosthogExceptionCapture": false
+      },
+      {
+        "platform": "ios",
+        "version": "1.3.2",
+        "build": null,
+        "role": "헤더 OTA 커밋으로 문서에만 있음. 이 클론에는 객체가 없음",
+        "source": "d312bbc",
+        "includesPosthogExceptionCapture": null
+      },
+      {
+        "platform": "android",
+        "version": "1.3.2",
+        "build": "1",
+        "role": "저장소 문서와 커밋 메시지에서 소스 SHA를 찾지 못함",
+        "source": null,
+        "includesPosthogExceptionCapture": null
+      },
+      {
+        "platform": "android",
+        "version": "1.3.2",
+        "build": "7",
+        "role": "저장소 문서와 커밋 메시지에서 소스 SHA를 찾지 못함",
+        "source": null,
+        "includesPosthogExceptionCapture": null
+      },
+      {
+        "platform": "android",
+        "version": "1.3.2",
+        "build": "9",
+        "role": "Play 내부 테스트 바이너리 소스",
+        "source": "91d97c52066bbe509e50e65c1f3f5692810b25a0",
+        "includesPosthogExceptionCapture": true
+      }
+    ]
+  }
 }

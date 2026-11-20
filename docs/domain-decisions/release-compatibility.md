@@ -19,6 +19,40 @@
 - 네이티브 브리지 계약: **51**
 - 백엔드 API 계약: **1**
 
+## 2026-11-20 출하 소스 추적
+
+운영 iOS 1.3.1(81)의 소스 `11049415b9732a76bd435ac0796c68b962acfd09`에 annotated 태그
+`v1.3.1`을 달았다. 이 커밋은 앱 버전을 1.3.1로 올린다. 빌드 번호 81은 소스 트리에 없고,
+제출 기록 `480027b`가 source `1104941`의 서명된 IPA를 1.3.1(81)로 적는다.
+`config/release-policy.json`의 `shippedSourceTrace`가 같은 매핑을 담는다.
+
+#24(`9d49241f96290bc1c82bf9de7029a5a001fec1bb`, PostHog `$exception` 수집)가
+`lib/errorTracking.ts`로 들어간 첫 문서화 배포본은 Android Play 내부 테스트 1.3.2(9),
+소스 `91d97c52066bbe509e50e65c1f3f5692810b25a0`이다. 아래 iOS 소스에는 그 파일이 없다.
+
+`$exception`이 0건인 원인: 문서화된 iOS 출하 소스에는 #24가 없고, Android 9는 코드가
+있어도 EAS production `EXPO_PUBLIC_POSTHOG_HOST`를 확인하지 못했다. EXPO_TOKEN이 없다.
+호스트가 `https://eu.i.posthog.com`이 아니면 클라이언트를 만들지 않는다. 예외가 실제로
+쌓이는 검증 빌드도 실행하지 않았다.
+
+| 대상 | 소스 | #24 |
+|---|---|---|
+| iOS 1.3.1(81) production IPA, 태그 `v1.3.1` | `11049415b9732a76bd435ac0796c68b962acfd09` | 없음 |
+| iOS 1.3.2(85) | 소스 SHA 기록 없음. OTA 호환 대상으로만 언급 | 미확인 |
+| iOS 1.3.2(86·87·88·90·92·93) | 문서·커밋 메시지에 소스 SHA 없음 | 미확인 |
+| iOS 1.3.2(89) | TestFlight 재현 언급만. 소스 SHA 없음 | 미확인 |
+| iOS 1.3.2(91) 로컬 메타데이터 기반 | `b61ce8371269186f9322cc723537aba2e7a6e0f2`. dirty 작업본이라 성공 바이너리와 동일하다고 확정하지 않음. `c5708a2` 메시지의 “iOS build 91 source”는 이 소스를 가리킨다 | 없음 |
+| iOS 1.3.2 헤더 OTA의 기존 소스 | `76b6ea2e349613eae682a0e0e1fb4460585264d9` | 없음 |
+| iOS 1.3.2 헤더 OTA | 문서의 `d312bbc`. 이 클론에 객체가 없고, `76b6ea2`에 `app/chat.tsx`만 이식했다고 적혀 있다 | 이식 설명상 없음. 객체를 확인하지 못함 |
+| Android 1.3.2(1)·(7) | 문서·커밋 메시지에 소스 SHA 없음 | 미확인 |
+| Android Play 내부 1.3.2(9) | `91d97c52066bbe509e50e65c1f3f5692810b25a0` | 있음 |
+| Android 1.3.2 헤더 OTA | Play 9 소스 위에 main `40e64060acd63d72e1a3e6bb03df34e5065fb7fc` | 있음. 바이너리가 아니라 OTA |
+
+1.3.2로 버전만 올린 `855cc0214fbcd3e86c6be1202da0116071a115c2`와 Android 배포 소스로
+적힌 `e60e61eb9b913139c8c28c905118f374c3cec99a`는 특정 빌드 번호의 바이너리로 기록돼
+있지 않다. 둘 다 #24가 없다. `c5708a222da708ca2184b0b4f8454a00e0f0c10b`는 Galaxy에서
+검증한 통합 소스이며 공개 배포 기록은 아니고 #24가 없다.
+
 ## 2026-11-11 iOS 길안내 RN TestFlight 후보 — 1.3.2
 
 App Store Connect가 승인된 1.3.1의 새 빌드 제출을 거절했다(90062, 90186).

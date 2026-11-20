@@ -21,6 +21,10 @@ import {
   endExitsQuery,
   searchSessionsQuery,
   submissionAttemptsQuery,
+  liveEndSessionQuery,
+  summarizeLiveEndSessions,
+  formatLiveArrivalLines,
+  LIVE_END_SESSION_LIMIT,
 } from './posthog-metrics.mjs';
 
 const HOST = process.env.POSTHOG_HOST ?? 'https://eu.posthog.com';
@@ -43,11 +47,12 @@ async function hogql(query) {
 }
 
 // 창·쿼리 본문은 scripts/posthog-metrics.mjs 가 단일 기준이다.
-const [wau, counts, liveNav, endReasons, endExits, searchSessions] = await Promise.all([
+const [wau, counts, liveNav, endReasons, endSessions, endExits, searchSessions] = await Promise.all([
   hogql(wauQuery()),
   hogql(eventCountsQuery()),
   hogql(liveNavigationQuery()),
   hogql(endReasonsQuery()),
+  hogql(liveEndSessionQuery()),
   hogql(endExitsQuery()),
   hogql(searchSessionsQuery()),
 ]);
@@ -55,11 +60,13 @@ const [wau, counts, liveNav, endReasons, endExits, searchSessions] = await Promi
 const byEvent = new Map(counts.map(([e, cur, prev]) => [e, { cur, prev }]));
 const [wauCur = 0, wauPrev = 0] = wau[0] ?? [];
 const [liveCur = 0, livePrev = 0] = liveNav[0] ?? [];
-const arrived = endReasons.find(([r]) => r === 'arrived')?.[1] ?? 0;
-const cancelled = endReasons.find(([r]) => r === 'cancelled')?.[1] ?? 0;
-// abandoned = 안내 마커가 다음 앱 실행까지 남은 것. 강제 종료·OS 종료·크래시를
-// 구분할 수 없으므로 크래시율로 해석하지 않는다.
-const abandoned = endReasons.find(([r]) => r === 'abandoned')?.[1] ?? 0;
+// 기존 정의는 reason 이벤트 수다. 세션 정의와 나란히 남겨 전환기를 비교한다.
+const legacy = {
+  arrived: endReasons.find(([reason]) => reason === 'arrived')?.[1] ?? 0,
+  cancelled: endReasons.find(([reason]) => reason === 'cancelled')?.[1] ?? 0,
+  abandoned: endReasons.find(([reason]) => reason === 'abandoned')?.[1] ?? 0,
+};
+const sessions = summarizeLiveEndSessions(endSessions);
 const arrivedFlag = (value) => value === true || value === 'true' || value === 1;
 const exitLabel = (exit, hadArrived) => {
   const viaArrival = arrivedFlag(hadArrived);
@@ -90,9 +97,10 @@ lines.push('');
 lines.push(`**활성 사용자(WAU)**: ${wauCur} (전주 ${wauPrev}, ${delta(wauCur, wauPrev)})`);
 lines.push(`**실주행(live 길안내)**: ${liveCur} (전주 ${livePrev}, ${delta(liveCur, livePrev)})`);
 if (liveCur > 0) {
-  lines.push(
-    `**실주행 도착률(v2)**: ${Math.round((arrived / liveCur) * 100)}% (시작 ${liveCur} · 도착 ${arrived} · 중도 종료 ${cancelled} · 비정상 종료 ${abandoned})`,
-  );
+  lines.push(...formatLiveArrivalLines(liveCur, sessions, legacy));
+  if (endSessions.length >= LIVE_END_SESSION_LIMIT) {
+    lines.push('_세션 조회가 10000행 상한에 닿았습니다. 도착 세션 수가 잘렸을 수 있습니다._');
+  }
 }
 if (endExits.length > 0) {
   lines.push(

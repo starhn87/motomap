@@ -1,7 +1,12 @@
 // 주간 다이제스트와 관리자 화면이 같이 쓰는 PostHog HogQL.
 // 창은 실행 시각 기준 rolling 7일과 그 직전 7일이다. 달력 주가 아니다.
-// 도착률 분모·분자는 이 파일의 live 세션과 reason=arrived 뿐이다.
-// had_arrived 는 종료 계기 진단이며 도착률을 다시 정의하지 않는다.
+//
+// 도착률은 두 가지다.
+// - 관리자 화면과 다이제스트의 기존 정의 줄: endReasonsQuery. reason=arrived 이벤트 수.
+//   had_arrived 로 바꾸지 않는다.
+// - 주간 다이제스트의 현재 정의(2026-11-20): liveEndSessionQuery 의 guide_session_id.
+//   reason=arrived 이거나 had_arrived 이면 도착이다. 그 세션은 중도 종료·비정상 종료·
+//   process_end 버킷에 넣지 않는다.
 
 export const CURRENT_WINDOW = 'timestamp >= now() - INTERVAL 7 DAY';
 export const PREVIOUS_WINDOW = 'timestamp >= now() - INTERVAL 14 DAY AND timestamp < now() - INTERVAL 7 DAY';
@@ -81,6 +86,67 @@ export function endReasonsQuery() {
       AND properties.guide_session_id IS NOT NULL
     GROUP BY reason
   `;
+}
+
+// 세션 행: [id, arrived 이벤트 수, cancelled 이벤트 수, abandoned 이벤트 수, process_end 이벤트 수, had_arrived 이벤트 수]
+// HogQL 기본 100행 한도를 넘기지 않도록 LIMIT 를 쿼리에 둔다.
+export const LIVE_END_SESSION_LIMIT = 10000;
+
+export function liveEndSessionQuery() {
+  return `
+    SELECT
+      properties.guide_session_id AS id,
+      countIf(properties.reason = 'arrived') AS arrived_events,
+      countIf(properties.reason = 'cancelled') AS cancelled_events,
+      countIf(properties.reason = 'abandoned') AS abandoned_events,
+      countIf(properties.exit = 'process_end') AS process_end_events,
+      countIf(
+        properties.had_arrived = true
+        OR properties.had_arrived = 'true'
+        OR properties.had_arrived = 1
+      ) AS arrived_flags
+    FROM events
+    WHERE ${CURRENT_WINDOW} AND event = 'navigation_ended'
+      AND properties.mode = 'live'
+      AND properties.guide_session_id IS NOT NULL
+    GROUP BY properties.guide_session_id
+    LIMIT ${LIVE_END_SESSION_LIMIT}
+  `;
+}
+
+export function classifyLiveEndSession(row) {
+  const arrivedEvents = Number(row[1] ?? 0);
+  const cancelledEvents = Number(row[2] ?? 0);
+  const abandonedEvents = Number(row[3] ?? 0);
+  const processEndEvents = Number(row[4] ?? 0);
+  const arrivedFlags = Number(row[5] ?? 0);
+  if (arrivedEvents > 0 || arrivedFlags > 0) return 'arrived';
+  if (cancelledEvents > 0) return 'cancelled';
+  if (abandonedEvents > 0 || processEndEvents > 0) return 'abandoned';
+  return 'other';
+}
+
+export function summarizeLiveEndSessions(rows) {
+  const byId = new Map();
+  for (const row of rows) {
+    const id = String(row[0]);
+    const prev = byId.get(id) ?? [id, 0, 0, 0, 0, 0];
+    for (let index = 1; index <= 5; index += 1) prev[index] += Number(row[index] ?? 0);
+    byId.set(id, prev);
+  }
+  const counts = { arrived: 0, cancelled: 0, abandoned: 0, other: 0 };
+  for (const row of byId.values()) counts[classifyLiveEndSession(row)] += 1;
+  return counts;
+}
+
+export function formatLiveArrivalLines(liveStarted, sessions, legacy) {
+  if (liveStarted <= 0) return [];
+  const percent = (count) => `${Math.round((count / liveStarted) * 100)}%`;
+  const lines = [
+    `**실주행 도착률(정의 변경: 도착 또는 had_arrived, 세션)**: ${percent(sessions.arrived)} (시작 ${liveStarted} · 도착 ${sessions.arrived} · 중도 종료 ${sessions.cancelled} · 비정상 종료 ${sessions.abandoned})`,
+    `**실주행 도착률(기존 정의: reason=arrived 이벤트)**: ${percent(legacy.arrived)} (시작 ${liveStarted} · 도착 ${legacy.arrived} · 중도 종료 ${legacy.cancelled} · 비정상 종료 ${legacy.abandoned})`,
+  ];
+  return lines;
 }
 
 export function endExitsQuery() {

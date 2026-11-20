@@ -228,3 +228,15 @@ PostHog가 네이티브 크래시용 redact 훅을 React Native 설정으로 공
 CocoaPods trunk가 읽기 전용이 된 뒤 새 posthog-ios가 필요해지면 문서의 하이브리드 SPM 경로를
 그때 검증한다. 2026-12-02 이후 새 iOS SDK는 CocoaPods에 올라가지 않는다는 공지가 있다.
 현재 고정 버전 3.88.2는 그 전환 전에 받은 버전이다.
+
+## 2026-11-20 출하 빌드와 `$exception` 0건
+
+#24(`9d49241`)의 수집 코드가 문서화된 배포본에 처음 들어간 것은 Android Play 내부
+테스트 1.3.2(9), 소스 `91d97c5`다. 운영 iOS 1.3.1(81) 소스 `11049415`와 소스 SHA가
+확인된 iOS 1.3.2 기록에는 `lib/errorTracking.ts`가 없다. 빌드별 표는
+`release-compatibility.md`의 2026-11-20 출하 소스 추적을 따른다.
+
+`$exception` 0건은 그 iOS 출하 소스에 #24가 없는 것과 맞다. Android 9는 코드가 있지만
+EAS production `EXPO_PUBLIC_POSTHOG_HOST`는 EXPO_TOKEN이 없어 미확인이다. 호스트가
+EU 수집 주소가 아니면 클라이언트를 만들지 않는다. 예외 한 건이 파일·줄로 읽히는지
+확인하는 검증 빌드는 실행하지 않았다.
