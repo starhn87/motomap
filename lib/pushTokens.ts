@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { AppState, Platform } from 'react-native';
 import * as Sentry from '@sentry/react-native';
+import { captureHandledException } from '@/lib/errorTracking';
 import { supabase } from '@/lib/supabase';
 
 const TOKEN_KEY = 'device-push-token';
@@ -53,6 +54,11 @@ function report(stage: string, error: unknown) {
       scope.setTag('push_token_stage', stage);
       scope.setTag('error_code', code);
       Sentry.captureMessage('Push token synchronization failed', 'warning');
+    });
+    captureHandledException(new Error('Push token synchronization failed'), {
+      area: 'push_token',
+      push_token_stage: stage,
+      error_code: code,
     });
   } catch {
     // 오류 보고 실패가 로그인·제보를 막지 않는다.
@@ -291,7 +297,16 @@ async function unregister(actor: string, signal: AbortSignal) {
     const permission = await bounded(Notifications.getPermissionsAsync(), signal);
     const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
     if (allowed(permission) && projectId) {
-      ({ data: token } = await bounded(Notifications.getExpoPushTokenAsync({ projectId }), signal));
+      try {
+        ({ data: token } = await bounded(Notifications.getExpoPushTokenAsync({ projectId }), signal));
+      } catch (error) {
+        const failure = error as { code?: unknown; message?: unknown } | null;
+        // FCM이 초기화되지 않은 Android 빌드에는 조회할 기기 토큰이 없다.
+        if (Platform.OS !== 'android' || failure?.code !== 'E_REGISTRATION_FAILED'
+          || typeof failure.message !== 'string' || !failure.message.includes('Unable to get Firebase Messaging instance.')) {
+          throw error;
+        }
+      }
     }
   }
   for (const old of new Set([token, currentDeviceToken])) {

@@ -3,7 +3,7 @@ import { useMyPlacesStore } from '@/stores/useMyPlacesStore';
 import { withLocationUse, providerLocationAllowed, useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import { useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, usePreventRemove } from 'expo-router/react-navigation';
@@ -35,13 +35,14 @@ import { useArrivalHours } from '@/hooks/useArrivalHours';
 import { describeArrivalClosure } from '@/lib/hours';
 import { appAlert } from '@/lib/dialog';
 import { useUserLocation } from '@/hooks/useUserLocation';
-import Colors from '@/constants/Colors';
+import { getOrRequestLocationPermission } from '@/lib/userLocationTracking';
+import Colors, { androidLightControl } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { toast } from '@/lib/toast';
 import { useGuideSession, type GuidePreviewContext } from '@/lib/guideSession';
 import { guidePreviewInitial, continuedViaPlaces, continuedGoal } from '@/lib/guidePreview';
 import { markGuideStarted } from '@/lib/guideEvents';
-import { ensureKakaoNaviReady } from '@/lib/kakaoNaviInit';
+import { ensureKakaoNaviReady, startAndroidGuide } from '@/lib/kakaoNaviInit';
 import { createAnalyticsId, track } from '@/lib/analytics';
 import {
   parseNaviParams,
@@ -62,7 +63,7 @@ type EditingField = 'start' | 'goal' | number;
 
 // 길안내 진입 화면 — 경로 미리보기와 옵션 선택을 겸한다.
 // 옵션별 경로를 지도에 그려 보여주고, 고르면 그 옵션으로 KNSDK 안내를 시작한다.
-// 미리보기도 안내와 같은 KNSDK 엔진을 쓰므로 여기서 본 경로가 곧 안내 경로다.
+// iOS 미리보기는 KNSDK, Android 미리보기는 카카오 REST 경로를 사용한다.
 // 코스 안내가 아니면 상단 카드에서 출발지·경유지·도착지를 바로 바꿀 수 있다
 // (코스 경유지는 지오메트리 좌표 수십 개라 편집 대상이 아니다).
 export default function NaviScreen() {
@@ -92,16 +93,16 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
   const resumedRef = useRef(false);
   const privacyRevision = useLocationPrivacyStore((s) => s.revision);
   const locationBlocked = !providerLocationAllowed('kakao');
+  const previewOnly = Platform.OS === 'android' && !supportsKakaoNaviFeature('android_live_guidance');
   const router = useRouter();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
-  // 가려진 홈 센서에 의존하지 않고 이 화면이 최신 위치를 소유한다. 방향 센서는 필요 없다.
-  useUserLocation(isFocused, false);
   const startGuideSession = useGuideSession((st) => st.start);
   const userLocation = useMapStore((st) => st.userLocation);
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const closeSurface = Platform.OS === 'android' && colorScheme !== 'dark' ? androidLightControl : undefined;
   const { courseVias, courseId } = initial;
 
   // 도착지 — 파라미터는 초기값일 뿐, 상단 카드에서 바꿀 수 있다.
@@ -114,6 +115,8 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
   const [locationAttempt, setLocationAttempt] = useState(0);
   // 지정 출발지의 이름 — null 이면 현재 위치 출발
   const [startName, setStartName] = useState<string | null>(initial.startName);
+  // 직접 출발지를 지정한 Android 미리보기는 기기 위치 구독이 필요 없다.
+  useUserLocation(isFocused && (!previewOnly || !startName), false);
   // 길찾기 경유지(편집 가능) — 코스 경유지(vias 파라미터)와 별개.
   // null 은 + 로 만든 빈 줄: 탭해서 채우기 전까지 경로에는 안 들어간다.
   const [userVias, setUserVias] = useState<(NavTarget | null)[]>(
@@ -352,7 +355,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
   // 처리는 이 화면이 언마운트된 뒤에도 살아 있도록 전역(lib/guideEvents)이 맡는다.
   useEffect(() => {
     const started = KakaoNavi.addListener('onGuideStarted', () => {
-      if (continuationRef.current) return;
+      if (continuationRef.current || !providerLocationAllowed('kakao')) return;
       if (startTrackRef.current) {
         const startTrack = startTrackRef.current;
         startTrackRef.current = null;
@@ -386,7 +389,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
       navigation.setOptions({ animation: 'none' });
       // navigate 는 이 화면을 스택에 남긴다 — 미리보기 지도(출발지 도트)가
       // 살아남아 안내 종료 후 지도 위에 비쳤다(실측). replace 로 스택에서 뗀다.
-      router.replace('/');
+      if (Platform.OS !== 'android') router.replace('/');
     });
     // 경로 탐색 실패 시 시작 스피너만 되돌린다 (토스트는 전역 리스너가 띄운다)
     const failed = KakaoNavi.addListener('onGuideFailed', () => { startingRef.current = false; setStarting(false); });
@@ -423,7 +426,9 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
     let cancelled = false;
     let permissionDenied = false;
     withLocationUse('route','device',async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      const { status } = await getOrRequestLocationPermission(
+        Location.getForegroundPermissionsAsync, Location.requestForegroundPermissionsAsync,
+      );
       if (status !== 'granted') {
         permissionDenied = true;
         throw new Error('위치 권한을 허용해 주세요.');
@@ -452,7 +457,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
       toast.error('안내 중 경로 변경은 이번 버전에서 지원하지 않습니다', GUIDE_MENU_UNAVAILABLE_MESSAGE);
       return;
     }
-    if (!start || !route || locationBlocked || startingRef.current || courseOnly) return;
+    if (previewOnly || !start || !route || locationBlocked || startingRef.current || courseOnly) return;
     // 영업 확인창에서 늦게 누른 경우에도 현재 위치로 출발 가능 여부를 다시 확인한다.
     if (hasExplicitStart) {
       const location = useMapStore.getState().userLocation;
@@ -505,18 +510,23 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
       via_count: pairsFromFlat(activeVias ?? flatVias).length,
       distance_m: route?.distance,
     };
-    ensureKakaoNaviReady().then(() => withLocationUse('navigation','kakao',() => KakaoNavi.startGuide(
-      start[0], start[1], goal.longitude, goal.latitude, goal.name,
-      activeVias ?? flatVias, priority, false,
-    ))).catch((err) => {
+    const vias = activeVias ?? flatVias;
+    const opening = Platform.OS === 'android'
+      ? startAndroidGuide(start, goal, vias, priority)
+      : ensureKakaoNaviReady().then(() => withLocationUse('navigation', 'kakao', () => KakaoNavi.startGuide(
+          start[0], start[1], goal.longitude, goal.latitude, goal.name, vias, priority, false,
+        )));
+    void opening.catch((err) => {
       startingRef.current = false; setStarting(false);
-      toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(err));
+      if ((err as { code?: string } | null)?.code !== 'GUIDE_CANCELLED') {
+        toast.error('길안내를 시작할 수 없습니다', friendlyRouteError(err));
+      }
     });
   };
 
-  usePreventRemove(!!continuation && starting && !guideStarted, () => {});
+  usePreventRemove((!!continuation || Platform.OS === 'android') && starting && !guideStarted, () => {});
   useEffect(() => {
-    if (continuation && guideStarted) router.replace('/');
+    if ((continuation || Platform.OS === 'android') && guideStarted) router.replace('/');
   }, [continuation, guideStarted, router]);
   useEffect(() => {
     if (continuation) navigation.setOptions({ gestureEnabled: !starting });
@@ -578,6 +588,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
           style={({ pressed }) => [
             styles.closeButton,
             { top: insets.top + 8, backgroundColor: colors.background, opacity: pressed ? 0.65 : 1 },
+            closeSurface,
           ]}>
           <CloseIcon size={22} color={colors.text} />
         </Pressable>
@@ -666,7 +677,7 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
               <Pressable accessibilityRole="button" accessibilityLabel="경로 미리보기 닫기"
                 onPress={returnToMap}
                 hitSlop={8}
-                style={({ pressed }) => [styles.routeClose, { opacity: pressed ? 0.65 : 1 }]}>
+                style={({ pressed }) => [styles.routeClose, closeSurface, { opacity: pressed ? 0.65 : 1 }]}>
                 <CloseIcon size={20} color={colors.text} />
               </Pressable>
               {!continuation && <Pressable
@@ -756,30 +767,37 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
           </View>
         ) : null}
 
-        <Pressable
-          onPress={() => startGuide()}
-          disabled={locationBlocked || !start || !route || starting || courseOnly || waitingForStartLocation || distantStart}
-          style={({ pressed }) => [
-            styles.startButton,
-            {
-              backgroundColor: colors.tint,
-              opacity: locationBlocked || !start || !route || starting || courseOnly || waitingForStartLocation || distantStart ? 0.5 : pressed ? 0.85 : 1,
-            },
-          ]}>
-          {starting ? (
-            <ActivityIndicator size="small" color={colors.background} />
-          ) : (
-            <Text style={[styles.startLabel, { color: colors.background }]}>
-              {courseOnly
-                ? '코스 근처에서 시작할 수 있어요'
-                : waitingForStartLocation
-                  ? '현재 위치 확인 중'
-                  : distantStart
-                    ? '출발지 근처에서 시작할 수 있어요'
-                    : '안내 시작'}
-            </Text>
-          )}
-        </Pressable>
+        {previewOnly ? (
+          <Text style={[styles.previewOnly, { color: colors.textSecondary }]}>
+            앱 내 주행 안내를 지원하는 새 버전이 필요해요.
+          </Text>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => startGuide()}
+            disabled={locationBlocked || !start || !route || starting || courseOnly || waitingForStartLocation || distantStart}
+            style={({ pressed }) => [
+              styles.startButton,
+              {
+                backgroundColor: colors.tint,
+                opacity: locationBlocked || !start || !route || starting || courseOnly || waitingForStartLocation || distantStart ? 0.5 : pressed ? 0.85 : 1,
+              },
+            ]}>
+            {starting ? (
+              <ActivityIndicator size="small" color={colors.background} />
+            ) : (
+              <Text style={[styles.startLabel, { color: colors.background }]}>
+                {courseOnly
+                  ? '코스 근처에서 시작할 수 있어요'
+                  : waitingForStartLocation
+                    ? '현재 위치 확인 중'
+                    : distantStart
+                      ? '출발지 근처에서 시작할 수 있어요'
+                      : '안내 시작'}
+              </Text>
+            )}
+          </Pressable>
+        )}
       </View>
 
       <PointSearchModal
@@ -935,6 +953,7 @@ const styles = StyleSheet.create({
   routeErrorMessage: { fontSize: 13, lineHeight: 19 },
   routeErrorActions: { flexDirection: 'row', gap: 22, marginTop: 4 },
   routeErrorAction: { fontSize: 13, fontWeight: '700' },
+  previewOnly: { textAlign: 'center', paddingVertical: 8, fontSize: 13 },
   startButton: {
     height: 50,
     borderRadius: 14,

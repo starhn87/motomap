@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- KNSDK 1.12.8의 현재 및 다음 회전 안내 배너. 경로 교통색과 별도다. -->
+  <color name="primary_800">#18181B</color>
+  <color name="primary_900">#27272A</color>
+</resources>

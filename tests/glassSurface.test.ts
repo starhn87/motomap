@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadModule } from './helpers/loadModule';
+import { androidLightControl } from '../constants/Colors';
 
 type Element = { type: any; props: any };
 const jsx = (type: any, props: any) => ({ type, props });
@@ -21,7 +22,7 @@ function fixture({ os = 'ios', native = null as any, reduced = false, scheme = '
         listener = fn; return { remove: () => removed++ };
       } } },
     'expo-glass-effect': { get GlassView() { nativeLoads++; return 'NativeGlass'; } },
-    '@/constants/Colors': { __esModule: true, default: { light: { surfaceElevated: 'white', border: 'gray' }, dark: { surfaceElevated: 'dark', border: 'dark-border' } } },
+    '@/constants/Colors': { __esModule: true, androidLightControl, default: { light: { surfaceElevated: 'white', border: 'gray' }, dark: { surfaceElevated: 'dark', border: 'dark-border' } } },
     '@/components/useColorScheme': { useColorScheme: () => scheme },
   });
   const render = (props: any = {}) => {
@@ -42,11 +43,27 @@ test('모듈 없는 구빌드·미지원 OS/API에서는 native view 모듈을 �
     const tree = app.render();
     assert.equal(app.counts().nativeLoads, 0);
     assert.equal(nodes(tree).some(node => node.type === 'NativeGlass'), false);
-    assert.equal(flatten(tree.props.style).backgroundColor, 'white');
+    assert.equal(flatten(tree.props.style).backgroundColor, config.os === 'android' ? androidLightControl.backgroundColor : 'white');
     assert.equal(nodes(tree).find(node => node.type === 'Button')?.props.accessibilityLabel, '설정');
     assert.equal(flatten(tree.props.style).width, 44);
     if (config.os) assert.equal(app.counts().availabilityChecks, 0);
   }
+});
+
+test('Android 라이트 페이지 조작부는 회색 면만 쓰고 홈 지도는 기본 표면을 유지한다', () => {
+  const light = flatten(fixture({ os: 'android' }).render().props.style);
+  assert.equal(light.backgroundColor, androidLightControl.backgroundColor);
+  assert.equal(light.borderWidth, 0);
+  assert.equal(light.width, 44);
+  assert.equal(light.height, 44);
+  const home = fixture({ os: 'android' }).render({ homeMap: true });
+  assert.equal(flatten(home.props.style).backgroundColor, 'white');
+  assert.equal(flatten(home.props.style).borderWidth, 0.5);
+  assert.equal(home.props.homeMap, undefined);
+  const dark = flatten(fixture({ os: 'android', scheme: 'dark' }).render().props.style);
+  assert.equal(dark.backgroundColor, 'dark');
+  assert.equal(dark.borderColor, 'dark-border');
+  assert.equal(dark.borderWidth, 0.5);
 });
 
 test('실제 API가 있어도 투명도 설정 확인 전에는 단색이며 해제 후 native Glass를 쓴다', async () => {

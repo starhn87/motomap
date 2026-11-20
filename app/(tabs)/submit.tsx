@@ -1,3 +1,4 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import { nativeUI } from '@/lib/nativeUI';
 import NativeChoiceControl from '@/components/ui/NativeChoiceControl';
 import CategoryIcon from '@/components/ui/CategoryIcon';
@@ -82,6 +83,7 @@ function SubmitTypeTab({
       <Text
         style={[
           styles.tabLabel,
+          Platform.OS === 'android' && styles.androidTabLabel,
           { color: isActive ? colors.background : colors.textSecondary },
         ]}>
         {label}
@@ -126,6 +128,7 @@ function SubmitPlace() {
     }
   }
   const scrollRef = useRef<ScrollView>(null);
+  const keyboardInput = useRevealKeyboardInput(scrollRef);
 
   // 지도의 "일반 장소" 시트에서 넘어온 프리필 (이름·주소·좌표)
   const { prefillName, prefillAddress, prefillLat, prefillLng, prefillProvider, prefillProviderId, prefillSource, prefillTs } =
@@ -278,15 +281,17 @@ function SubmitPlace() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      enabled={Platform.OS === 'android'}
+      behavior="height">
       <ScrollView
+        automaticallyAdjustKeyboardInsets
         onScroll={trackHeaderScroll} scrollEventThrottle={16}
         ref={scrollRef}
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.content, { paddingTop: headerInset + 20 }]}
+        contentContainerStyle={[styles.content, { paddingTop: headerInset + (Platform.OS === 'android' ? 12 : 20) }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>카테고리 *</Text>
+        <Text style={[styles.sectionTitle, Platform.OS === 'android' && styles.firstSectionTitle, { color: colors.text }]}>카테고리 *</Text>
         <View style={styles.categories}>
           {CATEGORY_LIST.map((cat) => (
             <Pressable
@@ -320,6 +325,7 @@ function SubmitPlace() {
         </Pressable>
         {address ? (
           <TextInput
+            onFocus={keyboardInput.onFocus}
             style={[inputStyle, { marginTop: 8 }]}
             placeholder="상세 주소 (동·호수·층 등, 선택)"
             placeholderTextColor={colors.textSecondary}
@@ -329,10 +335,26 @@ function SubmitPlace() {
         ) : null}
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>장소명 *</Text>
-        <TextInput style={inputStyle} placeholder="장소를 검색하면 자동 입력됩니다" placeholderTextColor={colors.textSecondary} value={name} onChangeText={setName} />
+        <TextInput
+          onFocus={keyboardInput.onFocus}
+          style={inputStyle}
+          placeholder="장소를 검색하면 자동 입력됩니다"
+          placeholderTextColor={colors.textSecondary}
+          value={name}
+          onChangeText={setName}
+        />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>설명</Text>
-        <TextInput style={[...inputStyle, styles.multiline]} placeholder="이 장소에 대해 알려주세요" placeholderTextColor={colors.textSecondary} value={description} onChangeText={setDescription} multiline numberOfLines={3} />
+        <TextInput
+          onFocus={keyboardInput.onFocus}
+          style={[...inputStyle, styles.multiline]}
+          placeholder="이 장소에 대해 알려주세요"
+          placeholderTextColor={colors.textSecondary}
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          numberOfLines={3}
+        />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>사진</Text>
         <View pointerEvents={submitting ? 'none' : 'auto'}>
@@ -456,25 +478,34 @@ function SubmitScreen() {
     </View>;
   }
 
+  const fixedSelector = Platform.OS === 'android';
+  const selector = (
+    <View
+      accessibilityRole="tablist"
+      style={[styles.tabRow, fixedSelector ? styles.fixedTabRow : [styles.overlayTabRow, { top: headerInset }]]}
+      onLayout={fixedSelector ? undefined : event => setTabHeight(event.nativeEvent.layout.height)}>
+      {!fixedSelector && <HeaderBackdrop />}
+      {backToPlace}
+      {nativeUI ? <View style={{ flex: 1 }}><NativeChoiceControl label="제보 종류" presentation="segmented"
+        value={submitType} onChange={setSubmitType} options={[
+          { value: 'place', label: '장소' }, { value: 'hazard', label: '위험' }, { value: 'feedback', label: '건의' },
+        ]} /></View> : <>
+        <SubmitTypeTab type="place" current={submitType} onPress={setSubmitType} />
+        <SubmitTypeTab type="hazard" current={submitType} onPress={setSubmitType} />
+        <SubmitTypeTab type="feedback" current={submitType} onPress={setSubmitType} />
+      </>}
+    </View>
+  );
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <HeaderInsetContext.Provider value={headerInset + tabHeight}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: fixedSelector ? headerInset : 0 }]}>
+      {fixedSelector && selector}
+      <HeaderInsetContext.Provider value={fixedSelector ? 0 : headerInset + tabHeight}>
         {submitType === 'place' && <SubmitPlace />}
         {submitType === 'hazard' && <SubmitHazard />}
         {submitType === 'feedback' && <SubmitFeedback />}
       </HeaderInsetContext.Provider>
-      <View style={[styles.tabRow, { top: headerInset }]} onLayout={event => setTabHeight(event.nativeEvent.layout.height)}>
-        <HeaderBackdrop />
-        {backToPlace}
-        {nativeUI ? <View style={{ flex: 1 }}><NativeChoiceControl label="제보 종류" presentation="segmented"
-          value={submitType} onChange={setSubmitType} options={[
-            { value: 'place', label: '장소' }, { value: 'hazard', label: '위험' }, { value: 'feedback', label: '건의' },
-          ]} /></View> : <>
-        <SubmitTypeTab type="place" current={submitType} onPress={setSubmitType} />
-        <SubmitTypeTab type="hazard" current={submitType} onPress={setSubmitType} />
-        <SubmitTypeTab type="feedback" current={submitType} onPress={setSubmitType} />
-        </>}
-      </View>
+      {!fixedSelector && selector}
     </View>
   );
 }
@@ -483,8 +514,9 @@ export default withNativeTabScreen(SubmitScreen, { title: '제보' });
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  overlayTabRow: { position: 'absolute', left: 0, right: 0, zIndex: 5, overflow: 'hidden' },
+  fixedTabRow: { paddingHorizontal: 16 },
   tabRow: {
-    position: 'absolute', left: 0, right: 0, zIndex: 5, overflow: 'hidden',
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 20,
@@ -501,7 +533,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabLabel: { fontSize: 14, fontWeight: '700' },
+  androidTabLabel: { fontSize: 15, fontWeight: '600' },
   content: { padding: 20, paddingBottom: 40 },
+  firstSectionTitle: { marginTop: 0 },
   sectionTitle: { fontSize: 14, fontWeight: '600', marginTop: 16, marginBottom: 8 },
   categories: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   categoryChip: {

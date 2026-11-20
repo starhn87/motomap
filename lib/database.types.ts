@@ -14,6 +14,18 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_personal_places: {
+        Row: { user_id: string; slot: string; place: Json | null }
+        Insert: { user_id: string; slot: string; place?: Json | null }
+        Update: { user_id?: string; slot?: string; place?: Json | null }
+        Relationships: [{
+          foreignKeyName: "account_personal_places_user_id_fkey"
+          columns: ["user_id"]
+          isOneToOne: false
+          referencedRelation: "profiles"
+          referencedColumns: ["id"]
+        }]
+      }
       activity_dismissals: {
         Row: {
           created_at: string

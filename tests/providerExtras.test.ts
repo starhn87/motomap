@@ -227,3 +227,47 @@ test('안내 반경 검색은 정밀 캐시 서버 응답 확인 없이 조회 �
   const preciseServer = fixture({ stations: [], preciseCenter: true });
   assert.equal((await preciseServer.gas.fetchNearbyGasStations({ latitude: 37, longitude: 127, preciseCenter: true })).length, 0);
 });
+
+test('일 최저·최고는 한국 날짜가 같은 공식 극값을 사용하고, 빠진 값은 전날 발표분으로 보완한다', async () => {
+  let handle!: (request: Request) => Promise<Response>;
+  const shortForecastDates: string[] = [];
+  const day = '20261011';
+  const item = (category: string, fcstValue: string, fcstDate = day) =>
+    ({ category, fcstDate, fcstTime: '1500', fcstValue });
+
+  loadModule('supabase/functions/weather-kr/index.ts', {}, {
+    Deno: {
+      env: { get: () => 'fixture' },
+      serve: (handler: typeof handle) => { handle = handler; },
+    },
+    Date: class extends Date { static now() { return Date.parse('2026-10-11T06:00:00Z'); } },
+    Response,
+    AbortSignal,
+    fetch: async (input: string) => {
+      const url = new URL(input);
+      if (!url.pathname.endsWith('/getVilageFcst')) return Response.json({});
+      const date = url.searchParams.get('base_date')!;
+      shortForecastDates.push(date);
+      const items = date === day
+        ? [item('TMP', '18'), item('TMX', '21.4'), item('TMN', '3', '20261012')]
+        : [null, item('TMN', '8.3'), item('TMX', '19')];
+      return Response.json({ response: { body: { items: { item: items } } } });
+    },
+  });
+
+  const request = (daily: boolean) => new Request('https://fixture.invalid/weather-kr', {
+    method: 'POST', body: JSON.stringify({ lat: 37.5, lng: 127, daily }),
+  });
+  const hourlyOnly = await (await handle(request(false))).json();
+  assert.equal(hourlyOnly.daily, undefined);
+  assert.deepEqual(shortForecastDates, [day]);
+
+  const withDaily = await (await handle(request(true))).json();
+  assert.deepEqual(withDaily.daily, { date: day, min: 8.3, max: 21.4 });
+  assert.deepEqual(shortForecastDates, [day, day, '20261010']);
+  assert.deepEqual(withDaily.hours, hourlyOnly.hours);
+  const weather = await fixture(withDaily).weather.fetchRidingWeather(37.5, 127);
+  assert.deepEqual(JSON.parse(JSON.stringify(weather.daily)), { date: day, min: 8, max: 21 });
+  const old = await fixture(hourlyOnly).weather.fetchRidingWeather(37.5, 127);
+  assert.equal(old.daily, undefined);
+});

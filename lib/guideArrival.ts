@@ -35,10 +35,11 @@ export function recordGuideArrival(goal: GuideGoal, vias: GuideViaPlace[]): Prom
   if (!valid()) return Promise.resolve();
   entry.pending = (async () => {
     await useMyPlacesStore.getState().load();
+    if (!useMyPlacesStore.getState().accountLoaded) await useMyPlacesStore.getState().refreshAccount();
     if (!valid()) return;
-    entry.rows ??= buildPlaceRidesForArrival(goal, vias, useMyPlacesStore.getState().places)
-      .map(row => ({ ...row, id: randomUUID() }));
-    if (!entry.saved) {
+    if (useMyPlacesStore.getState().accountLoaded && !entry.saved) {
+      entry.rows ??= buildPlaceRidesForArrival(goal, vias, useMyPlacesStore.getState().places)
+        .map(row => ({ ...row, id: randomUUID() }));
       entry.saved = await recordPlaceRides(entry.rows, valid);
       if (entry.saved && valid()) {
         void queryClient.invalidateQueries({ queryKey: ['my-rides', userId] });

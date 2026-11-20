@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import CategoryIcon from '@/components/ui/CategoryIcon';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/AppText';
@@ -122,7 +123,7 @@ function RiderShareFilterChip({ isActive, onPress }: { isActive: boolean; onPres
   );
 }
 
-export default function CategoryFilter() {
+export default function CategoryFilter({ actions }: { actions?: ReactNode }) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const activeFilter = useMapStore((state) => state.activeFilter);
   const premiumGasOnly = useMapStore((state) => state.premiumGasOnly);
@@ -160,9 +161,10 @@ export default function CategoryFilter() {
           }}
         />
       </ScrollView>
-      {activeFilter === 'gas_station' && (
-        <View pointerEvents="box-none" style={styles.subfilters}>
-          <Pressable
+      {(actions || activeFilter === 'gas_station') && (
+        <View pointerEvents="box-none" style={[styles.subfilters, actions ? styles.actionsRow : null]}>
+          {actions}
+          {activeFilter === 'gas_station' && <Pressable
             accessibilityRole="checkbox"
             accessibilityLabel="고급휘발유 판매 주유소만 보기"
             accessibilityState={{ checked: premiumGasOnly }}
@@ -182,7 +184,7 @@ export default function CategoryFilter() {
             <Text numberOfLines={1} style={[styles.chipLabel, { flexShrink: 1, color: premiumGasOnly ? colors.background : colors.text }]}>
               고급휘발유만
             </Text>
-          </Pressable>
+          </Pressable>}
         </View>
       )}
     </View>
@@ -211,6 +213,13 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 4,
     alignItems: 'center',
+  },
+  actionsRow: {
+    marginTop: 6,
+    paddingTop: 0,
+    paddingBottom: 0,
+    minHeight: 52,
+    justifyContent: 'center',
   },
   subfilterChip: {
     minHeight: 44,

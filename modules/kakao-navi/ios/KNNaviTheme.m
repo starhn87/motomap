@@ -92,6 +92,19 @@ static KNMapRouteTheme *RouteTheme(KNMapRouteTheme *base, UIColor *stroke) {
   return theme;
 }
 
++ (UIBezierPath *)vehicleArrowAtCenter:(CGPoint)center diameter:(CGFloat)diameter {
+  CGFloat size = diameter * kSize / (kSize - 2);
+  CGFloat h = size * 0.30;
+  CGFloat w = size * 0.26;
+  UIBezierPath *arrow = [UIBezierPath bezierPath];
+  [arrow moveToPoint:CGPointMake(center.x, center.y - h * 0.75)];
+  [arrow addLineToPoint:CGPointMake(center.x + w, center.y + h * 0.65)];
+  [arrow addLineToPoint:CGPointMake(center.x, center.y + h * 0.25)];
+  [arrow addLineToPoint:CGPointMake(center.x - w, center.y + h * 0.65)];
+  [arrow closePath];
+  return arrow;
+}
+
 // 원 안에 위쪽을 향한 화살촉. 방향 회전은 SDK 가 처리한다.
 + (UIImage *)carImageWithAccent:(UIColor *)accent fill:(UIColor *)fill {
   CGRect bounds = CGRectMake(0, 0, kSize, kSize);
@@ -108,22 +121,9 @@ static KNMapRouteTheme *RouteTheme(KNMapRouteTheme *base, UIColor *stroke) {
     circle.lineWidth = kRingWidth;
     [circle stroke];
 
-    // 화살촉 — 원 지름의 절반 정도로 잡아 여백을 남긴다.
-    CGFloat cx = CGRectGetMidX(bounds);
-    CGFloat cy = CGRectGetMidY(bounds);
-    CGFloat h = kSize * 0.30;
-    CGFloat w = kSize * 0.26;
-
-    UIBezierPath *arrow = [UIBezierPath bezierPath];
-    [arrow moveToPoint:CGPointMake(cx, cy - h * 0.75)];
-    [arrow addLineToPoint:CGPointMake(cx + w, cy + h * 0.65)];
-    [arrow addLineToPoint:CGPointMake(cx, cy + h * 0.25)];
-    [arrow addLineToPoint:CGPointMake(cx - w, cy + h * 0.65)];
-    [arrow closePath];
-    arrow.lineJoinStyle = kCGLineJoinRound;
-
+    CGPoint center = CGPointMake(CGRectGetMidX(bounds), CGRectGetMidY(bounds));
     [accent setFill];
-    [arrow fill];
+    [[self vehicleArrowAtCenter:center diameter:kSize - 2] fill];
   }];
 }
 

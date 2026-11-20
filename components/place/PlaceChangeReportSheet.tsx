@@ -1,7 +1,10 @@
+import { useRevealKeyboardInput } from '@/hooks/useRevealKeyboardInput';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
+  BottomSheetTextInput,
+  type BottomSheetScrollViewMethods,
 } from '@gorhom/bottom-sheet';
 import type { BottomSheetBackdropProps } from '@gorhom/bottom-sheet';
 import {
@@ -11,7 +14,8 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Text, TextInput } from '@/components/ui/AppText';
+import { Text } from '@/components/ui/AppText';
+import { APP_FONT_STYLE } from '@/lib/typography';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import Colors from '@/constants/Colors';
@@ -42,6 +46,8 @@ export default function PlaceChangeReportSheet({
   operationalStatus,
   onClose,
 }: Props) {
+  const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
+  const keyboardInput = useRevealKeyboardInput(scrollRef);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const requestedVisibleRef = useRef(visible);
   const closingIntentRef = useRef(false);
@@ -161,7 +167,9 @@ export default function PlaceChangeReportSheet({
       handleIndicatorStyle={{ backgroundColor: colors.border }}
       containerStyle={styles.sheetContainer}>
       <BottomSheetScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.sheetContent}
+        automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         bounces={false}
@@ -208,9 +216,11 @@ export default function PlaceChangeReportSheet({
             })}
           </View>
 
-          <TextInput
+          <BottomSheetTextInput
+            onFocus={keyboardInput.onFocus}
             accessibilityLabel="제보 상세 내용 (선택)"
             style={[
+              APP_FONT_STYLE,
               styles.input,
               {
                 backgroundColor: colors.surface,

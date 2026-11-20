@@ -1,4 +1,4 @@
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import releaseNotes from '@/config/release-notes.json';
@@ -25,7 +25,7 @@ const RELEASE_NOTES_SEEN_PREFIX = 'release-notes-seen:';
 // 때만 보여서 릴리즈 노트를 빠뜨린 빌드가 이전 공지를 잘못 띄우지 않는다.
 const RELEASE_NOTES = releaseNotes as Record<
   string,
-  { title: string; body: string[] }
+  { title: string; body: string[]; androidBody?: string[] }
 >;
 
 async function promptUpdateOnce(
@@ -94,12 +94,14 @@ async function showReleaseNotesIfNeeded(): Promise<void> {
     if (!current) return;
     const release = RELEASE_NOTES[current];
     if (!release) return;
+    const body = Platform.OS === 'android' ? release.androidBody : release.body;
+    if (!body?.length) return;
     const seenKey = `${RELEASE_NOTES_SEEN_PREFIX}${current}`;
     if ((await AsyncStorage.getItem(seenKey)) === '1') return;
     await AsyncStorage.setItem(seenKey, '1');
     appAlert(
       release.title,
-      release.body.map((line) => `• ${line}`).join('\n'),
+      body.map((line) => `• ${line}`).join('\n'),
     );
   } catch {
     // 저장소 접근 실패가 앱 시작을 막지 않게 한다

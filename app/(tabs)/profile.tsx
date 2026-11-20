@@ -141,7 +141,7 @@ function LoggedInContent() {
       {
         text: '로그아웃', style: 'destructive',
         onPress: () => {
-          void signOut().catch(() => {
+          void signOut('local').catch(() => {
             toast.error('로그아웃하지 못했어요.', '연결 상태를 확인하고 다시 시도해 주세요.');
           });
         },
@@ -257,9 +257,6 @@ function ProfileScreen() {
   if (!user) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, paddingTop: headerInset }]}>
-        <View style={[styles.menu, { marginTop: 16, marginBottom: 12 }]}>
-          <MyPlacesSettings />
-        </View>
         <LoginPrompt message="로그인하고 마이페이지를 확인하세요." />
         <TabScrollSpacer />
       </View>

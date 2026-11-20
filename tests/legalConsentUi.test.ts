@@ -24,6 +24,7 @@ function fixture(options: { needsLegal?: boolean; showProvidersInline?: boolean;
       useRef(initial:any){const i=cursor++; if(!(i in states)) states[i]={current:initial}; return states[i];}},
     'react/jsx-runtime':{jsx:(type:unknown,props:unknown)=>({type,props}),jsxs:(type:unknown,props:unknown)=>({type,props})},
     'react-native':{ActivityIndicator:'ActivityIndicator',Modal:'Modal',Pressable:'Pressable',SafeAreaView:'SafeAreaView',ScrollView:'ScrollView',Text:'Text',View:'View',StyleSheet:{create:(v:unknown)=>v}},
+    'react-native-safe-area-context':{SafeAreaView:'InsetView'},
     '@/constants/legal':{LEGAL_DOCS:documents},
     '@/lib/legalConsent':{acceptCurrentLegalDocuments:async()=>{calls.push('legal'); await options.legal?.();}},
     '@/lib/locationPrivacy':{LOCATION_CONSENT_VERSION:'2026-10-11-location-v2',LOCATION_PROVIDERS:['kakao','kma','airkorea','opinet','anthropic','tmap'],

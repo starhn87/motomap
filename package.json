@@ -1,7 +1,7 @@
 {
   "name": "ridemap",
-  "main": "expo-router/entry",
-  "version": "1.2.11",
+  "main": "index.js",
+  "version": "1.3.2",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
@@ -13,6 +13,8 @@
     "typecheck:functions": "npx --yes deno@2.9.5 task --config supabase/functions/deno.json check",
     "types:supabase": "npx --yes supabase@2.115.0 gen types --linked --schema public > lib/database.types.ts",
     "check:release": "node scripts/check-release-compatibility.mjs",
+    "eas-build-post-install": "npm install -g @posthog/cli@0.19.0",
+    "posthog:upload-hermes": "node scripts/upload-posthog-hermes.mjs",
     "check:legal": "tsx scripts/check-legal-publication.ts",
     "seed:bike-cafes": "node scripts/seed-bike-cafes.mjs",
     "sync:bikes": "node scripts/sync-bike-models.mjs",

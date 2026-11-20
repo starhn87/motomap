@@ -1,6 +1,11 @@
 #import "KNNaviTrafficBar.h"
+#import "KNNaviTheme.h"
 #import <limits.h>
 #import "KNSDKBridge.h"
+
+@interface KNNaviTrafficBar (Tests)
+- (CGFloat)positionY;
+@end
 
 @interface KNNaviViewController : UIViewController
 - (void)refreshTrafficBar;
@@ -134,17 +139,24 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
 
   KNNaviTrafficBar *bar = [[KNNaviTrafficBar alloc] initWithFrame:CGRectMake(0, 0, 24, 240)];
   NSUInteger before = location.reads;
-  [bar updateFromLocation:(KNLocation *)location remainingDistance:4800 time:100];
-  [bar updateFromLocation:(KNLocation *)location remainingDistance:4799 time:101];
+  [bar updateFromLocation:(KNLocation *)location remainingDistance:4800 totalDistance:4800 time:100];
+  CGFloat startY = [bar positionY];
+  [bar updateFromLocation:(KNLocation *)location remainingDistance:4760 totalDistance:4800 time:101];
+  check([bar positionY] < startY, @"marker advances between traffic samples");
+  CGRect vehicleArrow = [KNNaviTheme vehicleArrowAtCenter:CGPointZero diameter:54].bounds;
+  CGRect railArrow = [KNNaviTheme vehicleArrowAtCenter:CGPointZero diameter:22].bounds;
+  check(fabs(vehicleArrow.size.width / 54 - railArrow.size.width / 22) < 0.001 &&
+        fabs(vehicleArrow.size.height / 54 - railArrow.size.height / 22) < 0.001,
+        @"vehicle and rail share the same arrow proportions");
   check(location.reads == before + 48, @"GPS cadence does not resample");
-  [bar updateFromLocation:(KNLocation *)location remainingDistance:4799 time:110];
+  [bar updateFromLocation:(KNLocation *)location remainingDistance:4799 totalDistance:4800 time:110];
   check(location.reads == before + 96, @"traffic refresh at10sec even stationary");
-  [bar updateFromLocation:(KNLocation *)location remainingDistance:4600 time:111];
+  [bar updateFromLocation:(KNLocation *)location remainingDistance:4600 totalDistance:4800 time:111];
   check(location.reads == before + 144, @"distance advance refreshes profile");
   check(!bar.userInteractionEnabled && [bar.accessibilityValue containsString:@"원활"], @"noninteractive and accessible traffic summary");
   [bar reset];
   check(bar.hidden && !bar.states.count && !bar.accessibilityValue, @"reset removes profile and accessibility value");
-  [bar updateFromLocation:(KNLocation *)location remainingDistance:20 time:112];
+  [bar updateFromLocation:(KNLocation *)location remainingDistance:20 totalDistance:4800 time:112];
   check(bar.states.count == 20, @"route replacement bypasses old cache");
 
   CGRect frame = KNNaviTrafficBarFrame(CGRectMake(0, 59, 393, 759), 200, 700);
@@ -196,13 +208,19 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   [controller setValue:@NO forKey:@"trafficRouteChanging"]; [controller refreshTrafficBar];
   check(activeBar.hidden, @"new route waits for new matched location");
   setGuide(); [controller refreshTrafficBar];
+  NSUInteger readsBeforeLoss = location.reads;
   guide.gpsOrigin.timestamp = [NSDate dateWithTimeIntervalSinceNow:-11]; [controller refreshTrafficBar];
-  check(activeBar.hidden && !activeBar.states.count, @"stale GPS clears profile");
+  check(!activeBar.hidden && activeBar.states.count == 48 && !activeBar.positionAvailable,
+        @"stale GPS keeps the same route profile");
   guide.gpsOrigin.timestamp = NSDate.date;
   guide.gpsOrigin.posTrust = NO;
   setGuide(); [controller refreshTrafficBar];
-  check(activeBar.hidden && !activeBar.states.count, @"untrusted GPS never shows projected traffic");
+  check(!activeBar.hidden && activeBar.states.count == 48 && !activeBar.positionAvailable,
+        @"untrusted GPS keeps the last verified traffic");
+  check(location.reads == readsBeforeLoss, @"unavailable GPS never resamples road conditions");
   guide.gpsOrigin.posTrust = YES;
+  setGuide(); [controller refreshTrafficBar];
+  check(activeBar.positionAvailable && location.reads == readsBeforeLoss + 48, @"recovered GPS immediately samples the route");
   guidance.routesOnGuide = @[[TrafficRouteProbe new]];
   setGuide(); [controller refreshTrafficBar];
   check(activeBar.hidden && !activeBar.states.count, @"old matched location cannot sample replacement route");
@@ -216,7 +234,8 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   check(expiry && expiry.fireDate.timeIntervalSinceNow <= 1.1, @"traffic expiry scheduled even when system footer GPS is newer");
   guide.gpsOrigin.timestamp = [NSDate dateWithTimeIntervalSinceNow:-11];
   [expiry fire];
-  check(activeBar.hidden && !activeBar.states.count, @"scheduled expiry clears traffic without next SDK location callback");
+  check(!activeBar.hidden && activeBar.states.count == 48 && !activeBar.positionAvailable,
+        @"scheduled expiry preserves traffic without next SDK location callback");
   guide.gpsOrigin.timestamp = NSDate.date;
   setGuide(); [controller refreshTrafficBar];
   [controller pauseForInactive];
@@ -237,6 +256,8 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   check(!activeBar.hidden && activeBar.states.count == 48, @"stationary startup shows known route before first GPS fix");
   check([activeBar.accessibilityValue containsString:@"GPS"], @"route overview does not claim a live current position");
   check(!activeBar.positionAvailable, @"GPS waiting position indicator stays gray");
+  [controller setValue:@YES forKey:@"trafficRouteChanging"]; [controller refreshTrafficBar];
+  [controller setValue:@NO forKey:@"trafficRouteChanging"];
   route.totalOverride = route.remaining + 20; [controller refreshTrafficBar];
   check(activeBar.hidden && !activeBar.states.count, @"first main road inside route is not treated as the origin");
   route.totalOverride = 0; [controller refreshTrafficBar];
@@ -262,7 +283,7 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   for (NSUInteger i = 0; i < 2; i++) {
     KNNaviTrafficBar *sample = [[KNNaviTrafficBar alloc] initWithFrame:CGRectMake(56 + 96 * i, 32, 24, 240)];
     sample.overrideUserInterfaceStyle = i ? UIUserInterfaceStyleDark : UIUserInterfaceStyleLight;
-    [sample updateFromLocation:(KNLocation *)location remainingDistance:4800 time:100];
+    [sample updateFromLocation:(KNLocation *)location remainingDistance:4800 totalDistance:i ? 9600 : 4800 time:100];
     sample.hidden = NO;
     [preview addSubview:sample];
   }

@@ -12,7 +12,7 @@ const config = new Script(readFileSync(configUrl, 'utf8').replace('export defaul
   }) as { expo: {
     splash: { image: string; resizeMode: string; backgroundColor: string };
     plugins: (string | [string, { image?: string; resizeMode?: string; backgroundColor?: string;
-      ios?: { enableFullScreenImage_legacy?: boolean } }])[];
+      ios?: { enableFullScreenImage_legacy?: boolean }; android?: { imageWidth?: number; image?: string } }])[];
   } };
 
 test('스플래시 플러그인은 기존 바이크 원본·배경·iOS 전체 화면 contain을 유지한다', () => {
@@ -27,24 +27,27 @@ test('스플래시 플러그인은 기존 바이크 원본·배경·iOS 전체 �
   assert.equal(options.backgroundColor, config.expo.splash.backgroundColor);
   assert.equal(options.resizeMode, 'contain');
   assert.equal(options.ios?.enableFullScreenImage_legacy, true);
+  assert.equal(options.android?.imageWidth, 288);
+  assert.equal(options.android?.image, './assets/images/android-splash-bike.png');
 });
 
 test('운영 상태 확인·lazy 로딩도 별도 앱 아이콘 화면 대신 원본 스플래시를 이어서 그린다', () => {
   const source = readFileSync(new URL('../components/ServiceLoadingScreen.tsx', import.meta.url), 'utf8');
   const { code } = transformSync(source, { loader: 'tsx', format: 'cjs', jsx: 'automatic' });
   const module = { exports: {} as { default?: () => any } };
+  const platform = { OS: 'ios' };
   const absoluteFill = { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 };
   new Script(code).runInNewContext({
     module, exports: module.exports,
     require: (name: string) => {
       if (name === 'react-native') return {
-        Image: 'Image', View: 'View',
+        Image: 'Image', View: 'View', Platform: platform,
         StyleSheet: { create: (styles: unknown) => styles, absoluteFill },
       };
       if (name === 'react/jsx-runtime') return {
         jsx: (type: unknown, props: unknown) => ({ type, props }),
       };
-      if (name === '../assets/images/splash-icon.png') return name;
+      if (name === '../assets/images/splash-icon.png' || name === '../assets/images/android-splash-bike.png') return name;
       throw new Error(`예상하지 않은 로딩 화면 의존성: ${name}`);
     },
   });
@@ -57,4 +60,8 @@ test('운영 상태 확인·lazy 로딩도 별도 앱 아이콘 화면 대신 �
   assert.equal(tree.props.children.props.source, '../assets/images/splash-icon.png');
   assert.equal(tree.props.children.props.resizeMode, 'contain');
   assert.equal(tree.props.children.props.style, absoluteFill);
+  platform.OS = 'android';
+  const androidImage = module.exports.default!().props.children.props;
+  assert.equal(androidImage.style.maxWidth, 288);
+  assert.equal(androidImage.source, '../assets/images/android-splash-bike.png');
 });

@@ -10,6 +10,7 @@ import { Text } from '@/components/ui/AppText';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ANDROID_TOP_CONTROL_GAP, HEADER_CONTROL_SIZE } from '@/components/navigation/headerSpacing';
 import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -158,17 +159,16 @@ function LoginMethods({ initialProviders }: { initialProviders: string[] }) {
             ) : (
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel={`${method.label} 연결`}
+                accessibilityState={{ busy: isLoading, disabled: linking !== null }}
                 disabled={linking !== null}
                 onPress={() => void handleLink(method.provider)}
                 style={({ pressed }) => [
                   styles.linkMethodButton,
-                  { backgroundColor: colors.surfaceMuted, opacity: pressed ? 0.7 : 1 },
+                  { backgroundColor: colors.surfaceMuted, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
                 ]}>
-                {isLoading ? (
-                  <ActivityIndicator size="small" color={colors.text} />
-                ) : (
-                  <Text style={[styles.linkMethodText, { color: colors.text }]}>연결</Text>
-                )}
+                <Text style={[styles.linkMethodText, { color: colors.text, opacity: isLoading ? 0 : 1 }]}>연결</Text>
+                {isLoading && <ActivityIndicator size="small" color={colors.text} style={StyleSheet.absoluteFill} />}
               </Pressable>
             )}
           </View>
@@ -222,11 +222,12 @@ export default function SettingsScreen() {
     );
   };
 
+  const headerHeight = insets.top + HEADER_CONTROL_SIZE + (Platform.OS === 'android' ? ANDROID_TOP_CONTROL_GAP : 0);
   return (
     <ScrollView
       onScroll={trackHeaderScroll} scrollEventThrottle={16}
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 44 + 16, paddingBottom: insets.bottom + 32 }]}>
+      contentContainerStyle={[styles.content, { paddingTop: headerHeight + 16, paddingBottom: insets.bottom + 32 }]}>
       <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 0 }]}>테마</Text>
       <View style={styles.themeRow}>
         {nativeUI ? <NativeChoiceControl label="테마" presentation="segmented" value={mode} onChange={setMode}
@@ -446,6 +447,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingHorizontal: 12,
     borderRadius: 9,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },

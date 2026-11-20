@@ -33,7 +33,10 @@ function layout(os: string, unread: number, scheme = 'light', version = 27) {
       TabOcclusionContext: { Provider: 'TabOcclusion' },
       FLOATING_TAB_BAR_HEIGHT: 56,
       FLOATING_TAB_LIFT: 10,
-      useJsTabOcclusion: () => insets.bottom + 10 + 56,
+      ANDROID_TAB_BAR_HEIGHT: 58,
+      ANDROID_TAB_LIFT: 8,
+      ANDROID_TAB_SIDE_INSET: 20,
+      useJsTabOcclusion: () => insets.bottom + (os === 'android' ? 8 + 58 : 10 + 56),
     },
   });
   const entry = module.default();
@@ -72,11 +75,32 @@ test('Android·웹은 기존 JS 탭과 4개 경로를 유지하고 탭은 화면
     const tabs = tree.props.children;
     assert.deepEqual(nodes(tabs).filter(node => node.type === 'LegacyScreen').map(node => node.props.name), ['index', 'submit', 'courses', 'profile']);
     assert.equal(tabs.props.screenOptions.tabBarStyle.position, 'absolute');
-    assert.equal(tabs.props.screenOptions.tabBarActiveTintColor, '#007AFF');
-    assert.equal(tabs.props.screenOptions.tabBarStyle.height, 56);
-    assert.equal(tabs.props.screenOptions.tabBarStyle.bottom, 44);
+    assert.equal(tabs.props.screenOptions.tabBarActiveTintColor, os === 'android' ? colors.tint : colors.tabIconSelected);
+    const bar = tabs.props.screenOptions.tabBarStyle;
+    assert.equal(bar.height, os === 'android' ? 58 : 56);
+    assert.equal(bar.bottom, os === 'android' ? 42 : 44);
+    assert.equal(tree.props.value, bar.height + bar.bottom);
+    if (os === 'android') {
+      assert.equal(bar.start, 20);
+      assert.equal(bar.end, 20);
+      assert.equal(bar.paddingBottom, 6);
+    }
     assert.equal(tabs.props.screenOptions.headerTitleStyle.fontWeight, '700');
     assert.equal(tabs.props.screenOptions.headerStyle.backgroundColor, colors.background);
+  }
+});
+
+test('Android 탭은 테마의 강조색과 선택·미선택 아이콘 형태를 사용한다', () => {
+  const expected = [['map', 'map-outline'], ['add-circle', 'add-circle-outline'],
+    ['notifications', 'notifications-outline'], ['person', 'person-outline']];
+  for (const scheme of ['light', 'dark']) {
+    const tabs = layout('android', 0, scheme).tree.props.children;
+    const screens = nodes(tabs).filter(node => node.type === 'LegacyScreen');
+    assert.equal(tabs.props.screenOptions.tabBarActiveTintColor, scheme === 'light' ? colors.tint : '#FAFAFA');
+    screens.forEach((screen, index) => {
+      const icon = (focused: boolean) => screen.props.options.tabBarIcon({ color: 'black', focused }).props.name;
+      assert.deepEqual([icon(true), icon(false)], expected[index]);
+    });
   }
 });
 
@@ -202,38 +226,67 @@ test('설정은 로그인과 무관하게 텍스트 없는 44pt Glass 아이콘�
   tree.props.onPress(); assert.equal(pushed, '/settings');
 });
 
-test('지도 레이아웃이 달라지면 FAB와 장소 카메라 보정에 같은 실제 높이를 사용한다', () => {
+test('지도 마커는 상세만 열고 검색 결과는 지도 높이에 맞춰 카메라를 보정한다', () => {
   const path = 'components/map/MapHome.tsx';
   const source = readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
   const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  let offset: ts.FunctionDeclaration | undefined, onLayout: ts.Expression | undefined, select: ts.Expression | undefined, temp: ts.Expression | undefined;
+  const markerHandlers = ['handleMarkerPress', 'handleTempPlaceSelect'];
+  const searchHandlers = ['handleSearchSelect', 'handleSearchPointSelect'];
+  const names = [...markerHandlers, ...searchHandlers];
+  const handlers = new Map<string, ts.Expression>();
+  let offset: ts.FunctionDeclaration | undefined, onLayout: ts.Expression | undefined;
   function visit(node: ts.Node) {
     if (ts.isFunctionDeclaration(node) && node.name?.text === 'sheetLatOffset') offset = node;
     if (ts.isJsxAttribute(node) && node.name.getText(ast) === 'onLayout' && node.initializer && ts.isJsxExpression(node.initializer)) onLayout = node.initializer.expression;
-    if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'handleSearchPointSelect' && node.initializer && ts.isCallExpression(node.initializer)) select = node.initializer.arguments[0];
-    if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'handleTempPlaceSelect' && node.initializer && ts.isCallExpression(node.initializer)) temp = node.initializer.arguments[0];
+    if (ts.isVariableDeclaration(node) && node.initializer && ts.isCallExpression(node.initializer)) {
+      const name = node.name.getText(ast);
+      if (names.includes(name)) handlers.set(name, node.initializer.arguments[0]);
+    }
     ts.forEachChild(node, visit);
   }
   visit(ast);
-  assert.ok(offset && onLayout && select && temp);
-  const { outputText } = ts.transpileModule(`${offset.getText(ast)}\nmodule.exports = { layout: ${onLayout.getText(ast)}, select: ${select.getText(ast)}, temp: ${temp.getText(ast)} };`, {
+  assert.ok(offset && onLayout);
+  assert.equal(handlers.size, names.length);
+  const definitions = [...handlers].map(([name, handler]) => `${name}: ${handler.getText(ast)}`).join(', ');
+  const { outputText } = ts.transpileModule(`${offset.getText(ast)}\nmodule.exports = { layout: ${onLayout.getText(ast)}, ${definitions} };`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022 },
   });
-  const shared = { value: 0 }, context: any = { mapViewportHeight: 900, containerHeight: shared,
-    setMapViewportHeight: (height: number) => { context.mapViewportHeight = height; }, followingRef: { current: true }, mapRef: { current: { animateCameraTo: (camera: any) => { context.camera = camera; } } },
-    mapCenter: { zoom: 15 }, setSelectedPlaceId() {}, setSelectedPlace() {}, setSelectedStation() {}, setHighlightReview() {}, setTempPlace() {},
-    module: { exports: {} } };
+  const context: any = {
+    mapViewportHeight: 900,
+    setMapViewportHeight: (height: number) => { context.mapViewportHeight = height; },
+    followingRef: { current: true },
+    didCenterOnUserRef: { current: false },
+    mapRef: { current: { animateCameraTo: (camera: any) => { context.camera = camera; } } },
+    track: { placeViewed() {} },
+    setHighlightReview() {}, setSelectedPlaceId() {}, setSelectedStation() {},
+    setSelectedPlace: (place: any) => { context.selectedPlace = place; },
+    setTempPlace: (place: any) => { context.tempPlace = place; },
+    module: { exports: {} },
+  };
   new Script(outputText).runInNewContext(context);
   const api = context.module.exports;
-  for (const handler of [api.select, api.temp]) {
+  const place = { id: 'place', latitude: 37.5, longitude: 127 };
+  api.handleMarkerPress(place);
+  assert.equal(context.selectedPlace, place);
+  assert.equal(context.camera, undefined);
+  assert.equal(context.didCenterOnUserRef.current, true);
+  assert.equal(context.followingRef.current, false);
+  context.followingRef.current = true;
+  context.didCenterOnUserRef.current = false;
+  api.handleTempPlaceSelect(place);
+  assert.equal(context.tempPlace, place);
+  assert.equal(context.camera, undefined);
+  assert.equal(context.didCenterOnUserRef.current, true);
+  assert.equal(context.followingRef.current, false);
+
+  for (const name of searchHandlers) {
     api.layout({ nativeEvent: { layout: { height: 700 } } });
-    assert.equal(shared.value, 700); assert.equal(context.mapViewportHeight, 700);
-    handler({ latitude: 37.5, longitude: 127 });
+    assert.equal(context.mapViewportHeight, 700);
+    api[name](place);
     const first = context.camera.latitude;
     api.layout({ nativeEvent: { layout: { height: 400 } } });
-    handler({ latitude: 37.5, longitude: 127 });
+    api[name](place);
     assert.ok(context.camera.latitude > first, '가용 지도 높이가 줄면 수직 보정도 줄어야 함');
     assert.equal(context.camera.longitude, 127);
-    assert.equal(context.followingRef.current, false);
   }
 });

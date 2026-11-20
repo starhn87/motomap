@@ -6,10 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // NativeTabScreen의 실측값을 TabOcclusionContext로 넘긴다.
 export const FLOATING_TAB_BAR_HEIGHT = 56;
 export const FLOATING_TAB_LIFT = 10;
+export const ANDROID_TAB_BAR_HEIGHT = 58;
+export const ANDROID_TAB_LIFT = 8;
+export const ANDROID_TAB_SIDE_INSET = 20;
 
 /** 화면 맨 아래에서 떠 있는 JS 탭의 윗변까지. */
-export function jsTabTopFromBottom(deviceBottomInset: number) {
-  return deviceBottomInset + FLOATING_TAB_LIFT + FLOATING_TAB_BAR_HEIGHT;
+export function jsTabTopFromBottom(deviceBottomInset: number, android = false) {
+  const barHeight = android ? ANDROID_TAB_BAR_HEIGHT : FLOATING_TAB_BAR_HEIGHT;
+  const lift = android ? ANDROID_TAB_LIFT : FLOATING_TAB_LIFT;
+  return deviceBottomInset + lift + barHeight;
 }
 
 export const TabOcclusionContext = createContext(0);
@@ -30,5 +35,5 @@ export function TabScrollSpacer() {
 /** Android·웹 탭 레이아웃이 자식에게 넘길 가림 높이. */
 export function useJsTabOcclusion() {
   const insets = useSafeAreaInsets();
-  return Platform.OS === 'ios' ? 0 : jsTabTopFromBottom(insets.bottom);
+  return Platform.OS === 'ios' ? 0 : jsTabTopFromBottom(insets.bottom, Platform.OS === 'android');
 }

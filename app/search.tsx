@@ -124,7 +124,8 @@ export default function SearchScreen() {
   const user = useAuthStore((s) => s.user);
 
   const [query, setQuery] = useState('');
-  const [showFavorites, setShowFavorites] = useState(false);
+  const [favoritesSelected, setShowFavorites] = useState(false);
+  const showFavorites = !!user && favoritesSelected;
   const userLocation = useMapStore((s) => s.userLocation);
   const inputRef = useRef<TextInput>(null);
 
@@ -178,6 +179,7 @@ export default function SearchScreen() {
 
   // 내 장소(집·회사) — 기기 로컬 저장. 탭하면 바로 길안내, 미저장이면 설정
   const myPlaces = useMyPlacesStore((s) => s.places);
+  const myPlacesEnabled = useMyPlacesStore((s) => s.enabled);
   const myPlacesLoaded = useMyPlacesStore((s) => s.loaded);
   const loadMyPlaces = useMyPlacesStore((s) => s.load);
   const saveMyPlace = useMyPlacesStore((s) => s.save);
@@ -189,7 +191,12 @@ export default function SearchScreen() {
   // 내 정보의 집·회사 메뉴에서 — 롱프레스 같은 숨은 동작은 두지 않는다.
   const [editingSlot, setEditingSlot] = useState<MyPlaceSlot | null>(null);
 
+  useEffect(() => {
+    if (!myPlacesEnabled) setEditingSlot(null);
+  }, [myPlacesEnabled]);
+
   const handleMyPlace = (slot: MyPlaceSlot) => {
+    if (!myPlacesEnabled) return;
     const saved = myPlaces[slot];
     if (!saved) {
       Keyboard.dismiss();
@@ -207,14 +214,16 @@ export default function SearchScreen() {
   const handleSlotSelect = (point: Point, address?: string) => {
     const slot = editingSlot;
     setEditingSlot(null);
-    if (!slot || point === 'current') return;
+    if (!myPlacesEnabled || !slot || point === 'current') return;
     void saveMyPlace(slot, {
       name: point.name,
       address: address ?? '',
       latitude: point.latitude,
       longitude: point.longitude,
+    }).then(saved => {
+      if (saved) toast.success(slot === 'home' ? '집을 저장했어요.' : '회사를 저장했어요.');
+      else toast.error('저장하지 못했어요. 다시 시도해 주세요.');
     });
-    toast.success(slot === 'home' ? '집을 저장했어요.' : '회사를 저장했어요.');
   };
 
   const trimmed = query.trim();
@@ -235,7 +244,8 @@ export default function SearchScreen() {
   );
 
   // 지금 보는 지도 주변을 우선 — 같은 "강릉 카페"라도 보고 있는 지역 것이 먼저
-  const { data: favorites, isLoading: favoritesLoading } = useFavoritePlaces();
+  const { data: favoriteData, isLoading: favoritesLoading } = useFavoritePlaces();
+  const favorites = user ? favoriteData : undefined;
   const rawResults = unifiedSearch.data;
   const results = useMemo(() => rawResults ? { ...rawResults, ...mergeFavoriteCandidates(rawResults, favorites, query) } : undefined, [rawResults, favorites, query]);
   const kakaoOnly = results?.kakaoOnly ?? [];
@@ -244,7 +254,7 @@ export default function SearchScreen() {
 
   const { data: recommended, isLoading: recommendedLoading } = useRecommendedPlaces();
   const landingLoading =
-    !myPlacesLoaded ||
+    (myPlacesEnabled && !myPlacesLoaded) ||
     recentLoading ||
     recommendedLoading ||
     (!!user && favoritesLoading);
@@ -482,22 +492,22 @@ export default function SearchScreen() {
         </GlassSurface>
       </View>
 
-      <View style={[styles.myPlacesRow, { paddingHorizontal: 20, paddingBottom: 12 }]}>
-        {(['home', 'work'] as const).map(slot => (
+      {(myPlacesEnabled || !!user) && <View style={[styles.myPlacesRow, { paddingHorizontal: 20, paddingBottom: 12 }]}>
+        {myPlacesEnabled && (['home', 'work'] as const).map(slot => (
           <Pressable key={slot} accessibilityRole="button" onPress={() => handleMyPlace(slot)}
             style={({ pressed }) => [styles.myPlaceCard, { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}>
             <Ionicons name={slot === 'home' ? 'home' : 'business'} size={20} color={colors.tint} />
             <Text style={{ color: colors.text }}>{slot === 'home' ? '집' : '회사'}</Text>
           </Pressable>
         ))}
-        <Pressable accessibilityRole="button" accessibilityState={{ selected: showFavorites }}
+        {!!user && <Pressable accessibilityRole="button" accessibilityState={{ selected: showFavorites }}
           onPress={() => { Keyboard.dismiss(); setShowFavorites(value => !value); }}
           style={({ pressed }) => [styles.myPlaceCard, { backgroundColor: showFavorites ? colors.tint : colors.surface, borderColor: showFavorites ? colors.tint : colors.border, opacity: pressed ? 0.7 : 1 }]}>
           <Ionicons name={showFavorites ? "star" : "star-outline"} size={20} color={showFavorites ? colors.background : colors.tint} />
           <Text style={{ color: showFavorites ? colors.background : colors.text, fontWeight: showFavorites ? '700' : '400' }}>즐겨찾기</Text>
           {showFavorites && <Ionicons name="checkmark" size={14} color={colors.background} />}
-        </Pressable>
-      </View>
+        </Pressable>}
+      </View>}
       {showFavorites ? (
         <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets>
           {favorites?.places.map(place => placeRow(place, 'favorite'))}
@@ -836,7 +846,7 @@ export default function SearchScreen() {
 
 
       <PointSearchModal
-        visible={editingSlot !== null}
+        visible={myPlacesEnabled && editingSlot !== null}
         confirmSlot={editingSlot}
         allowCurrent={false}
         title={editingSlot === 'home' ? '집 설정' : '회사 설정'}

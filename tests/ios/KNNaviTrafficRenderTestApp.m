@@ -3,6 +3,7 @@
 #import <KNSDK/KNNaviView.h>
 #import "KNSDKBridge.h"
 #import "KNNaviTrafficBar.h"
+#import "KNNaviBottomPanel.h"
 @interface KNNaviViewController : UIViewController
 - (void)guidance:(KNGuidance *)guidance didUpdateLocation:(KNGuide_Location *)guide;
 @end
@@ -48,6 +49,13 @@
    [trip routeWithPriority:KNRoutePriority_Recommand avoidOptions:KNRouteAvoidOption_None completion:^(KNError *error,NSArray<KNRoute *> *routes){
     dispatch_async(dispatch_get_main_queue(),^{
      if(error||!routes.count){[self fail:@"route" code:[KNSDKBridge errorCodeOf:error]];return;}
+     // 교통 막대 테스트는 독립 UIKit 앱에서 RN 준비 신호를 대체한다.
+     [KNNaviBottomPanel setSurfaceFactory:^UIView *(NSDictionary *props) {
+       dispatch_async(dispatch_get_main_queue(), ^{
+         [KNNaviBottomPanel surfaceRendered:props[@"token"] menu:[props[@"menu"] boolValue]];
+       });
+       return [UIView new];
+     } event:nil];
      StationaryTrafficController *host=[StationaryTrafficController new];
      [host setValue:trip forKey:@"trip"]; [host setValue:@NO forKey:@"preview"];
      self.window.rootViewController=host; [self.window makeKeyAndVisible];

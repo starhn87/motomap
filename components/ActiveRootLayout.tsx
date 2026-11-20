@@ -7,14 +7,15 @@ import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
 import { Stack, router } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
-import { PostHogProvider } from 'posthog-react-native';
+import { PostHogErrorBoundary, PostHogProvider } from 'posthog-react-native';
 
 import PendingAccountLinkPrompt from '@/components/auth/PendingAccountLinkPrompt';
 import LegalConsentScreen from '@/components/auth/LegalConsentScreen';
@@ -22,6 +23,7 @@ import GlassButton from '@/components/ui/GlassButton';
 import BackIcon from '@/components/ui/BackIcon';
 import HeaderBackdrop from '@/components/ui/HeaderBackdrop';
 import { MapOverlayHost } from '@/components/map/MapOverlayLayer';
+import { ANDROID_TOP_CONTROL_GAP, HEADER_CONTROL_SIZE } from '@/components/navigation/headerSpacing';
 import { HeaderScrollProvider } from '@/components/navigation/headerScroll';
 import ServiceLoadingScreen from '@/components/ServiceLoadingScreen';
 import ServiceResumeScreen from '@/components/ServiceResumeScreen';
@@ -31,6 +33,8 @@ import { LOCATION_CONSENT_VERSION } from '@/lib/locationPrivacy';
 import PersonalPlaceRideSync from '@/components/PersonalPlaceRideSync';
 import PlaceCatalogSync from '@/components/PlaceCatalogSync';
 import { useColorScheme } from '@/components/useColorScheme';
+import { ErrorFallback } from '@/components/ErrorFallback';
+import { ErrorTrackingProbeHost } from '@/lib/errorTrackingProbeHost';
 import DialogHost from '@/components/ui/DialogHost';
 import { toastConfig } from '@/components/ui/toastConfig';
 import Colors from '@/constants/Colors';
@@ -72,17 +76,20 @@ if (sentryDsn) {
 function AppHeader({ title, colorScheme, glass = false }: { title: string; colorScheme: 'light' | 'dark'; glass?: boolean }) {
   const insets = useSafeAreaInsets();
   const colors = Colors[colorScheme];
+  const rowHeight = glass ? HEADER_CONTROL_SIZE : 48;
+  const centeredGap = (rowHeight - HEADER_CONTROL_SIZE) / 2;
+  const topPadding = Platform.OS === 'android' ? ANDROID_TOP_CONTROL_GAP - centeredGap : 0;
   return (
     <View
       style={{
-        paddingTop: insets.top,
+        paddingTop: insets.top + topPadding,
         backgroundColor: glass ? 'transparent' : colors.background,
       }}>
       {glass && <HeaderBackdrop />}
-      <View style={{ height: glass ? 44 : 48, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ height: rowHeight, alignItems: 'center', justifyContent: 'center' }}>
         {router.canGoBack() && (
           <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()}
-            style={{ position: 'absolute', left: 16, width: 44, height: 44, borderRadius: 22 }}>
+            style={{ position: 'absolute', left: 16, width: HEADER_CONTROL_SIZE, height: HEADER_CONTROL_SIZE, borderRadius: HEADER_CONTROL_SIZE / 2 }}>
             <BackIcon size={26} color={colors.text} />
           </GlassButton>
         )}
@@ -101,6 +108,7 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
 
   const tree = (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onReady}>
+      {Platform.OS === 'android' && <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />}
       <PortalProvider shouldAddRootHost={false}>
       <QueryClientProvider client={queryClient}>
         <PersonalPlaceRideSync />
@@ -152,15 +160,24 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
       </View>
       <PendingAccountLinkPrompt />
       <DialogHost />
+      <ErrorTrackingProbeHost />
     </GestureHandlerRootView>
   );
 
-  if (!posthog) return tree;
+  return tree;
+}
+
+function TrackingShell({ children }: { children: ReactNode }) {
+  if (!posthog) return children;
   return (
     <PostHogProvider
       client={posthog}
       autocapture={{ captureScreens: false, captureTouches: false }}>
-      {tree}
+      <PostHogErrorBoundary
+        fallback={({ resetError }) => <ErrorFallback resetError={resetError} />}
+        additionalProperties={releaseContext}>
+        {children}
+      </PostHogErrorBoundary>
     </PostHogProvider>
   );
 }
@@ -221,8 +238,7 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
 
   if (!loaded) return null;
   // 같은 1.2.8 테스트 바이너리라도 중지 브리지가 없는 앱에는 새 위치 기능을 열지 않는다.
-  if (Platform.OS === 'ios' && nativeCapabilities.bridgeVersion < 2) return <ServiceResumeScreen
-    mode="update" storeUrl={APP_STORE_URL} onRetry={() => {}} />;
+  if (Platform.OS === 'ios' && nativeCapabilities.bridgeVersion < 2) return <ServiceResumeScreen storeUrl={APP_STORE_URL} />;
   // 기존 계정의 새 동의를 확인하기 전 지도 Stack·개인 기록 동기화를 마운트하지 않는다.
   // 모듈 import/Sentry 초기화까지 차단한다는 의미는 아니다.
   if (authStatus === 'restoring') {
@@ -248,4 +264,12 @@ function ActiveRootLayout({ onReady }: { onReady?: () => void }) {
   return <ActiveRootLayoutNav onReady={onReady} />;
 }
 
-export default Sentry.wrap(ActiveRootLayout);
+function TrackedActiveRootLayout({ onReady }: { onReady?: () => void }) {
+  return (
+    <TrackingShell>
+      <ActiveRootLayout onReady={onReady} />
+    </TrackingShell>
+  );
+}
+
+export default Sentry.wrap(TrackedActiveRootLayout);

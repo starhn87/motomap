@@ -63,6 +63,14 @@ if (nativeVersion !== policy.nativeBridgeVersion) {
   );
 }
 
+const androidModule = read('modules/kakao-navi/android/src/main/java/expo/modules/kakaonavi/KakaoNaviModule.kt');
+const androidNativeVersion = Number(androidModule.match(/Constant\("bridgeVersion"\) \{ (\d+) \}/)?.[1]);
+if (androidNativeVersion !== policy.nativeBridgeVersion) {
+  errors.push(
+    `Kotlin bridgeVersion(${androidNativeVersion})과 release-policy(${policy.nativeBridgeVersion})가 다릅니다.`,
+  );
+}
+
 const compatibilityDoc = read('docs/domain-decisions/release-compatibility.md');
 for (const marker of [
   `현재 앱 버전: **${policy.appVersion}**`,

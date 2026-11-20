@@ -12,11 +12,57 @@
 
 ## 현재 계약
 
-- 현재 앱 버전: **1.2.11**
+- 현재 앱 버전: **1.3.2**
 - 공식 지원 직전 버전: **1.2.10**
 - 원격 최소 실행 버전: **1.2.4**
-- 네이티브 브리지 계약: **41**
+
+- 네이티브 브리지 계약: **49**
 - 백엔드 API 계약: **1**
+
+## 2026-11-11 iOS 길안내 RN TestFlight 후보 — 1.3.2
+
+App Store Connect가 승인된 1.3.1의 새 빌드 제출을 거절했다(90062, 90186).
+같은 RN 소스를 1.3.2로 올리고 앱 버전 기반 Expo 런타임도 1.3.2로 분리한다.
+native42, API1, 원격 최소 실행 버전 및 미출시 후보의 OTA 차단 정책은 유지한다.
+
+## 2026-11-10 iOS 길안내 RN 패널 후보
+
+native42는 iOS 길안내 패널에 `guide_rn_bottom`과 Surface 연결·준비·조작 계약을 추가한다.
+native41의 WebView 화면은 이미 설치된 바이너리에서 계속 동작한다. 앱 버전과 Expo 런타임은
+로컬 비교 단계에서 1.3.1을 사용한다. 배포 전에는 새 바이너리와 호환 범위를 검증해야 한다.
+앱 버전 후보 표시와 OTA 제한을 유지한다.
+
+## 2026-11-09 TestFlight — 1.3.1
+
+사용자 요청으로 iOS 앱 버전과 Expo 런타임을 1.3.1로 올리고 production 채널로
+TestFlight 빌드를 제출한다. 직전 1.3.0(79)의 교통 막대 변경과 활동 탭·장소 상세의
+수정을 포함한다. native41/API1, 지원 직전 공개 버전 1.2.10, 원격 최소 실행 버전
+1.2.4 정책을 유지한다.
+
+EAS 클라우드의 무료 빌드 한도에 도달해 source `1104941`을 맥에서 production으로
+빌드했다. 서명된 IPA의 앱 버전 1.3.1(81), 런타임 1.3.1, production 채널을 확인했다.
+EAS 제출 `bda8b064-fd3d-4f59-935d-7a37b0635e6f`가 완료되어 App Store Connect가
+업로드를 수신했다. 확인 시점에는 Apple이 빌드를 처리 중이다.
+
+## 2026-11-08 App Store 제출 후보 — 1.3.0
+
+1.2.11 TestFlight 빌드 77 이후의 지도 날씨 레이아웃과 일 최저·최고, 장소 제보와
+리뷰 사진 동작을 포함한 main 소스를 1.3.0 iOS 바이너리로 묶는다. 앱 버전과
+appVersion 기반 Expo 런타임은 모두 1.3.0, 채널은 production, native41/API1이다.
+1.2.11은 TestFlight 후보였으므로 공식 지원 직전 공개 버전은 1.2.10을 유지한다.
+source `b6a272b`의 EAS iOS 빌드 `87cf97f9-66cc-451f-a069-f2a5034c7ebd`가 완료됐다.
+IPA에서 1.3.0(78), runtime 1.3.0, production 채널과 날씨·사진 관련 번들 문자열을
+확인했다. 제출 `40c220e5-7a68-4536-ae5a-f7e6558d81dd`에서 App Store Connect
+업로드 성공을 확인했다. Apple 처리와 심사 제출은 별개다.
+
+## 2026-11-07 PostHog 오류 수집 준비 — 네이티브 빌드 없음
+
+ERR-001이 Hermes debug id와 `posthog-react-native/expo`의 dSYM·소스맵 업로드 단계를 소스에
+연결했다. 앱/runtime **1.2.11**, native **41**, API **1**, candidate 1.2.11은 유지한다.
+후보가 현재 버전과 같아 릴리스 검사는 이 플러그인 변경에 버전 증가를 요구하지 않는다.
+업로드 스크립트와 수동 workflow는 pull request·push에서 실행되지 않는다.
+EAS 빌드, OTA, TestFlight, 심볼 업로드는 하지 않았다. 네이티브 크래시가 심볼과 함께
+수집되는지는 다음 승인 빌드의 확인 전이다.
 
 ## 2026-11-07 날씨 레이아웃 TestFlight 공통 OTA 승인
 
@@ -1708,3 +1754,99 @@ production, 계약은 native41/API1이다. IPA에서 77번과 현재 위치 버�
 
 제출 `43141e8a-5daf-4555-bb8b-0bc0f3f13c55`에서 App Store Connect 업로드 성공을
 확인했다. Apple 처리 완료와 실기기 설치·화면 확인은 아직 하지 않았다.
+
+## 2026-11-08 Android 적응형 런처 아이콘
+
+Galaxy S22 One UI 앱 목록에서 공통 `icon-v2.png`를 적응형 전경에 그대로 사용한 결과 위치 핀의
+하단이 마스크에 잘렸다. 같은 흰 핀·오토바이 도안을 투명한 Android 전경에 넣고 중앙 안전 영역에
+맞춘다. 배경색은 기존 `#0A0A0A`를 사용한다. 전경은 네이티브 리소스라 새 Android APK에 반영된다.
+앱/runtime 1.2.11과 네이티브 브리지·백엔드 API 계약은 유지한다.
+
+[Android 적응형 아이콘 안전 영역](https://developer.android.com/develop/ui/compose/system/icon_design_adaptive)
+
+### 2026-11-09 Android 아이콘·인트로 크기 조정
+
+Galaxy One UI에서 런처 아이콘의 핀·바이크 전경 크기를 약 17% 줄인다. 인트로는 원본 바이크의
+투명 영역을 고려해 Android 네이티브와 JS 대기 화면 모두 288dp 정사각 영역에 원본을 배치한다.
+실제 바이크 문양은 약 144dp다. iOS는 기존 전체 화면 원본 설정을 쓴다. Android 아이콘과 시스템
+인트로는 새 APK가 필요하며 1.2.11 앱/runtime과 네이티브/API 계약은 유지한다.
+
+[Android 스플래시 이미지 규격](https://developer.android.com/develop/ui/views/launch/splash-screen)
+
+### 2026-11-09 Android 인트로 바이크 크기 후속
+
+갤럭시에서 이전 약 144dp 바이크가 작다는 피드백을 받아 같은 원본의 Android 전용 크롭을 사용한다.
+288dp 시스템 캔버스와 중앙 마스크 안에서 바이크 너비를 약 179dp로 키운다. Galaxy S22에서는
+화면 너비의 절반에 가깝다. 네이티브 시작 화면과 JS 대기 화면이 같은 전용 이미지를 사용한다.
+
+## 2026-11-09 Android 앱 내 이륜차 주행 안내 후보
+
+NAV-072는 Android 네이티브 브리지와 `android_live_guidance` capability를 도입한다.
+REL-003에 따라 브리지 계약을 42로 올린다. 기존 Android 바이너리는 REST 미리보기를
+제공하며 앱 내 안내는 새 APK를 설치하면 사용할 수 있다. 미출시 후보 앱/runtime1.2.11과
+API1 계약을 유지한다. Android UI SDK 최소 요구 사항에 맞춰 Android 8.0(API 26)을
+지원 하한으로 삼는다. 카카오 앱의 Android 플랫폼 키에는 패키지와 APK 서명 해시가
+등록되어야 한다. 이 변경은 갤럭시 로컬 테스트 APK를 대상으로 한다.
+
+UI SDK의 `v2-common:2.23.0`과 기존 Android 로그인 SDK 2.20.1이 혼용되면
+`KakaoJson.getBase()`를 찾지 못해 시작 시 종료된다. Android 로그인 라이브러리도
+2.23.0에 맞추고 앱에서 사용하지 않는 두 가지 제거된 SDK 참조를 패치했다.
+
+## 2026-11-09 Android 모토맵 길안내 화면 후보
+
+NAV-073에서 Android에 `guide_web_bottom`, `guide_route_editing`, `guide_arrival_record`
+계약을 제공해 브리지 43으로 올린다. iOS 하단 HTML의 렌더링은 그대로 쓰고 Android 메시지
+전송 경로를 같은 파일에 둔다. 새 Android 바이너리에서 적용하며 후보 앱/runtime1.2.11과 API1을
+유지한다.
+
+## 2026-11-09 Android 안내 단일 태스크·교통 UI 후보
+
+NAV-074는 Android 안내 Activity와 엔진 수명주기, SDK 리소스 및 공유 HTML을 변경한다.
+새 Android 바이너리가 필요하며 후보 앱/runtime1.2.11과 API1을 유지하고 검증 정책에 맞춰
+브리지 버전을 44로 올린다.
+
+## 2026-11-10 Android 안내 React Native 서피스
+
+Android 안내 Activity가 앱의 React Host로 별도 안내 서피스를 만든다. 앱 엔트리포인트의
+서피스 등록과 Kotlin의 토큰 기반 상태·조작 계약이 함께 필요하므로 브리지 계약을 45로
+올린다. 적용에는 새 Android 바이너리가 필요하다. 이전 JS 번들이 실행되면 기존 WebView
+하단과 Canvas 막대로 복구한다. 앱 버전·백엔드 API 계약과 iOS 안내 구현은 유지한다.
+
+## 2026-11-11 Android 안내 지도 확대·축소 조작부 숨김
+
+Android 안내 화면의 SDK 조작부 표시 정책 변경을 적용하려면 새 Android 바이너리가
+필요하다. 네이티브 모듈 변경 검사에 맞춰 계약 표기를 46으로 올린다. JS 이벤트·인자와
+앱 버전·백엔드 API 계약은 유지한다.
+
+## 2026-11-11 Android 안내 지도 보기 전환 버튼 숨김
+
+Android 안내 하단 바와 겹치는 SDK 카메라 모드 버튼을 숨긴다. 새 Android 바이너리에
+반영되는 모듈 변경에 맞춰 계약 표기를 47로 올린다. JS 이벤트·인자와 앱 버전·백엔드
+API 계약은 유지한다.
+
+## 2026-11-18 Android 기능·성능 정합 후보
+
+Android 배포 소스 `e60e61e`와 iOS 빌드 91 로컬 메타데이터의 기반 커밋 `b61ce83`을
+통합한다. 91 로그는 dirty 작업본과 소스맵 업로드 실패를 포함해 성공 바이너리의 전체
+소스 동일성은 확정하지 않는다. 최신 커밋 기반 기능을 Android에서 검증하는 작업이다.
+
+Android도 앱/런타임 1.3.2로 분리하고 브리지 계약을 양쪽 48, API1로 동기화한다.
+Android 기존 47의 RN 패널·교통 막대·경로 미리보기와 카카오 로그인 패치를 보존하며,
+통합된 iOS RN43 기능도 유지한다. Android WebView 폴백 자산은 iOS 번들에서 분리한다.
+릴리스·제출 문서와 노트를 같은 변경에 포함하고 새 바이너리로 검증한다.
+원격 최소 버전 정책·운영 DB·Play Console·공개 OTA 배포는 이번 로컬 검증에 포함하지 않는다.
+
+### main 이력 통합
+
+main의 Firebase 미설정 로그아웃 수정은 같은 코드와 테스트로 이미 포함된다. 11월 2일의
+피드백·제보 로딩·바이크 빈 화면 개선도 유지한다. 당시의 탐색/알림 탭 구성과 순위 화면은
+COMMUNITY-012와 NOTIFY-003의 활동 탭으로 대체됐으므로 재도입하지 않는다. 기존
+COMMUNITY-010 및 INTERACTION-012 기록과 후속 대체 결정, 인증 수정 기록을 보존한다.
+main 병합 결과의 실행 소스는 Galaxy에서 검증한 `c5708a2`와 같으며 이 절만 추가한다.
+
+
+## 2026-11-19 Android 중앙 안내 안정화 — native49 후보
+
+NAV-080은 새 Android 바이너리에서 적용한다. 릴리즈 검사에 맞춰 브리지 표기를 49로
+동기화하며 앱/runtime 1.3.2, API1, 이벤트와 인자는 유지한다. iOS 표기 동기화로
+iOS 화면 동작은 바뀌지 않는다.

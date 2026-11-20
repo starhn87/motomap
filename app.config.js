@@ -1,4 +1,6 @@
 const releasePolicy = require('./config/release-policy.json');
+const posthogErrorTracking = require('./config/posthog-error-tracking.json');
+const { probeConfigPlugins } = require('./config/errorTrackingProbe.cjs');
 const pretendardFonts = [
   'Thin', 'ExtraLight', 'Light', 'Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold', 'Black',
 ].map((name, index) => ({ path: `./assets/fonts/Pretendard-${name}.otf`, weight: (index + 1) * 100 }));
@@ -78,10 +80,11 @@ export default {
     android: {
       package: 'com.ridemap.app',
       adaptiveIcon: {
-        foregroundImage: './assets/images/icon-v2.png',
+        foregroundImage: './assets/images/android-adaptive-foreground.png',
         backgroundColor: '#0A0A0A',
       },
       predictiveBackGestureEnabled: false,
+      blockedPermissions: ['android.permission.READ_PHONE_STATE'],
       permissions: [
         'ACCESS_FINE_LOCATION',
         'ACCESS_COARSE_LOCATION',
@@ -106,6 +109,8 @@ export default {
           backgroundColor: '#0A0A0A',
           // Expo 57에서도 기존 전체 화면 바이크 이미지의 크기·배치를 유지한다.
           ios: { enableFullScreenImage_legacy: true },
+          // Android 마스크 안에서 바이크가 화면 너비의 절반에 가깝게 보인다.
+          android: { image: './assets/images/android-splash-bike.png', imageWidth: 288 },
         },
       ],
       [
@@ -175,11 +180,14 @@ export default {
             enableSceneSupport: true,
           },
           android: {
+            minSdkVersion: 26,
             extraMavenRepos: [
               'https://repository.map.naver.com/archive/maven',
               // 카카오 SDK(com.kakao.sdk:*)는 Maven Central 이 아니라 카카오 전용
               // 저장소에만 있다. @react-native-kakao 는 mavenCentral 만 선언하므로 필수.
               'https://devrepo.kakao.com/nexus/content/groups/public/',
+              'https://devrepo.kakaomobility.com/repository/kakao-mobility-android-knsdk-public/',
+              'https://devrepo.kakaomobility.com/repository/kakao-mobility-android-locationsdk-release/',
             ],
           },
         },
@@ -197,6 +205,17 @@ export default {
           project: process.env.SENTRY_PROJECT,
         },
       ],
+      [
+        'posthog-react-native/expo',
+        {
+          uploadNativeSymbols: posthogErrorTracking.includeSource
+            ? { includeSource: true }
+            : posthogErrorTracking.uploadNativeSymbols,
+          skipOnConflict: posthogErrorTracking.skipOnConflict,
+          releaseMode: posthogErrorTracking.releaseMode,
+        },
+      ],
+      ...probeConfigPlugins(),
     ],
     extra: {
       kakaoNativeAppKey: process.env.KAKAO_NATIVE_APP_KEY,
