@@ -73,7 +73,7 @@ function setup(overrides: Record<string, unknown> = {}) {
     ? node.flatMap(child => all(type, child)) : [...(node.type === type ? [node] : []), ...all(type, node.props?.children ?? null)];
   const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); render(); };
   render();
-  // 일반 장소 시트는 닫힌 채(place=null) 계속 붙어 있으므로 장소가 든 시트만 연 것으로 본다.
+  // 시트는 닫힌 채(place=null) 붙어 있으므로 장소가 든 시트만 연 것으로 본다.
   const sheet = () => [...all('PlaceSheet'), ...all('TempSheet')].find(node => node.props.place);
   const tapFavorite = () => { all('Favorites')[0].props.onTapPlace(favorites.places[0]); render(); };
   return { props, render, all, flush, addresses, picked, placeQueries, sheet, tapFavorite, favorites };
@@ -113,6 +113,26 @@ test('지도에서 선택에도 메인 지도처럼 등록(바이크 특화) 장
   layer.props.onTap(layer.props.places[0]); f.render();
   f.sheet().props.pickAction.onPress();
   assert.equal(f.picked[0].placeId, 'repair'); assert.equal(f.picked[0].address, '정비소 주소');
+});
+
+test('등록 상세 시트는 첫 마커 터치 전에 준비되고 닫아도 다음 선택에 재사용된다', () => {
+  const f = setup();
+  const registeredSheet = () => {
+    const sheets = f.all('PlaceSheet');
+    assert.equal(sheets.length, 1);
+    assert.equal(f.all('TempSheet').length, 1);
+    return sheets[0].props.place;
+  };
+  assert.equal(registeredSheet(), null, '지도 열림과 함께 시트 레이아웃이 준비된다');
+  const marker = f.all('Registered')[0].props.places[0];
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    f.all('Registered')[0].props.onTap(marker);
+    f.render();
+    assert.equal(registeredSheet().id, 'repair');
+    f.sheet().props.onClose();
+    f.render();
+    assert.equal(registeredSheet(), null, '시트를 닫아도 다음 마커를 받을 수 있게 남긴다');
+  }
 });
 
 test('장소를 고르면 상세 시트에 경유지 추가 버튼만 두고 하단 확인 바는 숨긴다', async () => {
