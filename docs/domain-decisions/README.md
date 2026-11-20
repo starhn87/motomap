@@ -42,6 +42,7 @@
 | 장소 선별·운영 상태 검증 | [place-curation.md](place-curation.md) | `public.places`, 카탈로그 갱신·공급자 ID 억제, CURATION-018 승인 만료·이전 후속, CURATION-019 정기 네이버 교차 확인 |
 | 일반 장소 추천 | [community-place-recommendations.md](community-place-recommendations.md) | `public.general_place_shares`, 일반 장소 상세·지도 |
 | 장소·라이딩 추천 제보 심사 | [submission-moderation.md](submission-moderation.md) | `docs/submission-approval-policy.md`, `supabase/functions/judge-submission/` |
+| 운영 관리자 화면 | [admin.md](admin.md) | `website/src/admin/`, `scripts/posthog-metrics.mjs` |
 | 활동 탭·내 제보·리뷰·알림·푸시 토큰 수명주기 | [notifications.md](notifications.md) | `components/activity/`, `lib/push.ts`, `lib/pushTokens.ts`, `components/ActiveRootLayout.tsx` |
 | Jev 판단 관찰 | [jev-observation.md](jev-observation.md) | `supabase/functions/_shared/jevChat.ts`, `jevSubmission.ts` |
 | 릴리스·버전 호환성 | [release-compatibility.md](release-compatibility.md) | `config/release-policy.json`, `lib/appCompatibility.ts`, `modules/kakao-navi/`, `.github/workflows/checks.yml` |
