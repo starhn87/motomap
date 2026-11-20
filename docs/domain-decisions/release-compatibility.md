@@ -1862,3 +1862,18 @@ JS 인자·이벤트는 유지하며 새 Android 바이너리에서 적용한다
 NAV-074의 Android 복귀 카메라가 도착 전에 감속하고 애니메이션 완료 시 SDK 추적을 복구한다.
 기존 RN 액션과 JS 인자·이벤트를 유지하며, 릴리즈 검사에 맞춰 브리지 표기를 51로 동기화한다.
 앱/runtime은 1.3.2, 백엔드 계약은 API1을 유지한다.
+
+## 2026-11-20 AI 추천 헤더 공통 OTA
+
+사용자가 main 푸시와 Android·iOS OTA를 승인했다. 한국 App Store의 iOS 1.3.2 및
+Google Play 내부 테스트의 Android 1.3.2(9)를 확인했다. `check:release -- --ota`는
+후보 표시로 발행을 차단한다. 후보 표시와 일반 보호 검사는 유지하고 이번 요청의 호환되는
+JS 변경에 한해 production 채널, runtime 1.3.2에 발행했다.
+
+- Android는 Play 9의 소스 `91d97c5` 위에 헤더 수정을 포함한 main `40e6406`을 사용했다.
+  그룹 `5474d07e-c09c-4dd0-a5bb-ce055f34ff7d`, 업데이트 `01a1f8fd-8a2e-7420-877f-8af596ff392b`.
+- iOS는 기존 OTA 소스 `76b6ea2`에 `app/chat.tsx` 변경만 이식한 `d312bbc`를 사용했다.
+  그룹 `a4475b82-fa3c-4854-9490-b770595df9d6`, 업데이트 `01a1f8fe-6354-762c-96dd-049dee692aa7`.
+
+양 플랫폼의 production manifest가 위 업데이트 ID와 runtime을 반환했다. 길안내 복귀 감속의
+네이티브 구현은 Play 9 바이너리에 포함된다.
