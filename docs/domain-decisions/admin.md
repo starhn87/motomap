@@ -20,7 +20,7 @@
 ### 결정
 
 - 세션 쿠키는 `HttpOnly`, `SameSite=Strict`, `Path=/admin`이다. 쓰기는 `POST`와 같은 출처 `Origin`이 모두 있어야 한다.
-- 코드 요청 응답은 항상 `code_sent`다. 서버는 Auth 관리 API로 이메일에 해당하는 사용자 id를 확인하고, 그 id가 allowlist에 있을 때만 코드를 보낸다. 이메일 문자열로 관리자를 추정하지 않는다. 같은 IP·같은 이메일은 한 시간에 5회를 넘기면 발송하지 않고 응답은 그대로다.
+- 코드 요청 응답은 항상 `code_sent`다. 서버는 `ADMIN_USER_IDS`의 UUID마다 `getUserById`를 호출해, 그 사용자 이메일을 소문자·trim으로 정규화한 값이 요청 이메일과 같을 때만 코드를 보낸다. 사용자 목록 검색으로 이메일을 찾지 않는다. 같은 IP·같은 이메일은 한 시간에 5회를 넘기면 발송하지 않고 응답은 그대로다. 이 횟수는 Worker 인스턴스 메모리에만 남으며 전역 한도가 아니다.
 - 매 요청마다 Auth `getUser`로 사용자 id를 확인하고 allowlist와 비교한다.
 - 주간 컷·QA·PM 추천은 수동 행이다. `source`는 `manual`만 허용하고 갱신 시각을 보여 준다. PM 추천은 `ai_reject_reason`, `ai_recommendation`과 다른 테이블이다.
 - 열린 PR과 CI는 GitHub `GET /repos/starhn87/motomap/pulls`와 check-runs만 읽는다.

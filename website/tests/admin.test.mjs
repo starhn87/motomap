@@ -255,17 +255,13 @@ test('코드 요청은 가입·허용 여부와 같은 응답이고 allowlist UU
   resetOtpAttempts();
   const sleeps = [];
   const calls = [];
-  const users = {
-    'member@example.com': { id: adminId, email: 'member@example.com' },
-    'other@example.com': { id: otherId, email: 'other@example.com' },
-  };
   const env = baseEnv(async (url, init) => {
     const href = String(url);
     calls.push(href);
-    if (href.includes('/auth/v1/admin/users')) {
-      const email = new URL(href).searchParams.get('filter');
-      const user = users[email];
-      return jsonResponse({ users: user ? [user] : [] });
+    if (href.includes('/auth/v1/admin/users/')) {
+      assert.equal(href.endsWith(`/auth/v1/admin/users/${adminId}`), true);
+      assert.equal(href.includes('filter='), false);
+      return jsonResponse({ id: adminId, email: 'member@example.com' });
     }
     if (href.includes('/auth/v1/otp')) {
       const body = JSON.parse(init.body);
@@ -297,7 +293,7 @@ test('코드 요청은 가입·허용 여부와 같은 응답이고 allowlist UU
   }
   const unknown = await request('missing@example.com', '203.0.113.10');
   const outsider = await request('other@example.com', '203.0.113.11');
-  const member = await request('member@example.com', '203.0.113.12');
+  const member = await request(' Member@Example.com ', '203.0.113.12');
   assert.deepEqual(unknown, { status: 200, body: { state: 'code_sent' } });
   assert.deepEqual(outsider, unknown);
   assert.deepEqual(member, unknown);
@@ -313,8 +309,8 @@ test('코드 요청 한도를 넘어도 응답은 같고 더 이상 보내지 �
   let otpCalls = 0;
   const env = baseEnv(async (url) => {
     const href = String(url);
-    if (href.includes('/auth/v1/admin/users')) {
-      return jsonResponse({ users: [{ id: adminId, email: 'member@example.com' }] });
+    if (href.endsWith(`/auth/v1/admin/users/${adminId}`)) {
+      return jsonResponse({ id: adminId, email: 'member@example.com' });
     }
     if (href.includes('/auth/v1/otp')) {
       otpCalls += 1;
@@ -342,8 +338,8 @@ test('코드 요청 한도를 넘어도 응답은 같고 더 이상 보내지 �
   let emailCalls = 0;
   const emailEnv = baseEnv(async (url) => {
     const href = String(url);
-    if (href.includes('/auth/v1/admin/users')) {
-      return jsonResponse({ users: [{ id: adminId, email: 'member@example.com' }] });
+    if (href.endsWith(`/auth/v1/admin/users/${adminId}`)) {
+      return jsonResponse({ id: adminId, email: 'member@example.com' });
     }
     if (href.includes('/auth/v1/otp')) {
       emailCalls += 1;

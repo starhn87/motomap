@@ -129,24 +129,27 @@ export async function refreshAuthSession({ url, anonKey, refreshToken, fetchImpl
   return { ok: true, access: body.access_token, refresh: body.refresh_token };
 }
 
-export async function findUserIdByEmail({ url, secret, email, fetchImpl }) {
-  const endpoint = new URL(`${authBase(url)}/auth/v1/admin/users`);
-  endpoint.searchParams.set('page', '1');
-  endpoint.searchParams.set('per_page', '20');
-  endpoint.searchParams.set('filter', email);
-  const response = await fetchImpl(endpoint, {
-    headers: { apikey: secret, Authorization: `Bearer ${secret}` },
-  });
-  if (!response.ok) return null;
-  let body;
-  try {
-    body = await response.json();
-  } catch {
-    return null;
+function userEmail(body) {
+  const email = body?.email ?? body?.user?.email;
+  return typeof email === 'string' ? email.trim().toLowerCase() : '';
+}
+
+// allowlist의 UUID마다 getUserById 한 번씩 호출한다. 목록 검색으로 이메일을 찾지 않는다.
+export async function allowlistedEmailMatches({ url, secret, email, ids, fetchImpl }) {
+  const target = email.trim().toLowerCase();
+  let matched = false;
+  for (const id of ids) {
+    const response = await fetchImpl(`${authBase(url)}/auth/v1/admin/users/${id}`, {
+      headers: { apikey: secret, Authorization: `Bearer ${secret}` },
+    });
+    if (!response.ok) continue;
+    try {
+      if (userEmail(await response.json()) === target) matched = true;
+    } catch {
+      // 한 명 조회 실패가 응답 차이를 만들면 안 된다.
+    }
   }
-  const users = Array.isArray(body?.users) ? body.users : [];
-  const match = users.find((user) => typeof user?.email === 'string' && user.email.toLowerCase() === email);
-  return typeof match?.id === 'string' ? match.id.toLowerCase() : null;
+  return matched;
 }
 
 export async function requestEmailCode({ url, anonKey, email, fetchImpl }) {

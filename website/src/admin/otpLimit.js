@@ -1,3 +1,5 @@
+// 한도는 이 Worker 인스턴스 메모리에만 쌓인다. 인스턴스가 여럿이면 시간당 5회가
+// 전역으로 보장되지 않는다. 공유 저장소로 옮기는 일은 이번 범위가 아니다.
 const WINDOW_MS = 60 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 const hits = new Map();

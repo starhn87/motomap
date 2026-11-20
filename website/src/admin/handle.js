@@ -3,7 +3,7 @@ import {
   clearedSessionCookie,
   encodeSession,
   fetchAuthUser,
-  findUserIdByEmail,
+  allowlistedEmailMatches,
   isAllowlisted,
   isSameOriginPost,
   isUuid,
@@ -119,20 +119,21 @@ export async function handleAdmin(request, env) {
     if (request.method !== 'POST') return json(405, { state: 'method_not_allowed' });
     if (config.blocked) return json(403, { state: 'configuration_blocked' });
     const body = await readJson(request);
-    if (!validEmail(body?.email)) return json(400, { state: 'invalid_input' });
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
+    if (!validEmail(email)) return json(400, { state: 'invalid_input' });
     if (path.endsWith('/otp')) {
       const started = Date.now();
-      const email = body.email.trim().toLowerCase();
       const ip = request.headers.get('cf-connecting-ip')?.trim() || 'unknown';
       const sleep = env.adminSleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
       if (otpAttemptAllowed({ ip, email }) && configured(env.SUPABASE_SECRET_KEY)) {
-        const userId = await findUserIdByEmail({
+        const matched = await allowlistedEmailMatches({
           url: config.url,
           secret: env.SUPABASE_SECRET_KEY.trim(),
           email,
+          ids: config.allowlist.ids,
           fetchImpl,
         });
-        if (isAllowlisted(config.allowlist, userId)) {
+        if (matched) {
           await requestEmailCode({ url: config.url, anonKey: config.anonKey, email, fetchImpl });
         }
       }
@@ -141,7 +142,7 @@ export async function handleAdmin(request, env) {
     }
     if (typeof body.token !== 'string' || !/^\d{6,10}$/.test(body.token)) return json(400, { state: 'invalid_input' });
     const verified = await verifyEmailCode({
-      url: config.url, anonKey: config.anonKey, email: body.email, token: body.token, fetchImpl,
+      url: config.url, anonKey: config.anonKey, email, token: body.token, fetchImpl,
     });
     if (!verified.ok) return json(401, { state: 'unauthenticated' });
     const user = await fetchAuthUser({
