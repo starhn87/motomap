@@ -35,18 +35,24 @@ test('Glass 버튼은 native 상호작용을 켜고 폴백일 때만 눌림 투�
 test('스와이프는 삭제 버튼만 드러내며 확인 전이나 취소 시에는 삭제하지 않는다', () => {
   const alerts: any[] = [];
   let deleted = 0, closed = 0;
+  const confirmation = loadModule<any>('components/ui/simpleConfirmation.ts', {
+    'react-native': { Platform: { OS: 'ios' }, Alert: { alert: (...args: any[]) => alerts.push(args) } },
+    '@/lib/dialog': { appAlert: () => assert.fail('iOS에서는 시스템 확인창을 열어야 한다') },
+    '@/stores/useThemeStore': { useThemeStore: { getState: () => ({ mode: 'dark' }) } },
+  });
   const module = loadModule<any>('components/activity/SwipeDeleteRow.tsx', {
     react: { useRef: () => ({ current: { close: () => closed++ } }) },
     'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native,
     'react-native-gesture-handler/ReanimatedSwipeable': exported('Swipe'),
     '@expo/vector-icons/Ionicons': exported('Icon'), '@/constants/Colors': { semantic: { danger: 'red' } },
-    '@/lib/dialog': { appAlert: (...args: any[]) => alerts.push(args) },
+    '@/components/ui/simpleConfirmation': confirmation,
   });
   const tree = module.default({ label: '제보 목록에서 삭제', message: '내 목록에서만 숨겨요.', children: () => 'row', onDelete: () => deleted++ });
   assert.equal(tree.props.overshootRight, false); assert.equal(tree.props.onSwipeableOpen, undefined);
   const action = tree.props.renderRightActions(); assert.equal(deleted, 0);
   action.props.onPress(); assert.equal(deleted, 0); assert.equal(closed, 1);
   const buttons = alerts[0][2]; assert.equal(buttons[0].style, 'cancel');
+  assert.equal(alerts[0][3].userInterfaceStyle, 'dark');
   buttons[1].onPress(); assert.equal(deleted, 1);
   const busy = module.default({ busy: true, label: '리뷰 삭제', children: () => 'row', onDelete: () => deleted++ });
   assert.equal(busy.props.enabled, false); assert.equal(busy.props.renderRightActions().props.disabled, true);

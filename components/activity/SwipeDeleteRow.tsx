@@ -4,7 +4,7 @@ import { Text } from '@/components/ui/AppText';
 import Swipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { semantic } from '@/constants/Colors';
-import { appAlert } from '@/lib/dialog';
+import { simpleConfirmation } from '@/components/ui/simpleConfirmation';
 
 type Props = { children: (confirmDelete: () => void) => ReactNode; label: string; message: string; onDelete: () => void; busy?: boolean };
 
@@ -13,10 +13,7 @@ export default function SwipeDeleteRow({ children, label, message, onDelete, bus
   const ref = useRef<SwipeableMethods>(null);
   const confirm = () => {
     ref.current?.close();
-    appAlert(label, message, [
-      { text: '취소', style: 'cancel' },
-      { text: '삭제', style: 'destructive', onPress: onDelete },
-    ]);
+    simpleConfirmation(label, message, { text: '삭제', style: 'destructive', onPress: onDelete });
   };
   return <Swipeable ref={ref} enabled={!busy} friction={2} rightThreshold={40} overshootRight={false}
     renderRightActions={() => <Pressable accessibilityRole="button" accessibilityLabel={label} disabled={busy}

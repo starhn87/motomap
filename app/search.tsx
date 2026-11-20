@@ -43,6 +43,7 @@ import { useMapStore } from '@/stores/useMapStore';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
 import { createAnalyticsId, track } from '@/lib/analytics';
 import Skeleton from '@/components/ui/Skeleton';
+import { simpleConfirmation } from '@/components/ui/simpleConfirmation';
 import {
   loadRecentSearches,
   addRecentSearch,
@@ -89,7 +90,6 @@ async function promoteRegisteredKakao(list: RecentSearch[]): Promise<RecentSearc
       seen.add(k);
       return true;
     });
-    await saveRecentSearches(deduped);
     return deduped;
   } catch {
     return null;
@@ -164,6 +164,7 @@ export default function SearchScreen() {
   const [recent, setRecent] = useState<RecentSearch[]>([]);
   const [recentExpanded, setRecentExpanded] = useState(false);
   const [recentLoading, setRecentLoading] = useState(true);
+  const recentCleared = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,7 +173,10 @@ export default function SearchScreen() {
       setRecent(list);
       setRecentLoading(false);
       const promoted = await promoteRegisteredKakao(list);
-      if (!cancelled && promoted) setRecent(promoted);
+      if (!cancelled && promoted && !recentCleared.current) {
+        setRecent(promoted);
+        void saveRecentSearches(promoted);
+      }
     });
     return () => {
       cancelled = true;
@@ -709,9 +713,19 @@ export default function SearchScreen() {
                 <Pressable
                   hitSlop={8}
                   onPress={() => {
-                    setRecent([]);
-                    setRecentExpanded(false);
-                    clearRecentSearches();
+                    const clear = () => {
+                      recentCleared.current = true;
+                      setRecent([]);
+                      setRecentExpanded(false);
+                      void clearRecentSearches();
+                    };
+                    if (ios) {
+                      simpleConfirmation('최근 검색 기록을 지울까요?', '이 기기의 최근 검색 목록이 비워져요.', {
+                        text: '지우기', style: 'destructive', onPress: clear,
+                      });
+                    } else {
+                      clear();
+                    }
                   }}>
                   <Text style={[styles.sectionAction, { color: colors.textSecondary }]}>
                     지우기

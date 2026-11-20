@@ -6,7 +6,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import { useFonts } from 'expo-font';
-import { Stack, router } from 'expo-router';
+import { Stack, router, type NativeStackNavigationOptions } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/AppText';
@@ -95,6 +95,13 @@ function AppHeader({ title, colorScheme, glass = false }: { title: string; color
 function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const colors = Colors[colorScheme ?? 'light'];
+  const settingsDetailHeader: NativeStackNavigationOptions = Platform.OS === 'ios' ? {
+    header: undefined,
+    headerBackButtonDisplayMode: 'minimal',
+    headerStyle: { backgroundColor: colors.background },
+    headerTintColor: colors.text,
+  } : {};
 
   useEffect(() => setupNotificationTapHandling(), []);
   useScreenTracking();
@@ -125,8 +132,8 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
             <Stack.Screen name="directions" options={{ title: '길찾기' }} />
             <Stack.Screen name="chat" options={{ headerShown: false }} />
             <Stack.Screen name="notifications" options={{ title: '알림' }} />
-            <Stack.Screen name="font-license" options={{ title: '서체 라이선스' }} />
-          <Stack.Screen name="settings" options={{ title: '설정', headerTransparent: true, headerShadowVisible: false }} />
+            <Stack.Screen name="font-license" options={{ ...settingsDetailHeader, title: '서체 라이선스' }} />
+            <Stack.Screen name="settings" options={{ title: '설정', headerTransparent: true, headerShadowVisible: false }} />
             <Stack.Screen name="recommended-places" options={{ title: '추천 목적지' }} />
             <Stack.Screen name="location-privacy" options={{ title: '위치정보 관리' }} />
             <Stack.Screen name="edit-nickname" options={{ title: '닉네임 변경' }} />
@@ -135,8 +142,8 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
             <Stack.Screen name="favorites" options={{ title: '즐겨찾기' }} />
             <Stack.Screen name="my-submissions" options={{ title: '내 제보 목록' }} />
             <Stack.Screen name="my-reviews" options={{ title: '내 리뷰' }} />
-            <Stack.Screen name="blocked-users" options={{ title: '차단 관리' }} />
-            <Stack.Screen name="legal/[type]" options={{}} />
+            <Stack.Screen name="blocked-users" options={{ ...settingsDetailHeader, title: '차단 관리' }} />
+            <Stack.Screen name="legal/[type]" options={settingsDetailHeader} />
             <Stack.Screen name="course/[id]" options={{ title: '코스 상세' }} />
             <Stack.Screen name="riding/[id]" options={{ title: '라이딩 추천' }} />
             <Stack.Screen name="navi" options={{ headerShown: false, animation: 'fade' }} />

@@ -22,6 +22,8 @@ import { useBlockedIds, useBlockUser } from '@/hooks/useBlocks';
 import { pickImages, uploadImage } from '@/lib/uploadImage';
 import { toast } from '@/lib/toast';
 import { appAlert } from '@/lib/dialog';
+import { simpleConfirmation } from '@/components/ui/simpleConfirmation';
+import { nativeUI } from '@/lib/nativeUI';
 import ReportSheet from '@/components/report/ReportSheet';
 import ImageViewer from '@/components/ui/ImageViewer';
 import HighlightPulse from '@/components/ui/HighlightPulse';
@@ -40,6 +42,34 @@ interface ReviewPhotoItem {
 type ViewerState =
   | { kind: 'avatar'; photos: string[]; index: number }
   | { kind: 'reviews'; items: ReviewPhotoItem[]; index: number };
+
+function ReviewActionsMenu({ isOwner, onEdit, onDelete, onReport, onBlock }: {
+  isOwner: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  onReport: () => void;
+  onBlock: () => void;
+}) {
+  const scheme = useColorScheme() ?? 'light';
+  if (!nativeUI) return null;
+  const { Host, Menu, Image, Button } = nativeUI.views;
+  const { accessibilityLabel, buttonStyle, contentShape, frame, shapes } = nativeUI.modifiers;
+  return (
+    <Host colorScheme={scheme} ignoreSafeArea="container" style={{ width: 44, height: 44 }}>
+      <Menu label={<Image systemName="ellipsis" size={17} color={Colors[scheme].textSecondary}
+        modifiers={[frame({ width: 44, height: 44 }), contentShape(shapes.rectangle())]} />}
+        modifiers={[buttonStyle('plain'), accessibilityLabel('리뷰 더보기')]}>
+        {isOwner ? <>
+          <Button label="수정" systemImage="pencil" onPress={onEdit} />
+          <Button label="삭제" systemImage="trash" role="destructive" onPress={onDelete} />
+        </> : <>
+          <Button label="신고" systemImage="flag" onPress={onReport} />
+          <Button label="차단" systemImage="hand.raised" role="destructive" onPress={onBlock} />
+        </>}
+      </Menu>
+    </Host>
+  );
+}
 
 export function ReviewListSkeleton() {
   return (
@@ -272,20 +302,17 @@ export default function ReviewList({ target, allowWriting, highlight, onHighligh
   };
 
   const handleDelete = (id: string) => {
-    appAlert('리뷰 삭제', '정말 삭제하시겠습니까?', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await removeReview(id);
-          } catch (error: any) {
-            toast.error('삭제에 실패했습니다.', error.message);
-          }
-        },
+    simpleConfirmation('리뷰 삭제', '정말 삭제하시겠습니까?', {
+      text: '삭제',
+      style: 'destructive',
+      onPress: async () => {
+        try {
+          await removeReview(id);
+        } catch (error: any) {
+          toast.error('삭제에 실패했습니다.', error.message);
+        }
       },
-    ]);
+    });
   };
 
   return (
@@ -428,7 +455,14 @@ export default function ReviewList({ target, allowWriting, highlight, onHighligh
                     <Text style={[styles.reviewDate, { color: colors.textSecondary }]}>
                       {new Date(review.createdAt).toLocaleDateString('ko-KR')}
                     </Text>
-                    {isOwner ? (
+                    {user && nativeUI ? (
+                      <ReviewActionsMenu isOwner={isOwner}
+                        onEdit={() => handleEdit(review)}
+                        onDelete={() => handleDelete(review.id)}
+                        onReport={() => setReportingId(review.id)}
+                        onBlock={() => handleBlock(review.userId, review.userName)}
+                      />
+                    ) : isOwner ? (
                       <View style={styles.actions}>
                         <TouchableOpacity onPress={() => handleEdit(review)}>
                           <Text style={[styles.actionText, { color: colors.tint }]}>수정</Text>
