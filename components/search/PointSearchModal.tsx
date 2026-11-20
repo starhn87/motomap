@@ -456,7 +456,7 @@ export default function PointSearchModal({
               <>
                 {/* 바로가기 한 줄 — 현재 위치·집·회사·즐겨찾기.
                     앞의 셋은 누르면 바로 선택되고, 즐겨찾기만 목록을 편다. */}
-                <View style={[styles.quickRow, { borderBottomColor: colors.border }]}>
+                <View style={[styles.quickRow, isAndroid && styles.androidQuickRow, { borderBottomColor: colors.border }]}>
                   {allowCurrent && (
                     <Pressable
                       accessibilityRole="button"
@@ -668,6 +668,10 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  androidQuickRow: {
+    paddingTop: 9,
+    paddingBottom: 9,
   },
   // 고정 폭 — 집·회사 미설정이나 비로그인으로 항목이 줄어도 왼쪽부터 차곡차곡
   quickItem: {
