@@ -117,12 +117,15 @@ test('Android 길찾기에서 검색과 경유지 추가·삭제는 각각 독�
     assert.equal(row.props.onPress, undefined);
     return row.props.children.filter(Boolean);
   };
-  const [editDestination, addVia] = rowButtons(1);
+  const [editDestination, destinationAction] = rowButtons(1);
   assert.equal(editDestination.props.accessibilityLabel, '도착지 선택');
-  assert.equal(addVia.props.accessibilityLabel, '경유지 추가');
+  assert.equal(destinationAction, undefined);
+  const addVia = f.nodes().find((node) => node.props.accessibilityLabel === '경유지 추가')!;
+  assert.equal(addVia.type, 'Pressable');
   addVia.props.onPress(); f.render();
   assert.equal(f.fields().length, 3);
   assert.equal(f.modal().props.visible, false);
+  assert.equal(rowButtons(2)[1].props.accessibilityLabel, '경유지 추가');
 
   const [editVia, removeVia] = rowButtons(1);
   assert.equal(editVia.props.accessibilityLabel, '경유지 입력');

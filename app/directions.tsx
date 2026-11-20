@@ -274,8 +274,6 @@ export default function DirectionsScreen() {
               />
             </View>
           ))}
-          {/* iOS는 첫 경유지 추가 버튼을 행 사이에 둔다. Android는 행 사이에
-              터치 영역이 겹치지 않도록 항상 도착지 옆에서 추가한다. */}
           <View style={styles.fieldDividerWrap}>
             <View style={[styles.fieldDivider, { backgroundColor: colors.border }]} />
             {!isAndroid && viaPoints.length === 0 && (
@@ -300,10 +298,23 @@ export default function DirectionsScreen() {
             onPress={() => editField('dest')}
             disabled={busy}
             onAdd={
-              (isAndroid || viaPoints.length > 0) && viaPoints.length < MAX_VIAS ? addEmptyVia : undefined
+              viaPoints.length > 0 && viaPoints.length < MAX_VIAS ? addEmptyVia : undefined
             }
           />
         </View>
+        {/* 행의 터치 영역 밖에서 출발지와 도착지 사이의 높이에 맞춘다. */}
+        {isAndroid && viaPoints.length === 0 && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="경유지 추가"
+            accessibilityState={{ disabled: busy }}
+            disabled={busy}
+            onPress={addEmptyVia}
+            android_ripple={{ color: colors.tint + '24' }}
+            style={styles.androidFieldAction}>
+            <MaterialCommunityIcons name="plus-circle-outline" size={21} color={colors.textSecondary} />
+          </Pressable>
+        )}
         <View style={[styles.fieldSide, isAndroid && styles.androidFieldSide]}>
           <Pressable
             accessibilityLabel="출발지와 도착지 바꾸기"
