@@ -81,20 +81,24 @@ test('이전 날씨는 명시적으로 표시하고 기존 상세 토글·터치
   assert.equal(opens, 1);
 });
 
-test('Android 홈 날씨 버튼은 맑은 밤과 구름 많은 밤의 달만 확대한다', () => {
+function androidWeatherEmoji() {
   const jsx = (type: unknown, props: unknown) => ({ type, props });
-  const { default: WeatherEmoji } = loadModule<{ default: (props: any) => Element }>('components/weather/WeatherEmoji.tsx', {
+  return loadModule<{ default: (props: any) => Element }>('components/weather/WeatherEmoji.tsx', {
     'react/jsx-runtime': { jsx, jsxs: jsx },
     'react-native': { Platform: { OS: 'android' }, View: 'View', StyleSheet: { create: (styles: unknown) => styles } },
     '@expo/vector-icons/MaterialCommunityIcons': 'Icon',
     '@/components/ui/AppText': { Text: 'Text' },
     '@/constants/weather': { NIGHT_PARTLY_CLOUDY_EMOJI },
-  });
+  }).default;
+}
+
+test('Android 홈 날씨 버튼은 맑은 밤과 구름 많은 밤의 달만 확대한다', () => {
+  const WeatherEmoji = androidWeatherEmoji();
   const { render } = weatherButton();
   for (const emoji of ['🌙', NIGHT_PARTLY_CLOUDY_EMOJI]) {
     const button = render({ weather: { current: { temp: 20, emoji }, gradeColor: 'green' }, open: false });
     const buttonProps = button.props.children[0].props;
-    const original: Element[] = WeatherEmoji({ ...buttonProps, moonScale: undefined }).props.children.props.children;
+    const original: Element[] = WeatherEmoji({ ...buttonProps, homeButton: false }).props.children.props.children;
     const enlarged: Element[] = WeatherEmoji(buttonProps).props.children.props.children;
     assert.equal(enlarged[0].props.style[2].transform[0].rotate, '38deg');
     assert.equal(original[0].props.style[2].transform[1].scale, 1);
@@ -102,6 +106,23 @@ test('Android 홈 날씨 버튼은 맑은 밤과 구름 많은 밤의 달만 확
     for (let index = 1; index < enlarged.length; index++) {
       assert.equal(enlarged[index].props.size, original[index].props.size);
       assert.equal(enlarged[index].props.style[2], false);
+    }
+  }
+});
+
+test('Android 홈 날씨 버튼은 해를 둥글게 그리고 구름을 그 위에 유지한다', () => {
+  const WeatherEmoji = androidWeatherEmoji();
+  const { render } = weatherButton();
+  for (const emoji of ['☀️', '⛅']) {
+    const buttonProps = render({ weather: { current: { temp: 20, emoji }, gradeColor: 'green' }, open: false })
+      .props.children[0].props;
+    const defaultLayers: Element[] = WeatherEmoji({ ...buttonProps, homeButton: false }).props.children.props.children;
+    const buttonLayers: Element[] = WeatherEmoji(buttonProps).props.children.props.children;
+    assert.equal(defaultLayers[0].props.name, 'weather-sunny');
+    assert.equal(typeof buttonLayers[0].type, 'function');
+    assert.equal(buttonLayers[0].props.size, defaultLayers[0].props.size);
+    for (let index = 1; index < buttonLayers.length; index++) {
+      assert.equal(buttonLayers[index].props.name, defaultLayers[index].props.name);
     }
   }
 });
