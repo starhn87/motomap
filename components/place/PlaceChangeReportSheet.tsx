@@ -17,6 +17,7 @@ import {
 import { Text } from '@/components/ui/AppText';
 import { APP_FONT_STYLE } from '@/lib/typography';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -49,6 +50,7 @@ export default function PlaceChangeReportSheet({
 }: Props) {
   const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
   const keyboardInput = useRevealKeyboardInput(scrollRef);
+  const { bottom } = useSafeAreaInsets();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const requestedVisibleRef = useRef(visible);
   const closingIntentRef = useRef(false);
@@ -169,7 +171,10 @@ export default function PlaceChangeReportSheet({
       containerStyle={styles.sheetContainer}>
       <BottomSheetScrollView
         ref={scrollRef}
-        contentContainerStyle={styles.sheetContent}
+        contentContainerStyle={[
+          styles.sheetContent,
+          Platform.OS === 'android' && { paddingBottom: Math.max(36, bottom + 12) },
+        ]}
         automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Text, TextInput } from '@/components/ui/AppText';
 import { useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -36,6 +37,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const isAndroid = Platform.OS === 'android';
+  const { bottom } = useSafeAreaInsets();
 
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [description, setDescription] = useState('');
@@ -133,6 +135,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
           onPress={handleClose}
           style={({ pressed }) => [
             styles.cancelButton,
+            isAndroid && styles.androidFooterButton,
             { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
           ]}>
           <Text style={[styles.cancelText, { color: colors.text }]}>취소</Text>
@@ -142,6 +145,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
           disabled={submitting}
           style={({ pressed }) => [
             styles.submitButton,
+            isAndroid && styles.androidFooterButton,
             {
               backgroundColor: colors.tint,
               opacity: submitting || pressed ? 0.6 : 1,
@@ -168,12 +172,13 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
           automaticallyAdjustKeyboardInsets
           style={[
             styles.sheet,
+            isAndroid && styles.androidSheet,
             {
               backgroundColor: colors.surfaceElevated,
               borderColor: colors.border,
             },
           ]}
-          contentContainerStyle={styles.sheetContent}
+          contentContainerStyle={[styles.sheetContent, isAndroid && { paddingBottom: Math.max(32, bottom + 12) }]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           bounces={false}
@@ -208,6 +213,12 @@ const styles = StyleSheet.create({
   sheetContent: {
     padding: 20,
     paddingBottom: 32,
+  },
+  androidSheet: {
+    flexGrow: 0,
+  },
+  androidFooterButton: {
+    justifyContent: 'center',
   },
   handle: {
     width: 40,

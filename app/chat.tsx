@@ -151,6 +151,7 @@ export default function ChatScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  const isAndroid = Platform.OS === 'android';
   const userLocation = useMapStore((s) => s.userLocation);
   // 등록해 둔 기종이 있으면 추천의 결을 맞춘다 (미등록이면 그냥 빠진다)
   const { model: myBikeModel } = useMyBike();
@@ -302,23 +303,25 @@ export default function ChatScreen() {
     );
   };
 
+  const backControl = (
+    <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()} hitSlop={10}
+      style={[styles.headerButton, styles.backButton]}>
+      <BackIcon color={colors.text} />
+    </GlassButton>
+  );
+  const newChatControl = messages.length > 0 ? (
+    <GlassButton accessibilityRole="button" accessibilityLabel="새 대화" onPress={handleNewChat} hitSlop={10}
+      style={[styles.headerButton, styles.newChatButton]}>
+      <Text style={[styles.newChatText, { color: colors.tint }]}>새 대화</Text>
+    </GlassButton>
+  ) : <View style={styles.newChatButton} />;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      {/* 헤더 */}
       <View style={styles.header}>
-        <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()} hitSlop={10}
-          style={[styles.headerButton, styles.backButton]}>
-          <BackIcon color={colors.text} />
-        </GlassButton>
+        {isAndroid ? <View style={styles.androidHeaderSlot}>{backControl}</View> : backControl}
         <Text style={[styles.headerTitle, { color: colors.text }]}>AI 추천</Text>
-        {messages.length > 0 ? (
-          <GlassButton accessibilityRole="button" accessibilityLabel="새 대화" onPress={handleNewChat} hitSlop={10}
-            style={[styles.headerButton, styles.newChatButton]}>
-            <Text style={[styles.newChatText, { color: colors.tint }]}>새 대화</Text>
-          </GlassButton>
-        ) : (
-          <View style={styles.newChatButton} />
-        )}
+        {isAndroid ? <View style={[styles.androidHeaderSlot, styles.androidHeaderTrailing]}>{newChatControl}</View> : newChatControl}
       </View>
 
       <KeyboardAvoidingView
@@ -437,6 +440,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  androidHeaderSlot: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  androidHeaderTrailing: {
+    alignItems: 'flex-end',
   },
   headerButton: {
     height: HEADER_CONTROL_SIZE,
