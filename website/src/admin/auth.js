@@ -129,6 +129,26 @@ export async function refreshAuthSession({ url, anonKey, refreshToken, fetchImpl
   return { ok: true, access: body.access_token, refresh: body.refresh_token };
 }
 
+export async function findUserIdByEmail({ url, secret, email, fetchImpl }) {
+  const endpoint = new URL(`${authBase(url)}/auth/v1/admin/users`);
+  endpoint.searchParams.set('page', '1');
+  endpoint.searchParams.set('per_page', '20');
+  endpoint.searchParams.set('filter', email);
+  const response = await fetchImpl(endpoint, {
+    headers: { apikey: secret, Authorization: `Bearer ${secret}` },
+  });
+  if (!response.ok) return null;
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    return null;
+  }
+  const users = Array.isArray(body?.users) ? body.users : [];
+  const match = users.find((user) => typeof user?.email === 'string' && user.email.toLowerCase() === email);
+  return typeof match?.id === 'string' ? match.id.toLowerCase() : null;
+}
+
 export async function requestEmailCode({ url, anonKey, email, fetchImpl }) {
   const response = await fetchImpl(`${authBase(url)}/auth/v1/otp`, {
     method: 'POST',

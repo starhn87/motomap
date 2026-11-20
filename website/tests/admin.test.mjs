@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { encodeSession } from '../src/admin/auth.js';
+import { resetOtpAttempts } from '../src/admin/otpLimit.js';
 import { summarizeChecks } from '../src/admin/sources.js';
 import worker from '../src/index.js';
 import { endReasonsQuery, exceptionCountQuery, liveNavigationQuery } from '../../scripts/posthog-metrics.mjs';
@@ -248,6 +249,122 @@ test('로그인 쿠키는 HttpOnly이고 본문에 토큰을 넣지 않는다', 
   assert.match(cookie, /Secure/);
   assert.match(cookie, /Path=\/admin/);
   assert.equal(JSON.stringify(await response.json()).includes('access-token'), false);
+});
+
+test('코드 요청은 가입·허용 여부와 같은 응답이고 allowlist UUID에만 보낸다', async () => {
+  resetOtpAttempts();
+  const sleeps = [];
+  const calls = [];
+  const users = {
+    'member@example.com': { id: adminId, email: 'member@example.com' },
+    'other@example.com': { id: otherId, email: 'other@example.com' },
+  };
+  const env = baseEnv(async (url, init) => {
+    const href = String(url);
+    calls.push(href);
+    if (href.includes('/auth/v1/admin/users')) {
+      const email = new URL(href).searchParams.get('filter');
+      const user = users[email];
+      return jsonResponse({ users: user ? [user] : [] });
+    }
+    if (href.includes('/auth/v1/otp')) {
+      const body = JSON.parse(init.body);
+      assert.equal(body.create_user, false);
+      assert.equal(body.email, 'member@example.com');
+      return jsonResponse({});
+    }
+    throw new Error(href);
+  }, {
+    adminSleep: async (ms) => { sleeps.push(ms); },
+    POSTHOG_API_KEY: undefined,
+    POSTHOG_PROJECT_ID: undefined,
+    GITHUB_ADMIN_READ_TOKEN: undefined,
+    ASC_PRIVATE_KEY: undefined,
+    ASC_KEY_ID: undefined,
+    ASC_ISSUER_ID: undefined,
+  });
+  async function request(email, ip) {
+    const response = await worker.fetch(new Request('https://motomap.kr/admin/api/session/otp', {
+      method: 'POST',
+      headers: {
+        origin: 'https://motomap.kr',
+        'content-type': 'application/json',
+        'cf-connecting-ip': ip,
+      },
+      body: JSON.stringify({ email }),
+    }), env);
+    return { status: response.status, body: await response.json() };
+  }
+  const unknown = await request('missing@example.com', '203.0.113.10');
+  const outsider = await request('other@example.com', '203.0.113.11');
+  const member = await request('member@example.com', '203.0.113.12');
+  assert.deepEqual(unknown, { status: 200, body: { state: 'code_sent' } });
+  assert.deepEqual(outsider, unknown);
+  assert.deepEqual(member, unknown);
+  assert.equal(calls.filter((href) => href.includes('/auth/v1/otp')).length, 1);
+  assert.equal(sleeps.length, 3);
+  assert.ok(sleeps.every((ms) => ms >= 250 && ms < 290));
+  const source = await readFile(new URL('../src/admin/handle.js', import.meta.url), 'utf8');
+  assert.equal(source.includes('28ce059b-4689-4109-aa05-dc2ea3f95011'), false);
+});
+
+test('코드 요청 한도를 넘어도 응답은 같고 더 이상 보내지 않는다', async () => {
+  resetOtpAttempts();
+  let otpCalls = 0;
+  const env = baseEnv(async (url) => {
+    const href = String(url);
+    if (href.includes('/auth/v1/admin/users')) {
+      return jsonResponse({ users: [{ id: adminId, email: 'member@example.com' }] });
+    }
+    if (href.includes('/auth/v1/otp')) {
+      otpCalls += 1;
+      return jsonResponse({});
+    }
+    throw new Error(href);
+  }, { adminSleep: async () => {} });
+  const responses = [];
+  for (let index = 0; index < 6; index += 1) {
+    const response = await worker.fetch(new Request('https://motomap.kr/admin/api/session/otp', {
+      method: 'POST',
+      headers: {
+        origin: 'https://motomap.kr',
+        'content-type': 'application/json',
+        'cf-connecting-ip': '203.0.113.20',
+      },
+      body: JSON.stringify({ email: 'member@example.com' }),
+    }), env);
+    responses.push({ status: response.status, body: await response.json() });
+  }
+  assert.equal(otpCalls, 5);
+  assert.ok(responses.every((response) => response.status === 200 && response.body.state === 'code_sent'));
+
+  resetOtpAttempts();
+  let emailCalls = 0;
+  const emailEnv = baseEnv(async (url) => {
+    const href = String(url);
+    if (href.includes('/auth/v1/admin/users')) {
+      return jsonResponse({ users: [{ id: adminId, email: 'member@example.com' }] });
+    }
+    if (href.includes('/auth/v1/otp')) {
+      emailCalls += 1;
+      return jsonResponse({});
+    }
+    throw new Error(href);
+  }, { adminSleep: async () => {} });
+  for (let index = 0; index < 6; index += 1) {
+    const response = await worker.fetch(new Request('https://motomap.kr/admin/api/session/otp', {
+      method: 'POST',
+      headers: {
+        origin: 'https://motomap.kr',
+        'content-type': 'application/json',
+        'cf-connecting-ip': `203.0.113.${40 + index}`,
+      },
+      body: JSON.stringify({ email: 'member@example.com' }),
+    }), emailEnv);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { state: 'code_sent' });
+  }
+  assert.equal(emailCalls, 5);
 });
 
 test('관리자 껍데기는 예시 수치와 인라인 스크립트가 없다', async () => {

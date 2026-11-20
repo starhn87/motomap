@@ -31,12 +31,11 @@ jobs:
         working-directory: supabase/functions
     steps:
       - uses: actions/checkout@v7
-      - uses: denoland/setup-deno@v2
+      - uses: actions/setup-node@v4
         with:
-          deno-version: 2.9.5
-          cache: true
-      - run: deno task check
-      - run: deno task test:jev
+          node-version: 22
+      - run: npx --yes deno@2.9.5 task check
+      - run: npx --yes deno@2.9.5 task test:jev
 
   website:
     runs-on: ubuntu-latest

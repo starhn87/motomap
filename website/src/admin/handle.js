@@ -3,6 +3,7 @@ import {
   clearedSessionCookie,
   encodeSession,
   fetchAuthUser,
+  findUserIdByEmail,
   isAllowlisted,
   isSameOriginPost,
   isUuid,
@@ -13,6 +14,7 @@ import {
   sessionCookie,
   verifyEmailCode,
 } from './auth.js';
+import { finishOtpResponse, otpAttemptAllowed } from './otpLimit.js';
 import { adminFetch, callRpc, loadManual, loadMetrics, loadPulls, loadQueue, loadTestflight } from './sources.js';
 
 const noStore = {
@@ -119,10 +121,23 @@ export async function handleAdmin(request, env) {
     const body = await readJson(request);
     if (!validEmail(body?.email)) return json(400, { state: 'invalid_input' });
     if (path.endsWith('/otp')) {
-      const sent = await requestEmailCode({
-        url: config.url, anonKey: config.anonKey, email: body.email, fetchImpl,
-      });
-      return json(sent ? 200 : 502, { state: sent ? 'code_sent' : 'unavailable' });
+      const started = Date.now();
+      const email = body.email.trim().toLowerCase();
+      const ip = request.headers.get('cf-connecting-ip')?.trim() || 'unknown';
+      const sleep = env.adminSleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+      if (otpAttemptAllowed({ ip, email }) && configured(env.SUPABASE_SECRET_KEY)) {
+        const userId = await findUserIdByEmail({
+          url: config.url,
+          secret: env.SUPABASE_SECRET_KEY.trim(),
+          email,
+          fetchImpl,
+        });
+        if (isAllowlisted(config.allowlist, userId)) {
+          await requestEmailCode({ url: config.url, anonKey: config.anonKey, email, fetchImpl });
+        }
+      }
+      await finishOtpResponse(started, sleep);
+      return json(200, { state: 'code_sent' });
     }
     if (typeof body.token !== 'string' || !/^\d{6,10}$/.test(body.token)) return json(400, { state: 'invalid_input' });
     const verified = await verifyEmailCode({
