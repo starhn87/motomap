@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Keyboard,
   InteractionManager,
+  Platform,
 } from 'react-native';
 import { Text, TextInput } from '@/components/ui/AppText';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -55,6 +56,7 @@ import { useUnifiedPlaceSearch } from '@/hooks/useUnifiedPlaceSearch';
 import GlassSurface from '@/components/ui/GlassSurface';
 import GlassButton from '@/components/ui/GlassButton';
 import BackIcon from '@/components/ui/BackIcon';
+import AndroidSearchBar from '@/components/search/AndroidSearchBar';
 
 // 검색 전용 화면 — 입력 전에는 최근 검색·즐겨찾기·추천 목적지를 모아 보여주고,
 // 2자 이상 입력하면 통합 검색 결과로 전환된다. 장소 선택은 지도 탭의
@@ -456,28 +458,38 @@ export default function SearchScreen() {
     </View>
   );
 
+  const canClearQuery = query.length > 0 && !listening;
+  const input = (
+    <TextInput
+      accessibilityLabel="장소, 라이딩 검색"
+      ref={inputRef}
+      style={[styles.input, Platform.OS === 'android' && styles.androidInput, { color: colors.text }]}
+      placeholder={listening ? '듣고 있어요…' : '장소, 라이딩 검색'}
+      placeholderTextColor={listening ? colors.tint : colors.textSecondary}
+      value={query}
+      onChangeText={text => { setQuery(text); setShowFavorites(false); }}
+      returnKeyType="search"
+      onSubmitEditing={() => openResults(query)}
+    />
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* 검색 입력 바 */}
-      <View style={styles.searchBarRow}>
+      {Platform.OS === 'android' ? (
+        <AndroidSearchBar onBack={() => router.back()} onVoice={toggleVoice} listening={listening}
+          onClear={canClearQuery ? () => { setQuery(''); inputRef.current?.focus(); } : undefined}>
+          {input}
+        </AndroidSearchBar>
+      ) : <View style={styles.searchBarRow}>
         <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()}
           style={styles.backButton}>
             <BackIcon size={24} color={colors.text} />
         </GlassButton>
         <GlassSurface style={styles.inputContainer}>
-          <TextInput
-            accessibilityLabel="장소, 라이딩 검색"
-            ref={inputRef}
-            style={[styles.input, { color: colors.text }]}
-            placeholder={listening ? '듣고 있어요…' : '장소, 라이딩 검색'}
-            placeholderTextColor={listening ? colors.tint : colors.textSecondary}
-            value={query}
-            onChangeText={text => { setQuery(text); setShowFavorites(false); }}
-            returnKeyType="search"
-            onSubmitEditing={() => openResults(query)}
-          />
+          {input}
           {/* 인식 중에는 숨긴다 — 다음 중간 결과가 어차피 덮어써서 지운 게 무의미하다 */}
-          {query.length > 0 && !listening && (
+          {canClearQuery && (
             <Pressable accessibilityRole="button" accessibilityLabel="검색어 지우기" onPress={() => setQuery('')} style={styles.inputAction}>
               <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
             </Pressable>
@@ -490,7 +502,7 @@ export default function SearchScreen() {
             />
           </Pressable>
         </GlassSurface>
-      </View>
+      </View>}
 
       {(myPlacesEnabled || !!user) && <View style={[styles.myPlacesRow, { paddingHorizontal: 20, paddingBottom: 12 }]}>
         {myPlacesEnabled && (['home', 'work'] as const).map(slot => (
@@ -887,6 +899,14 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
+  },
+  androidInput: {
+    minHeight: 48,
+    minWidth: 0,
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+    fontSize: 16,
+    includeFontPadding: false,
   },
   inputAction: {
     width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
