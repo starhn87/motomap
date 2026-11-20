@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { HEADER_CONTROL_SIZE } from '@/components/navigation/headerSpacing';
 import GlassButton from '@/components/ui/GlassButton';
 import BackIcon from '@/components/ui/BackIcon';
 import BikeIcon from '@/components/ui/BikeIcon';
@@ -306,13 +307,13 @@ export default function ChatScreen() {
       {/* 헤더 */}
       <View style={styles.header}>
         <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()} hitSlop={10}
-          style={[styles.backButton, { width: 44, height: 44, borderRadius: 22 }]}>
-          <BackIcon size={24} color={colors.text} />
+          style={[styles.headerButton, styles.backButton]}>
+          <BackIcon color={colors.text} />
         </GlassButton>
         <Text style={[styles.headerTitle, { color: colors.text }]}>AI 추천</Text>
         {messages.length > 0 ? (
           <GlassButton accessibilityRole="button" accessibilityLabel="새 대화" onPress={handleNewChat} hitSlop={10}
-            style={[styles.newChatButton, { height: 44, borderRadius: 22 }]}>
+            style={[styles.headerButton, styles.newChatButton]}>
             <Text style={[styles.newChatText, { color: colors.tint }]}>새 대화</Text>
           </GlassButton>
         ) : (
@@ -437,18 +438,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
+  headerButton: {
+    height: HEADER_CONTROL_SIZE,
+    borderRadius: HEADER_CONTROL_SIZE / 2,
+  },
   backButton: {
-    width: 36,
-    padding: 6,
+    width: HEADER_CONTROL_SIZE,
   },
   newChatButton: {
     minWidth: 52,
-    alignItems: 'flex-end',
-    padding: 6,
+    paddingHorizontal: 6,
   },
   newChatText: {
     fontSize: 14,
     fontWeight: '600',
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   headerTitle: {
     fontSize: 16,
