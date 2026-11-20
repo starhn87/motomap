@@ -89,6 +89,7 @@ function androidWeatherEmoji() {
     '@expo/vector-icons/MaterialCommunityIcons': 'Icon',
     '@/components/ui/AppText': { Text: 'Text' },
     '@/constants/weather': { NIGHT_PARTLY_CLOUDY_EMOJI },
+    '@/components/weather/SunShape': { __esModule: true, default: 'SunShape', SUNRISE_SUN_COLOR: '#FBBF24' },
   }).default;
 }
 
@@ -98,7 +99,7 @@ test('Android 홈 날씨 버튼은 맑은 밤과 구름 많은 밤의 달만 확
   for (const emoji of ['🌙', NIGHT_PARTLY_CLOUDY_EMOJI]) {
     const button = render({ weather: { current: { temp: 20, emoji }, gradeColor: 'green' }, open: false });
     const buttonProps = button.props.children[0].props;
-    const original: Element[] = WeatherEmoji({ ...buttonProps, homeButton: false, roundedSun: true }).props.children.props.children;
+    const original: Element[] = WeatherEmoji({ ...buttonProps, homeButton: false, sunriseSun: true }).props.children.props.children;
     const enlarged: Element[] = WeatherEmoji(buttonProps).props.children.props.children;
     assert.equal(enlarged[0].props.style[2].transform[0].rotate, '38deg');
     assert.equal(original[0].props.style[2].transform[1].scale, 1);
@@ -110,7 +111,7 @@ test('Android 홈 날씨 버튼은 맑은 밤과 구름 많은 밤의 달만 확
   }
 });
 
-test('Android 홈과 시간대별 예보는 해를 둥글게 그리고 구름을 그 위에 유지한다', () => {
+test('Android 홈과 시간대별 예보는 일출의 해를 공유하고 구름을 그 위에 유지한다', () => {
   const WeatherEmoji = androidWeatherEmoji();
   const { render } = weatherButton();
   for (const emoji of ['☀️', '⛅']) {
@@ -118,12 +119,17 @@ test('Android 홈과 시간대별 예보는 해를 둥글게 그리고 구름을
       .props.children[0].props;
     const defaultLayers: Element[] = WeatherEmoji({ ...buttonProps, homeButton: false }).props.children.props.children;
     const buttonLayers: Element[] = WeatherEmoji(buttonProps).props.children.props.children;
-    const hourlyLayers: Element[] = WeatherEmoji({ emoji, size: 26, lineHeight: 31, roundedSun: true })
+    const hourlyLayers: Element[] = WeatherEmoji({ emoji, size: 26, lineHeight: 31, sunriseSun: true })
       .props.children.props.children;
     assert.equal(defaultLayers[0].props.name, 'weather-sunny');
-    assert.equal(typeof buttonLayers[0].type, 'function');
-    assert.equal(hourlyLayers[0].type, buttonLayers[0].type);
-    assert.equal(buttonLayers[0].props.size, defaultLayers[0].props.size);
+    const buttonSun = buttonLayers[0].props.children;
+    const hourlySun = hourlyLayers[0].props.children;
+    assert.equal(buttonSun.type, 'SunShape');
+    assert.equal(hourlySun.type, 'SunShape');
+    assert.equal(buttonSun.props.color, '#FBBF24');
+    assert.equal(hourlySun.props.color, buttonSun.props.color);
+    assert.equal(buttonSun.props.scale, emoji === '☀️' ? 1 : 0.65);
+    assert.equal(hourlySun.props.scale, buttonSun.props.scale);
     for (let index = 1; index < buttonLayers.length; index++) {
       assert.equal(buttonLayers[index].props.name, defaultLayers[index].props.name);
       assert.equal(hourlyLayers[index].props.name, defaultLayers[index].props.name);

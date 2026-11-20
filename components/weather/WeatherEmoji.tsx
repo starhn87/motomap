@@ -4,13 +4,14 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 
 import { NIGHT_PARTLY_CLOUDY_EMOJI } from '@/constants/weather';
+import SunShape, { SUNRISE_SUN_COLOR } from '@/components/weather/SunShape';
 
 interface Props {
   emoji: string;
   size: number;
   lineHeight?: number;
   homeButton?: boolean;
-  roundedSun?: boolean;
+  sunriseSun?: boolean;
 }
 
 type WeatherGlyph = {
@@ -27,16 +28,6 @@ const cloudShade: WeatherGlyph = { name: 'cloud', color: '#8CA2BA', size: 0.9, x
 const cloud: WeatherGlyph = { ...cloudShade, color: '#D8E6F2', x: 0.04, y: 0.01 };
 const rain: WeatherGlyph = { name: 'water', color: '#449AF5', size: 0.27, x: 0.24, y: 0.63 };
 const snow: WeatherGlyph = { name: 'snowflake', color: '#5295D5', size: 0.3, x: 0.21, y: 0.62 };
-const sunRays = [[-4, 0.14], [42, 0.12], [91, 0.13], [137, 0.11],
-  [181, 0.12], [222, 0.11], [268, 0.14], [314, 0.12]].map(([angle, length]) => {
-  const radians = angle * Math.PI / 180;
-  return {
-    angle,
-    length,
-    x: 0.46 + 0.425 * Math.sin(radians),
-    y: 0.5 - 0.425 * Math.cos(radians) - length / 2,
-  };
-});
 const cloudWithPrecipitation = [
   { ...cloudShade, y: -0.08 },
   { ...cloud, y: -0.13 },
@@ -69,31 +60,8 @@ const androidWeatherIcons: Record<string, { label: string; glyphs: WeatherGlyph[
   },
 };
 
-function RoundedSun({ size, left, top }: { size: number; left: number; top: number }) {
-  return (
-    <View style={[styles.layer, styles.icon, { left, top, width: size, height: size }]}>
-      <View style={[styles.icon, {
-        width: size * 0.69, height: size * 0.69, borderRadius: size * 0.345, backgroundColor: '#FFCB6660',
-      }]}>
-        <View style={{ width: size * 0.55, height: size * 0.55, borderRadius: size * 0.275, backgroundColor: '#FFC54F' }} />
-      </View>
-      {sunRays.map(ray => (
-        <View key={ray.angle} style={[styles.layer, {
-          left: size * ray.x,
-          top: size * ray.y,
-          width: size * 0.08,
-          height: size * ray.length,
-          borderRadius: size * 0.04,
-          backgroundColor: '#F5AA41',
-          transform: [{ rotate: `${ray.angle}deg` }],
-        }]} />
-      ))}
-    </View>
-  );
-}
-
 /** 구름 많은 밤에는 기존 시스템 달·구름 이모지를 한 칸 안에 겹쳐 표시한다. */
-export default function WeatherEmoji({ emoji, size, lineHeight, homeButton = false, roundedSun = homeButton }: Props) {
+export default function WeatherEmoji({ emoji, size, lineHeight, homeButton = false, sunriseSun = homeButton }: Props) {
   const boxHeight = lineHeight ?? Math.round(size * 1.2);
 
   const androidIcon = Platform.OS === 'android' ? androidWeatherIcons[emoji] : undefined;
@@ -105,8 +73,12 @@ export default function WeatherEmoji({ emoji, size, lineHeight, homeButton = fal
         pointerEvents="none"
         style={[styles.icon, { width: size, height: boxHeight }]}>
         <View style={{ width: size, height: size }} importantForAccessibility="no-hide-descendants">
-          {androidIcon.glyphs.map((glyph, index) => roundedSun && glyph.name === sun.name ? (
-            <RoundedSun key={index} size={size * glyph.size} left={size * glyph.x} top={size * glyph.y} />
+          {androidIcon.glyphs.map((glyph, index) => sunriseSun && glyph.name === sun.name ? (
+            <View key={index} style={[styles.layer, styles.icon, {
+              left: size * glyph.x, top: size * glyph.y, width: size * glyph.size, height: size * glyph.size,
+            }]}>
+              <SunShape color={SUNRISE_SUN_COLOR} scale={glyph.size} />
+            </View>
           ) : (
             <MaterialCommunityIcons
               key={index}

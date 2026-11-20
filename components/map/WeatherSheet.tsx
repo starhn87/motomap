@@ -16,6 +16,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import type { RidingWeather } from '@/lib/api/weather';
 import WarningDetailModal from '@/components/map/WarningDetailModal';
 import WeatherEmoji from '@/components/weather/WeatherEmoji';
+import SunShape, { SUNRISE_SUN_COLOR } from '@/components/weather/SunShape';
 import { useWeatherWarnings } from '@/hooks/useWeatherWarnings';
 
 interface Props {
@@ -41,7 +42,7 @@ function toShortTime(hhmm: string): string {
 // 일출·일몰 글리프 — 폰트 아이콘은 단색뿐이라 아이폰 날씨처럼 해(노랑·주황)와
 // 수평선·화살표를 색을 나눠 View 로 직접 그린다
 function SunGlyph({ type, lineColor, arrowColor }: { type: 'sunrise' | 'sunset'; lineColor: string; arrowColor: string }) {
-  const sunColor = type === 'sunrise' ? '#FBBF24' : '#F97316';
+  const sunColor = type === 'sunrise' ? SUNRISE_SUN_COLOR : '#F97316';
   return (
     <View style={glyph.wrap}>
       <Ionicons
@@ -50,14 +51,7 @@ function SunGlyph({ type, lineColor, arrowColor }: { type: 'sunrise' | 'sunset';
         color={arrowColor}
         style={glyph.arrow}
       />
-      <View style={glyph.sunRow}>
-        {/* 해 중심에서 방사형으로 뻗는 광선 — 화살표(12시) 양옆으로 2개씩 */}
-        <View style={[glyph.ray, glyph.rayL1, { backgroundColor: sunColor }]} />
-        <View style={[glyph.ray, glyph.rayL2, { backgroundColor: sunColor }]} />
-        <View style={[glyph.ray, glyph.rayR2, { backgroundColor: sunColor }]} />
-        <View style={[glyph.ray, glyph.rayR1, { backgroundColor: sunColor }]} />
-        <View style={[glyph.sun, { backgroundColor: sunColor }]} />
-      </View>
+      <SunShape color={sunColor} />
       <View style={[glyph.horizon, { backgroundColor: lineColor }]} />
     </View>
   );
@@ -71,46 +65,6 @@ const glyph = StyleSheet.create({
   // 아이콘 뷰박스의 상하 여백을 상쇄해 해에 바짝 붙인다
   arrow: {
     marginBottom: -4,
-  },
-  // 반원 해 + 방사형 광선 — 광선 위치·각도는 해의 원 중심(컨테이너 하단 중앙)
-  // 기준 반지름 12, 방사각 20°·65° 대칭 배치
-  sunRow: {
-    width: 34,
-    height: 14,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  sun: {
-    width: 16,
-    height: 8,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-  },
-  ray: {
-    position: 'absolute',
-    width: 5,
-    height: 2,
-    borderRadius: 1,
-  },
-  rayL1: {
-    left: 3,
-    bottom: 3,
-    transform: [{ rotate: '20deg' }],
-  },
-  rayL2: {
-    left: 9,
-    bottom: 10,
-    transform: [{ rotate: '65deg' }],
-  },
-  rayR2: {
-    right: 9,
-    bottom: 10,
-    transform: [{ rotate: '-65deg' }],
-  },
-  rayR1: {
-    right: 3,
-    bottom: 3,
-    transform: [{ rotate: '-20deg' }],
   },
   horizon: {
     width: 24,
@@ -409,7 +363,7 @@ export default function WeatherSheet({
                   emoji={item.h.emoji}
                   size={26}
                   lineHeight={31}
-                  roundedSun
+                  sunriseSun
                 />
                 <Text style={[styles.hourTemp, { color: colors.text }]}>{item.h.temp}°</Text>
                 {/* 강수확률 0%는 표기 자체를 비운다 (자리는 유지해 셀 높이 정렬) */}
