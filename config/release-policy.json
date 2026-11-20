@@ -3,6 +3,6 @@
   "unreleasedCandidateVersion": "1.3.2",
   "supportedPreviousVersion": "1.2.10",
   "minimumSupportedVersion": "1.2.4",
-  "nativeBridgeVersion": 50,
+  "nativeBridgeVersion": 51,
   "apiContractVersion": 1
 }
