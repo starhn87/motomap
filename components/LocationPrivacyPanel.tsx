@@ -88,14 +88,16 @@ export default function LocationPrivacyPanel({ view = 'overview' }: { view?: 'ov
         <Switch accessibilityLabel="방문 기록 저장" value={state.historyAllowed} disabled={busy || !active}
           onValueChange={value=>{void run(()=>state.setHistoryAllowed(value));}} />
       </View>}
-      {button(active || state.status==='paused' ? '동의 범위 변경' : '위치정보 이용 동의',()=>router.navigate('/location-privacy/consent' as Href))}
-      {button('내 기록 열람·삭제',()=>router.navigate('/location-privacy/records' as Href))}
-      {button('위치정보 동의 철회',()=>confirm('위치정보 동의를 철회할까요?',
-        '위치 이용·길안내를 중지하고 방문·완주 기록 및 이용·제공 내역을 삭제해요. 리뷰·즐겨찾기는 유지돼요. 삭제 자료는 복구할 수 없어요.',async()=>{
-          await state.change('withdraw'); setEvents([]); setRides([]);
-        }))}
+      <View style={styles.menuList}>
+        {button(active || state.status==='paused' ? '동의 범위 변경' : '위치정보 이용 동의',()=>router.navigate('/location-privacy/consent' as Href))}
+        {button('내 기록 열람·삭제',()=>router.navigate('/location-privacy/records' as Href))}
+        {button('위치정보 동의 철회',()=>confirm('위치정보 동의를 철회할까요?',
+          '위치 이용·길안내를 중지하고 방문·완주 기록 및 이용·제공 내역을 삭제해요. 리뷰·즐겨찾기는 유지돼요. 삭제 자료는 복구할 수 없어요.',async()=>{
+            await state.change('withdraw'); setEvents([]); setRides([]);
+          }))}
+      </View>
     </> : <>
-      <View style={styles.recordTabs}>
+      <View style={styles.menuList}>
         {state.actor && button('방문 기록',()=>{setRecordType('visits'); void run(()=>loadRides());})}
         {button('이용·제공 내역',()=>{setRecordType('usage'); void run(()=>loadEvents());})}
       </View>
@@ -144,5 +146,5 @@ const styles = StyleSheet.create({
   label:{color:'#F5F5F2',fontSize:15,lineHeight:23},
   body:{color:'#C4C5C8',fontSize:14,lineHeight:22},button:{minHeight:48,padding:12,backgroundColor:'#222225',borderRadius:10,justifyContent:'center'},
   disabled:{opacity:0.45},card:{padding:14,gap:8,borderWidth:1,borderColor:'#333',borderRadius:12},
-  setting:{flexDirection:'row',alignItems:'center',gap:16,paddingVertical:12},settingText:{flex:1,gap:6},recordTabs:{gap:8},
+  setting:{flexDirection:'row',alignItems:'center',gap:16,paddingVertical:12},settingText:{flex:1,gap:6},menuList:{gap:8},
 });
