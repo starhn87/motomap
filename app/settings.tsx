@@ -10,7 +10,7 @@ import { Text } from '@/components/ui/AppText';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ANDROID_TOP_CONTROL_GAP, HEADER_CONTROL_SIZE } from '@/components/navigation/headerSpacing';
+import { ANDROID_STACK_HEADER_HEIGHT, HEADER_CONTROL_SIZE } from '@/components/navigation/headerSpacing';
 import { useTrackHeaderScroll } from '@/components/navigation/headerScroll';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -223,7 +223,7 @@ export default function SettingsScreen() {
   };
 
   const isAndroid = Platform.OS === 'android';
-  const headerHeight = insets.top + HEADER_CONTROL_SIZE + (isAndroid ? ANDROID_TOP_CONTROL_GAP : 0);
+  const headerHeight = insets.top + (isAndroid ? ANDROID_STACK_HEADER_HEIGHT : HEADER_CONTROL_SIZE);
   const infoMenuRowsStyle = { gap: isAndroid ? 8 : 12 };
   const infoLinkStyle = [
     styles.linkButton,
