@@ -41,6 +41,8 @@ function setup() {
       Pressable: 'Pressable', Text: 'Text', TextInput: 'TextInput', View: 'View',
       Keyboard: { dismiss() {} }, StyleSheet: { create: (value: unknown) => value }, Platform: { OS: 'ios' },
     },
+    'react-native-safe-area-context': { SafeAreaProvider: 'SafeAreaProvider', SafeAreaView: 'SafeAreaView' },
+    '@/components/navigation/headerSpacing': { SEARCH_HEADER_TOP_GAP: 8 },
     '@expo/vector-icons/Ionicons': { __esModule: true, default: 'Ionicons' },
     '@/components/ui/GlassButton': { __esModule: true, default: 'GlassButton' },
     '@/components/ui/GlassSurface': { __esModule: true, default: 'GlassSurface' },

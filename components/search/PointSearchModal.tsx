@@ -1,3 +1,5 @@
+import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
+import { SEARCH_HEADER_TOP_GAP } from '@/components/navigation/headerSpacing';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import GlassButton from '@/components/ui/GlassButton';
 import GlassSurface from '@/components/ui/GlassSurface';
@@ -160,6 +162,9 @@ export default function PointSearchModal({
     [favorites],
   );
   const canShowFav = allowSaved && favItems.length > 0;
+  const ios = Platform.OS === 'ios';
+  const showQuickRow = !ios || allowCurrent || canShowFav ||
+    (allowSaved && myPlacesEnabled && !!(myPlaces.home || myPlaces.work));
   const isFavorite = favoriteMatcher(favorites);
   const candidates = mergeFavoriteCandidates({ places: results.flatMap(item => item.kind === 'place' ? [item.place] : []),
     kakaoOnly: results.flatMap(item => item.kind === 'kakao' ? [item.k] : []) }, favorites, query);
@@ -332,10 +337,12 @@ export default function PointSearchModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={selectionConfirmation ? closeConfirmation : onClose}>
-      <View style={[styles.modal, { backgroundColor: colors.background }]}>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <SafeAreaView edges={ios ? ['top'] : []}
+        style={[styles.modal, { backgroundColor: colors.background }, ios && styles.iosModal]}>
         <View style={{ flex: 1 }} accessibilityElementsHidden={!!selectionConfirmation}
           importantForAccessibility={selectionConfirmation ? 'no-hide-descendants' : 'auto'}>
-        <View style={styles.modalHeader}>
+        <View style={[styles.modalHeader, ios && styles.iosModalHeader]}>
           <GlassSurface style={styles.searchBox}>
             <Ionicons name="search" size={16} color={colors.textSecondary} />
             <TextInput
@@ -430,7 +437,7 @@ export default function PointSearchModal({
               <>
                 {/* 바로가기 한 줄 — 현재 위치·집·회사·즐겨찾기.
                     앞의 셋은 누르면 바로 선택되고, 즐겨찾기만 목록을 편다. */}
-                <View style={[styles.quickRow, { borderBottomColor: colors.border }]}>
+                {showQuickRow && <View style={[styles.quickRow, ios && styles.iosQuickRow, { borderBottomColor: colors.border }]}>
                   {allowCurrent && (
                     <Pressable
                       accessibilityRole="button"
@@ -494,7 +501,7 @@ export default function PointSearchModal({
                       <Text style={[styles.quickLabel, { color: colors.text }]}>즐겨찾기</Text>
                     </Pressable>
                   )}
-                </View>
+                </View>}
                 {allowSaved &&
                   !showFavList &&
                   recents.map((r) => (
@@ -588,7 +595,8 @@ export default function PointSearchModal({
               onPress={(button) => button?.onPress?.()} onDismiss={closeConfirmation} />
           </View>
         )}
-      </View>
+      </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -598,6 +606,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 60,
   },
+  iosModal: { paddingTop: SEARCH_HEADER_TOP_GAP },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -605,6 +614,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
   },
+  iosModalHeader: { paddingHorizontal: 12, paddingBottom: 10, gap: 8 },
   searchBox: {
     flex: 1,
     flexDirection: 'row',
@@ -643,6 +653,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  iosQuickRow: { justifyContent: 'center', paddingTop: 9, paddingBottom: 9 },
   // 고정 폭 — 집·회사 미설정이나 비로그인으로 항목이 줄어도 왼쪽부터 차곡차곡
   quickItem: {
     width: 72,

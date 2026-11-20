@@ -1,3 +1,4 @@
+import { SEARCH_HEADER_TOP_GAP } from '@/components/navigation/headerSpacing';
 import PointSearchModal, { type Point } from '@/components/search/PointSearchModal';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -510,20 +511,20 @@ export default function SearchScreen() {
         )}
       </View>
 
-      {(myPlacesEnabled || !!user) && <View style={[styles.myPlacesRow, { paddingHorizontal: 20, paddingBottom: 12 }]}>
+      {(myPlacesEnabled || !!user) && <View style={[styles.myPlacesRow, ios && styles.iosMyPlacesRow]}>
         {myPlacesEnabled && (['home', 'work'] as const).map(slot => (
           <Pressable key={slot} accessibilityRole="button" onPress={() => handleMyPlace(slot)}
-            style={({ pressed }) => [styles.myPlaceCard, { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}>
+            style={({ pressed }) => [styles.myPlaceCard, ios && styles.iosMyPlaceCard, { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}>
             <Ionicons name={slot === 'home' ? 'home' : 'business'} size={20} color={colors.tint} />
             <Text style={{ color: colors.text }}>{slot === 'home' ? '집' : '회사'}</Text>
           </Pressable>
         ))}
         {!!user && <Pressable accessibilityRole="button" accessibilityState={{ selected: showFavorites }}
           onPress={() => { Keyboard.dismiss(); setShowFavorites(value => !value); }}
-          style={({ pressed }) => [styles.myPlaceCard, { backgroundColor: showFavorites ? colors.tint : colors.surface, borderColor: showFavorites ? colors.tint : colors.border, opacity: pressed ? 0.7 : 1 }]}>
+          style={({ pressed }) => [styles.myPlaceCard, ios && styles.iosMyPlaceCard, { backgroundColor: showFavorites ? colors.tint : colors.surface, borderColor: showFavorites ? colors.tint : colors.border, opacity: pressed ? 0.7 : 1 }]}>
           <Ionicons name={showFavorites ? "star" : "star-outline"} size={20} color={showFavorites ? colors.background : colors.tint} />
           <Text style={{ color: showFavorites ? colors.background : colors.text, fontWeight: showFavorites ? '700' : '400' }}>즐겨찾기</Text>
-          {showFavorites && <Ionicons name="checkmark" size={14} color={colors.background} />}
+          {!ios && showFavorites && <Ionicons name="checkmark" size={14} color={colors.background} />}
         </Pressable>}
       </View>}
       {showFavorites ? (
@@ -897,7 +898,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingTop: SEARCH_HEADER_TOP_GAP,
     paddingBottom: 10,
     gap: 8,
   },
@@ -948,8 +949,12 @@ const styles = StyleSheet.create({
   myPlacesRow: {
     flexDirection: 'row',
     gap: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
     marginBottom: 12,
   },
+  iosMyPlacesRow: { marginBottom: 0 },
+  iosMyPlaceCard: { justifyContent: 'center' },
   myPlaceCard: {
     flex: 1,
     flexDirection: 'row',
