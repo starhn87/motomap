@@ -96,14 +96,16 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
         <Text style={styles.body}>현재 위치는 네이버 지도에 표시하고 선택한 기능에 사용해요.{'\n'}
           {providers.length ? `위치 전달: ${providers.map(provider => RECIPIENT_LABELS[provider]).join(', ')}` : '선택한 추가 전달 대상이 없어요.'}
         </Text>
-        <Pressable accessibilityRole="checkbox" accessibilityLabel="방문·주행 기록 저장 (선택)"
-          accessibilityState={{ checked: historyAllowed, disabled: loading || !state.actor }}
-          disabled={loading || !state.actor} style={styles.agreement}
-          onPress={() => setHistoryAllowed(old => !old)}>
-          <View style={[styles.checkbox, historyAllowed && styles.checked]}>{historyAllowed && <Text style={styles.checkmark}>✓</Text>}</View>
-          <Text style={styles.label}>방문·주행 기록 저장 (선택)</Text>
-        </Pressable>
-        <Text style={styles.body}>{state.actor ? '방문한 장소와 주행 기록을 저장해요. 선택하지 않아도 길안내를 이용할 수 있어요.' : '기록 저장은 로그인 후 선택할 수 있어요.'}</Text>
+        {state.actor && <>
+          <Pressable accessibilityRole="checkbox" accessibilityLabel="방문·주행 기록 저장 (선택)"
+            accessibilityState={{ checked: historyAllowed, disabled: loading }}
+            disabled={loading} style={styles.agreement}
+            onPress={() => setHistoryAllowed(old => !old)}>
+            <View style={[styles.checkbox, historyAllowed && styles.checked]}>{historyAllowed && <Text style={styles.checkmark}>✓</Text>}</View>
+            <Text style={styles.label}>방문·주행 기록 저장 (선택)</Text>
+          </Pressable>
+          <Text style={styles.body}>방문한 장소와 주행 기록을 저장해요. 선택하지 않아도 길안내를 이용할 수 있어요.</Text>
+        </>}
         <Pressable accessibilityRole="button" accessibilityLabel="기능별 위치 전달 선택"
           accessibilityState={{ expanded: providersExpanded, disabled: loading }} disabled={loading}
           style={styles.scopeButton} onPress={() => setProvidersExpanded(old => !old)}>

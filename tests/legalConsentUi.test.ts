@@ -185,11 +185,13 @@ test('최초 화면에서 문서를 열지 않아도 모든 기능의 위치 전
 });
 
 
-test('비회원은 기록 저장을 켤 수 없고 위치 동의만 저장한다', async () => {
+test('비회원의 최초 동의 화면에는 기록 저장 행이 없고 위치 동의만 저장한다', async () => {
   const f=fixture({needsLegal:false,guest:true});
-  const history=elements(f.render()).find(n=>n.props.accessibilityLabel==='방문·주행 기록 저장 (선택)')!;
-  assert.equal(history.props.disabled,true);
-  history.props.onPress(); checkAll(f); await submit(f).props.onPress(); await new Promise(done=>setTimeout(done,0));
+  const nodes=visibleElements(f.render());
+  assert.equal(nodes.some(n=>n.props.accessibilityLabel==='방문·주행 기록 저장 (선택)'),false);
+  assert.equal(nodes.some(n=>n.props.children==='기록 저장은 로그인 후 선택할 수 있어요.'),false);
+  assert.ok(nodes.some(n=>n.props.accessibilityLabel==='기능별 위치 전달 선택'));
+  checkAll(f); await submit(f).props.onPress(); await new Promise(done=>setTimeout(done,0));
   assert.equal(f.consentArgs()[2],false);
 });
 
