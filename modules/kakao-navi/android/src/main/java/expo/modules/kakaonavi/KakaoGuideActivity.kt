@@ -1,5 +1,6 @@
 package expo.modules.kakaonavi
 
+import android.animation.ValueAnimator
 import android.app.Application
 import android.os.Bundle
 import android.os.Handler
@@ -138,6 +139,11 @@ internal class KakaoGuideController(
   private var request: KakaoGuideSession? = initial
   private var installed = false
   private var view: KNNaviView? = null
+  private val restoreGuideTracking = Runnable {
+    // 숨겨 둔 SDK 버튼의 800ms 클릭 제한 없이 주행 추적 모드를 복구한다.
+    view?.findViewById<KNComponentCurPositionView>(NaviResources.id.component_cur_position)
+      ?.delegate?.curPositionViewToCurLocation()
+  }
   private var guidance: KNGuidance? = null
   private var started = false
   private var ended = false
@@ -354,6 +360,7 @@ internal class KakaoGuideController(
     else naviView.guidance = engine
     val guideMap = naviView.mapComponent.mapView
     guideMap.setOnTouchListener { _, event ->
+      if (event.actionMasked == MotionEvent.ACTION_DOWN) handler.removeCallbacks(restoreGuideTracking)
       if (event.actionMasked != MotionEvent.ACTION_UP || !guideMap.usePanningGesture) {
         return@setOnTouchListener false
       }
@@ -507,16 +514,20 @@ internal class KakaoGuideController(
   }
 
   private fun recenterGuide() {
-    val naviView = view ?: return
-    // 숨겨 둔 SDK 버튼의 800ms 클릭 제한 없이 주행 추적 모드를 복구한다.
-    naviView.findViewById<KNComponentCurPositionView>(NaviResources.id.component_cur_position)
-      ?.delegate?.curPositionViewToCurLocation()
-    val map = naviView.mapComponent.mapView
+    val map = view?.mapComponent?.mapView ?: return
+    handler.removeCallbacks(restoreGuideTracking)
     val coordinate = map.userLocation?.coordinate?.takeIf {
       it.x.isFinite() && it.y.isFinite() && it.x > 0f && it.y > 0f
-    } ?: return
-    // 다음 GPS 갱신을 기다리지 않고 지도에 표시 중인 자차 위치로 카메라를 복귀시킨다.
-    map.moveCamera(KNMapCameraUpdate().targetTo(coordinate), false, false)
+    }
+    if (coordinate == null || !ValueAnimator.areAnimatorsEnabled()) {
+      restoreGuideTracking.run()
+      if (coordinate != null) map.moveCamera(KNMapCameraUpdate().targetTo(coordinate), false, false)
+      return
+    }
+    // 다음 GPS를 기다리지 않고 이동을 시작하고, SDK 추적이 전환을 덮지 않도록 마지막에 복구한다.
+    val durationMs = 300L
+    map.animateCamera(KNMapCameraUpdate().targetTo(coordinate), durationMs, false, false)
+    handler.postDelayed(restoreGuideTracking, durationMs)
   }
 
   private fun updatePanel(target: MotoGuideControls? = panel) {
@@ -860,6 +871,7 @@ internal class KakaoGuideController(
   }
 
   private fun destroyView() {
+    handler.removeCallbacks(restoreGuideTracking)
     arrivalPrompt?.dismiss()
     guideRoot?.viewTreeObserver?.removeOnPreDrawListener(keepNativeControlsHidden)
     guideRoot = null
