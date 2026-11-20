@@ -5,11 +5,16 @@ import { Script } from 'node:vm';
 import { transformSync } from 'esbuild';
 
 type Element = { type: unknown; props: Record<string, any> };
-function fixture(options: { needsLegal?: boolean; showProvidersInline?: boolean; guest?: boolean; historyAllowed?: boolean; existingProviders?: string[]; consent?:()=>Promise<void>; legal?:()=>Promise<void> } = {}) {
+function fixture(options: { needsLegal?: boolean; showProvidersInline?: boolean; guest?: boolean; historyAllowed?: boolean; existingProviders?: string[]; status?: 'unknown' | 'active' | 'paused' | 'withdrawn'; version?: string; ready?: boolean; consent?:()=>Promise<void>; legal?:()=>Promise<void> } = {}) {
   const states: any[]=[]; let cursor=0; let actor: string | null=options.guest?null:'A'; const calls: string[]=[];
   let consentArgs: unknown[]=[];
-  const state={actor,version:options.existingProviders?'2026-10-11-location-v2':null,providers:options.existingProviders??[],historyAllowed:options.historyAllowed??false,ready:true,
-    consent:async(...args:unknown[])=>{calls.push('location'); consentArgs=args; await options.consent?.();},
+  const currentVersion='2026-10-11-location-v2';
+  const state={actor,status:options.status??'unknown',version:options.version??(options.existingProviders?currentVersion:null),
+    providers:options.existingProviders??[],historyAllowed:options.historyAllowed??false,ready:options.ready??true,
+    consent:async(...args:unknown[])=>{
+      calls.push('location'); consentArgs=args; await options.consent?.();
+      state.status='active'; state.version=currentVersion;
+    },
     browse:()=>calls.push('browse'),load:async()=>{}};
   const source=readFileSync(new URL('../components/auth/LegalConsentScreen.tsx',import.meta.url),'utf8');
   const {code}=transformSync(source,{loader:'tsx',format:'cjs',jsx:'automatic'});
@@ -37,7 +42,7 @@ function fixture(options: { needsLegal?: boolean; showProvidersInline?: boolean;
     if(!(name in dependencies)) throw new Error(`미지정 약관 UI 의존성: ${name}`); return dependencies[name];
   }});
   return {render:()=>{cursor=0;return module.exports.default({needsLegal:options.needsLegal ?? true,showProvidersInline:options.showProvidersInline ?? false});},
-    calls,consentArgs:()=>JSON.parse(JSON.stringify(consentArgs)),actor:(next:string)=>{actor=next;}};
+    remount:()=>{states.length=0;},calls,consentArgs:()=>JSON.parse(JSON.stringify(consentArgs)),actor:(next:string)=>{actor=next;}};
 }
 function elements(node:any):Element[]{
   if(Array.isArray(node)) return node.flatMap(elements);
@@ -57,6 +62,40 @@ test('처음에는 미선택 기본 동의만 보이고 공급자 선택은 자�
   assert.equal(submit(f).props.disabled,true);
   const locationOnly=fixture({needsLegal:false});
   assert.equal(elements(locationOnly.render()).filter(n=>n.props.accessibilityRole==='checkbox').length,2);
+});
+test('설정에서 동의를 저장한 뒤 다시 열면 필수 동의가 체크되어 있다', async () => {
+  for (const guest of [false,true]) {
+    const f=fixture({needsLegal:false,showProvidersInline:true,guest});
+    const agreement=()=>elements(f.render()).find(n=>n.props.accessibilityRole==='checkbox'
+      && elements(n).some(c=>c.props.children==='만 14세 이상 · 위치 이용·전달 동의'))!;
+    assert.equal(agreement().props.accessibilityState.checked,false);
+    agreement().props.onPress();
+    submit(f).props.onPress();
+    await new Promise(done=>setTimeout(done,0));
+    assert.deepEqual(f.calls,['location']);
+
+    f.remount();
+    assert.equal(agreement().props.accessibilityState.checked,true);
+    assert.equal(submit(f).props.disabled,false);
+    agreement().props.onPress();
+    assert.equal(agreement().props.accessibilityState.checked,false);
+    assert.equal(submit(f).props.disabled,true);
+    assert.deepEqual(f.calls,['location']);
+
+    f.remount();
+    assert.equal(agreement().props.accessibilityState.checked,true);
+  }
+});
+
+test('최초 동의와 동의를 다시 확인해야 하는 상태에는 저장된 체크를 적용하지 않는다', () => {
+  const options={needsLegal:false,showProvidersInline:true,version:'2026-10-11-location-v2',status:'active' as const};
+  for (const overrides of [{showProvidersInline:false}, {status:'unknown'}, {status:'paused'}, {status:'withdrawn'},
+    {version:'old'}, {ready:false}] as const) {
+    const f=fixture({...options,...overrides});
+    assert.equal(elements(f.render()).find(n=>n.props.accessibilityRole==='checkbox')!.props.accessibilityState.checked,false);
+    assert.equal(submit(f).props.disabled,true);
+    assert.deepEqual(f.calls,[]);
+  }
 });
 test('문서 보기는 동의 버전의 내장 본문이며 닫아도 체크 상태를 유지한다',()=>{
   const f=fixture(); elements(f.render()).find(n=>n.props.accessibilityRole==='checkbox')!.props.onPress();

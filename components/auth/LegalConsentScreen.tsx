@@ -18,7 +18,9 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
   { needsLegal?: boolean; showProvidersInline?: boolean; onReady?: () => void; onComplete?: () => void }) {
   const state = useLocationPrivacyStore();
   const colors = Colors[useColorScheme() ?? 'light'];
-  const [agreed, setAgreed] = useState<Partial<Record<LegalDocType, boolean>>>({});
+  const [agreed, setAgreed] = useState<Partial<Record<LegalDocType, boolean>>>(() => ({
+    location: showProvidersInline && state.ready && state.status === 'active' && state.version === LOCATION_CONSENT_VERSION,
+  }));
   // 기존 TMAP 선택을 재저장할 때 빼면 과거 이용 내역까지 지워진다.
   const [providers, setProviders] = useState<LocationRecipient[]>(() => state.version === LOCATION_CONSENT_VERSION
     ? state.providers.filter(p => p !== 'naver') : [...SELECTABLE_PROVIDERS]);
