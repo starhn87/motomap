@@ -4,7 +4,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 
 import { NIGHT_PARTLY_CLOUDY_EMOJI } from '@/constants/weather';
-import SunShape, { SUNRISE_SUN_COLOR } from '@/components/weather/SunShape';
+import SunShape, { FULL_SUN_HEIGHT, SUNRISE_SUN_COLOR } from '@/components/weather/SunShape';
 
 interface Props {
   emoji: string;
@@ -77,7 +77,7 @@ export default function WeatherEmoji({ emoji, size, lineHeight, homeButton = fal
             <View key={index} style={[styles.layer, styles.icon, {
               left: size * glyph.x, top: size * glyph.y, width: size * glyph.size, height: size * glyph.size,
             }]}>
-              <SunShape color={SUNRISE_SUN_COLOR} scale={glyph.size} />
+              <SunShape color={SUNRISE_SUN_COLOR} full scale={glyph.size * Math.min(1, boxHeight / FULL_SUN_HEIGHT)} />
             </View>
           ) : (
             <MaterialCommunityIcons

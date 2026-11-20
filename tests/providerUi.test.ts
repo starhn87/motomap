@@ -89,7 +89,7 @@ function androidWeatherEmoji() {
     '@expo/vector-icons/MaterialCommunityIcons': 'Icon',
     '@/components/ui/AppText': { Text: 'Text' },
     '@/constants/weather': { NIGHT_PARTLY_CLOUDY_EMOJI },
-    '@/components/weather/SunShape': { __esModule: true, default: 'SunShape', SUNRISE_SUN_COLOR: '#FBBF24' },
+    '@/components/weather/SunShape': { __esModule: true, default: 'SunShape', FULL_SUN_HEIGHT: 28, SUNRISE_SUN_COLOR: '#FBBF24' },
   }).default;
 }
 
@@ -111,7 +111,7 @@ test('Android 홈 날씨 버튼은 맑은 밤과 구름 많은 밤의 달만 확
   }
 });
 
-test('Android 홈과 시간대별 예보는 일출의 해를 공유하고 구름을 그 위에 유지한다', () => {
+test('Android 홈과 시간대별 예보는 온전한 해를 사용하고 구름을 그 위에 유지한다', () => {
   const WeatherEmoji = androidWeatherEmoji();
   const { render } = weatherButton();
   for (const emoji of ['☀️', '⛅']) {
@@ -126,6 +126,8 @@ test('Android 홈과 시간대별 예보는 일출의 해를 공유하고 구름
     const hourlySun = hourlyLayers[0].props.children;
     assert.equal(buttonSun.type, 'SunShape');
     assert.equal(hourlySun.type, 'SunShape');
+    assert.equal(buttonSun.props.full, true);
+    assert.equal(hourlySun.props.full, true);
     assert.equal(buttonSun.props.color, '#FBBF24');
     assert.equal(hourlySun.props.color, buttonSun.props.color);
     assert.equal(buttonSun.props.scale, emoji === '☀️' ? 1 : 0.65);
@@ -135,6 +137,19 @@ test('Android 홈과 시간대별 예보는 일출의 해를 공유하고 구름
       assert.equal(hourlyLayers[index].props.name, defaultLayers[index].props.name);
     }
   }
+});
+
+test('일출은 반원, 낮 예보는 위·아래 빛살이 있는 원으로 그린다', () => {
+  const jsx = (type: unknown, props: unknown) => ({ type, props });
+  const { default: SunShape } = loadModule<{ default: (props: any) => Element }>('components/weather/SunShape.tsx', {
+    'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' },
+    'react-native': { View: 'View', StyleSheet: { create: (styles: unknown) => styles } },
+  });
+  const sunrise = SunShape({ color: '#FBBF24' }).props.children;
+  const daylight = SunShape({ color: '#FBBF24', full: true }).props.children;
+  assert.equal(sunrise[1].props.style[0].height, 8);
+  assert.equal(daylight[1].props.style[1].height, 16);
+  assert.equal(daylight[0].props.children[1].props.style[1].transform[0].scaleY, -1);
 });
 
 test('날씨·유가 재시도는 안내와 원래 문구 공간을 유지하고 진행 문구 대신 스피너를 표시한다',()=>{
