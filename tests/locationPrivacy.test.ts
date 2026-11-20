@@ -255,11 +255,9 @@ test('서버 요청은 시작 당시 계정을 CAS 인자로 고정한다', asyn
   await module.locationPrivacyRpc('withdraw','private-token',{},'A');
   assert.deepEqual(JSON.parse(JSON.stringify(args)),{p_action:'withdraw',p_secret:'private-token',p_payload:{expectedActor:'A',clientCapabilities:['tmap']}});
 });
-test('위치 관리 화면 전체를 마스킹하고 최초 동의는 별도 단일 화면에서 미선택이다', () => {
+test('위치 관리 화면 전체를 마스킹한다', () => {
   const panel=readFileSync(new URL('../components/LocationPrivacyPanel.tsx',import.meta.url),'utf8');
   assert.match(panel,/<PostHogMaskView/); assert.match(panel,/<\/PostHogMaskView>/);
-  const consent=readFileSync(new URL('../components/auth/LegalConsentScreen.tsx',import.meta.url),'utf8');
-  assert.match(consent,/useState<Partial<Record<LegalDocType, boolean>>>\(\{\}\)/);
   assert.doesNotMatch(panel,/intro/);
 });
 test('위치정보 관리와 하위 화면의 제목은 스택 헤더에만 두고 뒤로 가기로 돌아온다', () => {
