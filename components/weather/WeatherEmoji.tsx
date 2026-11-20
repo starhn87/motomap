@@ -10,6 +10,7 @@ interface Props {
   size: number;
   lineHeight?: number;
   homeButton?: boolean;
+  roundedSun?: boolean;
 }
 
 type WeatherGlyph = {
@@ -45,7 +46,7 @@ const partlyCloudy = [
   { ...cloud, size: 0.74, x: 0.23, y: 0.21 },
 ];
 
-// 상세와 예보의 기본 그림이며, 홈 버튼에서는 해와 달만 따로 다듬는다.
+// 날씨별 기본 그림과 각 화면에서 공유하는 레이어 배치.
 const androidWeatherIcons: Record<string, { label: string; glyphs: WeatherGlyph[] }> = {
   '☀️': { label: '맑음', glyphs: [sun] },
   '🌙': { label: '맑은 밤', glyphs: [moon] },
@@ -92,7 +93,7 @@ function RoundedSun({ size, left, top }: { size: number; left: number; top: numb
 }
 
 /** 구름 많은 밤에는 기존 시스템 달·구름 이모지를 한 칸 안에 겹쳐 표시한다. */
-export default function WeatherEmoji({ emoji, size, lineHeight, homeButton = false }: Props) {
+export default function WeatherEmoji({ emoji, size, lineHeight, homeButton = false, roundedSun = homeButton }: Props) {
   const boxHeight = lineHeight ?? Math.round(size * 1.2);
 
   const androidIcon = Platform.OS === 'android' ? androidWeatherIcons[emoji] : undefined;
@@ -104,7 +105,7 @@ export default function WeatherEmoji({ emoji, size, lineHeight, homeButton = fal
         pointerEvents="none"
         style={[styles.icon, { width: size, height: boxHeight }]}>
         <View style={{ width: size, height: size }} importantForAccessibility="no-hide-descendants">
-          {androidIcon.glyphs.map((glyph, index) => homeButton && glyph.name === sun.name ? (
+          {androidIcon.glyphs.map((glyph, index) => roundedSun && glyph.name === sun.name ? (
             <RoundedSun key={index} size={size * glyph.size} left={size * glyph.x} top={size * glyph.y} />
           ) : (
             <MaterialCommunityIcons

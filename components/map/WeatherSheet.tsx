@@ -409,6 +409,7 @@ export default function WeatherSheet({
                   emoji={item.h.emoji}
                   size={26}
                   lineHeight={31}
+                  roundedSun
                 />
                 <Text style={[styles.hourTemp, { color: colors.text }]}>{item.h.temp}°</Text>
                 {/* 강수확률 0%는 표기 자체를 비운다 (자리는 유지해 셀 높이 정렬) */}
