@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
@@ -14,6 +14,11 @@ const FILTERS = [
   { value: 'feedback', label: '건의' },
 ] as const;
 export type SubmissionFilter = typeof FILTERS[number]['value'];
+
+// Compose 드롭다운이 등록된 Android 빌드에서만 네이티브 뷰를 로드한다.
+const AndroidMenu: typeof import('./AndroidSubmissionFilterMenu').default | null =
+  Platform.OS === 'android' && globalThis.expo?.getViewConfig?.('ExpoUI', 'DropdownMenuView')
+    ? require('./AndroidSubmissionFilterMenu').default : null;
 
 export default function SubmissionFilterMenu({ value, onChange, active }: {
   value: SubmissionFilter;
@@ -49,6 +54,9 @@ export default function SubmissionFilterMenu({ value, onChange, active }: {
 
   if (nativeUI) return <NativeChoiceControl value={value} options={FILTERS} label="제보 종류"
     presentation="menu" onChange={onChange} enabled={active} />;
+
+  if (AndroidMenu) return <AndroidMenu value={value} options={FILTERS} selectedLabel={selectedLabel}
+    onChange={onChange} active={active} />;
 
   return <>
     <Pressable ref={trigger} collapsable={false} hitSlop={6} onPress={open}
