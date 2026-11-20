@@ -342,7 +342,7 @@ export default function PointSearchModal({
         style={[styles.modal, { backgroundColor: colors.background }, ios && styles.iosModal]}>
         <View style={{ flex: 1 }} accessibilityElementsHidden={!!selectionConfirmation}
           importantForAccessibility={selectionConfirmation ? 'no-hide-descendants' : 'auto'}>
-        <View style={[styles.modalHeader, ios && styles.iosModalHeader]}>
+        <View style={[styles.modalHeader, ios && styles.iosModalHeader, ios && allowSaved && styles.iosModalHeaderWithMap]}>
           <GlassSurface style={styles.searchBox}>
             <Ionicons name="search" size={16} color={colors.textSecondary} />
             <TextInput
@@ -404,7 +404,7 @@ export default function PointSearchModal({
             리플레이는 화면을 통째로 찍으므로 목록째 가린다. */}
         {allowSaved && (
           <Pressable accessibilityRole="button" onPress={() => { Keyboard.dismiss(); stopVoice(); if (debounce.current) clearTimeout(debounce.current); requestAbort.current?.abort(); requestSequence.current += 1; setSearching(false); setMapPicking(true); }}
-            style={[styles.resultRow, { borderBottomColor: colors.border }]}>
+            style={[styles.resultRow, ios && styles.iosMapPickRow, { borderBottomColor: colors.border }]}>
             <Ionicons name="map-outline" size={20} color={colors.tint} />
             <Text style={[styles.resultName, { color: colors.text }]}>지도에서 선택</Text>
           </Pressable>
@@ -615,6 +615,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   iosModalHeader: { paddingHorizontal: 12, paddingBottom: 10, gap: 8 },
+  iosModalHeaderWithMap: { paddingBottom: 4 },
   searchBox: {
     flex: 1,
     flexDirection: 'row',
@@ -653,7 +654,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  iosQuickRow: { justifyContent: 'center', paddingTop: 9, paddingBottom: 9 },
+  iosQuickRow: { paddingTop: 9, paddingBottom: 9 },
   // 고정 폭 — 집·회사 미설정이나 비로그인으로 항목이 줄어도 왼쪽부터 차곡차곡
   quickItem: {
     width: 72,
@@ -679,6 +680,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  iosMapPickRow: { minHeight: 44, paddingVertical: 8 },
   resultTexts: {
     flex: 1,
     gap: 2,
