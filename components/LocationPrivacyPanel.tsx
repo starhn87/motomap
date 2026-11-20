@@ -72,6 +72,7 @@ export default function LocationPrivacyPanel({ view = 'overview' }: { view?: 'ov
     accessibilityState={{disabled:busy || disabled}} disabled={busy || disabled} onPress={onPress}
     style={({pressed})=>[styles.button,(busy || disabled || pressed) && styles.disabled]}><Text style={styles.label}>{label}</Text></Pressable>;
 
+  const recordsInquiry = button('열람·정정·삭제 문의',()=>requestCorrection('위치정보 자료'));
   const active = state.status==='active' && state.version===LOCATION_CONSENT_VERSION;
   return <PostHogMaskView style={styles.screen}><ScrollView contentContainerStyle={styles.content}>
     {view==='overview' ? <>
@@ -100,6 +101,7 @@ export default function LocationPrivacyPanel({ view = 'overview' }: { view?: 'ov
       <View style={styles.menuList}>
         {state.actor && button('방문 기록',()=>{setRecordType('visits'); void run(()=>loadRides());})}
         {button('이용·제공 내역',()=>{setRecordType('usage'); void run(()=>loadEvents());})}
+        {recordType===null && recordsInquiry}
       </View>
       {recordType==='usage' && <>
         <Text style={styles.body}>처리 시각·목적·공급자·결과만 6개월 보관 후 정리해요. GPS 좌표·주소·검색어는 이 내역에 저장하지 않아요.</Text>
@@ -134,7 +136,7 @@ export default function LocationPrivacyPanel({ view = 'overview' }: { view?: 'ov
             await state.change('withdraw_history'); setRides([]); setEvents([]);
           }))}
       </>}
-      {button('열람·정정·삭제 문의',()=>requestCorrection('위치정보 자료'))}
+      {recordType!==null && recordsInquiry}
     </>}
     {!!state.error && <Text style={styles.body}>{state.error}</Text>}
     {!state.ready && button('다시 확인하기',()=>{void state.load(state.actor);})}
