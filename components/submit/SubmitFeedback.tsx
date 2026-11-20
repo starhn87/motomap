@@ -20,6 +20,8 @@ import Animated, {
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { submitFeedback } from '@/lib/api/feedback';
+import { holdSubmitForLogin } from '@/lib/submitLoginGate';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { toast } from '@/lib/toast';
 import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
 import { useContentHeaderInset } from '@/components/navigation/headerInset';
@@ -35,7 +37,7 @@ const FEEDBACK_TYPES = [
   { key: 'general' as const, label: '기타 의견', icon: 'chatbubble-ellipses-outline' as const },
 ];
 
-export default function SubmitFeedback() {
+export default function SubmitFeedback({ onRequireLogin }: { onRequireLogin: () => void }) {
   const scrollRef = useRef<ScrollView>(null);
   const keyboardInput = useRevealKeyboardInput(scrollRef);
   const trackHeaderScroll = useTrackHeaderScroll();
@@ -43,6 +45,8 @@ export default function SubmitFeedback() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  const userId = useAuthStore((s) => s.user?.id);
+  const authStatus = useAuthStore((s) => s.status);
   const [type, setType] = useState<FeedbackType | null>(null);
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -62,6 +66,7 @@ export default function SubmitFeedback() {
       toast.info('내용을 입력해주세요.');
       return;
     }
+    if (holdSubmitForLogin(authStatus, userId, onRequireLogin)) return;
 
     setSubmitting(true);
     submitScale.value = withSpring(0.95);

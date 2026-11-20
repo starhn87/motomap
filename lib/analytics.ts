@@ -249,8 +249,9 @@ export const track = {
   placeSubmissionOpened: (p: { source: 'arrival' | 'temp_place' | 'search_empty' }) =>
     capture('place_submission_opened', p),
 
-  // 열기와 접수 사이. result 가 이탈 구간이다. login 은 버튼 전이므로
-  // 같은 방문에서 이후 submitted 가 또 남을 수 있다.
+  // 열기와 접수 사이. result 가 이탈 구간이다.
+  // login 은 제출을 눌렀는데 로그인 벽이 열린 것이다. 같은 방문에서
+  // login_completed 와 submitted 가 이어질 수 있다.
   placeSubmissionAttempted: (p: {
     source: 'tab' | 'arrival' | 'temp_place' | 'search_empty';
     result:
@@ -264,11 +265,20 @@ export const track = {
       | 'submitted';
   }) => capture('place_submission_attempted', p),
 
-  // 제보 폼에는 사진 입력이 없다 — 카테고리와 진입 경로만 남긴다
+  // 접수 이벤트에는 카테고리와 진입 경로만 남긴다. 사진·좌표·장소명은 넣지 않는다.
   placeSubmitted: (p: {
     category: string;
     source: 'tab' | 'arrival' | 'temp_place' | 'search_empty';
   }) => capture('place_submitted', p),
+
+  // 로그인 벽의 끝. 폼에 적힌 내용·사진·좌표·계정은 넣지 않는다.
+  placeSubmissionLoginCompleted: (p: {
+    source: 'tab' | 'arrival' | 'temp_place' | 'search_empty';
+  }) => capture('place_submission_login_completed', p),
+
+  placeSubmissionLoginCancelled: (p: {
+    source: 'tab' | 'arrival' | 'temp_place' | 'search_empty';
+  }) => capture('place_submission_login_cancelled', p),
 
   reviewSubmitted: (p: {
     target: 'place' | 'general' | 'course';

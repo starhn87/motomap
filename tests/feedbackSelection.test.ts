@@ -16,12 +16,14 @@ test('선택한 제보 유형은 아이콘과 글자 모두 선택 배경과 대
       'react-native-reanimated': { ...exported({createAnimatedComponent:(value:any)=>value}),useSharedValue:()=>({value:1}),useAnimatedStyle:()=>({}),withSpring:(v:any)=>v },
       '@/constants/Colors': exported({ [scheme]: colors }), '@/components/useColorScheme': {useColorScheme:()=>scheme},
       '@/hooks/useRevealKeyboardInput': {useRevealKeyboardInput:()=>({onFocus:()=>{}})},
-      '@/lib/api/feedback': {}, '@/lib/toast': {}, '@/lib/push': {},
+      '@/lib/api/feedback': {}, '@/lib/toast': { toast: { info() {}, success() {}, error() {} } }, '@/lib/push': {},
+      '@/lib/submitLoginGate': { holdSubmitForLogin: () => false },
+      '@/stores/useAuthStore': { useAuthStore: (select: (state: { user: { id: string }; status: string }) => unknown) => select({ user: { id: 'user' }, status: 'signed_in' }) },
       '@/components/navigation/tabOcclusion': {TabScrollSpacer:'Spacer'},
       '@/components/navigation/headerInset': {useContentHeaderInset:()=>100},
       '@/components/navigation/headerScroll': {useTrackHeaderScroll:()=>()=>{}},
     });
-    const render=()=>{cursor=0;return module.default();};
+    const render=()=>{cursor=0;return module.default({ onRequireLogin() {} });};
     let tree=render();
     for (const index of [0,1,2]) {
       nodes(tree).filter(n=>n.props.accessibilityRole==='radio')[index].props.onPress();tree=render();

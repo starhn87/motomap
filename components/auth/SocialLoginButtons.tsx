@@ -60,8 +60,10 @@ export function RecentLoginBadge() {
 
 export default function SocialLoginButtons({
   recentProvider,
+  onCancelled,
 }: {
   recentProvider: LoginProvider | null;
+  onCancelled?: () => void;
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -73,7 +75,8 @@ export default function SocialLoginButtons({
     setLoadingProvider(provider);
     try {
       const { signInWithSocialProvider } = await import('@/lib/socialAuth');
-      await signInWithSocialProvider(provider);
+      const completed = await signInWithSocialProvider(provider);
+      if (!completed) onCancelled?.();
     } catch (error) {
       toast.error('로그인에 실패했습니다.', friendlySocialAuthError(error));
     } finally {

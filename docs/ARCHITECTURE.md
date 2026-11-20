@@ -146,7 +146,7 @@ Sentry.wrap(
 
 ### 인증 게이팅
 
-제보·내 정보 탭은 로그인이 필요하다. 비로그인 시 라우트 이동이 아니라 `components/auth/LoginPrompt`를 조건부 렌더한다. 세션은 `useAuthStore`(Supabase Auth)가 들고 있다.
+내 정보 탭은 로그인이 필요하다. 제보 탭은 로그인 전에도 폼을 보여 주고, 제출할 때 `LoginPrompt`를 그 위에 연다. 로그인하거나 취소하면 같은 폼으로 돌아온다. 둘 다 라우트 이동이 아니라 화면 안에서 `components/auth/LoginPrompt`를 렌더한다. 세션은 `useAuthStore`(Supabase Auth)가 들고 있다.
 
 ### 화면 구성 하이라이트
 

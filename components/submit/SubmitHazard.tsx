@@ -24,6 +24,7 @@ import AddressSearchModal from '@/components/submit/AddressSearchModal';
 import MapPickerModal from '@/components/map/MapPickerModal';
 import { pickImage, uploadImage } from '@/lib/uploadImage';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { holdSubmitForLogin } from '@/lib/submitLoginGate';
 import { toast } from '@/lib/toast';
 import { TabScrollSpacer } from '@/components/navigation/tabOcclusion';
 import { useContentHeaderInset } from '@/components/navigation/headerInset';
@@ -32,7 +33,7 @@ import { registerPushToken } from '@/lib/push';
 import type { HazardType } from '@/types';
 
 // 노면 위험 제보 — 지금 서 있는 자리를 찍는 게 기본 시나리오라 현재 위치를 쓴다.
-export default function SubmitHazard() {
+export default function SubmitHazard({ onRequireLogin }: { onRequireLogin: () => void }) {
   const scrollRef = useRef<ScrollView>(null);
   const keyboardInput = useRevealKeyboardInput(scrollRef);
   const trackHeaderScroll = useTrackHeaderScroll();
@@ -40,6 +41,7 @@ export default function SubmitHazard() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
+  const authStatus = useAuthStore((s) => s.status);
   const userLocation = useMapStore((s) => s.userLocation);
   const { mutateAsync: submit, isPending } = useSubmitHazard();
 
@@ -69,7 +71,12 @@ export default function SubmitHazard() {
 
   const handlePickPhoto = async () => {
     const uri = await pickImage();
-    if (!uri || !user) return;
+    if (!uri) return;
+    // 로그인 전에는 기기 안 주소만 들고 있는다. 제출 때 올린다.
+    if (!user) {
+      setPhoto(uri);
+      return;
+    }
     setUploading(true);
     try {
       setPhoto(await uploadImage(uri, `hazards/${user.id}`));
@@ -94,6 +101,20 @@ export default function SubmitHazard() {
       toast.info('어떤 위험인지 적어주세요.');
       return;
     }
+    if (holdSubmitForLogin(authStatus, user?.id, onRequireLogin) || !user) return;
+    let photoUrl = photo ?? undefined;
+    if (photo && !/^https?:\/\//i.test(photo)) {
+      setUploading(true);
+      try {
+        photoUrl = await uploadImage(photo, `hazards/${user.id}`);
+        setPhoto(photoUrl);
+      } catch (error: any) {
+        toast.error('사진 업로드에 실패했습니다.', error.message);
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
     try {
       await submit({
         type,
@@ -101,7 +122,7 @@ export default function SubmitHazard() {
         longitude: coord.longitude,
         address: address ?? undefined,
         note,
-        photo: photo ?? undefined,
+        photo: photoUrl,
       });
       setType(null);
       setNote('');
@@ -261,12 +282,12 @@ export default function SubmitHazard() {
 
         <Pressable
           onPress={() => void handleSubmit()}
-          disabled={isPending}
+          disabled={isPending || uploading}
           style={({ pressed }) => [
             styles.submit,
-            { backgroundColor: colors.tint, opacity: pressed || isPending ? 0.8 : 1 },
+            { backgroundColor: colors.tint, opacity: pressed || isPending || uploading ? 0.8 : 1 },
           ]}>
-          {isPending ? (
+          {isPending || uploading ? (
             <ActivityIndicator size="small" color={colors.background} />
           ) : (
             <Text style={[styles.submitText, { color: colors.background }]}>위험 제보하기</Text>

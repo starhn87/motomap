@@ -93,7 +93,15 @@ function AgreementRow({
   );
 }
 
-export default function LoginPrompt({ message }: { message?: string }) {
+export default function LoginPrompt({
+  message,
+  onCancel,
+  cancelLabel = '돌아가기',
+}: {
+  message?: string;
+  onCancel?: () => void;
+  cancelLabel?: string;
+}) {
   const keyboardScrollRef = useRef<ScrollView>(null);
   const keyboardInput = useRevealKeyboardInput(keyboardScrollRef);
   const colorScheme = useColorScheme();
@@ -247,7 +255,10 @@ export default function LoginPrompt({ message }: { message?: string }) {
             void discardIncompleteOnboardingAccount()
               .then(() => signOut('local'))
               .then(() => clearRecentLoginProvider().catch(() => {}))
-              .then(() => toast.info('가입이 취소되었습니다.'))
+              .then(() => {
+                toast.info('가입이 취소되었습니다.');
+                onCancel?.();
+              })
               .catch((error) => {
                 toast.error('가입을 취소하지 못했습니다.', (error as Error).message);
               })
@@ -283,6 +294,16 @@ export default function LoginPrompt({ message }: { message?: string }) {
         <Animated.View
           entering={FadeInDown.duration(400)}
           style={styles.container}>
+      {onCancel ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={cancelLabel}
+          onPress={onCancel}
+          style={({ pressed }) => [styles.cancelWall, pressed && styles.pressed]}>
+          <Ionicons name="chevron-back" size={18} color={colors.tint} />
+          <Text style={[styles.cancelWallText, { color: colors.tint }]}>{cancelLabel}</Text>
+        </Pressable>
+      ) : null}
       <Text style={[styles.title, { color: colors.text }]}>
         {needsOnboarding ? '프로필 완성' : isSignUp ? '회원가입' : '로그인이 필요합니다'}
       </Text>
@@ -307,7 +328,7 @@ export default function LoginPrompt({ message }: { message?: string }) {
         <View style={styles.buttons}>
           {!showProfileForm ? (
             <>
-              <SocialLoginButtons recentProvider={recentLoginProvider} />
+              <SocialLoginButtons recentProvider={recentLoginProvider} onCancelled={onCancel} />
               <View style={styles.dividerRow}>
                 <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
                 <Text style={[styles.dividerText, { color: colors.textSecondary }]}>또는</Text>
@@ -518,6 +539,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+  },
+  cancelWall: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  cancelWallText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
   title: {
     fontSize: 22,

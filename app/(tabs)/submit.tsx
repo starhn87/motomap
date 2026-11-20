@@ -11,6 +11,7 @@ import {
   Platform,
   Keyboard,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { Text, TextInput } from '@/components/ui/AppText';
 import { useState, useEffect, useRef } from 'react';
@@ -24,6 +25,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { holdSubmitForLogin } from '@/lib/submitLoginGate';
 import { CATEGORY_LIST } from '@/constants/categories';
 import { submitPlace, checkPlaceDuplicate } from '@/lib/api/places';
 import { generalPlaceIdentity } from '@/lib/api/generalPlaces';
@@ -92,7 +94,7 @@ function SubmitTypeTab({
   );
 }
 
-function SubmitPlace() {
+function SubmitPlace({ onRequireLogin }: { onRequireLogin: () => void }) {
   const trackHeaderScroll = useTrackHeaderScroll();
   const headerInset = useContentHeaderInset();
   const colorScheme = useColorScheme();
@@ -114,6 +116,7 @@ function SubmitPlace() {
   const [photoPreviewIndex, setPhotoPreviewIndex] = useState<number | null>(null);
   const [pickingPhotos, setPickingPhotos] = useState(false);
   const userId = useAuthStore((s) => s.user?.id);
+  const authStatus = useAuthStore((s) => s.status);
 
   async function addPhotos() {
     if (pickingPhotos || submitting || photos.length >= 5) return;
@@ -178,7 +181,7 @@ function SubmitPlace() {
   }, [prefillName, prefillAddress, prefillLat, prefillLng, prefillProvider, prefillProviderId, prefillTs]);
 
   const handleSubmit = async () => {
-    if (submitting || pickingPhotos || !userId) return;
+    if (submitting || pickingPhotos) return;
     Keyboard.dismiss();
     const source = placeSubmissionSource(prefillSource);
     if (!name.trim()) {
@@ -196,6 +199,7 @@ function SubmitPlace() {
       toast.info('주소를 검색해서 선택해주세요.');
       return;
     }
+    if (holdSubmitForLogin(authStatus, userId, onRequireLogin) || !userId) return;
 
     setSubmitting(true);
     let accepted = false;
@@ -409,6 +413,8 @@ function SubmitScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((s) => s.user);
   const [submitType, setSubmitType] = useState<SubmitType>('place');
+  const [loginWall, setLoginWall] = useState<SubmitType | null>(null);
+  const loginResolved = useRef(false);
   const { submitType: requestedType, submitTs, prefillSource, prefillTs, prefillName, prefillAddress,
     prefillLat, prefillLng, returnPhone, returnProviderId, returnPlaceUrl, returnGeneralPlaceId } = useLocalSearchParams<{
     submitType?: string;
@@ -418,7 +424,6 @@ function SubmitScreen() {
     prefillName?: string; prefillAddress?: string; prefillLat?: string; prefillLng?: string;
     returnPhone?: string; returnProviderId?: string; returnPlaceUrl?: string; returnGeneralPlaceId?: string;
   }>();
-  const loginGateKey = useRef<string | null>(null);
   const [canReturnToPlace, setCanReturnToPlace] = useState(false);
   const handledReturnRef = useRef<string | null>(null);
 
@@ -446,15 +451,39 @@ function SubmitScreen() {
     </Pressable>
   );
 
-  // 도착·일반 장소·빈 검색에서 들어온 제보가 로그인 벽에 막히면 버튼 시도가 없다.
+  const source = placeSubmissionSource(prefillSource);
+
+  // 폼은 마운트한 채 벽만 덮는다. 로그인·취소 뒤에 사진과 위치가 같은 상태에 남는다.
+  function openLoginWall(intent: SubmitType) {
+    if (loginWall) return;
+    loginResolved.current = false;
+    setLoginWall(intent);
+    if (intent === 'place') track.placeSubmissionAttempted({ source, result: 'login' });
+  }
+
+  function cancelLoginWall() {
+    if (!loginWall || loginResolved.current) return;
+    loginResolved.current = true;
+    if (loginWall === 'place') track.placeSubmissionLoginCancelled({ source });
+    setLoginWall(null);
+  }
+
   useEffect(() => {
-    if (user) return;
-    if (prefillSource !== 'arrival' && prefillSource !== 'temp_place' && prefillSource !== 'search_empty') return;
-    const key = `${prefillSource}:${prefillTs ?? submitTs ?? ''}`;
-    if (loginGateKey.current === key) return;
-    loginGateKey.current = key;
-    track.placeSubmissionAttempted({ source: prefillSource, result: 'login' });
-  }, [user, prefillSource, prefillTs, submitTs]);
+    if (!loginWall || !user || loginResolved.current) return;
+    loginResolved.current = true;
+    if (loginWall === 'place') track.placeSubmissionLoginCompleted({ source });
+    setLoginWall(null);
+  }, [loginWall, user, source]);
+
+  // 약관 화면은 이 화면 위의 스택으로 연다. 네이티브 Modal은 그 화면을 가린다.
+  useEffect(() => {
+    if (!loginWall) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      cancelLoginWall();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [loginWall]);
 
   // 다른 화면의 CTA에서 제보 탭을 열 때, 이전에 보던 위험·건의 탭이 남지 않게 한다.
   // 같은 장소 CTA를 다시 눌러도 timestamp가 바뀌므로 매번 장소 탭으로 돌아온다.
@@ -470,13 +499,6 @@ function SubmitScreen() {
       setSubmitType('place');
     }
   }, [requestedType, submitTs]);
-
-  if (!user) {
-    return <View style={{ flex: 1 }}>
-      {backToPlace && <View style={{ paddingTop: headerInset, paddingLeft: 12 }}>{backToPlace}</View>}
-      <LoginPrompt message="제보하려면 로그인이 필요합니다." />
-    </View>;
-  }
 
   const fixedSelector = Platform.OS === 'android';
   const selector = (
@@ -501,11 +523,15 @@ function SubmitScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: fixedSelector ? headerInset : 0 }]}>
       {fixedSelector && selector}
       <HeaderInsetContext.Provider value={fixedSelector ? 0 : headerInset + tabHeight}>
-        {submitType === 'place' && <SubmitPlace />}
-        {submitType === 'hazard' && <SubmitHazard />}
-        {submitType === 'feedback' && <SubmitFeedback />}
+        {submitType === 'place' && <SubmitPlace onRequireLogin={() => openLoginWall('place')} />}
+        {submitType === 'hazard' && <SubmitHazard onRequireLogin={() => openLoginWall('hazard')} />}
+        {submitType === 'feedback' && <SubmitFeedback onRequireLogin={() => openLoginWall('feedback')} />}
       </HeaderInsetContext.Provider>
       {!fixedSelector && selector}
+      {loginWall ? <View style={styles.loginWall}>
+        <LoginPrompt message="제보하려면 로그인이 필요합니다."
+          onCancel={cancelLoginWall} cancelLabel="제보 계속하기" />
+      </View> : null}
     </View>
   );
 }
@@ -514,6 +540,7 @@ export default withNativeTabScreen(SubmitScreen, { title: '제보' });
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  loginWall: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 20 },
   overlayTabRow: { position: 'absolute', left: 0, right: 0, zIndex: 5, overflow: 'hidden' },
   fixedTabRow: { paddingHorizontal: 16 },
   tabRow: {
