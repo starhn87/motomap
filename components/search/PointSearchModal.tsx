@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Text, TextInput } from '@/components/ui/AppText';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -83,6 +84,7 @@ export default function PointSearchModal({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const isAndroid = Platform.OS === 'android';
+  const { top } = useSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
   const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const myPlacesEnabled = useMyPlacesStore((s) => s.enabled);
@@ -164,6 +166,8 @@ export default function PointSearchModal({
     [favorites],
   );
   const canShowFav = allowSaved && favItems.length > 0;
+  const hasQuickActions = allowCurrent || canShowFav
+    || (allowSaved && myPlacesEnabled && !!(myPlaces.home || myPlaces.work));
   const isFavorite = favoriteMatcher(favorites);
   const candidates = mergeFavoriteCandidates({ places: results.flatMap(item => item.kind === 'place' ? [item.place] : []),
     kakaoOnly: results.flatMap(item => item.kind === 'kakao' ? [item.k] : []) }, favorites, query);
@@ -370,9 +374,10 @@ export default function PointSearchModal({
     <Modal
       visible={visible}
       animationType="slide"
+      statusBarTranslucent={isAndroid}
       onShow={isAndroid ? focusAndroidInput : undefined}
       onRequestClose={selectionConfirmation ? closeConfirmation : onClose}>
-      <View style={[styles.modal, { backgroundColor: colors.background }]}>
+      <View style={[styles.modal, { backgroundColor: colors.background, paddingTop: isAndroid ? top : 60 }]}>
         <View style={{ flex: 1 }} accessibilityElementsHidden={!!selectionConfirmation}
           importantForAccessibility={selectionConfirmation ? 'no-hide-descendants' : 'auto'}>
         {isAndroid ? (
@@ -456,7 +461,7 @@ export default function PointSearchModal({
               <>
                 {/* 바로가기 한 줄 — 현재 위치·집·회사·즐겨찾기.
                     앞의 셋은 누르면 바로 선택되고, 즐겨찾기만 목록을 편다. */}
-                <View style={[styles.quickRow, isAndroid && styles.androidQuickRow, { borderBottomColor: colors.border }]}>
+                {(!isAndroid || hasQuickActions) && <View style={[styles.quickRow, isAndroid && styles.androidQuickRow, { borderBottomColor: colors.border }]}>
                   {allowCurrent && (
                     <Pressable
                       accessibilityRole="button"
@@ -520,7 +525,7 @@ export default function PointSearchModal({
                       <Text style={[styles.quickLabel, { color: colors.text }]}>즐겨찾기</Text>
                     </Pressable>
                   )}
-                </View>
+                </View>}
                 {allowSaved &&
                   !showFavList &&
                   recents.map((r) => (
@@ -622,7 +627,6 @@ export default function PointSearchModal({
 const styles = StyleSheet.create({
   modal: {
     flex: 1,
-    paddingTop: 60,
   },
   modalHeader: {
     flexDirection: 'row',

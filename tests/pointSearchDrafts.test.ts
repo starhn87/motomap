@@ -39,6 +39,7 @@ function setup(platform = 'ios') {
     '@/components/search/AndroidSearchBar': { __esModule: true, default: 'AndroidSearchBar' },
     '@/components/search/SearchPlaceIcon': { __esModule: true, default: 'SearchPlaceIcon', RoutePointIcon: 'RoutePointIcon' },
     'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 24 }) },
     'react-native': {
       ActivityIndicator: 'ActivityIndicator', FlatList: 'FlatList', Modal: 'Modal',
       Pressable: 'Pressable', Text: 'Text', TextInput: 'TextInput', View: 'View',
@@ -134,6 +135,19 @@ test('Android 지점 검색은 공용 바에서 취소·음성·검색어 지우
   bar().onClear(); f.render();
   assert.equal(f.find('TextInput')!.props.value, '');
   assert.equal(bar().onClear, undefined);
+});
+
+test('Android 지점 검색은 안전 영역을 따르고 바로가기 없는 빈 행을 만들지 않는다', () => {
+  const f = setup('android');
+  const modal = f.find('Modal')!;
+  assert.equal(modal.props.statusBarTranslucent, true);
+  assert.equal(modal.props.children.props.style[1].paddingTop, 24);
+  const quickRow = () => f.find('FlatList')!.props.ListHeaderComponent.props.children
+    .find((child: Node | false | undefined) => child && child.type === 'View');
+  assert.ok(quickRow());
+  f.props.allowCurrent = false;
+  f.render();
+  assert.equal(quickRow(), undefined);
 });
 
 test('출발·도착 초안을 섞지 않고 재진입 시 해당 입력으로 결과를 새로 조회한다', async () => {
