@@ -5,6 +5,7 @@ import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -238,6 +239,7 @@ export default function DirectionsScreen() {
     p === 'current' ? '현재 위치' : (p?.name ?? fallback);
 
   const busy = resolving || navLaunching;
+  const isAndroid = Platform.OS === 'android';
   const recentRows = recentTargets(recents);
 
   return (
@@ -272,11 +274,11 @@ export default function DirectionsScreen() {
               />
             </View>
           ))}
-          {/* 경유지가 없을 때만 사이에 + 를 띄운다(줄 미차지). 경유지가 생기면
-              ⊖ 와의 세로 근접을 피해 + 는 도착지 행 오른쪽 끝으로 옮겨 단다. */}
+          {/* iOS는 첫 경유지 추가 버튼을 행 사이에 둔다. Android는 행 사이에
+              터치 영역이 겹치지 않도록 항상 도착지 옆에서 추가한다. */}
           <View style={styles.fieldDividerWrap}>
             <View style={[styles.fieldDivider, { backgroundColor: colors.border }]} />
-            {viaPoints.length === 0 && (
+            {!isAndroid && viaPoints.length === 0 && (
               <Pressable
                 onPress={addEmptyVia}
                 disabled={busy}
@@ -298,18 +300,23 @@ export default function DirectionsScreen() {
             onPress={() => editField('dest')}
             disabled={busy}
             onAdd={
-              viaPoints.length > 0 && viaPoints.length < MAX_VIAS ? addEmptyVia : undefined
+              (isAndroid || viaPoints.length > 0) && viaPoints.length < MAX_VIAS ? addEmptyVia : undefined
             }
           />
         </View>
-        <View style={styles.fieldSide}>
+        <View style={[styles.fieldSide, isAndroid && styles.androidFieldSide]}>
           <Pressable
             accessibilityLabel="출발지와 도착지 바꾸기"
+            accessibilityRole={isAndroid ? 'button' : undefined}
             disabled={busy}
             accessibilityState={{ disabled: busy }}
             onPress={swap}
-            hitSlop={8}
-            style={[styles.swapButton, { borderColor: colors.border, opacity: busy ? 0.4 : 1 }]}>
+            hitSlop={isAndroid ? undefined : 8}
+            android_ripple={isAndroid ? { color: colors.tint + '24' } : undefined}
+            style={[
+              isAndroid ? styles.androidFieldAction : styles.swapButton,
+              { borderColor: colors.border, opacity: busy ? 0.4 : 1 },
+            ]}>
             <MaterialCommunityIcons name="swap-vertical" size={18} color={colors.textSecondary} />
           </Pressable>
         </View>
@@ -450,19 +457,56 @@ function FieldRow({
   muted: boolean;
   onPress: () => void;
   onRemove?: () => void;
-  /** 도착지 행 오른쪽 끝의 경유지 추가 버튼 (경유지가 있을 때) */
+  /** 도착지 행 오른쪽 끝의 경유지 추가 버튼 */
   onAdd?: () => void;
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  return (
-    <Pressable onPress={onPress} disabled={disabled} style={styles.fieldRow}>
+  const content = (
+    <>
       <RoutePointIcon point={point} icon={icon} size={16} />
       <Text
         style={[styles.fieldValue, { color: muted ? colors.textSecondary : colors.text }]}
         numberOfLines={1}>
         {value || placeholder}
       </Text>
+    </>
+  );
+  if (Platform.OS === 'android') {
+    const action = onRemove ?? onAdd;
+    const ripple = { color: colors.tint + '24' };
+    return (
+      <View style={styles.androidFieldRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={placeholder}
+          accessibilityValue={value ? { text: value } : undefined}
+          accessibilityState={{ disabled }}
+          onPress={onPress}
+          disabled={disabled}
+          android_ripple={ripple}
+          style={styles.androidFieldEdit}>
+          {content}
+        </Pressable>
+        {!!action && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={onRemove ? `경유지 삭제${value ? `, ${value}` : ''}` : '경유지 추가'}
+            accessibilityState={{ disabled }}
+            onPress={action}
+            disabled={disabled}
+            android_ripple={ripple}
+            style={styles.androidFieldAction}>
+            <MaterialCommunityIcons name={onRemove ? 'minus-circle-outline' : 'plus-circle-outline'}
+              size={21} color={colors.textSecondary} />
+          </Pressable>
+        )}
+      </View>
+    );
+  }
+  return (
+    <Pressable onPress={onPress} disabled={disabled} style={styles.fieldRow}>
+      {content}
       {onRemove && (
         <Pressable
           onPress={onRemove}
@@ -559,6 +603,28 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 13,
   },
+  androidFieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  androidFieldEdit: {
+    flex: 1,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  androidFieldAction: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
   fieldDivider: {
     height: StyleSheet.hairlineWidth,
     marginLeft: 26,
@@ -596,6 +662,9 @@ const styles = StyleSheet.create({
   fieldSide: {
     width: 42,
     alignItems: 'center',
+  },
+  androidFieldSide: {
+    width: 48,
   },
   swapButton: {
     width: 34,

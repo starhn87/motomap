@@ -7,7 +7,7 @@ const goal = { name: '목적지', latitude: 37.4, longitude: 127.1 };
 const via = { name: '경유지', latitude: 37.3, longitude: 127.2 };
 
 // 실제 입력 화면의 선택·삭제·검색 닫기를 실행한다. 라우터/저장소/GPS만 대역이다.
-function setup() {
+function setup(platform = 'ios') {
   const values: any[] = [], effects: { deps: unknown[]; cleanup?: () => void }[] = [];
   const scheduled: (() => void)[] = [];
   const launches: any[][] = [];
@@ -35,7 +35,8 @@ function setup() {
   const module = loadModule<{ default: () => Element }>('app/directions.tsx', {
     '@/components/search/SearchPlaceIcon': { __esModule: true, default: 'SearchPlaceIcon', RoutePointIcon: 'RoutePointIcon' },
     react, 'react/jsx-runtime': { jsx, jsxs: jsx },
-    'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView', ActivityIndicator: 'Spinner', StyleSheet: { create: (x: unknown) => x } },
+    'react-native': { View: 'View', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView', ActivityIndicator: 'Spinner',
+      Platform: { OS: platform }, StyleSheet: { create: (x: unknown) => x } },
     'expo-router': { router: { push() {} }, useLocalSearchParams: () => ({}), useFocusEffect() {} },
     'expo-location': {},
     '@expo/vector-icons/Ionicons': { __esModule: true, default: 'Icon' },
@@ -105,6 +106,34 @@ test('채워진 경유지를 삭제하면 남은 지점으로 미리보기를 �
   f.fields()[1].props.onRemove(); await f.flush();
   assert.equal(f.launches.length, before + 1);
   assert.equal(f.launches.at(-1)![2].length, 0);
+});
+
+test('Android 길찾기에서 검색과 경유지 추가·삭제는 각각 독립된 버튼이다', async () => {
+  const f = setup('android');
+  const rowButtons = (index: number): Element[] => {
+    const field = f.fields()[index];
+    const row = field.type(field.props);
+    assert.equal(row.type, 'View');
+    assert.equal(row.props.onPress, undefined);
+    return row.props.children.filter(Boolean);
+  };
+  const [editDestination, addVia] = rowButtons(1);
+  assert.equal(editDestination.props.accessibilityLabel, '도착지 선택');
+  assert.equal(addVia.props.accessibilityLabel, '경유지 추가');
+  addVia.props.onPress(); f.render();
+  assert.equal(f.fields().length, 3);
+  assert.equal(f.modal().props.visible, false);
+
+  const [editVia, removeVia] = rowButtons(1);
+  assert.equal(editVia.props.accessibilityLabel, '경유지 입력');
+  editVia.props.onPress(); f.render();
+  assert.equal(f.modal().props.visible, true);
+  f.modal().props.onClose(); f.render();
+  assert.equal(removeVia.props.accessibilityLabel, '경유지 삭제');
+  removeVia.props.onPress(); await f.flush();
+  assert.equal(f.fields().length, 2);
+  assert.equal(f.modal().props.visible, false);
+  assert.equal(f.launches.length, 0);
 });
 
 test('빈 경유지 삭제는 재진입하지 않고 검색 뒤로 닫기는 기존 출발·도착을 보존한다', async () => {
