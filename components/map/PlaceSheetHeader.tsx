@@ -27,7 +27,18 @@ export function PlaceSheetHeaderProvider({ animatedIndex, header, children }: {
     () => animatedIndex.value >= 1.99,
     (next, previous) => { if (next !== !!previous) runOnJS(setExpanded)(next); },
   );
-  return <HeaderContext.Provider value={{ expanded, header }}>{children}</HeaderContext.Provider>;
+  return (
+    <HeaderContext.Provider value={{ expanded, header }}>
+      {/* 선택 해제 시 네이티브 닫힘이 지연돼도 빈 시트가 지도·탭을 덮지 않는다. */}
+      <View collapsable={false}
+        pointerEvents={header ? 'box-none' : 'none'}
+        accessibilityElementsHidden={!header}
+        importantForAccessibility={header ? 'auto' : 'no-hide-descendants'}
+        style={[StyleSheet.absoluteFill, styles.sheetLayer, !header && styles.hiddenSheetLayer]}>
+        {children}
+      </View>
+    </HeaderContext.Provider>
+  );
 }
 
 export function PlaceSheetBackground({ style, pointerEvents }: BottomSheetBackgroundProps) {
@@ -89,6 +100,8 @@ export function PlaceSheetNameRow({ name, onPress, children }: {
 }
 
 const styles = StyleSheet.create({
+  sheetLayer: { zIndex: 20 },
+  hiddenSheetLayer: { opacity: 0 },
   pageHeader: {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 30,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

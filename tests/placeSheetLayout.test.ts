@@ -75,3 +75,40 @@ for (const name of ['PlaceBottomSheet', 'TempPlaceSheet']) {
     assert.equal(enabled('enableOverDrag'), false, '고정 본문은 끝점을 넘겨 화면 아래 틈을 만들지 않는다');
   });
 }
+
+test('장소가 사라져도 시트 인스턴스는 유지하고 빈 면과 터치를 차단한다', () => {
+  const child = { type: 'BottomSheet', props: { animatedIndex: 1 } };
+  const provider = { Provider: 'HeaderProvider' };
+  const absoluteFill = { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 };
+  const { PlaceSheetHeaderProvider } = loadModule<{ PlaceSheetHeaderProvider: (props: any) => any }>(
+    'components/map/PlaceSheetHeader.tsx',
+    {
+      react: { createContext: () => provider, useState: () => [false, () => {}] },
+      'react/jsx-runtime': { jsx, jsxs: jsx },
+      'react-native': {
+        View: 'View',
+        StyleSheet: { absoluteFill, create: (styles: unknown) => styles },
+      },
+      '@gorhom/bottom-sheet': {},
+      'react-native-reanimated': { useAnimatedReaction: () => {} },
+      '@/components/ui/AppText': {},
+      '@/components/ui/BackIcon': {},
+      '@/components/ui/GlassButton': {},
+      '@/components/useColorScheme': {},
+      '@/constants/Colors': {},
+      './PlaceSheetCollapseHandle': {},
+    },
+  );
+  const header = { top: 56, onClose() {}, actions: null };
+  for (const selected of [null, header, null, header]) {
+    // 네이티브 시트가 여전히 중간 위치인 상태로 장소 선택만 바뀌는 상황이다.
+    const layer = PlaceSheetHeaderProvider({ animatedIndex: { value: 1 }, header: selected, children: child }).props.children;
+    assert.equal(layer.props.children, child);
+    assert.equal(layer.props.pointerEvents, selected ? 'box-none' : 'none');
+    assert.equal(layer.props.accessibilityElementsHidden, !selected);
+    assert.equal(layer.props.importantForAccessibility, selected ? 'auto' : 'no-hide-descendants');
+    const [bounds, , visibility] = layer.props.style;
+    for (const [key, value] of Object.entries(absoluteFill)) assert.equal(bounds[key], value);
+    assert.equal(visibility?.opacity === 0, !selected);
+  }
+});
