@@ -136,6 +136,8 @@ function ActiveRootLayoutNav({ onReady }: { onReady?: () => void }) {
             <Stack.Screen name="settings" options={{ title: '설정', headerTransparent: true, headerShadowVisible: false }} />
             <Stack.Screen name="recommended-places" options={{ title: '추천 목적지' }} />
             <Stack.Screen name="location-privacy" options={{ title: '위치정보 관리' }} />
+            <Stack.Screen name="location-privacy/consent" options={{ title: '동의 범위 변경' }} />
+            <Stack.Screen name="location-privacy/records" options={{ title: '내 기록 열람·삭제' }} />
             <Stack.Screen name="edit-nickname" options={{ title: '닉네임 변경' }} />
             <Stack.Screen name="edit-bike" options={{ title: '내 차고' }} />
             <Stack.Screen name="my-rides" options={{ title: '주행 기록' }} />
