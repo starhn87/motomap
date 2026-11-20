@@ -222,7 +222,13 @@ export default function SettingsScreen() {
     );
   };
 
-  const headerHeight = insets.top + HEADER_CONTROL_SIZE + (Platform.OS === 'android' ? ANDROID_TOP_CONTROL_GAP : 0);
+  const isAndroid = Platform.OS === 'android';
+  const headerHeight = insets.top + HEADER_CONTROL_SIZE + (isAndroid ? ANDROID_TOP_CONTROL_GAP : 0);
+  const infoLinkStyle = [
+    styles.linkButton,
+    isAndroid && styles.androidInfoLink,
+    { backgroundColor: colors.surface, borderColor: colors.border },
+  ];
   return (
     <ScrollView
       onScroll={trackHeaderScroll} scrollEventThrottle={16}
@@ -259,6 +265,7 @@ export default function SettingsScreen() {
       <View
         style={[
           styles.infoCard,
+          isAndroid && styles.androidInfoCard,
           {
             backgroundColor: colors.surface,
             borderColor: colors.border,
@@ -270,7 +277,7 @@ export default function SettingsScreen() {
         <Pressable
           onPress={hasUpdate ? openStore : undefined}
           disabled={!hasUpdate}
-          style={styles.infoRow}>
+          style={[styles.infoRow, isAndroid && styles.androidInfoRow]}>
           <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>버전</Text>
           <View style={styles.versionValue}>
             <Text style={[styles.infoValue, { color: colors.text }]}>{current}</Text>
@@ -283,18 +290,15 @@ export default function SettingsScreen() {
           </View>
         </Pressable>
       </View>
-      <Pressable onPress={() => router.push('/font-license' as any)} style={[styles.linkButton, { backgroundColor: colors.surface, borderColor: colors.border }]}><Text style={[styles.linkText, { color: colors.text }]}>서체 라이선스</Text><Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text></Pressable>
+      <Pressable onPress={() => router.push('/font-license' as any)} style={infoLinkStyle}>
+        <Text style={[styles.linkText, { color: colors.text }]}>서체 라이선스</Text>
+        <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
+      </Pressable>
 
       {user && (
         <Pressable
           onPress={() => router.push('/blocked-users' as any)}
-          style={[
-            styles.linkButton,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-            },
-          ]}>
+          style={infoLinkStyle}>
           <Text style={[styles.linkText, { color: colors.text }]}>차단 관리</Text>
           <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
         </Pressable>
@@ -311,43 +315,25 @@ export default function SettingsScreen() {
         { key: 'location', label: '위치기반 서비스 이용약관', onPress: () => router.push('/legal/location' as any), chevron: true },
       ]} /> : <>
       <Pressable accessibilityRole="button" onPress={() => router.push('/location-privacy' as any)}
-        style={[styles.linkButton,{ backgroundColor: colors.surface, borderColor: colors.border }]}>
+        style={infoLinkStyle}>
         <Text style={[styles.linkText,{ color: colors.text }]}>위치정보 동의·기록 관리</Text>
         <Text style={[styles.linkArrow,{ color: colors.textSecondary }]}>›</Text>
       </Pressable>
       <Pressable
         onPress={() => router.push('/legal/terms' as any)}
-        style={[
-          styles.linkButton,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-          },
-        ]}>
+        style={infoLinkStyle}>
         <Text style={[styles.linkText, { color: colors.text }]}>서비스 이용약관</Text>
         <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
       </Pressable>
       <Pressable
         onPress={() => router.push('/legal/privacy' as any)}
-        style={[
-          styles.linkButton,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-          },
-        ]}>
+        style={infoLinkStyle}>
         <Text style={[styles.linkText, { color: colors.text }]}>개인정보 처리방침</Text>
         <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
       </Pressable>
       <Pressable
         onPress={() => router.push('/legal/location' as any)}
-        style={[
-          styles.linkButton,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-          },
-        ]}>
+        style={infoLinkStyle}>
         <Text style={[styles.linkText, { color: colors.text }]}>위치기반 서비스 이용약관</Text>
         <Text style={[styles.linkArrow, { color: colors.textSecondary }]}>›</Text>
       </Pressable>
@@ -414,6 +400,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
+  androidInfoCard: {
+    padding: 0,
+  },
   loginMethodsCard: {
     borderRadius: 12,
     borderWidth: 1,
@@ -461,6 +450,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  androidInfoRow: {
+    minHeight: 48,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
   infoLabel: {
     fontSize: 14,
   },
@@ -484,6 +478,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
+  },
+  androidInfoLink: {
+    minHeight: 48,
+    paddingVertical: 8,
   },
   linkText: {
     fontSize: 14,
