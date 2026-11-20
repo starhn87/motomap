@@ -306,19 +306,21 @@ export default function ChatScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* 헤더 */}
       <View style={styles.header}>
-        <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()} hitSlop={10}
-          style={[styles.headerButton, styles.backButton]}>
-          <BackIcon color={colors.text} />
-        </GlassButton>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>AI 추천</Text>
-        {messages.length > 0 ? (
-          <GlassButton accessibilityRole="button" accessibilityLabel="새 대화" onPress={handleNewChat} hitSlop={10}
-            style={[styles.headerButton, styles.newChatButton]}>
-            <Text style={[styles.newChatText, { color: colors.tint }]}>새 대화</Text>
+        <View style={styles.headerSide}>
+          <GlassButton accessibilityRole="button" accessibilityLabel="뒤로 가기" onPress={() => router.back()} hitSlop={10}
+            style={[styles.headerButton, styles.backButton]}>
+            <BackIcon color={colors.text} />
           </GlassButton>
-        ) : (
-          <View style={styles.newChatButton} />
-        )}
+        </View>
+        <Text accessibilityRole="header" numberOfLines={1} style={[styles.headerTitle, { color: colors.text }]}>AI 추천</Text>
+        <View style={[styles.headerSide, styles.headerTrailing]}>
+          {messages.length > 0 && (
+            <GlassButton accessibilityRole="button" accessibilityLabel="새 대화" onPress={handleNewChat} hitSlop={10}
+              style={[styles.headerButton, styles.newChatButton]}>
+              <Text style={[styles.newChatText, { color: colors.tint }]}>새 대화</Text>
+            </GlassButton>
+          )}
+        </View>
       </View>
 
       <KeyboardAvoidingView
@@ -434,10 +436,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 4,
   },
+  headerSide: { flex: 1, minWidth: 0, alignItems: 'flex-start' },
+  headerTrailing: { alignItems: 'flex-end' },
   headerButton: {
     height: HEADER_CONTROL_SIZE,
     borderRadius: HEADER_CONTROL_SIZE / 2,
@@ -447,6 +451,7 @@ const styles = StyleSheet.create({
   },
   newChatButton: {
     minWidth: 52,
+    maxWidth: '100%',
     paddingHorizontal: 6,
   },
   newChatText: {
@@ -456,6 +461,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerTitle: {
+    flexShrink: 1,
+    textAlign: 'center',
     fontSize: 16,
     fontWeight: '700',
   },

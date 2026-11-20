@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Text, TextInput } from '@/components/ui/AppText';
 import { useRef, useState } from 'react';
+import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -34,6 +35,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
   const keyboardInput = useRevealKeyboardInput(keyboardScrollRef);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const ios = Platform.OS === 'ios';
 
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [description, setDescription] = useState('');
@@ -69,6 +71,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
       animationType="slide"
       transparent
       onRequestClose={handleClose}>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <KeyboardAvoidingView
         style={styles.overlay}
         enabled={Platform.OS === 'android'}
@@ -84,7 +87,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
               borderColor: colors.border,
             },
           ]}
-          contentContainerStyle={styles.sheetContent}
+          contentContainerStyle={[styles.sheetContent, ios && styles.iosSheetContent]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           bounces={false}
@@ -148,6 +151,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
               onPress={handleClose}
               style={({ pressed }) => [
                 styles.cancelButton,
+                ios && styles.iosAction,
                 { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
               ]}>
               <Text style={[styles.cancelText, { color: colors.text }]}>취소</Text>
@@ -157,6 +161,7 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
               disabled={submitting}
               style={({ pressed }) => [
                 styles.submitButton,
+                ios && styles.iosAction,
                 {
                   backgroundColor: colors.tint,
                   opacity: submitting || pressed ? 0.6 : 1,
@@ -168,8 +173,10 @@ export default function ReportSheet({ visible, onClose, targetType, targetId }: 
             </Pressable>
           </View>
           </Pressable>
+          {ios && <SafeAreaView edges={['bottom']} style={styles.iosSheetFooter} />}
         </ScrollView>
       </KeyboardAvoidingView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -196,6 +203,8 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 32,
   },
+  iosSheetContent: { paddingBottom: 0 },
+  iosSheetFooter: { paddingBottom: 12 },
   handle: {
     width: 40,
     height: 4,
@@ -247,6 +256,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
   },
+  iosAction: { minHeight: 48, paddingVertical: 10, justifyContent: 'center' },
   cancelText: {
     fontSize: 14,
     fontWeight: '600',

@@ -37,7 +37,7 @@ export default function NativeChoiceControl<T extends string>({ value, options, 
   const menuHeight = Math.max(32, Math.ceil(24 * fontScale));
   if (presentation === 'menu') return <Host colorScheme={scheme} ignoreSafeArea="container"
     style={{ width: menuWidth, height: menuHeight }}>
-    <Menu label={<HStack spacing={4} modifiers={[frame({ width: menuWidth, minHeight: menuHeight }), contentShape(shapes.rectangle())]}>
+    <Menu label={<HStack spacing={4} modifiers={[frame({ width: menuWidth, minHeight: menuHeight, alignment: 'trailing' }), contentShape(shapes.rectangle())]}>
       <Text modifiers={[font({ family: APP_FONT_FAMILY ? 'Pretendard-Medium' : undefined, size: 13, textStyle: 'caption' }), foregroundStyle(Colors[scheme].text)]}>
         {options.find(option => option.value === value)?.label ?? ''}
       </Text>
