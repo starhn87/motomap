@@ -9,6 +9,7 @@ interface Props {
   emoji: string;
   size: number;
   lineHeight?: number;
+  moonScale?: number;
 }
 
 type WeatherGlyph = {
@@ -34,7 +35,7 @@ const partlyCloudy = [
   { ...cloud, size: 0.74, x: 0.23, y: 0.21 },
 ];
 
-// 구름과 해·달·강수는 홈, 상세, 예보에서 같은 색과 비율로 그린다.
+// 구름과 해·달·강수는 홈, 상세, 예보에서 같은 도형과 색을 쓴다.
 const androidWeatherIcons: Record<string, { label: string; glyphs: WeatherGlyph[] }> = {
   '☀️': { label: '맑음', glyphs: [sun] },
   '🌙': { label: '맑은 밤', glyphs: [moon] },
@@ -58,7 +59,7 @@ const androidWeatherIcons: Record<string, { label: string; glyphs: WeatherGlyph[
 };
 
 /** 구름 많은 밤에는 기존 시스템 달·구름 이모지를 한 칸 안에 겹쳐 표시한다. */
-export default function WeatherEmoji({ emoji, size, lineHeight }: Props) {
+export default function WeatherEmoji({ emoji, size, lineHeight, moonScale = 1 }: Props) {
   const boxHeight = lineHeight ?? Math.round(size * 1.2);
 
   const androidIcon = Platform.OS === 'android' ? androidWeatherIcons[emoji] : undefined;
@@ -80,7 +81,7 @@ export default function WeatherEmoji({ emoji, size, lineHeight }: Props) {
               style={[
                 styles.layer,
                 { left: size * glyph.x, top: size * glyph.y, includeFontPadding: false },
-                glyph.name === moon.name && styles.moonTilt,
+                glyph.name === moon.name && { transform: [{ rotate: '38deg' }, { scale: moonScale }] },
               ]}
             />
           ))}
@@ -129,7 +130,6 @@ export default function WeatherEmoji({ emoji, size, lineHeight }: Props) {
 
 const styles = StyleSheet.create({
   icon: { alignItems: 'center', justifyContent: 'center' },
-  moonTilt: { transform: [{ rotate: '38deg' }] },
   layer: {
     position: 'absolute',
   },

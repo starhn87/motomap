@@ -61,7 +61,7 @@ export default function WeatherFab({ weather, failed = false, refreshing = false
         },
       ]}>
       {weather ? (
-        <WeatherEmoji emoji={weather.current.emoji} size={failed ? 18 : 24} lineHeight={failed ? 20 : 28} />
+        <WeatherEmoji emoji={weather.current.emoji} size={failed ? 18 : 24} lineHeight={failed ? 20 : 28} moonScale={1.2} />
       ) : refreshing ? (
         <ActivityIndicator size="small" color={colors.textSecondary} />
       ) : (

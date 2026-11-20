@@ -5,6 +5,7 @@ import { Script } from 'node:vm';
 import { transformSync } from 'esbuild';
 import { loadModule } from './helpers/loadModule';
 import * as distance from '../lib/distance';
+import { NIGHT_PARTLY_CLOUDY_EMOJI } from '../constants/weather';
 import type { useGasLayer } from '../hooks/useGasLayer';
 
 type Element = { type: unknown; props: Record<string, any> };
@@ -78,6 +79,31 @@ test('이전 날씨는 명시적으로 표시하고 기존 상세 토글·터치
   assert.match(cached.props.accessibilityLabel, /이전 예보.*닫기/);
   cached.props.onPress();
   assert.equal(opens, 1);
+});
+
+test('Android 홈 날씨 버튼은 맑은 밤과 구름 많은 밤의 달만 확대한다', () => {
+  const jsx = (type: unknown, props: unknown) => ({ type, props });
+  const { default: WeatherEmoji } = loadModule<{ default: (props: any) => Element }>('components/weather/WeatherEmoji.tsx', {
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    'react-native': { Platform: { OS: 'android' }, View: 'View', StyleSheet: { create: (styles: unknown) => styles } },
+    '@expo/vector-icons/MaterialCommunityIcons': 'Icon',
+    '@/components/ui/AppText': { Text: 'Text' },
+    '@/constants/weather': { NIGHT_PARTLY_CLOUDY_EMOJI },
+  });
+  const { render } = weatherButton();
+  for (const emoji of ['🌙', NIGHT_PARTLY_CLOUDY_EMOJI]) {
+    const button = render({ weather: { current: { temp: 20, emoji }, gradeColor: 'green' }, open: false });
+    const buttonProps = button.props.children[0].props;
+    const original: Element[] = WeatherEmoji({ ...buttonProps, moonScale: undefined }).props.children.props.children;
+    const enlarged: Element[] = WeatherEmoji(buttonProps).props.children.props.children;
+    assert.equal(enlarged[0].props.style[2].transform[0].rotate, '38deg');
+    assert.equal(original[0].props.style[2].transform[1].scale, 1);
+    assert.equal(enlarged[0].props.style[2].transform[1].scale, 1.2);
+    for (let index = 1; index < enlarged.length; index++) {
+      assert.equal(enlarged[index].props.size, original[index].props.size);
+      assert.equal(enlarged[index].props.style[2], false);
+    }
+  }
 });
 
 test('날씨·유가 재시도는 안내와 원래 문구 공간을 유지하고 진행 문구 대신 스피너를 표시한다',()=>{
