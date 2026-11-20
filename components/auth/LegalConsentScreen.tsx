@@ -14,7 +14,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 
 const TYPES: LegalDocType[] = ['terms', 'privacy', 'location'];
 const IS_ANDROID = Platform.OS === 'android';
-const SELECTABLE_PROVIDERS = IS_ANDROID ? LOCATION_PROVIDERS.filter(provider => provider !== 'tmap') : LOCATION_PROVIDERS;
+const SELECTABLE_PROVIDERS = LOCATION_PROVIDERS.filter(provider => provider !== 'tmap');
 const DocumentSafeArea = IS_ANDROID ? InsetView : SafeAreaView;
 
 export default function LegalConsentScreen({ needsLegal = true, showProvidersInline = false, onReady, onComplete }:
@@ -22,8 +22,10 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
   const state = useLocationPrivacyStore();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [agreed, setAgreed] = useState<Partial<Record<LegalDocType, boolean>>>({});
+  // 기존 TMAP 선택을 재저장할 때 빼면 과거 이용 내역까지 지워진다.
   const [providers, setProviders] = useState<LocationRecipient[]>(() => state.version === LOCATION_CONSENT_VERSION
-    ? state.providers.filter(p => p !== 'naver') : LOCATION_PROVIDERS.filter(p => p !== 'tmap'));
+    ? state.providers.filter(p => p !== 'naver') : [...SELECTABLE_PROVIDERS]);
+  const visibleProviders = SELECTABLE_PROVIDERS.filter(provider => providers.includes(provider));
   const [historyAllowed, setHistoryAllowed] = useState(() => state.historyAllowed);
   const [providersExpanded, setProvidersExpanded] = useState(false);
   const [viewing, setViewing] = useState<LegalDocType | null>(null);
@@ -33,7 +35,6 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
   const types = needsLegal ? TYPES : ['location'] as const;
   const accepted = types.every(type => agreed[type]);
   // 안드로이드 화면에서는 현재 사용하는 제공자만 표시하되 기존 동의 선택은 보존한다.
-  const displayedProviders = IS_ANDROID ? providers.filter(provider => provider !== 'tmap') : providers;
 
   async function accept() {
     if (!accepted || submitting.current) return;
@@ -85,7 +86,7 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
 
   return <InsetView style={styles.screen} onLayout={onReady}>
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{showProvidersInline ? '위치 전달 범위 변경' : '모토맵 시작하기'}</Text>
+      {!showProvidersInline && <Text style={styles.title}>모토맵 시작하기</Text>}
       <Text style={styles.body}>필요한 동의를 확인해 주세요. 설정에서 언제든 바꿀 수 있어요.</Text>
       {types.map(type => {
         const label = type === 'terms' ? '만 14세 이상 · 이용약관 동의'
@@ -107,7 +108,7 @@ export default function LegalConsentScreen({ needsLegal = true, showProvidersInl
       })}
       {showProvidersInline ? providerChoices : <>
         <Text style={styles.body}>현재 위치는 네이버 지도에 표시하고 선택한 기능에 사용해요.{'\n'}
-          {displayedProviders.length ? `위치 전달: ${displayedProviders.map(provider => RECIPIENT_LABELS[provider]).join(', ')}` : '선택한 추가 전달 대상이 없어요.'}
+          {visibleProviders.length ? `위치 전달: ${visibleProviders.map(provider => RECIPIENT_LABELS[provider]).join(', ')}` : '선택한 추가 전달 대상이 없어요.'}
         </Text>
         <Pressable accessibilityRole="checkbox" accessibilityLabel="방문·주행 기록 저장 (선택)"
           accessibilityState={{ checked: historyAllowed, disabled: loading || !state.actor }}

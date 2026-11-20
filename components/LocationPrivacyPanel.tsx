@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
+import { router, type Href } from 'expo-router';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, View, Share } from 'react-native';
 import { Text } from '@/components/ui/AppText';
 import { PostHogMaskView } from 'posthog-react-native';
-import LegalConsentScreen from '@/components/auth/LegalConsentScreen';
 import { useLocationPrivacyStore } from '@/stores/useLocationPrivacyStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { locationPrivacyRpc, privacyObject, PURPOSE_LABELS, RECIPIENT_LABELS, LOCATION_CONSENT_VERSION,
@@ -16,9 +16,8 @@ function listFrom<T>(value: Json, key: string, valid: (item: Record<string, Json
   return values.map(item => { const row = privacyObject(item);
     if (!valid(row)) throw new Error('자료를 확인하지 못했어요.'); return row as T; });
 }
-export default function LocationPrivacyPanel() {
+export default function LocationPrivacyPanel({ view = 'overview' }: { view?: 'overview' | 'records' }) {
   const state = useLocationPrivacyStore();
-  const [view, setView] = useState<'overview' | 'consent' | 'records'>('overview');
   const [recordType, setRecordType] = useState<'visits' | 'usage' | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -73,19 +72,14 @@ export default function LocationPrivacyPanel() {
     accessibilityState={{disabled:busy || disabled}} disabled={busy || disabled} onPress={onPress}
     style={({pressed})=>[styles.button,(busy || disabled || pressed) && styles.disabled]}><Text style={styles.label}>{label}</Text></Pressable>;
 
-  if (view==='consent') return <PostHogMaskView style={styles.screen}>
-    {button('위치정보 관리로 돌아가기',()=>setView('overview'))}
-    <LegalConsentScreen needsLegal={false} showProvidersInline onComplete={()=>setView('overview')} />
-  </PostHogMaskView>;
   const active = state.status==='active' && state.version===LOCATION_CONSENT_VERSION;
   return <PostHogMaskView style={styles.screen}><ScrollView contentContainerStyle={styles.content}>
-    <Text style={styles.title}>{view==='overview' ? '위치정보 관리' : '내 기록 열람·삭제'}</Text>
     {view==='overview' ? <>
       <View style={styles.setting}>
         <View style={styles.settingText}><Text style={styles.label}>현재 위치 사용</Text>
           <Text style={styles.body}>끄면 위치 이용과 길안내를 중지해요.</Text></View>
         <Switch accessibilityLabel="현재 위치 사용" value={active} disabled={busy || !state.ready}
-          onValueChange={value=>{ if(value && (state.status==='unknown' || state.status==='withdrawn')) setView('consent');
+          onValueChange={value=>{ if(value && (state.status==='unknown' || state.status==='withdrawn')) router.navigate('/location-privacy/consent' as Href);
             else void run(()=>state.change(value ? 'resume' : 'pause')); }} />
       </View>
       {state.actor && <View style={styles.setting}>
@@ -94,14 +88,13 @@ export default function LocationPrivacyPanel() {
         <Switch accessibilityLabel="방문 기록 저장" value={state.historyAllowed} disabled={busy || !active}
           onValueChange={value=>{void run(()=>state.setHistoryAllowed(value));}} />
       </View>}
-      {button(active || state.status==='paused' ? '동의 범위 변경' : '위치정보 이용 동의',()=>setView('consent'))}
-      {button('내 기록 열람·삭제',()=>{setView('records'); setRecordType(null);})}
+      {button(active || state.status==='paused' ? '동의 범위 변경' : '위치정보 이용 동의',()=>router.navigate('/location-privacy/consent' as Href))}
+      {button('내 기록 열람·삭제',()=>router.navigate('/location-privacy/records' as Href))}
       {button('위치정보 동의 철회',()=>confirm('위치정보 동의를 철회할까요?',
         '위치 이용·길안내를 중지하고 방문·완주 기록 및 이용·제공 내역을 삭제해요. 리뷰·즐겨찾기는 유지돼요. 삭제 자료는 복구할 수 없어요.',async()=>{
           await state.change('withdraw'); setEvents([]); setRides([]);
         }))}
     </> : <>
-      {button('위치정보 관리로 돌아가기',()=>setView('overview'))}
       <View style={styles.recordTabs}>
         {state.actor && button('방문 기록',()=>{setRecordType('visits'); void run(()=>loadRides());})}
         {button('이용·제공 내역',()=>{setRecordType('usage'); void run(()=>loadEvents());})}
@@ -148,7 +141,7 @@ export default function LocationPrivacyPanel() {
 }
 const styles = StyleSheet.create({
   screen:{flex:1,backgroundColor:'#0A0A0A'},content:{padding:24,paddingBottom:48,gap:16},
-  title:{fontSize:23,color:'#F5F5F2',fontWeight:'700'},label:{color:'#F5F5F2',fontSize:15,lineHeight:23},
+  label:{color:'#F5F5F2',fontSize:15,lineHeight:23},
   body:{color:'#C4C5C8',fontSize:14,lineHeight:22},button:{minHeight:48,padding:12,backgroundColor:'#222225',borderRadius:10,justifyContent:'center'},
   disabled:{opacity:0.45},card:{padding:14,gap:8,borderWidth:1,borderColor:'#333',borderRadius:12},
   setting:{flexDirection:'row',alignItems:'center',gap:16,paddingVertical:12},settingText:{flex:1,gap:6},recordTabs:{gap:8},
