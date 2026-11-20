@@ -130,7 +130,7 @@ test('Android 홈과 시간대별 예보는 온전한 해를 사용하고 구름
     assert.equal(hourlySun.props.full, true);
     assert.equal(buttonSun.props.color, '#FBBF24');
     assert.equal(hourlySun.props.color, buttonSun.props.color);
-    assert.equal(buttonSun.props.scale, emoji === '☀️' ? 1 : 0.65);
+    assert.equal(buttonSun.props.scale, (emoji === '☀️' ? 1 : 0.65) * 0.92);
     assert.equal(hourlySun.props.scale, buttonSun.props.scale);
     for (let index = 1; index < buttonLayers.length; index++) {
       assert.equal(buttonLayers[index].props.name, defaultLayers[index].props.name);

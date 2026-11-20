@@ -77,7 +77,11 @@ export default function WeatherEmoji({ emoji, size, lineHeight, homeButton = fal
             <View key={index} style={[styles.layer, styles.icon, {
               left: size * glyph.x, top: size * glyph.y, width: size * glyph.size, height: size * glyph.size,
             }]}>
-              <SunShape color={SUNRISE_SUN_COLOR} full scale={glyph.size * Math.min(1, boxHeight / FULL_SUN_HEIGHT)} />
+              <SunShape
+                color={SUNRISE_SUN_COLOR}
+                full
+                scale={glyph.size * 0.92 * Math.min(1, boxHeight / FULL_SUN_HEIGHT)}
+              />
             </View>
           ) : (
             <MaterialCommunityIcons
