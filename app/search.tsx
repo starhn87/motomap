@@ -122,6 +122,7 @@ function SearchLandingSkeleton() {
 export default function SearchScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const isAndroid = Platform.OS === 'android';
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
 
@@ -685,19 +686,24 @@ export default function SearchScreen() {
           contentContainerStyle={styles.listContent}>
 
           <Pressable
+            accessibilityRole={isAndroid ? 'button' : undefined}
+            accessibilityLabel={isAndroid ? 'AI에게 추천받기' : undefined}
             onPress={() => {
               Keyboard.dismiss();
               router.push('/chat');
             }}
             style={({ pressed }) => [
               styles.aiBanner,
+              isAndroid && styles.androidAiBanner,
               { backgroundColor: colors.surface, borderColor: colors.tint, opacity: pressed ? 0.85 : 1 },
             ]}>
-            <MaterialCommunityIcons name="robot-outline" size={26} color={colors.tint} />
+            <MaterialCommunityIcons name="robot-outline" size={isAndroid ? 22 : 26} color={colors.tint} />
             <View style={styles.rowInfo}>
-              <Text style={[styles.rowName, { color: colors.text }]}>AI에게 추천받기</Text>
+              <Text style={[styles.rowName, isAndroid && styles.androidAiBannerLabel, { color: colors.text }]}>
+                AI에게 추천받기
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.tint} />
+            <Ionicons name="chevron-forward" size={isAndroid ? 18 : 20} color={colors.tint} />
           </Pressable>
 
           {recent.length > 0 && (
@@ -1020,6 +1026,15 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  androidAiBanner: {
+    minHeight: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  androidAiBannerLabel: {
+    marginBottom: 0,
   },
   landingSkeleton: {
     paddingHorizontal: 16,
