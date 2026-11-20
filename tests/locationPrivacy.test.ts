@@ -262,6 +262,22 @@ test('위치 관리 화면 전체를 마스킹하고 최초 동의는 별도 단
   assert.match(consent,/useState<Partial<Record<LegalDocType, boolean>>>\(\{\}\)/);
   assert.doesNotMatch(panel,/intro/);
 });
+test('위치정보 관리와 하위 화면의 제목은 스택 헤더에만 두고 뒤로 가기로 돌아온다', () => {
+  const root = readFileSync(new URL('../components/ActiveRootLayout.tsx', import.meta.url), 'utf8');
+  const panel = readFileSync(new URL('../components/LocationPrivacyPanel.tsx', import.meta.url), 'utf8');
+  for (const [path, title] of [['location-privacy', '위치정보 관리'],
+    ['location-privacy/consent', '동의 범위 변경'], ['location-privacy/records', '내 기록 열람·삭제']]) {
+    assert.ok(root.includes(`name="${path}" options={{ title: '${title}' }}`));
+  }
+  for (const path of ['consent', 'records']) {
+    assert.ok(panel.includes(`router.navigate('/location-privacy/${path}'`));
+  }
+  assert.doesNotMatch(panel, /styles\.title|위치정보 관리로 돌아가기/);
+  const records = readFileSync(new URL('../app/location-privacy/records.tsx', import.meta.url), 'utf8');
+  assert.match(records, /<LocationPrivacyPanel[^>]*view="records"/);
+  const consent = readFileSync(new URL('../app/location-privacy/consent.tsx', import.meta.url), 'utf8');
+  assert.match(consent, /navigation\.isFocused\(\) && navigation\.canGoBack\(\)\) navigation\.goBack\(\)/);
+});
 test('기록 저장 스위치는 기존 자료·공급자·길안내를 건드리지 않는다', async()=>{
   const f=fixture();
   await f.store.getState().setHistoryAllowed(false);
