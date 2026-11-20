@@ -14,8 +14,8 @@
 ## ADMIN-001 — 관리자 조회와 장소 제보 처리를 Worker에 둔다
 
 - 날짜: 2026-11-07
-- 상태: 활성. 원격 마이그레이션·Worker 배포·실연결 검증 전
-- 관련: `website/src/admin/`, `website/public/admin.html`, `scripts/posthog-metrics.mjs`, `supabase/migrations/20261108095543_admin_dashboard_state.sql`
+- 상태: 활성. 원격 마이그레이션 2026-11-20 적용·카탈로그 검증 완료. Worker 배포·실연결 검증 전
+- 관련: `website/src/admin/`, `website/public/admin.html`, `scripts/posthog-metrics.mjs`, `supabase/migrations/20261120125333_admin_dashboard_state.sql`
 
 ### 결정
 
@@ -29,10 +29,12 @@
 - 키가 없으면 미연결, API가 실패하면 조회 실패, 응답이 빈 목록이거나 0이면 그 값이다. 셋을 같은 상태로 두지 않는다.
 - 장소 처리 함수는 `security invoker`이고 execute는 `service_role`만 가진다. 행 잠금 뒤 한 번만 상태를 바꾸고 감사 로그를 같은 트랜잭션에 남긴다. 이미 처리된 행은 다시 쓰지 않는다. `approved`가 null이면 알림 트리거가 울리지 않으므로 바꾸지 않는다.
 
-### 원격에 두기 전에
+### 원격 적용
 
-`20261108095543_admin_dashboard_state.sql`은 저장소에만 있다. 식별자는 운영에 이미 적용된 `20261107142553`보다 뒤다. SQL 본문은 이전 파일 `20261107013809`과 같고, 그 파일은 제거했다. 적용 순서는 마이그레이션, 그 다음 Worker 배포다. 코드가 먼저 배포되면 쓰기는 실패로 남고 장소 행은 바뀌지 않는다. 롤백은 함수 3개와 테이블 3개를 drop 하는 것이다. 이미 승인·반려된 장소는 drop으로 되돌려지지 않는다. 이 함수는 security definer가 아니다. anon·authenticated 권한은 없다.
+2026-11-20에 원격 적용했다. 도구가 기록한 버전은 `20261120125333`(name `admin_dashboard_state`)이고, 저장소 파일명도 그 버전이다. SQL 본문은 이전 파일 `20261108095543`·그 전의 `20261107013809`과 같고, 그 파일명은 제거했다. 적용 순서는 마이그레이션, 그 다음 Worker 배포다. 코드가 먼저 배포되면 쓰기는 실패로 남고 장소 행은 바뀌지 않는다. 롤백은 함수 3개와 테이블 3개를 drop 하는 것이다. 이미 승인·반려된 장소는 drop으로 되돌려지지 않는다. 이 함수는 security definer가 아니고 `search_path`는 빈 문자열이다. RLS는 세 테이블 모두 켜져 있고 정책은 없다. anon·authenticated 권한은 없다. 적용 직후 세 테이블 행은 0이었다.
+
+알려진 차이: 저장소 GRANT는 `service_role`에 감사 로그 `SELECT, INSERT`, 나머지 두 테이블 `SELECT, INSERT, UPDATE, DELETE`, 함수 `EXECUTE`만 적는다. 원격에는 Supabase 기본 권한으로 `service_role`에 `TRUNCATE`, `REFERENCES`, `TRIGGER`와 `admin_audit_log`의 `UPDATE`, `DELETE`까지 붙어 있다. 이 차이를 맞추려고 SQL은 바꾸지 않았다.
 
 ### 아직 하지 않은 검증
 
-Worker secret과 원격 마이그레이션이 없기 때문에 운영 PostHog·GitHub·App Store Connect·Supabase를 이 화면으로 호출해 확인하지 않았다. 네이티브 크래시가 실제로 도착하는지, 스택이 심볼화되는지는 새 네이티브 빌드 승인 전 입증할 수 없다.
+Worker secret이 없고 Worker가 아직 배포되지 않았기 때문에 운영 PostHog·GitHub·App Store Connect·Supabase를 이 화면으로 호출해 확인하지 않았다. 네이티브 크래시가 실제로 도착하는지, 스택이 심볼화되는지는 새 네이티브 빌드 승인 전 입증할 수 없다.
