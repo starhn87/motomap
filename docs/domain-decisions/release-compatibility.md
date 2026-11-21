@@ -1762,3 +1762,16 @@ native43/API1·production 채널·기존 최소 버전 정책을 유지한다. �
 남은 거리·시간과 목적지명을 보존하고 새 안내가 시작되면 새 값으로 갱신한다.
 새 iOS 바이너리를 만든 뒤 TestFlight에 업로드하며 App Store 심사·공개 출시는 하지 않는다.
 실제 source SHA·빌드 번호·서명·채널·산출물·업로드 결과는 완료 뒤 기록한다.
+
+### iOS95 완료
+
+소스 `57d36b13a85823b13555ac4eed9a27848ddd0d94`를 원격에 푸시하고 로컬 EAS로
+1.3.3(95), runtime1.3.3, production, native43/API1 IPA를 만들었다. 타입·557개 테스트·
+릴리스·iOS 세션 검사를 통과했고 IPA 서명 deep/strict·내장 계약·새 요약 selector를 확인했다.
+SHA-256은 `413a647076823329cd4435d6e9aebf2bc56cdf92a44623a6a12e5cb2ac485e15`다.
+
+선택적 what-to-test 옵션은 현재 요금제에서 Enterprise 전용이라 스케줄되지 않았다.
+옵션을 제외한 EAS submission `7053407b-548d-44f8-a29b-856489ecd0c0`이 FINISHED이며,
+Apple API에서 빌드 `1f07ebce-6a2c-47c1-9c9a-82ff758c6d27`, 1.3.3/95, VALID를 확인했다.
+내부 TestFlight 상태는 IN_BETA_TESTING이며 외부 베타 심사는 요청하지 않았다.
+새 키·요금제 변경·OTA·App Store 심사·공개 출시는 없고 실기기 설치·실주행은 확인 전이다.
