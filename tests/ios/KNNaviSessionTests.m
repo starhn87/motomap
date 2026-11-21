@@ -105,8 +105,8 @@
 @property(nonatomic, strong) KNPOI *goal;
 @property(nonatomic, strong) NSArray *vias;
 @property(nonatomic, strong) NSArray *passedVias;
-@property(nonatomic) double remainTime;
-@property(nonatomic) double remainDist;
+@property(nonatomic) SInt32 remainTime;
+@property(nonatomic) SInt32 remainDist;
 @end
 @implementation PreviewTripProbe @end
 @interface PreviewGuidanceProbe : NSObject
@@ -117,6 +117,15 @@
 @end
 @implementation PreviewGuidanceProbe
 - (void)reRoute { self.refreshCalls++; }
+@end
+
+@interface BottomStateProbe : NSObject
+@property(nonatomic, copy) NSDictionary *state;
+@end
+@implementation BottomStateProbe
+- (BOOL)ready { return YES; }
+- (void)updateState:(NSDictionary *)state { self.state = state; }
+- (void)invalidate { self.state = nil; }
 @end
 
 @interface SessionControllerProbe : KNNaviViewController
@@ -301,13 +310,40 @@ int RunKNNaviSessionTests(void) {
   LocationGuideProbe *arrivalLocation=[LocationGuideProbe new]; arrivalLocation.gpsOrigin=arrivalGPS;
   arrivalGuide.locationGuide=arrivalLocation;
   [arrivalController setValue:arrivalTrip forKey:@"trip"]; [arrivalController setValue:arrivalGuide forKey:@"guidance"];
+  BottomStateProbe *arrivalPanel = [BottomStateProbe new];
+  [arrivalController setValue:arrivalPanel forKey:@"bottomPanel"];
+  arrivalTrip.remainTime = 45; arrivalTrip.remainDist = 120;
+  [arrivalController updateBottomPanel];
+  // SDK가 도착 콜백 전에 Trip을 지워도 마지막 하단 요약을 잃지 않는다.
+  arrivalGuide.trip = nil;
   __block NSUInteger arrivalEvents=0;
   if ([arrivalController respondsToSelector:NSSelectorFromString(@"setOnArrival:")]) {
     [arrivalController setValue:[^(NSDictionary *event){ arrivalEvents++; } copy] forKey:@"onArrival"];
     [arrivalController guidanceGuideEnded:nil]; [arrivalController guidanceGuideEnded:nil];
     if (arrivalEvents!=1) { NSLog(@"FAIL held guidance arrival was not recorded exactly once"); failures++; }
   } else { NSLog(@"FAIL held guidance has no arrival event before dismissal"); failures++; }
+  if (![arrivalPanel.state[@"remainingTime"] isEqual:@45] || ![arrivalPanel.state[@"remainingDistance"] isEqual:@120] ||
+      ![arrivalPanel.state[@"goalName"] isEqual:@"도착 검사"]) { NSLog(@"FAIL arrival lost bottom summary"); failures++; }
+  KNNaviArrivalRecovery *arrivalRecovery = [arrivalController valueForKey:@"arrivalRecovery"];
+  [arrivalRecovery beginManualRecoveryAtTime:NSDate.timeIntervalSinceReferenceDate];
+  [arrivalController updateBottomPanel];
+  if (![arrivalPanel.state[@"remainingTime"] isEqual:@45] || ![arrivalPanel.state[@"remainingDistance"] isEqual:@120] ||
+      ![arrivalPanel.state[@"busy"] boolValue]) { NSLog(@"FAIL recovery request lost bottom summary"); failures++; }
+  [arrivalRecovery requestFailed]; [arrivalController updateBottomPanel];
+  if (![arrivalPanel.state[@"remainingDistance"] isEqual:@120]) { NSLog(@"FAIL recovery failure lost bottom summary"); failures++; }
+  PreviewTripProbe *replacementTrip = [PreviewTripProbe new];
+  replacementTrip.goal = [[KNPOI alloc] initWithName:@"새 도착지" pos:IntPointMake(301000,400000)];
+  replacementTrip.remainTime = 180; replacementTrip.remainDist = 900;
+  [arrivalController setValue:replacementTrip forKey:@"pendingDestinationTrip"];
+  [arrivalController setValue:@YES forKey:@"changingDestination"];
+  arrivalGuide.trip = replacementTrip;
+  [arrivalController guidanceGuideStarted:(id)arrivalGuide];
+  if (![arrivalPanel.state[@"remainingTime"] isEqual:@180] || ![arrivalPanel.state[@"remainingDistance"] isEqual:@900] ||
+      ![arrivalPanel.state[@"goalName"] isEqual:@"새 도착지"] || arrivalPanel.state[@"status"]) {
+    NSLog(@"FAIL new guidance retained previous arrival summary"); failures++;
+  }
   [arrivalController setValue:@YES forKey:@"finished"]; [arrivalController updateBottomPanel];
+  arrivalGuide.trip = arrivalTrip;
   // SDK의 실제 종료만 프롬프트를 예약한다. 300m 기록·합성 안전운행 종료는 제외한다.
   ArrivalControllerProbe *promptController = [ArrivalControllerProbe new];
   promptController.naviView = (id)[SessionViewProbe new];

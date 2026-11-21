@@ -1751,3 +1751,14 @@ production, 계약은 native41/API1이다. IPA에서 77번과 현재 위치 버�
 
 제출 `43141e8a-5daf-4555-bb8b-0bc0f3f13c55`에서 App Store Connect 업로드 성공을
 확인했다. Apple 처리 완료와 실기기 설치·화면 확인은 아직 하지 않았다.
+
+
+## 2026-11-21 도착 요약 유지 iOS 새 빌드 승인
+
+사용자가 main 푸시와 iPhone·Android 새 빌드를 승인했다. iOS는 빌드94의 소스068c9341 및
+후속 위치정보 화면(e8b7d7fe)을 보존하고 main의 NAV-083에서 iOS 네이티브·RN 하단 수정과
+회귀 검사만 이식한다. Android 전용 화면·계약은 가져오지 않는다. 앱/runtime1.3.3·
+native43/API1·production 채널·기존 최소 버전 정책을 유지한다. 도착 대기에도 마지막
+남은 거리·시간과 목적지명을 보존하고 새 안내가 시작되면 새 값으로 갱신한다.
+새 iOS 바이너리를 만든 뒤 TestFlight에 업로드하며 App Store 심사·공개 출시는 하지 않는다.
+실제 source SHA·빌드 번호·서명·채널·산출물·업로드 결과는 완료 뒤 기록한다.
