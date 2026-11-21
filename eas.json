@@ -30,6 +30,11 @@
         "image": "macos-tahoe-26.6-xcode-27.0"
       }
     },
+    "internal-play": {
+      "extends": "production",
+      "environment": "production",
+      "channel": "internal-play"
+    },
     "error-tracking-verify": {
       "distribution": "internal",
       "environment": "production",
