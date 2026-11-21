@@ -169,11 +169,11 @@ export default function IOSGuidePanel({ token, menu }: Props) {
   if (!snapshot) return null;
   const { state, bottomInset } = snapshot;
   const location = state.currentLocationName?.trim();
-  const displayGoal = showGoal || !location || location === '현재 위치';
+  const displayGoal = showGoal || !location || location === '현재 위치' || state.status !== undefined;
   const place = displayGoal ? state.goalName || '목적지' : location;
   const time = state.remainingTime;
   const meters = state.remainingDistance;
-  const showMetrics = state.status === undefined && time !== undefined && meters !== undefined && time >= 0 && meters >= 0;
+  const showMetrics = time !== undefined && meters !== undefined && Number.isFinite(time) && Number.isFinite(meters) && time >= 0 && meters >= 0;
   const editDisabled = !state.canRouteEdit || state.busy;
 
   return <View style={styles.root} onLayout={event => {

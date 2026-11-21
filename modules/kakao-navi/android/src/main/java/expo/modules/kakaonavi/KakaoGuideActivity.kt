@@ -181,6 +181,7 @@ internal class KakaoGuideController(
     true
   }
   private var guideTrip: KNTrip? = null
+  private var lastRouteSummary: Pair<Number, Number>? = null
   private var activePriority = KNRoutePriority.KNRoutePriority_Recommand
   private var previewToken: Int? = null
   private var previewPassed = emptyList<KNPOI>()
@@ -567,17 +568,22 @@ internal class KakaoGuideController(
     val trip = guidance?.trip ?: guideTrip
     val state = viewState
     updateTraffic()
+    if (arrival == null && trip != null) {
+      val time = trip.remainTime()
+      val distance = trip.remainDist()
+      if (time >= 0 && distance >= 0) lastRouteSummary = time to distance
+    }
     target?.update(mapOf(
       "goalName" to guideTrip?.goal?.name,
       "currentLocationName" to roadName?.takeIf { lastGps?.isFresh() == true },
-      "remainingTime" to trip?.remainTime()?.takeIf { it >= 0 },
-      "remainingDistance" to trip?.remainDist()?.takeIf { it >= 0 },
+      "remainingTime" to lastRouteSummary?.first,
+      "remainingDistance" to lastRouteSummary?.second,
       "status" to when {
         refreshing -> if (arrival != null) "복귀 경로를 찾고 있어요" else "경로를 다시 찾고 있어요"
         arrival != null -> ""
         else -> null
       },
-      "fullWidthStatus" to if (manualRefresh && refreshing) "경로를 다시 찾고 있어요" else null,
+      "fullWidthStatus" to if (manualRefresh && refreshing && arrival == null) "경로를 다시 찾고 있어요" else null,
       "showRecenter" to (state == KNNaviViewState.DriveTouch || state == KNNaviViewState.DriveFullRoute || state == KNNaviViewState.SafetyTouch),
       "canRouteEdit" to (started && previewToken == null && remainingVias().size <= 3),
       "busy" to refreshing,
@@ -964,6 +970,7 @@ internal class KakaoGuideController(
 
   override fun guidanceGuideStarted(guidance: KNGuidance) {
     if (ended) return
+    lastRouteSummary = null
     confirmEdit(guidance)
     recoveryTrip?.takeIf { it.transId == guidance.trip?.transId }?.let {
       guideTrip = it

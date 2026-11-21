@@ -338,7 +338,7 @@ License: Apache-2.0 (Pictogrammers Free License, icons).
       const showLocation = () => {
         const current = (latestState.currentLocationName || '').trim();
         const destinationOnly = !current || current === '현재 위치';
-        const displayGoal = showGoal || destinationOnly;
+        const displayGoal = showGoal || destinationOnly || typeof latestState.status === 'string';
         $('placeName').textContent = displayGoal ? (latestState.goalName || '목적지') : current;
         $('currentIcon').toggleAttribute('hidden', displayGoal);
         $('goalIcon').toggleAttribute('hidden', !displayGoal);
@@ -423,12 +423,7 @@ License: Apache-2.0 (Pictogrammers Free License, icons).
           const seconds = state.remainingTime;
           const meters = state.remainingDistance;
           const valid = Number.isFinite(seconds) && Number.isFinite(meters) && seconds >= 0 && meters >= 0;
-          if (typeof state.status === 'string') {
-            $('arrival').className = 'status';
-            $('arrival').textContent = state.status;
-            $('arrival').removeAttribute('aria-label');
-            $('distance').textContent = '';
-          } else if (valid) {
+          if (valid) {
             const minutes = Math.ceil(seconds / 60);
             $('arrival').className = 'arrival';
             $('arrival').replaceChildren();
@@ -441,6 +436,11 @@ License: Apache-2.0 (Pictogrammers Free License, icons).
             if (minutes < 60 || minutes % 60) appendTime(minutes % 60, '분');
             $('arrival').setAttribute('aria-label', '남은 시간 ' + $('arrival').textContent);
             $('distance').textContent = formatRemainingDistance(meters);
+          } else if (typeof state.status === 'string') {
+            $('arrival').className = 'status';
+            $('arrival').textContent = state.status;
+            $('arrival').removeAttribute('aria-label');
+            $('distance').textContent = '';
           } else {
             $('arrival').className = 'status';
             $('arrival').textContent = '안내 준비 중';

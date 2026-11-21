@@ -358,6 +358,7 @@ NSArray<NSNumber *> *KNNaviRemainingVias(NSArray<NSNumber *> *flat, NSArray<NSDi
 @property(nonatomic, strong) KNNaviHiddenViews *auxiliaryHiddenViews;
 @property(nonatomic) CGFloat panelHeight;
 @property(nonatomic) float volume;
+@property(nonatomic, copy) NSDictionary *lastRouteSummary;
 @property(nonatomic, copy) NSString *currentLocationName;
 @property(nonatomic, strong) NSDate *currentLocationAt;
 @property(nonatomic, strong) NSDate *currentLocationGPSAt;
@@ -876,11 +877,14 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   [self refreshTrafficBar];
   KNTrip *trip = self.guidance.trip;
   NSMutableDictionary *state = [@{@"volume":@(self.volume), @"busy":@(self.changingDestination || self.arrivalRecovery.requesting)} mutableCopy];
-  if (self.arrivalRecovery.waiting || self.arrivalMessage) {
+  BOOL awaitingArrivalRoute = self.arrivalRecovery.waiting || self.arrivalMessage;
+  if (!awaitingArrivalRoute && trip) {
+    self.lastRouteSummary = @{@"remainingDistance":@(trip.remainDist), @"remainingTime":@(trip.remainTime)};
+  }
+  // SDK가 도착 시 Trip을 지워도 마지막으로 확인된 하단 요약은 유지한다.
+  [state addEntriesFromDictionary:self.lastRouteSummary ?: @{}];
+  if (awaitingArrivalRoute) {
     state[@"status"] = self.arrivalRecovery.requesting ? @"복귀 경로를 찾고 있어요" : @"";
-  } else if (trip) {
-    state[@"remainingDistance"] = @(trip.remainDist);
-    state[@"remainingTime"] = @(trip.remainTime);
   }
   state[@"goalName"] = self.trip.goal.name ?: @"";
   BOOL freshGPS = self.currentLocationGPSAt && fabs(self.currentLocationGPSAt.timeIntervalSinceNow) <= 10;
@@ -1168,8 +1172,9 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
   self.changingDestination = NO;
   self.pendingDestinationTrip = nil;
   self.onResumeError = nil;
-  [self restoreArrivalUI];
   [self.arrivalRecovery guideStarted];
+  self.lastRouteSummary = nil;
+  [self restoreArrivalUI];
   [self.naviView guidanceGuideStarted:aGuidance];
   [(KNNaviRouteView *)self.naviView resumeRouteModeForPreview:self.preview];
   self.safetyScreenQuarantined = NO;

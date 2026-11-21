@@ -257,10 +257,10 @@ export default function AndroidGuidePanel({ token }: { token: string }) {
 
   if (!snapshot) return null;
   const state = snapshot.state;
-  const showDestination = showGoal || !state.currentLocationName || state.currentLocationName === '현재 위치';
+  const showDestination = showGoal || !state.currentLocationName || state.currentLocationName === '현재 위치' || state.status !== undefined;
   const time = state.remainingTime;
   const meters = state.remainingDistance;
-  const valid = time !== undefined && meters !== undefined && time >= 0 && meters >= 0;
+  const valid = time !== undefined && meters !== undefined && Number.isFinite(time) && Number.isFinite(meters) && time >= 0 && meters >= 0;
 
   return <View pointerEvents="box-none" style={styles.root} onLayout={() => {
     if (ready.current) return;
@@ -284,10 +284,10 @@ export default function AndroidGuidePanel({ token }: { token: string }) {
             <Text numberOfLines={1} style={[styles.place, { color: tone.ink }]}>{showDestination ? state.goalName ?? '목적지' : state.currentLocationName}</Text>
           </View>
           <View style={[styles.inline, styles.metrics]}>
-            <Text numberOfLines={1} style={[state.status !== undefined || !valid ? styles.label : styles.eta, { color: tone.ink }]}>
-              {state.status ?? (valid ? remainingTime(time) : '안내 준비 중')}
+            <Text numberOfLines={1} style={[valid ? styles.eta : styles.label, { color: tone.ink }]}>
+              {valid ? remainingTime(time) : state.status ?? '안내 준비 중'}
             </Text>
-            {valid && state.status === undefined && <Text style={[styles.distance, { color: tone.ink }]}>{formatRemainingDistance(meters)}</Text>}
+            {valid && <Text style={[styles.distance, { color: tone.ink }]}>{formatRemainingDistance(meters)}</Text>}
           </View>
         </View>
         <Control color={tone.ink} icon="menu" label="길안내 메뉴 열기" onPress={() => act('menu')} expanded={false} />
