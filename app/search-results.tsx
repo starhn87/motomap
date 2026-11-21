@@ -8,7 +8,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -54,6 +53,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import type { Place, RidingGuideSearchResult } from '@/types';
 import Skeleton from '@/components/ui/Skeleton';
 import { friendlyProviderError, retryProviderQuery, ProviderError } from '@/lib/providerErrors';
+import { getSearchResultsSheetSnapPoints, SEARCH_AREA_BUTTON_TOP } from '@/lib/searchResultsLayout';
 
 // 지도에 뿌리는 결과 상한 — 등록 장소가 광범위한 검색어(예: "카페")일 때
 // 마커 폭주를 막는다. 목록도 같은 상한을 쓴다.
@@ -72,15 +72,6 @@ function resultKey(item: ResultItem): string {
   if (item.kind === 'riding') return `riding-${item.guide.id}`;
   return `external-${externalPlaceSource(item.k)}-${item.k.generalPlaceId ?? item.k.providerId ?? `${item.k.placeName}-${item.k.latitude}-${item.k.longitude}`}`;
 }
-
-type SearchFilter = 'open' | 'parking' | 'rating' | 'bike';
-
-const FILTERS: { key: SearchFilter; label: string }[] = [
-  { key: 'open', label: '영업 중' },
-  { key: 'parking', label: '주차 정보' },
-  { key: 'rating', label: '평점 4+' },
-  { key: 'bike', label: '내 바이크 추천' },
-];
 
 function ResultListSkeleton() {
   return (
@@ -161,7 +152,6 @@ export default function SearchResultsScreen() {
   const [selectedTemp, setSelectedTemp] = useState<TempPlace | null>(null);
   const detailOpen = selectedPlace !== null || selectedTemp !== null;
   const [selectedResultKey, setSelectedResultKey] = useState<string | null>(null);
-  const [filters, setFilters] = useState<SearchFilter[]>([]);
   const { data: operationalStatuses = {} } = usePlaceOperationalStatuses();
 
   // 첫 검색은 검색 화면과 같은 기준점을 쓰되, 결과 지도는 항상 주변 20km로
@@ -279,25 +269,15 @@ export default function SearchResultsScreen() {
     candidates.kakaoOnly.some(k => isFavorite({ kind: 'kakao', k }));
 
   const items = useMemo<ResultItem[]>(() => {
-    const places = favoritesFirst(candidates.places, place => isFavorite({ kind: 'place', place })).filter((place) => {
-      if (filters.includes('open') && getOpenState(place.hours).status !== 'open') return false;
-      if (filters.includes('parking') && !hasParkingInfo(place)) return false;
-      if (filters.includes('rating') && (place.rating < 4 || place.reviewCount === 0)) return false;
-      if (filters.includes('bike') && !bikeMatches.data?.[place.id]) return false;
-      return true;
-    }).slice(0, MAX_PLACES);
-    // 라이딩 추천·카카오 결과에는 영업시간/주차/평점의 같은 필드가 없다. 필터를 켰을 때
-    // 섞어 보여주면 필터가 고장 난 것처럼 보이므로 등록 장소만 남긴다.
-    const ridingGuides = filters.length === 0 ? (results?.ridingGuides ?? []) : [];
-    const kakaoOnly = filters.length === 0 ? candidates.kakaoOnly : [];
+    const places = favoritesFirst(candidates.places, place => isFavorite({ kind: 'place', place })).slice(0, MAX_PLACES);
     return favoritesFirst<ResultItem>([
       ...places.map((place) => ({ kind: 'place' as const, place })),
-      ...kakaoOnly.map((k) => ({ kind: 'kakao' as const, k })),
-      ...ridingGuides.map((guide) => ({ kind: 'riding' as const, guide })),
+      ...candidates.kakaoOnly.map((k) => ({ kind: 'kakao' as const, k })),
+      ...(results?.ridingGuides ?? []).map((guide) => ({ kind: 'riding' as const, guide })),
     ], favoriteMatcher(favorites), item => item.kind === 'place');
-  }, [results?.ridingGuides, candidates, filters, bikeMatches.data, favorites]);
+  }, [results?.ridingGuides, candidates, favorites]);
 
-  // 상세를 닫아도 마지막 선택은 유지한다. 필터·재검색으로 사라진 결과만 해제한다.
+  // 상세를 닫아도 마지막 선택은 유지한다. 재검색으로 사라진 결과만 해제한다.
   useEffect(() => {
     if (selectedResultKey && !items.some((item) => resultKey(item) === selectedResultKey)) {
       setSelectedResultKey(null);
@@ -348,7 +328,7 @@ export default function SearchResultsScreen() {
     exactFocusHandledQueryRef.current !== compactQuery;
   const showEmpty = sourcesReady && rawResultCount === 0 && !resolvingExactRemote;
 
-  // 필터를 켜지 않았어도 각 행에 바이크 근거가 표시된다. 이 데이터만 늦게
+  // 각 행에 바이크 근거가 표시된다. 이 데이터만 늦게
   // 들어오면 메타 행이 한 줄 더 생기므로 최초 결과는 함께 준비한다.
   const hasRegisteredResults = candidates.places.length > 0;
   const loading =
@@ -443,13 +423,15 @@ export default function SearchResultsScreen() {
     compactQuery,
   ]);
 
-  // 기본 스냅은 목록 높이에 맞추되 화면의 45% 까지만 — 결과가 두어 개뿐인데
-  // 억지로 채우면 지도만 가린다. 이름·주소·메타를 포함한 행 80px로 잡는다.
-  const { height: screenH } = useWindowDimensions();
-  const midSnap = useMemo(() => {
-    const content = 62 + items.length * 80;
-    return Math.round(Math.max(180, Math.min(content, screenH * 0.45)));
-  }, [items, screenH]);
+  const { height: windowH } = useWindowDimensions();
+  const [resultsHeight, setResultsHeight] = useState<number | null>(null);
+  const [searchAreaButtonHeight, setSearchAreaButtonHeight] = useState(44);
+  const screenH = resultsHeight ?? windowH;
+  const searchAreaTop = insets.top + SEARCH_AREA_BUTTON_TOP;
+  const snapPoints = getSearchResultsSheetSnapPoints(
+    screenH, items.length, searchAreaTop + searchAreaButtonHeight,
+  );
+  const midSnap = snapPoints[1];
 
   // 결과 전체가 보이도록 카메라를 맞춘다. 하나뿐이면 가상의 좌표 범위를 만들지
   // 않고, 바텀시트를 제외한 지도 영역의 정확한 중앙을 카메라 pivot으로 쓴다.
@@ -733,7 +715,11 @@ export default function SearchResultsScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View
+      style={[styles.container, { backgroundColor: colors.background }]}
+      onLayout={({ nativeEvent: { layout } }) => {
+        if (layout.height > 0) setResultsHeight(layout.height);
+      }}>
       <NaverMapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
@@ -820,6 +806,9 @@ export default function SearchResultsScreen() {
 
       {canSearchArea && cameraCenterRef.current && !detailOpen && (
         <Pressable
+          onLayout={({ nativeEvent: { layout } }) => {
+            if (layout.height > 0) setSearchAreaButtonHeight(layout.height);
+          }}
           onPress={() => {
             setSearchNear(cameraCenterRef.current);
             setAreaSearchRevision((revision) => revision + 1);
@@ -829,7 +818,7 @@ export default function SearchResultsScreen() {
           style={({ pressed }) => [
             styles.searchAreaButton,
             {
-              top: insets.top + 62,
+              top: searchAreaTop,
               backgroundColor: colors.background,
               borderColor: colors.border,
             },
@@ -849,7 +838,7 @@ export default function SearchResultsScreen() {
         style={[StyleSheet.absoluteFill, detailOpen && styles.hiddenResults]}>
         <BottomSheet
           index={1}
-          snapPoints={[88, midSnap, '85%']}
+          snapPoints={snapPoints}
           animateOnMount={false}
           enableDynamicSizing={false}
           backgroundStyle={{ backgroundColor: colors.background }}
@@ -874,42 +863,6 @@ export default function SearchResultsScreen() {
               <Text style={[styles.countText, { color: colors.textSecondary }]}>
                 {loading ? '검색 중…' : `${browseMode ? '주변 결과' : '검색 결과'} ${items.length}개`}
               </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filterRow}>
-                {FILTERS.filter(
-                  (filter) => filter.key !== 'bike' || !!bikeMatches.activeBike,
-                ).map((filter) => {
-                  const selected = filters.includes(filter.key);
-                  return (
-                    <Pressable
-                      key={filter.key}
-                      onPress={() => {
-                        track.searchFilterToggled({
-                          search_id: searchId,
-                          filter: filter.key,
-                          on: !selected,
-                        });
-                        setFilters((current) =>
-                          current.includes(filter.key)
-                            ? current.filter((key) => key !== filter.key)
-                            : [...current, filter.key],
-                        );
-                      }}
-                      style={[
-                        styles.filterChip,
-                        { borderColor: selected ? colors.tint : colors.border },
-                        selected && { backgroundColor: colors.tint },
-                      ]}>
-                      {selected && <Ionicons name="checkmark" size={14} color={colors.background} />}
-                      <Text style={[styles.filterText, { color: selected ? colors.background : colors.text }]}>
-                        {filter.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
             </View>
           }
           ListEmptyComponent={
@@ -917,11 +870,7 @@ export default function SearchResultsScreen() {
               <ResultListSkeleton />
             ) : (
               <Text style={[styles.empty, { color: colors.textSecondary }]}>
-                {filters.includes('bike')
-                  ? '같은 기종·유형 라이더의 추천 기록이 아직 없습니다'
-                  : filters.length > 0
-                    ? '선택한 조건에 맞는 장소가 없습니다'
-                    : '검색 결과가 없습니다'}
+                검색 결과가 없습니다
               </Text>
             )
           }
@@ -1124,24 +1073,6 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   searchAreaText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-  },
-  filterRow: {
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-  },
-  filterChip: {
-    minHeight: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderRadius: 17,
-  },
-  filterText: {
     fontSize: 12.5,
     fontWeight: '700',
   },
