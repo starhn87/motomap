@@ -33,7 +33,10 @@
     "internal-play": {
       "extends": "production",
       "environment": "production",
-      "channel": "internal-play"
+      "channel": "internal-play",
+      "android": {
+        "gradleCommand": ":app:bundleRelease -x :app:createBundleReleaseJsAndAssets_PostHogUpload_com.ridemap.app@1.3.2+14_14 -x :app:uploadPostHogNativeSymbolsRelease"
+      }
     },
     "error-tracking-verify": {
       "distribution": "internal",
