@@ -7,6 +7,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   useWindowDimensions,
@@ -50,6 +51,7 @@ import { describeOpenState, getOpenState } from '@/lib/hours';
 import { approxMeters } from '@/lib/distance';
 import { focusPlaceOnMap, focusPointOnMap } from '@/lib/mapFocus';
 import { queryKeys } from '@/lib/queryKeys';
+import { SEARCH_RESULTS_MIDDLE_SNAP_INDEX, useIOSSearchResultsSheetGestures } from '@/lib/searchResultsSheetGestures';
 import type { Place, RidingGuideSearchResult } from '@/types';
 import Skeleton from '@/components/ui/Skeleton';
 import { friendlyProviderError, retryProviderQuery, ProviderError } from '@/lib/providerErrors';
@@ -837,8 +839,9 @@ export default function SearchResultsScreen() {
         importantForAccessibility={detailOpen ? 'no-hide-descendants' : 'auto'}
         style={[StyleSheet.absoluteFill, detailOpen && styles.hiddenResults]}>
         <BottomSheet
-          index={1}
+          index={SEARCH_RESULTS_MIDDLE_SNAP_INDEX}
           snapPoints={snapPoints}
+          gestureEventsHandlersHook={Platform.OS === 'ios' ? useIOSSearchResultsSheetGestures : undefined}
           animateOnMount={false}
           enableDynamicSizing={false}
           backgroundStyle={{ backgroundColor: colors.background }}
