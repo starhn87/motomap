@@ -1915,3 +1915,8 @@ native43/API1을 유지하며 Android 전용 화면이나 네이티브 계약 �
 이 빌드의 internal-play 프로필에서 제외한다. 앱의 오류 수집과 기존 SDK 설정은 유지한다.
 고정된14번 태스크 이름은 이 일회 빌드 입력에만 사용하며 main의 일반 프로필로 이식하지
 않는다. EAS가 배정한 실제 번호와 서명·채널·도착 요약 코드는 산출물에서 다시 확인한다.
+
+첫14번 로컬 빌드는 expo-updates의 KSP 단계에서 Gradle Metaspace 한도로 실패했다.
+바이너리 업로드는 하지 않았다. 재시도는 업로드한 적 없는14번을 유지하도록 이 일회 프로필의
+autoIncrement만 끄고, JVM heap6GiB·Metaspace2GiB·workers4를 지정한다. 앱 코드와
+main의 일반 빌드 설정은 유지한다.
