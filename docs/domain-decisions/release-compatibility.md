@@ -1907,3 +1907,37 @@ internal-play 채널을 재현할 수 있도록 production을 상속하는 inter
 플랫폼 소스와 그 후속 위치정보 UI를 보존하고 이번 iOS 수정만 이식한다. 앱/runtime1.3.3·
 native43/API1을 유지하며 Android 전용 화면이나 네이티브 계약 숫자를 일괄 이식하지 않는다.
 실제 플랫폼 소스·빌드 번호·서명·채널·산출물 및 업로드 결과는 완료 후 기록한다.
+
+### 새 빌드 완료
+
+main50f7b065와 플랫폼 빌드 브랜치를 원격에 푸시했다. 다음 산출물은 로컬 EAS로 만들었고,
+기존 서명을 재사용했다. 이번 작업으로 OTA·원격 최소 버전·공개 출시 설정은 변경하지 않았다.
+
+| 플랫폼 | 소스 | 앱·빌드 | runtime / channel | 계약 |
+| --- | --- | --- | --- | --- |
+| iOS | `57d36b13` | 1.3.3(95) | 1.3.3 / production | native43/API1 |
+| Android | `9d678a50` | 1.3.2(14) | 1.3.2 / internal-play | native51/API1 |
+
+iOS95는 최신 iOS 화면을 보존한557개 테스트·타입·릴리스·네이티브 세션 검사를 통과했다.
+IPA의 플랫폼·버전·채널·계약·새 요약 selector를 확인했고 codesign deep/strict가 유효하다.
+EAS submission `7053407b-548d-44f8-a29b-856489ecd0c0`이 FINISHED로 종료됐으며 Apple
+업로드 성공을 확인했다. App Store Connect API에서 빌드 `1f07ebce-6a2c-47c1-9c9a-82ff758c6d27`,
+버전1.3.3/95와 processingState VALID를 확인했다. 심사 제출·공개 출시는 하지 않았다.
+내부 TestFlight 상태는 IN_BETA_TESTING이며 외부 베타 심사는 요청하지 않았다.
+
+Android14는 main의600개 테스트와 타입·릴리스 검사, Kotlin 컴파일·4개 단위 테스트를
+통과한 앱 소스를 유지한다. 첫 빌드의 Gradle Metaspace 한도 실패 후 미업로드14번을
+재사용했다. 일회 브랜치에서 JVM heap6GiB·Metaspace2GiB·workers4로 재시도해 성공했다.
+AAB의 패키지·버전·runtime·internal-play·계약·도착 요약 코드와 WebView 폴백을 확인했고
+JAR 서명 검증 및 이전13번과 같은 서명 인증서를 확인했다. Play 업로드·출시는 하지 않았다.
+
+산출물 SHA-256:
+
+- iOS IPA: `413a647076823329cd4435d6e9aebf2bc56cdf92a44623a6a12e5cb2ac485e15`
+- Android AAB: `10a7bcc8b16924eb483266709d0aa2f224b053e9792d3ac1f4b2d2d9ca727ce5`
+
+처음 iOS 제출의 선택적 what-to-test는 현재 요금제의 Enterprise 제한으로 스케줄되지 않았다.
+해당 옵션을 제외한 기본 제출로 성공했으며 요금제를 변경하지 않았다. Android PostHog
+업로드 태스크는 이전13번과 같이 자격증명 부재로 이 일회 빌드에서만 제외했다. 오류 수집은
+유지하되 새 빌드의 소스맵·네이티브 심볼 업로드 완료로 간주하지 않는다. 실제 설치·목적지
+접근·통과 후 복귀 동작은 사용자 실주행 확인 전이다.
