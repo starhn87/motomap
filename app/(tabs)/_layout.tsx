@@ -187,10 +187,21 @@ function LegacyTabLayout() {
   );
 }
 
+const activityUnreadIcons = {
+  light: {
+    default: require('@/assets/navigation/activity-unread/light-outline.png'),
+    selected: require('@/assets/navigation/activity-unread/light-filled.png'),
+  },
+  dark: {
+    default: require('@/assets/navigation/activity-unread/dark-outline.png'),
+    selected: require('@/assets/navigation/activity-unread/dark-filled.png'),
+  },
+};
+
 function IosTabLayout() {
   const scheme = useColorScheme() ?? 'light';
   const colors = Colors[scheme];
-  const unreadCount = useUnreadCount();
+  const hasUnread = useUnreadCount() > 0;
   const deviceInsets = useSafeAreaInsets();
   // 탭별 UIKit override는 테마 prop 변경 때 갱신되지 않는다. host의 테마만 상속한다.
   return (
@@ -205,10 +216,12 @@ function IosTabLayout() {
           <NativeTabs.Trigger.Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} md="add_circle" />
           <NativeTabs.Trigger.Label>제보</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="courses" disableAutomaticContentInsets disableScrollToTop>
-          <NativeTabs.Trigger.Icon sf={{ default: 'bell', selected: 'bell.fill' }} md="notifications" />
+        <NativeTabs.Trigger name="courses" disableAutomaticContentInsets disableScrollToTop
+          accessibilityLabel={hasUnread ? '활동, 읽지 않은 알림 있음' : '활동'}>
+          {hasUnread
+            ? <NativeTabs.Trigger.Icon src={activityUnreadIcons[scheme]} renderingMode="original" />
+            : <NativeTabs.Trigger.Icon sf={{ default: 'bell', selected: 'bell.fill' }} md="notifications" />}
           <NativeTabs.Trigger.Label>활동</NativeTabs.Trigger.Label>
-          {unreadCount > 0 && <NativeTabs.Trigger.Badge />}
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Icon sf={{ default: 'person', selected: 'person.fill' }} md="person" />

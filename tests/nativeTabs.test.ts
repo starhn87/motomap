@@ -28,6 +28,10 @@ function layout(os: string, unread: number, scheme = 'light', version = 27) {
     '@/components/useColorScheme': { useColorScheme: () => scheme },
     '@/hooks/useNotifications': { useUnreadCount: () => unread },
     '@/components/navigation/SettingsButton': exported('Settings'),
+    '@/assets/navigation/activity-unread/light-outline.png': 1,
+    '@/assets/navigation/activity-unread/light-filled.png': 2,
+    '@/assets/navigation/activity-unread/dark-outline.png': 3,
+    '@/assets/navigation/activity-unread/dark-filled.png': 4,
     '@/components/navigation/NativeTabScreen': { NativeTabDeviceInsetsContext: { Provider: 'DeviceInsets' } },
     '@/components/navigation/tabOcclusion': {
       TabOcclusionContext: { Provider: 'TabOcclusion' },
@@ -40,13 +44,14 @@ function layout(os: string, unread: number, scheme = 'light', version = 27) {
   return { tree: entry.type(entry.props), NativeTabs, trigger, insets };
 }
 
-test('iOS는 UIKit 탭 4개·시스템 아이콘·미읽음 배지를 쓰고 탭 높이나 가짜 블러를 지정하지 않는다', () => {
+test('iOS는 UIKit 탭 4개와 작은 미읽음 점을 표시하고 탭 높이나 가짜 블러를 지정하지 않는다', () => {
   const { tree, NativeTabs, trigger, insets } = layout('ios', 12);
   assert.equal(tree.type, 'DeviceInsets');
   assert.equal(tree.props.value, insets);
   const native = nodes(tree).find(node => node.type === NativeTabs)!;
   assert.equal(native.props.minimizeBehavior, 'never');
   assert.equal(native.props.sidebarAdaptable, false);
+  assert.equal(native.props.badgeBackgroundColor, 'red');
   assert.equal(native.props.style, undefined);
   assert.equal(native.props.backgroundColor, undefined);
   assert.equal(native.props.blurEffect, undefined);
@@ -58,11 +63,28 @@ test('iOS는 UIKit 탭 4개·시스템 아이콘·미읽음 배지를 쓰고 탭
   assert.equal(tabs[0].props.disablePopToTop, true);
   assert.equal(tabs[0].props.disableScrollToTop, true);
   assert.deepEqual(nodes(tree).filter(node => node.type === 'NativeLabel').map(node => node.props.children), ['지도', '제보', '활동', '내 정보']);
-  assert.equal(nodes(tabs[2]).some(node => node.type === 'NativeBadge'), true);
-  assert.equal(nodes(tabs[3]).some(node => node.type === 'NativeBadge'), false);
-  assert.equal(nodes(tree).find(node => node.type === 'NativeBadge')?.props.children, undefined);
-  assert.ok(nodes(tree).filter(node => node.type === 'NativeIcon').every(node => node.props.sf.default && node.props.sf.selected));
-  assert.equal(nodes(layout('ios', 0).tree).some(node => node.type === 'NativeBadge'), false);
+  assert.equal(nodes(tree).some(node => node.type === 'NativeBadge'), false);
+  for (const tab of [tabs[0], tabs[1], tabs[3]]) {
+    const icon = nodes(tab).find(node => node.type === 'NativeIcon')!;
+    assert.ok(icon.props.sf.default && icon.props.sf.selected);
+  }
+  assert.equal(tabs[2].props.accessibilityLabel, '활동, 읽지 않은 알림 있음');
+  const lightIcon = nodes(tabs[2]).find(node => node.type === 'NativeIcon')!;
+  assert.equal(lightIcon.props.renderingMode, 'original');
+  assert.deepEqual({ ...lightIcon.props.src }, { default: 1, selected: 2 });
+
+  const dark = layout('ios', 1, 'dark');
+  const darkActivity = nodes(dark.tree).find(node => node.type === dark.trigger && node.props.name === 'courses')!;
+  const darkIcon = nodes(darkActivity).find(node => node.type === 'NativeIcon')!;
+  assert.equal(darkIcon.props.renderingMode, 'original');
+  assert.deepEqual({ ...darkIcon.props.src }, { default: 3, selected: 4 });
+
+  const read = layout('ios', 0);
+  const readActivity = nodes(read.tree).find(node => node.type === read.trigger && node.props.name === 'courses')!;
+  assert.equal(readActivity.props.accessibilityLabel, '활동');
+  const readIcon = nodes(readActivity).find(node => node.type === 'NativeIcon')!;
+  assert.equal(readIcon.props.src, undefined);
+  assert.deepEqual({ ...readIcon.props.sf }, { default: 'bell', selected: 'bell.fill' });
 });
 
 test('Android·웹은 기존 JS 탭과 4개 경로를 유지하고 탭은 화면 높이를 차지하지 않는다', () => {
