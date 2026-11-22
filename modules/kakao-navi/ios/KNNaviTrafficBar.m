@@ -54,8 +54,7 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
     self.userInteractionEnabled = NO;
     self.isAccessibilityElement = YES;
     self.accessibilityTraits = UIAccessibilityTraitStaticText;
-    self.accessibilityLabel = @"남은 경로 교통 흐름";
-    self.accessibilityHint = @"아래가 출발지, 위가 목적지입니다. 화살표는 현재 위치입니다. 구간별 평균 교통 상황입니다.";
+    [self updateAccessibilityValue];
     self.accessibilityIdentifier = @"guide-route-traffic-bar";
   }
   return self;
@@ -108,9 +107,12 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
   if (_positionAvailable == available) return;
   _positionAvailable = available;
   self.sampledAt = -INFINITY;
-  self.accessibilityLabel = available ? @"남은 경로 교통 흐름" : @"경로 교통 흐름";
-  self.accessibilityHint = available ? @"아래가 출발지, 위가 목적지입니다. 화살표는 현재 위치입니다. 구간별 평균 교통 상황입니다." :
-      @"GPS 수신 대기 중입니다. 마지막으로 확인한 구간의 평균 교통 상황입니다.";
+  [self updateAccessibilityValue];
+  [self setNeedsDisplay];
+}
+- (void)setVehicleGPSValid:(BOOL)valid {
+  if (_vehicleGPSValid == valid) return;
+  _vehicleGPSValid = valid;
   [self updateAccessibilityValue];
   [self setNeedsDisplay];
 }
@@ -132,6 +134,10 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
   [self setNeedsDisplay];
 }
 - (void)updateAccessibilityValue {
+  self.accessibilityLabel = self.positionAvailable ? @"남은 경로 교통 흐름" : @"경로 교통 흐름";
+  self.accessibilityHint = !self.vehicleGPSValid ? @"GPS 수신 대기 중입니다. 마지막으로 확인한 구간의 평균 교통 상황입니다." :
+      !self.positionAvailable ? @"경로에서 현재 위치를 확인 중입니다. 마지막으로 확인한 구간의 평균 교통 상황입니다." :
+      @"아래가 출발지, 위가 목적지입니다. 화살표는 현재 위치입니다. 구간별 평균 교통 상황입니다.";
   if (!self.states.count) { self.accessibilityValue = nil; return; }
   SInt32 distance = self.remainingDistance;
   NSString *label = self.positionAvailable ? @"목적지까지" : @"확인된 구간 길이";
@@ -139,7 +145,8 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
       [NSString stringWithFormat:@"%@ %d미터", label, (int)distance];
   NSArray<NSString *> *names = @[@"교통정보 없음", @"정체", @"지체", @"서행", @"원활", @"통행 불가"];
   NSMutableArray<NSString *> *summary = [NSMutableArray arrayWithObject:length];
-  if (!self.positionAvailable) [summary insertObject:@"GPS 수신 대기" atIndex:0];
+  if (!self.vehicleGPSValid) [summary insertObject:@"GPS 수신 대기" atIndex:0];
+  else if (!self.positionAvailable) [summary insertObject:@"경로 위치 확인 중" atIndex:0];
   for (NSUInteger state = 0; state < names.count; state++) {
     NSUInteger count = 0;
     for (NSNumber *value in self.states) if (value.unsignedIntegerValue == state) count++;
@@ -205,9 +212,7 @@ CGRect KNNaviTrafficBarFrame(CGRect safeBounds, CGFloat top, CGFloat bottom) {
   [UIColor.whiteColor setFill];
   [circle fill];
   CGContextRestoreGState(context);
-  UIColor *accent = self.positionAvailable ?
-      [UIColor colorWithRed:0x22 / 255.0 green:0xC5 / 255.0 blue:0x5E / 255.0 alpha:1] :
-      [UIColor colorWithRed:0xA1 / 255.0 green:0xA1 / 255.0 blue:0xAA / 255.0 alpha:1];
+  UIColor *accent = [KNNaviTheme vehicleAccentForGPSValid:self.vehicleGPSValid];
   [accent setStroke];
   circle.lineWidth = 1.5;
   [circle stroke];

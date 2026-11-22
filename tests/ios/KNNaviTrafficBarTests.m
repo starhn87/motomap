@@ -28,9 +28,18 @@
 @implementation TrafficGPSProbe @end
 @interface TrafficGuideProbe : NSObject
 @property(nonatomic, strong) TrafficGPSProbe *gpsOrigin;
+@property(nonatomic, strong) TrafficGPSProbe *gpsMatched;
 @property(nonatomic, strong) KNLocation *locationForPrimaryRoute;
 @end
 @implementation TrafficGuideProbe @end
+@interface TrafficUserLocationProbe : NSObject
+@property(nonatomic, strong) UIImage *icon;
+@end
+@implementation TrafficUserLocationProbe @end
+@interface TrafficMapProbe : NSObject
+@property(nonatomic, strong) TrafficUserLocationProbe *userLocation;
+@end
+@implementation TrafficMapProbe @end
 @interface TrafficTripProbe : NSObject
 @property(nonatomic) SInt32 remainDist;
 @property(nonatomic) SInt32 remainTime;
@@ -57,6 +66,7 @@
 @property(nonatomic) KNGuideState guideState;
 @property(nonatomic, strong) TrafficTripProbe *trip;
 @property(nonatomic, strong) NSArray *routesOnGuide;
+@property(nonatomic, strong) TrafficGuideProbe *locationGuide;
 @end
 @implementation TrafficGuidanceProbe @end
 @interface TrafficPanelProbe : NSObject
@@ -103,6 +113,27 @@
   return root.mixed ? 500 + self.offset / 100 % 6 : root.encoded;
 }
 @end
+
+static uint32_t TrafficMarkerRGB(KNNaviTrafficBar *bar) {
+  UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
+  format.scale = 1;
+  format.preferredRange = UIGraphicsImageRendererFormatRangeStandard;
+  UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:bar.bounds.size format:format];
+  UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) { [bar drawRect:bar.bounds]; }];
+  CGImageRef pixel = CGImageCreateWithImageInRect(image.CGImage, CGRectMake(12, floor([bar positionY]), 1, 1));
+  if (!pixel) return 0;
+  uint8_t rgba[4] = {0};
+  CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+  CGContextRef sample = CGBitmapContextCreate(rgba, 1, 1, 8, sizeof(rgba), colorSpace,
+      kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+  if (sample) {
+    CGContextDrawImage(sample, CGRectMake(0, 0, 1, 1), pixel);
+    CGContextRelease(sample);
+  }
+  CGColorSpaceRelease(colorSpace);
+  CGImageRelease(pixel);
+  return ((uint32_t)rgba[0] << 16) | ((uint32_t)rgba[1] << 8) | rgba[2];
+}
 
 int RunKNNaviTrafficBarTests(UIWindow *window) {
   __block int failures = 0;
@@ -189,6 +220,14 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   guide.gpsOrigin.valid = YES; guide.gpsOrigin.posTrust = YES;
   guide.gpsOrigin.pos = (DoublePoint){300000, 400000}; guide.gpsOrigin.timestamp = NSDate.date;
   guide.locationForPrimaryRoute = (KNLocation *)location;
+  guide.gpsMatched = [TrafficGPSProbe new];
+  guide.gpsMatched.valid = YES;
+  guidance.locationGuide = guide;
+  NSArray<UIImage *> *vehicleImages = [KNNaviTheme carImages];
+  TrafficMapProbe *map = [TrafficMapProbe new];
+  map.userLocation = [TrafficUserLocationProbe new];
+  map.userLocation.icon = vehicleImages[0];
+  [controller setValue:map forKey:@"poiListenerMap"];
   void (^setGuide)(void) = ^{
     [controller setValue:guide forKey:@"trafficLocationGuide"];
     [controller setValue:route forKey:@"trafficMatchedRoute"];
@@ -197,6 +236,14 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   [controller refreshTrafficBar];
   check(!activeBar.hidden && activeBar.states.count == 48, @"presenter normal active guidance shows profile");
   check([activeBar.accessibilityValue containsString:@"4.8"], @"remaining distance belongs to matched primary route not trip");
+  check(TrafficMarkerRGB(activeBar) == 0x22C55E, @"vehicle day-on image colors traffic marker green");
+  map.userLocation.icon = vehicleImages[3];
+  [controller refreshTrafficBar];
+  check(activeBar.positionAvailable && TrafficMarkerRGB(activeBar) == 0xA1A1AA,
+        @"vehicle night-off image colors marker gray even with a usable route match");
+  map.userLocation.icon = vehicleImages[1];
+  [controller refreshTrafficBar];
+  check(TrafficMarkerRGB(activeBar) == 0x22C55E, @"vehicle night-on image restores green without route change");
   [controller setValue:@YES forKey:@"mapDetached"]; [controller refreshTrafficBar];
   check((activeBar.hidden || activeBar.alpha == 0) && !activeBar.isAccessibilityElement, @"map pan hides strip");
   [controller setValue:@NO forKey:@"mapDetached"]; [controller refreshTrafficBar];
@@ -217,8 +264,15 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   setGuide(); [controller refreshTrafficBar];
   check(!activeBar.hidden && activeBar.states.count == 48 && !activeBar.positionAvailable,
         @"untrusted GPS keeps the last verified traffic");
-  check(location.reads == readsBeforeLoss, @"unavailable GPS never resamples road conditions");
+  check(TrafficMarkerRGB(activeBar) == 0x22C55E, @"vehicle-on color survives an untrusted route position");
   guide.gpsOrigin.posTrust = YES;
+  guide.locationForPrimaryRoute = nil;
+  setGuide(); [controller refreshTrafficBar];
+  check(!activeBar.positionAvailable && TrafficMarkerRGB(activeBar) == 0x22C55E &&
+        [activeBar.accessibilityValue containsString:@"경로 위치 확인 중"],
+        @"vehicle-on color survives losing the primary route match");
+  guide.locationForPrimaryRoute = (KNLocation *)location;
+  check(location.reads == readsBeforeLoss, @"unavailable GPS never resamples road conditions");
   setGuide(); [controller refreshTrafficBar];
   check(activeBar.positionAvailable && location.reads == readsBeforeLoss + 48, @"recovered GPS immediately samples the route");
   guidance.routesOnGuide = @[[TrafficRouteProbe new]];
@@ -236,6 +290,7 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   [expiry fire];
   check(!activeBar.hidden && activeBar.states.count == 48 && !activeBar.positionAvailable,
         @"scheduled expiry preserves traffic without next SDK location callback");
+  check(TrafficMarkerRGB(activeBar) == 0x22C55E, @"route expiry alone cannot override a still-green vehicle");
   guide.gpsOrigin.timestamp = NSDate.date;
   setGuide(); [controller refreshTrafficBar];
   [controller pauseForInactive];
@@ -252,10 +307,12 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   [KNSDKBridge setLocationUseAllowed:YES];
   route.origin = (KNLocation *)location;
   guide.gpsOrigin.valid = NO; guide.gpsOrigin.posTrust = NO; guide.gpsOrigin.timestamp = nil;
+  guide.gpsMatched.valid = NO;
+  map.userLocation.icon = vehicleImages[2];
   setGuide(); [controller refreshTrafficBar];
   check(!activeBar.hidden && activeBar.states.count == 48, @"stationary startup shows known route before first GPS fix");
   check([activeBar.accessibilityValue containsString:@"GPS"], @"route overview does not claim a live current position");
-  check(!activeBar.positionAvailable, @"GPS waiting position indicator stays gray");
+  check(!activeBar.positionAvailable && TrafficMarkerRGB(activeBar) == 0xA1A1AA, @"GPS waiting position indicator stays gray");
   [controller setValue:@YES forKey:@"trafficRouteChanging"]; [controller refreshTrafficBar];
   [controller setValue:@NO forKey:@"trafficRouteChanging"];
   route.totalOverride = route.remaining + 20; [controller refreshTrafficBar];
@@ -263,7 +320,12 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   route.totalOverride = 0; [controller refreshTrafficBar];
   check(!activeBar.hidden && !activeBar.positionAvailable, @"verified route origin restores waiting overview");
   guide.gpsOrigin.valid = YES; guide.gpsOrigin.posTrust = YES; guide.gpsOrigin.timestamp = NSDate.date;
+  map.userLocation.icon = nil;
   setGuide(); [controller refreshTrafficBar];
+  check(TrafficMarkerRGB(activeBar) == 0xA1A1AA, @"unavailable vehicle image falls back to SDK matched GPS, not raw GPS");
+  guide.gpsMatched.valid = YES;
+  [controller refreshTrafficBar];
+  check(TrafficMarkerRGB(activeBar) == 0x22C55E, @"matched GPS reacquisition restores green before image is readable");
   check(!activeBar.hidden && activeBar.positionAvailable && ![activeBar.accessibilityValue containsString:@"GPS"],
         @"trusted fix transitions to live remaining profile");
   guide.gpsOrigin.timestamp = [NSDate dateWithTimeIntervalSinceNow:-11]; [controller refreshTrafficBar];
@@ -283,6 +345,7 @@ int RunKNNaviTrafficBarTests(UIWindow *window) {
   for (NSUInteger i = 0; i < 2; i++) {
     KNNaviTrafficBar *sample = [[KNNaviTrafficBar alloc] initWithFrame:CGRectMake(56 + 96 * i, 32, 24, 240)];
     sample.overrideUserInterfaceStyle = i ? UIUserInterfaceStyleDark : UIUserInterfaceStyleLight;
+    sample.vehicleGPSValid = YES;
     [sample updateFromLocation:(KNLocation *)location remainingDistance:4800 totalDistance:i ? 9600 : 4800 time:100];
     sample.hidden = NO;
     [preview addSubview:sample];
