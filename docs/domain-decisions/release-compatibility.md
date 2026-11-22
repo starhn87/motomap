@@ -1785,3 +1785,20 @@ iOS 1.3.3 빌드 95와 최신 검색·위치정보 화면을 포함한 productio
 네이티브 구현 변경을 감지하므로 iOS 후보의 브리지 표기를 43에서 44로 동기화한다.
 앱/runtime 1.3.3, production 채널, API1을 유지하고 새 TestFlight 빌드를 만든다.
 실제 빌드 번호, IPA 검증 및 Apple 처리 결과는 확인 후 기록한다.
+
+### iOS 1.3.3(97) 완료
+
+소스 `4d7dc99e3c01a3bf2db6fef2d507f253f5484954`를 iOS 전용 브랜치에 푸시했다.
+격리 클론에서 production 로컬 EAS 빌드를 완료했다. IPA에서 앱/runtime 1.3.3, 빌드 97,
+production 채널, native44/API1을 확인했다. 서명 deep/strict 검사와 빌드 95 배포 인증서
+대조를 통과했고, 실행 파일에 GPS 색 동기화 메서드가 포함돼 있다. IPA SHA-256은
+`28fe7b3e051a94ae4ee33b3dedaec441d340db3b94a478cfd0a27939129a1f5a`다.
+
+타입·테스트 562개·기준 소스 대비 릴리스 검사와 네이티브 세션 검사를 통과했다. 실제
+KNSDK 1.12.14 시뮬레이터에서 지도 자차와 교통 막대의 색 전환이 일치했다.
+96번은 Sentry 소스맵 업로드 인증 누락으로 아카이브가 중단됐으며 Apple에 등록되지 않았다.
+97번 로컬 실행에서만 Sentry 자동 업로드를 껐고 앱의 오류 수집 설정은 유지했다.
+
+EAS 제출 `51dd51c9-0296-4846-a917-4e3a825d159d`는 FINISHED다. Apple 빌드
+`490287c1-b420-4574-b9ce-ccb8ab11477b`의 처리 상태 VALID와 내부 TestFlight 상태
+IN_BETA_TESTING을 확인했다. 실기기 설치 및 GPS 유실·복구 실주행은 확인 전이다.
