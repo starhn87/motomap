@@ -1802,3 +1802,11 @@ KNSDK 1.12.14 시뮬레이터에서 지도 자차와 교통 막대의 색 전환
 EAS 제출 `51dd51c9-0296-4846-a917-4e3a825d159d`는 FINISHED다. Apple 빌드
 `490287c1-b420-4574-b9ce-ccb8ab11477b`의 처리 상태 VALID와 내부 TestFlight 상태
 IN_BETA_TESTING을 확인했다. 실기기 설치 및 GPS 유실·복구 실주행은 확인 전이다.
+
+## 2026-11-22 활동 점과 음량 조절 iOS 후속 TestFlight
+
+빌드 97의 iOS 소스를 기준으로 활동 탭의 작은 미읽음 점과 길안내 음량 행을 적용한다.
+RNScreens 4.26.2 iOS의 늦은 탭 이미지 콜백이 읽음·새 테마·교체된 탭 항목을 덮지 않도록
+현재 요청을 확인한다. Obj-C 로더 내부 수정으로 JS 계약을 바꾸지 않는다. 같은 미출시
+1.3.3 후보의 새 production TestFlight 빌드이며 runtime 1.3.3과 native44/API1을 유지한다.
+실제 빌드 번호·서명·TestFlight 처리 결과는 확인 후 기록한다.

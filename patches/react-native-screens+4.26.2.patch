@@ -1,0 +1,75 @@
+diff --git a/node_modules/react-native-screens/ios/tabs/RNSTabBarAppearanceCoordinator.mm b/node_modules/react-native-screens/ios/tabs/RNSTabBarAppearanceCoordinator.mm
+--- a/node_modules/react-native-screens/ios/tabs/RNSTabBarAppearanceCoordinator.mm
++++ b/node_modules/react-native-screens/ios/tabs/RNSTabBarAppearanceCoordinator.mm
+@@ -1,6 +1,7 @@
+ #import "RNSTabBarAppearanceCoordinator.h"
+ #import <React/RCTFont.h>
+ #import <React/RCTImageLoader.h>
++#import <objc/runtime.h>
+ #import "RCTConvert+RNSTabs.h"
+ #import "RNSConversions.h"
+ #import "RNSImageLoadingHelper.h"
+@@ -8,6 +9,8 @@
+ #import "RNSTabsHostComponentView.h"
+ #import "RNSTabsScreenViewController.h"
+ 
++static char kTabBarIconRequestKey;
++
+ @implementation RNSTabBarAppearanceCoordinator
+ 
+ - (void)updateAppearanceOfTabBar:(nullable UITabBar *)tabBar
+@@ -59,6 +62,8 @@
+                fromScreenView:(RNSTabsScreenComponentView *)screenView
+               withImageLoader:(RCTImageLoader *_Nullable)imageLoader
+ {
++  // 동기 아이콘이나 이미지 제거도 이전 이미지 요청을 무효화한다.
++  objc_setAssociatedObject(tabBarItem, &kTabBarIconRequestKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+   if (screenView.iconType == RNSTabsIconTypeSfSymbol || screenView.iconType == RNSTabsIconTypeXcasset) {
+     if (screenView.iconResourceName != nil) {
+       if (screenView.iconType == RNSTabsIconTypeSfSymbol) {
+@@ -91,6 +96,8 @@
+     }
+   } else if (imageLoader != nil) {
+     bool isTemplate = screenView.iconType == RNSTabsIconTypeTemplate;
++    NSObject *iconRequest = [NSObject new];
++    objc_setAssociatedObject(tabBarItem, &kTabBarIconRequestKey, iconRequest, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+ 
+     // Weak-capture to avoid updating a tab bar item whose internal
+     // view hierarchy has been torn down (iOS 26 UIKit regression:
+@@ -107,7 +114,8 @@
+                                    [self updateTabBarItem:weakTabBarItem
+                                                 withImage:image
+                                                isSelected:NO
+-                                            forScreenView:weakScreenView];
++                                            forScreenView:weakScreenView
++                                              iconRequest:iconRequest];
+                                  }];
+     } else {
+       tabBarItem.image = nil;
+@@ -122,7 +130,8 @@
+                                    [self updateTabBarItem:weakTabBarItem
+                                                 withImage:image
+                                                isSelected:YES
+-                                            forScreenView:weakScreenView];
++                                            forScreenView:weakScreenView
++                                              iconRequest:iconRequest];
+                                  }];
+     } else {
+       tabBarItem.selectedImage = nil;
+@@ -136,10 +145,16 @@
+                withImage:(nullable UIImage *)image
+               isSelected:(BOOL)isSelected
+            forScreenView:(nullable RNSTabsScreenComponentView *)screenView
++             iconRequest:(NSObject *)iconRequest
+ {
+   // This method is sometimes called from an asynchronous context and we got reports
+   // that on iOS 26+ it can happen that the tab bar item is already nullish, or the
+   // screen's controller is not attached to the UITabBarController.
+   if (tabBarItem == nil || screenView == nil) {
++    return;
++  }
++
++  if (screenView.controller.tabBarItem != tabBarItem ||
++      objc_getAssociatedObject(tabBarItem, &kTabBarIconRequestKey) != iconRequest) {
+     return;
+   }
