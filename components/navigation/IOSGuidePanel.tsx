@@ -106,7 +106,6 @@ function Volume({ value, tone, onChange }: { value: number; tone: typeof LIGHT; 
           <View style={[styles.volumeThumb, { left: `${percent}%` }]} />
         </View>
       </View>
-      <Ionicons accessible={false} name="volume-medium-outline" size={18} color={tone.muted} />
     </View>
   </>;
 }
@@ -259,7 +258,8 @@ const styles = StyleSheet.create({
   handle: { width: 32, height: 4, borderRadius: 2, backgroundColor: '#D4D4D8' },
   volumeLabel: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 2 },
   volumeTitle: { fontSize: 13 },
-  volumeRow: { height: 48, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  // 100%에서 손잡이가 스크롤 영역 끝에 잘리지 않게 반지름만큼 남긴다.
+  volumeRow: { height: 48, flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 12 },
   volumeTouch: { flex: 1, height: 44, justifyContent: 'center' },
   volumeTrack: { height: 5, borderRadius: 3, justifyContent: 'center' },
   volumeFill: { height: 5, borderRadius: 3 },
