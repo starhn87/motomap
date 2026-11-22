@@ -1810,3 +1810,18 @@ RNScreens 4.26.2 iOS의 늦은 탭 이미지 콜백이 읽음·새 테마·교�
 현재 요청을 확인한다. Obj-C 로더 내부 수정으로 JS 계약을 바꾸지 않는다. 같은 미출시
 1.3.3 후보의 새 production TestFlight 빌드이며 runtime 1.3.3과 native44/API1을 유지한다.
 실제 빌드 번호·서명·TestFlight 처리 결과는 확인 후 기록한다.
+
+### iOS 1.3.3(98) 완료
+
+소스 `cb53ffe4eb5da416b09315ee3e2b3cb94f1103d1`를 iOS 릴리스 브랜치에 푸시하고
+production 로컬 EAS로 1.3.3(98)을 빌드했다. 97번과 같은 배포 인증서, IPA 서명,
+runtime 1.3.3·production 채널·native44/API1, 새 이미지 요청 검사와 미읽음 에셋 8개를
+확인했다. IPA SHA-256은
+`d4ab5dd212752a1b90e451277cbe2a4bda96031cedfa60d6ca499592da98c2ca`다.
+
+타입·테스트 562개·릴리스 검사를 통과했다. 실제 RNScreens 메서드에 완료 순서를 제어한
+하네스에서 읽음 복원·최신 테마·교체된 항목 세 검사가 수정 전 실패하고 수정 후 통과했다.
+Sentry 빌드 소스맵·심볼 자동 업로드는 업로드 인증이 없어 이 실행에서 생략했다.
+EAS 제출 `a4f0a01d-659b-4bd8-a63f-b6ba624d9b2a`는 FINISHED다. Apple 빌드
+`a57d2285-e066-4820-ac09-fec101679ac4`의 VALID·내부 IN_BETA_TESTING을 확인했다.
+실기기 설치와 조작은 확인 전이다.
