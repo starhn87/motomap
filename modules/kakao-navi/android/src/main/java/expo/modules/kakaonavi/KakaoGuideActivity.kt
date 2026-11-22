@@ -178,6 +178,10 @@ internal class KakaoGuideController(
         if (popup.translationY != offset) popup.translationY = offset
       }
     }
+    // SDK가 위치 콜백 뒤 레이아웃에서 바꾼 자차 이미지도 반영한다.
+    traffic?.let { rail ->
+      if (followTrafficVehicle(rail)) publishTraffic(rail)
+    }
     true
   }
   private var guideTrip: KNTrip? = null
@@ -443,9 +447,24 @@ internal class KakaoGuideController(
   private fun isSafetyScreen() =
     viewState == KNNaviViewState.SafetyNormal || viewState == KNNaviViewState.SafetyTouch
 
+  private fun followTrafficVehicle(rail: MotoTrafficRail): Boolean {
+    val map = view?.mapComponent
+    return rail.followVehicleImage(
+      map?.mapView?.userLocation?.icon,
+      map?.locationGuide?.gpsMatched?.valid == true,
+    )
+  }
+
+  private fun publishTraffic(rail: MotoTrafficRail) {
+    (panel as? MotoGuideRnPanel)?.updateTraffic(rail.snapshot(
+      (rail.layoutParams.height / application.resources.displayMetrics.density).roundToInt()
+    ))
+  }
+
   private fun updateTraffic() {
     val rail = traffic ?: return
     try {
+      followTrafficVehicle(rail)
       val engine = guidance
       val route = engine?.routesOnGuide?.firstOrNull()
       if (viewState == KNNaviViewState.DriveTouch || viewState == KNNaviViewState.DriveFullRoute) {
@@ -476,9 +495,7 @@ internal class KakaoGuideController(
       rail.show(panelReady && panel?.expanded != true && rail.layoutParams.height >= dp(80) &&
         (viewState == KNNaviViewState.DriveNormal || viewState == KNNaviViewState.NONE))
     } finally {
-      (panel as? MotoGuideRnPanel)?.updateTraffic(rail.snapshot(
-        (rail.layoutParams.height / application.resources.displayMetrics.density).roundToInt()
-      ))
+      publishTraffic(rail)
     }
   }
 

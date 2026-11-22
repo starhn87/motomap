@@ -6,7 +6,8 @@ import ts from 'typescript';
 import { formatRemainingDistance } from '../lib/guideDistance';
 
 // 네이티브 Surface 입력으로 실제 패널 JSX를 실행하고 화면에 남는 글자를 확인한다.
-function renderPanel(platform: 'IOS' | 'Android', state: Record<string, unknown>, showGoal = false) {
+function renderPanel(platform: 'IOS' | 'Android', state: Record<string, unknown>, showGoal = false,
+  trafficFixture?: { traffic: Record<string, unknown>; marker: { color: string; position: number }[] }) {
   let hook = 0;
   const element = (type: unknown, props: Record<string, unknown>) => ({ type, props });
   const module = { exports: {} as { default?: (props: unknown) => unknown } };
@@ -20,7 +21,7 @@ function renderPanel(platform: 'IOS' | 'Android', state: Record<string, unknown>
       useMemo: (create: () => unknown) => create(), useCallback: (callback: unknown) => callback,
       useState: (initial: unknown) => {
         const index = hook++;
-        const value = index === 0 ? { state, expanded: false, bottomInset: 0 } : index === 2 ? showGoal
+        const value = index === 0 ? { state, expanded: false, bottomInset: 0, traffic: trafficFixture?.traffic } : index === 2 ? showGoal
           : typeof initial === 'function' ? initial() : initial;
         return [value, () => {}];
       },
@@ -46,12 +47,36 @@ function renderPanel(platform: 'IOS' | 'Android', state: Record<string, unknown>
     if (typeof node === 'string' || typeof node === 'number') return String(node);
     if (Array.isArray(node)) return node.map(text).join('');
     if (typeof node.type === 'function') return text(node.type(node.props));
+    const [, tint, motion] = Array.isArray(node.props.style) ? node.props.style : [];
+    const childStyle = node.props.children?.props?.style;
+    const [, arrowTint] = Array.isArray(childStyle) ? childStyle : [];
+    if (trafficFixture && tint?.borderColor && arrowTint?.borderBottomColor === tint.borderColor &&
+      motion?.transform?.[0]?.translateY !== undefined) {
+      trafficFixture.marker.push({ color: tint.borderColor, position: motion.transform[0].translateY });
+    }
     return text(node.props.children);
   }
   return text(module.exports.default!({ token: 'arrival-test', menu: false }));
 }
 
 const summary = { goalName: '도착 카페', currentLocationName: '테헤란로', remainingTime: 45, remainingDistance: 120 };
+
+test('Android 교통 막대는 저장된 진행 위치에서 지도 자차의 GPS 색을 따른다', () => {
+  const snapshots = [
+    { positioned: false, gpsAvailable: true, color: '#22C55E' },
+    { positioned: true, gpsAvailable: false, color: '#A1A1AA' },
+    { positioned: true, gpsAvailable: true, color: '#22C55E' },
+    { positioned: true, gpsAvailable: undefined, color: '#22C55E' },
+    { positioned: false, gpsAvailable: undefined, color: '#A1A1AA' },
+  ];
+  for (const { positioned, gpsAvailable, color } of snapshots) {
+    const marker: { color: string; position: number }[] = [];
+    const traffic = { colors: [0xffb8bbc0], fraction: 0.75, sampledFraction: 0.75, height: 222,
+      visible: true, positioned, ...(gpsAvailable === undefined ? {} : { gpsAvailable }) };
+    renderPanel('Android', summary, false, { traffic, marker });
+    assert.deepEqual(marker, [{ color, position: 150 }]);
+  }
+});
 
 for (const platform of ['IOS', 'Android'] as const) {
 test(`${platform}: 도착 대기와 복귀 경로 요청 중에도 시간·거리·목적지를 유지한다`, () => {

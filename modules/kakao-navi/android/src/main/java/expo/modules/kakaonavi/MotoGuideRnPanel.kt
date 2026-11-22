@@ -139,6 +139,7 @@ internal class MotoGuideRnPanel(
         putDouble("fraction", data.fraction.toDouble())
         putDouble("sampledFraction", data.sampledFraction.toDouble())
         putBoolean("positioned", data.positioned)
+        putBoolean("gpsAvailable", data.gpsAvailable)
         putBoolean("visible", data.visible)
         putInt("height", data.height)
       })

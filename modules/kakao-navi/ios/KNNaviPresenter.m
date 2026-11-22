@@ -14,6 +14,7 @@
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
 #import <KNSDK/KNMapView.h>
+#import <KNSDK/KNMapUserLocation.h>
 #import <objc/runtime.h>
 #import <float.h>
 #import <limits.h>
@@ -846,6 +847,15 @@ static BOOL IsLocationGenerationCurrent(NSUInteger generation) {
     self.trafficMatchedRoute = nil;
   }
   self.trafficBar.positionAvailable = positionAvailable;
+  // 경로 위치가 오래됐거나 매칭되지 않아도 자차 색은 지도에서 읽는다.
+  UIImage *vehicleImage = self.poiListenerMap.userLocation.icon;
+  NSArray<UIImage *> *vehicleImages = [KNNaviTheme carImages];
+  BOOL vehicleGPSValid = vehicleImage == vehicleImages[0] || vehicleImage == vehicleImages[1];
+  if (!vehicleGPSValid && vehicleImage != vehicleImages[2] && vehicleImage != vehicleImages[3]) {
+    // KNSDK 1.12.14는 안내 위치를 지도에 반영할 때 gpsMatched.valid로 이미지를 고른다.
+    vehicleGPSValid = self.guidance.locationGuide.gpsMatched.valid;
+  }
+  self.trafficBar.vehicleGPSValid = vehicleGPSValid;
   // SDK 조작부를 숨긴 정상 안내에서만 표시한다. 지도 탐색·시트에는 터치 없는 막대도 남기지 않는다.
   BOOL visible = self.bottomPanel.ready && self.mapControlsHidden && !self.bottomPanel.expanded && !self.mapDetached &&
       (!self.hasNaviScreenState || self.naviScreenState == DriveNormal) &&

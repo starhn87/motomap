@@ -64,6 +64,10 @@ static KNMapRouteTheme *RouteTheme(KNMapRouteTheme *base, UIColor *stroke) {
 
 @implementation KNNaviTheme
 
++ (UIColor *)vehicleAccentForGPSValid:(BOOL)valid {
+  return valid ? MotoGreen() : MotoGray();
+}
+
 + (KNMapRouteTheme *)routeThemeDay {
   static KNMapRouteTheme *theme;
   static dispatch_once_t once;
@@ -136,11 +140,13 @@ static KNMapRouteTheme *RouteTheme(KNMapRouteTheme *base, UIColor *stroke) {
     UIColor *day = UIColor.whiteColor;
     UIColor *night =
         [UIColor colorWithRed:0x18 / 255.0 green:0x18 / 255.0 blue:0x1B / 255.0 alpha:1];
+    UIColor *received = [self vehicleAccentForGPSValid:YES];
+    UIColor *waiting = [self vehicleAccentForGPSValid:NO];
     images = @[
-      [self carImageWithAccent:MotoGreen() fill:day],
-      [self carImageWithAccent:MotoGreen() fill:night],
-      [self carImageWithAccent:MotoGray() fill:day],
-      [self carImageWithAccent:MotoGray() fill:night],
+      [self carImageWithAccent:received fill:day],
+      [self carImageWithAccent:received fill:night],
+      [self carImageWithAccent:waiting fill:day],
+      [self carImageWithAccent:waiting fill:night],
     ];
   });
   return images;

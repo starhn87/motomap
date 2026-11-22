@@ -1,11 +1,15 @@
 #import <UIKit/UIKit.h>
 #import <KNSDK/KNSDK.h>
 #import <KNSDK/KNNaviView.h>
+#import <KNSDK/KNMapView.h>
+#import <KNSDK/KNMapUserLocation.h>
+#import "KNNaviTheme.h"
 #import "KNSDKBridge.h"
 #import "KNNaviTrafficBar.h"
 #import "KNNaviBottomPanel.h"
 @interface KNNaviViewController : UIViewController
 - (void)guidance:(KNGuidance *)guidance didUpdateLocation:(KNGuide_Location *)guide;
+- (void)refreshTrafficBar;
 @end
 @interface StationaryTrafficController : KNNaviViewController
 @property(nonatomic) NSUInteger locationCallbacks;
@@ -19,6 +23,35 @@
 }
 - (BOOL)guidance:(KNGuidance *)guidance shouldPlayVoiceGuide:(KNGuide_Voice *)voice replaceSndData:(NSData **)data { return NO; }
 @end
+// SDK가 두 이미지를 실제로 선택하는지 검사하는 전용 입력. 실제 GPS 수신을 흉내 내지는 않는다.
+static BOOL CheckVehicleGPSColors(KNNaviViewController *host, KNNaviTrafficBar *bar) {
+ KNNaviView *naviView=[host valueForKey:@"naviView"];
+ KNNaviMapView *map=naviView.mapView;
+ KNMapView *inner=[host valueForKey:@"poiListenerMap"];
+ SEL setGPS=NSSelectorFromString(@"GpsValid:");
+ NSMethodSignature *signature=[map methodSignatureForSelector:setGPS];
+ if (!inner || !signature || signature.numberOfArguments != 3 ||
+     strcmp(signature.methodReturnType, @encode(void)) != 0 ||
+     strcmp([signature getArgumentTypeAtIndex:2], @encode(BOOL)) != 0) return NO;
+ void (*setValid)(id, SEL, BOOL)=(void (*)(id, SEL, BOOL))[map methodForSelector:setGPS];
+ NSArray<UIImage *> *images=[KNNaviTheme carImages];
+ UIImage *initialIcon=inner.userLocation.icon;
+ BOOL initialValid=initialIcon==images[0] || initialIcon==images[1];
+ if (!initialValid && initialIcon!=images[2] && initialIcon!=images[3]) return NO;
+
+ BOOL matches=YES;
+ for (NSNumber *sample in @[@YES, @NO, @YES]) {
+  BOOL valid=sample.boolValue;
+  setValid(map, setGPS, valid);
+  [host refreshTrafficBar];
+  NSUInteger index=valid ? 0 : 2;
+  UIImage *icon=inner.userLocation.icon;
+  matches=matches && (icon==images[index] || icon==images[index+1]) && bar.vehicleGPSValid==valid;
+ }
+ setValid(map, setGPS, initialValid);
+ [host refreshTrafficBar];
+ return matches;
+}
 @interface ProbeScene : UIResponder <UIWindowSceneDelegate>
 @property(nonatomic,strong) UIWindow *window;
 @property(nonatomic,strong) NSTimer *timer;
@@ -92,7 +125,9 @@
   [self.timer invalidate];
   d[@"originProfileCount"]=@(origin?KNNaviTrafficStates(origin,[route remainDistFromLocation:origin]).count:0);
   BOOL visible=bar && !bar.hidden && bar.states.count;
-  d[@"result"]=visible?@"VISIBLE":@"INVISIBLE";
+  BOOL colorMatched=visible && CheckVehicleGPSColors(host, bar);
+  d[@"sdkVehicleColorMatched"]=@(colorMatched);
+  d[@"result"]=visible?(colorMatched?@"VISIBLE":@"COLOR_MISMATCH"):@"INVISIBLE";
   UIGraphicsImageRenderer *renderer=[[UIGraphicsImageRenderer alloc] initWithBounds:host.view.bounds];
   UIImage *image=[renderer imageWithActions:^(UIGraphicsImageRendererContext *context){[host.view drawViewHierarchyInRect:host.view.bounds afterScreenUpdates:YES];}];
   NSString *dir=NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject;

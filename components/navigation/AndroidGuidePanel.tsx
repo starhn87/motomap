@@ -18,6 +18,7 @@ type Traffic = {
   fraction: number;
   sampledFraction: number;
   positioned: boolean;
+  gpsAvailable?: boolean;
   visible: boolean;
   height: number;
 };
@@ -114,7 +115,8 @@ function TrafficRail({ traffic, visible }: { traffic: Traffic; visible: boolean 
   const visibility = useAnimatedStyle(() => ({ opacity: opacity.value }));
   const clip = useAnimatedStyle(() => ({ height: contentHeight * progress.value }));
   const marker = useAnimatedStyle(() => ({ transform: [{ translateY: contentHeight * progress.value }] }));
-  const accent = traffic.positioned ? ACCENT : '#A1A1AA';
+  const gpsAvailable = traffic.gpsAvailable ?? traffic.positioned;
+  const accent = gpsAvailable ? ACCENT : '#A1A1AA';
   const segments = (profile: Traffic) => {
     const height = contentHeight * profile.sampledFraction;
     const step = height / profile.colors.length;
@@ -136,7 +138,8 @@ function TrafficRail({ traffic, visible }: { traffic: Traffic; visible: boolean 
 
   return <Animated.View pointerEvents="none" accessible={visible}
     importantForAccessibility={visible ? 'yes' : 'no-hide-descendants'}
-    accessibilityLabel={traffic.positioned ? '남은 경로 교통 흐름' : '경로 교통 흐름, GPS 수신 대기'}
+    accessibilityLabel={!gpsAvailable ? '경로 교통 흐름, GPS 수신 대기' :
+      traffic.positioned ? '남은 경로 교통 흐름' : '경로 교통 흐름'}
     style={[styles.rail, { height: traffic.height }, visibility]}>
     <View style={[styles.track, { height: contentHeight }]}>
       <Animated.View style={[styles.liveTrack, clip]}>

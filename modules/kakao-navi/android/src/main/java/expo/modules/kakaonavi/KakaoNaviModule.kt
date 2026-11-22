@@ -24,7 +24,7 @@ class KakaoNaviModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("KakaoNavi")
-    Constant("bridgeVersion") { 51 }
+    Constant("bridgeVersion") { 52 }
     Constant("features") {
       listOf("android_live_guidance", "location_privacy_stop", "guide_web_bottom", "guide_arrival_record", "guide_route_editing")
     }

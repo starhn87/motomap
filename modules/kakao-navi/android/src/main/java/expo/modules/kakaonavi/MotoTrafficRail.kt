@@ -2,6 +2,7 @@ package expo.modules.kakaonavi
 
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -14,15 +15,35 @@ import com.kakaomobility.knsdk.guidance.knguidance.common.KNLocation
 import com.kakaomobility.knsdk.map.uicustomsupport.renewal.theme.base.KNMapRouteTheme
 import com.kakaomobility.knsdk.trip.kntrip.knroute.KNRoute
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 internal fun remainingTrafficFraction(remaining: Int, total: Int, hasPosition: Boolean): Float =
   if (hasPosition && total > 0) remaining.coerceIn(0, total).toFloat() / total else 1f
+
+private val vehicleGpsOn = 0xFF22C55E.toInt()
+private val vehicleGpsOff = 0xFFA1A1AA.toInt()
+
+internal fun vehicleGpsDisplay(width: Int, height: Int, readPixel: (Int, Int) -> Int): Boolean? {
+  // HDPI/XHDPI 주·야간 및 이륜차 이미지 모두 상단 원의 같은 위치에 상태색이 있다.
+  val pixel = readPixel(width / 2, (height * .35f).roundToInt().coerceAtMost(height - 1))
+  if (pixel ushr 24 < 128) return null
+  fun matches(color: Int) =
+    abs((pixel shr 16 and 255) - (color shr 16 and 255)) <= 20 &&
+      abs((pixel shr 8 and 255) - (color shr 8 and 255)) <= 20 &&
+      abs((pixel and 255) - (color and 255)) <= 20
+  return when {
+    matches(vehicleGpsOn) -> true
+    matches(vehicleGpsOff) -> false
+    else -> null
+  }
+}
 
 internal data class MotoTrafficSnapshot(
   val colors: List<Int>,
   val fraction: Float,
   val sampledFraction: Float,
   val positioned: Boolean,
+  val gpsAvailable: Boolean,
   val visible: Boolean,
   val height: Int,
 )
@@ -50,6 +71,9 @@ internal class MotoTrafficRail(context: Context) : View(context) {
   private var displayedFraction = 1f
   private var targetFraction = 1f
   private var positioned = false
+  private var gpsAvailable = false
+  private var vehicleImage: Bitmap? = null
+  private var vehicleImageGps: Boolean? = null
   private var visible = false
   private val progressAnimator = ValueAnimator().apply {
     duration = 300
@@ -63,6 +87,21 @@ internal class MotoTrafficRail(context: Context) : View(context) {
   init {
     alpha = 0f
     importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+  }
+
+  fun followVehicleImage(image: Bitmap?, sdkGpsAvailable: Boolean): Boolean {
+    if (vehicleImage !== image) {
+      vehicleImage = image
+      vehicleImageGps = image?.takeUnless { it.isRecycled || it.config == Bitmap.Config.HARDWARE }?.let {
+        vehicleGpsDisplay(it.width, it.height, it::getPixel)
+      }
+    }
+    val next = vehicleImageGps ?: sdkGpsAvailable
+    if (gpsAvailable == next) return false
+    gpsAvailable = next
+    updateDescription()
+    invalidate()
+    return true
   }
 
   fun sample(route: KNRoute, from: KNLocation, hasPosition: Boolean) {
@@ -101,8 +140,7 @@ internal class MotoTrafficRail(context: Context) : View(context) {
       }
     }
     profile = Profile(samples, fraction)
-    contentDescription = if (hasPosition) "남은 경로 교통 흐름, ${distance / 1000.0}킬로미터"
-      else "경로 교통 흐름, GPS 수신 대기"
+    updateDescription()
     invalidate()
   }
 
@@ -124,7 +162,7 @@ internal class MotoTrafficRail(context: Context) : View(context) {
   fun retain(route: KNRoute): Boolean {
     if (this.route !== route || profile == null || sampledAt == 0L) return false
     positioned = false
-    contentDescription = "경로 교통 흐름, GPS 수신 대기, 확인된 구간 길이 ${sampledRemaining / 1000.0}킬로미터"
+    updateDescription()
     invalidate()
     return true
   }
@@ -136,7 +174,7 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     sampledAt = 0
     setProgress(1f, false)
     profile = Profile(listOf(KNTrafficState.KNTrafficState_Unknown), 1f)
-    contentDescription = "경로 교통 흐름, 정보 없음"
+    updateDescription()
     invalidate()
   }
 
@@ -158,7 +196,18 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     previousProfile = null
     setProgress(1f, false)
     show(false)
+    updateDescription()
     invalidate()
+  }
+
+  private fun updateDescription() {
+    contentDescription = when {
+      profile == null -> null
+      !gpsAvailable -> "경로 교통 흐름, GPS 수신 대기"
+      positioned -> "남은 경로 교통 흐름, ${sampledRemaining / 1000.0}킬로미터"
+      sampledAt != 0L -> "경로 교통 흐름, 확인된 구간 길이 ${sampledRemaining / 1000.0}킬로미터"
+      else -> "경로 교통 흐름, 정보 없음"
+    }
   }
 
   override fun onDetachedFromWindow() {
@@ -190,7 +239,7 @@ internal class MotoTrafficRail(context: Context) : View(context) {
     previousProfile?.let { drawProfile(canvas, it, unit) }
     drawProfile(canvas, currentProfile, unit)
     canvas.restore()
-    val accent = if (positioned) 0xFF22C55E.toInt() else 0xFFA1A1AA.toInt()
+    val accent = if (gpsAvailable) vehicleGpsOn else vehicleGpsOff
     paint.color = accent
     canvas.drawCircle(x, y, radius, paint)
     paint.color = Color.WHITE
@@ -207,7 +256,7 @@ internal class MotoTrafficRail(context: Context) : View(context) {
   }
 
   fun snapshot(heightDp: Int): MotoTrafficSnapshot? = profile?.let {
-    MotoTrafficSnapshot(it.states.map(::trafficColor), targetFraction, it.fraction, positioned, visible, heightDp)
+    MotoTrafficSnapshot(it.states.map(::trafficColor), targetFraction, it.fraction, positioned, gpsAvailable, visible, heightDp)
   }
 
   private fun trafficColor(state: KNTrafficState): Int = when (state) {
