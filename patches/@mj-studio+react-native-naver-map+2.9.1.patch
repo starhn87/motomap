@@ -112,6 +112,65 @@ index c92093f..b99c200 100644
  
    override fun removeViewAt(
      parent: RNCNaverMapViewWrapper,
+diff --git a/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/mapview/RNCNaverMapViewWrapper.kt b/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/mapview/RNCNaverMapViewWrapper.kt
+index 2a49dc5..7baca62 100644
+--- a/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/mapview/RNCNaverMapViewWrapper.kt
++++ b/node_modules/@mj-studio/react-native-naver-map/android/src/main/java/com/mjstudio/reactnativenavermap/mapview/RNCNaverMapViewWrapper.kt
+@@ -8,7 +8,9 @@
+ import android.view.View
+ import android.widget.FrameLayout
+ import androidx.lifecycle.DefaultLifecycleObserver
++import androidx.lifecycle.Lifecycle
+ import androidx.lifecycle.LifecycleOwner
++import androidx.lifecycle.findViewTreeLifecycleOwner
+ import com.facebook.react.uimanager.ThemedReactContext
+ import com.mjstudio.reactnativenavermap.util.debugE
+ import com.naver.maps.map.MapView
+@@ -27,7 +29,6 @@
+ 
+   private var isResumed = false
+   private var destroyed = false
+-  private var lifecycleObserverAttached = false
+   private var currentLifecycleOwner: LifecycleOwner? = null
+ 
+   init {
+@@ -50,6 +51,12 @@
+         mapView?.onPause()
+         isResumed = false
+       }
++    }
++  }
++
++  override fun onDestroy(owner: LifecycleOwner) {
++    if (currentLifecycleOwner === owner) {
++      detachLifecycleObserver()
+     }
+   }
+ 
+@@ -101,17 +108,16 @@
+   }
+ 
+   private fun attachLifecycleObserver() {
+-    val activity = reactContext.currentActivity
+-    if (activity is LifecycleOwner && !lifecycleObserverAttached) {
+-      currentLifecycleOwner = activity
+-      currentLifecycleOwner?.lifecycle?.addObserver(this)
+-      lifecycleObserverAttached = true
+-    }
++    if (destroyed || currentLifecycleOwner != null) return
++    // 공유 ReactHost의 currentActivity는 지도와 무관한 길안내 화면일 수 있다.
++    val owner = findViewTreeLifecycleOwner() ?: return
++    if (owner.lifecycle.currentState == Lifecycle.State.DESTROYED) return
++    currentLifecycleOwner = owner
++    owner.lifecycle.addObserver(this)
+   }
+ 
+   private fun detachLifecycleObserver() {
+     currentLifecycleOwner?.lifecycle?.removeObserver(this)
+-    lifecycleObserverAttached = false
+     currentLifecycleOwner = null
+   }
+ 
 diff --git a/node_modules/@mj-studio/react-native-naver-map/ios/RNCNaverMapViewImpl.mm b/node_modules/@mj-studio/react-native-naver-map/ios/RNCNaverMapViewImpl.mm
 index 3083528..60ecbce 100644
 --- a/node_modules/@mj-studio/react-native-naver-map/ios/RNCNaverMapViewImpl.mm
