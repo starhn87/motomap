@@ -27,7 +27,7 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
       tasks.push(() => { previous?.cleanup?.(); effects[i] = { deps, cleanup: fn() }; }); },
   };
   react.useLayoutEffect = react.useEffect;
-  const calls = { resumed: [] as any[], started: 0, androidStarted: [] as any[], tracked: 0, marker: 0, replace: [] as string[], errors: [] as string[], blocked: false, backed: 0 };
+  const calls = { resumed: [] as any[], started: 0, androidStarted: [] as any[], tracked: 0, marker: 0, replace: [] as string[], dismissTo: [] as string[], errors: [] as string[], blocked: false, backed: 0 };
   let selectedPriority = 0;
   let kakaoAllowed = true;
   const listeners: Record<string, () => void> = {};
@@ -42,7 +42,10 @@ function setup(noGPS = false, edit: 'goal' | 'vias' | null = null, routesLoading
     requestGuideReturn(token: number) { if (store.preview?.snapshot.token === token) store.preview.returnPending = true; },
   };
   const useSession = Object.assign((select: any) => select(store), { getState: () => store });
-  const router = { replace(path: string) { calls.replace.push(path); }, back() { calls.backed++; }, dismissAll() {} };
+  const router = {
+    replace(path: string) { calls.replace.push(path); },
+    dismissTo(path: string) { calls.dismissTo.push(path); },
+    back() { calls.backed++; }, dismissAll() {} };
   const navigation = { setOptions() {} };
   const jsx = (type: any, props: any) => ({ type, props });
   const chain: any = new Proxy({}, { get: () => () => chain });
@@ -260,7 +263,8 @@ test('Android 안내 시작은 선택 경로를 네이티브에 보내고 실제
   await f.flush();
   assert.equal(f.calls.blocked, false);
   assert.equal(f.calls.tracked, 1);
-  assert.deepEqual(f.calls.replace, ['/']);
+  assert.deepEqual(f.calls.dismissTo, ['/']);
+  assert.deepEqual(f.calls.replace, []);
   f.unmount();
 });
 
@@ -272,5 +276,6 @@ test('카카오 위치 동의 철회 뒤 도착한 Android 시작 신호로 세�
   await f.flush();
   assert.equal(f.calls.tracked + f.calls.marker, 0);
   assert.deepEqual(f.calls.replace, []);
+  assert.deepEqual(f.calls.dismissTo, []);
   f.unmount();
 });

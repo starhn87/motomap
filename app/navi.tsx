@@ -526,7 +526,13 @@ function NaviContent({ initial, continuation }: { initial: ParsedNaviParams; con
 
   usePreventRemove((!!continuation || Platform.OS === 'android') && starting && !guideStarted, () => {});
   useEffect(() => {
-    if ((continuation || Platform.OS === 'android') && guideStarted) router.replace('/');
+    if (!guideStarted) return;
+    if (Platform.OS === 'android') {
+      // 기존 홈과 지도를 재사용하면서 경로 미리보기를 스택에서 제거한다.
+      router.dismissTo('/');
+    } else if (continuation) {
+      router.replace('/');
+    }
   }, [continuation, guideStarted, router]);
   useEffect(() => {
     if (continuation) navigation.setOptions({ gestureEnabled: !starting });
