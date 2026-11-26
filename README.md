@@ -52,7 +52,7 @@
 | --- | --- |
 | 앱 | React Native 0.86 / Expo SDK 57 / TypeScript |
 | 라우팅 | expo-router (typed routes) |
-| 지도 | @mj-studio/react-native-naver-map (+ 심벌 탭 패치, patch-package) |
+| 지도 | @mj-studio/react-native-naver-map (+ 심벌 탭 패치, patch-package). 렌더 이벤트 이름은 시작 시 등록 |
 | 길안내 | 카카오내비 SDK(KNSDK) 이륜차 모드: 네이티브 모듈 직접 브리징 (`modules/kakao-navi/`) |
 | 교통 혼잡도 | 카카오모빌리티 길찾기 REST (미리보기 경로선 색칠) |
 | 위치 | expo-location (현재 위치 표시) |

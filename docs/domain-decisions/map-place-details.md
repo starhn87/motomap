@@ -2238,3 +2238,54 @@ Android 홈 날씨 버튼의 해는 둥근 원판, 옅은 빛 테두리, 끝이 
 후속 요청에 따라 일반 낮 날씨의 반원은 온전한 원으로 바꾼다. 일출의 색과 위쪽 네 빛살을
 재사용하고, 아래에 같은 빛살을 대칭으로 배치한다. 일출·일몰 표시는 반원을 사용한다.
 일반 낮 날씨의 해와 빛살은 한 묶음으로 0.92배 축소한다.
+
+## MAP-086 — 지도 렌더 이벤트는 이름만 등록하고 완료 신호로 쓰지 않는다
+
+- 날짜: 2026-11-26
+- 상태: 활성
+- 관련: MAP-035, `lib/naverMapFabricEvents.ts`, `index.js`
+- 관련 구현: `@mj-studio/react-native-naver-map` 2.9.1, React Native 0.86.3 Fabric
+
+### 배경
+
+프로덕션 iOS 1.3.3에서 `Unsupported top level event type "topFirstMapRender"`와
+`"topMapRendered"`가 처리되지 않은 fatal이 됐다(RIDEMAP-14, RIDEMAP-15).
+RN 0.86 `ReactFabric`의 `ReactNativeBridgeEventPlugin`은 `customDirectEventTypes`에
+없는 top-level 이벤트를 예외로 던진다. codegen은 spec의 `onMapRendered`를
+`mapRendered`로 보내고 `EventEmitter::normalizeEventType`이 `topMapRendered`로 바꾼다.
+`onFirstMapRender`도 같은 규칙으로 `topFirstMapRender`가 된다.
+
+설치본 2.9.1의 JS spec·iOS 구현에는 두 이름이 없다. 공개 2.11.0(2026-11-07,
+`680783e`)이 `onMapRendered`를 핸들러가 있을 때만, `onMapLoaded`(`topMapLoaded`)를
+지도 로드마다 보낸다. `onFirstMapRender`라는 이름은 공개 패키지와 이 저장소에 없다.
+푸시된 브랜치의 지도 패키지는 모두 2.9.1이다. 1.3.3(99)와 1.3.4(101) 커밋은 저장소에
+없고, 문서화된 마지막 iOS 바이너리는 `codex/ios-gps-marker-testflight`의 1.3.3(98)
+`04b1a32`다. main의 앱·runtime은 1.3.2다.
+
+2026-11-26에 production 채널 runtime 1.3.3 manifest는 `rollBackToEmbedded`
+(`01a2128e-dffc-7daf-8988-8affe7b2fd87`, commitTime 2026-11-25T11:54:43Z)였다.
+runtime 1.3.4는 OTA가 없었다(HTTP 204).
+
+### 결정
+
+- 앱 시작 시 `topFirstMapRender`, `topMapRendered`, `topMapLoaded`만 레지스트리에 넣는다.
+  이미 등록된 이름은 바꾸지 않는다. 콜백을 연결하지 않고, 타일 렌더 완료나 장애 UX로
+  해석하지 않는다. MAP-035의 `onInitialized` 해석은 유지한다.
+- 지도 패키지를 2.11.0으로 올리지 않는다. 그 버전은 네이티브 로드·렌더 델리게이트를
+  추가하므로 OTA만으로 바이너리와 JS를 맞출 수 없다.
+- 이 등록은 JS다. 이미 이벤트를 보내는 바이너리에는 같은 runtime의 OTA로 전달할 수 있다.
+  main의 runtime 1.3.2 OTA는 iOS 1.3.3·1.3.4에 도달하지 않는다.
+
+### 검토한 대안과 시행착오
+
+spec에 이벤트를 넣어 codegen 뷰 설정에 싣는 방법은 다음 네이티브 빌드의 생성 코드를
+바꾼다. 이름 등록만으로 fatal이 멈추므로 패키지 패치는 쓰지 않았다.
+레지스트리에 없는 이벤트를 예외 경계에서 삼키는 방법은 Fabric이 렌더 밖에서 던지기
+때문에 불가능하다.
+
+### 영향과 재검토 조건
+
+핸들러가 없으므로 등록 뒤에도 화면 동작은 바뀌지 않는다. wrapper를 2.11.0 이상으로
+올리면 업스트림 spec이 `onMapLoaded`·`onMapRendered`를 등록하는지 확인하고, 그때
+이 수동 등록을 걷어 낸다. `onFirstMapRender`의 실제 발신자가 확인되면 그 이름만
+남기거나 제거한다.

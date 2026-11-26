@@ -306,7 +306,7 @@ Sentry.wrap(
 
 | 연동 | 위치 | 용도 |
 |---|---|---|
-| 네이버 지도 SDK | `@mj-studio/react-native-naver-map`, app.config `NAVER_MAP_CLIENT_ID` | 지도 렌더·마커·경로선. `patches/`로 심벌 탭 노출(새 빌드에만 반영) |
+| 네이버 지도 SDK | `@mj-studio/react-native-naver-map`, app.config `NAVER_MAP_CLIENT_ID` | 지도 렌더·마커·경로선. `patches/`로 심벌 탭 노출(새 빌드에만 반영). JS spec에 없는 렌더 이벤트 이름은 `lib/naverMapFabricEvents.ts`가 시작 시 등록한다 |
 | 카카오모빌리티 길찾기 | `lib/api/directions.ts`, `EXPO_PUBLIC_KAKAO_REST_API_KEY` | 미리보기 경로선의 **혼잡도 색칠**(`car_type=7`, 다중 경유지 POST의 `traffic_state`). 경로 자체는 같은 엔진인 KNSDK 가 뽑고, REST 실패 시 단색 폴백. 일 10,000건 무료 |
 | 네이버 Geocoding | `supabase/functions/naver-geocode` + `lib/geocode.ts` | 구버전 코스 제보의 수동 주소 입력 폴백. API secret은 Edge Function에만 두고 입력·호출량 제한 적용 |
 | 네이버 Directions | `scripts/recalc-course-routes.mjs` (`NAVER_CLOUD_CLIENT_ID/SECRET`) | 코스 경로 재계산 폴백(스크립트 전용 — 앱 코드에서는 제거) |
