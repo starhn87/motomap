@@ -64,7 +64,7 @@
 | 푸시 | expo-notifications + Expo Push (승인, 반려, 답변 알림) |
 | 백엔드 | Supabase (Postgres + PostGIS + RLS + Edge Functions) |
 | 상태와 데이터 | Zustand, @tanstack/react-query |
-| 소셜 | @react-native-kakao/core |
+| 소셜 | @react-native-kakao/core 2.4.10 (Android SDK는 내비와 맞춰 2.23.0). 릴리스 R8 keep은 `config/kakao-android-r8.pro` |
 | 모니터링 | PostHog 오류 수집 (JS 예외·iOS 네이티브 크래시). 성능 트레이스와 기존 진단은 Sentry |
 | 제품 분석 | PostHog (이벤트·퍼널·세션 리플레이) |
 | 배포 | EAS Build + Submit, expo-updates OTA |

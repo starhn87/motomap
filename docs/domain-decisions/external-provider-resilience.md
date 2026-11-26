@@ -148,6 +148,8 @@ UI를 표시한다. 이 상태는 공급자 콘솔 장애가 사용자 오류와
 설치된 카카오 브리지의 `Cancelled`/`AccessDenied`, Apple `ERR_REQUEST_CANCELED`, OAuth
 `access_denied`와 브라우저 cancel/dismiss는 취소로 반환하고 최근 로그인 수단을 갱신하지 않는다.
 알 수 없는 실패를 취소로 숨기거나 다른 로그인 수단까지 비활성화하지 않는다.
+Android R8이 카카오 enum 이름을 지워 프로세스가 죽는 경우는 [AUTH-010](authentication.md)이다.
+그 수정 뒤에 JS로 오는 `TokenNotFound`·`InvalidRequest`도 취소가 아니라 해당 수단의 재시도 안내로 남긴다.
 
 `tests/socialAuth.test.ts`는 실제 소셜 모듈에 SDK/Auth/브라우저 대역을 연결해 네 제공자의
 로그인·수동 연결 계약, 취소·비정상 콜백·미지원 기기와 원문 비노출을 검증한다.

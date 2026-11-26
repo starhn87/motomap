@@ -1,6 +1,9 @@
+const fs = require('fs');
 const releasePolicy = require('./config/release-policy.json');
 const posthogErrorTracking = require('./config/posthog-error-tracking.json');
 const { probeConfigPlugins } = require('./config/errorTrackingProbe.cjs');
+// 릴리스 R8이 카카오 enum 필드 이름을 지우면 로그인 중 TokenNotFound / InvalidRequest로 죽는다.
+const kakaoAndroidR8Rules = fs.readFileSync(require.resolve('./config/kakao-android-r8.pro'), 'utf8');
 const pretendardFonts = [
   'Thin', 'ExtraLight', 'Light', 'Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold', 'Black',
 ].map((name, index) => ({ path: `./assets/fonts/Pretendard-${name}.otf`, weight: (index + 1) * 100 }));
@@ -181,6 +184,9 @@ export default {
           },
           android: {
             minSdkVersion: 26,
+            // minify는 여기서 켜지 않는다. 기본 템플릿은 release R8이 꺼져 있다.
+            // 규칙만 넣어 두어, 켠 릴리스(QA parity 포함)가 enum 필드를 지우지 않게 한다.
+            extraProguardRules: kakaoAndroidR8Rules,
             extraMavenRepos: [
               'https://repository.map.naver.com/archive/maven',
               // 카카오 SDK(com.kakao.sdk:*)는 Maven Central 이 아니라 카카오 전용

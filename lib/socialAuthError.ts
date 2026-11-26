@@ -21,5 +21,12 @@ export function friendlySocialAuthError(error: unknown): string {
   if (code === 'over_request_rate_limit' || code === 'over_email_send_rate_limit') {
     return '요청이 많아 잠시 기다려야 해요. 잠시 후 다시 시도해 주세요.';
   }
+  // 네이티브 R8 수정 뒤에야 JS에 도착한다. 사용자 취소가 아니므로 조용히 삼키지 않는다.
+  if (code === 'TokenNotFound') {
+    return '카카오 로그인 정보를 찾지 못했어요. 다시 시도해 주세요.';
+  }
+  if (code === 'InvalidRequest') {
+    return '카카오 로그인 요청을 처리하지 못했어요. 다시 시도해 주세요.';
+  }
   return '로그인을 완료하지 못했어요. 연결 상태를 확인하거나 다른 로그인 방식을 선택해 주세요.';
 }

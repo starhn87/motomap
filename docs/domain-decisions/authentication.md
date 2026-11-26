@@ -376,3 +376,67 @@ INITIAL_SESSION 외 이벤트와 revision 검사, 프로필 정본·약관 확�
 재현·수정했지만 실제 설치본에서 이 경계가 전체 지연 중 차지하는 시간은 아직 미측정이다.
 OTA·서비스 상태·최소 버전·위치 동의 검사를 생략하거나 스플래시를 같은 이미지 로더로
 교체하는 방법은 이번 수정에 포함하지 않는다.
+
+## AUTH-010 — Android 릴리스 R8은 카카오 로그인 enum 필드 이름을 유지한다
+
+- 날짜: 2026-11-26
+- 상태: 활성(규칙·JS 안내·회귀 검사 / 난독화 릴리스의 실기기 로그인 미검증)
+- 관련 구현: `config/kakao-android-r8.pro`, `app.config.js`, `lib/socialAuthError.ts`, `patches/@react-native-kakao+core+2.4.10.patch`
+
+### 배경
+
+2026-11-26 21:04–21:10 KST, 사이드로드된 `com.ridemap.app.qa.parity@1.3.3+1`
+(SM-S901N, Android 16)에서 카카오 로그인 네이티브 크래시 두 건이 났다.
+Sentry 환경 태그는 `production`이었지만 `isSideLoaded=true`이고 버전 코드는 1이다.
+Play 내부 테스트의 `com.ridemap.app` 1.3.2(9)·(15)와 패키지·버전 코드가 다르다.
+
+스택의 클래스는 `N8.m`처럼 R8이 이름을 바꾼 상태였다. 설치된 로그인 SDK는
+`@react-native-kakao` 2.4.10이 선언한 2.20.1이 아니라, 내비와 맞추려고 패치한
+`com.kakao.sdk` 2.23.0이다. 2.23 AAR에는 consumer ProGuard 규칙이 없다.
+2.4.10 래퍼도 규칙을 넣지 않는다. 3.x 래퍼가 나중에 넣은 규칙과는 별개다.
+
+2.23 `ClientError`의 기본 메시지 생성자는 `Class.getField(reason.name())`으로
+`@Description`을 읽는다. `ClientError(TokenNotFound)`가 그 필드를 못 찾으면
+`NoSuchFieldException: TokenNotFound`가 생성자 밖으로 나가 잡히지 않는다.
+`GenericEnumSerializer`는 `@SerialName`을 읽으려고 `Class.getDeclaredField`를 호출하고,
+`AuthErrorCause.InvalidRequest`가 없으면 `TalkAuthCodeActivity`의 결과 전달이
+`RuntimeException: Failure delivering result`로 죽는다. 둘 다 JS 브리지에 오기 전에
+프로세스가 끝난다. iOS SDK는 이 Java 리플렉션을 쓰지 않는다.
+
+Expo 57 템플릿은 `android.enableMinifyInReleaseBuilds` 기본값이 false이고, 이 저장소의
+`app.config.js`와 푸시된 브랜치도 minify를 켜지 않는다. 죽은 APK만 R8 이름 변경이
+확인된다. `qa.parity` 패키지를 만드는 스크립트나 브랜치는 푸시된 이력에 없다.
+
+### 결정
+
+카카오 공식 ProGuard 규칙과 enum 멤버·런타임 어노테이션 유지를 `config/kakao-android-r8.pro`에
+두고, `expo-build-properties`의 `extraProguardRules`로 prebuild의 `proguard-rules.pro`에
+붙인다. 이 변경에서 `enableMinifyInReleaseBuilds`는 켜지 않는다. 이미 난독화하는 릴리스만
+필드 이름을 지키고, 난독화를 쓰지 않는 빌드의 동작은 바꾸지 않는다.
+
+JS는 `TokenNotFound`와 `InvalidRequest`를 사용자 취소로 삼키지 않는다. R8 수정 뒤에
+브리지가 이 코드를 거부하면 로그인 화면의 기존 catch가 한국어 재시도 안내만 보여 준다.
+`Cancelled`와 `AccessDenied` 취소 처리는 유지한다. 네이티브 크래시는 이 JS 분기로
+막히지 않는다.
+
+앱 버전·런타임·네이티브 브리지·API 계약은 올리지 않는다. 규칙은 네이티브 패키징이라
+OTA로 이미 설치된 APK에 들어가지 않는다. 다음 Android 릴리스 빌드(prebuild 포함)부터
+적용된다.
+
+### 검토한 대안과 시행착오
+
+SDK 전체를 `-keep class com.kakao.sdk.** { *; }`로 묶으면 크래시는 막히지만 공식 문서보다
+넓고, 이 패치가 맞춘 2.23의 실제 깨지는 지점은 model enum 필드와 어노테이션이다.
+Gson `TypeAdapter` 규칙만 넣으면 2.23의 kotlinx 직렬화 경로를 놓친다.
+JS에서 `NoSuchFieldException`을 잡는 방법은 없다. 예외가 Activity 결과 전달과
+`ClientError` 생성자에서 나기 때문이다.
+minify를 이 커밋에서 켜면 Play 산출물의 난독화 범위가 처음 생기고, 지도·내비 SDK의
+추가 누락을 이 로그인 수정과 묶게 된다.
+
+### 영향과 재검토 조건
+
+난독화를 켠 Android 릴리스는 이 규칙이 들어간 새 바이너리가 있어야 카카오톡 로그인과
+토큰 없음 오류가 죽지 않는다. iOS와, minify가 꺼진 채 이 설정으로 만든 Android 빌드는
+이 리플렉션 크래시의 대상이 아니다. 실기기에서 난독화 APK의 카카오톡 로그인·계정 로그인·
+취소가 죽지 않는지는 아직 확인하지 않았다. 카카오 SDK를 consumer 규칙이 있는 버전으로
+올리거나 2.23 패치를 빼면 이 파일의 필요를 다시 본다.

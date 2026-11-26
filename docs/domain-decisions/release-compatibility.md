@@ -19,6 +19,14 @@
 - 네이티브 브리지 계약: **52**
 - 백엔드 API 계약: **1**
 
+## 2026-11-26 카카오 Android R8 enum 유지 — 계약 번호는 유지
+
+AUTH-010은 카카오 로그인 SDK의 enum 필드 keep 규칙을 prebuild에 넣는다. 브리지 메서드·
+이벤트·capability와 백엔드 계약은 그대로다. 앱/runtime 1.3.2, native52, API1을 유지한다.
+규칙은 `proguard-rules.pro`에 들어가므로 OTA로 이미 설치된 Android 바이너리에는 적용되지
+않는다. 다음 Android 네이티브 빌드부터 유효하다. iOS는 R8을 쓰지 않아 이 규칙의 대상이
+아니다. 이 기록만으로 빌드·OTA·스토어 업로드를 실행하지 않는다.
+
 ## 2026-11-22 길안내 GPS 아이콘 동기화 후보 — native52
 
 NAV-084는 지도 자차와 교통 막대의 위치 표시를 같은 GPS 색으로 맞춘다. Android는

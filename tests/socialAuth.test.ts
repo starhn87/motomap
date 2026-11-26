@@ -121,6 +121,20 @@ test('OAuth 동의 거부·비정상 콜백·미지원 Apple은 세션 성공으
   assert.equal(unavailable.calls.length, 0);
 });
 
+test('카카오 TokenNotFound·InvalidRequest는 취소가 아니고 원문 없이 다시 시도를 안내한다', async () => {
+  for (const code of ['TokenNotFound', 'InvalidRequest']) {
+    const error = { code, message: 'No field in class N8.m token=secret' };
+    const { auth, recent } = fixture({ error });
+    await assert.rejects(auth.signInWithSocialProvider('kakao'), (actual) => actual === error);
+    assert.equal(recent.length, 0);
+    assert.equal(authErrors.isSocialAuthCancelled(error), false);
+    const message = authErrors.friendlySocialAuthError(error);
+    assert.equal(message.includes('secret'), false);
+    assert.equal(message.includes(code), false);
+    assert.match(message, /다시 시도/);
+  }
+});
+
 test('알 수 없는 실패는 취소로 숨기지 않고 안내에는 원문을 노출하지 않는다', async () => {
   const error = { code: 'unknown-vendor-code', message: 'token=private&lat=37.5' };
   const { auth, recent } = fixture({ error });
